@@ -1,0 +1,504 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+
+// Third-party imports
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Eye, Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
+import { useDispatch } from "react-redux";
+import Cookies from "js-cookie";
+
+// Local imports
+import { HostSignUpFormData, hostSignUpSchema } from "@/schemas/host.schema";
+import {
+  TipperSignUpFormData,
+  tipperSignUpSchema,
+} from "@/schemas/tipper.schema";
+import { Paragraph } from "@/components/shared/paragraph";
+import { registerHostAction, registerTipperAction } from "@/actions/auth";
+import { setCredentials } from "@/features/auth-slice";
+import { ApiError } from "@/types/api-error.types";
+
+export const SignupForm = () => {
+  const [userType, setUserType] = useState<"host" | "tipper">("host");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const searchParams = useSearchParams();
+  const emailParam = searchParams.get("email");
+
+  // NEW: loading states
+  const [isHostLoading, setIsHostLoading] = useState(false);
+  const [isTipperLoading, setIsTipperLoading] = useState(false);
+
+  const router = useRouter();
+  const dispatch = useDispatch();
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(prev => !prev);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(prev => !prev);
+  };
+
+  // 1. Define Host form
+  const hostForm = useForm<HostSignUpFormData>({
+    resolver: zodResolver(hostSignUpSchema),
+    defaultValues: {
+      fullName: "",
+      email: emailParam || "",
+      password: "",
+      confirmPassword: "",
+      acceptedTerms: false,
+    },
+  });
+
+  // 2. Define Tipper form
+  const tipperForm = useForm<TipperSignUpFormData>({
+    resolver: zodResolver(tipperSignUpSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      acceptedTerms: false,
+    },
+  });
+
+  // 3. Define host submit handler
+  const onSubmitHost = async (values: HostSignUpFormData) => {
+    try {
+      setIsHostLoading(true);
+
+      const res = await registerHostAction(values);
+      if (!res.success) {
+        toast.error(res.message);
+        return;
+      }
+
+      const { id, fullName, email, username, eventCode, eventSlug } =
+        res.data.host;
+      const { token, message } = res.data;
+
+      toast.success(message);
+
+      // update redux store
+      dispatch(
+        setCredentials({
+          user: {
+            id,
+            fullName,
+            email,
+            username,
+            role: "HOST",
+            eventCode,
+            eventSlug,
+          },
+          token,
+          requiresVerification: true,
+        })
+      );
+
+      // Store in cookies (for persistence)
+      Cookies.set(
+        "user",
+        JSON.stringify({
+          id,
+          fullName,
+          email,
+          username,
+          role: "HOST",
+          eventCode,
+          eventSlug,
+        }),
+        {
+          expires: 7,
+        }
+      );
+      Cookies.set("token", token, { expires: 7 });
+
+      // redirect to verify email page
+      router.push("/verify-email");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else if (typeof err === "object" && err !== null && "error" in err) {
+        const apiErr = err as ApiError;
+        toast.error(apiErr.error.message);
+      } else {
+        toast.error("Failed to register host");
+      }
+    } finally {
+      setIsHostLoading(false);
+    }
+  };
+
+  // 4. Define tipper submit handler
+  const onSubmitTipper = async (values: TipperSignUpFormData) => {
+    try {
+      setIsTipperLoading(true);
+
+      const res = await registerTipperAction(values);
+      if (!res.success) {
+        toast.error(res.message);
+        return;
+      }
+
+      const { id, fullName, email, username } = res.data.tipper;
+      const token = res.data.token;
+
+      toast.success("Tipper account created");
+
+      // update redux store
+      dispatch(
+        setCredentials({
+          user: {
+            id,
+            fullName,
+            email,
+            username,
+            role: "TIPPER",
+          },
+          token,
+          requiresVerification: true,
+        })
+      );
+
+      // Store in cookies (for persistence)
+      Cookies.set(
+        "user",
+        JSON.stringify({ id, fullName, email, username, role: "TIPPER" }),
+        {
+          expires: 7,
+        }
+      );
+      Cookies.set("token", token, { expires: 7 });
+
+      // redirect to verify email page
+      router.push("/verify-email");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else if (typeof err === "object" && err !== null && "error" in err) {
+        const apiErr = err as ApiError;
+        toast.error(apiErr.error.message);
+      } else {
+        toast.error("Failed to register tipper");
+      }
+    } finally {
+      setIsTipperLoading(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <Tabs
+        value={userType}
+        onValueChange={val => setUserType(val as "host" | "tipper")}
+        className="section lg:py-12"
+      >
+        <TabsList className="bg-secondary/20 flex h-14! w-full">
+          <TabsTrigger
+            value="host"
+            className="h-13! font-semibold"
+          >
+            Host
+          </TabsTrigger>
+          <TabsTrigger
+            value="tipper"
+            className="h-13! font-semibold"
+          >
+            Tipper
+          </TabsTrigger>
+        </TabsList>
+
+        <Paragraph
+          align="center"
+          size="sm"
+          color="muted"
+        >
+          {userType === "host"
+            ? "Add event as a host"
+            : "Join an event to tip or donate"}
+        </Paragraph>
+
+        {/* Host form */}
+        <TabsContent
+          value="host"
+          className="space-y-6"
+        >
+          <Form {...hostForm}>
+            <form
+              onSubmit={hostForm.handleSubmit(onSubmitHost)}
+              className="space-y-6"
+            >
+              <FormField
+                control={hostForm.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter full name"
+                        autoComplete="off"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={hostForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter email address"
+                        autoComplete="off"
+                        {...field}
+                        readOnly={!!emailParam}
+                        className={
+                          emailParam ? "bg-gray cursor-not-allowed" : ""
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <FormField
+                  control={hostForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Create password"
+                            autoComplete="off"
+                            {...field}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={togglePasswordVisibility}
+                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
+                          >
+                            <Eye className="text-muted-foreground" />
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={hostForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="Confirm password"
+                            autoComplete="off"
+                            {...field}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={toggleConfirmPasswordVisibility}
+                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
+                          >
+                            <Eye className="text-muted-foreground" />
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={hostForm.control}
+                name="acceptedTerms"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="text-sm font-normal">
+                        I agree to the Terms and Privacy Policy
+                      </FormLabel>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={isHostLoading}
+              >
+                {isHostLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" /> Creating
+                    account...
+                  </span>
+                ) : (
+                  <span>Create account</span>
+                )}
+              </Button>
+
+              <Paragraph
+                align="center"
+                size="sm"
+              >
+                Already have an account?{" "}
+                <Link
+                  href="/sign-in"
+                  className="text-primary hover:underline"
+                >
+                  Sign in
+                </Link>
+              </Paragraph>
+            </form>
+          </Form>
+        </TabsContent>
+
+        {/* Tipper form */}
+        <TabsContent
+          value="tipper"
+          className="space-y-6"
+        >
+          <Form {...tipperForm}>
+            <form
+              onSubmit={tipperForm.handleSubmit(onSubmitTipper)}
+              className="space-y-6"
+            >
+              <FormField
+                control={tipperForm.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter full name"
+                        autoComplete="off"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={tipperForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter email address"
+                        autoComplete="off"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={tipperForm.control}
+                name="acceptedTerms"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="text-sm font-normal">
+                        I agree to the Terms and Privacy Policy
+                      </FormLabel>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={isTipperLoading}
+              >
+                {isTipperLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" /> Creating
+                    account...
+                  </span>
+                ) : (
+                  <span>Create account</span>
+                )}
+              </Button>
+
+              <Paragraph
+                align="center"
+                size="sm"
+              >
+                Already have an account?{" "}
+                <Link
+                  href="/sign-in"
+                  className="text-primary hover:underline"
+                >
+                  Sign in
+                </Link>
+              </Paragraph>
+            </form>
+          </Form>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};

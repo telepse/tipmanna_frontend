@@ -1,0 +1,12 @@
+.confetti-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  /* ✅ ALL visual effects live here */
+  opacity: 0.6;
+  transform: translateY(-50px) scale(0.9);
+  filter: blur(2px);
+
+  z-index: 5;
+}

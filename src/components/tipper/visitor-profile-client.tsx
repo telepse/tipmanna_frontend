@@ -1,0 +1,291 @@
+"use client";
+
+import { VisitorProfileBanner } from "./visitor-profile-banner";
+import { VisitorProfileTabs } from "./visitor-profile-tabs";
+import { MoveLeft, TriangleAlert } from "lucide-react";
+import { Button } from "../ui/button";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "../ui/form";
+import { useForm } from "react-hook-form";
+import { loginVisitorAction, verifyCodeAction } from "@/actions/auth";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
+import { getTipperUsername } from "@/lib/utils";
+import { toast } from "react-toastify";
+import { setCredentials } from "@/features/auth-slice";
+import { Input } from "../ui/input";
+import { Paragraph } from "../shared/paragraph";
+import OTPInput from "react-otp-input";
+import { useMediaQuery } from "react-responsive";
+import { useRouter } from "next/navigation";
+import { NavbarShell } from "../shared/navbar-shell";
+import Footer from "../shared/footer";
+import Cookies from "js-cookie";
+
+interface Props {
+  events: [];
+  iTipped: number;
+}
+
+type ApiError = { error: { status: number; message: string } };
+type Step = "signIn" | "verifyCode";
+
+export const VisitorProfileClient = ({ events, iTipped }: Props) => {
+  const [openEmail, setOpenEmail] = useState(false);
+
+  const form = useForm<{ email: string; code: string }>({
+    defaultValues: { email: "", code: "" },
+  });
+
+  const email = form.watch("email");
+
+  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useDispatch();
+
+  const user = useSelector((state: RootState) => state.auth.user);
+  const username = user
+    ? getTipperUsername(user.email || "") || user.username
+    : "";
+  const userId = user ? user.id : "";
+  console.log(userId);
+
+  const token = useSelector((state: RootState) => state.auth.token);
+
+  const isMobile = useMediaQuery({
+    query: "(max-width: 500px)",
+  });
+
+  const [code, setCode] = useState("");
+  const router = useRouter();
+
+  const inputStyle = {
+    background: "#f7c87c80",
+    width: isMobile ? "36px" : "54px",
+    height: isMobile ? "36px" : "60px",
+    margin: isMobile ? "0 4px" : "0 8px",
+    borderRadius: isMobile ? "4px" : "8px",
+    outline: "none",
+    fontSize: isMobile ? "16px" : "20px",
+  };
+
+  const handleVerify = async () => {
+    try {
+      setIsLoading(true);
+
+      if (!user?.email) return;
+      const res = await verifyCodeAction(user.email, code);
+      console.log(res);
+
+      dispatch(
+        setCredentials({
+          user,
+          token: token!,
+          requiresVerification: false,
+        })
+      );
+
+      toast.success("Email verified successfully!");
+
+      // redirect to tipper profile
+      router.push(`/tipper/${user.username}`);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else if (typeof err === "object" && err !== null && "error" in err) {
+        const apiErr = err as ApiError;
+        toast.error(apiErr.error.message);
+      } else {
+        toast.error("Failed to verify tipper");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const [, setIsVerifying] = useState(false);
+  const [step, setStep] = useState<Step>("signIn");
+
+  const handleLogin = async (values: { email: string }) => {
+    try {
+      setIsLoading(true);
+
+      const response = await loginVisitorAction({
+        visitorId: userId,
+        email: values.email,
+        role: "TIPPER",
+      });
+
+      if (!response.success) {
+        toast.error(response.message);
+        return;
+      }
+
+      const { id, fullName, email, username } = response.data.tipper;
+      const token = response.data.token;
+
+      dispatch(
+        setCredentials({
+          user: {
+            ...user!,
+            id,
+            fullName,
+            email,
+            username,
+            role: "TIPPER",
+          },
+          token,
+        })
+      );
+
+      // Store in cookies (for persistence)
+      Cookies.set(
+        "user",
+        JSON.stringify({
+          id,
+          fullName,
+          email,
+          username,
+          role: "TIPPER",
+        }),
+        {
+          expires: 60,
+        }
+      );
+
+      Cookies.set("token", token, { expires: 60 });
+
+      if (response.success) setStep("verifyCode");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <NavbarShell />
+      <VisitorProfileBanner iTipped={iTipped} />
+
+      <div className="p-4">
+        <p className="mx-auto flex max-w-2xl items-center justify-between gap-2 rounded-md border border-dashed border-black p-4 text-sm text-black">
+          <div className="flex items-center gap-2">
+            <TriangleAlert className="text-destructive" /> Stop missing out.{" "}
+            {isMobile ? <br /> : ""} Sign in to use your profile
+          </div>
+          <Button
+            size="sm"
+            className="border border-white bg-[#321801]/80"
+            onClick={() => setOpenEmail(true)}
+          >
+            Sign in
+          </Button>
+        </p>
+      </div>
+
+      <Dialog
+        open={openEmail}
+        onOpenChange={setOpenEmail}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="open_sans">
+            {step === "signIn" ? (
+              <>
+                <DialogTitle className="mt-6 text-center text-3xl font-semibold">
+                  Enter email to view profile
+                </DialogTitle>
+
+                <Form {...form}>
+                  <form
+                    onSubmit={form.handleSubmit(handleLogin)}
+                    className="mt-6 space-y-6"
+                  >
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Enter email address"
+                              autoComplete="off"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="h-12 w-full bg-black"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Sending code..." : "Sign in"}
+                    </Button>
+                  </form>
+                </Form>
+              </>
+            ) : (
+              <div className="relative flex flex-col items-center justify-center gap-6">
+                <h2 className="mt-12 text-center text-3xl font-semibold">
+                  Verify your email
+                </h2>
+                <Paragraph
+                  align="center"
+                  size="sm"
+                  color="muted"
+                >
+                  We&apos;ve sent a 6-digit code to <strong>{email}</strong>.
+                  Enter it below to verify your account.
+                </Paragraph>
+
+                <div className="react-otp-input">
+                  <OTPInput
+                    value={code}
+                    onChange={setCode}
+                    numInputs={6}
+                    renderInput={props => <input {...props} />}
+                    inputStyle={inputStyle}
+                    shouldAutoFocus
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  size="lg"
+                  className="w-full bg-black"
+                  disabled={isLoading || code.length < 6}
+                  onClick={handleVerify}
+                >
+                  {isLoading ? "Verifying email..." : "Verify email"}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="hover:bg-gray absolute top-0 left-0 border-none outline-none hover:text-black"
+                  onClick={() => setStep("signIn")}
+                >
+                  <MoveLeft /> Back
+                </Button>
+              </div>
+            )}
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      <VisitorProfileTabs events={events} />
+      <Footer />
+    </div>
+  );
+};

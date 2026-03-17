@@ -1,0 +1,23 @@
+export type Event = {
+  id: string;
+  eventName: string;
+  organizationName: string;
+  hostName: string;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  venueName: string;
+  venueLocation: string;
+  amountRaised: number;
+  amountToRaise: number;
+  numOfTips: number;
+  eventBanner: string;
+  eventBackground: string;
+  showLatestAmount: boolean;
+  hideProgressBarAmount: boolean;
+  tipUsageDisclosure: [];
+  performers: [];
+  approved: boolean;
+  latestTipAmount: number;
+  moneyFor: string;
+};
