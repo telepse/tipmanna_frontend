@@ -66,11 +66,14 @@ export async function broadcastTipAnimation({
   sender: string;
   selectedTips: string[];
 }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/broadcast-tip-animation`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ eventId, sender, selectedTips }),
-  });
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/broadcast-tip-animation`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId, sender, selectedTips }),
+    }
+  );
 
   const data = await res.json();
 

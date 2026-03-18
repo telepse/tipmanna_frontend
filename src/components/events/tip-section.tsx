@@ -81,9 +81,9 @@ export const TipSection = ({
     dispatch(setSelectedTips([...selectedTips, character.name]));
 
     if (!character.styleName) {
-        console.error("Missing styleName for character", character);
-        return;
-      }
+      console.error("Missing styleName for character", character);
+      return;
+    }
 
     // ─────────────────────────────
     // Start Preview (auto-cancels previous)

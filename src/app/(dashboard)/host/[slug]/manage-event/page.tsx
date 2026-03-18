@@ -25,14 +25,13 @@ export default function ManageEvent() {
           subtitle="View, edit, and track all your events in one place."
         />
 
-        
-          <Button
-            size="lg"
-            className="w-full sm:w-auto"
-            onClick={() => setOpenPopup(true)}
-          >
-            <Plus /> Create
-          </Button>
+        <Button
+          size="lg"
+          className="w-full sm:w-auto"
+          onClick={() => setOpenPopup(true)}
+        >
+          <Plus /> Create
+        </Button>
       </div>
 
       <div className="space-y-6">
@@ -40,9 +39,9 @@ export default function ManageEvent() {
       </div>
 
       <CreateDialog
-          openPopup={openPopup}
-          setOpenPopup={setOpenPopup}
-        />
+        openPopup={openPopup}
+        setOpenPopup={setOpenPopup}
+      />
     </ProtectedRoute>
   );
 }

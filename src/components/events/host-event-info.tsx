@@ -129,11 +129,14 @@ export const HostEventInfo = ({ control }: Props) => {
     defaultValue: [], // optional but helps avoid undefined
   });
 
-  const validateVideo = async (index: number, url: string): Promise<boolean> => {
+  const validateVideo = async (
+    index: number,
+    url: string
+  ): Promise<boolean> => {
     if (!url) return true; // allow empty for optional links
-  
+
     const result = await validateYoutubePlayback(url);
-  
+
     if (!result.valid) {
       setError(`videoLinks.${index}.url`, {
         type: "manual",

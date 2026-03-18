@@ -29,23 +29,13 @@ import {
 } from "@/lib/wrapPaymentAnimation";
 import { spinStyle } from "@/animation-styles/spin";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
-import { shouldAcceptTipEvent, TipAnimationEvent } from "@/lib/animation-guard";
+import { TipAnimationEvent } from "@/lib/animation-guard";
 
 type FlyingTip = {
   id: string;
   emoji: string;
   startX: number;
   startY: number;
-};
-
-type NewTipEvent = {
-  id:           string;
-  seq:          number;
-  serverTs:     number;
-  eventId:      string;
-  selectedTips: string[];
-  amount:       number;
-  sender:       string;
 };
 
 interface Props {
@@ -173,7 +163,7 @@ export const RoomMessages = ({
       eventId: string,
       animations: (() => Promise<void>)[]
     ) {
-      const capturedGeneration = generation
+      const capturedGeneration = generation;
       const previous = eventQueues.get(eventId) ?? Promise.resolve();
 
       const next = previous.then(async () => {
@@ -193,9 +183,6 @@ export const RoomMessages = ({
     }
 
     const handleNewTip = (data: TipAnimationEvent) => {
-      // ★ NEW: Triple gate — sequence + freshness + visibility
-    if (!shouldAcceptTipEvent(data)) return;
-
       const eventId = getEventId();
 
       console.log("NEW TIP PAYLOAD", data);
@@ -321,15 +308,19 @@ export const RoomMessages = ({
     };
 
     // ── Visibility flush: kill queued animations on tab wake ──
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === "visible") {
-      generation++;
-      eventQueues.set(eventId, Promise.resolve());
-    }
-  };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        generation++;
+        eventQueues.set(eventId, Promise.resolve());
+      }
+    };
 
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-    channel.bind("tip-animation", handleNewTip);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const handleValidatedTip = (e: Event) => {
+      const data = (e as CustomEvent<TipAnimationEvent>).detail;
+      handleNewTip(data);
+    };
+    window.addEventListener("validated-tip", handleValidatedTip);
 
     channel.bind("new-message", (message: Message) => {
       const formattedMessage = {
@@ -350,7 +341,7 @@ export const RoomMessages = ({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("tip:dropped", handler);
       channel.unbind("new-message");
-      channel.unbind("tip-animation", handleNewTip);
+      window.removeEventListener("validated-tip", handleValidatedTip);
       pusherClient.unsubscribe(`event-${eventId}`);
     };
   }, [eventId, tippingCharacters]);

@@ -12,7 +12,6 @@ import QRCode from "react-qr-code";
 // Local imports
 import { Title } from "@/components/shared/title";
 import { Paragraph } from "@/components/shared/paragraph";
-import { pusherClient } from "@/lib/pusher";
 import { confettiStyle } from "@/animation-styles/confetti";
 import { SCREEN_BACKGROUNDS } from "@/lib/backgrounds";
 import { popAndShootStyle } from "@/animation-styles/pop-and-shoot";
@@ -25,15 +24,9 @@ import { TipUsageDisclosure } from "@/types/tipusagedisclosure.types";
 import { floatStyle } from "@/animation-styles/float";
 import { RoomCharacter } from "@/types";
 import { wrapPaymentAnimation } from "@/lib/wrapPaymentAnimation";
-import { getEventId } from "@/lib/identity";
 import { spinStyle } from "@/animation-styles/spin";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
-import {
-  RoomMessages,
-} from "./room-messages";
-import { playDisplayPaymentAnimation } from "@/lib/DisplayPaymentController";
-import { createFactoryFromStyle } from "@/lib/factory-to-style";
-import { shouldAcceptTipEvent, TipAnimationEvent } from "@/lib/animation-guard";
+import { TipAnimationEvent } from "@/lib/animation-guard";
 
 interface Props {
   amountToRaise: number;
@@ -50,16 +43,6 @@ interface Props {
   tippingCharacters?: any[];
   children: React.ReactNode;
 }
-
-type NewTipEvent = {
-  id:           string;
-  seq:          number;
-  serverTs:     number;
-  eventId:      string;
-  selectedTips: string[];
-  amount:       number;
-  sender:       string;
-};
 
 export const ScreenDisplay = ({
   amountToRaise,
@@ -378,10 +361,7 @@ export const ScreenDisplay = ({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const channel = pusherClient.subscribe(`event-${eventId}`);
-
     const eventQueues = new Map<string, Promise<void>>();
-
     let generation = 0;
 
     /**
@@ -409,8 +389,8 @@ export const ScreenDisplay = ({
     }
 
     const handleNewTip = (data: TipAnimationEvent) => {
-      if (!shouldAcceptTipEvent(data)) return;
-      
+      if (!isOpen) return;
+
       console.log("NEW TIP PAYLOAD", data);
 
       // Resolve characters in order received
@@ -528,23 +508,25 @@ export const ScreenDisplay = ({
       startPaymentAnimations(eventId, paymentAnimations);
     };
 
+    const handleValidatedTip = (e: Event) => {
+      handleNewTip((e as CustomEvent<TipAnimationEvent>).detail);
+    };
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         generation++;
         eventQueues.set(eventId, Promise.resolve());
       }
     };
+
+    window.addEventListener("validated-tip", handleValidatedTip);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    // Bind events
-    channel.bind("tip-animation", handleNewTip);
-
     return () => {
+      window.removeEventListener("validated-tip", handleValidatedTip);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      channel.unbind("tip-animation", handleNewTip);
-      pusherClient.unsubscribe(`event-${eventId}`);
     };
-  }, [eventId, tippingCharacters]);
+  }, [eventId, tippingCharacters, isOpen]);
 
   const [, setIsSpinning] = useState(true);
 

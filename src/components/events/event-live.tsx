@@ -200,9 +200,9 @@ export const EventLive = ({
   const [isExploreDrawerOpen, setIsExploreDrawerOpen] = useState(false);
 
   const resolvedVideoUrl =
-  liveVideoLink && liveVideoLink.trim() !== ""
-    ? liveVideoLink
-    : defaultAdminVideo;
+    liveVideoLink && liveVideoLink.trim() !== ""
+      ? liveVideoLink
+      : defaultAdminVideo;
 
   const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 

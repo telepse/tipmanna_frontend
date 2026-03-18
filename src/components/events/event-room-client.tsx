@@ -18,6 +18,7 @@ import { usePusherTracking } from "@/hooks/use-pusher-tracking";
 import { EventDialog } from "./event-dialog";
 import { getEventStatus } from "@/lib/utils";
 import { pusherClient } from "@/lib/pusher";
+import { createTipGuard, TipAnimationEvent } from "@/lib/animation-guard";
 
 interface Props {
   eventId: string;
@@ -266,6 +267,19 @@ export const EventRoomClient = ({
     if (seen === "true") {
       setHasSeenDialog(true);
     }
+  }, [eventId]);
+
+  useEffect(() => {
+    const guard = createTipGuard();
+    const publicChannel = pusherClient.subscribe(`event-${eventId}`);
+    const handleTipAnimation = (data: TipAnimationEvent) => {
+      if (!guard.shouldAccept(data)) return;
+      window.dispatchEvent(new CustomEvent("validated-tip", { detail: data }));
+    };
+    publicChannel.bind("tip-animation", handleTipAnimation);
+    return () => {
+      publicChannel.unbind("tip-animation", handleTipAnimation);
+    };
   }, [eventId]);
 
   // Function to mark dialog as seen

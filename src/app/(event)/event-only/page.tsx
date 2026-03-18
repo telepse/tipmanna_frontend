@@ -40,7 +40,7 @@ export default function EventOnlyPage() {
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof NewEventFormData)[] = [];
-  
+
     if (step === 1) {
       fieldsToValidate = ["amountToRaise"];
     } else if (step === 2) {
@@ -48,17 +48,17 @@ export default function EventOnlyPage() {
     } else if (step === 3) {
       fieldsToValidate = ["performers", "sessions", "cohosts", "liveVideoLink"];
     }
-  
+
     const validBasic = await form.trigger(fieldsToValidate);
-  
+
     let validVideos = true;
     if (step === 2) {
       const videoLinks = form.getValues("videoLinks") || [];
-    
+
       const videoValidationResults = await Promise.all(
         videoLinks.map((link, i) => validateVideoLink(link.url))
       );
-    
+
       // Set form errors for invalid links
       videoValidationResults.forEach((res, i) => {
         if (!res.valid) {
@@ -70,10 +70,10 @@ export default function EventOnlyPage() {
           form.clearErrors(`videoLinks.${i}.url`);
         }
       });
-    
+
       validVideos = videoValidationResults.every(res => res.valid); // <-- now works
     }
-  
+
     if (validBasic && validVideos) {
       setStep(s => s + 1);
     } else {

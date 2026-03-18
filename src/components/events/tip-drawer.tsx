@@ -114,8 +114,6 @@ export const TipDrawer = ({
   const [isElementReady, setIsElementReady] = useState(false);
   const [showDefaultPayButton, setShowDefaultPayButton] = useState(true);
 
-  
-
   const makeTipSelection = (characterId: string) => {
     // ─────────────────────────────
     // Text Tip (separate logic)
@@ -130,15 +128,13 @@ export const TipDrawer = ({
       return;
     }
 
-    
-
     const character = tippingCharacters.find(c => c.id === characterId);
     if (!character) return;
 
     if (!character.styleName) {
-        console.error("Missing styleName for character", character);
-        return;
-      }
+      console.error("Missing styleName for character", character);
+      return;
+    }
 
     dispatch(setSelectedTips([...selectedTips, character.name]));
 
@@ -472,8 +468,8 @@ export const TipDrawer = ({
 
   const LoadingOverlay = () => (
     <div
-      className="fixed inset-0 z-[99999999999] flex flex-col items-center justify-center bg-white"
-      style={{ zIndex: 99999999999 }}
+      className="Z-[999999999999999] fixed inset-0 flex flex-col items-center justify-center bg-white"
+      style={{ zIndex: 999999999999999 }}
     >
       <BeatLoader color="#f57d11" />
     </div>
@@ -491,7 +487,7 @@ export const TipDrawer = ({
         }}
       >
         <DrawerContent
-          className="bg-card z-[9999999999] space-y-2 border p-6 shadow-sm"
+          className="bg-card space-y-2 border p-6 shadow-sm"
           style={{ zIndex: 9999999999 }}
         >
           <div className="flex justify-between gap-2 border p-2">
