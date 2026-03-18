@@ -10,7 +10,7 @@ import { LoaderCircle } from "lucide-react";
 // Local imports
 import { SaveEventId } from "./save-event-id";
 import { EventHeader } from "./event-header";
-import { RoomMessages, setLastPaymentId } from "./room-messages";
+import { RoomMessages } from "./room-messages";
 import { StripeProvider } from "./stripe-provider";
 import { EventFooter } from "./event-footer";
 import { Message, RoomCharacter } from "@/types";
@@ -236,10 +236,6 @@ export const EventRoomClient = ({
       }
     );
 
-    // publicChannel.bind_global((event, data) => {
-    //   console.log("[PUSHER GLOBAL]", event, data);
-    // })
-
     // Sync Admin/UI Settings
     privateChannel.bind("screen-settings-updated", (data: any) => {
       console.log("🎙️ screen settings", data);
@@ -259,35 +255,6 @@ export const EventRoomClient = ({
       pusherClient.unsubscribe(`private-event-${eventId}`);
     };
   }, [eventId, setScreenSettings]);
-
-  useEffect(() => {
-    const publicChannel = pusherClient.subscribe(`event-${eventId}`);
-    const key = `lastPaymentId-${eventId}`;
-    let lastPaymentId = Number(sessionStorage.getItem(key)) || 0;
-
-    const handler = (data: any) => {
-      const paymentId = data.id;
-
-      if (paymentId <= lastPaymentId) return;
-
-      lastPaymentId = data.paymentId;
-      setLastPaymentId(eventId, lastPaymentId);
-      sessionStorage.setItem(key, String(lastPaymentId));
-
-      // playDisplayPaymentAnimation({
-      //   animationId: String(data.paymentId),
-      //   executionKey: String(data.paymentId),
-      //   surface: "payment-event",
-      //   factory: createFactoryFromStyle(data),
-      // });
-    };
-
-    publicChannel.bind("tip-animation", handler);
-
-    return () => {
-      publicChannel.unbind("tip-animation", handler);
-    };
-  }, [eventId]);
 
   const [liveFullscreen, setLiveFullscreen] = useState(false);
 

@@ -29,12 +29,11 @@ import { getEventId } from "@/lib/identity";
 import { spinStyle } from "@/animation-styles/spin";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
 import {
-  getLastPaymentId,
   RoomMessages,
-  setLastPaymentId,
 } from "./room-messages";
 import { playDisplayPaymentAnimation } from "@/lib/DisplayPaymentController";
 import { createFactoryFromStyle } from "@/lib/factory-to-style";
+import { shouldAcceptTipEvent, TipAnimationEvent } from "@/lib/animation-guard";
 
 interface Props {
   amountToRaise: number;
@@ -53,10 +52,13 @@ interface Props {
 }
 
 type NewTipEvent = {
+  id:           string;
+  seq:          number;
+  serverTs:     number;
+  eventId:      string;
   selectedTips: string[];
-  id: string;
-  eventId: string;
-  createdAt: number;
+  amount:       number;
+  sender:       string;
 };
 
 export const ScreenDisplay = ({
@@ -362,35 +364,6 @@ export const ScreenDisplay = ({
     return () => window.removeEventListener("popstate", handlePopState);
   }, [isOpen, router]);
 
-  useEffect(() => {
-    const publicChannel = pusherClient.subscribe(`event-${eventId}`);
-    const key = `lastPaymentId-${eventId}`;
-    let lastPaymentId = Number(sessionStorage.getItem(key)) || 0;
-
-    const handler = (data: any) => {
-      const paymentId = data.id;
-
-      if (paymentId <= lastPaymentId) return;
-
-      lastPaymentId = data.paymentId;
-      setLastPaymentId(eventId, lastPaymentId);
-      sessionStorage.setItem(key, String(lastPaymentId));
-
-      // playDisplayPaymentAnimation({
-      //   animationId: String(data.paymentId),
-      //   executionKey: String(data.paymentId),
-      //   surface: "payment-event",
-      //   factory: createFactoryFromStyle(data),
-      // });
-    };
-
-    publicChannel.bind("tip-animation", handler);
-
-    return () => {
-      publicChannel.unbind("tip-animation", handler);
-    };
-  }, [eventId]);
-
   /**
    * 🚨 SCREEN DISPLAY ANIMATION RULES
    *
@@ -405,9 +378,11 @@ export const ScreenDisplay = ({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const channel = pusherClient.subscribe(`private-event-${eventId}`);
+    const channel = pusherClient.subscribe(`event-${eventId}`);
 
     const eventQueues = new Map<string, Promise<void>>();
+
+    let generation = 0;
 
     /**
      * Start payment animations sequentially for an event
@@ -416,10 +391,12 @@ export const ScreenDisplay = ({
       eventId: string,
       animations: (() => Promise<void>)[]
     ) {
+      const capturedGeneration = generation;
       const previous = eventQueues.get(eventId) ?? Promise.resolve();
 
       const next = previous.then(async () => {
         for (const run of animations) {
+          if (generation !== capturedGeneration) return;
           try {
             await run();
           } catch {
@@ -431,7 +408,9 @@ export const ScreenDisplay = ({
       eventQueues.set(eventId, next);
     }
 
-    const handleNewTip = (data: NewTipEvent) => {
+    const handleNewTip = (data: TipAnimationEvent) => {
+      if (!shouldAcceptTipEvent(data)) return;
+      
       console.log("NEW TIP PAYLOAD", data);
 
       // Resolve characters in order received
@@ -549,10 +528,19 @@ export const ScreenDisplay = ({
       startPaymentAnimations(eventId, paymentAnimations);
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        generation++;
+        eventQueues.set(eventId, Promise.resolve());
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     // Bind events
     channel.bind("tip-animation", handleNewTip);
 
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       channel.unbind("tip-animation", handleNewTip);
       pusherClient.unsubscribe(`event-${eventId}`);
     };

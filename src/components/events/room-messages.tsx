@@ -29,6 +29,7 @@ import {
 } from "@/lib/wrapPaymentAnimation";
 import { spinStyle } from "@/animation-styles/spin";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
+import { shouldAcceptTipEvent, TipAnimationEvent } from "@/lib/animation-guard";
 
 type FlyingTip = {
   id: string;
@@ -38,9 +39,13 @@ type FlyingTip = {
 };
 
 type NewTipEvent = {
+  id:           string;
+  seq:          number;
+  serverTs:     number;
+  eventId:      string;
   selectedTips: string[];
-  id: string;
-  createdAt: string;
+  amount:       number;
+  sender:       string;
 };
 
 interface Props {
@@ -87,14 +92,6 @@ export function wrapNonHandleAnimation(
     },
     finished,
   };
-}
-
-export function getLastPaymentId(eventId: string): number {
-  return Number(sessionStorage.getItem(`lastPaymentId-${eventId}`)) || 0;
-}
-
-export function setLastPaymentId(eventId: string, id: number) {
-  sessionStorage.setItem(`lastPaymentId-${eventId}`, String(id));
 }
 
 export const RoomMessages = ({
@@ -167,17 +164,23 @@ export const RoomMessages = ({
     };
 
     const channel = pusherClient.subscribe(`event-${eventId}`);
-
     const eventQueues = new Map<string, Promise<void>>();
+
+    // ── Generation counter: incremented on tab wake to kill stale queue chains ──
+    let generation = 0;
 
     function startPaymentAnimations(
       eventId: string,
       animations: (() => Promise<void>)[]
     ) {
+      const capturedGeneration = generation
       const previous = eventQueues.get(eventId) ?? Promise.resolve();
 
       const next = previous.then(async () => {
         for (const run of animations) {
+          // If the generation advanced (tab woke), abandon the rest of this batch
+          if (generation !== capturedGeneration) return;
+
           try {
             await run();
           } catch {
@@ -189,7 +192,10 @@ export const RoomMessages = ({
       eventQueues.set(eventId, next);
     }
 
-    const handleNewTip = (data: NewTipEvent) => {
+    const handleNewTip = (data: TipAnimationEvent) => {
+      // ★ NEW: Triple gate — sequence + freshness + visibility
+    if (!shouldAcceptTipEvent(data)) return;
+
       const eventId = getEventId();
 
       console.log("NEW TIP PAYLOAD", data);
@@ -314,6 +320,15 @@ export const RoomMessages = ({
       }
     };
 
+    // ── Visibility flush: kill queued animations on tab wake ──
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      generation++;
+      eventQueues.set(eventId, Promise.resolve());
+    }
+  };
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
     channel.bind("tip-animation", handleNewTip);
 
     channel.bind("new-message", (message: Message) => {
@@ -332,13 +347,13 @@ export const RoomMessages = ({
     window.addEventListener("tip:dropped", handler);
 
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("tip:dropped", handler);
       channel.unbind("new-message");
-      // channel.unbind("event-amount-updated");
       channel.unbind("tip-animation", handleNewTip);
       pusherClient.unsubscribe(`event-${eventId}`);
     };
-  }, [eventId, tippingCharacters, selectedTips, isMobile]);
+  }, [eventId, tippingCharacters]);
 
   return (
     <div

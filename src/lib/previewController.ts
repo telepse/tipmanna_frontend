@@ -173,7 +173,9 @@ export function startPreview(factory: () => AnimationHandle) {
   stopActivePreview();
 
   activePreview = factory();
-  activePreview.start();
+  if (activePreview.start) {
+    activePreview.start();
+  }
 
   killTimer = window.setTimeout(() => {
     stopActivePreview();

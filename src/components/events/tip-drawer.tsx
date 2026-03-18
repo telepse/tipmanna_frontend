@@ -114,6 +114,8 @@ export const TipDrawer = ({
   const [isElementReady, setIsElementReady] = useState(false);
   const [showDefaultPayButton, setShowDefaultPayButton] = useState(true);
 
+  
+
   const makeTipSelection = (characterId: string) => {
     // ─────────────────────────────
     // Text Tip (separate logic)
@@ -128,8 +130,15 @@ export const TipDrawer = ({
       return;
     }
 
+    
+
     const character = tippingCharacters.find(c => c.id === characterId);
     if (!character) return;
+
+    if (!character.styleName) {
+        console.error("Missing styleName for character", character);
+        return;
+      }
 
     dispatch(setSelectedTips([...selectedTips, character.name]));
 
@@ -402,7 +411,7 @@ export const TipDrawer = ({
       clientSecret,
       confirmParams: {
         confirmation_token: confirmationToken?.id,
-        return_url: `${process.env.NEXT_PUBLIC_FRONTEND_APP_URL}/success?redirect=tv`,
+        return_url: `${process.env.NEXT_PUBLIC_FRONTEND_APP_URL}/success`,
       },
     });
 
