@@ -208,17 +208,11 @@ export const ScreenDisplay = ({
       clearInterval(activityIntervalRef.current);
     }
 
-    // Simulate user activity every 10 seconds to prevent screen timeout
     activityIntervalRef.current = setInterval(() => {
       if (isOpen) {
-        // Create a tiny, invisible event to simulate activity
-        const event = new Event("visibilitychange");
-        document.dispatchEvent(event);
-
-        // Trigger a resize event (commonly used to prevent timeout)
         window.dispatchEvent(new Event("resize"));
       }
-    }, 10000); // Every 10 seconds
+    }, 10000);
   };
 
   const stopActivitySimulation = () => {

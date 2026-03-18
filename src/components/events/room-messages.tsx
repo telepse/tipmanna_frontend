@@ -166,10 +166,25 @@ export const RoomMessages = ({
       const capturedGeneration = generation;
       const previous = eventQueues.get(eventId) ?? Promise.resolve();
 
+      console.log(
+        "[RoomMessages] queue executing",
+        animations.length,
+        "anims, gen:",
+        capturedGeneration,
+        "current:",
+        generation
+      );
+
       const next = previous.then(async () => {
         for (const run of animations) {
           // If the generation advanced (tab woke), abandon the rest of this batch
-          if (generation !== capturedGeneration) return;
+          if (generation !== capturedGeneration) {
+            console.warn(
+              "[RoomMessages] GENERATION MISMATCH — animation killed",
+              { captured: capturedGeneration, current: generation }
+            );
+            return;
+          }
 
           try {
             await run();
@@ -184,6 +199,13 @@ export const RoomMessages = ({
 
     const handleNewTip = (data: TipAnimationEvent) => {
       const eventId = getEventId();
+
+      console.log("[RoomMessages] validated-tip received", {
+        id: data.id,
+        seq: data.seq,
+        styles: data.selectedTips,
+        currentGeneration: generation,
+      });
 
       console.log("NEW TIP PAYLOAD", data);
 
@@ -305,11 +327,24 @@ export const RoomMessages = ({
       if (paymentAnimations.length > 0) {
         startPaymentAnimations(eventId, paymentAnimations);
       }
+
+      console.log(
+        "[RoomMessages] queuing",
+        paymentAnimations.length,
+        "animations"
+      );
     };
 
     // ── Visibility flush: kill queued animations on tab wake ──
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        console.warn(
+          "[RoomMessages] visibilitychange → flushing queue, gen:",
+          generation,
+          "→",
+          generation + 1
+        );
+
         generation++;
         eventQueues.set(eventId, Promise.resolve());
       }

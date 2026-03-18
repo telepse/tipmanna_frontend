@@ -273,7 +273,16 @@ export const EventRoomClient = ({
     const guard = createTipGuard();
     const publicChannel = pusherClient.subscribe(`event-${eventId}`);
     const handleTipAnimation = (data: TipAnimationEvent) => {
-      if (!guard.shouldAccept(data)) return;
+      const accepted = guard.shouldAccept(data);
+      console.log("[ERC Gateway]", {
+        id: data.id,
+        seq: data.seq,
+        serverTs: data.serverTs,
+        age: Date.now() - data.serverTs,
+        tabHidden: document.hidden,
+        accepted,
+      });
+      if (!accepted) return;
       window.dispatchEvent(new CustomEvent("validated-tip", { detail: data }));
     };
     publicChannel.bind("tip-animation", handleTipAnimation);
