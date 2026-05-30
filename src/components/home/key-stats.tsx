@@ -137,12 +137,12 @@ export default function KeyStats({ stats }: Props) {
             /> */}
             <StatCard
               label="Content views"
-              subtitle="Videos watched 10+ seconds"
+              subtitle="Watched 10 secs"
               value={liveStats.contentViews}
             />
             <StatCard
               label="Contents added"
-              subtitle="All active Youtube links"
+              subtitle=""
               value={liveStats.activeYoutubeLinks}
             />
 
