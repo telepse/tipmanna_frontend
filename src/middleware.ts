@@ -1,0 +1,54 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+function normalizeHostname(host: string | null): string {
+  return (host ?? "").split(":")[0].toLowerCase();
+}
+
+function canonicalTvHost(host: string): string | null {
+  if (host === "tipmanna.tv" || host.endsWith(".tipmanna.tv")) {
+    return host === "www.tipmanna.tv" || host === "tipmanna.tv"
+      ? host
+      : "tipmanna.tv";
+  }
+  return null;
+}
+
+export function middleware(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  const rawHost = request.headers.get("host");
+  const hostname = normalizeHostname(rawHost);
+
+  // Redirect mixed-case host to canonical lowercase (308 preserves method)
+  if (rawHost && hostname !== rawHost.split(":")[0]) {
+    const dest = url.clone();
+    const port = rawHost.includes(":") ? rawHost.split(":")[1] : "";
+    dest.hostname = port ? `${hostname}:${port}` : hostname;
+    dest.protocol = url.protocol;
+    return NextResponse.redirect(dest, 308);
+  }
+
+  const tvHost = canonicalTvHost(hostname);
+  if (tvHost) {
+    if (url.pathname === "/") {
+      url.pathname = "/explore";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (hostname === "tipmanna.live" || hostname === "www.tipmanna.live") {
+    const dest = url.clone();
+    dest.hostname =
+      hostname === "www.tipmanna.live" ? "www.tipmanna.tv" : "tipmanna.tv";
+    dest.protocol = "https:";
+    return NextResponse.redirect(dest, 308);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/).*)",
+  ],
+};

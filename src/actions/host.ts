@@ -1,0 +1,90 @@
+"use server";
+
+import { runServerFetch } from "@/lib/action-fetch";
+import { serverAuthHeaders } from "@/lib/server-auth";
+
+// -------- Get top tippers -------- /
+export async function getTopTippersAction(
+  hostId: string,
+  token?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/top-tippers`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getTopTippersAction"
+  );
+}
+
+// -------- Get top tipper details -------- /
+export async function getTopTipperDetailsAction(
+  hostId: string,
+  tipperId: string
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/top-tippers/${tipperId}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    },
+    "getTopTipperDetailsAction"
+  );
+}
+
+// -------- Get host event summaries -------- /
+export async function getHostEventSummaries(hostId: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    },
+    "getHostEventSummaries"
+  );
+}
+
+// -------- Get host transactions -------- /
+export async function getHostTransactionsAction(
+  hostId: string,
+  token?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/transactions`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostTransactionsAction"
+  );
+}
+
+export async function getHostVideoAnalyticsAction(
+  hostId: string,
+  token?: string | null,
+  opts?: { from?: string; to?: string; eventId?: string }
+) {
+  const params = new URLSearchParams();
+  if (opts?.from) params.set("from", opts.from);
+  if (opts?.to) params.set("to", opts.to);
+  if (opts?.eventId) params.set("eventId", opts.eventId);
+  const q = params.toString();
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/video-analytics${q ? `?${q}` : ""}`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostVideoAnalyticsAction"
+  );
+}

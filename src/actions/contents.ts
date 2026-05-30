@@ -1,0 +1,250 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server";
+
+import { runServerFetch } from "@/lib/action-fetch";
+import { serverAuthHeaders } from "@/lib/server-auth";
+
+// -------- Get latest contents -------- //
+export async function getLatestContents() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/latest`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "force-cache",
+      next: { revalidate: 30 },
+    },
+    "getLatestContents"
+  );
+}
+
+// -------- Get most tipped contents -------- //
+export async function getMostTippedContents() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/most-tipped`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "force-cache",
+      next: { revalidate: 30 },
+    },
+    "getMostTippedContents"
+  );
+}
+
+// -------- Get tip feed -------- //
+export async function getTipFeed(eventId?: string | null) {
+  const q =
+    eventId?.trim() !== ""
+      ? `?eventId=${encodeURIComponent(String(eventId).trim())}`
+      : "";
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/tip-feed${q}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    },
+    "getTipFeed"
+  );
+}
+
+// -------- Save video -------- //
+export async function saveVideo(
+  channelId: string,
+  token?: string | null,
+  owner: { hostId?: string; tipperId?: string; visitorId?: string } = {}
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/channels/${channelId}/save`,
+    {
+      method: "POST",
+      headers: await serverAuthHeaders(token),
+      body: JSON.stringify(owner),
+      cache: "no-store",
+    },
+    "saveVideo"
+  );
+}
+
+// -------- Unsave (remove) channel for current user -------- //
+export async function unsaveChannelVideo(
+  channelId: string,
+  token?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/channels/${channelId}/save`,
+    {
+      method: "DELETE",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "unsaveChannelVideo"
+  );
+}
+
+// -------- Get all featured contents -------- //
+export async function getAllFeaturedContentsAction() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/featured`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "force-cache",
+      next: { revalidate: 30 },
+    },
+    "getAllFeaturedContentsAction"
+  );
+}
+
+export async function getContentChannelAction(
+  eventId: string,
+  authToken?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/channel/${eventId}`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(authToken),
+      cache: "no-store",
+    },
+    "getContentChannelAction"
+  );
+}
+
+function exploreFeedFilterBody(
+  opts?:
+    | {
+        feedMode?: "trends" | "saves";
+        eventVideoTypes?: string[];
+        eventTypes?: string[];
+        languages?: string[];
+        countries?: string[];
+        language?: string;
+        country?: string;
+      }
+    | undefined
+): Record<string, unknown> {
+  if (!opts) return {};
+  const types = [
+    ...(opts.eventVideoTypes ?? []),
+    ...(opts.eventTypes ?? []),
+  ].filter(Boolean);
+  const uniqTypes = types.length ? [...new Set(types)] : [];
+  const langs = [
+    ...(opts.languages ?? []),
+    ...(opts.language?.trim() ? [opts.language.trim()] : []),
+  ].filter(Boolean);
+  const cts = [
+    ...(opts.countries ?? []),
+    ...(opts.country?.trim() ? [opts.country.trim()] : []),
+  ].filter(Boolean);
+  const out: Record<string, unknown> = {};
+  if (uniqTypes.length) out.eventVideoTypes = uniqTypes;
+  if (langs.length) out.languages = langs;
+  if (cts.length) out.countries = cts;
+  return out;
+}
+
+export type ExploreFeedBatchData = {
+  items: unknown[];
+  seed: string;
+  savesFeedEligible?: boolean;
+  savesFeedReason?: "auth" | "min_saves";
+};
+
+/** Multiple explore items in one round-trip; count capped server-side (max 15). */
+export async function postExploreFeedBatchAction(
+  excludeChannelIds: string[],
+  seed: string | undefined,
+  count: number,
+  authToken?: string | null,
+  opts?: {
+    feedMode?: "trends" | "saves" | "community";
+    communityIds?: string[];
+    eventVideoTypes?: string[];
+    eventTypes?: string[];
+    languages?: string[];
+    countries?: string[];
+    language?: string;
+    country?: string;
+  }
+) {
+  const fm = opts?.feedMode ?? "trends";
+  const body: Record<string, unknown> = {
+    excludeChannelIds: excludeChannelIds.slice(0, 200),
+    count,
+    feedMode: fm,
+    ...(seed ? { seed } : {}),
+    ...exploreFeedFilterBody(opts as any),
+  };
+  if (opts?.communityIds?.length) {
+    body.communityIds = opts.communityIds.slice(0, 50);
+  }
+
+  return runServerFetch<ExploreFeedBatchData>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/feed/batch`,
+    {
+      method: "POST",
+      headers: await serverAuthHeaders(authToken),
+      body: JSON.stringify(body),
+      cache: "no-store",
+    },
+    "postExploreFeedBatchAction",
+    raw => {
+      const o = raw as Record<string, unknown>;
+      const items = o.items;
+      const seedVal = o.seed;
+      return {
+        items: Array.isArray(items) ? items : [],
+        seed: typeof seedVal === "string" ? seedVal : "",
+        savesFeedEligible:
+          typeof o.savesFeedEligible === "boolean"
+            ? o.savesFeedEligible
+            : undefined,
+        savesFeedReason:
+          o.savesFeedReason === "auth" || o.savesFeedReason === "min_saves"
+            ? o.savesFeedReason
+            : undefined,
+      };
+    }
+  );
+}
+
+export type ExploreChannelMetrics = {
+  encounters: number;
+  completes: number;
+  saves: number;
+  shares: number;
+  comments: number;
+};
+
+export type ExploreChannelMetricsResponse =
+  | ExploreChannelMetrics
+  | {
+      restricted: true;
+      community: { id: string; name: string };
+    };
+
+export async function getExploreChannelMetricsAction(
+  channelId: string,
+  authToken?: string | null
+) {
+  return runServerFetch<ExploreChannelMetricsResponse>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/channels/${encodeURIComponent(channelId)}/metrics`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(authToken),
+      cache: "no-store",
+    },
+    "getExploreChannelMetricsAction"
+  );
+}

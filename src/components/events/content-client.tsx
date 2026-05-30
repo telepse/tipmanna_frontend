@@ -1,0 +1,1536 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
+import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
+import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
+import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
+import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
+import { usePusherTracking } from "@/hooks/use-pusher-tracking";
+import type { RoomCharacter } from "@/types";
+import Link from "next/link";
+import Image from "next/image";
+
+// Third-party imports
+import {
+  AudioLines,
+  Bookmark,
+  ChevronDown,
+  ChevronsUp,
+  ChevronUp,
+  CircleAlert,
+  CircleStop,
+  FastForward,
+  Maximize2,
+  MessageCircleMore,
+  Pause,
+  Play,
+  Plus,
+  RectangleHorizontal,
+  RectangleVertical,
+  Search,
+  Share2,
+  Tv,
+  UserRound,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
+import { useMediaQuery } from "react-responsive";
+import { useSelector } from "react-redux";
+// Local imports
+import VideoPlayer, { VideoPlayerRef } from "./video-player";
+import { CommunityCBadge } from "@/components/community/community-c-badge";
+import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
+import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
+import { TipDrawer } from "./tip-drawer";
+import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
+import { ProfileDrawer } from "../tv/profile-drawer";
+import { CreateDialog } from "../home/create-dialog";
+
+// Actions import
+import {
+  getSavedVideosForTipper,
+  getTotalAmountTippedByTipper,
+} from "@/actions/events";
+import { getTippedEventsForTipper } from "@/actions/events";
+import { getAllCausesAction } from "@/actions/home";
+import {
+  getContentChannelAction,
+  getExploreChannelMetricsAction,
+} from "@/actions/contents";
+import { RootState } from "@/redux/store";
+import {
+  formatSaveVideoError,
+  isChannelSaved,
+  normalizeSavedVideosList,
+  toggleChannelSaveForUser,
+} from "@/lib/save-video-client";
+import { TipSection } from "./tip-section";
+import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { ChannelProgressBar } from "./channel-progress-bar";
+import { SaveEventId } from "./save-event-id";
+import { getCurrentUser } from "./event-room-client";
+import {
+  flushTvAnalytics,
+  initTvAnalyticsRuntime,
+  setTvAnalyticsContext,
+  trackTvSaveClick,
+  trackTvShareClick,
+  trackTvUserInteraction,
+  trackTvVideoComplete,
+  trackTvVideoEncounter,
+  trackTvVideoStart,
+  trackTvWatchDuration,
+} from "@/lib/tvAnalytics";
+import { toast } from "react-toastify";
+import {
+  FacebookIcon,
+  FacebookShareButton,
+  TwitterIcon,
+  TwitterShareButton,
+  WhatsappIcon,
+  WhatsappShareButton,
+} from "next-share";
+import { cn } from "@/lib/utils";
+import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
+import {
+  buildContentShareUrl,
+  pickInitialChannelContent,
+} from "@/lib/public-video-url";
+import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
+import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
+import {
+  ImmersiveMediaTopBar,
+  immersiveControlRailClassName,
+  immersiveFullViewViewportClassName,
+  immersiveMainRowClassName,
+  immersiveMobileScrubberDockClassName,
+  immersivePlayerStageClassName,
+} from "@/components/media/immersive-media-shell";
+import { CommentDrawer } from "./comment-drawer";
+import { TipsDrawer } from "./tips-drawer";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
+import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
+import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { isTipCustomizationEnabled } from "@/lib/tip-customization";
+
+interface Props {
+  contents: any[];
+  characters: any[];
+  eventId: string;
+  characterSets: any[];
+  /** When opening from a TV program “Watch all”, skips refetch/reorder logic. */
+  initialProgramPlaylist?: any[] | null;
+  /** Deep link from `/content/{eventId}?channel=` — selects initial video. */
+  initialChannelId?: string | null;
+}
+
+const formatTime = (seconds: number) => {
+  if (!seconds || isNaN(seconds)) return "00:00";
+
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+
+  return `${mins.toString().padStart(2, "0")}:${secs
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+/** Coerce API JSON (number or numeric string) for server actions typed as unknown. */
+const coalesceNumber = (value: unknown): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+};
+
+export const ContentClient = ({
+  contents: initialContents,
+  eventId,
+  characters,
+  characterSets,
+  initialProgramPlaylist,
+  initialChannelId,
+}: Props) => {
+  const router = useRouter();
+  const user = useSelector((s: RootState) => s.auth.user);
+  const baseTipChars = Array.isArray(characters) ? characters : [];
+  const baseTipSets = Array.isArray(characterSets) ? characterSets : [];
+
+  const programSeeded =
+    Array.isArray(initialProgramPlaylist) && initialProgramPlaylist.length > 0;
+
+  const baseList = Array.isArray(initialContents) ? initialContents : [];
+  const playableProgram = programSeeded
+    ? (initialProgramPlaylist as any[]).filter((c: any) => !c?.restricted)
+    : [];
+  const playableInitial =
+    playableProgram.length > 0
+      ? playableProgram
+      : baseList.filter((c: any) => !c?.restricted);
+
+  const tipPres = useTipPresentation(eventId, baseTipChars as RoomCharacter[], {
+    quoteLock: isTipCustomizationEnabled(),
+    paymentSurface: "content_client",
+  });
+  const tipStrip = tipPres.strip;
+  const tipSets = tipPres.drawerSets ?? baseTipSets;
+  const videoRef = useRef<VideoPlayerRef>(null);
+  const [playlist, setPlaylist] = useState(playableInitial);
+  const [currentContent, setCurrentContent] = useState(() =>
+    pickInitialChannelContent(
+      playableInitial,
+      initialChannelId,
+      playableInitial[0]
+    )
+  );
+
+  useEffect(() => {
+    if (programSeeded) return;
+    void getContentChannelAction(eventId).then(res => {
+      if (!res.success || !Array.isArray(res.data)) return;
+      const rows = res.data as any[];
+      const playable = rows.filter((c: any) => !c?.restricted);
+      if (
+        playable.length === 0 &&
+        rows.length > 0 &&
+        rows.every((c: any) => c?.restricted)
+      ) {
+        const cid =
+          rows.find((c: any) => c?.community?.id)?.community?.id ??
+          rows.find((c: any) => c?.event?.communityId)?.event?.communityId;
+        if (cid) {
+          const here = `/content/${eventId}`;
+          router.replace(
+            `/restricted/${encodeURIComponent(cid)}?next=${encodeURIComponent(here)}`
+          );
+          return;
+        }
+      }
+      setPlaylist(playable);
+      if (playable.length) {
+        setCurrentContent((prev: any) =>
+          pickInitialChannelContent(
+            playable,
+            initialChannelId,
+            playable.find((p: any) => p.id === prev?.id) ?? playable[0]
+          )
+        );
+      }
+    });
+  }, [eventId, router, initialChannelId, programSeeded]);
+
+  useGlobalTipStream({ eventId, surface: "content_client" });
+  usePaymentAnimationPlayer({
+    eventId,
+    characters: tipStrip as RoomCharacter[],
+    surface: "content_client",
+  });
+  useAutoDropTip(eventId, true);
+
+  const initialEvent = playlist[0]?.event;
+  const showAmountRaisedOnVideos =
+    currentContent?.event?.showAmountRaisedOnVideos ??
+    initialEvent?.showAmountRaisedOnVideos;
+  const showViewCountOnVideos =
+    currentContent?.event?.showViewCountOnVideos ??
+    initialEvent?.showViewCountOnVideos;
+  const showRaisedAmount = showAmountRaisedOnVideos !== false;
+  const showViewCount = showViewCountOnVideos === true;
+
+  const { amountRaised: liveAmountRaised, numOfTips: liveNumOfTips } =
+    useEventRoomRealtime({
+      eventId,
+      initialAmountRaised: initialEvent?.amountRaised ?? 0,
+      initialNumOfTips: initialEvent?.numOfTips ?? 0,
+    });
+
+  const [currentUser] = useState(() => getCurrentUser());
+  const { activeUsers, trackActivity } = usePusherTracking({
+    eventId,
+    userInfo: currentUser ?? {
+      id: "pending",
+      type: "anonymous",
+      username: "Anonymous User",
+      isAuthenticated: false,
+    },
+  });
+
+  useEffect(() => {
+    trackActivity("viewing_event");
+  }, [trackActivity]);
+
+  const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
+  const { openWalletModalNonce } = useWalletTopupTipResume(
+    eventId,
+    setIsTipDrawerOpen
+  );
+
+  const [isCreatePopupOpen, setIsCreatePopupOpen] = useState(false);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+
+  const [tipperEvents, setTipperEvents] = useState<any[]>([]);
+  const [iTipped, setITipped] = useState(0);
+  const [causes, setCauses] = useState<any[]>([]);
+  const [savedContents, setSavedContents] = useState<any[]>([]);
+  const [channelViewCount, setChannelViewCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!showViewCount) {
+      setChannelViewCount(null);
+      return;
+    }
+    const channelId =
+      currentContent?.id != null ? String(currentContent.id) : "";
+    if (!channelId) {
+      setChannelViewCount(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const r = await getExploreChannelMetricsAction(channelId);
+      if (cancelled) return;
+      if (
+        r.success &&
+        r.data &&
+        typeof r.data === "object" &&
+        "encounters" in r.data
+      ) {
+        const encounters = (r.data as { encounters?: number }).encounters;
+        setChannelViewCount(typeof encounters === "number" ? encounters : null);
+      } else {
+        setChannelViewCount(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentContent?.id, showViewCount]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user?.id) {
+        setSavedContents([]);
+        return;
+      }
+      const [
+        { data: _tipperEvents },
+        { data: _iTipped },
+        { data: _causes },
+        savedRes,
+      ] = await Promise.all([
+        getTippedEventsForTipper(),
+        getTotalAmountTippedByTipper(),
+        getAllCausesAction(),
+        getSavedVideosForTipper(),
+      ]);
+
+      setTipperEvents(Array.isArray(_tipperEvents) ? _tipperEvents : []);
+      setITipped(coalesceNumber(_iTipped));
+      setCauses(Array.isArray(_causes) ? _causes : []);
+      setSavedContents(
+        normalizeSavedVideosList(savedRes.success ? savedRes.data : [])
+      );
+    };
+
+    void fetchData();
+  }, [user?.id]);
+
+  const refreshSavedList = useCallback(async () => {
+    if (!user?.id) return;
+    const savedRes = await getSavedVideosForTipper();
+    setSavedContents(
+      normalizeSavedVideosList(savedRes.success ? savedRes.data : [])
+    );
+  }, [user?.id]);
+
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
+
+  const currentContentIndex = playlist.findIndex(
+    c => c.id === currentContent?.id
+  );
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playbackSeekedForCompleteRef = useRef(false);
+  const watchSegStartRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = isPlaying;
+  const prevPlayingForVideoStartRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      playlist.length &&
+      (!currentContent ||
+        !playlist.some((c: any) => c.id === currentContent.id))
+    ) {
+      setCurrentContent(playlist[0]);
+    }
+  }, [playlist, currentContent]);
+
+  useEffect(() => {
+    initTvAnalyticsRuntime();
+  }, []);
+
+  useEffect(() => {
+    if (!eventId) return;
+    void flushTvAnalytics().then(() => {
+      setTvAnalyticsContext({
+        eventId,
+        channelId: currentContent?.id ? String(currentContent.id) : null,
+        surface: "content_client",
+        communityId:
+          (currentContent as { community?: { id?: string } })?.community?.id ??
+          null,
+      });
+    });
+  }, [eventId, currentContent?.id]);
+
+  const emitEncounterOnVideoLoaded = useCallback(() => {
+    if (!eventId || !currentContent?.id) return;
+    void flushTvAnalytics().then(() => {
+      setTvAnalyticsContext({
+        eventId,
+        channelId: String(currentContent.id),
+        surface: "content_client",
+        communityId:
+          (currentContent as { community?: { id?: string } })?.community?.id ??
+          null,
+      });
+    });
+    trackTvVideoEncounter(`content-client-${eventId}`, {
+      channelId: String(currentContent.id),
+      mode: "LOCAL",
+      scheduleIndex: Math.max(0, currentContentIndex),
+    });
+  }, [eventId, currentContent?.id, currentContentIndex]);
+
+  useEffect(() => {
+    if (!eventId || !currentContent?.id) return;
+    if (isPlaying && !prevPlayingForVideoStartRef.current) {
+      const ch = String(currentContent.id);
+      trackTvVideoStart(ch, "LOCAL", Math.max(0, currentContentIndex), ch);
+    }
+    prevPlayingForVideoStartRef.current = isPlaying;
+  }, [eventId, currentContent?.id, currentContentIndex, isPlaying]);
+
+  useEffect(() => {
+    prevPlayingForVideoStartRef.current = false;
+  }, [currentContent?.id]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const player = videoRef.current;
+      if (!player || !player.isReady()) return;
+
+      const current = player.getCurrentTime();
+      const dur = player.getDuration();
+
+      if (dur > 0) setDuration(dur);
+
+      if (!isSeeking) {
+        setCurrentTime(current); // only update when user isn't dragging
+      }
+    }, 100); // 100ms gives smoother UI
+
+    return () => clearInterval(interval);
+  }, [isSeeking]);
+
+  useEffect(() => {
+    playbackSeekedForCompleteRef.current = false;
+  }, [currentContent?.id]);
+
+  useEffect(() => {
+    if (!eventId || !currentContent?.id) return;
+    const ch = String(currentContent.id);
+    if (!isPlaying) {
+      if (watchSegStartRef.current > 0) {
+        const sec = (Date.now() - watchSegStartRef.current) / 1000;
+        watchSegStartRef.current = 0;
+        if (sec > 0.3) {
+          trackTvWatchDuration(ch, Math.min(sec, 600), "LOCAL", ch);
+        }
+      }
+      return;
+    }
+    if (document.visibilityState !== "visible") return;
+    watchSegStartRef.current = Date.now();
+    const tick = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (!isPlayingRef.current) return;
+      if (watchSegStartRef.current <= 0) return;
+      const now = Date.now();
+      const sec = (now - watchSegStartRef.current) / 1000;
+      watchSegStartRef.current = now;
+      if (sec > 0.3) {
+        trackTvWatchDuration(ch, Math.min(sec, 300), "LOCAL", ch);
+      }
+    }, 15_000);
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        if (watchSegStartRef.current > 0) {
+          const s = (Date.now() - watchSegStartRef.current) / 1000;
+          watchSegStartRef.current = 0;
+          if (s > 0.3) {
+            trackTvWatchDuration(ch, Math.min(s, 300), "LOCAL", ch);
+          }
+        }
+      } else if (
+        document.visibilityState === "visible" &&
+        isPlayingRef.current
+      ) {
+        watchSegStartRef.current = Date.now();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(tick);
+      document.removeEventListener("visibilitychange", onVis);
+      if (watchSegStartRef.current > 0) {
+        const sec = (Date.now() - watchSegStartRef.current) / 1000;
+        watchSegStartRef.current = 0;
+        if (sec > 0.3) {
+          trackTvWatchDuration(ch, Math.min(sec, 300), "LOCAL", ch);
+        }
+      }
+    };
+  }, [eventId, currentContent?.id, isPlaying]);
+
+  const [isMuted, setIsMuted] = useState(false);
+  const [, setAudioUnlocked] = useState(false);
+  const [openPlaylist, setOpenPlaylist] = useState(false);
+  const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
+  const {
+    isFullView,
+    fullPresentationFit,
+    fullLayoutToggleShowsPortraitIcon,
+    immersiveLayout,
+    enterFull,
+    exitFull,
+    toggleFullVariant,
+  } = useMobileVideoViewMode({
+    videoUrl: currentContent?.url,
+    isMobile,
+  });
+
+  const getPaymentPlaybackOffsetSec = () => {
+    const t = videoRef.current?.getCurrentTime();
+    return typeof t === "number" && !Number.isNaN(t) ? t : null;
+  };
+
+  const getWatchDurationBeforePayMs = () => {
+    const t = videoRef.current?.getCurrentTime() ?? 0;
+    return Math.max(0, Math.floor(t * 1000));
+  };
+
+  const paymentChannelIdForTip =
+    playlist[currentContentIndex]?.id != null
+      ? String(playlist[currentContentIndex].id)
+      : null;
+
+  const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
+
+  useEffect(() => {
+    setActiveVideoFeatureCardId(null);
+  }, [paymentChannelIdForTip, setActiveVideoFeatureCardId]);
+
+  const applyUserSeek = (seekTo: number) => {
+    playbackSeekedForCompleteRef.current = true;
+    trackTvUserInteraction("seek", "scrubber");
+    videoRef.current?.seekTo(seekTo);
+    setCurrentTime(seekTo);
+  };
+
+  const togglePlayPause = () => {
+    if (!videoRef.current) return;
+
+    if (isPlaying) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      videoRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+
+    if (isMuted) {
+      videoRef.current.unmute();
+      setIsMuted(false);
+    } else {
+      videoRef.current.mute();
+      setIsMuted(true);
+      setAudioUnlocked(true);
+    }
+  };
+
+  const handleUnmute = () => {
+    if (!videoRef.current) return;
+
+    videoRef.current.unmute(); // 🔥 actually unmute player
+    videoRef.current.setvolume(100); // optional but recommended
+
+    setIsMuted(false); // 🔥 sync icon state
+    setAudioUnlocked(true);
+    setIsPlaying(true);
+  };
+
+  const goToContent = (content: any) => {
+    setCurrentContent(content); // 🔥 immediate UI update
+  };
+
+  const playlistRef = useRef<HTMLDivElement>(null);
+  const currentIndex = playlist.findIndex(c => c.id === currentContent?.id);
+  const nextContent =
+    currentIndex < playlist.length - 1 ? playlist[currentIndex + 1] : null;
+
+  const [tipPreviewOpen, setTipPreviewOpen] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [showCommentDrawer, setShowCommentDrawer] = useState(false);
+  const [commentMetricsRefreshKey, setCommentMetricsRefreshKey] = useState(0);
+  const [tipsListOpen, setTipsListOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareTitle, setShareTitle] = useState("");
+
+  const channelIdForShare = currentContent?.id ? String(currentContent.id) : "";
+
+  useEffect(() => {
+    if (!eventId || !channelIdForShare) {
+      setShareUrl("");
+      return;
+    }
+    setShareUrl(
+      buildContentShareUrl({ eventId, channelId: channelIdForShare })
+    );
+    const title =
+      currentContent?.title || currentContent?.event?.eventName || "Tipmanna";
+    setShareTitle(String(title));
+  }, [
+    eventId,
+    channelIdForShare,
+    currentContent?.title,
+    currentContent?.event?.eventName,
+  ]);
+
+  const role = user?.role;
+
+  const saveChannelId = currentContent?.id ? String(currentContent.id) : null;
+  const isCurrentChannelSaved = saveChannelId
+    ? isChannelSaved(saveChannelId, savedContents)
+    : false;
+
+  const handleSaveToggle = async () => {
+    if (!user?.id) {
+      toast.error("Sign in to save videos");
+      return;
+    }
+    if (!saveChannelId) {
+      toast.error("No video channel selected");
+      return;
+    }
+    const wasSaved = isChannelSaved(saveChannelId, savedContents);
+    const prevList = savedContents;
+    const placeholder = {
+      channelId: saveChannelId,
+      channel: { id: saveChannelId },
+    };
+    if (wasSaved) {
+      setSavedContents(p =>
+        p.filter(
+          (s: { channelId?: string; channel?: { id?: string } }) =>
+            String(s?.channelId ?? s?.channel?.id ?? "") !== saveChannelId
+        )
+      );
+    } else {
+      setSavedContents(p => [...p, placeholder]);
+    }
+    try {
+      setIsLoading(true);
+      const res = await toggleChannelSaveForUser({
+        channelId: saveChannelId,
+        role,
+        userId: user?.id,
+      });
+      if (res.success && res.data) {
+        toast.success(
+          res.data.toggledTo === "saved"
+            ? "Added video to saves"
+            : "Removed video from saves"
+        );
+        if (res.data.toggledTo === "saved") {
+          trackTvSaveClick(saveChannelId);
+        }
+        setCommentMetricsRefreshKey(k => k + 1);
+        await refreshSavedList();
+      } else {
+        setSavedContents(prevList);
+        toast.error(res.error ?? res.message ?? "Failed to update save");
+      }
+    } catch (err: unknown) {
+      setSavedContents(prevList);
+      toast.error(formatSaveVideoError(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "relative h-[85%] w-[95%] bg-white sm:h-[80%]",
+        isFullView && immersiveFullViewViewportClassName("channel")
+      )}
+    >
+      <SaveEventId
+        eventId={eventId}
+        canonicalEventId={currentContent?.event?.id ?? playlist[0]?.event?.id}
+      />
+      {isFullView && (
+        <ImmersiveMediaTopBar
+          onClose={exitFull}
+          title={currentContent?.title}
+          trailing={
+            <Link
+              href={`/channel/${eventId}`}
+              className="text-xs font-medium text-white underline underline-offset-2"
+            >
+              Channel
+            </Link>
+          }
+        />
+      )}
+      {!isFullView && (
+        <div className="fixed top-0 mx-auto flex w-[95%] items-center justify-between py-2">
+          <Link
+            href="/partner"
+            className="racing_sans_one text-sm sm:text-2xl"
+          >
+            <span className="text-primary">tip</span>manna
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <p className="text-muted-foreground text-[10px] sm:text-sm">
+              Host: {playlist[0]?.event?.hostName.split(" ")[0]}{" "}
+              <Link
+                href={`/channel/${playlist[0]?.event?.id}`}
+                className="text-primary hover:underline"
+              >
+                @{playlist[0]?.event?.username}
+              </Link>
+            </p>
+            <SaveHostToggleButton
+              channelId={saveChannelId}
+              className="rounded bg-black/50 p-1 text-white"
+              iconClassName="size-4 text-white"
+            />
+            <button
+              type="button"
+              title={isMuted ? "Unmute" : "Mute"}
+              className="cursor-pointer rounded bg-black/50 p-1"
+              onClick={toggleMute}
+            >
+              {isMuted ? (
+                <VolumeX className="size-4 text-white" />
+              ) : (
+                <Volume2 className="size-4 text-white" />
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
+            <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
+              {activeUsers.length} online
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={cn(
+          immersiveMainRowClassName(isFullView, isMobile, immersiveLayout),
+          !isFullView && "h-full w-full"
+        )}
+      >
+        {/* Player controls */}
+        <div
+          className={cn(
+            immersiveControlRailClassName(isFullView, isMobile, immersiveLayout)
+          )}
+        >
+          <button
+            type="button"
+            onClick={togglePlayPause}
+            className="cursor-pointer"
+          >
+            {isPlaying ? (
+              <Pause className="size-5" />
+            ) : (
+              <Play className="size-5" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => videoRef.current?.stop()}
+            className="cursor-pointer"
+          >
+            <CircleStop className="-ml-1 size-7 fill-black text-white" />
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="cursor-pointer"
+          >
+            {isMuted ? (
+              <VolumeX className="size-5" />
+            ) : (
+              <Volume2 className="size-5" />
+            )}
+          </button>
+
+          {isMobile && (
+            <span className="inline-flex items-center gap-0.5">
+              {!isFullView && (
+                <button
+                  type="button"
+                  onClick={enterFull}
+                  className="cursor-pointer"
+                  aria-label="Full view"
+                >
+                  <Maximize2 className="size-5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={toggleFullVariant}
+                className="cursor-pointer"
+                aria-label={
+                  fullLayoutToggleShowsPortraitIcon
+                    ? "Portrait full layout"
+                    : "Landscape full layout"
+                }
+              >
+                {fullLayoutToggleShowsPortraitIcon ? (
+                  <RectangleVertical className="size-5" />
+                ) : (
+                  <RectangleHorizontal className="size-5" />
+                )}
+              </button>
+            </span>
+          )}
+        </div>
+
+        <div
+          className={immersivePlayerStageClassName(
+            isFullView,
+            isMobile,
+            immersiveLayout
+          )}
+        >
+          <div className="relative h-full w-full">
+            {currentContent?.community?.id &&
+            currentContent?.community?.name ? (
+              <CommunityCBadge community={currentContent.community} />
+            ) : null}
+            {currentContent?.coOwnerApproved ? (
+              <CoOwnerApprovedBadge
+                stackBelowCommunity={
+                  !!(
+                    currentContent?.community?.id &&
+                    currentContent?.community?.name
+                  )
+                }
+              />
+            ) : null}
+            {paymentChannelIdForTip &&
+            process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
+              <div className="pointer-events-none absolute bottom-28 left-2 z-[62] max-w-[min(360px,calc(100%-1rem))]">
+                <VideoFeatureCardBanner
+                  surfaceChannelId={paymentChannelIdForTip}
+                  hostSurfaceChannelId={paymentChannelIdForTip}
+                  onTipFeatured={id => {
+                    setActiveVideoFeatureCardId(id);
+                    setIsTipDrawerOpen(true);
+                  }}
+                  className="pointer-events-auto"
+                />
+              </div>
+            ) : null}
+            <VideoPlayer
+              ref={videoRef}
+              videoUrl={currentContent?.url}
+              key={currentContent?.id}
+              className="pointer-events-none h-full w-full"
+              fullPresentationFit={fullPresentationFit}
+              isChannel={true}
+              onPlayStateChange={setIsPlaying}
+              onMuteStateChange={setIsMuted}
+              onPlaybackEnded={() => {
+                if (!currentContent?.id) return;
+                const ch = String(currentContent.id);
+                if (playbackSeekedForCompleteRef.current) return;
+                trackTvVideoComplete(ch, { channelId: ch, mode: "LOCAL" });
+              }}
+              onVideoLoaded={emitEncounterOnVideoLoaded}
+            />
+            {(showRaisedAmount ||
+              (showViewCount && channelViewCount != null)) && (
+              <div className="pointer-events-none absolute bottom-3 left-3 z-[63] space-y-0.5 text-white drop-shadow-md">
+                {showRaisedAmount ? (
+                  <p className="text-xs font-medium">
+                    £{liveAmountRaised} raised
+                  </p>
+                ) : null}
+                {showViewCount && channelViewCount != null ? (
+                  <p className="text-[11px] opacity-90">
+                    {channelViewCount} views
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </div>
+          <div
+            id="global-animation-layer"
+            className={`pointer-events-none absolute inset-0 ${TV_RAIL_Z_INDEX}`}
+          />
+
+          {/* Fast-forward icon */}
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              setOpenPlaylist(prev => !prev);
+            }}
+            className={cn(
+              "absolute left-1/2 z-50 -translate-x-1/2 cursor-pointer rounded-full border p-2 transition hover:bg-white",
+              isFullView
+                ? cn(
+                    "-top-1 border-white/30 bg-white/20 text-white",
+                    immersiveLayout === "portrait_video" && "top-2"
+                  )
+                : "-top-4 border-black bg-white/70"
+            )}
+          >
+            {openPlaylist ? (
+              <X className="text-primary size-6" />
+            ) : (
+              <FastForward className="fill-primary size-6 rotate-90" />
+            )}
+          </button>
+
+          {openPlaylist && (
+            <div className="absolute top-8 left-1/2 z-50 -translate-x-1/2">
+              {/* Playlist container wrapper */}
+              <div className="relative max-h-[300px] w-[305px] rounded-md shadow-lg sm:max-h-[450px] sm:w-[450px]">
+                {/* Scrollable playlist */}
+                <div
+                  ref={playlistRef}
+                  className="relative max-h-[310px] overflow-y-auto rounded-md bg-white/90 p-2 sm:max-h-[450px]"
+                  style={{ scrollbarWidth: "none" }}
+                >
+                  {playlist
+                    .filter(content => content.id !== currentContent?.id)
+                    .map(content => {
+                      const isNext = content.id === nextContent?.id;
+                      const scale = 0.9;
+
+                      return (
+                        <div
+                          key={content.id}
+                          className="cursor-pointer rounded-md bg-white p-4"
+                          onClick={() => {
+                            setOpenPlaylist(false);
+                            requestAnimationFrame(() => {
+                              goToContent(content);
+                            });
+                          }}
+                          style={{
+                            transform: `scale(${scale})`,
+                            transition: "all 0.3s ease-in-out",
+                          }}
+                        >
+                          <div className="relative">
+                            <Image
+                              src={`https://img.youtube.com/vi/${extractYoutubeID(content.url)}/hqdefault.jpg`}
+                              alt="Video thumbnail"
+                              width={400}
+                              height={400}
+                              className="h-full w-full object-cover"
+                            />
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/90 p-2">
+                              <Play className="size-8 text-white" />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1 px-2 py-4">
+                            <div className="flex items-center gap-1 text-sm text-black">
+                              {isNext && (
+                                <span className="flex items-center gap-1 font-semibold">
+                                  <FastForward className="fill-primary size-4" />{" "}
+                                  Next:
+                                </span>
+                              )}
+                              <span>
+                                {content.title.substring(0, 20)}{" "}
+                                {content.title.length > 20 ? "..." : ""}
+                              </span>
+                            </div>
+
+                            <p className="text-muted-foreground text-sm">
+                              {formatTime(content.durationSeconds)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {/* Up arrow - fixed at top inside container */}
+                <button
+                  onClick={() =>
+                    playlistRef.current?.scrollBy({
+                      top: -100,
+                      behavior: "smooth",
+                    })
+                  }
+                  className="absolute top-0 left-1/2 flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-black bg-white/90 p-2 shadow transition hover:bg-white"
+                >
+                  <ChevronUp className="size-6 text-black" />
+                </button>
+
+                {/* Down arrow - fixed at bottom inside container */}
+                <button
+                  onClick={() =>
+                    playlistRef.current?.scrollBy({
+                      top: 100,
+                      behavior: "smooth",
+                    })
+                  }
+                  className="absolute bottom-0 left-1/2 flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-black bg-white/90 p-2 shadow transition hover:bg-white"
+                >
+                  <ChevronDown className="size-6 text-black" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div
+            className={`${isFullView ? `itms-center absolute top-1/2 right-8 ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-8 bottom-4 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
+          >
+            <button
+              type="button"
+              disabled={isLoading}
+              title={isCurrentChannelSaved ? "Unsave video" : "Save video"}
+              onClick={e => {
+                e.stopPropagation();
+                if (!isLoading) void handleSaveToggle();
+              }}
+              className="cursor-pointer rounded bg-black/50 p-1 text-white"
+            >
+              {isCurrentChannelSaved ? (
+                <Bookmark className="fill-moonstone-blue size-5" />
+              ) : (
+                <Bookmark className="size-5 text-white" />
+              )}
+            </button>
+
+            {/* Share button */}
+            <button
+              type="button"
+              className="cursor-pointer rounded bg-black/50 p-1"
+              onClick={() => {
+                let willOpen = false;
+                setShowShare(prev => {
+                  willOpen = !prev;
+                  return willOpen;
+                });
+                if (willOpen && currentContent?.id) {
+                  trackTvShareClick(String(currentContent.id));
+                  setCommentMetricsRefreshKey(k => k + 1);
+                }
+                setShowInfo(false);
+              }}
+            >
+              <Share2 className="size-5 text-white" />
+            </button>
+
+            {showShare && (
+              <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
+                <WhatsappShareButton
+                  url={shareUrl}
+                  title={shareTitle}
+                >
+                  <WhatsappIcon
+                    size={32}
+                    round
+                  />
+                </WhatsappShareButton>
+
+                <FacebookShareButton
+                  url={shareUrl}
+                  quote={shareTitle}
+                >
+                  <FacebookIcon
+                    size={32}
+                    round
+                  />
+                </FacebookShareButton>
+
+                <TwitterShareButton
+                  url={shareUrl}
+                  title={shareTitle}
+                >
+                  <TwitterIcon
+                    size={32}
+                    round
+                  />
+                </TwitterShareButton>
+              </div>
+            )}
+
+            {/* Comment button */}
+            <button
+              type="button"
+              className="cursor-pointer rounded bg-black/50 p-1"
+              onClick={() => setShowCommentDrawer(true)}
+            >
+              <MessageCircleMore className="size-5 text-white" />
+            </button>
+
+            <CommentDrawer
+              isCommentDrawerOpen={showCommentDrawer}
+              setIsCommentDrawerOpen={setShowCommentDrawer}
+              eventId={eventId}
+              channelId={paymentChannelIdForTip}
+              videoTitle={
+                typeof currentContent?.title === "string"
+                  ? currentContent.title
+                  : ""
+              }
+              videoDescription={
+                typeof (currentContent as { description?: string } | undefined)
+                  ?.description === "string"
+                  ? String(
+                      (currentContent as { description: string }).description
+                    )
+                  : ""
+              }
+              numOfTips={liveNumOfTips}
+              tippingCharacters={tipStrip as RoomCharacter[]}
+              onContinueToTip={() => setIsTipDrawerOpen(true)}
+              metricsRefreshKey={commentMetricsRefreshKey}
+            />
+
+            {showInfo && (
+              <div className="absolute top-1/4 right-full z-[100] h-[50px] w-fit -translate-y-1/2 rounded-md border bg-white p-2 shadow-md">
+                <div className="relative w-[150px]">
+                  <p className="text-[10px] font-semibold">
+                    {playlist[0]?.title}
+                  </p>
+                  <p className="text-muted-foreground text-[10px]">
+                    By: {playlist[0]?.event?.hostName}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`${isFullView ? `absolute top-1/2 right-4 ${TV_RAIL_Z_INDEX} mt-2 -translate-y-1/2` : `absolute right-4 bottom-4 ${TV_RAIL_Z_INDEX}`}`}
+          >
+            {showRaisedAmount ? (
+              <>
+                <button
+                  type="button"
+                  title="View tips"
+                  className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
+                  onClick={() => setTipsListOpen(true)}
+                >
+                  {liveNumOfTips} tips
+                </button>
+                <ChannelProgressBar
+                  amountToRaise={playlist[0]?.event?.amountToRaise}
+                  amountRaised={liveAmountRaised}
+                  eventId={eventId}
+                />
+                <Image
+                  src="/icons/black-diamond.png"
+                  alt="Black Diamond"
+                  width={40}
+                  height={40}
+                  className="-mt-4 size-[14px]"
+                />
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom section - LAPTOP */}
+      <div className="fixed bottom-0 mx-auto hidden w-[95%] flex-col gap-1 py-2 sm:flex">
+        {/* Scrubber - DESKTOP */}
+        <div className="absolute bottom-10 mx-auto w-full">
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            value={currentTime || 0}
+            step={0.1}
+            onMouseDown={() => setIsSeeking(true)}
+            onTouchStart={() => setIsSeeking(true)}
+            onChange={e => {
+              // Update UI immediately while dragging
+              setCurrentTime(parseFloat(e.target.value));
+            }}
+            onMouseUp={e => {
+              const seekTo = parseFloat((e.target as HTMLInputElement).value);
+              applyUserSeek(seekTo);
+              setIsSeeking(false);
+            }}
+            onTouchEnd={e => {
+              const seekTo = parseFloat((e.target as HTMLInputElement).value);
+              applyUserSeek(seekTo);
+              setIsSeeking(false);
+            }}
+            className="accent-primary h-2 w-full rounded-full bg-black"
+          />
+          <div className="-mt-1 flex justify-between px-1 text-xs">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col items-center gap-1 text-xs lg:flex-row lg:gap-2">
+            <div className="flex items-center gap-1">
+              <AudioLines
+                className={`text-primary size-4 lg:size-6 ${isPlaying ? "wave-icon" : ""}`}
+              />
+              <AudioLines
+                className={`text-primary size-4 lg:size-6 ${isPlaying ? "wave-icon" : ""}`}
+              />
+              <span className="font-semibold">Now playing:</span>
+            </div>{" "}
+            {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
+            {playlist[currentContentIndex]?.title.length > 25 ? "..." : ""}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setTipPreviewOpen(true)}
+            className="relative -mt-2 flex cursor-pointer rounded-full bg-gray-200 p-1 text-sm text-black"
+          >
+            <ChevronsUp className="text-primary" />
+            Engage <ChevronsUp className="text-primary" />{" "}
+            <span className="absolute -bottom-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-gray-500"></span>
+          </button>
+
+          {tipPreviewOpen && (
+            <TippingElementsProvider
+              tippingCharacters={tipStrip as RoomCharacter[]}
+            >
+              <div className="absolute -bottom-8 left-1/2 mx-auto h-[240px] w-[40%] -translate-x-1/2 rounded-t-xl bg-white/80 px-4 py-2 lg:w-[45%]">
+                <div className="relative">
+                  <TipSection
+                    eventId={eventId}
+                    tippingCharacters={tipStrip as RoomCharacter[]}
+                    characterSets={tipSets}
+                    performers={[]}
+                    paymentSurface="content_client"
+                    paymentChannelId={paymentChannelIdForTip}
+                    getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
+                    getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
+                    textTipUnitPrice={tipPres.textUnitPrice}
+                    sectionCtaLabel={tipPres.sectionCtaLabel}
+                    payLabel={tipPres.payLabel}
+                    tipQuoteContext={tipPres.quoteCtx}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setTipPreviewOpen(false)}
+                    className="absolute -top-2 -right-2 cursor-pointer rounded-full transition"
+                  >
+                    <X className="size-5 cursor-pointer text-black" />
+                  </button>
+                </div>
+              </div>
+            </TippingElementsProvider>
+          )}
+
+          <div className="flex items-center gap-4">
+            <Link
+              href="/tv"
+              className="group"
+            >
+              <Tv className="group-hover:text-primary group-hover:stroke-3" />
+            </Link>
+
+            <Link
+              href="/explore"
+              className="cursor-pointer"
+              onPointerEnter={prefetchExploreFeedInitial}
+              onClick={() => {
+                setIsCreatePopupOpen(false);
+                setIsProfileDrawerOpen(false);
+              }}
+            >
+              <Search
+                className="size-7"
+                strokeWidth={2}
+              />
+            </Link>
+
+            <button
+              type="button"
+              className="cursor-pointer rounded-full bg-black/20 p-1"
+              onClick={() => {
+                setIsCreatePopupOpen(true);
+                setIsProfileDrawerOpen(false);
+              }}
+            >
+              <Plus
+                className={`size-7 ${isCreatePopupOpen ? "text-primary" : ""}`}
+                strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+              />
+            </button>
+
+            <button
+              type="button"
+              className="hidden cursor-pointer sm:inline-block"
+              onClick={() => {
+                setIsCreatePopupOpen(false);
+                setIsProfileDrawerOpen(true);
+              }}
+            >
+              <UserRound
+                className={`${isProfileDrawerOpen ? "text-primary" : ""}`}
+                strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom section - MOBILE */}
+      <div
+        className={cn(
+          "fixed bottom-0 flex w-full flex-col border-t px-4 py-2 sm:hidden",
+          isFullView && isMobile && "hidden"
+        )}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <Link
+            href="/tv"
+            className="group"
+          >
+            <Tv className="group-hover:text-primary group-hover:stroke-3" />
+          </Link>
+
+          <Link
+            href="/explore"
+            className="cursor-pointer"
+            onPointerEnter={prefetchExploreFeedInitial}
+            onClick={() => {
+              setIsCreatePopupOpen(false);
+              setIsProfileDrawerOpen(false);
+            }}
+          >
+            <Search
+              className="size-7"
+              strokeWidth={2}
+            />
+          </Link>
+
+          <button
+            type="button"
+            className="cursor-pointer rounded-full bg-black/20 p-1"
+            onClick={() => {
+              setIsCreatePopupOpen(true);
+              setIsProfileDrawerOpen(false);
+            }}
+          >
+            <Plus
+              className={`size-7 ${isCreatePopupOpen ? "text-primary" : ""}`}
+              strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+            />
+          </button>
+
+          <button
+            type="button"
+            className="cursor-pointer"
+            onClick={() => {
+              setIsCreatePopupOpen(false);
+              setIsProfileDrawerOpen(true);
+            }}
+          >
+            <UserRound
+              className={`size-7 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+              strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Tip drawer section - LAPTOP */}
+      <TippingElementsProvider tippingCharacters={tipStrip as RoomCharacter[]}>
+        <TipDrawer
+          open={isTipDrawerOpen}
+          onOpenChange={setIsTipDrawerOpen}
+          eventId={eventId}
+          tippingCharacters={tipStrip as RoomCharacter[]}
+          characterSets={tipSets}
+          paymentSurface="content_client"
+          paymentChannelId={paymentChannelIdForTip}
+          getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
+          getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
+          stackAboveImmersive={isFullView && isMobile}
+          openWalletModalNonce={openWalletModalNonce}
+          textTipUnitPrice={tipPres.textUnitPrice}
+          payLabel={tipPres.payLabel}
+          tipQuoteContext={tipPres.quoteCtx}
+        />
+      </TippingElementsProvider>
+
+      {/* Scrubber - MOBILE */}
+      <div
+        className={cn(
+          "sm:hidden",
+          !isFullView && "fixed bottom-60 w-[95%] px-4 py-2",
+          isFullView &&
+            isMobile &&
+            immersiveMobileScrubberDockClassName(immersiveLayout)
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center gap-2 text-xs",
+            isFullView && isMobile && "text-white"
+          )}
+        >
+          <span className="flex">
+            <AudioLines
+              className={`text-primary ${isPlaying ? "wave-icon" : ""}`}
+            />
+            <AudioLines
+              className={`text-primary ${isPlaying ? "wave-icon" : ""}`}
+            />
+          </span>
+          <span className="font-semibold">Now playing:</span>{" "}
+          {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
+          {playlist[currentContentIndex]?.title.length > 25 ? "..." : ""}
+        </div>
+
+        <input
+          type="range"
+          min={0}
+          max={duration || 0}
+          value={currentTime || 0}
+          step={0.1}
+          onMouseDown={() => setIsSeeking(true)}
+          onTouchStart={() => setIsSeeking(true)}
+          onChange={e => {
+            // Update UI immediately while dragging
+            setCurrentTime(parseFloat(e.target.value));
+          }}
+          onMouseUp={e => {
+            const seekTo = parseFloat((e.target as HTMLInputElement).value);
+            applyUserSeek(seekTo);
+            setIsSeeking(false);
+          }}
+          onTouchEnd={e => {
+            const seekTo = parseFloat((e.target as HTMLInputElement).value);
+            applyUserSeek(seekTo);
+            setIsSeeking(false);
+          }}
+          className={cn(
+            "accent-primary h-2 w-full rounded-full",
+            isFullView && isMobile ? "bg-white/20" : "bg-black"
+          )}
+        />
+        <div
+          className={cn(
+            "-mt-1 flex justify-between px-1 text-xs",
+            isFullView && isMobile && "text-white"
+          )}
+        >
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
+
+      {/* Tip section - MOBILE */}
+      <TippingElementsProvider tippingCharacters={tipStrip as RoomCharacter[]}>
+        <div
+          className={cn(
+            "fixed sm:hidden",
+            isFullView && isMobile
+              ? cn(
+                  "hidden max-h-[min(38vh,280px)] overflow-y-auto rounded-t-xl border border-white/15 bg-zinc-900/95 px-2 py-2",
+                  "right-2 bottom-[5.25rem] left-2",
+                  immersiveLayout === "landscape_video" && "left-12"
+                )
+              : "bottom-8 mx-auto h-[220px] w-[95%] rounded-t-xl px-4 py-2"
+          )}
+        >
+          <TipSection
+            eventId={eventId}
+            tippingCharacters={tipStrip as RoomCharacter[]}
+            characterSets={tipSets}
+            paymentSurface="content_client"
+            paymentChannelId={paymentChannelIdForTip}
+            getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
+            getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
+            stackDrawerAboveImmersive={isFullView && isMobile}
+            textTipUnitPrice={tipPres.textUnitPrice}
+            sectionCtaLabel={tipPres.sectionCtaLabel}
+            payLabel={tipPres.payLabel}
+            tipQuoteContext={tipPres.quoteCtx}
+          />
+        </div>
+      </TippingElementsProvider>
+
+      {/* Create popup section */}
+      <CreateDialog
+        openPopup={isCreatePopupOpen}
+        setOpenPopup={setIsCreatePopupOpen}
+      />
+
+      <TipsDrawer
+        open={tipsListOpen}
+        onOpenChange={setTipsListOpen}
+        eventId={eventId}
+        channelId={currentContent?.id ? String(currentContent.id) : null}
+        eventRoomTipCount={liveNumOfTips}
+        videoTipCount={
+          typeof currentContent?.numOfTips === "number"
+            ? currentContent.numOfTips
+            : liveNumOfTips
+        }
+      />
+
+      {/* PROFILE DRAWER */}
+      <ProfileDrawer
+        isProfileDrawerOpen={isProfileDrawerOpen}
+        setIsProfileDrawerOpen={setIsProfileDrawerOpen}
+        tipperEvents={tipperEvents}
+        iTipped={iTipped}
+        causes={causes}
+        savedContents={savedContents || []}
+      />
+    </div>
+  );
+};

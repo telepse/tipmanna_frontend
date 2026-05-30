@@ -1,0 +1,129 @@
+"use client";
+
+import { useState } from "react";
+import { ChevronsUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import { ALL_LANGUAGES } from "@/lib/languages";
+import {
+  CREATE_FORM_COMMAND_CLASS,
+  CREATE_FORM_COMMAND_GROUP_CLASS,
+  CREATE_FORM_COMMAND_ITEM_CLASS,
+  CREATE_FORM_SELECT_CONTENT_CLASS,
+} from "@/lib/create-form-theme";
+import { cn } from "@/lib/utils";
+import type { VideoLinkLocaleAppearance } from "@/components/events/video-link-content-country-combobox";
+
+export interface VideoLinkContentLanguageComboboxProps {
+  value: string;
+  onChange: (languageCode: string) => void;
+  appearance?: VideoLinkLocaleAppearance;
+  disabled?: boolean;
+}
+
+/**
+ * Shared content-language picker used by host create flows and event-room “add video”.
+ * Stores language codes from ALL_LANGUAGES (e.g. en-GB).
+ */
+export function VideoLinkContentLanguageCombobox({
+  value,
+  onChange,
+  appearance = "onDark",
+  disabled,
+}: VideoLinkContentLanguageComboboxProps) {
+  const [open, setOpen] = useState(false);
+
+  const triggerTone =
+    appearance === "onDark"
+      ? "flex h-12 w-full justify-between border bg-black/25 text-white hover:bg-black/50 hover:text-white"
+      : "flex h-12 w-full justify-between border border-input bg-background font-normal hover:bg-accent hover:text-accent-foreground";
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          disabled={disabled}
+          aria-expanded={open}
+          className={cn(triggerTone)}
+        >
+          {value ? (
+            <span className="truncate">{value}</span>
+          ) : (
+            <span
+              className={cn(
+                "truncate",
+                appearance === "onDark"
+                  ? "text-white/60"
+                  : "text-muted-foreground"
+              )}
+            >
+              Select a region...
+            </span>
+          )}
+          <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="start"
+        sideOffset={4}
+        avoidCollisions={false}
+        className={cn(
+          "hide__scrollbar max-h-60 w-60 overflow-y-auto p-0",
+          appearance === "onDark" && CREATE_FORM_SELECT_CONTENT_CLASS
+        )}
+      >
+        <Command
+          className={
+            appearance === "onDark" ? CREATE_FORM_COMMAND_CLASS : undefined
+          }
+        >
+          <CommandInput placeholder="Search a language..." />
+          <CommandEmpty>No language found.</CommandEmpty>
+          <CommandGroup
+            heading="Languages"
+            className={
+              appearance === "onDark"
+                ? CREATE_FORM_COMMAND_GROUP_CLASS
+                : undefined
+            }
+          >
+            {ALL_LANGUAGES.map(lang => (
+              <CommandItem
+                key={lang.name}
+                value={lang.name}
+                onSelect={() => {
+                  onChange(lang.name);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex items-center gap-2",
+                  appearance === "onDark" && CREATE_FORM_COMMAND_ITEM_CLASS
+                )}
+              >
+                {lang.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}

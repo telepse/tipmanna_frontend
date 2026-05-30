@@ -1,0 +1,112 @@
+import { toast } from "react-toastify";
+import type { UseFormReturn } from "react-hook-form";
+import type { HostUser } from "@/features/auth-slice";
+import type { NewEventFormData } from "@/schemas";
+import type { RootState } from "@/redux/store";
+
+export type PrivacyVideoLink = NonNullable<
+  NewEventFormData["videoLinks"]
+>[number];
+
+type Options = {
+  links: PrivacyVideoLink[];
+  hostSubscriptionTier?: string | null;
+  liveVideoLink?: string | null;
+};
+
+/** Run privacy checks from a create-event form + signed-in host (if any). */
+export function runPrivacyChecksFromForm(
+  form: Pick<UseFormReturn<NewEventFormData>, "getValues">,
+  user: RootState["auth"]["user"]
+): boolean {
+  return validatePrivacyVideoLinks({
+    links: form.getValues("videoLinks") ?? [],
+    hostSubscriptionTier:
+      user?.role === "HOST"
+        ? (user as HostUser).hostSubscriptionTier
+        : undefined,
+    liveVideoLink: form.getValues("liveVideoLink"),
+  });
+}
+
+/** Resolve ownership attestation for a live stream URL from videoLinks or explicit field. */
+export function resolveLiveVideoOwnershipAnswer(values: {
+  liveVideoLink?: string | null;
+  liveVideoOwnershipAnswer?: "yes" | "no" | null;
+  videoLinks?: PrivacyVideoLink[] | null;
+}): "yes" | "no" | undefined {
+  if (
+    values.liveVideoOwnershipAnswer === "yes" ||
+    values.liveVideoOwnershipAnswer === "no"
+  ) {
+    return values.liveVideoOwnershipAnswer;
+  }
+  const live = values.liveVideoLink?.trim();
+  if (!live) return undefined;
+  const match = values.videoLinks?.find(v => v.url?.trim() === live);
+  if (match?.ownershipAnswer === "yes" || match?.ownershipAnswer === "no") {
+    return match.ownershipAnswer;
+  }
+  return undefined;
+}
+
+/** Client-side co-owner / default-video checks before privacy step or submit. */
+export function validatePrivacyVideoLinks({
+  links,
+  hostSubscriptionTier,
+  liveVideoLink,
+}: Options): boolean {
+  const tier = hostSubscriptionTier ?? undefined;
+  for (let i = 0; i < links.length; i++) {
+    const v = links[i];
+    if (!v.url?.trim()) continue;
+    if (v.ownershipAnswer !== "yes" && v.ownershipAnswer !== "no") {
+      toast.error(
+        `Please confirm ownership for video ${i + 1} on the privacy step`
+      );
+      return false;
+    }
+    if (v.isDefault && v.ownershipAnswer === "no") {
+      toast.error(
+        "A video awaiting co-owner approval cannot be the default video"
+      );
+      return false;
+    }
+    if (
+      v.ownershipAnswer === "no" &&
+      tier !== "HOST_PREMIUM" &&
+      tier !== "HOST_COMMUNITY"
+    ) {
+      toast.error(
+        "Upgrade to Host Premium or Host Community for co-owned videos"
+      );
+      return false;
+    }
+  }
+
+  const live = liveVideoLink?.trim();
+  if (live) {
+    const liveOwnership = resolveLiveVideoOwnershipAnswer({
+      liveVideoLink: live,
+      videoLinks: links,
+    });
+    if (liveOwnership !== "yes" && liveOwnership !== "no") {
+      toast.error(
+        "Please confirm ownership for the live stream on the privacy step"
+      );
+      return false;
+    }
+    if (
+      liveOwnership === "no" &&
+      tier !== "HOST_PREMIUM" &&
+      tier !== "HOST_COMMUNITY"
+    ) {
+      toast.error(
+        "Upgrade to Host Premium or Host Community for co-owned live streams"
+      );
+      return false;
+    }
+  }
+
+  return true;
+}

@@ -1,0 +1,41 @@
+/**
+ * Shared YouTube IFrame API / react-youtube playerVars.
+ * YouTube may still show some UI on pause; iv_load_policy reduces annotations.
+ */
+
+export type YoutubeEmbedMode = "chromeless" | "minimal";
+
+const BASE = {
+  modestbranding: 1,
+  rel: 0,
+  iv_load_policy: 3,
+  playsinline: 1,
+  disablekb: 1,
+} as const;
+
+/** No default YouTube controls — use app UI (scrubbers, TV chrome, etc.). */
+export function getYoutubePlayerVarsChromeless(options: {
+  autoplay?: boolean;
+  mute?: boolean;
+}): Record<string, number | string> {
+  return {
+    ...BASE,
+    controls: 0,
+    fs: 0,
+    autoplay: options.autoplay ? 1 : 0,
+    mute: options.mute ? 1 : 0,
+  };
+}
+
+/** Fallback when embedded controls are required (legacy); still hides annotations / related. */
+export function getYoutubePlayerVarsMinimal(options: {
+  autoplay?: boolean;
+  mute?: boolean;
+}): Record<string, number | string> {
+  return {
+    ...BASE,
+    controls: 1,
+    autoplay: options.autoplay ? 1 : 0,
+    mute: options.mute ? 1 : 0,
+  };
+}

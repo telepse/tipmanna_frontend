@@ -1,0 +1,68 @@
+"use server";
+
+import { actionFail, runServerFetch } from "@/lib/action-fetch";
+import { serverAuthHeaders } from "@/lib/server-auth";
+
+function api() {
+  return (process.env.NEXT_PUBLIC_BACKEND_API_URL || "").replace(/\/$/, "");
+}
+
+export async function createCommunityActivationRequestAction(
+  token?: string | null,
+  body?: {
+    eventId: string;
+    kind?: "community" | "tv";
+    communityName?: string | null;
+    description?: string | null;
+    logoUrl?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+  }
+) {
+  if (!body?.eventId) {
+    return actionFail(
+      "eventId required",
+      "createCommunityActivationRequestAction"
+    );
+  }
+  return runServerFetch(
+    `${api()}/communities/activation-requests`,
+    {
+      method: "POST",
+      headers: await serverAuthHeaders(token),
+      body: JSON.stringify({
+        eventId: body.eventId,
+        ...(body.kind === "tv" ? { kind: "tv" } : {}),
+        ...(body.communityName?.trim()
+          ? { communityName: body.communityName.trim() }
+          : {}),
+        ...(body.description?.trim()
+          ? { description: body.description.trim() }
+          : {}),
+        ...(body.logoUrl?.trim() ? { logoUrl: body.logoUrl.trim() } : {}),
+        ...(body.contactEmail?.trim()
+          ? { contactEmail: body.contactEmail.trim() }
+          : {}),
+        ...(body.contactPhone?.trim()
+          ? { contactPhone: body.contactPhone.trim() }
+          : {}),
+      }),
+      cache: "no-store",
+    },
+    "createCommunityActivationRequestAction"
+  );
+}
+
+export async function listMyCommunityActivationRequestsAction(
+  token?: string | null
+) {
+  return runServerFetch(
+    `${api()}/communities/activation-requests/me`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "listMyCommunityActivationRequestsAction"
+  );
+}
