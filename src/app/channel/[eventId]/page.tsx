@@ -25,6 +25,8 @@ export default async function ChannelPage({ params, searchParams }: Props) {
       getAllCharacterSets(),
     ]);
 
+  console.log("[CHANNEL PAGE] characterSets", characterSets);
+
   if (!eventId) return <div>Channel not found</div>;
 
   const list = Array.isArray(contents as any[]) ? (contents as any[]) : [];

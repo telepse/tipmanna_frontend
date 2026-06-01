@@ -34,6 +34,7 @@ export function SetReminderButton({
   globalEnforcementId?: string;
 }) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
+  console.log(isAuthenticated);
   const [open, setOpen] = useState(false);
   const [offset, setOffset] = useState(defaultOffset);
   const [email, setEmail] = useState("");
@@ -108,7 +109,7 @@ export function SetReminderButton({
   }
 
   return (
-    <div className="relative">
+    <div className="relative rounded-lg border p-3 shadow-lg">
       <Button
         type="button"
         variant="outline"
@@ -119,7 +120,7 @@ export function SetReminderButton({
         Set reminder
       </Button>
       {open ? (
-        <div className="bg-background absolute top-full left-0 z-[100030] mt-2 w-72 rounded-lg border p-3 shadow-lg">
+        <div className="bg-background overflow absolute bottom-full left-0 z-[100030000] mt-2 w-72 rounded-lg border p-3 shadow-lg">
           <p className="mb-2 text-sm font-medium">Remind me</p>
           <div className="space-y-1">
             {offsetOptions.map(min => (

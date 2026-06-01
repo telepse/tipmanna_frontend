@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SaveHostToggleButton } from "./save-host-toggle-button";
 
 interface Props {
   isCommentDrawerOpen: boolean;
@@ -352,6 +353,11 @@ export const CommentDrawer = ({
               {hostMeta?.firstName ?? hostName} ·{" "}
               {hostMeta?.username ? `@${hostMeta.username}` : null}{" "}
               <span className="text-primary">Creator</span>
+              <SaveHostToggleButton
+                channelId={channelId != null ? String(channelId) : null}
+                className="rounded bg-black/50 p-1 text-white"
+                iconClassName="size-4 text-white"
+              />
             </h4>
             {(videoTitle || channelMeta?.title) && (
               <p className="text-sm font-medium">
@@ -456,7 +462,7 @@ export const CommentDrawer = ({
                 className="h-9 w-full bg-black pr-10 text-white hover:bg-black/90"
                 onClick={handlePay}
               >
-                Pay
+                £
               </Button>
 
               <button

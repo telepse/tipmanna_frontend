@@ -700,7 +700,9 @@ export function HostCommunityClient() {
       activationKind === "community" &&
       (!communityName || !description || !contactEmail)
     ) {
-      toast.error("Community name, description, and contact email are required.");
+      toast.error(
+        "Community name, description, and contact email are required."
+      );
       return;
     }
     setActivationBusy(true);
@@ -1668,7 +1670,7 @@ export function HostCommunityClient() {
                 : "Link TV activation to an event. Optional community details help admins review your request."}
             </DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pb-1">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-1">
             <div className="space-y-2">
               <Label>Event</Label>
               {activationEventsLoading ? (

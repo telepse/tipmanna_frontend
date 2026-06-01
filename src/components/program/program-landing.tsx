@@ -24,10 +24,7 @@ function formatDuration(totalSec: number) {
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
-function contentItemHref(item: {
-  eventId: string;
-  channelId: string;
-}): string {
+function contentItemHref(item: { eventId: string; channelId: string }): string {
   return buildContentSharePath({
     eventId: item.eventId,
     channelId: item.channelId,
@@ -51,9 +48,7 @@ export function ProgramLanding({
 
   const shareUrl = getPublicAbsoluteUrl(landingPath);
   const firstPlayable = program.items.find(i => i.contentUrl);
-  const watchNowHref = firstPlayable
-    ? contentItemHref(firstPlayable)
-    : null;
+  const watchNowHref = firstPlayable ? contentItemHref(firstPlayable) : null;
 
   const copyLink = async () => {
     try {
@@ -207,12 +202,14 @@ export function ProgramLanding({
                   {itemHref ? (
                     <Link
                       href={itemHref}
-                      className="truncate font-medium hover:underline"
+                      className="-leading-[0.1] truncate text-xs font-medium text-wrap break-words hover:underline sm:text-base"
                     >
                       {item.title}
                     </Link>
                   ) : (
-                    <p className="truncate font-medium">{item.title}</p>
+                    <p className="-leading-[0.1] truncate text-xs font-medium text-wrap break-words sm:text-base">
+                      {item.title}
+                    </p>
                   )}
                   <p className="text-muted-foreground text-xs">
                     {formatDuration(item.durationSec)}

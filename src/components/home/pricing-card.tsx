@@ -1,27 +1,41 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { useState } from "react";
+
+// Third-party imports
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { useMediaQuery } from "react-responsive";
 
 // Local imports
 import { Paragraph } from "@/components/shared/paragraph";
 
 interface Props {
   name: string;
+  desc: string;
   price: string;
   discountPrice?: string;
-  hasAnnualPrice?: boolean;
   features: string[];
   btnText: string;
 }
 
 export const PricingCard = ({
   name,
+  desc,
   price,
   discountPrice,
-  hasAnnualPrice,
   features,
   btnText,
 }: Props) => {
+  const isMobile = useMediaQuery({
+    query: "(max-width: 500px)",
+  });
+
+  const [seeMore, setSeeMore] = useState(false);
+
+  const handleSeeMore = () => {
+    setSeeMore(!seeMore);
+  };
+
   return (
     <div className="border-primary flex flex-col items-center gap-2 rounded-2xl border p-6">
       <Paragraph
@@ -30,6 +44,13 @@ export const PricingCard = ({
         className="uppercase"
       >
         {name}
+      </Paragraph>
+      <Paragraph
+        size="sm"
+        weight="bold"
+        color="muted"
+      >
+        {desc}
       </Paragraph>
       <div className="flex items-center gap-2">
         <Paragraph
@@ -50,7 +71,7 @@ export const PricingCard = ({
           </Paragraph>
         )}{" "}
         <span className="text-sm text-gray-800">
-          {hasAnnualPrice ? "" : "/ month"}
+          {"/ month"}
         </span>
       </div>
 
@@ -58,7 +79,25 @@ export const PricingCard = ({
         {btnText}
       </button>
 
-      <ul className="space-y-4">
+      {isMobile && (
+        <button
+          className="w-full cursor-pointer transition-all"
+          onClick={handleSeeMore}
+        >
+          {seeMore ? (
+            <span className="flex items-center gap-2">
+              See less <ChevronUp className="size-4" />
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              See more <ChevronDown className="size-4" />
+            </span>
+          )}
+        </button>
+      )}
+
+      {isMobile && seeMore ? (
+        <ul className="space-y-4">
           {features.map((feature, index) => (
             <li
               key={index}
@@ -68,6 +107,18 @@ export const PricingCard = ({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      <ul className="hidden space-y-4 lg:block">
+        {features.map((feature, index) => (
+          <li
+            key={index}
+            className="flex items-center gap-2 text-sm"
+          >
+            <Check className="text-primary size-4 shrink-0" /> {feature}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };

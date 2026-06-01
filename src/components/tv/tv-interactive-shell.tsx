@@ -324,8 +324,8 @@ export function TvInteractiveShell({
       )}
 
       {isDesktop && (
-        <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-start lg:gap-8 xl:gap-10">
-          <aside
+        <div className="-mt-12 -ml-12 flex w-full flex-col gap-8 lg:flex-row lg:items-start lg:gap-8 xl:gap-10">
+          {/* <aside
             className="flex w-full shrink-0 flex-col gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:w-72 lg:overflow-y-auto xl:w-80"
             aria-label="TV sidebar"
           >
@@ -368,9 +368,9 @@ export function TvInteractiveShell({
                 )}
               </div>
             )}
-          </aside>
+          </aside> */}
 
-          <div className="flex min-w-0 flex-1 flex-col items-stretch">
+          <div className="flex h-[80vh] w-[1300px] flex-col items-stretch border border-red-500">
             {tvReady && (
               <TvLooper
                 characters={characters}
@@ -392,6 +392,7 @@ export function TvInteractiveShell({
                       )
                     : ""
                 }
+                className="h-[80vh] w-[1300px]"
               />
             )}
           </div>
@@ -399,10 +400,10 @@ export function TvInteractiveShell({
       )}
 
       {isMobile && (
-        <div className="mt-10 flex w-full flex-col gap-4">
+        <div className="fixed top-12 bottom-0 -mt-2 flex w-full flex-col p-2">
           {tvReady && (
             <>
-              <div className="flex h-full w-full gap-4">
+              <div className="flex h-full w-full gap-2">
                 <TvLooper
                   characters={characters}
                   playerLayout="compact"
@@ -426,7 +427,7 @@ export function TvInteractiveShell({
                 />
               </div>
 
-              <div className="flex w-full items-center gap-2 px-3">
+              <div className="-mt-32 flex w-full items-center gap-2 px-3">
                 <button
                   type="button"
                   onClick={() => setActiveTab("playlist")}
@@ -478,7 +479,7 @@ export function TvInteractiveShell({
               ) : null}
 
               {activeTab === "playlist" && (
-                <div className="relative -mt-3 flex max-h-[75vh] w-full flex-col items-start gap-2 overflow-y-auto p-2 pb-24">
+                <div className="relative -mt-1 flex max-h-[75vh] w-full flex-col items-start gap-2 overflow-y-auto p-2 pb-24">
                   <div
                     className="custom-scrollbar relative max-h-[30vh] w-full space-y-4 overflow-y-auto p-2"
                     ref={scrollRef}

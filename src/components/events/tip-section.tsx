@@ -122,7 +122,7 @@ export const TipSection = ({
   );
 
   const allTips = useMemo(() => {
-    const list = [...tippingCharacters];
+    const list = [...tippingCharacters.filter(c => c.name !== "Comment")];
     const tid = textCharacterIdFromEnv();
     if (!tid) return list;
     return list.sort((a, b) => {
@@ -168,7 +168,7 @@ export const TipSection = ({
     }
     notifyTextTipDraftSync();
     dispatch(
-      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Text"]))
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
     );
     setTextDraftModalOpen(false);
   };
@@ -220,7 +220,7 @@ export const TipSection = ({
 
   const totalAmount = useMemo(() => {
     return tipsForTotals.reduce((acc, characterName) => {
-      if (characterName === "Text") {
+      if (characterName === "Comment") {
         return acc + textTipUnitPrice;
       }
       const character = tippingCharacters.find(c => c.name === characterName);
@@ -243,7 +243,7 @@ export const TipSection = ({
 
   const showEditMessageLink = useMemo(() => {
     void draftSyncEpoch;
-    if (tipsForTotals.includes("Text")) return true;
+    if (tipsForTotals.includes("Comment")) return true;
     if (typeof window === "undefined") return false;
     try {
       return !!localStorage.getItem("textTipValue")?.trim();
@@ -371,7 +371,7 @@ export const TipSection = ({
               const tid = textCharacterIdFromEnv();
               const characterName =
                 tid && isTextCharacterId(character.id)
-                  ? "Text"
+                  ? "Comment"
                   : character.name;
               const count = getSelectedCount(characterName);
               const isTextCharacter = Boolean(
@@ -380,8 +380,8 @@ export const TipSection = ({
 
               const label = isTextCharacter
                 ? "Comment"
-                : typeof (character as { displayLabel?: string }).displayLabel ===
-                      "string" &&
+                : typeof (character as { displayLabel?: string })
+                      .displayLabel === "string" &&
                     (character as { displayLabel?: string }).displayLabel
                   ? (character as { displayLabel: string }).displayLabel
                   : character.name;
@@ -396,7 +396,7 @@ export const TipSection = ({
                       ? () => {
                           if (
                             isTextCharacter &&
-                            selectedTips.includes("Text")
+                            selectedTips.includes("Comment")
                           ) {
                             openTextDraftModal();
                             return;

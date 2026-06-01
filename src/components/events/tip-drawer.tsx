@@ -32,10 +32,7 @@ import { getDeviceKey } from "@/lib/getAuthToken";
 import { setCredentials } from "@/features/auth-slice";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  DRAWER_NESTED_Z_INDEX,
-  DRAWER_Z_INDEX,
-} from "@/lib/drawer-z-index";
+import { DRAWER_NESTED_Z_INDEX, DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
 
 import { startPreview, stopPreview } from "@/lib/previewController";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
@@ -896,12 +893,12 @@ export const TipDrawer = ({
         }}
       >
         <DrawerContent
-          overlayClassName={stackAboveImmersive ? "z-[300]" : undefined}
+          overlayClassName={stackAboveImmersive ? "z-[10000]" : undefined}
           className={cn(
             "space-y-2 border bg-white p-6 shadow-sm",
-            stackAboveImmersive && "z-[400]"
+            stackAboveImmersive && "z-[10000]"
           )}
-          style={{ zIndex: stackAboveImmersive ? 400 : 250 }}
+          style={{ zIndex: stackAboveImmersive ? 10000 : 250 }}
         >
           <div
             ref={drawerShellRef}
@@ -1109,6 +1106,7 @@ export const TipDrawer = ({
                 aria-hidden
                 id="stripe-wrapper"
               > */}
+              {canPay && !isLoadingPaymentOptions && (
                 <ExpressCheckoutElement
                   options={options}
                   onReady={() => {
@@ -1117,6 +1115,7 @@ export const TipDrawer = ({
                   }}
                   onConfirm={onConfirm}
                 />
+              )}
               {/* </div> */}
 
               {/* Pay with card button - Shows when Stripe is ready */}

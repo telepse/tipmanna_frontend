@@ -11,10 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  DRAWER_NESTED_Z_INDEX,
-  DRAWER_Z_INDEX,
-} from "@/lib/drawer-z-index";
+import { DRAWER_NESTED_Z_INDEX, DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
 import {
   createWalletTopupIntentRequest,
   debitWalletRequest,
