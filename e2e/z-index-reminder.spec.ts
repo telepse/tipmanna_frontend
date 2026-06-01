@@ -13,9 +13,9 @@ test.describe("z-index reminder", () => {
     const emptyCopy = page.getByText(/no clips available|sign in to browse/i);
     await expect(scroll.or(emptyCopy).first()).toBeVisible({ timeout: 30_000 });
 
-    await expect(
-      page.getByText(/Signed in|Guest|Not signed in/i)
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Signed in|Guest|Not signed in/i)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("active slide actions render above the reel shell", async ({ page }) => {

@@ -61,11 +61,10 @@ export default function Features() {
           align="center"
           size="lg"
         >
-          Upload videos and livestream
-          <br className="hidden sm:block" /> on{" "}
-          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-            tipmanna
-          </span>
+          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">Upload videos. </span> Go live. Build your community.
+          
+            
+          
         </Title>
       </h2>
       <Paragraph
@@ -73,8 +72,7 @@ export default function Features() {
         color="muted"
         className="-mt-2"
       >
-        Earn 11x more support. <br /> Fundraise, receive tips or donations with
-        your contents or events.
+        Grow your audience, create shared experiences, and <br className="hidden sm:block" /> earn through supporter participation, memberships, and community engagement.
       </Paragraph>
 
       <Button
@@ -82,7 +80,7 @@ export default function Features() {
         className="w-fit bg-black hover:bg-black/80"
         onClick={() => setOpenPopup(true)}
       >
-        Create content or event{" "}
+        Create your channel{" "}
         <Plus className="bg-primary size-5 rounded p-1 text-black" />
       </Button>
 

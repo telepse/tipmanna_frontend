@@ -369,6 +369,8 @@ export default function TVPageClientWrapper({
     currentScheduleItem?.channel?.eventId ??
     "";
 
+  console.log("[TV PAGE CLIENT WRAPPER] tipDrawerEventId", tipDrawerEventId);
+
   const { openWalletModalNonce } = useWalletTopupTipResume(
     tipDrawerEventId || undefined,
     setIsTipDrawerOpen
@@ -386,16 +388,20 @@ export default function TVPageClientWrapper({
       setDrawerCharacterSets(null);
       return;
     }
+
     void (async () => {
       const res = await getEventByIdAction(tipDrawerEventId);
+
       if (cancelled) return;
       if (!res.success || !res.data) {
         setDrawerCharacters(null);
         setDrawerCharacterSets(null);
         return;
       }
+
       const rawSets = (res.data as { characterSets: CharacterSet[] })
         .characterSets;
+      console.log("[TV PAGE CLIENT WRAPPER] rawSets", rawSets);
       const sets: CharacterSet[] = Array.isArray(rawSets)
         ? rawSets.filter(
             (s: any) =>
@@ -419,8 +425,8 @@ export default function TVPageClientWrapper({
     };
   }, [tipDrawerEventId]);
 
-  const tippingCharactersForDrawer = drawerCharacters ?? characters;
-  const characterSetsForDrawer = drawerCharacterSets ?? characterSets;
+  const tippingCharactersForDrawer = characters;
+  const characterSetsForDrawer = characterSets;
 
   const videoTipKey = useMemo(
     () =>

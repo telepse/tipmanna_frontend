@@ -1331,7 +1331,9 @@ export const ExploreFeedClient = forwardRef<
                   onPlayerError={handleExplorePlayerError}
                   playerRetryKey={playerRetryKey}
                   onEngageUnlocked={
-                    i === activeIndex ? () => setReelEngageUnlocked(true) : undefined
+                    i === activeIndex
+                      ? () => setReelEngageUnlocked(true)
+                      : undefined
                   }
                 />
               </div>
@@ -1358,17 +1360,7 @@ export const ExploreFeedClient = forwardRef<
                   </div>
                 ) : null}
                 <div className="pointer-events-none absolute right-3 bottom-28 left-3 space-y-1 text-white">
-                  <p className="text-sm font-semibold drop-shadow-md">
-                    {item.title ?? item.event?.eventName}
-                  </p>
-                  <div className="pointer-events-auto flex items-center gap-2">
-                    <SaveHostToggleButton
-                      channelId={
-                        activeChannelId != null ? String(activeChannelId) : null
-                      }
-                      className="rounded bg-black/50 p-1 text-white"
-                      iconClassName="size-4 text-white"
-                    />
+                  <div className="flex items-center gap-2 text-sm font-semibold drop-shadow-md">
                     <button
                       type="button"
                       title={reelMuted ? "Unmute" : "Mute"}
@@ -1387,13 +1379,24 @@ export const ExploreFeedClient = forwardRef<
                       ) : (
                         <Volume2 className="size-4 text-white" />
                       )}
-                    </button>
+                    </button>{" "}
+                    {item.title ?? item.event?.eventName}
                   </div>
-                  {active?.event?.showAmountRaisedOnVideos !== false ? (
+                  {/* <div className="pointer-events-auto flex items-center gap-2">
+                    <SaveHostToggleButton
+                      channelId={
+                        activeChannelId != null ? String(activeChannelId) : null
+                      }
+                      className="rounded bg-black/50 p-1 text-white"
+                      iconClassName="size-4 text-white"
+                    />
+                    
+                  </div> */}
+                  {/* {active?.event?.showAmountRaisedOnVideos !== false ? (
                     <p className="text-xs opacity-90 drop-shadow-md">
                       £{liveAmountRaised} raised
                     </p>
-                  ) : null}
+                  ) : null} */}
                   {active?.event?.showViewCountOnVideos === true &&
                   metrics &&
                   !metricsRestrictedCommunity ? (

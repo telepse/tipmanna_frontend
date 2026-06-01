@@ -1,23 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { useMediaQuery } from "react-responsive";
-
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
 import { Badge } from "@/components/shared/badge";
 import { Paragraph } from "@/components/shared/paragraph";
 import { Title } from "@/components/shared/title";
-import { Button } from "@/components/ui/button";
-import { EXPLORE_COMMUNITIES_HREF } from "@/lib/community-links";
 
 interface Props {
   communities: CommunityExploreCatalogRow[];
 }
 
 export default function TopCommunities({ communities }: Props) {
-  const isMobile = useMediaQuery({ maxWidth: "500px" });
 
   if (communities.length === 0) {
     return null;

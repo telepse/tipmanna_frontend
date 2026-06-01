@@ -28,15 +28,15 @@ export function isTextCharacterId(characterId: unknown): boolean {
 }
 
 /**
- * At most one `"Text"` entry (other tip names may repeat for quantity).
+ * At most one `"Comment"` entry (other tip names may repeat for quantity).
  */
 export function ensureSingleTextInCart(names: string[]): string[] {
   let seenText = false;
   const out: string[] = [];
   for (const n of names) {
-    if (n === "Text") {
+    if (n === "Comment") {
       if (!seenText) {
-        out.push("Text");
+        out.push("Comment");
         seenText = true;
       }
     } else {

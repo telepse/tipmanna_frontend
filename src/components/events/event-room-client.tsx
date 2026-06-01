@@ -168,7 +168,7 @@ export const EventRoomClient = ({
     paymentSurface: "event_room",
   });
 
-  const footerCharacterSets = tipDrawerSets ?? rawCharacterSets;
+  const footerCharacterSets = rawCharacterSets;
 
   const [liveMessages, setLiveMessages] = useState<Message[]>(safeMessages);
 

@@ -23,6 +23,7 @@ export const FeatureCard = ({ icon, title, content }: Props) => {
       <Paragraph
         size="lg"
         weight="bold"
+        align="center"
       >
         {title}
       </Paragraph>

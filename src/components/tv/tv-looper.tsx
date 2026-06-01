@@ -80,10 +80,7 @@ import { useVideoChromeAutoHide } from "@/hooks/use-video-chrome-auto-hide";
 import { CommunityCBadge } from "@/components/community/community-c-badge";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
-import {
-  buildChannelShareUrl,
-  buildContentShareUrl,
-} from "@/lib/public-video-url";
+import { buildContentShareUrl } from "@/lib/public-video-url";
 import {
   ImmersiveMediaTopBar,
   immersiveControlRailClassName,
@@ -105,6 +102,7 @@ export const TvLooper = ({
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
   tipsTabActive = false,
+  className,
 }: {
   characters: RoomCharacter[];
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
@@ -117,6 +115,7 @@ export const TvLooper = ({
   commentDrawerVideoDescription?: string;
   /** When true, parent tips tab is visible — enables seek-bar polling in compact view. */
   tipsTabActive?: boolean;
+  className?: string;
 }) => {
   const {
     items,
@@ -249,6 +248,8 @@ export const TvLooper = ({
     amountToRaise?: number;
     numOfTips?: number;
   };
+
+  console.log("[TV LOOPER] currentChannelId", currentEventId);
 
   const isCommunityTv = Boolean(scheduleSourceCommunityId);
 
@@ -491,9 +492,9 @@ export const TvLooper = ({
   const channelIdForShare = current?.channel?.id;
   const shareUrl =
     currentEventId && channelIdForShare
-      ? buildChannelShareUrl({
+      ? buildContentShareUrl({
           eventId: currentEventId,
-          channelId: String(channelIdForShare),
+          channelId: channelIdForShare ? String(channelIdForShare) : undefined,
         })
       : getPublicAbsoluteUrl("/tv");
 
@@ -790,7 +791,8 @@ export const TvLooper = ({
         !fillViewport &&
           widePlayer &&
           "h-[min(56vh,640px)] w-full max-w-6xl md:h-[min(58vh,680px)]",
-        !fillViewport && !widePlayer && "h-[50vh] w-full"
+        !fillViewport && !widePlayer && "h-[50vh] w-full px-2",
+        className ?? ""
       )}
     >
       {currentEventId ? <SaveEventId eventId={currentEventId} /> : null}
@@ -1034,15 +1036,14 @@ export const TvLooper = ({
               tippingCharacters={characters}
               onContinueToTip={onContinueCommentToTip}
             />
+
             <TipsDrawer
               open={tipsListOpen}
               onOpenChange={setTipsListOpen}
               eventId={currentEventId}
-              channelId={
-                currentChannelId != null ? String(currentChannelId) : null
-              }
-              eventRoomTipCount={eventRoomTipCount}
-              videoTipCount={videoTipCount}
+              channelId={currentChannelId ? String(currentChannelId) : null}
+              eventRoomTipCount={liveNumOfTips}
+              videoTipCount={liveNumOfTips}
             />
           </div>
 

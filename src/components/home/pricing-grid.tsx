@@ -52,11 +52,10 @@ export default function PricingGrid() {
           align="center"
           size="lg"
         >
-          Affordable pricing for everyone
-          <br className="hidden sm:block" /> on{" "}
+          Free to start, premium features later with{" "}
           <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-            tipmanna
-          </span>
+          scalable pricing
+          </span>{" "}
         </Title>
       </h2>
       <Paragraph
@@ -64,8 +63,8 @@ export default function PricingGrid() {
         color="muted"
         className="-mt-2"
       >
-        Designed to scale to millions of users. Get started for free and upgrade
-        as you grow.
+        Start for free, build your audience, and unlock more powerful tools as
+        your community grows.
       </Paragraph>
 
       {/* Static grid for large screens */}
@@ -114,6 +113,7 @@ export default function PricingGrid() {
               <SwiperSlide key={index}>
                 <PricingCard
                   name={item.name}
+                  desc={item.desc}
                   price={item.price}
                   discountPrice={item.discountPrice}
                   features={item.features}
@@ -126,14 +126,14 @@ export default function PricingGrid() {
       </div>
 
       {/* Static grid for large screens */}
-      <div className="mt-6 hidden grid-cols-3 items-center gap-6 lg:grid">
+      <div className="mt-6 hidden grid-cols-3 items-start gap-6 lg:grid">
         {PRICING.map((item, index) => (
           <PricingCard
             key={index}
             name={item.name}
+            desc={item.desc}
             price={item.price}
             discountPrice={item.discountPrice}
-            hasAnnualPrice={item.hasAnnualPrice}
             features={item.features}
             btnText={item.btnText}
           />

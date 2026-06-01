@@ -109,6 +109,8 @@ export default async function EventRoomPage({ params }: Props) {
     getEventChannels(trimmedId),
   ]);
 
+  console.log(eventRes.data);
+
   const eventPayload = eventRes.data;
   const messages = messagesRes.data;
   const iTipped = tippedRes.data ?? 0;

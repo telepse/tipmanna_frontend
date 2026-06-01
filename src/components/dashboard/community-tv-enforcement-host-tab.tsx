@@ -331,8 +331,10 @@ export function CommunityTvEnforcementHostTab({
                   {["AUTHORIZED", "ACTIVE", "COMPLETED"].includes(
                     row.status
                   ) ? (
-                    <div className="mt-3 space-y-2 rounded-md border bg-muted/20 p-3">
-                      <p className="text-xs font-medium">Program landing banner</p>
+                    <div className="bg-muted/20 mt-3 space-y-2 rounded-md border p-3">
+                      <p className="text-xs font-medium">
+                        Program landing banner
+                      </p>
                       {row.landingBannerUrl ? (
                         <img
                           src={row.landingBannerUrl}
@@ -353,9 +355,7 @@ export function CommunityTvEnforcementHostTab({
                             type="url"
                             placeholder="https://…"
                             value={
-                              bannerDrafts[row.id] ??
-                              row.landingBannerUrl ??
-                              ""
+                              bannerDrafts[row.id] ?? row.landingBannerUrl ?? ""
                             }
                             onChange={e =>
                               setBannerDrafts(prev => ({
@@ -372,7 +372,9 @@ export function CommunityTvEnforcementHostTab({
                           disabled={bannerSavingId === row.id}
                           onClick={() => void saveLandingBanner(row.id)}
                         >
-                          {bannerSavingId === row.id ? "Saving…" : "Save banner"}
+                          {bannerSavingId === row.id
+                            ? "Saving…"
+                            : "Save banner"}
                         </Button>
                       </div>
                     </div>
