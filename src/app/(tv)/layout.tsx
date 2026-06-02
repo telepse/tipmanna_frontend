@@ -3,8 +3,6 @@
 
 import { getAllEventChannels } from "@/actions/events";
 import { TVNavbar } from "@/components/tv/tv-navbar";
-import { TVSidebar } from "@/components/tv/tv-sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { usePusherTrackingGlobalTV } from "@/hooks/use-global-viewer-count";
 import { UserInfo } from "@/types/tracking.types";
 import { useEffect, useState } from "react";
@@ -46,15 +44,10 @@ export default function TVLayout({ children }: { children: React.ReactNode }) {
 
       <>
         <TvDeviceSessionBootstrap />
-        <SidebarProvider>
-          <TVSidebar />
-          <main className="grid grid-cols-12 gap-8">
-            {/* Single column: primary TV UI lives in TVPageClientWrapper (TvWebExperience / mobile shell). Legacy TVRightSection duplicate looper removed — see git history if needed. */}
-            <div className="col-span-full">{children}</div>
-          </main>
-        </SidebarProvider>
 
-        {/* <TVFooter /> */}
+        <main className="grid grid-cols-12 gap-8">
+          <div className="col-span-full">{children}</div>
+        </main>
       </>
     </>
   );

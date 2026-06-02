@@ -61,13 +61,13 @@ export const TVExpressButtons = () => {
 
   return (
     <div className="fixed bottom-0 z-[1000] w-full sm:hidden">
-      <div className="-mt-1 flex w-full items-center justify-between gap-2 border-t border-black/20 bg-white/80 px-8 py-4">
+      <div className="-mt-1 flex w-full items-center justify-between gap-2 border-t border-black/20 bg-white/80 px-8 py-2">
         <Link
           href="/tv"
           className="inline-flex"
         >
           <Tv
-            className={`size-7 ${isTVActive ? "" : "text-primary"}`}
+            className={`size-5 ${isTVActive ? "" : "text-primary"}`}
             strokeWidth={isTVActive ? 2 : 3.75}
           />
         </Link>
@@ -83,7 +83,7 @@ export const TVExpressButtons = () => {
           }}
         >
           <Search
-            className="size-7"
+            className="size-5"
             strokeWidth={2}
           />
         </button>
@@ -97,7 +97,7 @@ export const TVExpressButtons = () => {
           }}
         >
           <Plus
-            className={`size-7 ${isCreateDrawerOpen ? "text-primary" : ""}`}
+            className={`size- ${isCreateDrawerOpen ? "text-primary" : ""}`}
             strokeWidth={isCreateDrawerOpen ? 3.75 : 2}
           />
         </button>
@@ -111,7 +111,7 @@ export const TVExpressButtons = () => {
           }}
         >
           <UserRound
-            className={`size-7 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+            className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
             strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
           />
           <NotificationBadge

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { AudioLines, Bookmark, UsersRound } from "lucide-react";
+import { AudioLines, UsersRound } from "lucide-react";
 import { trimTitle } from "@/lib/utils";
 import { useTV } from "@/components/tv-provider";
 import {
@@ -139,14 +139,13 @@ export function TvPlaylistPreview({
                 onSelectChannel(originalIndex);
               }
             }}
-            className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-4 py-2 transition-all duration-300 ${isPlaying ? "ring-primary scale-100 shadow-lg ring-4" : "scale-100 ring-4 ring-gray-200"} `}
+            className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-1 transition-all duration-300 lg:py-2 ${isPlaying ? "ring-primary scale-100 shadow-lg ring-4" : "scale-100 ring-4 ring-gray-200"} `}
           >
             <div
-              className={`flex min-w-0 flex-1 items-center gap-2 ${isPlaying ? "sticky top-0" : ""}`}
+              className={`flex min-w-0 flex-1 items-center gap-1 ${isPlaying ? "sticky top-0" : ""}`}
             >
               {isPlaying && (
                 <div className="flex shrink-0 flex-col gap-1">
-                  <Bookmark className="-ml-2 size-5" />
                   {showTimes && (
                     <span className="text-muted-foreground -ml-2 rounded border border-black px-1 py-0.5 text-[9.5px]">
                       {startLabel}
@@ -155,9 +154,7 @@ export function TvPlaylistPreview({
                 </div>
               )}
               <div className="min-w-0 space-y-1">
-                <h5
-                  className={`text-sm font-medium ${isPlaying ? "-ml-6" : "-ml-2"}`}
-                >
+                <h5 className={`text-sm font-medium`}>
                   {item?.channel?.title
                     ? trimTitle(item.channel.title, titleTrim)
                     : "Loading..."}

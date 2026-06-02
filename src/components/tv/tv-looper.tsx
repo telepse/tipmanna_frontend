@@ -102,7 +102,6 @@ export const TvLooper = ({
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
   tipsTabActive = false,
-  className,
 }: {
   characters: RoomCharacter[];
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
@@ -115,7 +114,6 @@ export const TvLooper = ({
   commentDrawerVideoDescription?: string;
   /** When true, parent tips tab is visible — enables seek-bar polling in compact view. */
   tipsTabActive?: boolean;
-  className?: string;
 }) => {
   const {
     items,
@@ -787,12 +785,12 @@ export const TvLooper = ({
         isFullView && immersiveFullViewViewportClassName("tv"),
         fillViewport &&
           !isFullView &&
-          "h-[100dvh] min-h-[100dvh] w-full max-w-none bg-black pt-[env(safe-area-inset-top,0px)]",
+          "h-[100dvh] min-h-[100dvh] w-full max-w-none bg-black pt-[env(safe-area-inset-top,0px)] md:h-[min(70vh,680px)]",
         !fillViewport &&
           widePlayer &&
-          "h-[min(56vh,640px)] w-full max-w-6xl md:h-[min(58vh,680px)]",
-        !fillViewport && !widePlayer && "h-[50vh] w-full px-2",
-        className ?? ""
+          "h-[min(56vh,640px)] w-full max-w-6xl md:h-[min(70vh,680px)]",
+        !fillViewport && !widePlayer && "h-[40vh] w-full px-2 lg:!h-[90vh]",
+        isFullView && "h-[70vh] w-full"
       )}
     >
       {currentEventId ? <SaveEventId eventId={currentEventId} /> : null}
@@ -839,17 +837,20 @@ export const TvLooper = ({
             )}
           </button>
 
-          {isMobileTv && (
-            <span className="inline-flex items-center gap-0.5">
-              {!isFullView && (
-                <button
-                  type="button"
-                  onClick={enterFull}
-                  aria-label="Full view"
-                >
-                  <Maximize2 className="size-5" />
-                </button>
-              )}
+          <div className="border border-gray-300">
+            {isMobileTv && !isFullView && (
+              <button
+                type="button"
+                onClick={enterFull}
+                aria-label="Full view"
+              >
+                <Maximize2 className="size-5" />
+              </button>
+            )}
+          </div>
+
+          <div className="border-2 border-gray-300">
+            {isMobileTv && !isFullView && (
               <button
                 type="button"
                 onClick={toggleFullVariant}
@@ -865,8 +866,8 @@ export const TvLooper = ({
                   <RectangleHorizontal className="size-5" />
                 )}
               </button>
-            </span>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Player area */}
@@ -927,7 +928,7 @@ export const TvLooper = ({
           )}
 
           <div
-            className={`${isFullView ? `itms-center absolute top-1/2 right-8 ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-12 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-12 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1103,7 +1104,7 @@ export const TvLooper = ({
                   : ""
               )}
             >
-              <p className="text-lg font-semibold text-white md:text-2xl">
+              <p className="text-lg font-semibold text-black md:text-2xl">
                 {current.channel?.title ?? "Program notice"}
               </p>
               <p className="text-sm text-white/80">
@@ -1115,7 +1116,7 @@ export const TvLooper = ({
           {isPlayerLoading && !showPlaybackError && (
             <div
               className={cn(
-                "absolute inset-0 z-50 flex animate-pulse items-center justify-center bg-gray-200 text-lg text-sm font-medium",
+                "absolute inset-0 z-50 flex animate-pulse items-center justify-center bg-gray-200 text-sm font-medium",
                 widePlayer || (fillViewport && isMobileTv)
                   ? "h-full min-h-[200px] w-full"
                   : "h-[370px] w-full",
@@ -1220,7 +1221,7 @@ export const TvLooper = ({
             className={cn(
               chromeHide.chromeTransitionClass,
               chromeHide.chromeOpacityClass,
-              "absolute z-[20] truncate text-sm font-medium text-white",
+              "absolute z-[20] truncate bg-black text-sm font-medium text-white",
               isFullView && isMobileTv && immersiveLayout === "portrait_video"
                 ? "right-2 bottom-14 left-2 text-center"
                 : null,

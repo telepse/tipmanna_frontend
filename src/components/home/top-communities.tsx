@@ -11,7 +11,6 @@ interface Props {
 }
 
 export default function TopCommunities({ communities }: Props) {
-
   if (communities.length === 0) {
     return null;
   }
