@@ -70,9 +70,7 @@ export const PricingCard = ({
             ({discountPrice})
           </Paragraph>
         )}{" "}
-        <span className="text-sm text-gray-800">
-          {"/ month"}
-        </span>
+        <span className="text-sm text-gray-800">{"/ month"}</span>
       </div>
 
       <button className="bg-primary hover:bg-primary/80 w-full cursor-pointer rounded-md px-4 py-2 text-white transition-all">

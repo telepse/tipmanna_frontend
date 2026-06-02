@@ -61,10 +61,10 @@ export default function Features() {
           align="center"
           size="lg"
         >
-          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">Upload videos. </span> Go live. Build your community.
-          
-            
-          
+          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+            Upload videos.{" "}
+          </span>{" "}
+          Go live. Build your community.
         </Title>
       </h2>
       <Paragraph
@@ -72,7 +72,9 @@ export default function Features() {
         color="muted"
         className="-mt-2"
       >
-        Grow your audience, create shared experiences, and <br className="hidden sm:block" /> earn through supporter participation, memberships, and community engagement.
+        Grow your audience, create shared experiences, and{" "}
+        <br className="hidden sm:block" /> earn through supporter participation,
+        memberships, and community engagement.
       </Paragraph>
 
       <Button

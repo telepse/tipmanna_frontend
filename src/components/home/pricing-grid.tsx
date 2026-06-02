@@ -54,7 +54,7 @@ export default function PricingGrid() {
         >
           Free to start, premium features later with{" "}
           <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-          scalable pricing
+            scalable pricing
           </span>{" "}
         </Title>
       </h2>

@@ -324,57 +324,12 @@ export function TvInteractiveShell({
       )}
 
       {isDesktop && (
-        <div className="-mt-12 -ml-12 flex w-full flex-col gap-8 lg:flex-row lg:items-start lg:gap-8 xl:gap-10">
-          {/* <aside
-            className="flex w-full shrink-0 flex-col gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:w-72 lg:overflow-y-auto xl:w-80"
-            aria-label="TV sidebar"
-          >
-            {sidebarNav}
-
-            {activeTab === "playlist" && (
-              <div className="relative flex min-h-0 flex-col gap-2 lg:max-h-[min(560px,calc(100vh-22rem))]">
-                <div
-                  ref={scrollRef}
-                  onScroll={handleScroll}
-                  className="custom-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl border border-zinc-200/70 bg-white p-3 shadow-sm"
-                >
-                  <TvPlaylistPreview
-                    layout={playlistLayout}
-                    onSelectChannel={handleSelectChannel}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setIsTvDrawerOpen(true)}
-                    className="mt-1 flex items-center gap-2 text-sm font-medium text-zinc-800 hover:underline"
-                  >
-                    See full schedule <ArrowUp className="size-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "tips" && (
-              <div
-                data-testid="tv-tips-feed"
-                className="custom-scrollbar max-h-[min(50vh,480px)] space-y-3 overflow-y-auto rounded-xl border border-zinc-200/70 bg-white p-3 shadow-sm lg:max-h-[min(560px,calc(100vh-22rem))]"
-              >
-                {tipFeed.length === 0 ? (
-                  <p className="text-muted-foreground text-center text-sm">
-                    No tips yet — they will appear here as tippers contribute.
-                  </p>
-                ) : (
-                  tipFeedListEl
-                )}
-              </div>
-            )}
-          </aside> */}
-
-          <div className="flex h-[80vh] w-[1300px] flex-col items-stretch border border-red-500">
+        <div className="lg:grid hidden grid-cols-12 gap-4">
+          <div className="col-span-9">
             {tvReady && (
               <TvLooper
                 characters={characters}
-                playerLayout="compact"
+                playerLayout="wide"
                 analyticsSurface={tvAnalyticsSurface}
                 tipsTabActive={activeTab === "tips"}
                 onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
@@ -392,8 +347,99 @@ export function TvInteractiveShell({
                       )
                     : ""
                 }
-                className="h-[80vh] w-[1300px]"
               />
+            )}
+          </div>
+
+          <div className="col-span-3 flex w-full flex-col gap-4">
+            <div className="flex w-full items-center gap-2 px-3">
+              <button
+                type="button"
+                onClick={() => setActiveTab("playlist")}
+                className={`flex items-center gap-1 rounded-md px-3 py-1 text-sm whitespace-nowrap outline ${
+                  activeTab === "playlist"
+                    ? "bg-black text-white"
+                    : "bg-white text-black outline-black"
+                }`}
+              >
+                TV Playlist <ChevronDown className="size-4" />
+              </button>
+              <button
+                type="button"
+                data-testid="tv-nav-tips"
+                onClick={() => setActiveTab("tips")}
+                className={`flex items-center gap-1 rounded-md px-3 py-1 text-sm whitespace-nowrap outline ${
+                  activeTab === "tips"
+                    ? "bg-black text-white"
+                    : "bg-white text-black outline-black"
+                }`}
+              >
+                Tips <ChevronDown className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={goLive}
+                className={`text-sm whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
+              >
+                Live TV
+              </button>
+              <button
+                type="button"
+                onClick={switchToLocal}
+                className={`text-sm whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
+              >
+                Your TV
+              </button>
+            </div>
+
+            {activeTab === "playlist" && (
+              <div className="relative -mt-1 flex max-h-[75vh] w-full flex-col items-start gap-2 overflow-y-auto p-2 pb-24">
+                <div
+                  className="custom-scrollbar relative max-h-[30vh] w-full space-y-4 overflow-y-auto p-2"
+                  ref={scrollRef}
+                  onScroll={handleScroll}
+                >
+                  <TvPlaylistPreview
+                    layout={playlistLayout}
+                    onSelectChannel={handleSelectChannel}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setIsTvDrawerOpen(true)}
+                    className="mt-2 flex items-center gap-2 text-sm"
+                  >
+                    See full schedule <ArrowUp className="size-4" />
+                  </button>
+                </div>
+
+                <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
+                  <div className="relative h-full w-[2px] bg-gray-200">
+                    <div
+                      className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
+                      style={{
+                        top: `${scrollProgress}%`,
+                        transform: `translate(-50%, -50%)`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "tips" && (
+              <div
+                data-testid="tv-tips-feed"
+                className="-mt-3 max-h-[35vh] w-full space-y-4 overflow-y-auto p-3"
+              >
+                {tipFeed.length === 0 ? (
+                  <p className="text-muted-foreground text-center text-sm">
+                    No tips yet — they will appear here as tippers contribute.
+                  </p>
+                ) : (
+                  tipFeedListEl
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -554,14 +600,14 @@ export function TvInteractiveShell({
         className={
           isDesktop
             ? "fixed bottom-0 left-0 z-50 flex w-full justify-center border-t-4 border-gray-200 bg-white py-2 shadow-lg"
-            : "fixed bottom-16 -ml-4 w-full rounded-tl-2xl rounded-tr-2xl border-4 border-gray-200 bg-white pt-2 pb-0.5 drop-shadow-lg"
+            : "fixed bottom-16 -ml-2 w-full rounded-tl-2xl rounded-tr-2xl border-4 border-gray-200 bg-white pt-2 pb-0.5 drop-shadow-lg"
         }
       >
         <div className={isDesktop ? "w-full max-w-2xl px-4" : "w-full"}>
           <Button
             size="lg"
             onClick={() => setIsTipDrawerOpen(true)}
-            className="relative -mt-2 flex h-10 w-full justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black"
+            className="relative -mt-2 -ml-4 flex h-8 w-full justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black"
           >
             <Image
               src="/icons/love.png"
