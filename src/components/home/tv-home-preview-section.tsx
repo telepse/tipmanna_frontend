@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useMediaQuery } from "react-responsive";
 import { getCharactersForTipping } from "@/actions/characters";
 import { TvLooper } from "@/components/tv/tv-looper";
+import TVProvider from "@/components/tv-provider";
 import type { RoomCharacter } from "@/types";
 
 /**
  * Homepage embed: TV looper + payment animations only (no tip drawer / Stripe).
  * Parent lazy wrapper gates mount via IntersectionObserver (rootMargin 200px).
+ * Local TVProvider scopes schedule/sync to this preview only.
  */
 export default function TvHomePreviewSection() {
   const [characters, setCharacters] = useState<RoomCharacter[] | null>(null);
@@ -36,43 +38,45 @@ export default function TvHomePreviewSection() {
   }
 
   return (
-    <section
-      className="border-border/60 bg-background w-full border-t py-10 md:py-14"
-      aria-labelledby="tv-home-heading"
-    >
-      <div className="mx-auto max-w-6xl px-4 md:px-6">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2
-              id="tv-home-heading"
-              className="text-xl font-semibold tracking-tight md:text-2xl"
+    <TVProvider>
+      <section
+        className="border-border/60 bg-background w-full border-t py-10 md:py-14"
+        aria-labelledby="tv-home-heading"
+      >
+        <div className="mx-auto max-w-6xl px-4 md:px-6">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2
+                id="tv-home-heading"
+                className="text-xl font-semibold tracking-tight md:text-2xl"
+              >
+                Tipmanna TV
+              </h2>
+              <p className="text-muted-foreground mt-1 max-w-xl text-sm">
+                Live scheduled broadcast from events across the platform.
+              </p>
+            </div>
+            <Link
+              href="/tv"
+              className="text-primary shrink-0 text-sm font-medium underline-offset-4 hover:underline"
             >
-              Tipmanna TV
-            </h2>
-            <p className="text-muted-foreground mt-1 max-w-xl text-sm">
-              Live scheduled broadcast from events across the platform.
-            </p>
+              Open full TV experience
+            </Link>
           </div>
-          <Link
-            href="/tv"
-            className="text-primary shrink-0 text-sm font-medium underline-offset-4 hover:underline"
-          >
-            Open full TV experience
-          </Link>
-        </div>
 
-        {characters === null ? (
-          <div className="bg-muted/50 min-h-[200px] w-full animate-pulse rounded-lg md:min-h-[280px]" />
-        ) : (
-          <div className="overflow-hidden rounded-xl border bg-black/5 p-2 md:p-4">
-            <TvLooper
-              characters={characters}
-              playerLayout={isNarrow ? "compact" : "wide"}
-              analyticsSurface="homepage_preview"
-            />
-          </div>
-        )}
-      </div>
-    </section>
+          {characters === null ? (
+            <div className="bg-muted/50 min-h-[200px] w-full animate-pulse rounded-lg md:min-h-[280px]" />
+          ) : (
+            <div className="overflow-hidden rounded-xl border bg-black/5 p-2 md:p-4">
+              <TvLooper
+                characters={characters}
+                playerLayout={isNarrow ? "compact" : "wide"}
+                analyticsSurface="homepage_preview"
+              />
+            </div>
+          )}
+        </div>
+      </section>
+    </TVProvider>
   );
 }

@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { createTipGuard, type TipAnimationEvent } from "@/lib/animation-guard";
 import { animLog } from "@/lib/animationDebug";
 import { logRealtimeTelemetry } from "@/lib/realtime-telemetry";
 import type { Channel } from "pusher-js";
-
-let globalLiveTvRefCount = 0;
-
-const communityLiveTvRefCounts = new Map<string, number>();
 
 /**
  * Pusher channel `community-{id}-tv` for community TV schedule updates.
@@ -17,50 +13,11 @@ const communityLiveTvRefCounts = new Map<string, number>();
 export function acquireCommunityLiveTvChannel(
   communityId: string
 ): Channel | null {
-  const client = getPusherClient();
-  if (!client) {
-    console.error("[Pusher] acquireCommunityLiveTvChannel: client unavailable");
-    return null;
-  }
-  const name = `community-${communityId}-tv`;
-  try {
-    let channel: Channel | null = null;
-    const prev = communityLiveTvRefCounts.get(name) ?? 0;
-    if (prev === 0) {
-      channel = client.subscribe(name);
-    } else {
-      channel = client.channel(name);
-    }
-    if (!channel) {
-      console.error(
-        "[Pusher] acquireCommunityLiveTvChannel: channel missing after subscribe"
-      );
-      return null;
-    }
-    communityLiveTvRefCounts.set(name, prev + 1);
-    return channel;
-  } catch (e) {
-    console.error("[Pusher] acquireCommunityLiveTvChannel failed", e);
-    return null;
-  }
+  return subscribeChannel(`community-${communityId}-tv`);
 }
 
 export function releaseCommunityLiveTvChannel(communityId: string): void {
-  const name = `community-${communityId}-tv`;
-  const prev = communityLiveTvRefCounts.get(name) ?? 0;
-  const next = Math.max(0, prev - 1);
-  if (next === 0) {
-    communityLiveTvRefCounts.delete(name);
-    const client = getPusherClient();
-    if (!client) return;
-    try {
-      client.unsubscribe(name);
-    } catch (e) {
-      console.error("[Pusher] releaseCommunityLiveTvChannel", e);
-    }
-  } else {
-    communityLiveTvRefCounts.set(name, next);
-  }
+  unsubscribeChannel(`community-${communityId}-tv`);
 }
 
 /**
@@ -69,46 +26,11 @@ export function releaseCommunityLiveTvChannel(communityId: string): void {
  * Never throws; returns null if Pusher is unavailable.
  */
 export function acquireGlobalLiveTvChannel(): Channel | null {
-  const client = getPusherClient();
-  if (!client) {
-    console.error("[Pusher] acquireGlobalLiveTvChannel: client unavailable");
-    return null;
-  }
-
-  try {
-    let channel: Channel | null = null;
-    if (globalLiveTvRefCount === 0) {
-      channel = client.subscribe("global-live-tv");
-    } else {
-      channel = client.channel("global-live-tv");
-    }
-
-    if (!channel) {
-      console.error(
-        "[Pusher] acquireGlobalLiveTvChannel: channel missing after subscribe"
-      );
-      return null;
-    }
-
-    globalLiveTvRefCount++;
-    return channel;
-  } catch (e) {
-    console.error("[Pusher] acquireGlobalLiveTvChannel failed", e);
-    return null;
-  }
+  return subscribeChannel("global-live-tv");
 }
 
 export function releaseGlobalLiveTvChannel(): void {
-  globalLiveTvRefCount = Math.max(0, globalLiveTvRefCount - 1);
-  if (globalLiveTvRefCount === 0) {
-    const client = getPusherClient();
-    if (!client) return;
-    try {
-      client.unsubscribe("global-live-tv");
-    } catch (e) {
-      console.error("[Pusher] releaseGlobalLiveTvChannel", e);
-    }
-  }
+  unsubscribeChannel("global-live-tv");
 }
 
 export interface UseGlobalTipStreamOptions {

@@ -9,7 +9,7 @@ import {
   trackVideoFeatureCardEvent,
 } from "@/lib/tvAnalytics";
 import { cn } from "@/lib/utils";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 
 export type FeatureCardPayload = {
   id: string;
@@ -181,13 +181,11 @@ export function VideoFeatureCardBanner({
 
   useEffect(() => {
     if (!videoRequestsClientEnabled || !surfaceChannelId.trim()) return;
-    const client = getPusherClient();
-    if (!client) return;
-
     const targetChannelName = `video-card-target-${surfaceChannelId}`;
     const globalChannelName = "video-card-global";
-    const targetChannel = client.subscribe(targetChannelName);
-    const globalChannel = client.subscribe(globalChannelName);
+    const targetChannel = subscribeChannel(targetChannelName);
+    const globalChannel = subscribeChannel(globalChannelName);
+    if (!targetChannel || !globalChannel) return;
 
     const onFeatureCardUpdate = () => {
       void refetchActiveCards();
@@ -199,8 +197,8 @@ export function VideoFeatureCardBanner({
     return () => {
       targetChannel.unbind("feature-card-update", onFeatureCardUpdate);
       globalChannel.unbind("feature-card-update", onFeatureCardUpdate);
-      client.unsubscribe(targetChannelName);
-      client.unsubscribe(globalChannelName);
+      unsubscribeChannel(targetChannelName);
+      unsubscribeChannel(globalChannelName);
     };
   }, [surfaceChannelId, refetchActiveCards]);
 

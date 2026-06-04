@@ -41,7 +41,7 @@ import { performAuthLogout } from "@/lib/auth-logout";
 // Local imports + notifications
 import { RootState, type AppDispatch } from "@/redux/store";
 import { Logo } from "@/components/shared/logo";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel";
 import { getNotificationsUnreadCountAction } from "@/actions/notifications";
 import { cn } from "@/lib/utils";
 
@@ -78,19 +78,9 @@ export function AppSidebar({ numOfEvents }: Props) {
 
     void refreshUnread();
 
-    const client = getPusherClient();
-    if (!client) return () => {};
-
-    const chName = `community-host-${hostId}`;
-    const channel = client.subscribe(chName);
-    channel.bind("in-app-notification", () => {
+    return subscribeHostInAppNotifications(hostId, () => {
       void refreshUnread();
     });
-
-    return () => {
-      channel.unbind_all();
-      client.unsubscribe(chName);
-    };
   }, [role, user]);
 
   if (!user) {

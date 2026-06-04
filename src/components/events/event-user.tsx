@@ -37,7 +37,7 @@ import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
 
 import { ApiError } from "@/types/api-error.types";
 import { Paragraph } from "../shared/paragraph";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { subscribeToPayments } from "@/lib/paymentEvents";
 
 interface Props {
@@ -189,10 +189,10 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
   useEffect(() => {
     if (!userId) return;
 
-    const client = getPusherClient();
-    if (!client) return;
+    const channelName = `event-${eventId}`;
+    const channel = subscribeChannel(channelName);
+    if (!channel) return;
 
-    const channel = client.subscribe(`event-${eventId}`);
     const eventName = `user-${userId}-amount-updated`;
 
     const handler = (data: { userTipped: number }) => {
@@ -203,6 +203,7 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
 
     return () => {
       channel.unbind(eventName, handler);
+      unsubscribeChannel(channelName);
     };
   }, [eventId, userId]);
 

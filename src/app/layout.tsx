@@ -6,6 +6,7 @@ import {
 } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
+import type { Viewport } from "next";
 
 // Third-party imports
 import Providers from "@/app/providers";
@@ -14,7 +15,6 @@ import { ToastContainer } from "react-toastify";
 // Local imports
 import { Analytics } from "@/components/analytics";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
-import TVProvider from "@/components/tv-provider";
 import { VideoNativeMobileGuard } from "@/components/video-native-mobile-guard";
 
 const racingSansOne = Racing_Sans_One({
@@ -49,6 +49,9 @@ export const metadata = {
     apple: "/icons/icon-192.png",
   },
   manifest: "/manifest.webmanifest",
+};
+
+export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
@@ -97,13 +100,6 @@ export default function RootLayout({
       <body
         className={`${racingSansOne.variable} ${openSans.variable} ${montserrat.variable} ${bricolage.className} antialiased`}
       >
-        {exploreYtPreload ? (
-          <Script
-            id="youtube-iframe-api"
-            src="https://www.youtube.com/iframe_api"
-            strategy="beforeInteractive"
-          />
-        ) : null}
         <Script
           src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2"
           strategy="lazyOnload"
@@ -129,7 +125,7 @@ export default function RootLayout({
           <ServiceWorkerRegistrar />
           <Analytics />
 
-          <TVProvider>{children}</TVProvider>
+          {children}
         </Providers>
       </body>
     </html>

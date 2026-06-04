@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 
 type NewMessagePayload = {
   id?: string;
@@ -33,11 +33,9 @@ export function useCommentDrawerRealtime({
 }: Props) {
   useEffect(() => {
     if (!enabled || !eventId?.trim()) return;
-    const pusher = getPusherClient();
-    if (!pusher) return;
-
     const channelName = `event-${eventId.trim()}`;
-    const channel = pusher.subscribe(channelName);
+    const channel = subscribeChannel(channelName);
+    if (!channel) return;
 
     const handler = (data: NewMessagePayload) => {
       if (!data?.secondaryText?.trim()) return;
@@ -60,7 +58,7 @@ export function useCommentDrawerRealtime({
 
     return () => {
       channel.unbind("new-message", handler);
-      pusher.unsubscribe(channelName);
+      unsubscribeChannel(channelName);
     };
   }, [enabled, eventId, channelId, onNewComment]);
 }

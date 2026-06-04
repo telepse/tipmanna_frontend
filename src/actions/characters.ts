@@ -1,10 +1,11 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
+import { unwrapPaginatedList } from "@/lib/unwrap-paginated-list";
 
 export async function getCharactersForTipping() {
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/characters/for-tipping`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/characters/for-tipping?limit=100`,
     {
       method: "GET",
       headers: {
@@ -12,13 +13,14 @@ export async function getCharactersForTipping() {
       },
       cache: "no-store",
     },
-    "getCharactersForTipping"
+    "getCharactersForTipping",
+    unwrapPaginatedList
   );
 }
 
 export async function getAllCharacterSets() {
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/characters/sets`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/characters/sets?limit=100`,
     {
       method: "GET",
       headers: {
@@ -26,6 +28,7 @@ export async function getAllCharacterSets() {
       },
       cache: "no-store",
     },
-    "getAllCharacterSets"
+    "getAllCharacterSets",
+    unwrapPaginatedList
   );
 }

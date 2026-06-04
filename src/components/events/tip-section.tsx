@@ -18,7 +18,11 @@ import { useAppRouter } from "@/components/navigation/navigation-progress-provid
 import { setSelectedTips } from "@/features/tip-slice";
 import { startPreview, stopPreview } from "@/lib/previewController";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
-import { computeTipRewardEligibility } from "@/lib/tip-reward-eligibility";
+import {
+  computeTipRewardEligibility,
+  GALAXY_MIN_AMOUNT_GBP,
+  TURBO_MIN_DISTINCT_STYLES,
+} from "@/lib/tip-reward-eligibility";
 import { TipRewardMeter } from "@/components/events/tip-reward-meter";
 import {
   Dialog,
@@ -40,6 +44,9 @@ import {
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
 import type { TipQuoteContext } from "@/hooks/use-tip-presentation";
 import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
+import { cn } from "@/lib/utils";
+import { TippingElementsProvider } from "../payments/tipping-elements-provider";
+import { RoomCharacter } from "@/types";
 
 interface Props {
   eventId: string;
@@ -75,7 +82,7 @@ export const TipSection = ({
   payLabel,
   tipQuoteContext,
 }: Props) => {
-  const sectionCta = sectionCtaLabel?.trim() || "Engage";
+  const sectionCta = "Engage";
   const [openDrawer, setOpenDrawer] = useState(false);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [openWalletAfterPerformer, setOpenWalletAfterPerformer] =
@@ -326,16 +333,49 @@ export const TipSection = ({
     }
   };
 
+  const { distinctStyleCount, totalGbp, rewardTurbo, rewardGalaxy } =
+    rewardEligibility;
+
+  const styleProgress = Math.min(
+    1,
+    distinctStyleCount / TURBO_MIN_DISTINCT_STYLES
+  );
+  const amountProgress = Math.min(1, totalGbp / GALAXY_MIN_AMOUNT_GBP);
+
   return (
-    <div className="space-y-2 bg-white">
+    <div className="space-y-2">
       {/* Payment options */}
-      <div className="relative z-20 flex flex-col items-center justify-between gap-2 rounded-tl-2xl rounded-tr-2xl border p-1">
-        <div className="flex flex-wrap items-center justify-center gap-2">
+      <div className="relative z-20 grid items-center justify-between gap-2 rounded-tl-2xl rounded-tr-2xl border p-1">
+        <div className="grid grid-cols-12 items-center justify-center gap-4">
+          {/* Turbo Reward */}
+          <div className="col-span-3 lg:col-span-5 space-y-1">
+            <div className="flex justify-between text-[10px] sm:text-[11px]">
+              <span>Turbo ({TURBO_MIN_DISTINCT_STYLES} <span className="hidden lg:inline-block">styles</span>)</span>
+              <span
+                className={cn(rewardTurbo ? "text-success font-semibold " : "", "hidden lg:inline-block")}
+              >
+                {rewardTurbo
+                  ? "Unlocked"
+                  : `${distinctStyleCount}/${TURBO_MIN_DISTINCT_STYLES}`}
+              </span>
+            </div>
+            <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-300",
+                  rewardTurbo ? "bg-success" : "bg-moonstone-blue"
+                )}
+                style={{ width: `${styleProgress * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Engage button */}
           <Button
             size="lg"
             onClick={handleOpenDrawer}
             disabled={paymentCompleted || stripeLoading || isOpeningDrawer}
-            className="relative -mt-1 mb-2 flex h-6 w-fit justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black"
+            className="relative col-span-6 lg:col-span-2 mb-2 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black"
           >
             <ChevronsUp className="text-primary" /> {sectionCta}{" "}
             <ChevronsUp className="text-primary" />
@@ -355,12 +395,30 @@ export const TipSection = ({
               Edit message
             </button>
           )}
-        </div>
 
-        <TipRewardMeter
-          eligibility={rewardEligibility}
-          className="w-full px-1"
-        />
+          {/* Reward galaxy */}
+          <div className="lg:col-span-5 col-span-3 space-y-1">
+            <div className="flex justify-between text-[10px] sm:text-[11px]">
+              <span>Galaxy (£{GALAXY_MIN_AMOUNT_GBP}+)</span>
+              <span
+                className={cn(rewardGalaxy ? "text-success font-semibold" : "", "hidden lg:inline-block")}
+              >
+                {rewardGalaxy
+                  ? "Unlocked"
+                  : `£${totalGbp.toFixed(0)}/£${GALAXY_MIN_AMOUNT_GBP}`}
+              </span>
+            </div>
+            <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-300",
+                  rewardGalaxy ? "bg-success" : "bg-moonstone-blue/80"
+                )}
+                style={{ width: `${amountProgress * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
 
         <div className="scrollbar-none custom-scrollbar relative w-full overflow-x-auto">
           <div
@@ -484,7 +542,12 @@ export const TipSection = ({
         </div>
       </div>
 
+
       {/* Tip drawer */}
+      <TippingElementsProvider
+          tippingCharacters={tippingCharacters as RoomCharacter[]}
+          enabled
+        >
       <TipDrawer
         open={openDrawer}
         onOpenChange={setOpenDrawer}
@@ -503,7 +566,7 @@ export const TipSection = ({
         textTipUnitPrice={textTipUnitPrice}
         payLabel={payLabel}
         tipQuoteContext={tipQuoteContext}
-      />
+      /></TippingElementsProvider>
 
       {/* 👈 ADDED: Performer Selection Modal */}
       <Dialog

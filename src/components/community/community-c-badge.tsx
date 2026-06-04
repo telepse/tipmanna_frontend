@@ -28,8 +28,8 @@ export function CommunityCBadge({
       href={`/explore?tab=join&joinCommunity=${encodeURIComponent(community.id)}`}
       title={community.name}
       className={cn(
-        "group absolute top-3 z-[55] flex h-9 w-9 items-center justify-center rounded-full",
-        "bg-gradient-to-br from-violet-600/95 to-fuchsia-600/95 text-sm font-black text-white shadow-lg",
+        "group absolute top-12 z-[55] flex size-7 items-center justify-center rounded-full",
+        "from-moonstone-blue bg-gradient-to-br to-white/90 text-sm font-black text-white shadow-lg",
         "ring-2 ring-white/25 transition hover:scale-105 hover:ring-white/50",
         "pointer-events-auto",
         pos,

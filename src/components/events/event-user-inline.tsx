@@ -8,7 +8,7 @@ import { BellPlus, Contact } from "lucide-react";
 
 import { RootState } from "@/redux/store";
 import { store } from "@/redux/store";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { subscribeToPayments } from "@/lib/paymentEvents";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 
@@ -44,10 +44,10 @@ export const EventUserInline = ({ iTipped, eventId }: Props) => {
   useEffect(() => {
     if (!userId) return;
 
-    const client = getPusherClient();
-    if (!client) return;
+    const channelName = `event-${eventId}`;
+    const channel = subscribeChannel(channelName);
+    if (!channel) return;
 
-    const channel = client.subscribe(`event-${eventId}`);
     const eventName = `user-${userId}-amount-updated`;
 
     const handler = (data: { userTipped: number }) => {
@@ -58,6 +58,7 @@ export const EventUserInline = ({ iTipped, eventId }: Props) => {
 
     return () => {
       channel.unbind(eventName, handler);
+      unsubscribeChannel(channelName);
     };
   }, [eventId, userId]);
 

@@ -1,16 +1,20 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
 import { getAllEventChannels } from "@/actions/events";
-import { TVExpressButtons } from "@/components/tv/tv-express-buttons";
 import TVFullscreen from "@/components/tv/tv-fullscreen";
 import TVPageShell from "@/components/tv/tv-page-shell";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { Metadata } from "next";
 import { Suspense } from "react";
 import { getPublicFrontendOrigin } from "@/lib/site-config";
+
+type EventChannelListItem = {
+  url?: string;
+  title?: string;
+  event: { eventBackground: string };
+};
 
 interface Props {
   searchParams: Promise<{ videoId?: string }>;
@@ -25,8 +29,9 @@ export async function generateMetadata({
 }: Props): Promise<Metadata> {
   const { videoId } = await searchParams;
   const { data: channels } = await getAllEventChannels();
-  const currentChannel = (channels as any[]).find(
-    (ch: { url: string }) => extractYoutubeID(ch.url) === videoId
+  const channelList = (channels ?? []) as EventChannelListItem[];
+  const currentChannel = channelList.find(
+    ch => ch.url && extractYoutubeID(ch.url) === videoId
   );
 
   if (!currentChannel) return { title: "Tipmanna TV" };
@@ -78,8 +83,9 @@ export default async function TVPage({
       getAllCharacterSets(),
     ]);
 
-  const currentChannel = (channels as any[])?.find(
-    (ch: { url: string }) => extractYoutubeID(ch.url) === videoId
+  const channelList = (channels ?? []) as EventChannelListItem[];
+  const currentChannel = channelList.find(
+    ch => ch.url && extractYoutubeID(ch.url) === videoId
   );
 
   if (currentChannel && videoId) {
@@ -102,14 +108,12 @@ export default async function TVPage({
           }
         >
           <TVPageShell
-            channels={channels as any[]}
-            characters={characters as any[]}
-            characterSets={characterSets as any[]}
+            channels={channelList}
+            characters={characters ?? []}
+            characterSets={characterSets ?? []}
           />
         </Suspense>
       </section>
-
-      <TVExpressButtons />
     </>
   );
 }

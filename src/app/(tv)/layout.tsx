@@ -1,22 +1,25 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { useEffect, useState } from "react";
+
+// Local imports
 import { getAllEventChannels } from "@/actions/events";
 import { TVNavbar } from "@/components/tv/tv-navbar";
 import { usePusherTrackingGlobalTV } from "@/hooks/use-global-viewer-count";
 import { UserInfo } from "@/types/tracking.types";
-import { useEffect, useState } from "react";
 import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
 import { TvDeviceSessionBootstrap } from "@/components/tv/tv-device-session-bootstrap";
+import TVProvider from "@/components/tv-provider";
+import { TVExpressButtons } from "@/components/tv/tv-express-buttons";
 
 export default function TVLayout({ children }: { children: React.ReactNode }) {
-  const [, setContents] = useState<any[]>([]);
+  const [, setContents] = useState<unknown[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       const { data: _contents } = await getAllEventChannels();
 
-      setContents(_contents as any[]);
+      setContents(Array.isArray(_contents) ? _contents : []);
     };
 
     fetchData();
@@ -39,16 +42,19 @@ export default function TVLayout({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <>
-      <TVNavbar active_users={activeUsers.length} />
-
+    <TVProvider>
       <>
-        <TvDeviceSessionBootstrap />
+        <TVNavbar active_users={activeUsers.length} />
+        <TVExpressButtons />
 
-        <main className="grid grid-cols-12 gap-8">
-          <div className="col-span-full">{children}</div>
-        </main>
+        <>
+          <TvDeviceSessionBootstrap />
+
+          <main className="grid grid-cols-12 gap-8">
+            <div className="col-span-full">{children}</div>
+          </main>
+        </>
       </>
-    </>
+    </TVProvider>
   );
 }

@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
@@ -45,7 +46,13 @@ import VideoPlayer, { VideoPlayerRef } from "./video-player";
 import { CommunityCBadge } from "@/components/community/community-c-badge";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
-import { TipDrawer } from "./tip-drawer";
+const TipDrawer = dynamic(
+  () =>
+    import("./tip-drawer").then(m => ({
+      default: m.TipDrawer,
+    })),
+  { ssr: false }
+);
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { ProfileDrawer } from "../tv/profile-drawer";
 import { CreateDialog } from "../home/create-dialog";
@@ -602,6 +609,8 @@ export const ContentClient = ({
   const [tipsListOpen, setTipsListOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [shareTitle, setShareTitle] = useState("");
+
+  const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
 
   const channelIdForShare = currentContent?.id ? String(currentContent.id) : "";
 
@@ -1271,6 +1280,8 @@ export const ContentClient = ({
             </TippingElementsProvider>
           )}
 
+          
+
           <div className="flex items-center gap-4">
             <Link
               href="/tv"
@@ -1386,24 +1397,28 @@ export const ContentClient = ({
       </div>
 
       {/* Tip drawer section - LAPTOP */}
-      <TippingElementsProvider tippingCharacters={tipStrip as RoomCharacter[]}>
-        <TipDrawer
-          open={isTipDrawerOpen}
-          onOpenChange={setIsTipDrawerOpen}
-          eventId={eventId}
+      {tipDrawerStripeMounted ? (
+        <TippingElementsProvider
           tippingCharacters={tipStrip as RoomCharacter[]}
-          characterSets={tipSets}
-          paymentSurface="content_client"
-          paymentChannelId={paymentChannelIdForTip}
-          getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
-          getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
-          stackAboveImmersive={isFullView && isMobile}
-          openWalletModalNonce={openWalletModalNonce}
-          textTipUnitPrice={tipPres.textUnitPrice}
-          payLabel={tipPres.payLabel}
-          tipQuoteContext={tipPres.quoteCtx}
-        />
-      </TippingElementsProvider>
+        >
+          <TipDrawer
+            open={isTipDrawerOpen}
+            onOpenChange={setIsTipDrawerOpen}
+            eventId={eventId}
+            tippingCharacters={tipStrip as RoomCharacter[]}
+            characterSets={tipSets}
+            paymentSurface="content_client"
+            paymentChannelId={paymentChannelIdForTip}
+            getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
+            getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
+            stackAboveImmersive={isFullView && isMobile}
+            openWalletModalNonce={openWalletModalNonce}
+            textTipUnitPrice={tipPres.textUnitPrice}
+            payLabel={tipPres.payLabel}
+            tipQuoteContext={tipPres.quoteCtx}
+          />
+        </TippingElementsProvider>
+      ) : null}
 
       {/* Scrubber - MOBILE */}
       <div

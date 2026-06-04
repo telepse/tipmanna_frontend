@@ -17,6 +17,7 @@ import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { logTV } from "@/lib/tvDebugLog";
 import {
   initTvAnalyticsRuntime,
+  shutdownTvAnalyticsRuntime,
   trackTvModeChange,
   trackTvUserInteraction,
 } from "@/lib/tvAnalytics";
@@ -646,6 +647,7 @@ export default function GlobalTVProvider({
 
   useEffect(() => {
     initTvAnalyticsRuntime();
+    return () => shutdownTvAnalyticsRuntime();
   }, []);
 
   useEffect(() => {

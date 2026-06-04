@@ -29,6 +29,7 @@ import {
 } from "@/lib/youtube-iframe-presentation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { onYoutubeIframeApiReady } from "@/lib/youtube-iframe-api-loader";
 
 const REEL_SOUND_SESSION_KEY = "tipmanna_yt_explore_sound_on";
 
@@ -473,19 +474,12 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       if (window.YT?.Player) {
         init();
       } else {
-        const exploreYtGlobal =
-          process.env.NEXT_PUBLIC_EXPLORE_YT_PRELOAD === "true" ||
-          process.env.NEXT_PUBLIC_EXPLORE_YT_PRELOAD === "1";
-        if (
-          !exploreYtGlobal &&
-          !document.getElementById("youtube-iframe-api")
-        ) {
-          const tag = document.createElement("script");
-          tag.id = "youtube-iframe-api";
-          tag.src = "https://www.youtube.com/iframe_api";
-          document.body.appendChild(tag);
-        }
-        window.onYouTubeIframeAPIReady = init;
+        const offReady = onYoutubeIframeApiReady(init);
+        return () => {
+          alive = false;
+          cancelAnimationFrame(raf);
+          offReady();
+        };
       }
 
       return () => {

@@ -1,6 +1,7 @@
-import Pusher from "pusher-js";
+import Pusher, { type Channel } from "pusher-js";
 
 let pusherSingleton: Pusher | null = null;
+const channelRefCounts = new Map<string, number>();
 
 /**
  * Lazy Pusher client (browser only). Returns null if env is missing or init fails.
@@ -40,6 +41,53 @@ export function getPusherClient(): Pusher | null {
   }
 
   return pusherSingleton;
+}
+
+/**
+ * Ref-counted channel subscribe. Returns the shared channel instance or null.
+ */
+export function subscribeChannel(channelName: string): Channel | null {
+  const client = getPusherClient();
+  if (!client || !channelName) return null;
+
+  try {
+    const prev = channelRefCounts.get(channelName) ?? 0;
+    let channel: Channel | null = null;
+
+    if (prev === 0) {
+      channel = client.subscribe(channelName);
+    } else {
+      channel = client.channel(channelName);
+    }
+
+    if (!channel) return null;
+    channelRefCounts.set(channelName, prev + 1);
+    return channel;
+  } catch (e) {
+    console.error("[Pusher] subscribeChannel failed", channelName, e);
+    return null;
+  }
+}
+
+/** Release a ref-counted channel subscription; unsubscribes when count hits zero. */
+export function unsubscribeChannel(channelName: string): void {
+  if (!channelName) return;
+
+  const prev = channelRefCounts.get(channelName) ?? 0;
+  const next = Math.max(0, prev - 1);
+
+  if (next === 0) {
+    channelRefCounts.delete(channelName);
+    const client = getPusherClient();
+    if (!client) return;
+    try {
+      client.unsubscribe(channelName);
+    } catch (e) {
+      console.error("[Pusher] unsubscribeChannel failed", channelName, e);
+    }
+  } else {
+    channelRefCounts.set(channelName, next);
+  }
 }
 
 function nudgePusherReconnectIfNeeded(): void {

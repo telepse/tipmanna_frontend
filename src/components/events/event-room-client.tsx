@@ -394,6 +394,10 @@ export const EventRoomClient = ({
   };
 
   const [enableStripe, setEnableStripe] = useState(false);
+
+  useEffect(() => {
+    if (openDrawer) setEnableStripe(true);
+  }, [openDrawer]);
   const footerAnchorRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {

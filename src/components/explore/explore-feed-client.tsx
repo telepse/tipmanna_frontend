@@ -13,6 +13,7 @@ import {
   type MutableRefObject,
   type RefObject,
 } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MessageCircle, Plus, Volume2, VolumeX } from "lucide-react";
@@ -40,7 +41,6 @@ import VideoPlayer, {
   loadReelSoundPref,
 } from "@/components/events/video-player";
 import { CommunityCBadge } from "@/components/community/community-c-badge";
-import { TipDrawer } from "@/components/events/tip-drawer";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
@@ -55,6 +55,7 @@ import type { RoomCharacter } from "@/types";
 import {
   flushTvAnalytics,
   initTvAnalyticsRuntime,
+  shutdownTvAnalyticsRuntime,
   setTvAnalyticsContext,
   trackTvVideoComplete,
   trackTvVideoEnd,
@@ -86,6 +87,14 @@ import { buildChannelShareUrl } from "@/lib/public-video-url";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import { isYoutubeShortsUrl } from "@/lib/youtube-immersive-meta";
 
+const TipDrawer = dynamic(
+  () =>
+    import("@/components/events/tip-drawer").then(m => ({
+      default: m.TipDrawer,
+    })),
+  { ssr: false }
+);
+
 /**
  * Fixed slide height for snap scrolling. Explore stacks multiple chrome rows
  * (main header + tab strip + feed sub-toolbar); ~7.5rem keeps the stage aligned
@@ -111,8 +120,8 @@ const EXPLORE_FEED_PAGE_COUNT = 6;
 /** Start loading before the last clip (stable scroll). */
 const EXPLORE_NEAR_END_SLOTS = 3;
 /** Mount players for previous slide + next N so clips buffer before scroll. */
-const EXPLORE_PRELOAD_BEHIND = 1;
-const EXPLORE_PRELOAD_AHEAD = 2;
+const EXPLORE_PRELOAD_BEHIND = 0;
+const EXPLORE_PRELOAD_AHEAD = 1;
 
 function youtubePosterUrl(videoUrl: string): string | null {
   const id = extractYoutubeID(videoUrl);
@@ -242,18 +251,33 @@ function ExploreFeedSlideVideo({
       setDwellOk(true);
       return undefined;
     }
-    const tid = window.setTimeout(() => setDwellOk(true), 120);
+    const tid = window.setTimeout(() => setDwellOk(true), 400);
     return () => window.clearTimeout(tid);
   }, [inPreloadBand, slideIndex, activeIndex]);
 
   const [engageUnlocked, setEngageUnlocked] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [pauseFlash, setPauseFlash] = useState<"play" | "pause" | null>(null);
+  const pauseFlashTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     setIsPaused(false);
     setEngageUnlocked(false);
+    if (pauseFlashTimeoutRef.current) {
+      clearTimeout(pauseFlashTimeoutRef.current);
+      pauseFlashTimeoutRef.current = null;
+    }
+    setPauseFlash(null);
   }, [activeIndex]);
+
+  useEffect(() => {
+    return () => {
+      if (pauseFlashTimeoutRef.current) {
+        clearTimeout(pauseFlashTimeoutRef.current);
+        pauseFlashTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const showPlayerMount =
     slideIndex === activeIndex || (inPreloadBand && dwellOk);
@@ -282,7 +306,13 @@ function ExploreFeedSlideVideo({
       setIsPaused(true);
       setPauseFlash("pause");
     }
-    window.setTimeout(() => setPauseFlash(null), 450);
+    if (pauseFlashTimeoutRef.current) {
+      clearTimeout(pauseFlashTimeoutRef.current);
+    }
+    pauseFlashTimeoutRef.current = window.setTimeout(() => {
+      pauseFlashTimeoutRef.current = null;
+      setPauseFlash(null);
+    }, 450);
   };
 
   return (
@@ -1580,6 +1610,7 @@ export const ExploreFeedClient = forwardRef<
 
       <TippingElementsProvider
         tippingCharacters={characters as RoomCharacter[]}
+        enabled={isTipDrawerOpen}
       >
         <TipDrawer
           open={isTipDrawerOpen}

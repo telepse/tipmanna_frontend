@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { animLog } from "@/lib/animationDebug";
 
 export type EventScreenSettingsState = {
@@ -28,10 +28,9 @@ export function useEventScreenSettings(
   useEffect(() => {
     if (!eventId) return;
 
-    const client = getPusherClient();
-    if (!client) return;
-
-    const privateChannel = client.subscribe(`private-event-${eventId}`);
+    const channelName = `private-event-${eventId}`;
+    const privateChannel = subscribeChannel(channelName);
+    if (!privateChannel) return;
 
     const handler = (data: {
       eventBackground: string;
@@ -54,7 +53,7 @@ export function useEventScreenSettings(
 
     return () => {
       privateChannel.unbind("screen-settings-updated", handler);
-      client.unsubscribe(`private-event-${eventId}`);
+      unsubscribeChannel(channelName);
     };
   }, [eventId]);
 

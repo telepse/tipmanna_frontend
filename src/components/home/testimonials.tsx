@@ -61,7 +61,7 @@ export default function Testimonials({ testimonials }: Props) {
         }}
         className="mt-6 w-full"
       >
-        {testimonials.map((testimonial: Testimonial, index) => (
+        {testimonials?.map((testimonial: Testimonial, index) => (
           <SwiperSlide key={index}>
             <div className="testimonial-slide section relative flex-row items-start p-0">
               <div className="relative size-14 shrink-0">
