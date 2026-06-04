@@ -60,11 +60,11 @@ export const TVExpressButtons = () => {
   const isTVActive = isCreateDrawerOpen || isProfileDrawerOpen;
 
   return (
-    <div className="fixed bottom-0 z-[1000] w-full sm:hidden">
-      <div className="-mt-1 flex w-full items-center justify-between gap-2 border-t border-black/20 bg-white/80 px-8 py-2">
+    <div className="fixed top-10 right-0 left-0 z-[1000] flex w-full items-center justify-center border-t border-gray-200 bg-white px-0 py-2 sm:hidden">
+      <div className="-mt-2 grid w-full grid-cols-4 border-b border-black/20 bg-white/80 px-2">
         <Link
           href="/tv"
-          className="inline-flex"
+          className="flex items-center justify-center border border-black/20"
         >
           <Tv
             className={`size-5 ${isTVActive ? "" : "text-primary"}`}
@@ -81,6 +81,7 @@ export const TVExpressButtons = () => {
             setIsProfileDrawerOpen(false);
             router.push("/explore");
           }}
+          className="flex items-center justify-center border border-black/20"
         >
           <Search
             className="size-5"
@@ -88,23 +89,25 @@ export const TVExpressButtons = () => {
           />
         </button>
 
-        <button
-          type="button"
-          className="rounded-full bg-black/20 p-1"
-          onClick={() => {
-            setIsProfileDrawerOpen(false);
-            setIsCreateDrawerOpen(true);
-          }}
-        >
-          <Plus
-            className={`size- ${isCreateDrawerOpen ? "text-primary" : ""}`}
-            strokeWidth={isCreateDrawerOpen ? 3.75 : 2}
-          />
-        </button>
+        <div className="flex items-center justify-center border border-black/20 p-1">
+          <button
+            type="button"
+            className="rounded-full bg-black/20 p-1"
+            onClick={() => {
+              setIsProfileDrawerOpen(false);
+              setIsCreateDrawerOpen(true);
+            }}
+          >
+            <Plus
+              className={`? "text-primary" : ""} size-4`}
+              strokeWidth={isCreateDrawerOpen ? 3.75 : 2}
+            />
+          </button>
+        </div>
 
         <button
           type="button"
-          className="relative"
+          className="relative flex items-center justify-center border border-black/20"
           onClick={() => {
             setIsCreateDrawerOpen(false);
             setIsProfileDrawerOpen(true);
@@ -116,7 +119,7 @@ export const TVExpressButtons = () => {
           />
           <NotificationBadge
             variant="dot"
-            className="-top-0.5 -right-0.5"
+            className="-top-0.5 right-6"
           />
         </button>
       </div>

@@ -194,7 +194,23 @@ function WalletTopupStripeTree({
   onConfirmError: (message: string) => void;
   onBeforeStripeWalletRedirect?: () => void;
 }) {
-  const stripePromise = getStripeBrowserPromise();
+  const [stripePromise, setStripePromise] = useState<ReturnType<
+    typeof getStripeBrowserPromise
+  > | null>(null);
+
+  useEffect(() => {
+    if (!clientSecret) {
+      setStripePromise(null);
+      return;
+    }
+    let cancelled = false;
+    void getStripeBrowserPromise().then(p => {
+      if (!cancelled) setStripePromise(Promise.resolve(p));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientSecret]);
   const options = useMemo(
     () => ({
       clientSecret,
@@ -206,6 +222,10 @@ function WalletTopupStripeTree({
     }),
     [clientSecret]
   );
+
+  if (!stripePromise) {
+    return null;
+  }
 
   return (
     <Elements

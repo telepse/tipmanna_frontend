@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
   Elements,
@@ -106,7 +106,23 @@ export function CommunitySubscribeSection({
   const [walletLoading, setWalletLoading] = useState(false);
 
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
-  const stripePromise = useMemo(() => getStripeBrowserPromise(), []);
+  const [stripePromise, setStripePromise] = useState<ReturnType<
+    typeof getStripeBrowserPromise
+  > | null>(null);
+
+  useEffect(() => {
+    if (!clientSecret) {
+      setStripePromise(null);
+      return;
+    }
+    let cancelled = false;
+    void getStripeBrowserPromise().then(p => {
+      if (!cancelled) setStripePromise(Promise.resolve(p));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientSecret]);
 
   const startStripe = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -211,7 +227,7 @@ export function CommunitySubscribeSection({
             "Pay with card (Stripe)"
           )}
         </Button>
-      ) : (
+      ) : stripePromise ? (
         <Elements
           stripe={stripePromise}
           options={{ clientSecret, appearance: { theme: "stripe" } }}
@@ -221,6 +237,11 @@ export function CommunitySubscribeSection({
             onSuccess={() => onSubscriptionChange()}
           />
         </Elements>
+      ) : (
+        <div className="text-muted-foreground flex items-center justify-center py-6 text-sm">
+          <Loader2 className="mr-2 size-4 animate-spin" />
+          Loading payment…
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
 import type { ActiveTipConfigResponse } from "@/lib/tip-config-types";
 
@@ -57,11 +57,9 @@ export function useTipConfig(eventId: string | undefined): TipConfigHookState {
   useEffect(() => {
     if (!eventId || !isTipCustomizationEnabled()) return;
 
-    const client = getPusherClient();
-    if (!client) return;
-
     const channelName = `tip-config-${eventId}`;
-    const channel = client.subscribe(channelName);
+    const channel = subscribeChannel(channelName);
+    if (!channel) return;
 
     const onPublish = (data: { etag?: string }) => {
       if (typeof data?.etag === "string" && data.etag === etagRef.current) {
@@ -74,11 +72,7 @@ export function useTipConfig(eventId: string | undefined): TipConfigHookState {
 
     return () => {
       channel.unbind("config.published", onPublish);
-      try {
-        client.unsubscribe(channelName);
-      } catch {
-        /* ignore */
-      }
+      unsubscribeChannel(channelName);
     };
   }, [eventId, fetchConfig]);
 

@@ -2,9 +2,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { ChevronsUp, Radio, RefreshCw } from "lucide-react";
 
-import { TipDrawer } from "@/components/events/tip-drawer";
+const TipDrawer = dynamic(
+  () =>
+    import("@/components/events/tip-drawer").then(m => ({
+      default: m.TipDrawer,
+    })),
+  { ssr: false }
+);
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -425,6 +432,7 @@ export function ExploreTvScheduleFeed({
 
       <TippingElementsProvider
         tippingCharacters={characters as RoomCharacter[]}
+        enabled={tipDrawerOpen}
       >
         <TipDrawer
           open={tipDrawerOpen}

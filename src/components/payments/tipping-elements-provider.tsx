@@ -1,7 +1,7 @@
 "use client";
 
 import { Elements } from "@stripe/react-stripe-js";
-import type { StripeElementsOptions } from "@stripe/stripe-js";
+import type { Stripe, StripeElementsOptions } from "@stripe/stripe-js";
 import { useDeferredValue, useMemo, type ReactNode } from "react";
 import { useSelector } from "react-redux";
 
@@ -23,16 +23,25 @@ function totalFromSelection(
 type Props = {
   tippingCharacters: RoomCharacter[];
   children: ReactNode;
+  /** When false, Stripe.js is not loaded and children render without Elements. */
+  enabled?: boolean;
 };
 
 /**
  * Single Elements tree with deferred amount updates (reduces Elements thrash while selecting tips).
+ * Stripe loads only when `enabled` is true (e.g. tip drawer open).
  */
 export function TippingElementsProvider({
   tippingCharacters,
   children,
+  enabled = true,
 }: Props) {
   const { selectedTips } = useSelector((state: RootState) => state.tip);
+
+  const stripePromise = useMemo<Promise<Stripe | null> | null>(() => {
+    if (!enabled) return null;
+    return getStripeBrowserPromise();
+  }, [enabled]);
 
   const characterMap = useMemo(() => {
     const map = new Map<string, RoomCharacter>();
@@ -72,11 +81,17 @@ export function TippingElementsProvider({
     [deferredTotal]
   );
 
-  const stripe = getStripeBrowserPromise();
+  if (!enabled) {
+    return <>{children}</>;
+  }
+
+  if (!stripePromise) {
+    return null;
+  }
 
   return (
     <Elements
-      stripe={stripe}
+      stripe={stripePromise}
       options={options}
     >
       {children}

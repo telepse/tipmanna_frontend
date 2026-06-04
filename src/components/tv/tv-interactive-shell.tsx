@@ -2,11 +2,16 @@
 "use client";
 
 import type { RefObject } from "react";
-import { useMemo } from "react";
-import Image from "next/image";
+import dynamic from "next/dynamic";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronsUp, ArrowUp, Tv } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  ChevronDown,
+  ArrowUp,
+  Tv,
+  ChevronRight,
+  ChevronsUp,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +19,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatCurrency } from "@/lib/utils";
-import { TipDrawer } from "../events/tip-drawer";
+const TipDrawer = dynamic(
+  () =>
+    import("../events/tip-drawer").then(m => ({
+      default: m.TipDrawer,
+    })),
+  { ssr: false }
+);
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { TVScheduleDrawer } from "./tv-schedule-drawer";
 import { TvPlaylistPreview } from "./tv-playlist-preview";
@@ -23,6 +34,14 @@ import type { RoomCharacter } from "@/types";
 import { useTV } from "../tv-provider";
 import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
 import { BeatLoader } from "react-spinners";
+import { TipSection } from "../events/tip-section";
+import { WebTvLooper } from "./web-tv-looper";
+import { TopContentsPanel } from "./top-contents-panel";
+import { LatestContentsPanel } from "./latest-contents-panel";
+import { SpotlightPanel } from "./spotlight-panel";
+import { MostTippedContentsPanel } from "./most-tipped-contents-panel";
+import { Button } from "../ui/button";
+import Image from "next/image";
 
 export interface TvTipFeedMessage {
   id: string;
@@ -159,9 +178,11 @@ export function TvInteractiveShell({
     ? "community_tv_looper"
     : "tv_looper";
 
+  const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
+
   const isDesktop = variant === "desktop";
   const isMobile = variant === "mobile";
-  const bannerW = isDesktop ? "w-full" : "w-[330px]";
+  const bannerW = isDesktop ? "w-full" : "w-[560px]";
   const playlistLayout = isDesktop ? "desktop" : "mobile";
 
   const tipFeedListEl = useMemo(
@@ -216,83 +237,54 @@ export function TvInteractiveShell({
     [tipFeed]
   );
 
-  const sidebarNav = (
-    <div className="rounded-xl border border-zinc-200/90 bg-zinc-50/90 p-3 shadow-sm backdrop-blur-sm">
-      <p className="text-muted-foreground mb-3 px-1 text-[11px] font-semibold tracking-wide uppercase">
-        Navigate
-      </p>
-      <nav
-        className="flex flex-col gap-2"
-        aria-label="TV playlist and tips"
-      >
-        <button
-          type="button"
-          onClick={() => setActiveTab("playlist")}
-          className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-            activeTab === "playlist"
-              ? "bg-black text-white shadow-sm"
-              : "bg-white text-black ring-1 ring-zinc-200 hover:bg-zinc-100"
-          }`}
-        >
-          TV Playlist <ChevronDown className="size-4 shrink-0 opacity-70" />
-        </button>
-        <button
-          type="button"
-          data-testid="tv-nav-tips"
-          onClick={() => setActiveTab("tips")}
-          className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-            activeTab === "tips"
-              ? "bg-black text-white shadow-sm"
-              : "bg-white text-black ring-1 ring-zinc-200 hover:bg-zinc-100"
-          }`}
-        >
-          Tips <ChevronDown className="size-4 shrink-0 opacity-70" />
-        </button>
-      </nav>
-      <div className="mt-4 flex flex-col gap-2 border-t border-zinc-200/80 pt-3">
-        <button
-          type="button"
-          onClick={goLive}
-          className={`w-full rounded-lg px-2 py-2 text-left text-sm font-medium transition-colors hover:bg-white/80 ${
-            mode === "GLOBAL"
-              ? "text-destructive underline decoration-2"
-              : "text-zinc-700"
-          }`}
-        >
-          Live TV
-        </button>
-        <button
-          type="button"
-          onClick={switchToLocal}
-          className={`w-full rounded-lg px-2 py-2 text-left text-sm font-medium transition-colors hover:bg-white/80 ${
-            mode === "LOCAL"
-              ? "text-emerald-700 underline decoration-2"
-              : "text-zinc-700"
-          }`}
-        >
-          Your TV
-        </button>
-      </div>
-      {!tvInlineSourceLocked &&
-      tvInlineSourceOptions.length > 0 &&
-      onTvInlineSourceChange ? (
-        <div className="mt-4 border-t border-zinc-200/80 pt-3">
-          <p className="text-muted-foreground mb-2 px-1 text-[11px] font-semibold tracking-wide uppercase">
-            TV source
-          </p>
-          <TvSourceDropdown
-            communityId={tvInlineSourceCommunityId}
-            options={tvInlineSourceOptions}
-            onChange={onTvInlineSourceChange}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
+  const EVENT_VIDEO_TYPES = [
+    "Concert",
+    "Drama",
+    "Festival",
+    "Food",
+    "Hang out",
+    "Islamic",
+    "Christian",
+    "Corporate",
+    "Comedy",
+    "Fashion",
+    "Games and sport",
+  ];
+
+  const [rightPanelView, setRightPanelView] = useState<
+    | "playlist"
+    | "top-contents"
+    | "latest-contents"
+    | "spotlight"
+    | "most-tipped"
+  >("playlist");
+
+  const DISCOVER_SECTIONS = [
+    {
+      id: "top-contents",
+      label: "Top contents",
+    },
+    {
+      id: "latest-contents",
+      label: "Latest contents",
+    },
+    {
+      id: "spotlight",
+      label: "Spotlight",
+    },
+    {
+      id: "most-tipped",
+      label: "Most tipped",
+    },
+    {
+      id: "playlist",
+      label: "TV Playlist",
+    },
+  ];
 
   return (
     <>
-      {scheduleStale && tvReady && (
+      {/* {scheduleStale && tvReady && (
         <div
           className={`mt-4 rounded-md border border-amber-600 bg-amber-50 p-4 text-sm text-black ${bannerW}`}
         >
@@ -307,8 +299,8 @@ export function TvInteractiveShell({
             Retry fresh load
           </button>
         </div>
-      )}
-      {scheduleError && !tvReady && (
+      )} */}
+      {/* {scheduleError && !tvReady && (
         <div
           className={`border-destructive mt-4 rounded-md border bg-white p-4 text-sm text-black ${bannerW}`}
         >
@@ -321,13 +313,13 @@ export function TvInteractiveShell({
             Retry
           </button>
         </div>
-      )}
+      )} */}
 
       {isDesktop && (
-        <div className="lg:grid hidden grid-cols-12 gap-4">
-          <div className="col-span-9">
+        <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">
+          <div className="col-span-9 object-cover">
             {tvReady && (
-              <TvLooper
+              <WebTvLooper
                 characters={characters}
                 playerLayout="wide"
                 analyticsSurface={tvAnalyticsSurface}
@@ -351,79 +343,149 @@ export function TvInteractiveShell({
             )}
           </div>
 
-          <div className="col-span-3 flex w-full flex-col gap-4">
-            <div className="flex w-full items-center gap-2 px-3">
-              <button
-                type="button"
-                onClick={() => setActiveTab("playlist")}
-                className={`flex items-center gap-1 rounded-md px-3 py-1 text-sm whitespace-nowrap outline ${
-                  activeTab === "playlist"
-                    ? "bg-black text-white"
-                    : "bg-white text-black outline-black"
-                }`}
-              >
-                TV Playlist <ChevronDown className="size-4" />
-              </button>
+          <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
+            {/* Floating Navigation Dock */}
+            {/* <div className="absolute top-28 left-0 z-20 flex flex-col gap-3">
+              {DISCOVER_SECTIONS.map(section => (
+                <button
+                  key={section.id}
+                  onClick={() =>
+                    setRightPanelView(section.id as typeof rightPanelView)
+                  }
+                  className="group flex items-center disabled:opacity-50"
+                >
+                  <span
+                    className={`flex size-6 cursor-pointer disabled:opacity-50 items-center justify-center ${
+                      rightPanelView === section.id
+                        ? "rounded-full bg-black text-white"
+                        : "border-gray-300 text-black"
+                    } `}
+                  >
+                    <ChevronRight className="size-4" />
+                  </span>
+
+                  
+                  <span className="cursor-pointer overflow-hidden rounded-md bg-black px-0 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-all duration-300 group-hover:px-2 group-hover:opacity-100">
+                    {section.label}
+                  </span>
+                </button>
+              ))}
+            </div> */}
+
+            {/* Existing content */}
+            <div className="flex items-center justify-between gap-4 border-b-2 border-gray-300">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={goLive}
+                  className={`text-xs whitespace-nowrap ${
+                    mode === "GLOBAL" ? "text-destructive underline" : ""
+                  }`}
+                >
+                  Live TV
+                </button>
+
+                <button
+                  type="button"
+                  onClick={switchToLocal}
+                  className={`text-xs whitespace-nowrap ${
+                    mode === "LOCAL" ? "text-success underline" : ""
+                  }`}
+                >
+                  Your TV
+                </button>
+              </div>
+
               <button
                 type="button"
                 data-testid="tv-nav-tips"
                 onClick={() => setActiveTab("tips")}
-                className={`flex items-center gap-1 rounded-md px-3 py-1 text-sm whitespace-nowrap outline ${
+                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
                   activeTab === "tips"
                     ? "bg-black text-white"
                     : "bg-white text-black outline-black"
                 }`}
               >
-                Tips <ChevronDown className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={goLive}
-                className={`text-sm whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
-              >
-                Live TV
-              </button>
-              <button
-                type="button"
-                onClick={switchToLocal}
-                className={`text-sm whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
-              >
-                Your TV
+                Live tips
               </button>
             </div>
 
-            {activeTab === "playlist" && (
-              <div className="relative -mt-1 flex max-h-[75vh] w-full flex-col items-start gap-2 overflow-y-auto p-2 pb-24">
-                <div
-                  className="custom-scrollbar relative max-h-[30vh] w-full space-y-4 overflow-y-auto p-2"
-                  ref={scrollRef}
-                  onScroll={handleScroll}
-                >
-                  <TvPlaylistPreview
-                    layout={playlistLayout}
-                    onSelectChannel={handleSelectChannel}
-                  />
+            {/* TV Categories */}
+            <div className="flex items-center gap-2">
+              <div onClick={() =>
+                  setRightPanelView("playlist" as typeof rightPanelView)
+                } className="flex items-center gap-2 bg-black rounded-md text-white p-1 text-xs cursor-pointer">
+                  {/* <Tv
+                className="size-6 shrink-0 cursor-pointer border-none! p-4 text-white! disabled:opacity-50 bg-black rounded-full"
+                
+              /> */} TV
+              </div>
+              
 
-                  <button
-                    type="button"
-                    onClick={() => setIsTvDrawerOpen(true)}
-                    className="mt-2 flex items-center gap-2 text-sm"
+              {/* <span className="text-xs">Saved</span> */}
+
+              {/* <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto">
+                {EVENT_VIDEO_TYPES.map((item, index) => (
+                  <span
+                    key={index}
+                    className="bg-gray rounded-full p-1 text-[10px] whitespace-nowrap"
                   >
-                    See full schedule <ArrowUp className="size-4" />
-                  </button>
-                </div>
+                    {item}
+                  </span>
+                ))}
+              </div> */}
+            </div>
 
-                <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
-                  <div className="relative h-full w-[2px] bg-gray-200">
+            {/* Dynamic Content */}
+            {activeTab === "playlist" && (
+              <div className="animate-in fade-in relative -mt-2 -ml-2 flex max-h-[45vh] w-full flex-col items-start gap-1 overflow-y-auto p-2">
+                {rightPanelView === "playlist" && (
+                  <>
                     <div
-                      className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
-                      style={{
-                        top: `${scrollProgress}%`,
-                        transform: `translate(-50%, -50%)`,
-                      }}
-                    />
-                  </div>
-                </div>
+                      className="hide__scrollbar relative h-full max-h-[45vh] w-full space-y-4 overflow-y-auto p-2"
+                      ref={scrollRef}
+                      onScroll={handleScroll}
+                    >
+                      <TvPlaylistPreview
+                        layout={playlistLayout}
+                        onSelectChannel={handleSelectChannel}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setIsTvDrawerOpen(true)}
+                        className="mt-2 flex items-center gap-2 text-sm"
+                      >
+                        See full schedule
+                        <ArrowUp className="size-4" />
+                      </button>
+                    </div>
+
+                    <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
+                      <div className="relative h-full w-[2px] bg-gray-200">
+                        <div
+                          className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
+                          style={{
+                            top: `${scrollProgress}%`,
+                            transform: "translate(-50%, -50%)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {rightPanelView === "top-contents" && <TopContentsPanel />}
+
+                {rightPanelView === "latest-contents" && (
+                  <LatestContentsPanel />
+                )}
+
+                {rightPanelView === "spotlight" && <SpotlightPanel />}
+
+                {rightPanelView === "most-tipped" && (
+                  <MostTippedContentsPanel />
+                )}
               </div>
             )}
 
@@ -446,10 +508,10 @@ export function TvInteractiveShell({
       )}
 
       {isMobile && (
-        <div className="fixed top-12 bottom-0 -mt-2 flex w-full flex-col p-2">
+        <div className="fixed top-[88px] bottom-0 -mt-2 flex w-full flex-col p-2">
           {tvReady && (
             <>
-              <div className="flex h-full w-full gap-2">
+              <div className="flex size-full gap-2">
                 <TvLooper
                   characters={characters}
                   playerLayout="compact"
@@ -473,7 +535,7 @@ export function TvInteractiveShell({
                 />
               </div>
 
-              <div className="-mt-32 flex w-full items-center gap-2 px-3">
+              <div className="mt-2 flex w-full items-center gap-2 px-3">
                 <button
                   type="button"
                   onClick={() => setActiveTab("playlist")}
@@ -525,9 +587,9 @@ export function TvInteractiveShell({
               ) : null}
 
               {activeTab === "playlist" && (
-                <div className="relative -mt-1 flex max-h-[75vh] w-full flex-col items-start gap-2 overflow-y-auto p-2 pb-24">
+                <div className="relative flex max-h-[75vh] w-full flex-col items-start gap-2 overflow-y-auto p-2 pb-10">
                   <div
-                    className="custom-scrollbar relative max-h-[30vh] w-full space-y-4 overflow-y-auto p-2"
+                    className="custom-scrollbar hide__scrollbar relative max-h-[40vh] w-full space-y-3 overflow-y-auto p-2"
                     ref={scrollRef}
                     onScroll={handleScroll}
                   >
@@ -600,14 +662,14 @@ export function TvInteractiveShell({
         className={
           isDesktop
             ? "fixed bottom-0 left-0 z-50 flex w-full justify-center border-t-4 border-gray-200 bg-white py-2 shadow-lg"
-            : "fixed bottom-16 -ml-2 w-full rounded-tl-2xl rounded-tr-2xl border-4 border-gray-200 bg-white pt-2 pb-0.5 drop-shadow-lg"
+            : "fixed bottom-0 -ml-2 w-full rounded-tl-2xl rounded-tr-2xl border-4 border-gray-200 bg-white pt-2 pb-0.5 drop-shadow-lg"
         }
       >
         <div className={isDesktop ? "w-full max-w-2xl px-4" : "w-full"}>
           <Button
             size="lg"
             onClick={() => setIsTipDrawerOpen(true)}
-            className="relative -mt-2 -ml-4 flex h-8 w-full justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black"
+            className="relative -mt-2 -ml-1 flex h-12 w-full justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:hidden"
           >
             <Image
               src="/icons/love.png"
@@ -641,25 +703,47 @@ export function TvInteractiveShell({
             />
           </Button>
         </div>
+
+        <TippingElementsProvider
+          tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+          enabled
+        >
+          <div className="absolute -bottom-12 hidden h-[220px] w-full bg-white/80 px-4 py-1 sm:block">
+            <TipSection
+              eventId={tipDrawerEventId}
+              tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+              characterSets={characterSetsForDrawer}
+              paymentSurface="tv_looper"
+              paymentChannelId={paymentChannelId}
+              getWatchDurationBeforePayMs={() => 0}
+              textTipUnitPrice={0}
+              sectionCtaLabel="Engage"
+              payLabel="Pay"
+            />
+          </div>
+        </TippingElementsProvider>
       </div>
 
-      <TippingElementsProvider
-        tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
-      >
-        <TipDrawer
-          open={isTipDrawerOpen}
-          onOpenChange={setIsTipDrawerOpen}
-          eventId={tipDrawerEventId}
-          tippingCharacters={tippingCharactersForDrawer}
-          characterSets={characterSetsForDrawer}
-          paymentSurface={tvAnalyticsSurface}
-          paymentCommunityId={scheduleSourceCommunityId ?? undefined}
-          paymentChannelId={paymentChannelId}
-          openWalletModalNonce={openWalletModalNonce}
-          onSnapshotPaymentRedirect={onSnapshotPaymentRedirect}
-          stackAboveImmersive
-        />
-      </TippingElementsProvider>
+      {tipDrawerStripeMounted ? (
+        <TippingElementsProvider
+          tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+          enabled
+        >
+          <TipDrawer
+            open={isTipDrawerOpen}
+            onOpenChange={setIsTipDrawerOpen}
+            eventId={tipDrawerEventId}
+            tippingCharacters={tippingCharactersForDrawer}
+            characterSets={characterSetsForDrawer}
+            paymentSurface={tvAnalyticsSurface}
+            paymentCommunityId={scheduleSourceCommunityId ?? undefined}
+            paymentChannelId={paymentChannelId}
+            openWalletModalNonce={openWalletModalNonce}
+            onSnapshotPaymentRedirect={onSnapshotPaymentRedirect}
+            stackAboveImmersive
+          />
+        </TippingElementsProvider>
+      ) : null}
     </>
   );
 }

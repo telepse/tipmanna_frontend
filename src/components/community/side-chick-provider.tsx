@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useSelector } from "react-redux";
 
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import type { RootState } from "@/redux/store";
 
 const apiBase = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
@@ -145,38 +145,28 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!canHydrateSideChick || !user?.id) return;
-    const p = getPusherClient();
-    if (!p) return;
     const name = `user-tipper-${user.id}`;
-    const ch = p.subscribe(name);
+    const ch = subscribeChannel(name);
+    if (!ch) return;
     const onChange = () => void load();
     ch.bind("side-chick-state-changed", onChange);
     return () => {
       ch.unbind("side-chick-state-changed", onChange);
-      try {
-        p.unsubscribe(name);
-      } catch {
-        /* noop */
-      }
+      unsubscribeChannel(name);
     };
   }, [canHydrateSideChick, user?.id, load]);
 
   useEffect(() => {
     const id = activation?.communityId;
     if (!id || !canHydrateSideChick) return;
-    const p = getPusherClient();
-    if (!p) return;
     const name = `community-${id}`;
-    const ch = p.subscribe(name);
+    const ch = subscribeChannel(name);
+    if (!ch) return;
     const onCust = () => void load();
     ch.bind("customization-updated", onCust);
     return () => {
       ch.unbind("customization-updated", onCust);
-      try {
-        p.unsubscribe(name);
-      } catch {
-        /* noop */
-      }
+      unsubscribeChannel(name);
     };
   }, [activation?.communityId, canHydrateSideChick, load]);
 

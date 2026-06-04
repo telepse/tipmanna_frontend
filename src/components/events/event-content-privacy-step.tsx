@@ -27,7 +27,7 @@ import {
 import { verifyYoutubeOwnershipAction } from "@/actions/policy";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { toast } from "react-toastify";
 
 type YtRow = { slot: number; url: string; locked: boolean };
@@ -321,7 +321,29 @@ function CoOwnerInviteBlock({
   const [email, setEmail] = useState("");
   const [pct, setPct] = useState(25);
   const [pending, setPending] = useState(false);
+  const [coOwnerInviteChannel, setCoOwnerInviteChannel] = useState<
+    string | null
+  >(null);
   const draftKey = watch(`videoLinks.${index}.coOwnerDraftKey`);
+
+  useEffect(() => {
+    if (!coOwnerInviteChannel) return;
+    const channel = subscribeChannel(coOwnerInviteChannel);
+    if (!channel) return;
+
+    const handler = (data: { status?: string }) => {
+      if (data?.status === "approved") {
+        toast.success(`Co-owner approved: ${videoTitle}`);
+        setCoOwnerInviteChannel(null);
+      }
+    };
+
+    channel.bind("co-owner-invite", handler);
+    return () => {
+      channel.unbind("co-owner-invite", handler);
+      unsubscribeChannel(coOwnerInviteChannel);
+    };
+  }, [coOwnerInviteChannel, videoTitle]);
 
   const sendInvite = async () => {
     if (!canInvite) {
@@ -349,17 +371,8 @@ function CoOwnerInviteBlock({
     }
     const inv = (res.data as { invite?: { id?: string } })?.invite;
     toast.success("Invite sent — co-owner must approve via email");
-    if (inv?.id && getPusherClient()) {
-      const c = getPusherClient()!;
-      const chName = `coowner-invite-${inv.id}`;
-      const channel = c.subscribe(chName);
-      channel.bind("co-owner-invite", (data: { status?: string }) => {
-        if (data?.status === "approved") {
-          toast.success(`Co-owner approved: ${videoTitle}`);
-          channel.unbind_all();
-          c.unsubscribe(chName);
-        }
-      });
+    if (inv?.id) {
+      setCoOwnerInviteChannel(`coowner-invite-${inv.id}`);
     }
   };
 

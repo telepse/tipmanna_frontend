@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { animLog } from "@/lib/animationDebug";
 import type { Message } from "@/types";
 
@@ -52,11 +52,11 @@ export function EventPusherProvider({
   useEffect(() => {
     if (!eventId) return;
 
-    const client = getPusherClient();
-    if (!client) return;
-
-    const publicChannel = client.subscribe(`event-${eventId}`);
-    const privateChannel = client.subscribe(`private-event-${eventId}`);
+    const publicName = `event-${eventId}`;
+    const privateName = `private-event-${eventId}`;
+    const publicChannel = subscribeChannel(publicName);
+    const privateChannel = subscribeChannel(privateName);
+    if (!publicChannel || !privateChannel) return;
 
     const handleAmount = (data: {
       amountRaised: number;
@@ -119,10 +119,13 @@ export function EventPusherProvider({
     privateChannel.bind("screen-settings-updated", handleScreenSettings);
 
     return () => {
-      publicChannel.unbind_all();
-      privateChannel.unbind_all();
-      client.unsubscribe(`event-${eventId}`);
-      client.unsubscribe(`private-event-${eventId}`);
+      publicChannel.unbind("event-amount-updated", handleAmount);
+      publicChannel.unbind("latest-tip-updated", handleLatestTip);
+      publicChannel.unbind("session-activated", handleSession);
+      publicChannel.unbind("new-message", handleNewMessage);
+      privateChannel.unbind("screen-settings-updated", handleScreenSettings);
+      unsubscribeChannel(publicName);
+      unsubscribeChannel(privateName);
     };
   }, [eventId]);
 

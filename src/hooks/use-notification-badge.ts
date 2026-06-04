@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { getNotificationsUnreadCountAction } from "@/actions/notifications";
 import { getAuthToken, getDeviceKey } from "@/lib/getAuthToken";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
+import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel";
 import { RootState } from "@/redux/store";
 
 export function useNotificationBadge() {
@@ -46,28 +47,34 @@ export function useNotificationBadge() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const client = getPusherClient();
-    if (!client) return;
-
     const role = user.role?.toLowerCase() ?? "tipper";
+
+    if (role === "host") {
+      return subscribeHostInAppNotifications(user.id, () => {
+        void refresh();
+      });
+    }
+
     const chName =
-      role === "host"
-        ? `community-host-${user.id}`
-        : role === "visitor"
-          ? `visitor-notifications-${user.id}`
-          : role === "admin" || role === "superadmin"
-            ? `superadmin-notifications-${user.id}`
-            : `tipper-notifications-${user.id}`;
-    const channel = client.subscribe(chName);
-    channel.bind("in-app-notification", () => {
+      role === "visitor"
+        ? `visitor-notifications-${user.id}`
+        : role === "admin" || role === "superadmin"
+          ? `superadmin-notifications-${user.id}`
+          : `tipper-notifications-${user.id}`;
+
+    const channel = subscribeChannel(chName);
+    if (!channel) return;
+
+    const handler = () => {
       void refresh();
-    });
+    };
+    channel.bind("in-app-notification", handler);
 
     return () => {
-      channel.unbind_all();
-      client.unsubscribe(chName);
+      channel.unbind("in-app-notification", handler);
+      unsubscribeChannel(chName);
     };
-  }, [user?.id, refresh]);
+  }, [user?.id, user?.role, refresh]);
 
   return { unreadCount, loading, refresh };
 }

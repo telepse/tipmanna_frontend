@@ -3,6 +3,7 @@
 import { EventFormData, NewCreateEventPayload } from "@/schemas";
 import { runServerFetch, actionFail, actionOk } from "@/lib/action-fetch";
 import { serverAuthHeaders } from "@/lib/server-auth";
+import { unwrapPaginatedList } from "@/lib/unwrap-paginated-list";
 
 // -------- Create event -------- //
 export async function createEventAction(
@@ -643,7 +644,7 @@ export async function eventAttendAction(eventId: string) {
 
 export async function getAllEventChannels() {
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/all-channels`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/all-channels?limit=100`,
     {
       method: "GET",
       headers: {
@@ -651,7 +652,8 @@ export async function getAllEventChannels() {
       },
       cache: "no-store",
     },
-    "getAllEventChannels"
+    "getAllEventChannels",
+    unwrapPaginatedList
   );
 }
 

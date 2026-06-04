@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import {
   fetchWalletStatus,
   type WalletStatusResponse,
@@ -39,10 +39,9 @@ export function useTipperWalletStatus(
 
   useEffect(() => {
     if (!userId || !isWalletRole(userRole)) return;
-    const client = getPusherClient();
-    if (!client) return;
     const chName = `tipper-wallet-${userId}`;
-    const ch = client.subscribe(chName);
+    const ch = subscribeChannel(chName);
+    if (!ch) return;
     const onStatus = () => {
       void refresh();
     };
@@ -51,7 +50,7 @@ export function useTipperWalletStatus(
     return () => {
       ch.unbind("wallet-status", onStatus);
       ch.unbind("wallet-topup", onStatus);
-      client.unsubscribe(chName);
+      unsubscribeChannel(chName);
     };
   }, [userId, userRole, refresh]);
 

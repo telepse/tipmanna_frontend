@@ -763,7 +763,7 @@ export default function TVPageClientWrapper({
         </DialogContent>
       </Dialog>
 
-      {communityFeatureOn &&
+      {/* {communityFeatureOn &&
       !searchParams.get("videoId") &&
       !tvSideChickLocked ? (
         <div className="flex justify-end px-2 pt-2">
@@ -802,7 +802,7 @@ export default function TVPageClientWrapper({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      ) : null}
+      ) : null} */}
 
       {!isMobile && <TvWebExperience {...sharedShellProps} />}
 
@@ -817,7 +817,7 @@ export default function TVPageClientWrapper({
 
       {/* Legacy desktop browse layout (thumbnail carousels). Set to true only for reference / future TV browse section; active /tv desktop uses TvWebExperience above. */}
       {false && (
-        <div className="mt-14">
+        <div>
           <TVPageClient
             channels={channels}
             currentPlayingIndex={currentIndex}

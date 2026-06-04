@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
@@ -45,7 +46,13 @@ import VideoPlayer, { VideoPlayerRef } from "./video-player";
 import { CommunityCBadge } from "@/components/community/community-c-badge";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
-import { TipDrawer } from "./tip-drawer";
+const TipDrawer = dynamic(
+  () =>
+    import("./tip-drawer").then(m => ({
+      default: m.TipDrawer,
+    })),
+  { ssr: false }
+);
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { ProfileDrawer } from "../tv/profile-drawer";
 import { RootState } from "@/redux/store";
@@ -646,6 +653,8 @@ export const ChannelClient = ({
       setIsLoading(false);
     }
   };
+
+  const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
 
   return (
     <div
@@ -1366,7 +1375,10 @@ export const ChannelClient = ({
       </div>
 
       {/* Tip drawer section - LAPTOP */}
-      <TippingElementsProvider tippingCharacters={tipStrip as RoomCharacter[]}>
+      {tipDrawerStripeMounted ? (
+      <TippingElementsProvider
+        tippingCharacters={tipStrip as RoomCharacter[]}
+      >
         <TipDrawer
           open={isTipDrawerOpen}
           onOpenChange={setIsTipDrawerOpen}
@@ -1384,7 +1396,7 @@ export const ChannelClient = ({
           tipQuoteContext={tipPres.quoteCtx}
         />
       </TippingElementsProvider>
-
+      ) : null}
       {/* Scrubber - MOBILE */}
       <div
         className={cn(

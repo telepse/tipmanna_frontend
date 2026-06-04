@@ -1,28 +1,23 @@
-import { loadStripe } from "@stripe/stripe-js";
 import { useEffect, useState } from "react";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let stripePromise: Promise<any> | null = null;
+import type { Stripe } from "@stripe/stripe-js";
+import { getStripeBrowserPromise } from "@/lib/stripe-browser";
 
 export const useStripeInstance = () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [stripe, setStripe] = useState<any>(null);
+  const [stripe, setStripe] = useState<Stripe | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const initializeStripe = async () => {
-      if (!stripePromise) {
-        stripePromise = loadStripe(
-          process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-        );
-      }
+    let cancelled = false;
 
-      const stripeInstance = await stripePromise;
-      setStripe(stripeInstance);
+    void getStripeBrowserPromise().then(instance => {
+      if (cancelled) return;
+      setStripe(instance);
       setLoading(false);
-    };
+    });
 
-    initializeStripe();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return { stripe, loading };

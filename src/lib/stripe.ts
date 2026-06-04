@@ -1,10 +1,4 @@
-import { loadStripe, Stripe } from "@stripe/stripe-js";
-
-let stripePromise: Promise<Stripe | null>;
-
-export const getStripe = () => {
-  if (!stripePromise) {
-    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-  }
-  return stripePromise;
-};
+/**
+ * @deprecated Prefer `@/lib/stripe-browser` (`getStripeBrowserPromise`) for lazy Stripe.js loading.
+ */
+export { getStripeBrowserPromise as getStripe } from "@/lib/stripe-browser";

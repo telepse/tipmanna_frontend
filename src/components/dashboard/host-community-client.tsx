@@ -59,7 +59,8 @@ import {
 import { ApiError } from "@/types/api-error.types";
 import { CommunityMembershipOwnerPanel } from "@/components/dashboard/community-membership-owner-panel";
 import { RootState } from "@/redux/store";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
+import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel";
 import { getHostEventsAction } from "@/actions/events";
 import {
   createCommunityActivationRequestAction,
@@ -864,36 +865,42 @@ export function HostCommunityClient() {
       return;
     }
     const hostId = authUser.id;
-    const client = getPusherClient();
-    if (!client) return;
-
     const hostChannelName = `community-host-${hostId}`;
-    const hostChannel = client.subscribe(hostChannelName);
-    hostChannel.bind("community-payout-settled", () => {
+    const hostChannel = subscribeChannel(hostChannelName);
+
+    const onPayoutSettled = () => {
       toast.info("Community payout updated");
       if (selected?.role === "owner") void loadOwed();
-    });
-    hostChannel.bind("in-app-notification", () => {
+    };
+    if (hostChannel) {
+      hostChannel.bind("community-payout-settled", onPayoutSettled);
+    }
+
+    const unsubInApp = subscribeHostInAppNotifications(hostId, () => {
       toast.info("New notification");
     });
 
     const communityIdForPusher =
       selected?.role === "owner" ? selected.id : null;
-    let communityChannel: ReturnType<typeof client.subscribe> | null = null;
+    let communityChannel: ReturnType<typeof subscribeChannel> | null = null;
+    const onBankUpdated = () => {
+      void loadBank();
+    };
     if (communityIdForPusher) {
       const cname = `community-${communityIdForPusher}`;
-      communityChannel = client.subscribe(cname);
-      communityChannel.bind("content-bank-updated", () => {
-        void loadBank();
-      });
+      communityChannel = subscribeChannel(cname);
+      communityChannel?.bind("content-bank-updated", onBankUpdated);
     }
 
     return () => {
-      hostChannel.unbind_all();
-      client.unsubscribe(hostChannelName);
+      unsubInApp();
+      if (hostChannel) {
+        hostChannel.unbind("community-payout-settled", onPayoutSettled);
+        unsubscribeChannel(hostChannelName);
+      }
       if (communityChannel && communityIdForPusher) {
-        communityChannel.unbind_all();
-        client.unsubscribe(`community-${communityIdForPusher}`);
+        communityChannel.unbind("content-bank-updated", onBankUpdated);
+        unsubscribeChannel(`community-${communityIdForPusher}`);
       }
     };
   }, [authUser, selected, loadOwed, loadBank]);

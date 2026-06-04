@@ -139,7 +139,7 @@ export function TvPlaylistPreview({
                 onSelectChannel(originalIndex);
               }
             }}
-            className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-1 transition-all duration-300 lg:py-2 ${isPlaying ? "ring-primary scale-100 shadow-lg ring-4" : "scale-100 ring-4 ring-gray-200"} `}
+            className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} `}
           >
             <div
               className={`flex min-w-0 flex-1 items-center gap-1 ${isPlaying ? "sticky top-0" : ""}`}
@@ -154,13 +154,13 @@ export function TvPlaylistPreview({
                 </div>
               )}
               <div className="min-w-0 space-y-1">
-                <h5 className={`text-sm font-medium`}>
+                <h5 className={`w-full text-xs font-medium whitespace-nowrap`}>
                   {item?.channel?.title
                     ? trimTitle(item.channel.title, titleTrim)
                     : "Loading..."}
                 </h5>
 
-                <p className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-[10px]">
+                <p className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-[10px] ">
                   {!isPlaying && showTimes && (
                     <span className="text-muted-foreground mr-1 -ml-2 rounded border border-black px-1 py-0.5 text-[9.5px]">
                       {startLabel}
@@ -173,8 +173,14 @@ export function TvPlaylistPreview({
                       : "Loading..."}
                   </span>
                   <span className="text-primary text-[10px] opacity-50">
-                    <Link
+                    {/* <Link
                       href={`/channel/${item?.defaultChannelEventId ?? item?.channel?.eventId ?? ""}`}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      @{item.channel.username?.substring(0, 8) || ""}
+                    </Link> */}
+                    <Link
+                      href={`/channel/${item?.channel?.eventId}`}
                       onClick={e => e.stopPropagation()}
                     >
                       @{item.channel.username?.substring(0, 8) || ""}
@@ -185,8 +191,8 @@ export function TvPlaylistPreview({
             </div>
 
             <div className="flex shrink-0 flex-col items-end justify-end gap-1">
-              <span className="flex items-center gap-1 text-xs font-semibold">
-                <UsersRound className="size-4" />
+              <span className="flex items-center gap-1 text-[10px] font-semibold">
+                <UsersRound className="size-3" />
                 <span className="whitespace-nowrap">
                   {item.channel.numOfTips || 0} tips
                 </span>
@@ -211,8 +217,8 @@ export function TvPlaylistPreview({
             </div>
 
             {isPlaying && (
-              <div className="absolute -top-4 -right-2 bg-white">
-                <span className="flex">
+              <div className="absolute top-0 -left-4 bg-white">
+                <span className="flex flex-col">
                   <AudioLines className="text-primary wave-icon" />
                   <AudioLines className="text-primary wave-icon" />
                 </span>

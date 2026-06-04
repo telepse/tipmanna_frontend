@@ -14,6 +14,16 @@ const MAX_QUEUE = 80;
 
 let queue: TvAnalyticsEventV1[] = [];
 let listenersBound = false;
+let runtimeRefCount = 0;
+let flushIntervalId: ReturnType<typeof setInterval> | null = null;
+
+function onVisibilityFlush(): void {
+  if (document.visibilityState === "hidden") void flushTvAnalytics();
+}
+
+function onPageHideFlush(): void {
+  void flushTvAnalytics(true);
+}
 
 let authToken: string | null = null;
 let analyticsVisitorId: string | null = null;
@@ -106,19 +116,36 @@ export async function flushTvAnalytics(useBeacon = false): Promise<void> {
   }
 }
 
-/** Call once from GlobalTVProvider mount (client only). */
+/** Call from TV/analytics surfaces on mount (client only). Ref-counted. */
 export function initTvAnalyticsRuntime(): void {
-  if (!ENABLED || typeof window === "undefined" || listenersBound) return;
+  if (!ENABLED || typeof window === "undefined") return;
+
+  runtimeRefCount += 1;
+  if (listenersBound) return;
+
   listenersBound = true;
-  setInterval(() => {
+  flushIntervalId = setInterval(() => {
     void flushTvAnalytics();
   }, FLUSH_INTERVAL_MS);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") void flushTvAnalytics();
-  });
-  window.addEventListener("pagehide", () => {
-    void flushTvAnalytics(true);
-  });
+  document.addEventListener("visibilitychange", onVisibilityFlush);
+  window.addEventListener("pagehide", onPageHideFlush);
+}
+
+/** Tear down flush interval when the last analytics surface unmounts. */
+export function shutdownTvAnalyticsRuntime(): void {
+  if (!ENABLED || typeof window === "undefined") return;
+
+  runtimeRefCount = Math.max(0, runtimeRefCount - 1);
+  if (runtimeRefCount > 0 || !listenersBound) return;
+
+  if (flushIntervalId) {
+    clearInterval(flushIntervalId);
+    flushIntervalId = null;
+  }
+  document.removeEventListener("visibilitychange", onVisibilityFlush);
+  window.removeEventListener("pagehide", onPageHideFlush);
+  listenersBound = false;
+  void flushTvAnalytics(true);
 }
 
 export function trackTvModeChange(

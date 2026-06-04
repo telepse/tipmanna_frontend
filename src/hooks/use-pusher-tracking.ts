@@ -57,6 +57,7 @@ export const usePusherTracking = ({
 
   const pusherRef = useRef<Pusher | null>(null);
   const channelRef = useRef<Channel | null>(null);
+  const channelNameRef = useRef<string>("");
   const isJoiningRef = useRef(false);
 
   // Join event function
@@ -151,16 +152,16 @@ export const usePusherTracking = ({
 
   // Initialize Pusher and event tracking
   useEffect(() => {
-    // Initialize Pusher
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
       authEndpoint: `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/tracking/pusher/auth/${eventId}`,
     });
 
     pusherRef.current = pusher;
+    const channelName = `presence-event-${eventId}`;
+    channelNameRef.current = channelName;
 
-    // Subscribe to presence channel
-    const channel = pusher.subscribe(`presence-event-${eventId}`);
+    const channel = pusher.subscribe(channelName);
     channelRef.current = channel;
 
     // Connection established
@@ -249,6 +250,7 @@ export const usePusherTracking = ({
       }
       if (pusherRef.current) {
         pusherRef.current.disconnect();
+        pusherRef.current = null;
       }
 
       window.removeEventListener("unload", handleUnload);

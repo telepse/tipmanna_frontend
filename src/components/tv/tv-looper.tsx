@@ -31,8 +31,6 @@ import {
   MessageCircleMore,
 } from "lucide-react";
 
-import { SaveHostToggleButton } from "../events/save-host-toggle-button";
-
 import TvPlayer from "./tv-player";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
@@ -790,7 +788,7 @@ export const TvLooper = ({
           widePlayer &&
           "h-[min(56vh,640px)] w-full max-w-6xl md:h-[min(70vh,680px)]",
         !fillViewport && !widePlayer && "h-[40vh] w-full px-2 lg:!h-[90vh]",
-        isFullView && "h-[70vh] w-full"
+        isFullView && "h-[90vh] w-full"
       )}
     >
       {currentEventId ? <SaveEventId eventId={currentEventId} /> : null}
@@ -806,7 +804,7 @@ export const TvLooper = ({
         className={cn(
           isFullView
             ? immersiveMainRowClassName(isFullView, isMobileTv, immersiveLayout)
-            : "flex size-full gap-3"
+            : "-ml-2 flex size-full gap-2"
         )}
       >
         {/* Left control rail */}
@@ -949,8 +947,6 @@ export const TvLooper = ({
                 <Bookmark className="size-5" />
               )}
             </button>
-
-            <SaveHostToggleButton channelId={channelId} />
 
             <span className="rounded bg-black/50 p-1">
               <Share2
@@ -1104,7 +1100,7 @@ export const TvLooper = ({
                   : ""
               )}
             >
-              <p className="text-lg font-semibold text-black md:text-2xl">
+              <p className="text-lg font-semibold text-white md:text-2xl">
                 {current.channel?.title ?? "Program notice"}
               </p>
               <p className="text-sm text-white/80">
@@ -1223,12 +1219,12 @@ export const TvLooper = ({
               chromeHide.chromeOpacityClass,
               "absolute z-[20] truncate bg-black text-sm font-medium text-white",
               isFullView && isMobileTv && immersiveLayout === "portrait_video"
-                ? "right-2 bottom-14 left-2 text-center"
+                ? "right-2 -bottom-6 left-2 text-center"
                 : null,
               isFullView && isMobileTv && immersiveLayout === "landscape_video"
-                ? "right-2 bottom-14 left-24"
+                ? "right-2 -bottom-6 left-24"
                 : null,
-              (!isFullView || !isMobileTv) && "right-2 bottom-12 left-10"
+              (!isFullView || !isMobileTv) && "right-2 -bottom-6 left-10"
             )}
           >
             {currentTitle}
@@ -1240,12 +1236,12 @@ export const TvLooper = ({
               chromeHide.chromeOpacityClass,
               "absolute z-10",
               isFullView && isMobileTv && immersiveLayout === "portrait_video"
-                ? "right-2 bottom-8 left-2"
+                ? "right-2 -bottom-12 left-2"
                 : null,
               isFullView && isMobileTv && immersiveLayout === "landscape_video"
-                ? "right-2 bottom-8 left-24"
+                ? "right-2 -bottom-12 left-24"
                 : null,
-              (!isFullView || !isMobileTv) && "right-2 bottom-6 left-10"
+              (!isFullView || !isMobileTv) && "right-2 -bottom-12 left-10"
             )}
           >
             <input
@@ -1265,12 +1261,12 @@ export const TvLooper = ({
               chromeHide.chromeOpacityClass,
               "absolute",
               isFullView && isMobileTv && immersiveLayout === "portrait_video"
-                ? "right-2 bottom-2 left-2"
+                ? "right-2 -bottom-16 left-2"
                 : null,
               isFullView && isMobileTv && immersiveLayout === "landscape_video"
-                ? "right-2 bottom-2 left-24"
+                ? "right-2 -bottom-16 left-24"
                 : null,
-              (!isFullView || !isMobileTv) && "right-2 bottom-2 left-10"
+              (!isFullView || !isMobileTv) && "right-2 -bottom-16 left-10"
             )}
           >
             <div className="flex items-center justify-between text-xs text-white">

@@ -23,4 +23,5 @@ export type Event = {
   moneyFor: string;
   showAmountRaisedOnVideos?: boolean;
   showViewCountOnVideos?: boolean;
+  title: string;
 };

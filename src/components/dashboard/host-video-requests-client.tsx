@@ -24,7 +24,7 @@ import {
   rejectInboxVideoRequestAction,
 } from "@/actions/video-requests";
 import type { RootState } from "@/redux/store";
-import { getPusherClient } from "@/lib/pusher";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 
 type EventRow = {
   id: string;
@@ -159,11 +159,10 @@ export function HostVideoRequestsClient() {
 
   useEffect(() => {
     if (!userId) return;
-    const client = getPusherClient();
-    if (!client) return;
-
     const channelName = `community-host-${userId}`;
-    const channel = client.subscribe(channelName);
+    const channel = subscribeChannel(channelName);
+    if (!channel) return;
+
     const onVideoRequestUpdate = () => {
       void loadInbox();
       void loadSent();
@@ -172,7 +171,7 @@ export function HostVideoRequestsClient() {
 
     return () => {
       channel.unbind("video-request-update", onVideoRequestUpdate);
-      client.unsubscribe(channelName);
+      unsubscribeChannel(channelName);
     };
   }, [userId, loadInbox, loadSent]);
 

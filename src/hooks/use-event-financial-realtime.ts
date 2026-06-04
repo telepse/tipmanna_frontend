@@ -1,76 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getPusherClient } from "@/lib/pusher";
-import type { Channel } from "pusher-js";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 
-const EVT_FIN_REFCOUNTS = new Map<string, number>();
-
-const PUSHER_REFCOUNT_ENABLED =
-  process.env.NEXT_PUBLIC_EXPLORE_PUSHER_REFCOUNT_ENABLED === "true";
-
-function acquireEventFinancialChannel(eventId: string): Channel | null {
-  const client = getPusherClient();
-  if (!client) return null;
-
-  try {
-    if (!PUSHER_REFCOUNT_ENABLED) {
-      return client.subscribe(`event-${eventId}`) ?? null;
-    }
-
-    const name = `event-${eventId}`;
-    let channel: Channel | null = null;
-    const prev = EVT_FIN_REFCOUNTS.get(eventId) ?? 0;
-
-    if (prev === 0) {
-      channel = client.subscribe(name);
-    } else {
-      channel = client.channel(name);
-    }
-
-    if (!channel) {
-      console.error(
-        "[Pusher] acquireEventFinancialChannel: missing channel after subscribe"
-      );
-      return null;
-    }
-
-    EVT_FIN_REFCOUNTS.set(eventId, prev + 1);
-    return channel;
-  } catch (e) {
-    console.error("[Pusher] acquireEventFinancialChannel failed", e);
-    return null;
-  }
-}
-
-function releaseEventFinancialChannel(eventId: string): void {
-  const client = getPusherClient();
-  if (!client) return;
-
-  if (!PUSHER_REFCOUNT_ENABLED) {
-    try {
-      client.unsubscribe(`event-${eventId}`);
-    } catch {
-      /* ignore */
-    }
-    return;
-  }
-
-  const prev = EVT_FIN_REFCOUNTS.get(eventId) ?? 0;
-  const next = Math.max(0, prev - 1);
-  const name = `event-${eventId}`;
-
-  if (next <= 0) {
-    EVT_FIN_REFCOUNTS.delete(eventId);
-    try {
-      client.unsubscribe(name);
-    } catch (e) {
-      console.error("[Pusher] releaseEventFinancialChannel", e);
-    }
-  } else {
-    EVT_FIN_REFCOUNTS.set(eventId, next);
-  }
-}
+const EXPLORE_PUSHER_DEBOUNCE_MS = 150;
 
 export interface UseEventFinancialRealtimeInput {
   eventId: string;
@@ -110,7 +43,7 @@ export function useEventFinancialRealtime({
     number | undefined
   >(initialSessionAmountToRaise);
 
-  /** When refcount mode is enabled, waits briefly so fast Explore swipes skip subscribe churn. */
+  /** Debounce wiring so fast Explore swipes skip subscribe churn. */
   const [wiredEventId, setWiredEventId] = useState("");
 
   useEffect(() => {
@@ -131,15 +64,11 @@ export function useEventFinancialRealtime({
       setWiredEventId("");
       return;
     }
-    if (!PUSHER_REFCOUNT_ENABLED) {
-      setWiredEventId(eventId);
-      return;
-    }
 
     let cancelled = false;
     const tid = window.setTimeout(() => {
       if (!cancelled) setWiredEventId(eventId);
-    }, 150);
+    }, EXPLORE_PUSHER_DEBOUNCE_MS);
     return () => {
       cancelled = true;
       window.clearTimeout(tid);
@@ -149,10 +78,8 @@ export function useEventFinancialRealtime({
   useEffect(() => {
     if (!enabled || !wiredEventId) return;
 
-    const client = getPusherClient();
-    if (!client) return;
-
-    const channel = acquireEventFinancialChannel(wiredEventId);
+    const channelName = `event-${wiredEventId}`;
+    const channel = subscribeChannel(channelName);
     if (!channel) return;
 
     const onAmount = (data: { amountRaised?: number; numOfTips?: number }) => {
@@ -183,7 +110,7 @@ export function useEventFinancialRealtime({
         channel.unbind("latest-tip-updated", onLatest);
         channel.unbind("session-activated", onSession);
       }
-      releaseEventFinancialChannel(wiredEventId);
+      unsubscribeChannel(channelName);
     };
   }, [wiredEventId, enabled, includeOptionalEvents]);
 

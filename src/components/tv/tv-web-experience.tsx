@@ -13,7 +13,7 @@ export type TvWebExperienceProps = Omit<TvInteractiveShellProps, "variant">;
  */
 export function TvWebExperience(props: TvWebExperienceProps) {
   return (
-    <div className="mx-auto mt-10 w-full px-4 pb-28">
+    <div className="mx-auto w-full px-4 pb-28">
       <TvInteractiveShell
         {...props}
         variant="desktop"

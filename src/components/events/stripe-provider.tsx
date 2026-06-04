@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 
 import { RootState } from "@/redux/store";
 import { RoomCharacter } from "@/types";
+import { getStripeBrowserPromise } from "@/lib/stripe-browser";
 
 interface Props {
   children: React.ReactNode;
@@ -32,12 +33,8 @@ export const StripeProvider = ({
 
     let cancelled = false;
 
-    void import("@stripe/stripe-js").then(({ loadStripe }) => {
-      if (cancelled) return;
-      const p = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!, {
-        developerTools: { assistant: { enabled: false } },
-      });
-      setStripePromise(p);
+    void getStripeBrowserPromise().then(p => {
+      if (!cancelled) setStripePromise(Promise.resolve(p));
     });
 
     return () => {
