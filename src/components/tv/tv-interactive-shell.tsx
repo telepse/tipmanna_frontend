@@ -279,7 +279,7 @@ export function TvInteractiveShell({
 
           <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
             {/* Floating Navigation Dock */}
-            <div className="absolute top-28 left-0 z-20 flex flex-col gap-3">
+            {/* <div className="absolute top-28 left-0 z-20 flex flex-col gap-3">
               {DISCOVER_SECTIONS.map(section => (
                 <button
                   key={section.id}
@@ -304,7 +304,7 @@ export function TvInteractiveShell({
                   </span>
                 </button>
               ))}
-            </div>
+            </div> */}
 
             {/* Existing content */}
             <div className="flex items-center justify-between gap-4 border-b-2 border-gray-300">
@@ -363,7 +363,7 @@ export function TvInteractiveShell({
                   TV
                 </button>
 
-                <button
+                {/* <button
                   type="button"
                   onClick={() => {
                     setSelectedVideoType(null);
@@ -377,9 +377,9 @@ export function TvInteractiveShell({
                   }`}
                 >
                   Saved
-                </button>
+                </button> */}
 
-                <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+                {/* <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
                 {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
                   <button
                     key={tag.value}
@@ -399,7 +399,7 @@ export function TvInteractiveShell({
                     {tag.label}
                   </button>
                 ))}
-              </div>
+              </div> */}
               </div>
 
               
