@@ -12,8 +12,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useSearchParams, useRouter } from "next/navigation";
-import { ChevronDown, Tv } from "lucide-react";
 
 import { useMediaQuery } from "react-responsive";
 
@@ -26,10 +24,7 @@ import {
   getTippedEventsForTipper,
   getTotalAmountTippedByTipper,
 } from "@/actions/events";
-import {
-  getMeJoinedCommunitiesAction,
-  getCommunityTipFeedAction,
-} from "@/actions/communities";
+import { getCommunityTipFeedAction } from "@/actions/communities";
 import {
   Dialog,
   DialogContent,
@@ -44,16 +39,10 @@ import {
 } from "@/actions/contents";
 import { getAllCausesAction } from "@/actions/home";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useTV } from "../tv-provider";
 import { RootState } from "@/redux/store";
-import { useSideChick } from "@/components/community/side-chick-provider";
+import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { setSelectedTips } from "@/features/tip-slice";
 import {
   acquireCommunityLiveTvChannel,
@@ -136,10 +125,6 @@ export default function TVPageClientWrapper({
   characterSets,
 }: Props) {
   const userId = useSelector((s: RootState) => s.auth.user?.id);
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const communityFeatureOn =
-    process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
   const {
     items,
     totalDuration,
@@ -157,156 +142,17 @@ export default function TVPageClientWrapper({
     retryScheduleLoad,
     playingItemOverride,
     selectedTag,
-    setScheduleSourceCommunityId,
     scheduleSourceCommunityId,
   } = useTV();
 
-  const [tvPickerOpen, setTvPickerOpen] = useState(false);
-  const [tvPickerOptions, setTvPickerOptions] = useState<
-    { id: string; name: string }[]
-  >([]);
-
-  const sideChick = useSideChick();
-  const tvSideChickLocked =
-    !sideChick.loading &&
-    Boolean(sideChick.active && sideChick.activation?.communityId) &&
-    communityFeatureOn;
-
-  useEffect(() => {
-    if (!tvSideChickLocked || !sideChick.activation?.communityId) return;
-    const id = sideChick.activation.communityId;
-    const videoId = searchParams.get("videoId");
-    if (videoId) return;
-    setScheduleSourceCommunityId(id);
-    try {
-      localStorage.setItem("tipmanna-tv-community-id", id);
-    } catch {
-      /* ignore */
-    }
-    setTvPickerOpen(false);
-    router.replace(`/tv?community=${encodeURIComponent(id)}`, {
-      scroll: false,
-    });
-  }, [
-    tvSideChickLocked,
-    sideChick.activation?.communityId,
-    searchParams,
-    setScheduleSourceCommunityId,
-    router,
-  ]);
-
-  const fetchTvPickerMemberships = useCallback(async () => {
-    if (!userId) {
-      setTvPickerOptions([]);
-      return;
-    }
-    const r = await getMeJoinedCommunitiesAction();
-    if (!r.success || !Array.isArray(r.data?.memberships)) return;
-    const rows = r.data.memberships as {
-      communityId: string;
-      active: boolean;
-      membershipStatus: string;
-      revokedAt: string | null;
-      expiresAt: string | null;
-      community?: {
-        name?: string;
-        tvActivatedAt?: string | null;
-        tvHostPaused?: boolean | null;
-      };
-    }[];
-    const opts = rows
-      .filter(m => {
-        if (!m.active || m.revokedAt) return false;
-        if (m.membershipStatus !== "active") return false;
-        if (m.expiresAt && new Date(m.expiresAt) <= new Date()) return false;
-        return (
-          Boolean(m.community?.tvActivatedAt) && !m.community?.tvHostPaused
-        );
-      })
-      .map(m => ({
-        id: m.communityId,
-        name: m.community?.name ?? m.communityId,
-      }));
-    setTvPickerOptions(opts);
-  }, [userId]);
-
-  useEffect(() => {
-    if (communityFeatureOn) void fetchTvPickerMemberships();
-  }, [communityFeatureOn, fetchTvPickerMemberships]);
-
-  useEffect(() => {
-    const videoId = searchParams.get("videoId");
-    if (videoId) {
-      setScheduleSourceCommunityId(null);
-      setTvPickerOpen(false);
-      return;
-    }
-    if (tvSideChickLocked && sideChick.activation?.communityId) {
-      return;
-    }
-    const fromQuery = searchParams.get("community")?.trim();
-    if (fromQuery) {
-      setScheduleSourceCommunityId(fromQuery);
-      try {
-        localStorage.setItem("tipmanna-tv-community-id", fromQuery);
-      } catch {
-        /* ignore */
-      }
-      setTvPickerOpen(false);
-      return;
-    }
-    try {
-      const stored = localStorage.getItem("tipmanna-tv-community-id")?.trim();
-      if (stored) {
-        setScheduleSourceCommunityId(stored);
-        router.replace(`/tv?community=${encodeURIComponent(stored)}`, {
-          scroll: false,
-        });
-        setTvPickerOpen(false);
-        return;
-      }
-    } catch {
-      /* ignore */
-    }
-    setScheduleSourceCommunityId(null);
-  }, [
+  const {
     communityFeatureOn,
-    fetchTvPickerMemberships,
-    router,
-    searchParams,
-    setScheduleSourceCommunityId,
-    tvSideChickLocked,
-    sideChick.activation?.communityId,
-  ]);
-
-  const openTvSourcePicker = useCallback(() => {
-    setTvPickerOpen(true);
-    void fetchTvPickerMemberships();
-  }, [fetchTvPickerMemberships]);
-
-  const pickTipmanna = () => {
-    try {
-      localStorage.removeItem("tipmanna-tv-community-id");
-    } catch {
-      /* ignore */
-    }
-    setScheduleSourceCommunityId(null);
-    router.replace("/tv", { scroll: false });
-    setTvPickerOpen(false);
-  };
-
-  const pickCommunity = (id: string) => {
-    try {
-      localStorage.setItem("tipmanna-tv-community-id", id);
-    } catch {
-      /* ignore */
-    }
-    setScheduleSourceCommunityId(id);
-    router.replace(`/tv?community=${encodeURIComponent(id)}`, {
-      scroll: false,
-    });
-    setTvPickerOpen(false);
-  };
+    tvPickerOpen,
+    setTvPickerOpen,
+    tvPickerOptions,
+    pickTipmanna,
+    pickCommunity,
+  } = useTvSourcePicker();
 
   const dispatch = useDispatch();
   const selectedTips = useSelector((s: RootState) => s.tip.selectedTips);
@@ -675,14 +521,6 @@ export default function TVPageClientWrapper({
     setScrollProgress(progress);
   };
 
-  const tvSourceLabel = useMemo(() => {
-    if (!scheduleSourceCommunityId) return "Tipmanna TV";
-    return (
-      tvPickerOptions.find(c => c.id === scheduleSourceCommunityId)?.name ??
-      "Community TV"
-    );
-  }, [scheduleSourceCommunityId, tvPickerOptions]);
-
   const sharedShellProps = {
     characters: characters as unknown as RoomCharacter[],
     tvReady,
@@ -710,13 +548,6 @@ export default function TVPageClientWrapper({
     characterSetsForDrawer,
     openWalletModalNonce,
     onSnapshotPaymentRedirect: snapshotPlaybackForPaymentRedirect,
-    tvInlineSourceOptions: tvPickerOptions,
-    tvInlineSourceCommunityId: scheduleSourceCommunityId,
-    onTvInlineSourceChange: (id: string | null) => {
-      if (id) pickCommunity(id);
-      else pickTipmanna();
-    },
-    tvInlineSourceLocked: tvSideChickLocked,
   };
 
   return (
@@ -762,47 +593,6 @@ export default function TVPageClientWrapper({
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* {communityFeatureOn &&
-      !searchParams.get("videoId") &&
-      !tvSideChickLocked ? (
-        <div className="flex justify-end px-2 pt-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                className="h-8 gap-1 px-2 text-xs"
-                aria-label="Change TV source"
-              >
-                <Tv className="size-3.5" />
-                <span className="max-w-[140px] truncate">{tvSourceLabel}</span>
-                <ChevronDown className="size-3.5 opacity-70" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={pickTipmanna}>
-                Tipmanna TV (global)
-              </DropdownMenuItem>
-              {tvPickerOptions.map(c => (
-                <DropdownMenuItem
-                  key={c.id}
-                  onClick={() => pickCommunity(c.id)}
-                >
-                  {c.name}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuItem asChild>
-                <Link href="/community">Community hub</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={openTvSourcePicker}>
-                All TV sources…
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ) : null} */}
 
       {!isMobile && <TvWebExperience {...sharedShellProps} />}
 

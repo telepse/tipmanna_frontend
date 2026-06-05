@@ -101,7 +101,6 @@ export const WebTvLooper = ({
   onContinueCommentToTip,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
-  tipsTabActive = false,
 }: {
   characters: RoomCharacter[];
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
@@ -112,8 +111,6 @@ export const WebTvLooper = ({
   onContinueCommentToTip?: () => void;
   commentDrawerVideoTitle?: string;
   commentDrawerVideoDescription?: string;
-  /** When true, parent tips tab is visible — enables seek-bar polling in compact view. */
-  tipsTabActive?: boolean;
 }) => {
   const {
     items,
@@ -164,6 +161,7 @@ export const WebTvLooper = ({
   const [miniPlayerActive, setMiniPlayerActive] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
   const [isPlayerLoading, setIsPlayerLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedContents, setSavedContents] = useState<unknown[]>([]);
@@ -188,6 +186,10 @@ export const WebTvLooper = ({
   const shareTitle = "Join me on TipManna TV";
 
   const current = playingItemOverride ?? (items[currentIndex] || items[0]);
+  const scheduleItemDuration = useMemo(() => {
+    const d = (current as { duration?: number } | undefined)?.duration;
+    return typeof d === "number" && d > 0 ? d : 0;
+  }, [current]);
   const isNotice = current?.segmentKind === "notice";
   const lastPlayableUrlRef = useRef<string>("");
 
@@ -593,19 +595,26 @@ export const WebTvLooper = ({
     };
   }, [currentEventId, currentIndex, isMobileTv, isFullView]);
 
+  useEffect(() => {
+    setCurrentTime(0);
+    setDuration(scheduleItemDuration);
+    setIsSeeking(false);
+  }, [current?.id, scheduleItemDuration]);
+
   // ---- Track current time & duration for seek bar ----
   useEffect(() => {
-    if (!isFullView && !tipsTabActive) return;
-
     const interval = setInterval(() => {
       const player = playerRef.current;
       if (!player || !player.isReady()) return;
-      setCurrentTime(player.getCurrentTime());
-      setDuration(player.getDuration());
-    }, 500);
+      const dur = player.getDuration();
+      if (dur > 0) setDuration(dur);
+      if (!isSeeking) {
+        setCurrentTime(player.getCurrentTime());
+      }
+    }, 100);
 
     return () => clearInterval(interval);
-  }, [playerRef, isFullView, tipsTabActive]);
+  }, [playerRef, isSeeking]);
 
   // ---- Tab visibility: pause/mute while hidden in LOCAL; clear flag when visible or GLOBAL ----
   useEffect(() => {
@@ -700,6 +709,10 @@ export const WebTvLooper = ({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
+
+  const seekBarDuration = duration > 0 ? duration : scheduleItemDuration;
+  const seekBarMax = seekBarDuration > 0 ? seekBarDuration : 1;
+  const seekBarValue = Math.min(Math.max(0, currentTime), seekBarMax);
 
   const channelId = current?.channel?.id ? String(current.channel.id) : null;
   const isCurrentChannelSaved = channelId
@@ -1131,9 +1144,13 @@ export const WebTvLooper = ({
                 setIsPlayerLoading(false);
                 applyPendingPlaybackRestore();
                 emitEncounterWhenVideoLoads();
+                const dur = playerRef.current?.getDuration() ?? 0;
+                if (dur > 0) setDuration(dur);
               }}
               onPlay={() => {
                 setIsPlaying(true);
+                const dur = playerRef.current?.getDuration() ?? 0;
+                if (dur > 0) setDuration(dur);
                 const id = current?.id as string | undefined;
                 if (!id) return;
                 if (id !== lastTrackedItemIdRef.current) {
@@ -1192,10 +1209,22 @@ export const WebTvLooper = ({
             <input
               type="range"
               min={0}
-              max={duration || 0}
+              max={seekBarMax}
               step={0.1}
-              value={currentTime}
-              onChange={e => seekTo(parseFloat(e.target.value))}
+              value={seekBarValue}
+              onMouseDown={() => setIsSeeking(true)}
+              onTouchStart={() => setIsSeeking(true)}
+              onChange={e => setCurrentTime(parseFloat(e.target.value))}
+              onMouseUp={e => {
+                const time = parseFloat((e.target as HTMLInputElement).value);
+                seekTo(time);
+                setIsSeeking(false);
+              }}
+              onTouchEnd={e => {
+                const time = parseFloat((e.target as HTMLInputElement).value);
+                seekTo(time);
+                setIsSeeking(false);
+              }}
               className="accent-primary h-1 w-full rounded-full"
             />
           </div>
@@ -1240,8 +1269,8 @@ export const WebTvLooper = ({
             )}
           >
             <div className="flex items-center justify-between text-xs text-white">
-              <span>{formatTime(currentTime)}</span>{" "}
-              <span>{formatTime(duration)}</span>
+              <span>{formatTime(seekBarValue)}</span>{" "}
+              <span>{formatTime(seekBarDuration)}</span>
             </div>
           </div>
         </div>

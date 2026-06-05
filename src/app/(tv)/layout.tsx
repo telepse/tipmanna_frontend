@@ -11,6 +11,7 @@ import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
 import { TvDeviceSessionBootstrap } from "@/components/tv/tv-device-session-bootstrap";
 import TVProvider from "@/components/tv-provider";
 import { TVExpressButtons } from "@/components/tv/tv-express-buttons";
+import { TvSourcePickerProvider } from "@/components/tv/tv-source-picker-provider";
 
 export default function TVLayout({ children }: { children: React.ReactNode }) {
   const [, setContents] = useState<unknown[]>([]);
@@ -43,18 +44,16 @@ export default function TVLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <TVProvider>
-      <>
+      <TvSourcePickerProvider>
         <TVNavbar active_users={activeUsers.length} />
         <TVExpressButtons />
 
-        <>
-          <TvDeviceSessionBootstrap />
+        <TvDeviceSessionBootstrap />
 
-          <main className="grid grid-cols-12 gap-8">
-            <div className="col-span-full">{children}</div>
-          </main>
-        </>
-      </>
+        <main className="grid grid-cols-12 gap-8">
+          <div className="col-span-full">{children}</div>
+        </main>
+      </TvSourcePickerProvider>
     </TVProvider>
   );
 }

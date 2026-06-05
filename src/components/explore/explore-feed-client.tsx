@@ -717,6 +717,8 @@ export const ExploreFeedClient = forwardRef<
     activeEventId || undefined,
     setIsTipDrawerOpen
   );
+  const tipDrawerStripeMounted =
+    isTipDrawerOpen || openWalletModalNonce > 0;
   const activeRef = useRef(active);
   activeRef.current = active;
   const activeIndexRef = useRef(activeIndex);
@@ -1608,27 +1610,29 @@ export const ExploreFeedClient = forwardRef<
         forceTypePicker
       />
 
-      <TippingElementsProvider
-        tippingCharacters={characters as RoomCharacter[]}
-        enabled={isTipDrawerOpen}
-      >
-        <TipDrawer
-          open={isTipDrawerOpen}
-          onOpenChange={setIsTipDrawerOpen}
-          eventId={activeEventId}
-          tippingCharacters={characters}
-          characterSets={characterSets}
-          paymentSurface={
-            feedMode === "community" ? "community_feed" : "explore_feed"
-          }
-          paymentCommunityId={
-            active?.community?.id ? active.community.id : undefined
-          }
-          paymentChannelId={active?.id ?? null}
-          openWalletModalNonce={openWalletModalNonce}
-          stackAboveImmersive
-        />
-      </TippingElementsProvider>
+      {tipDrawerStripeMounted ? (
+        <TippingElementsProvider
+          tippingCharacters={characters as RoomCharacter[]}
+          enabled
+        >
+          <TipDrawer
+            open={isTipDrawerOpen}
+            onOpenChange={setIsTipDrawerOpen}
+            eventId={activeEventId}
+            tippingCharacters={characters}
+            characterSets={characterSets}
+            paymentSurface={
+              feedMode === "community" ? "community_feed" : "explore_feed"
+            }
+            paymentCommunityId={
+              active?.community?.id ? active.community.id : undefined
+            }
+            paymentChannelId={active?.id ?? null}
+            openWalletModalNonce={openWalletModalNonce}
+            stackAboveImmersive
+          />
+        </TippingElementsProvider>
+      ) : null}
 
       {activeEventId ? (
         <TipsDrawer

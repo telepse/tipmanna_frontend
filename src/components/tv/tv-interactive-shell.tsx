@@ -8,16 +8,9 @@ import Link from "next/link";
 import {
   ChevronDown,
   ArrowUp,
-  Tv,
   ChevronRight,
   ChevronsUp,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { formatCurrency } from "@/lib/utils";
 const TipDrawer = dynamic(
   () =>
@@ -40,6 +33,9 @@ import { TopContentsPanel } from "./top-contents-panel";
 import { LatestContentsPanel } from "./latest-contents-panel";
 import { SpotlightPanel } from "./spotlight-panel";
 import { MostTippedContentsPanel } from "./most-tipped-contents-panel";
+import { SavedContentsPanel } from "./saved-contents-panel";
+import { EventVideoTypeContentsPanel } from "./event-video-type-contents-panel";
+import { TV_EVENT_VIDEO_TYPE_TAGS } from "./tv-event-video-type-tags";
 import { Button } from "../ui/button";
 import Image from "next/image";
 
@@ -80,58 +76,9 @@ export type TvInteractiveShellProps = {
   characterSetsForDrawer: any[];
   openWalletModalNonce?: number;
   onSnapshotPaymentRedirect?: () => void;
-  /** Inline TV source switcher (community memberships); hidden when locked. */
-  tvInlineSourceOptions?: { id: string; name: string }[];
-  tvInlineSourceCommunityId?: string | null;
-  onTvInlineSourceChange?: (communityId: string | null) => void;
-  tvInlineSourceLocked?: boolean;
 };
 
 export type TvInteractiveVariant = "mobile" | "desktop";
-
-function TvSourceDropdown({
-  communityId,
-  options,
-  onChange,
-}: {
-  communityId: string | null;
-  options: { id: string; name: string }[];
-  onChange: (id: string | null) => void;
-}) {
-  const label =
-    communityId != null
-      ? (options.find(c => c.id === communityId)?.name ?? "Community TV")
-      : "Tipmanna TV";
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-800 shadow-sm"
-          aria-label="TV source"
-        >
-          <Tv className="size-3.5 shrink-0" />
-          <span className="max-w-[120px] truncate">{label}</span>
-          <ChevronDown className="size-3 opacity-70" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuItem onClick={() => onChange(null)}>
-          Tipmanna TV (global)
-        </DropdownMenuItem>
-        {options.map(c => (
-          <DropdownMenuItem
-            key={c.id}
-            onClick={() => onChange(c.id)}
-          >
-            {c.name}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 /**
  * Shared interactive TV UI: looper, schedule, tips tab, Stripe tip drawer.
@@ -165,10 +112,6 @@ export function TvInteractiveShell({
   characterSetsForDrawer,
   openWalletModalNonce = 0,
   onSnapshotPaymentRedirect,
-  tvInlineSourceOptions = [],
-  tvInlineSourceCommunityId = null,
-  onTvInlineSourceChange,
-  tvInlineSourceLocked = false,
 }: TvInteractiveShellProps) {
   const { currentIndex, playingItemOverride, scheduleSourceCommunityId } =
     useTV();
@@ -237,27 +180,19 @@ export function TvInteractiveShell({
     [tipFeed]
   );
 
-  const EVENT_VIDEO_TYPES = [
-    "Concert",
-    "Drama",
-    "Festival",
-    "Food",
-    "Hang out",
-    "Islamic",
-    "Christian",
-    "Corporate",
-    "Comedy",
-    "Fashion",
-    "Games and sport",
-  ];
-
   const [rightPanelView, setRightPanelView] = useState<
     | "playlist"
     | "top-contents"
     | "latest-contents"
     | "spotlight"
     | "most-tipped"
+    | "saved"
+    | "video-type"
   >("playlist");
+
+  const [selectedVideoType, setSelectedVideoType] = useState<string | null>(
+    null
+  );
 
   const DISCOVER_SECTIONS = [
     {
@@ -323,7 +258,6 @@ export function TvInteractiveShell({
                 characters={characters}
                 playerLayout="wide"
                 analyticsSurface={tvAnalyticsSurface}
-                tipsTabActive={activeTab === "tips"}
                 onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
                 commentDrawerVideoTitle={
                   typeof currentPlaying?.channel?.title === "string"
@@ -345,7 +279,7 @@ export function TvInteractiveShell({
 
           <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
             {/* Floating Navigation Dock */}
-            {/* <div className="absolute top-28 left-0 z-20 flex flex-col gap-3">
+            <div className="absolute top-28 left-0 z-20 flex flex-col gap-3">
               {DISCOVER_SECTIONS.map(section => (
                 <button
                   key={section.id}
@@ -370,7 +304,7 @@ export function TvInteractiveShell({
                   </span>
                 </button>
               ))}
-            </div> */}
+            </div>
 
             {/* Existing content */}
             <div className="flex items-center justify-between gap-4 border-b-2 border-gray-300">
@@ -411,29 +345,64 @@ export function TvInteractiveShell({
             </div>
 
             {/* TV Categories */}
-            <div className="flex items-center gap-2">
-              <div onClick={() =>
-                  setRightPanelView("playlist" as typeof rightPanelView)
-                } className="flex items-center gap-2 bg-black rounded-md text-white p-1 text-xs cursor-pointer">
-                  {/* <Tv
-                className="size-6 shrink-0 cursor-pointer border-none! p-4 text-white! disabled:opacity-50 bg-black rounded-full"
-                
-              /> */} TV
-              </div>
-              
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedVideoType(null);
+                    setRightPanelView("playlist");
+                    setActiveTab("playlist");
+                  }}
+                  className={`rounded-md p-1 text-xs ${
+                    rightPanelView === "playlist"
+                      ? "bg-black text-white"
+                      : "bg-gray-200 text-black"
+                  }`}
+                >
+                  TV
+                </button>
 
-              {/* <span className="text-xs">Saved</span> */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedVideoType(null);
+                    setRightPanelView("saved");
+                    setActiveTab("playlist");
+                  }}
+                  className={`rounded-md px-2 py-1 text-xs whitespace-nowrap ${
+                    rightPanelView === "saved"
+                      ? "bg-black text-white"
+                      : "text-black underline"
+                  }`}
+                >
+                  Saved
+                </button>
 
-              {/* <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto">
-                {EVENT_VIDEO_TYPES.map((item, index) => (
-                  <span
-                    key={index}
-                    className="bg-gray rounded-full p-1 text-[10px] whitespace-nowrap"
+                <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+                {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
+                  <button
+                    key={tag.value}
+                    type="button"
+                    onClick={() => {
+                      setSelectedVideoType(tag.value);
+                      setRightPanelView("video-type");
+                      setActiveTab("playlist");
+                    }}
+                    className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${
+                      rightPanelView === "video-type" &&
+                      selectedVideoType === tag.value
+                        ? "bg-black text-white"
+                        : "bg-gray-200 text-black"
+                    }`}
                   >
-                    {item}
-                  </span>
+                    {tag.label}
+                  </button>
                 ))}
-              </div> */}
+              </div>
+              </div>
+
+              
             </div>
 
             {/* Dynamic Content */}
@@ -486,6 +455,12 @@ export function TvInteractiveShell({
                 {rightPanelView === "most-tipped" && (
                   <MostTippedContentsPanel />
                 )}
+
+                {rightPanelView === "saved" && <SavedContentsPanel />}
+
+                {rightPanelView === "video-type" && selectedVideoType && (
+                  <EventVideoTypeContentsPanel videoType={selectedVideoType} />
+                )}
               </div>
             )}
 
@@ -516,7 +491,6 @@ export function TvInteractiveShell({
                   characters={characters}
                   playerLayout="compact"
                   analyticsSurface={tvAnalyticsSurface}
-                  tipsTabActive={activeTab === "tips"}
                   onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
                   commentDrawerVideoTitle={
                     typeof currentPlaying?.channel?.title === "string"
@@ -574,17 +548,6 @@ export function TvInteractiveShell({
                   Your TV
                 </button>
               </div>
-              {!tvInlineSourceLocked &&
-              tvInlineSourceOptions.length > 0 &&
-              onTvInlineSourceChange ? (
-                <div className="px-3">
-                  <TvSourceDropdown
-                    communityId={tvInlineSourceCommunityId}
-                    options={tvInlineSourceOptions}
-                    onChange={onTvInlineSourceChange}
-                  />
-                </div>
-              ) : null}
 
               {activeTab === "playlist" && (
                 <div className="relative flex max-h-[75vh] w-full flex-col items-start gap-2 overflow-y-auto p-2 pb-10">

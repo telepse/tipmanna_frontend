@@ -124,6 +124,7 @@ export function ExploreTvScheduleFeed({
     tipEventId ?? undefined,
     setTipDrawerOpen
   );
+  const tipDrawerStripeMounted = tipDrawerOpen || openWalletModalNonce > 0;
 
   useGlobalTipStream({
     eventId: tipEventId ?? undefined,
@@ -430,22 +431,24 @@ export function ExploreTvScheduleFeed({
         </section>
       </div>
 
-      <TippingElementsProvider
-        tippingCharacters={characters as RoomCharacter[]}
-        enabled={tipDrawerOpen}
-      >
-        <TipDrawer
-          open={tipDrawerOpen}
-          onOpenChange={setTipDrawerOpen}
-          eventId={tipEventId ?? ""}
-          tippingCharacters={characters}
-          characterSets={characterSets}
-          paymentSurface="explore_feed"
-          paymentChannelId={tipChannelId}
-          openWalletModalNonce={openWalletModalNonce}
-          stackAboveImmersive
-        />
-      </TippingElementsProvider>
+      {tipDrawerStripeMounted ? (
+        <TippingElementsProvider
+          tippingCharacters={characters as RoomCharacter[]}
+          enabled
+        >
+          <TipDrawer
+            open={tipDrawerOpen}
+            onOpenChange={setTipDrawerOpen}
+            eventId={tipEventId ?? ""}
+            tippingCharacters={characters}
+            characterSets={characterSets}
+            paymentSurface="explore_feed"
+            paymentChannelId={tipChannelId}
+            openWalletModalNonce={openWalletModalNonce}
+            stackAboveImmersive
+          />
+        </TippingElementsProvider>
+      ) : null}
     </>
   );
 }
