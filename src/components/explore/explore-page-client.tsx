@@ -33,6 +33,7 @@ import {
 } from "./explore-feed-client";
 import { ExploreTvScheduleFeed } from "./explore-tv-schedule-feed";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
+import { exploreOpenTargetFromUrl } from "@/lib/explore-video-navigation";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
 import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
@@ -191,15 +192,7 @@ export default function ExplorePageClient({
   const dedicatedCommunityName =
     sideChick.activation?.community.name ?? "Community";
 
-  const [viewerUser, setViewerUser] = useState<UserInfo>({
-    id: "",
-    type: "anonymous",
-    username: "Anonymous",
-    isAuthenticated: false,
-  });
-  useEffect(() => {
-    setViewerUser(getOrCreateAnonymousViewer());
-  }, []);
+  const [viewerUser] = useState<UserInfo>(() => getOrCreateAnonymousViewer());
 
   const { activeUsers: exploreLiveViewers } = usePusherTrackingGlobalTV({
     tvId: "global-tv",
@@ -331,6 +324,7 @@ export default function ExplorePageClient({
   const [trendCountry, setTrendCountry] = useState("");
 
   const didHydrateExploreQs = useRef(false);
+  const didHydrateExploreVideo = useRef(false);
   useLayoutEffect(() => {
     if (didHydrateExploreQs.current) return;
     didHydrateExploreQs.current = true;
@@ -538,6 +532,16 @@ export default function ExplorePageClient({
     },
     [setMainTab, sideChickLocked]
   );
+
+  useLayoutEffect(() => {
+    if (didHydrateExploreVideo.current) return;
+    const target = exploreOpenTargetFromUrl(
+      new URLSearchParams(searchParamsKey)
+    );
+    if (!target) return;
+    didHydrateExploreVideo.current = true;
+    handlePlayInExplore(target);
+  }, [searchParamsKey, handlePlayInExplore]);
 
   /** Runs after Feed subtree commits so refs/layout exist; restores pending target if aborted before open (Strict Mode / cancel). */
   useLayoutEffect(() => {

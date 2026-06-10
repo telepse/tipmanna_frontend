@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { UserInfo, PusherTrackingHook } from "@/types/tracking.types";
+import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
 import {
   globalTvPresenceTrackActivity,
   subscribeGlobalTvPresence,
@@ -12,6 +13,11 @@ interface UsePusherTrackingGlobalTVProps {
   userInfo: UserInfo;
 }
 
+function resolvePresenceUser(userInfo: UserInfo): UserInfo {
+  if (userInfo?.id?.trim()) return userInfo;
+  return getOrCreateAnonymousViewer();
+}
+
 /** Global TV viewer count + presence; one shared Pusher / join lifecycle per `{@link tvId}`. */
 export const usePusherTrackingGlobalTV = ({
   tvId,
@@ -19,9 +25,17 @@ export const usePusherTrackingGlobalTV = ({
 }: UsePusherTrackingGlobalTVProps): PusherTrackingHook => {
   const [activeUsers, setActiveUsers] = useState<UserInfo[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [joinUser, setJoinUser] = useState<UserInfo>(() =>
+    resolvePresenceUser(userInfo)
+  );
 
-  const userInfoRef = useRef(userInfo);
-  userInfoRef.current = userInfo;
+  const userInfoRef = useRef(joinUser);
+  userInfoRef.current = joinUser;
+
+  useEffect(() => {
+    const resolved = resolvePresenceUser(userInfo);
+    setJoinUser(prev => (prev.id === resolved.id ? prev : resolved));
+  }, [userInfo]);
 
   const leaveTV = useCallback(async () => {
     /** Presence leave runs when last subscriber unsubscribes; manual leave unsupported for shared hubs. */
@@ -35,7 +49,7 @@ export const usePusherTrackingGlobalTV = ({
   );
 
   useEffect(() => {
-    if (!tvId || !userInfoRef.current?.id) return undefined;
+    if (!tvId || !joinUser.id?.trim()) return undefined;
 
     return subscribeGlobalTvPresence({
       tvId,
@@ -43,7 +57,22 @@ export const usePusherTrackingGlobalTV = ({
       onUsers: setActiveUsers,
       onConnectedChange: setIsConnected,
     });
-  }, [tvId, userInfo.id]);
+  }, [tvId, joinUser.id]);
+
+  useEffect(() => {
+    if (!tvId || !joinUser.id?.trim()) return undefined;
+
+    void trackActivity("viewing_tv");
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void trackActivity("viewing_tv");
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [tvId, joinUser.id, trackActivity]);
 
   return {
     activeUsers,

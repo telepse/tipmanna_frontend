@@ -29,6 +29,7 @@ import {
   Share2,
   CircleAlert,
   MessageCircleMore,
+  ChevronsUp,
 } from "lucide-react";
 
 import TvPlayer from "./tv-player";
@@ -84,6 +85,7 @@ import {
   immersiveControlRailClassName,
   immersiveFullViewViewportClassName,
   immersiveMainRowClassName,
+  immersiveMobileScrubberDockClassName,
   immersivePlayerStageClassName,
 } from "@/components/media/immersive-media-shell";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
@@ -97,6 +99,8 @@ export const TvLooper = ({
   playerLayout = "compact",
   analyticsSurface = "tv_looper",
   onContinueCommentToTip,
+  onEngage,
+  onFullViewChange,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
 }: {
@@ -107,6 +111,10 @@ export const TvLooper = ({
   analyticsSurface?: PaymentSurface;
   /** Optional: parent opens Stripe tip drawer after comment draft handoff from CommentDrawer. */
   onContinueCommentToTip?: () => void;
+  /** Opens tip/engage drawer from full-view mobile scrubber dock. */
+  onEngage?: () => void;
+  /** Notifies parent when mobile full-view mode toggles (shell hides chrome). */
+  onFullViewChange?: (isFullView: boolean) => void;
   commentDrawerVideoTitle?: string;
   commentDrawerVideoDescription?: string;
 }) => {
@@ -126,6 +134,8 @@ export const TvLooper = ({
     applyPendingPlaybackRestore,
     scheduleSourceCommunityId,
   } = useTV();
+
+  const openEngageDrawer = onEngage ?? onContinueCommentToTip;
 
   const sideChick = useSideChick();
   const sideTvLogo = useMemo(() => {
@@ -234,6 +244,15 @@ export const TvLooper = ({
     isMobile: isMobileTv,
     resetAnchor: current?.id,
   });
+
+  useEffect(() => {
+    if (!isMobileTv) {
+      onFullViewChange?.(false);
+      return;
+    }
+    onFullViewChange?.(isFullView);
+  }, [isFullView, isMobileTv, onFullViewChange]);
+
   const currentEventId = String(
     current?.defaultChannelEventId ?? current?.channel?.eventId ?? ""
   ).trim();
@@ -246,8 +265,6 @@ export const TvLooper = ({
     amountToRaise?: number;
     numOfTips?: number;
   };
-
-  console.log("[TV LOOPER] currentChannelId", currentEventId);
 
   const isCommunityTv = Boolean(scheduleSourceCommunityId);
 
@@ -800,8 +817,11 @@ export const TvLooper = ({
         !fillViewport &&
           widePlayer &&
           "h-[min(56vh,640px)] w-full max-w-6xl md:h-[min(70vh,680px)]",
-        !fillViewport && !widePlayer && "h-[40vh] w-full px-2 lg:!h-[90vh]",
-        isFullView && "h-[90vh] w-full"
+        !fillViewport &&
+          !widePlayer &&
+          (isMobileTv
+            ? "h-full min-h-0 w-full px-2"
+            : "h-[40vh] w-full px-2 lg:!h-[90vh]")
       )}
     >
       {currentEventId ? <SaveEventId eventId={currentEventId} /> : null}
@@ -840,9 +860,14 @@ export const TvLooper = ({
             <CircleStop className="-ml-1 size-7 fill-black text-white" />
           </button>
 
-          <button onClick={toggleMute}>
+          <button
+            onClick={toggleMute}
+            type="button"
+          >
             {isMuted ? (
-              <VolumeX className="size-5" />
+              <VolumeX
+                className={`size-5 ${isMuted ? "text-destructive" : ""}`}
+              />
             ) : (
               <Volume2 className="size-5" />
             )}
@@ -1052,8 +1077,8 @@ export const TvLooper = ({
               onOpenChange={setTipsListOpen}
               eventId={currentEventId}
               channelId={currentChannelId ? String(currentChannelId) : null}
-              eventRoomTipCount={liveNumOfTips}
-              videoTipCount={liveNumOfTips}
+              eventRoomTipCount={eventRoomTipCount}
+              videoTipCount={videoTipCount}
             />
           </div>
 
@@ -1061,14 +1086,14 @@ export const TvLooper = ({
             <div
               className={`${isFullView ? "absolute top-1/2 right-4 z-40 mt-2 -translate-y-1/2" : "absolute right-4 bottom-12 z-40"}`}
             >
-              <button
+              {/* <button
                 type="button"
                 title="View tips"
                 className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white"
                 onClick={() => setTipsListOpen(true)}
               >
                 {liveNumOfTips} tips
-              </button>
+              </button> */}
               {showRaisedAmount ? (
                 <ChannelProgressBar
                   amountToRaise={progressAmountToRaise}
@@ -1235,13 +1260,9 @@ export const TvLooper = ({
               chromeHide.chromeTransitionClass,
               chromeHide.chromeOpacityClass,
               "absolute z-[20] truncate bg-black text-sm font-medium text-white",
-              isFullView && isMobileTv && immersiveLayout === "portrait_video"
-                ? "right-2 -bottom-6 left-2 text-center"
-                : null,
-              isFullView && isMobileTv && immersiveLayout === "landscape_video"
-                ? "right-2 -bottom-6 left-24"
-                : null,
-              (!isFullView || !isMobileTv) && "right-2 -bottom-6 left-10"
+              isFullView && isMobileTv && "hidden",
+              !isFullView && isMobileTv ? "right-2 bottom-12 left-10" : null,
+              !isFullView && !isMobileTv ? "right-2 -bottom-6 left-10" : null
             )}
           >
             {currentTitle}
@@ -1252,13 +1273,9 @@ export const TvLooper = ({
               chromeHide.chromeTransitionClass,
               chromeHide.chromeOpacityClass,
               "absolute z-10",
-              isFullView && isMobileTv && immersiveLayout === "portrait_video"
-                ? "right-2 -bottom-12 left-2"
-                : null,
-              isFullView && isMobileTv && immersiveLayout === "landscape_video"
-                ? "right-2 -bottom-12 left-24"
-                : null,
-              (!isFullView || !isMobileTv) && "right-2 -bottom-12 left-10"
+              isFullView && isMobileTv && "hidden",
+              !isFullView && isMobileTv ? "right-2 bottom-7 left-10" : null,
+              !isFullView && !isMobileTv ? "right-2 -bottom-12 left-10" : null
             )}
           >
             <input
@@ -1289,13 +1306,9 @@ export const TvLooper = ({
               chromeHide.chromeTransitionClass,
               chromeHide.chromeOpacityClass,
               "absolute",
-              isFullView && isMobileTv && immersiveLayout === "portrait_video"
-                ? "right-2 -bottom-16 left-2"
-                : null,
-              isFullView && isMobileTv && immersiveLayout === "landscape_video"
-                ? "right-2 -bottom-16 left-24"
-                : null,
-              (!isFullView || !isMobileTv) && "right-2 -bottom-16 left-10"
+              isFullView && isMobileTv && "hidden",
+              !isFullView && isMobileTv ? "right-2 bottom-3 left-10" : null,
+              !isFullView && !isMobileTv ? "right-2 -bottom-16 left-10" : null
             )}
           >
             <div className="flex items-center justify-between text-xs text-white">
@@ -1305,6 +1318,49 @@ export const TvLooper = ({
           </div>
         </div>
       </div>
+
+      {isFullView && isMobileTv ? (
+        <div className={immersiveMobileScrubberDockClassName(immersiveLayout)}>
+          <p className="truncate text-xs text-white">{currentTitle}</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={seekBarMax}
+              step={0.1}
+              value={seekBarValue}
+              onMouseDown={() => setIsSeeking(true)}
+              onTouchStart={() => setIsSeeking(true)}
+              onChange={e => setCurrentTime(parseFloat(e.target.value))}
+              onMouseUp={e => {
+                const time = parseFloat((e.target as HTMLInputElement).value);
+                seekTo(time);
+                setIsSeeking(false);
+              }}
+              onTouchEnd={e => {
+                const time = parseFloat((e.target as HTMLInputElement).value);
+                seekTo(time);
+                setIsSeeking(false);
+              }}
+              className="accent-primary h-2 min-w-0 flex-1 rounded-full bg-white/20"
+            />
+            {openEngageDrawer ? (
+              <button
+                type="button"
+                onClick={openEngageDrawer}
+                className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
+              >
+                <ChevronsUp className="text-primary size-4" />
+                Engage <ChevronsUp className="text-primary size-4" />
+              </button>
+            ) : null}
+          </div>
+          <div className="-mt-1 flex justify-between px-1 text-xs text-white">
+            <span>{formatTime(seekBarValue)}</span>
+            <span>{formatTime(seekBarDuration)}</span>
+          </div>
+        </div>
+      ) : null}
 
       {/* Mini Player Overlay (LOCAL mode only) */}
       {/* {miniPlayerActive && mode !== "GLOBAL" && (

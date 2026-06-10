@@ -1,6 +1,11 @@
 /** UI-only slot for full-schedule highlight (drawer); not the same as `currentIndex` when playing alternate-batch override. */
 export type SchedulePlayingSlot =
-  | { scope: "active"; rowIndex: number }
+  | {
+      scope: "active";
+      rowIndex: number;
+      /** `preview` = preview playlist click (re-pin list). `schedule` = full schedule drawer (preserve scroll). */
+      source?: "preview" | "schedule";
+    }
   | { scope: "alternate"; rowIndex: number };
 
 export const TV_PAYMENT_SNAPSHOT_KEY = "tv_payment_snapshot_v1";

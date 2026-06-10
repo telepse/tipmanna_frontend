@@ -14,7 +14,7 @@ function totalFromSelection(
   characterMap: Map<string, RoomCharacter>
 ): number {
   return selectedTips.reduce((acc, characterName) => {
-    if (characterName === "Text") return acc + 5;
+    if (characterName === "Comment") return acc + 5;
     const character = characterMap.get(characterName);
     return acc + (character?.price || 0);
   }, 0);

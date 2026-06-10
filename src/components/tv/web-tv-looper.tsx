@@ -249,8 +249,6 @@ export const WebTvLooper = ({
     numOfTips?: number;
   };
 
-  console.log("[TV LOOPER] currentChannelId", currentEventId);
-
   const isCommunityTv = Boolean(scheduleSourceCommunityId);
 
   const communityFundraisingEventId = useMemo(() => {
@@ -1230,7 +1228,7 @@ export const WebTvLooper = ({
           </div>
 
           {/* Bottom control rail */}
-          <div className="absolute bottom-4 left-8 z-10 bg-black/80 p-2 roundeed-2xl">
+          <div className="roundeed-2xl absolute bottom-4 left-8 z-10 bg-black/80 p-2">
             <div className="flex items-center gap-4">
               <button onClick={togglePlayPause}>
                 {isPlaying ? (

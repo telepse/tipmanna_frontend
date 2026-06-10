@@ -66,4 +66,34 @@ describe("validatePrivacyVideoLinks", () => {
     });
     expect(ok).toBe(true);
   });
+
+  it("blocks when slot is selected but YouTube verification not completed", () => {
+    const ok = validatePrivacyVideoLinks({
+      links: [
+        {
+          url: "https://youtube.com/watch?v=abc",
+          isDefault: true,
+          ownershipAnswer: "yes",
+          onYoutubeChannelSlot: 1,
+          isOnHostYoutube: false,
+        } as never,
+      ],
+    });
+    expect(ok).toBe(false);
+  });
+
+  it("passes when slot is selected and YouTube verification completed", () => {
+    const ok = validatePrivacyVideoLinks({
+      links: [
+        {
+          url: "https://youtube.com/watch?v=abc",
+          isDefault: true,
+          ownershipAnswer: "yes",
+          onYoutubeChannelSlot: 1,
+          isOnHostYoutube: true,
+        } as never,
+      ],
+    });
+    expect(ok).toBe(true);
+  });
 });

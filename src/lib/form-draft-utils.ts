@@ -5,6 +5,7 @@ type VideoPolicySlice = {
   ownershipAnswer?: "yes" | "no";
   coOwnerDraftKey?: string;
   onYoutubeChannelSlot?: number | null;
+  isOnHostYoutube?: boolean;
 };
 
 export type FormDraftPolicyJson = {
@@ -34,6 +35,9 @@ export function splitDraftPayload(payload: NewEventFormData): {
     if (link.onYoutubeChannelSlot != null) {
       slice.onYoutubeChannelSlot = link.onYoutubeChannelSlot;
     }
+    if (link.isOnHostYoutube) {
+      slice.isOnHostYoutube = true;
+    }
     return slice;
   });
 
@@ -44,6 +48,7 @@ export function splitDraftPayload(payload: NewEventFormData): {
         ownershipAnswer: _o,
         coOwnerDraftKey: _k,
         onYoutubeChannelSlot: _s,
+        isOnHostYoutube: _y,
         ...rest
       } = link;
       return rest;
@@ -85,6 +90,10 @@ export function mergeDraftPayload(
         policy.videoLinks?.[i]?.onYoutubeChannelSlot ??
         link.onYoutubeChannelSlot ??
         null,
+      isOnHostYoutube:
+        policy.videoLinks?.[i]?.isOnHostYoutube ??
+        link.isOnHostYoutube ??
+        false,
     })),
   };
 }

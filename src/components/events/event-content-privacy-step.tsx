@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getYoutubeChannelsAction,
   upsertYoutubeChannelAction,
@@ -29,6 +29,15 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { toast } from "react-toastify";
+import {
+  CREATE_FORM_INPUT_CLASS,
+  CREATE_FORM_LABEL_CLASS,
+  CREATE_FORM_MUTED_TEXT_CLASS,
+  CREATE_FORM_SECTION_CLASS,
+  CREATE_FORM_SELECT_CONTENT_CLASS,
+  CREATE_FORM_SELECT_ITEM_CLASS,
+  CREATE_FORM_SELECT_TRIGGER_CLASS,
+} from "@/lib/create-form-theme";
 
 type YtRow = { slot: number; url: string; locked: boolean };
 
@@ -39,6 +48,7 @@ export function EventContentPrivacyStep({
 }) {
   const { watch, setValue, getValues } = useFormContext<NewEventFormData>();
   const user = useSelector((s: RootState) => s.auth.user);
+  const token = useSelector((s: RootState) => s.auth.token);
   const videoLinks = watch("videoLinks") || [];
   const [channels, setChannels] = useState<YtRow[]>([]);
   const [loadingYt, setLoadingYt] = useState(false);
@@ -67,31 +77,36 @@ export function EventContentPrivacyStep({
   useEffect(() => {
     if (!user?.id || user?.role !== "HOST") return;
     setLoadingYt(true);
-    void getYoutubeChannelsAction().then(res => {
+    void getYoutubeChannelsAction(token).then(res => {
       setLoadingYt(false);
       if (res.success && res.data && typeof res.data === "object") {
         const c = (res.data as { channels?: YtRow[] }).channels;
         if (Array.isArray(c)) setChannels(c);
+      } else if (!res.success) {
+        toast.error(res.message ?? "Could not load your YouTube channels");
       }
     });
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, token]);
 
   const saveSlot = async (slot: number, url: string) => {
     if (!user?.id) {
       toast.error("Sign in required");
       return;
     }
-    const res = await upsertYoutubeChannelAction({
-      slot,
-      url: url.trim(),
-      rawUrl: url.trim(),
-    });
+    const res = await upsertYoutubeChannelAction(
+      {
+        slot,
+        url: url.trim(),
+        rawUrl: url.trim(),
+      },
+      token
+    );
     if (!res.success) {
       toast.error(res.message ?? "Could not save channel");
       return;
     }
     toast.success("YouTube channel saved");
-    const r = await getYoutubeChannelsAction();
+    const r = await getYoutubeChannelsAction(token);
     if (r.success && r.data && typeof r.data === "object") {
       const c = (r.data as { channels?: YtRow[] }).channels;
       if (Array.isArray(c)) setChannels(c);
@@ -101,8 +116,15 @@ export function EventContentPrivacyStep({
   const verifyVideoOnChannel = async (videoIndex: number) => {
     const url = getValues(`videoLinks.${videoIndex}.url`)?.trim();
     const slot = getValues(`videoLinks.${videoIndex}.onYoutubeChannelSlot`);
-    if (!user?.id) {
-      toast.error("Sign in required");
+    const ownership = getValues(`videoLinks.${videoIndex}.ownershipAnswer`);
+    if (!user?.id || user.role !== "HOST") {
+      toast.error("Sign in as host to verify YouTube ownership");
+      return;
+    }
+    if (ownership !== "yes") {
+      toast.error(
+        "Select “Yes” for ownership before verifying on your channel"
+      );
       return;
     }
     if (!url) {
@@ -113,8 +135,15 @@ export function EventContentPrivacyStep({
       toast.error("Select a YouTube channel slot to verify");
       return;
     }
+    if (!channels.some(c => c.slot === slot && c.url?.trim())) {
+      toast.error(
+        `Save your YouTube channel URL for slot ${slot} above before verifying`
+      );
+      return;
+    }
     setVerifyStatus(prev => ({ ...prev, [videoIndex]: "checking" }));
-    const res = await verifyYoutubeOwnershipAction(url, slot);
+    setValue(`videoLinks.${videoIndex}.isOnHostYoutube`, false);
+    const res = await verifyYoutubeOwnershipAction(url, slot, token);
     if (!res.success) {
       setVerifyStatus(prev => ({ ...prev, [videoIndex]: "failed" }));
       toast.error(res.message ?? "Verification failed");
@@ -123,9 +152,11 @@ export function EventContentPrivacyStep({
     const status = (res.data as { status?: string })?.status;
     if (status === "verified") {
       setVerifyStatus(prev => ({ ...prev, [videoIndex]: "verified" }));
+      setValue(`videoLinks.${videoIndex}.isOnHostYoutube`, true);
       toast.success("Video verified on your YouTube channel");
     } else {
       setVerifyStatus(prev => ({ ...prev, [videoIndex]: "failed" }));
+      setValue(`videoLinks.${videoIndex}.isOnHostYoutube`, false);
       toast.error(
         (res.data as { message?: string })?.message ??
           "Video not found on selected channel"
@@ -133,175 +164,285 @@ export function EventContentPrivacyStep({
     }
   };
 
-  const [showCoownerInviteBlock, setShowCoownerInviteBlock] = useState(false);
+  const [coOwnerBlockIndex, setCoOwnerBlockIndex] = useState<number | null>(
+    null
+  );
+
+  const slotConfigured = (slot: 1 | 2) =>
+    channels.some(c => c.slot === slot && c.url?.trim());
+
+  useEffect(() => {
+    videoLinks.forEach((link, i) => {
+      if (link.isOnHostYoutube) {
+        setVerifyStatus(prev =>
+          prev[i] === "verified" ? prev : { ...prev, [i]: "verified" }
+        );
+      }
+    });
+  }, [videoLinks]);
+
+  const verificationFingerprint = videoLinks
+    .map(v => `${v.url?.trim()}|${v.onYoutubeChannelSlot}|${v.ownershipAnswer}`)
+    .join(";;");
+  const prevFingerprint = useRef(verificationFingerprint);
+
+  useEffect(() => {
+    if (prevFingerprint.current === verificationFingerprint) return;
+    prevFingerprint.current = verificationFingerprint;
+    setVerifyStatus({});
+    const links = getValues("videoLinks") ?? [];
+    links.forEach((_, i) => {
+      setValue(`videoLinks.${i}.isOnHostYoutube`, false);
+    });
+  }, [verificationFingerprint, getValues, setValue]);
+
+  const slotLabel = (slot: 1 | 2) => {
+    const row = channels.find(c => c.slot === slot);
+    if (!row?.url?.trim()) {
+      return `Slot ${slot} — not configured (save above)`;
+    }
+    const short = row.url.length > 48 ? `${row.url.slice(0, 45)}…` : row.url;
+    return `Slot ${slot}: ${short}`;
+  };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 py-4">
-      <div>
-        <h2 className="text-lg font-semibold">Privacy &amp; policy</h2>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Confirm YouTube channels and ownership for each video. Co-owner
-          invites require Host Premium or Host Community.
-        </p>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-6 py-4">
+      <div className="space-y-6 rounded-lg border-2 border-white bg-black/50 p-4 text-white shadow sm:p-6">
+        <div>
+          <h2 className="font-semibold">Privacy &amp; policy</h2>
+          <p className={`mt-1 ${CREATE_FORM_MUTED_TEXT_CLASS}`}>
+            Confirm YouTube channels and ownership for each video. Co-owner
+            invites require Host Premium or Host Community.
+          </p>
+        </div>
 
-      <div className="space-y-4 rounded-lg border p-4">
-        <h3 className="font-medium">Your YouTube channels</h3>
-        {loadingYt ? (
-          <p className="text-muted-foreground text-sm">Loading…</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <FormLabel>Primary (slot 1)</FormLabel>
-              {channels.find(c => c.slot === 1) ? (
-                <Input
-                  readOnly
-                  value={channels.find(c => c.slot === 1)?.url ?? ""}
-                  className="bg-muted mt-1"
-                />
-              ) : (
-                <div className="mt-1 flex gap-2">
+        <div className={`space-y-4 ${CREATE_FORM_SECTION_CLASS}`}>
+          <h3 className="font-medium text-white">Your YouTube channels</h3>
+          {loadingYt ? (
+            <p className={CREATE_FORM_MUTED_TEXT_CLASS}>Loading…</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <FormLabel className={CREATE_FORM_LABEL_CLASS}>
+                  Primary (slot 1)
+                </FormLabel>
+                {channels.find(c => c.slot === 1) ? (
                   <Input
-                    value={slot1Input}
-                    onChange={e => setSlot1Input(e.target.value)}
-                    placeholder="https://youtube.com/@yourchannel"
+                    readOnly
+                    value={channels.find(c => c.slot === 1)?.url ?? ""}
+                    className={`mt-1 ${CREATE_FORM_INPUT_CLASS}`}
                   />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => saveSlot(1, slot1Input)}
-                  >
-                    Save
-                  </Button>
-                </div>
-              )}
-            </div>
-            <div>
-              <FormLabel>Secondary (slot 2, optional)</FormLabel>
-              {channels.find(c => c.slot === 2) ? (
-                <Input
-                  readOnly
-                  value={channels.find(c => c.slot === 2)?.url ?? ""}
-                  className="bg-muted mt-1"
-                />
-              ) : (
-                <div className="mt-1 flex gap-2">
+                ) : (
+                  <div className="mt-1 flex gap-2">
+                    <Input
+                      value={slot1Input}
+                      onChange={e => setSlot1Input(e.target.value)}
+                      placeholder="https://youtube.com/@yourchannel"
+                      className={CREATE_FORM_INPUT_CLASS}
+                    />
+                    <Button
+                      type="button"
+                      className="bg-white text-black hover:bg-white/80"
+                      onClick={() => saveSlot(1, slot1Input)}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div>
+                <FormLabel className={CREATE_FORM_LABEL_CLASS}>
+                  Secondary (slot 2, optional)
+                </FormLabel>
+                {channels.find(c => c.slot === 2) ? (
                   <Input
-                    value={slot2Input}
-                    onChange={e => setSlot2Input(e.target.value)}
-                    placeholder="Optional second channel"
+                    readOnly
+                    value={channels.find(c => c.slot === 2)?.url ?? ""}
+                    className={`mt-1 ${CREATE_FORM_INPUT_CLASS}`}
                   />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => saveSlot(2, slot2Input)}
-                  >
-                    Save
-                  </Button>
-                </div>
-              )}
+                ) : (
+                  <div className="mt-1 flex gap-2">
+                    <Input
+                      value={slot2Input}
+                      onChange={e => setSlot2Input(e.target.value)}
+                      placeholder="Optional second channel"
+                      className={CREATE_FORM_INPUT_CLASS}
+                    />
+                    <Button
+                      type="button"
+                      className="bg-white text-black hover:bg-white/80"
+                      onClick={() => saveSlot(2, slot2Input)}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {videoLinks.map((_, i) => (
-        <div
-          key={i}
-          className="space-y-3 rounded-lg border p-4"
-        >
-          <h4 className="font-medium">Video {i + 1}</h4>
-          <FormField
-            control={control}
-            name={`videoLinks.${i}.ownershipAnswer`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Do you have substantial ownership rights?</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="no">No (co-owner required)</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-fit"
-                  onClick={() => {
-                    setShowCoownerInviteBlock(true);
-                    // field.onChange("yes");
-                  }}
-                >
-                  Add co-owner
-                </Button>
-
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={control}
-            name={`videoLinks.${i}.onYoutubeChannelSlot`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Is this video on your YouTube channel?</FormLabel>
-                <Select
-                  onValueChange={v =>
-                    field.onChange(v === "none" ? null : parseInt(v, 10))
-                  }
-                  value={field.value == null ? "none" : String(field.value)}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">No / not applicable</SelectItem>
-                    <SelectItem value="1">Primary channel</SelectItem>
-                    <SelectItem value="2">Secondary channel</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
-          />
-
-          {(watch(`videoLinks.${i}.onYoutubeChannelSlot`) === 1 ||
-            watch(`videoLinks.${i}.onYoutubeChannelSlot`) === 2) && (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={verifyStatus[i] === "checking"}
-              onClick={() => void verifyVideoOnChannel(i)}
-            >
-              {verifyStatus[i] === "checking"
-                ? "Verifying…"
-                : verifyStatus[i] === "verified"
-                  ? "Verified on channel"
-                  : "Verify on YouTube channel"}
-            </Button>
-          )}
-
-          {showCoownerInviteBlock && (
-            <CoOwnerInviteBlock
-              index={i}
-              canInvite={!!canInvite}
-              videoTitle={watch(`videoLinks.${i}.title`) || `Video ${i + 1}`}
-            />
           )}
         </div>
-      ))}
+
+        {videoLinks.map((link, i) => (
+          <div
+            key={i}
+            className={`space-y-3 ${CREATE_FORM_SECTION_CLASS}`}
+          >
+            <h4 className="font-medium text-white">
+              {link.title?.trim() ? link.title : `Video ${i + 1}`}
+            </h4>
+            {link.url?.trim() ? (
+              <p className={CREATE_FORM_MUTED_TEXT_CLASS}>{link.url}</p>
+            ) : null}
+            <FormField
+              control={control}
+              name={`videoLinks.${i}.ownershipAnswer`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={CREATE_FORM_LABEL_CLASS}>
+                    Do you have substantial ownership rights?
+                  </FormLabel>
+                  <Select
+                    onValueChange={value => {
+                      field.onChange(value);
+                      if (value !== "no") {
+                        setCoOwnerBlockIndex(prev =>
+                          prev === i ? null : prev
+                        );
+                      }
+                      if (value !== "yes") {
+                        setValue(`videoLinks.${i}.onYoutubeChannelSlot`, null);
+                        setValue(`videoLinks.${i}.isOnHostYoutube`, false);
+                        setVerifyStatus(prev => ({ ...prev, [i]: "idle" }));
+                      }
+                    }}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger
+                        className={CREATE_FORM_SELECT_TRIGGER_CLASS}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className={CREATE_FORM_SELECT_CONTENT_CLASS}>
+                      <SelectItem
+                        value="yes"
+                        className={CREATE_FORM_SELECT_ITEM_CLASS}
+                      >
+                        Yes
+                      </SelectItem>
+                      <SelectItem
+                        value="no"
+                        className={CREATE_FORM_SELECT_ITEM_CLASS}
+                      >
+                        No (co-owner required)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {field.value === "no" ? (
+                    <Button
+                      type="button"
+                      className="w-fit bg-white text-black hover:bg-white/80"
+                      onClick={() => setCoOwnerBlockIndex(i)}
+                    >
+                      Add co-owner
+                    </Button>
+                  ) : null}
+
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {watch(`videoLinks.${i}.ownershipAnswer`) === "yes" ? (
+              <FormField
+                control={control}
+                name={`videoLinks.${i}.onYoutubeChannelSlot`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={CREATE_FORM_LABEL_CLASS}>
+                      Is this video on your YouTube channel?
+                    </FormLabel>
+                    <Select
+                      onValueChange={v => {
+                        const next = v === "none" ? null : parseInt(v, 10);
+                        field.onChange(next);
+                        setValue(`videoLinks.${i}.isOnHostYoutube`, false);
+                        setVerifyStatus(prev => ({ ...prev, [i]: "idle" }));
+                      }}
+                      value={field.value == null ? "none" : String(field.value)}
+                    >
+                      <FormControl>
+                        <SelectTrigger
+                          className={CREATE_FORM_SELECT_TRIGGER_CLASS}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent
+                        className={CREATE_FORM_SELECT_CONTENT_CLASS}
+                      >
+                        <SelectItem
+                          value="none"
+                          className={CREATE_FORM_SELECT_ITEM_CLASS}
+                        >
+                          No / not applicable
+                        </SelectItem>
+                        <SelectItem
+                          value="1"
+                          disabled={!slotConfigured(1)}
+                          className={CREATE_FORM_SELECT_ITEM_CLASS}
+                        >
+                          {slotLabel(1)}
+                        </SelectItem>
+                        <SelectItem
+                          value="2"
+                          disabled={!slotConfigured(2)}
+                          className={CREATE_FORM_SELECT_ITEM_CLASS}
+                        >
+                          {slotLabel(2)}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className={CREATE_FORM_MUTED_TEXT_CLASS}>
+                      If this video is on one of your saved channels, select the
+                      slot and verify so we can confirm it belongs to you.
+                    </p>
+                  </FormItem>
+                )}
+              />
+            ) : null}
+
+            {(watch(`videoLinks.${i}.onYoutubeChannelSlot`) === 1 ||
+              watch(`videoLinks.${i}.onYoutubeChannelSlot`) === 2) &&
+            watch(`videoLinks.${i}.ownershipAnswer`) === "yes" ? (
+              <Button
+                type="button"
+                size="sm"
+                className="bg-white text-black hover:bg-white/80"
+                disabled={verifyStatus[i] === "checking"}
+                onClick={() => void verifyVideoOnChannel(i)}
+              >
+                {verifyStatus[i] === "checking"
+                  ? "Verifying…"
+                  : verifyStatus[i] === "verified" ||
+                      watch(`videoLinks.${i}.isOnHostYoutube`)
+                    ? "Verified on channel"
+                    : "Verify on YouTube channel"}
+              </Button>
+            ) : null}
+
+            {coOwnerBlockIndex === i ? (
+              <CoOwnerInviteBlock
+                index={i}
+                canInvite={!!canInvite}
+                videoTitle={watch(`videoLinks.${i}.title`) || `Video ${i + 1}`}
+              />
+            ) : null}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -357,10 +498,18 @@ function CoOwnerInviteBlock({
       toast.error("Missing session or draft id");
       return;
     }
+    if (!email.trim()) {
+      toast.error("Co-owner email is required");
+      return;
+    }
+    if (!name.trim()) {
+      toast.error("Co-owner legal name is required");
+      return;
+    }
     setPending(true);
     const res = await createVideoCoOwnerInviteAction({
       draftKey: dk,
-      coOwnerName: name || "Co-owner",
+      coOwnerName: name.trim(),
       coOwnerEmail: email.trim(),
       payoutPercentBp: Math.round(pct * 100),
     });
@@ -386,26 +535,30 @@ function CoOwnerInviteBlock({
   }
 
   return (
-    <div className="bg-muted/40 space-y-2 rounded-md p-3">
-      <p className="text-sm font-medium">
+    <div className="space-y-2 rounded-md border border-white/20 bg-black/20 p-3">
+      <p className="text-sm font-medium text-white/90">
         Invite co-owner (draft {draftKey?.slice(0, 8)}…)
       </p>
       <Input
         placeholder="Co-owner legal name"
+        className={CREATE_FORM_INPUT_CLASS}
         value={name}
         onChange={e => setName(e.target.value)}
       />
       <Input
         placeholder="Co-owner email"
         type="email"
+        className={CREATE_FORM_INPUT_CLASS}
         value={email}
         onChange={e => setEmail(e.target.value)}
       />
       <div className="flex items-center gap-2">
-        <FormLabel className="shrink-0">Share % (of 100%)</FormLabel>
+        <FormLabel className={`shrink-0 ${CREATE_FORM_LABEL_CLASS}`}>
+          Share % (of 100%)
+        </FormLabel>
         <Input
           type="number"
-          className="w-24"
+          className={`w-24 ${CREATE_FORM_INPUT_CLASS}`}
           min={1}
           max={100}
           value={pct}
@@ -415,6 +568,7 @@ function CoOwnerInviteBlock({
       <Button
         type="button"
         size="sm"
+        className="bg-white text-black hover:bg-white/80"
         disabled={pending}
         onClick={sendInvite}
       >

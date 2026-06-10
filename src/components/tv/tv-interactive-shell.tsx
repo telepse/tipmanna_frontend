@@ -4,14 +4,15 @@
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import {
   ChevronDown,
   ArrowUp,
   ChevronRight,
   ChevronsUp,
+  ChevronsRight,
+  Search,
+  X,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
 const TipDrawer = dynamic(
   () =>
     import("../events/tip-drawer").then(m => ({
@@ -25,9 +26,9 @@ import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
 import { useTV } from "../tv-provider";
-import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
 import { BeatLoader } from "react-spinners";
 import { TipSection } from "../events/tip-section";
+import { TipsFeedPanel } from "../events/tips-feed-panel";
 import { WebTvLooper } from "./web-tv-looper";
 import { TopContentsPanel } from "./top-contents-panel";
 import { LatestContentsPanel } from "./latest-contents-panel";
@@ -38,15 +39,8 @@ import { EventVideoTypeContentsPanel } from "./event-video-type-contents-panel";
 import { TV_EVENT_VIDEO_TYPE_TAGS } from "./tv-event-video-type-tags";
 import { Button } from "../ui/button";
 import Image from "next/image";
-
-export interface TvTipFeedMessage {
-  id: string;
-  sender: string;
-  text: string;
-  tip: number;
-  purchasedSummary: string;
-  event?: { id: string; previewVideoUrl?: string | null };
-}
+import { UpcomingProgramsPanel } from "./upcoming-programs-panel";
+import { cn } from "@/lib/utils";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -67,7 +61,6 @@ export type TvInteractiveShellProps = {
   setIsTipDrawerOpen: (open: boolean) => void;
   isTVDrawerOpen: boolean;
   setIsTvDrawerOpen: (open: boolean) => void;
-  tipFeed: TvTipFeedMessage[];
   scrollRef: RefObject<HTMLDivElement | null>;
   scrollProgress: number;
   handleScroll: () => void;
@@ -89,13 +82,9 @@ export function TvInteractiveShell({
   characters,
   tvReady,
   items,
-  totalDuration,
   mode,
   goLive,
   switchToLocal,
-  scheduleStale,
-  scheduleError,
-  retryScheduleLoad,
   activeTab,
   setActiveTab,
   handleSelectChannel,
@@ -103,7 +92,6 @@ export function TvInteractiveShell({
   setIsTipDrawerOpen,
   isTVDrawerOpen,
   setIsTvDrawerOpen,
-  tipFeed,
   scrollRef,
   scrollProgress,
   handleScroll,
@@ -121,64 +109,34 @@ export function TvInteractiveShell({
     ? "community_tv_looper"
     : "tv_looper";
 
+  const initialTipCount = useMemo(() => {
+    const channel = currentPlaying?.channel as
+      | { numOfTips?: number }
+      | undefined;
+    if (typeof channel?.numOfTips === "number") return channel.numOfTips;
+    const scheduleEvent = (currentPlaying as { numOfTips?: number } | undefined)
+      ?.numOfTips;
+    if (typeof scheduleEvent === "number") return scheduleEvent;
+    return 0;
+  }, [currentPlaying]);
+
+  const tipsFeedPanelEl = (
+    <TipsFeedPanel
+      variant="standalone"
+      eventId={tipDrawerEventId}
+      channelId={paymentChannelId != null ? String(paymentChannelId) : null}
+      eventRoomTipCount={initialTipCount}
+      videoTipCount={initialTipCount}
+      enabled={activeTab === "tips" && Boolean(tipDrawerEventId)}
+      showTipCount={false}
+    />
+  );
+
   const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
 
   const isDesktop = variant === "desktop";
   const isMobile = variant === "mobile";
-  const bannerW = isDesktop ? "w-full" : "w-[560px]";
   const playlistLayout = isDesktop ? "desktop" : "mobile";
-
-  const tipFeedListEl = useMemo(
-    () =>
-      tipFeed.map(msg => (
-        <div
-          key={msg.id}
-          className="flex items-center justify-between rounded-md bg-white p-2 text-black ring-4 ring-gray-200"
-        >
-          <div className="flex flex-col">
-            <p className="text-xs font-semibold">{msg.sender}</p>
-
-            <p>
-              {msg.text}
-              {msg.tip ? (
-                <span className="bg-secondary inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold">
-                  {formatCurrency(msg.tip)}
-                </span>
-              ) : null}
-            </p>
-
-            {msg.purchasedSummary && (
-              <p className="text-muted-foreground text-xs">
-                {msg.purchasedSummary}
-              </p>
-            )}
-          </div>
-
-          {msg.event?.id ? (
-            <Link href={`/channel/${msg.event.id}`}>
-              {(() => {
-                const thumbSrc =
-                  msg.event?.previewVideoUrl &&
-                  getYoutubeThumbnail(msg.event.previewVideoUrl);
-                return thumbSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={thumbSrc}
-                    alt=""
-                    className="h-[60px] w-[60px] shrink-0 rounded-md object-cover"
-                  />
-                ) : (
-                  <span className="bg-muted inline-block h-[60px] w-[60px] shrink-0 rounded-md" />
-                );
-              })()}
-            </Link>
-          ) : (
-            <span className="bg-muted h-[60px] w-[60px] shrink-0 rounded-md" />
-          )}
-        </div>
-      )),
-    [tipFeed]
-  );
 
   const [rightPanelView, setRightPanelView] = useState<
     | "playlist"
@@ -188,6 +146,7 @@ export function TvInteractiveShell({
     | "most-tipped"
     | "saved"
     | "video-type"
+    | "upcoming-programs"
   >("playlist");
 
   const [selectedVideoType, setSelectedVideoType] = useState<string | null>(
@@ -195,6 +154,10 @@ export function TvInteractiveShell({
   );
 
   const DISCOVER_SECTIONS = [
+    {
+      id: "upcoming-programs",
+      label: "Programs",
+    },
     {
       id: "top-contents",
       label: "Top contents",
@@ -211,11 +174,14 @@ export function TvInteractiveShell({
       id: "most-tipped",
       label: "Most tipped",
     },
-    {
-      id: "playlist",
-      label: "TV Playlist",
-    },
   ];
+
+  const [showSearchOptions, setShowSearchOptions] = useState(false);
+  const [isMobileFullView, setIsMobileFullView] = useState(false);
+
+  const handleSearchOptions = () => {
+    setShowSearchOptions(prev => !prev);
+  };
 
   return (
     <>
@@ -278,34 +244,6 @@ export function TvInteractiveShell({
           </div>
 
           <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
-            {/* Floating Navigation Dock */}
-            {/* <div className="absolute top-28 left-0 z-20 flex flex-col gap-3">
-              {DISCOVER_SECTIONS.map(section => (
-                <button
-                  key={section.id}
-                  onClick={() =>
-                    setRightPanelView(section.id as typeof rightPanelView)
-                  }
-                  className="group flex items-center disabled:opacity-50"
-                >
-                  <span
-                    className={`flex size-6 cursor-pointer disabled:opacity-50 items-center justify-center ${
-                      rightPanelView === section.id
-                        ? "rounded-full bg-black text-white"
-                        : "border-gray-300 text-black"
-                    } `}
-                  >
-                    <ChevronRight className="size-4" />
-                  </span>
-
-                  
-                  <span className="cursor-pointer overflow-hidden rounded-md bg-black px-0 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-all duration-300 group-hover:px-2 group-hover:opacity-100">
-                    {section.label}
-                  </span>
-                </button>
-              ))}
-            </div> */}
-
             {/* Existing content */}
             <div className="flex items-center justify-between gap-4 border-b-2 border-gray-300">
               <div className="flex items-center gap-2">
@@ -340,13 +278,53 @@ export function TvInteractiveShell({
                     : "bg-white text-black outline-black"
                 }`}
               >
-                Live tips
+                {initialTipCount} tips
               </button>
             </div>
-
-            {/* TV Categories */}
+            7{/* TV Categories */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
+                <div className="relative z-20">
+                  {showSearchOptions ? (
+                    <X
+                      className="size-4 cursor-pointer"
+                      role="button"
+                      onClick={handleSearchOptions}
+                    />
+                  ) : (
+                    <Search
+                      className="size-4 cursor-pointer text-black"
+                      role="button"
+                      onClick={handleSearchOptions}
+                    />
+                  )}
+
+                  {showSearchOptions && (
+                    <div className="absolute top-6 left-0 flex w-52 flex-col gap-2 rounded-2xl border-2 border-gray-300 bg-white/80 p-2">
+                      {DISCOVER_SECTIONS.map(section => (
+                        <button
+                          key={section.id}
+                          onClick={() => {
+                            setRightPanelView(
+                              section.id as typeof rightPanelView
+                            );
+                            setShowSearchOptions(false);
+                          }}
+                          className="flex cursor-pointer items-center gap-1"
+                        >
+                          <ChevronRight className="text-moonstone-blue size-4" />
+
+                          <span
+                            className={`rounded-md px-2 py-1 text-xs whitespace-nowrap ${section.id === rightPanelView ? "bg-moonstone-blue text-black" : "bg-white text-black"}`}
+                          >
+                            {section.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -363,7 +341,7 @@ export function TvInteractiveShell({
                   TV
                 </button>
 
-                {/* <button
+                <button
                   type="button"
                   onClick={() => {
                     setSelectedVideoType(null);
@@ -377,34 +355,33 @@ export function TvInteractiveShell({
                   }`}
                 >
                   Saved
-                </button> */}
+                </button>
 
-                {/* <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-                {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
-                  <button
-                    key={tag.value}
-                    type="button"
-                    onClick={() => {
-                      setSelectedVideoType(tag.value);
-                      setRightPanelView("video-type");
-                      setActiveTab("playlist");
-                    }}
-                    className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${
-                      rightPanelView === "video-type" &&
-                      selectedVideoType === tag.value
-                        ? "bg-black text-white"
-                        : "bg-gray-200 text-black"
-                    }`}
-                  >
-                    {tag.label}
-                  </button>
-                ))}
-              </div> */}
+                {rightPanelView !== "playlist" && (
+                  <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+                    {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
+                      <button
+                        key={tag.value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVideoType(tag.value);
+                          setRightPanelView("video-type");
+                          setActiveTab("playlist");
+                        }}
+                        className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${
+                          rightPanelView === "video-type" &&
+                          selectedVideoType === tag.value
+                            ? "bg-black text-white"
+                            : "bg-gray-200 text-black"
+                        }`}
+                      >
+                        {tag.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-
-              
             </div>
-
             {/* Dynamic Content */}
             {activeTab === "playlist" && (
               <div className="animate-in fade-in relative -mt-2 -ml-2 flex max-h-[45vh] w-full flex-col items-start gap-1 overflow-y-auto p-2">
@@ -458,24 +435,21 @@ export function TvInteractiveShell({
 
                 {rightPanelView === "saved" && <SavedContentsPanel />}
 
+                {rightPanelView === "upcoming-programs" && (
+                  <UpcomingProgramsPanel />
+                )}
+
                 {rightPanelView === "video-type" && selectedVideoType && (
                   <EventVideoTypeContentsPanel videoType={selectedVideoType} />
                 )}
               </div>
             )}
-
             {activeTab === "tips" && (
               <div
                 data-testid="tv-tips-feed"
-                className="-mt-3 max-h-[35vh] w-full space-y-4 overflow-y-auto p-3"
+                className="-mt-3 max-h-[35vh] w-full overflow-y-auto p-3"
               >
-                {tipFeed.length === 0 ? (
-                  <p className="text-muted-foreground text-center text-sm">
-                    No tips yet — they will appear here as tippers contribute.
-                  </p>
-                ) : (
-                  tipFeedListEl
-                )}
+                {tipsFeedPanelEl}
               </div>
             )}
           </div>
@@ -483,15 +457,36 @@ export function TvInteractiveShell({
       )}
 
       {isMobile && (
-        <div className="fixed top-[88px] bottom-0 -mt-2 flex w-full flex-col p-2">
+        <div
+          className={cn(
+            isMobileFullView
+              ? "fixed inset-0 z-[1100] flex min-h-0 w-full flex-col overflow-hidden bg-black"
+              : "fixed top-[88px] right-0 bottom-0 left-0 flex max-h-[calc(100dvh-88px)] min-h-0 w-full flex-col overflow-hidden p-2"
+          )}
+        >
           {tvReady && (
-            <>
-              <div className="flex size-full gap-2">
+            <div
+              className={cn(
+                "flex min-h-0 w-full flex-col",
+                isMobileFullView
+                  ? "h-full flex-1"
+                  : "flex-1 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]"
+              )}
+            >
+              <div
+                className={cn(
+                  isMobileFullView
+                    ? "min-h-0 flex-1 overflow-hidden"
+                    : "min-h-[220px] shrink-0 basis-[min(52dvh,420px)] overflow-hidden"
+                )}
+              >
                 <TvLooper
                   characters={characters}
                   playerLayout="compact"
                   analyticsSurface={tvAnalyticsSurface}
                   onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+                  onEngage={() => setIsTipDrawerOpen(true)}
+                  onFullViewChange={setIsMobileFullView}
                   commentDrawerVideoTitle={
                     typeof currentPlaying?.channel?.title === "string"
                       ? currentPlaying.channel.title
@@ -509,101 +504,107 @@ export function TvInteractiveShell({
                 />
               </div>
 
-              <div className="mt-2 flex w-full items-center gap-2 px-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("playlist")}
-                  className={`flex items-center gap-1 rounded-md px-3 py-1 text-sm whitespace-nowrap outline ${
-                    activeTab === "playlist"
-                      ? "bg-black text-white"
-                      : "bg-white text-black outline-black"
-                  }`}
-                >
-                  TV Playlist <ChevronDown className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  data-testid="tv-nav-tips"
-                  onClick={() => setActiveTab("tips")}
-                  className={`flex items-center gap-1 rounded-md px-3 py-1 text-sm whitespace-nowrap outline ${
-                    activeTab === "tips"
-                      ? "bg-black text-white"
-                      : "bg-white text-black outline-black"
-                  }`}
-                >
-                  Tips <ChevronDown className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={goLive}
-                  className={`text-sm whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
-                >
-                  Live TV
-                </button>
-                <button
-                  type="button"
-                  onClick={switchToLocal}
-                  className={`text-sm whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
-                >
-                  Your TV
-                </button>
-              </div>
-
-              {activeTab === "playlist" && (
-                <div className="relative flex max-h-[75vh] w-full flex-col items-start gap-2 overflow-y-auto p-2 pb-10">
-                  <div
-                    className="custom-scrollbar hide__scrollbar relative max-h-[40vh] w-full space-y-3 overflow-y-auto p-2"
-                    ref={scrollRef}
-                    onScroll={handleScroll}
-                  >
-                    <TvPlaylistPreview
-                      layout={playlistLayout}
-                      onSelectChannel={handleSelectChannel}
-                    />
-
+              {!isMobileFullView ? (
+                <>
+                  <div className="hide__scrollbar flex w-full shrink-0 items-center gap-2 overflow-x-auto px-2">
                     <button
                       type="button"
-                      onClick={() => setIsTvDrawerOpen(true)}
-                      className="mt-2 flex items-center gap-2 text-sm"
+                      onClick={() => setActiveTab("playlist")}
+                      className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
+                        activeTab === "playlist"
+                          ? "bg-black text-white"
+                          : "bg-white text-black outline-black"
+                      }`}
                     >
-                      See full schedule <ArrowUp className="size-4" />
+                      TV Playlist <ChevronDown className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="tv-nav-tips"
+                      onClick={() => setActiveTab("tips")}
+                      className={`flex shrink-0 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap outline ${
+                        activeTab === "tips"
+                          ? "bg-black text-white"
+                          : "bg-white text-black outline-black"
+                      }`}
+                    >
+                      <div
+                        className={`${initialTipCount > 999 ? "tip-feed-marquee" : ""}`}
+                      >
+                        <div
+                          className={`${initialTipCount > 999 ? "tip-feed-marquee-track" : ""}`}
+                        >
+                          {initialTipCount} Tips
+                        </div>
+                      </div>{" "}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goLive}
+                      className={`shrink-0 text-xs whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
+                    >
+                      Live TV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={switchToLocal}
+                      className={`shrink-0 text-xs whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
+                    >
+                      Your TV
                     </button>
                   </div>
 
-                  <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
-                    <div className="relative h-full w-[2px] bg-gray-200">
+                  {activeTab === "playlist" && (
+                    <div className="relative flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2">
                       <div
-                        className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
-                        style={{
-                          top: `${scrollProgress}%`,
-                          transform: `translate(-50%, -50%)`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+                        className="custom-scrollbar hide__scrollbar relative h-full min-h-0 w-full space-y-3 overflow-y-auto p-2"
+                        ref={scrollRef}
+                        onScroll={handleScroll}
+                      >
+                        <TvPlaylistPreview
+                          layout={playlistLayout}
+                          onSelectChannel={handleSelectChannel}
+                        />
 
-              {activeTab === "tips" && (
-                <div
-                  data-testid="tv-tips-feed"
-                  className="-mt-3 max-h-[35vh] w-full space-y-4 overflow-y-auto p-3"
-                >
-                  {tipFeed.length === 0 ? (
-                    <p className="text-muted-foreground text-center text-sm">
-                      No tips yet — they will appear here as tippers contribute.
-                    </p>
-                  ) : (
-                    tipFeedListEl
+                        <button
+                          type="button"
+                          onClick={() => setIsTvDrawerOpen(true)}
+                          className="mt-2 flex items-center gap-2 text-sm"
+                        >
+                          See full schedule <ArrowUp className="size-4" />
+                        </button>
+                      </div>
+
+                      <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
+                        <div className="relative h-full w-[2px] bg-gray-200">
+                          <div
+                            className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
+                            style={{
+                              top: `${scrollProgress}%`,
+                              transform: `translate(-50%, -50%)`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   )}
-                </div>
-              )}
-            </>
+
+                  {activeTab === "tips" && (
+                    <div
+                      data-testid="tv-tips-feed"
+                      className="relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2"
+                    >
+                      {tipsFeedPanelEl}
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
           )}
 
           {!tvReady && (
             <div
-              className="flex h-screen items-center justify-center"
+              className="flex h-full min-h-0 items-center justify-center"
               aria-busy="true"
               aria-label="Loading"
             >
@@ -622,17 +623,18 @@ export function TvInteractiveShell({
       />
 
       <div
-        className={
+        className={cn(
           isDesktop
             ? "fixed bottom-0 left-0 z-50 flex w-full justify-center border-t-4 border-gray-200 bg-white py-2 shadow-lg"
-            : "fixed bottom-0 -ml-2 w-full rounded-tl-2xl rounded-tr-2xl border-4 border-gray-200 bg-white pt-2 pb-0.5 drop-shadow-lg"
-        }
+            : "fixed right-0 bottom-0 left-0 z-50 w-full rounded-tl-2xl rounded-tr-2xl border-4 border-gray-200 bg-white pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))] drop-shadow-lg",
+          isMobileFullView && "hidden"
+        )}
       >
         <div className={isDesktop ? "w-full max-w-2xl px-4" : "w-full"}>
           <Button
             size="lg"
             onClick={() => setIsTipDrawerOpen(true)}
-            className="relative -mt-2 -ml-1 flex h-12 w-full justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:hidden"
+            className="relative -mt-1 flex h-11 w-full justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:hidden"
           >
             <Image
               src="/icons/love.png"
@@ -676,7 +678,8 @@ export function TvInteractiveShell({
               eventId={tipDrawerEventId}
               tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
               characterSets={characterSetsForDrawer}
-              paymentSurface="tv_looper"
+              paymentSurface={tvAnalyticsSurface}
+              paymentCommunityId={scheduleSourceCommunityId ?? undefined}
               paymentChannelId={paymentChannelId}
               getWatchDurationBeforePayMs={() => 0}
               textTipUnitPrice={0}

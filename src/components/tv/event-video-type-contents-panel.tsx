@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Sparkles, UsersRound } from "lucide-react";
+import { ChevronRight, Divide, Sparkles, UsersRound } from "lucide-react";
 
 import { postExploreFeedBatchAction } from "@/actions/contents";
 import { ContentCardSkeleton } from "./content-card-skeleton";
 import { ThumbnailPlayer } from "./thumbnail-player";
 import { TV_EVENT_VIDEO_TYPE_TAGS } from "./tv-event-video-type-tags";
+import { Content } from "@/types/content.types";
+import { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
+import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
 
 type FeedItem = {
   id: string;
@@ -23,16 +26,19 @@ type FeedItem = {
 };
 
 function feedItemTitle(item: FeedItem): string {
-  return (
-    item.title ?? item.event?.title ?? item.event?.eventName ?? "Video"
-  );
+  return item.title ?? item.event?.title ?? item.event?.eventName ?? "Video";
 }
 
 type Props = {
   videoType: string;
+  onPlayInExplore?: (target: ExploreFeedOpenTarget) => void;
 };
 
-export function EventVideoTypeContentsPanel({ videoType }: Props) {
+export function EventVideoTypeContentsPanel({
+  videoType,
+  onPlayInExplore,
+}: Props) {
+  const navigateToExplore = useNavigateToExploreVideo();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +53,7 @@ export function EventVideoTypeContentsPanel({ videoType }: Props) {
     setItems([]);
 
     void (async () => {
-      const res = await postExploreFeedBatchAction([], undefined, 20, null, {
+      const res = await postExploreFeedBatchAction([], undefined, 15, null, {
         feedMode: "trends",
         eventVideoTypes: [videoType],
       });
@@ -65,6 +71,41 @@ export function EventVideoTypeContentsPanel({ videoType }: Props) {
   const scrollNext = () => {
     scrollRef.current?.scrollBy({ left: 300, behavior: "smooth" });
   };
+
+  // const goToChannel = useCallback(
+  //   (eventId: string) => {
+  //     const href = `/content/${eventId}`;
+  //     prefetch(href);
+  //     push(href);
+  //   },
+  //   [push, prefetch]
+  // );
+
+  const openDiscoverContent = useCallback(
+    (content: Content) => {
+      if (onPlayInExplore) {
+        onPlayInExplore({
+          videoId: content.id,
+          eventId: content?.event?.id ?? "",
+          channelSnapshot: content as unknown as Record<string, unknown>,
+        });
+        return;
+      }
+      navigateToExplore(content);
+    },
+    [onPlayInExplore, navigateToExplore]
+  );
+
+  const [suppressDiscoverInlineContentId, setSuppressDiscoverInlineContentId] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    if (videoType) {
+      setSuppressDiscoverInlineContentId(null);
+    } else {
+      setSuppressDiscoverInlineContentId(videoType);
+    }
+  }, [videoType]);
 
   return (
     <div className="space-y-4">
@@ -92,16 +133,19 @@ export function EventVideoTypeContentsPanel({ videoType }: Props) {
                 if (!item.url || !eventId) return null;
 
                 return (
-                  <Link
+                  <div
                     key={item.id}
-                    href={`/content/${eventId}`}
+                    onClick={() => openDiscoverContent(item as Content)}
                     className="relative flex min-w-[200px] cursor-pointer gap-1 border-2 bg-black/10"
                   >
                     <div className="space-y-1">
                       <ThumbnailPlayer
                         videoUrl={item.url}
                         contentId={item.id}
-                        suppressInlinePlaybackContentId={null}
+                        suppressInlinePlaybackContentId={
+                          suppressDiscoverInlineContentId
+                        }
+                        disableInlinePlayback
                         className="aspect-video w-full rounded-md"
                       />
 
@@ -120,7 +164,7 @@ export function EventVideoTypeContentsPanel({ videoType }: Props) {
                         </div>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

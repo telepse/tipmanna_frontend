@@ -24,7 +24,12 @@ import {
   getTippedEventsForTipper,
   getTotalAmountTippedByTipper,
 } from "@/actions/events";
-import { getCommunityTipFeedAction } from "@/actions/communities";
+import {
+  getLatestContents,
+  getMostTippedContents,
+  getTipFeed,
+} from "@/actions/contents";
+import { getAllCausesAction } from "@/actions/home";
 import {
   Dialog,
   DialogContent,
@@ -32,18 +37,18 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  getLatestContents,
-  getMostTippedContents,
-  getTipFeed,
-} from "@/actions/contents";
-import { getAllCausesAction } from "@/actions/home";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useTV } from "../tv-provider";
 import { RootState } from "@/redux/store";
 import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { setSelectedTips } from "@/features/tip-slice";
+import type { RoomCharacter } from "@/types";
+import { scheduleExploreFeedPrefetchIdle } from "@/lib/explore-feed-prefetch-cache";
+import { TVPageClient } from "@/components/tv/tv-page-client";
+import { TvInteractiveShell, type TvInteractiveShellProps } from "./tv-interactive-shell";
+import { TvWebExperience } from "./tv-web-experience";
+import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import {
   acquireCommunityLiveTvChannel,
   acquireGlobalLiveTvChannel,
@@ -55,16 +60,9 @@ import {
   normalizeTipFeedList,
   prependTipFeedDeduped,
   rawToTipFeedMessage,
-} from "@/lib/tv-tip-feed-utils";
-import type { RoomCharacter } from "@/types";
-import { scheduleExploreFeedPrefetchIdle } from "@/lib/explore-feed-prefetch-cache";
-import { TVPageClient } from "@/components/tv/tv-page-client";
-import {
-  TvInteractiveShell,
   type TvTipFeedMessage,
-} from "./tv-interactive-shell";
-import { TvWebExperience } from "./tv-web-experience";
-import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
+} from "@/lib/tv-tip-feed-utils";
+import { getCommunityTipFeedAction } from "@/actions/communities";
 
 interface Character {
   id: string;
@@ -163,6 +161,18 @@ export default function TVPageClientWrapper({
 
   const isMobile = useMediaQuery({ maxWidth: "500px" });
 
+  useEffect(() => {
+    if (!isMobile) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isMobile]);
+
   const [activeTab, setActiveTab] = useState<"playlist" | "tips">("playlist");
 
   const handleSelectChannel = (index: number) => {
@@ -215,8 +225,6 @@ export default function TVPageClientWrapper({
     currentScheduleItem?.channel?.eventId ??
     "";
 
-  console.log("[TV PAGE CLIENT WRAPPER] tipDrawerEventId", tipDrawerEventId);
-
   const { openWalletModalNonce } = useWalletTopupTipResume(
     tipDrawerEventId || undefined,
     setIsTipDrawerOpen
@@ -225,7 +233,7 @@ export default function TVPageClientWrapper({
   const scheduleCommTvRef = useRef<string | null>(null);
   useEffect(() => {
     scheduleCommTvRef.current = scheduleSourceCommunityId;
-  }, [scheduleSourceCommunityId]);
+  }, [scheduleSourceCommunityId, tipDrawerEventId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -247,7 +255,6 @@ export default function TVPageClientWrapper({
 
       const rawSets = (res.data as { characterSets: CharacterSet[] })
         .characterSets;
-      console.log("[TV PAGE CLIENT WRAPPER] rawSets", rawSets);
       const sets: CharacterSet[] = Array.isArray(rawSets)
         ? rawSets.filter(
             (s: any) =>
@@ -271,8 +278,8 @@ export default function TVPageClientWrapper({
     };
   }, [tipDrawerEventId]);
 
-  const tippingCharactersForDrawer = characters;
-  const characterSetsForDrawer = characterSets;
+  const tippingCharactersForDrawer = drawerCharacters ?? characters;
+  const characterSetsForDrawer = drawerCharacterSets ?? characterSets;
 
   const videoTipKey = useMemo(
     () =>
@@ -327,7 +334,7 @@ export default function TVPageClientWrapper({
     window.dispatchEvent(new Event("tv-page-open"));
   }, []);
 
-  const [tipFeed, setTipFeed] = useState<TvTipFeedMessage[]>([]);
+  const [, setTipFeed] = useState<TvTipFeedMessage[]>([]);
   const [tippers, setTippers] = useState<any[]>([]);
   const [tipperEvents, setTipperEvents] = useState<any[]>([]);
   const [iTipped, setITipped] = useState(0);
@@ -341,7 +348,8 @@ export default function TVPageClientWrapper({
 
     const fetchTipFeedFirst = async () => {
       if (scheduleCommTvRef.current) return;
-      const res = await getTipFeed();
+      const res = await getTipFeed(tipDrawerEventId);
+      setTipFeed(normalizeTipFeedList(res.data));
       if (cancelled) return;
       const raw = res?.data;
       if (Array.isArray(raw)) {
@@ -387,7 +395,7 @@ export default function TVPageClientWrapper({
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [tipDrawerEventId, userId]);
 
   /** Stable community-scoped tip feed — keyed on community id only, not current schedule item. */
   useEffect(() => {
@@ -403,13 +411,13 @@ export default function TVPageClientWrapper({
     return () => {
       cancelled = true;
     };
-  }, [scheduleSourceCommunityId]);
+  }, [scheduleSourceCommunityId, tipDrawerEventId]);
 
   useEffect(() => {
     if (scheduleSourceCommunityId) return;
     let cancelled = false;
     void (async () => {
-      const res = await getTipFeed();
+      const res = await getTipFeed(tipDrawerEventId);
       if (cancelled) return;
       const raw = res?.data;
       if (Array.isArray(raw)) {
@@ -419,7 +427,7 @@ export default function TVPageClientWrapper({
     return () => {
       cancelled = true;
     };
-  }, [scheduleSourceCommunityId]);
+  }, [scheduleSourceCommunityId, tipDrawerEventId]);
 
   const refetchCommunityTipFeed = useCallback(async () => {
     const communityId = scheduleCommTvRef.current;
@@ -521,7 +529,7 @@ export default function TVPageClientWrapper({
     setScrollProgress(progress);
   };
 
-  const sharedShellProps = {
+  const sharedShellProps: Omit<TvInteractiveShellProps, "variant"> = {
     characters: characters as unknown as RoomCharacter[],
     tvReady,
     items,
@@ -539,7 +547,6 @@ export default function TVPageClientWrapper({
     setIsTipDrawerOpen,
     isTVDrawerOpen,
     setIsTvDrawerOpen,
-    tipFeed,
     scrollRef,
     scrollProgress,
     handleScroll,

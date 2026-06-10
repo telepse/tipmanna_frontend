@@ -57,7 +57,16 @@ export function CommunityTvEnforcementHostTab({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQ, setSearchQ] = useState("");
   const [searchHits, setSearchHits] = useState<
-    { id: string; title: string; eventName?: string }[]
+    {
+      id: string;
+      title: string;
+      eventName?: string;
+      playbackStatus?: string;
+      liveStatus?: string;
+      faultReason?: string | null;
+      tvPlayable?: boolean;
+      globallyBanned?: boolean;
+    }[]
   >([]);
   const [busy, setBusy] = useState(false);
   const [bannerDrafts, setBannerDrafts] = useState<Record<string, string>>({});
@@ -112,13 +121,7 @@ export function CommunityTvEnforcementHostTab({
       );
       if (!res.ok) throw new Error("search failed");
       const data = await res.json();
-      setSearchHits(
-        (data.items ?? []) as {
-          id: string;
-          title: string;
-          eventName?: string;
-        }[]
-      );
+      setSearchHits((data.items ?? []) as typeof searchHits);
     } catch {
       toast.error("Channel search failed");
     }
@@ -292,6 +295,23 @@ export function CommunityTvEnforcementHostTab({
                 <span>
                   {c.title}
                   {c.eventName ? ` — ${c.eventName}` : ""}
+                  {c.tvPlayable === false || c.globallyBanned ? (
+                    <span className="ml-1 text-xs text-amber-600">
+                      [{c.tvPlayable === false ? "not playable" : null}
+                      {c.globallyBanned ? "globally banned" : null}
+                      {c.playbackStatus && c.liveStatus
+                        ? ` · ${c.playbackStatus}/${c.liveStatus}`
+                        : null}
+                      {c.faultReason ? ` · ${c.faultReason}` : null}]
+                    </span>
+                  ) : c.playbackStatus &&
+                    (c.playbackStatus !== "OK" ||
+                      c.liveStatus !== "NOT_LIVE") ? (
+                    <span className="ml-1 text-xs text-amber-600">
+                      [{c.playbackStatus}/{c.liveStatus}
+                      {c.faultReason ? `: ${c.faultReason}` : ""}]
+                    </span>
+                  ) : null}
                 </span>
               </label>
             </li>

@@ -1,4 +1,14 @@
-import type { TvTipFeedMessage } from "@/components/tv/tv-interactive-shell";
+export type TvTipFeedMessage = {
+  id: string;
+  sender: string;
+  text: string;
+  tip: number;
+  purchasedSummary: string;
+  event?: {
+    id: string;
+    previewVideoUrl: string | null;
+  };
+};
 
 const FEED_MAX = 20;
 

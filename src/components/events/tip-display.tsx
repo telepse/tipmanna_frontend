@@ -56,7 +56,7 @@ export const TipDisplay = () => {
   const uniqueLabels = Array.from(new Set(selectedTips));
 
   const removeAllOfTip = (characterName: string) => {
-    if (characterName === "Text") {
+    if (characterName === "Comment") {
       stopPreview();
       setTextTipActive(false);
       clearTextTipDraftStorage();

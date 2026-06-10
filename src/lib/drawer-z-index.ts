@@ -7,8 +7,16 @@ export const DRAWER_Z_INDEX = "z-[99990]";
 export const DRAWER_NESTED_Z_INDEX = "z-[99995]";
 export const AUTH_MODAL_OVERLAY_Z_INDEX = "z-[99998]";
 export const AUTH_MODAL_Z_INDEX = "z-[99999]";
+/** Sign-in modal stacked above create dialog / comment drawer. */
+export const SIGN_IN_NESTED_OVERLAY_Z_INDEX = "z-[100002]";
+export const SIGN_IN_NESTED_Z_INDEX = "z-[100003]";
+export const SIGN_IN_EXPLORE_OVERLAY_Z_INDEX = "z-[100021]";
+export const SIGN_IN_EXPLORE_Z_INDEX = "z-[100022]";
 /** Explore filter panel + create dialog above explore chrome. */
 export const EXPLORE_MODAL_Z_INDEX = "z-[100020]";
-/** Radix select/popover portals inside auth modals (must sit above dialog content). */
-export const MODAL_DROPDOWN_Z_INDEX = "z-[100010]";
+/**
+ * Radix select/popover portals inside modals (must sit above dialog content).
+ * Keep above EXPLORE_MODAL (100020) and AUTH_MODAL (99999), below SIGN_IN_EXPLORE (100022).
+ */
+export const MODAL_DROPDOWN_Z_INDEX = "z-[100021]";
 export const OVERLAY_Z_INDEX = "z-[1000000]";

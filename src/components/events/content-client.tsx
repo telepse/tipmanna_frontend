@@ -18,10 +18,9 @@ import Image from "next/image";
 import {
   AudioLines,
   Bookmark,
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUp,
-  ChevronUp,
-  CircleAlert,
   CircleStop,
   FastForward,
   Maximize2,
@@ -38,6 +37,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  XIcon,
 } from "lucide-react";
 import { useMediaQuery } from "react-responsive";
 import { useSelector } from "react-redux";
@@ -117,6 +117,11 @@ import {
   immersiveMainRowClassName,
   immersiveMobileScrubberDockClassName,
   immersivePlayerStageClassName,
+  mobileInlineActionRailBottomClass,
+  mobileInlineActionRailBottomSmClass,
+  mobileInlinePlayerBoundsClass,
+  mobileInlineScrubberDockClass,
+  mobileInlineTipSectionClass,
 } from "@/components/media/immersive-media-shell";
 import { CommentDrawer } from "./comment-drawer";
 import { TipsDrawer } from "./tips-drawer";
@@ -364,6 +369,9 @@ export const ContentClient = ({
   const currentContentIndex = playlist.findIndex(
     c => c.id === currentContent?.id
   );
+  const currentContentCommunityId =
+    (currentContent as { community?: { id?: string } } | undefined)?.community
+      ?.id ?? null;
 
   const [isPlaying, setIsPlaying] = useState(false);
   const playbackSeekedForCompleteRef = useRef(false);
@@ -393,12 +401,10 @@ export const ContentClient = ({
         eventId,
         channelId: currentContent?.id ? String(currentContent.id) : null,
         surface: "content_client",
-        communityId:
-          (currentContent as { community?: { id?: string } })?.community?.id ??
-          null,
+        communityId: currentContentCommunityId,
       });
     });
-  }, [eventId, currentContent?.id]);
+  }, [eventId, currentContent?.id, currentContentCommunityId]);
 
   const emitEncounterOnVideoLoaded = useCallback(() => {
     if (!eventId || !currentContent?.id) return;
@@ -407,9 +413,7 @@ export const ContentClient = ({
         eventId,
         channelId: String(currentContent.id),
         surface: "content_client",
-        communityId:
-          (currentContent as { community?: { id?: string } })?.community?.id ??
-          null,
+        communityId: currentContentCommunityId,
       });
     });
     trackTvVideoEncounter(`content-client-${eventId}`, {
@@ -417,7 +421,12 @@ export const ContentClient = ({
       mode: "LOCAL",
       scheduleIndex: Math.max(0, currentContentIndex),
     });
-  }, [eventId, currentContent?.id, currentContentIndex]);
+  }, [
+    eventId,
+    currentContent?.id,
+    currentContentCommunityId,
+    currentContentIndex,
+  ]);
 
   useEffect(() => {
     if (!eventId || !currentContent?.id) return;
@@ -527,6 +536,18 @@ export const ContentClient = ({
     isMobile,
   });
 
+  useEffect(() => {
+    if (!isMobile || isFullView) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isMobile, isFullView]);
+
   const getPaymentPlaybackOffsetSec = () => {
     const t = videoRef.current?.getCurrentTime();
     return typeof t === "number" && !Number.isNaN(t) ? t : null;
@@ -578,17 +599,6 @@ export const ContentClient = ({
       setIsMuted(true);
       setAudioUnlocked(true);
     }
-  };
-
-  const handleUnmute = () => {
-    if (!videoRef.current) return;
-
-    videoRef.current.unmute(); // 🔥 actually unmute player
-    videoRef.current.setvolume(100); // optional but recommended
-
-    setIsMuted(false); // 🔥 sync icon state
-    setAudioUnlocked(true);
-    setIsPlaying(true);
   };
 
   const goToContent = (content: any) => {
@@ -694,11 +704,21 @@ export const ContentClient = ({
     }
   };
 
+  const isMobileLandscape =
+    useMediaQuery({ query: "(orientation: landscape)" }) &&
+    window.innerWidth <= 768;
+
   return (
     <div
       className={cn(
-        "relative h-[85%] w-[95%] bg-white sm:h-[80%]",
-        isFullView && immersiveFullViewViewportClassName("channel")
+        isFullView
+          ? immersiveFullViewViewportClassName("channel")
+          : isMobile
+            ? "fixed inset-0 h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-white px-2"
+            : "relative h-[85%] w-[95%] bg-white sm:h-[80%]",
+
+        isMobileLandscape &&
+          "fixed top-0 right-0 bottom-0 left-0 h-[100%] w-[100%] bg-black p-4 text-white"
       )}
     >
       <SaveEventId
@@ -719,63 +739,92 @@ export const ContentClient = ({
           }
         />
       )}
-      {!isFullView && (
-        <div className="fixed top-0 mx-auto flex w-[95%] items-center justify-between py-2">
-          <Link
-            href="/partner"
-            className="racing_sans_one text-sm sm:text-2xl"
-          >
-            <span className="text-primary">tip</span>manna
-          </Link>
 
-          <div className="flex items-center gap-2">
-            <p className="text-muted-foreground text-[10px] sm:text-sm">
-              Host: {playlist[0]?.event?.hostName.split(" ")[0]}{" "}
-              <Link
-                href={`/channel/${playlist[0]?.event?.id}`}
-                className="text-primary hover:underline"
-              >
-                @{playlist[0]?.event?.username}
-              </Link>
-            </p>
-            <SaveHostToggleButton
-              channelId={saveChannelId}
-              className="rounded bg-black/50 p-1 text-white"
-              iconClassName="size-4 text-white"
-            />
-            <button
-              type="button"
-              title={isMuted ? "Unmute" : "Mute"}
-              className="cursor-pointer rounded bg-black/50 p-1"
-              onClick={toggleMute}
-            >
-              {isMuted ? (
-                <VolumeX className="size-4 text-white" />
-              ) : (
-                <Volume2 className="size-4 text-white" />
+      {!isMobileLandscape ? (
+        <>
+          {!isFullView && (
+            <div
+              className={cn(
+                isMobile
+                  ? "absolute top-[env(safe-area-inset-top,0px)] right-2 left-2 z-[95] flex items-center justify-between py-1"
+                  : "fixed top-0 mx-auto flex w-[95%] items-center justify-between py-2"
               )}
-            </button>
-          </div>
+            >
+              <Link
+                href="/partner"
+                className="racing_sans_one text-sm sm:text-2xl"
+              >
+                <span className="text-primary">tip</span>manna
+              </Link>
 
-          <div className="flex items-center gap-1">
-            <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
-            <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
-              {activeUsers.length} online
-            </span>
-          </div>
+              <div className="flex items-center gap-2">
+                <p
+                  className={`border-muted-foreground rounded-md border p-1 text-[10px] sm:text-sm ${openPlaylist ? "bg-primary text-black" : "text-muted-foreground"}`}
+                >
+                  Host:{" "}
+                  <span
+                    className="cursor-pointer underline"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setOpenPlaylist(prev => !prev);
+                    }}
+                  >
+                    {playlist[0]?.event?.hostName.split(" ")[0]}
+                  </span>{" "}
+                  {/* <span>@{playlist[0]?.event?.username}</span> */}
+                </p>
+
+                <SaveHostToggleButton
+                  channelId={saveChannelId}
+                  className="rounded bg-black/50 p-1 text-white"
+                  iconClassName="size-4 text-white"
+                />
+                <button
+                  type="button"
+                  title={isMuted ? "Unmute" : "Mute"}
+                  className={`cursor-pointer rounded p-1 ${isMuted ? "bg-destructive" : "bg-black/50"}`}
+                  onClick={toggleMute}
+                >
+                  {isMuted ? (
+                    <VolumeX className="size-4 text-black" />
+                  ) : (
+                    <Volume2 className="size-4 text-white" />
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
+                <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
+                  {activeUsers.length} online
+                </span>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="bg-black">
+          <XIcon className="absolute top-4 right-4 z-50 text-white" />
         </div>
       )}
 
       <div
         className={cn(
-          immersiveMainRowClassName(isFullView, isMobile, immersiveLayout),
-          !isFullView && "h-full w-full"
+          !isFullView && isMobile
+            ? cn(mobileInlinePlayerBoundsClass, "flex gap-2")
+            : immersiveMainRowClassName(isFullView, isMobile, immersiveLayout),
+          !isFullView && !isMobile && "h-full w-full"
         )}
       >
         {/* Player controls */}
         <div
           className={cn(
-            immersiveControlRailClassName(isFullView, isMobile, immersiveLayout)
+            immersiveControlRailClassName(
+              isFullView,
+              isMobile,
+              immersiveLayout
+            ),
+            !isFullView && isMobile && "shrink-0 gap-2 pt-2"
           )}
         >
           <button
@@ -804,19 +853,21 @@ export const ContentClient = ({
             className="cursor-pointer"
           >
             {isMuted ? (
-              <VolumeX className="size-5" />
+              <VolumeX
+                className={`size-5 ${isMuted ? "text-destructive" : "text-white"}`}
+              />
             ) : (
               <Volume2 className="size-5" />
             )}
           </button>
 
           {isMobile && (
-            <span className="inline-flex items-center gap-0.5">
+            <span className="flex flex-col items-center gap-1">
               {!isFullView && (
                 <button
                   type="button"
                   onClick={enterFull}
-                  className="cursor-pointer"
+                  className="cursor-pointer border border-gray-300 p-1"
                   aria-label="Full view"
                 >
                   <Maximize2 className="size-5" />
@@ -825,7 +876,7 @@ export const ContentClient = ({
               <button
                 type="button"
                 onClick={toggleFullVariant}
-                className="cursor-pointer"
+                className="cursor-pointer border border-gray-300 p-1"
                 aria-label={
                   fullLayoutToggleShowsPortraitIcon
                     ? "Portrait full layout"
@@ -843,16 +894,23 @@ export const ContentClient = ({
         </div>
 
         <div
-          className={immersivePlayerStageClassName(
-            isFullView,
-            isMobile,
-            immersiveLayout
+          className={cn(
+            !isFullView && isMobile
+              ? "relative h-full min-h-0 flex-1 overflow-hidden"
+              : immersivePlayerStageClassName(
+                  isFullView,
+                  isMobile,
+                  immersiveLayout
+                )
           )}
         >
           <div className="relative h-full w-full">
             {currentContent?.community?.id &&
             currentContent?.community?.name ? (
-              <CommunityCBadge community={currentContent.community} />
+              <CommunityCBadge
+                community={currentContent.community}
+                position="top-right"
+              />
             ) : null}
             {currentContent?.coOwnerApproved ? (
               <CoOwnerApprovedBadge
@@ -895,19 +953,11 @@ export const ContentClient = ({
               }}
               onVideoLoaded={emitEncounterOnVideoLoaded}
             />
-            {(showRaisedAmount ||
-              (showViewCount && channelViewCount != null)) && (
+            {showViewCount && channelViewCount != null && (
               <div className="pointer-events-none absolute bottom-3 left-3 z-[63] space-y-0.5 text-white drop-shadow-md">
-                {showRaisedAmount ? (
-                  <p className="text-xs font-medium">
-                    £{liveAmountRaised} raised
-                  </p>
-                ) : null}
-                {showViewCount && channelViewCount != null ? (
-                  <p className="text-[11px] opacity-90">
-                    {channelViewCount} views
-                  </p>
-                ) : null}
+                <p className="text-[11px] opacity-90">
+                  {channelViewCount} views
+                </p>
               </div>
             )}
           </div>
@@ -917,7 +967,7 @@ export const ContentClient = ({
           />
 
           {/* Fast-forward icon */}
-          <button
+          {/* <button
             type="button"
             onClick={e => {
               e.stopPropagation();
@@ -938,28 +988,73 @@ export const ContentClient = ({
             ) : (
               <FastForward className="fill-primary size-6 rotate-90" />
             )}
-          </button>
+          </button> */}
 
           {openPlaylist && (
-            <div className="absolute top-8 left-1/2 z-50 -translate-x-1/2">
+            <div className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2">
               {/* Playlist container wrapper */}
-              <div className="relative max-h-[300px] w-[305px] rounded-md shadow-lg sm:max-h-[450px] sm:w-[450px]">
+              <div className="relative flex max-h-[300px] w-[255px] flex-col gap-2 rounded-md shadow-lg sm:max-h-[450px] sm:w-[350px]">
+                <p className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2 p-2 text-center text-[10px] whitespace-nowrap text-black sm:text-xs">
+                  Host:{" "}
+                  <span
+                    className="cursor-pointer"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setOpenPlaylist(prev => !prev);
+                    }}
+                  >
+                    {playlist[0]?.event?.hostName.split(" ")[0]}
+                  </span>{" "}
+                  <Link
+                    href={`/channel/${playlist[0]?.event?.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    @{playlist[0]?.event?.username}
+                  </Link>
+                </p>
+
+                <p className="absolute top-4 left-1/2 z-[9999] -translate-x-1/2 p-2 text-center text-[10px] whitespace-nowrap text-black/50 sm:text-xs">
+                  Playlist: {playlist.length} videos
+                </p>
+
+                {openPlaylist && (
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setOpenPlaylist(prev => !prev);
+                    }}
+                    className={cn(
+                      "absolute top-2 left-2 z-[9999] cursor-pointer rounded-full border p-1 transition hover:bg-white",
+                      isFullView
+                        ? cn(
+                            "-top-1 border-white/30 bg-white/20 text-white",
+                            immersiveLayout === "portrait_video" &&
+                              "top-2 -translate-y-0"
+                          )
+                        : "top-2 border-black bg-white/70"
+                    )}
+                  >
+                    <X className="text-primary size-4" />
+                  </button>
+                )}
+
                 {/* Scrollable playlist */}
                 <div
                   ref={playlistRef}
-                  className="relative max-h-[310px] overflow-y-auto rounded-md bg-white/90 p-2 sm:max-h-[450px]"
+                  className="border-moonstone-blue relative z-[999] flex max-h-[310px] overflow-x-auto rounded-md border-2 bg-white/90 p-2 pt-8 sm:max-h-[450px]"
                   style={{ scrollbarWidth: "none" }}
                 >
                   {playlist
-                    .filter(content => content.id !== currentContent?.id)
-                    .map(content => {
+                    // .filter(content => content.id !== currentContent?.id)
+                    .map((content, index) => {
                       const isNext = content.id === nextContent?.id;
                       const scale = 0.9;
 
                       return (
                         <div
                           key={content.id}
-                          className="cursor-pointer rounded-md bg-white p-4"
+                          className="relative w-[250px] shrink-0 cursor-pointer rounded-md bg-white p-4"
                           onClick={() => {
                             setOpenPlaylist(false);
                             requestAnimationFrame(() => {
@@ -984,6 +1079,16 @@ export const ContentClient = ({
                             </div>
                           </div>
 
+                          <div className="absolute right-4 bottom-4 flex items-center gap-1">
+                            <span className="bg-primary flex size-6 shrink-0 items-center justify-center rounded-full p-2 text-xs text-white">
+                              {index + 1}
+                            </span>
+                            /
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-black p-2 text-xs text-white">
+                              {playlist.length}
+                            </span>
+                          </div>
+
                           <div className="space-y-1 px-2 py-4">
                             <div className="flex items-center gap-1 text-sm text-black">
                               {isNext && (
@@ -999,7 +1104,7 @@ export const ContentClient = ({
                             </div>
 
                             <p className="text-muted-foreground text-sm">
-                              {formatTime(content.durationSeconds)}
+                              {formatTime(content.durationSeconds)} min
                             </p>
                           </div>
                         </div>
@@ -1007,37 +1112,36 @@ export const ContentClient = ({
                     })}
                 </div>
 
-                {/* Up arrow - fixed at top inside container */}
+                {/* Left arrow - fixed at bottom inside container */}
                 <button
                   onClick={() =>
                     playlistRef.current?.scrollBy({
-                      top: -100,
+                      left: -100,
                       behavior: "smooth",
                     })
                   }
-                  className="absolute top-0 left-1/2 flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-black bg-white/90 p-2 shadow transition hover:bg-white"
+                  className="absolute top-1/2 -left-2 z-[9999] flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-black bg-white/90 p-0.5 shadow transition hover:bg-white"
                 >
-                  <ChevronUp className="size-6 text-black" />
+                  <ChevronLeft className="size-4 text-black" />
                 </button>
-
-                {/* Down arrow - fixed at bottom inside container */}
+                {/* Right arrow - fixed at bottom inside container */}
                 <button
                   onClick={() =>
                     playlistRef.current?.scrollBy({
-                      top: 100,
+                      left: 100,
                       behavior: "smooth",
                     })
                   }
-                  className="absolute bottom-0 left-1/2 flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-black bg-white/90 p-2 shadow transition hover:bg-white"
+                  className="absolute top-1/2 -right-2 z-[9999] flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-black bg-white/90 p-0.5 shadow transition hover:bg-white"
                 >
-                  <ChevronDown className="size-6 text-black" />
+                  <ChevronRight className="size-4 text-black" />
                 </button>
               </div>
             </div>
           )}
 
           <div
-            className={`${isFullView ? `itms-center absolute top-1/2 right-8 ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-8 bottom-4 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-8 z-[90] mt-2 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-8 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1047,7 +1151,7 @@ export const ContentClient = ({
                 e.stopPropagation();
                 if (!isLoading) void handleSaveToggle();
               }}
-              className="cursor-pointer rounded bg-black/50 p-1 text-white"
+              className="cursor-pointer rounded bg-black/50 p-1"
             >
               {isCurrentChannelSaved ? (
                 <Bookmark className="fill-moonstone-blue size-5" />
@@ -1122,6 +1226,7 @@ export const ContentClient = ({
             <CommentDrawer
               isCommentDrawerOpen={showCommentDrawer}
               setIsCommentDrawerOpen={setShowCommentDrawer}
+              metricsRefreshKey={commentMetricsRefreshKey}
               eventId={eventId}
               channelId={paymentChannelIdForTip}
               videoTitle={
@@ -1138,9 +1243,10 @@ export const ContentClient = ({
                   : ""
               }
               numOfTips={liveNumOfTips}
+              amountRaised={showRaisedAmount ? Number(liveAmountRaised) : null}
               tippingCharacters={tipStrip as RoomCharacter[]}
               onContinueToTip={() => setIsTipDrawerOpen(true)}
-              metricsRefreshKey={commentMetricsRefreshKey}
+              hostName={currentContent?.event?.hostName}
             />
 
             {showInfo && (
@@ -1158,7 +1264,7 @@ export const ContentClient = ({
           </div>
 
           <div
-            className={`${isFullView ? `absolute top-1/2 right-4 ${TV_RAIL_Z_INDEX} mt-2 -translate-y-1/2` : `absolute right-4 bottom-4 ${TV_RAIL_Z_INDEX}`}`}
+            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] mt-2 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             {showRaisedAmount ? (
               <>
@@ -1189,157 +1295,216 @@ export const ContentClient = ({
       </div>
 
       {/* Bottom section - LAPTOP */}
-      <div className="fixed bottom-0 mx-auto hidden w-[95%] flex-col gap-1 py-2 sm:flex">
-        {/* Scrubber - DESKTOP */}
-        <div className="absolute bottom-10 mx-auto w-full">
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            value={currentTime || 0}
-            step={0.1}
-            onMouseDown={() => setIsSeeking(true)}
-            onTouchStart={() => setIsSeeking(true)}
-            onChange={e => {
-              // Update UI immediately while dragging
-              setCurrentTime(parseFloat(e.target.value));
-            }}
-            onMouseUp={e => {
-              const seekTo = parseFloat((e.target as HTMLInputElement).value);
-              applyUserSeek(seekTo);
-              setIsSeeking(false);
-            }}
-            onTouchEnd={e => {
-              const seekTo = parseFloat((e.target as HTMLInputElement).value);
-              applyUserSeek(seekTo);
-              setIsSeeking(false);
-            }}
-            className="accent-primary h-2 w-full rounded-full bg-black"
-          />
-          <div className="-mt-1 flex justify-between px-1 text-xs">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
+      {!isMobileLandscape ? (
+        <div className="fixed bottom-0 mx-auto hidden w-[95%] flex-col gap-1 py-1 sm:flex sm:py-2">
+          {/* Scrubber - DESKTOP */}
+          <div className="absolute bottom-10 mx-auto w-full">
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              value={currentTime || 0}
+              step={0.1}
+              onMouseDown={() => setIsSeeking(true)}
+              onTouchStart={() => setIsSeeking(true)}
+              onChange={e => {
+                // Update UI immediately while dragging
+                setCurrentTime(parseFloat(e.target.value));
+              }}
+              onMouseUp={e => {
+                const seekTo = parseFloat((e.target as HTMLInputElement).value);
+                applyUserSeek(seekTo);
+                setIsSeeking(false);
+              }}
+              onTouchEnd={e => {
+                const seekTo = parseFloat((e.target as HTMLInputElement).value);
+                applyUserSeek(seekTo);
+                setIsSeeking(false);
+              }}
+              className="accent-primary h-2 w-full rounded-full bg-black"
+            />
+            <div className="-mt-1 flex justify-between px-1 text-xs">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col items-center gap-1 text-xs lg:flex-row lg:gap-2">
+              <div className="flex items-center gap-1">
+                <AudioLines
+                  className={`text-primary size-4 lg:size-6 ${isPlaying ? "wave-icon" : ""}`}
+                />
+                <AudioLines
+                  className={`text-primary size-4 lg:size-6 ${isPlaying ? "wave-icon" : ""}`}
+                />
+                <span className="font-semibold">Now playing:</span>
+              </div>{" "}
+              {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
+              {playlist[currentContentIndex]?.title.length > 25 ? "..." : ""}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setTipPreviewOpen(true)}
+              className="relative -mt-2 flex cursor-pointer rounded-full bg-gray-200 p-1 text-sm text-black"
+            >
+              <ChevronsUp className="text-primary" />
+              Engage <ChevronsUp className="text-primary" />{" "}
+              <span className="absolute -bottom-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-gray-500"></span>
+            </button>
+
+            {tipPreviewOpen && (
+              <TippingElementsProvider
+                tippingCharacters={tipStrip as RoomCharacter[]}
+              >
+                <div className="absolute -bottom-6 left-1/2 mx-auto h-[240px] w-[40%] -translate-x-1/2 rounded-t-xl bg-white/80 px-4 py-2 lg:w-[45%]">
+                  <div className="relative">
+                    <TipSection
+                      eventId={eventId}
+                      tippingCharacters={tipStrip as RoomCharacter[]}
+                      characterSets={tipSets}
+                      paymentSurface="channel_client"
+                      paymentChannelId={paymentChannelIdForTip}
+                      getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
+                      getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
+                      textTipUnitPrice={tipPres.textUnitPrice}
+                      sectionCtaLabel={tipPres.sectionCtaLabel}
+                      payLabel={tipPres.payLabel}
+                      tipQuoteContext={tipPres.quoteCtx}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setTipPreviewOpen(false)}
+                      className="absolute -top-2 -right-2 cursor-pointer rounded-full transition"
+                    >
+                      <X className="size-5 cursor-pointer text-black" />
+                    </button>
+                  </div>
+                </div>
+              </TippingElementsProvider>
+            )}
+
+            <div className="flex items-center gap-4">
+              <Link
+                href="/tv"
+                className="group"
+              >
+                <Tv className="group-hover:text-primary group-hover:stroke-3" />
+              </Link>
+
+              <Link
+                href="/explore"
+                className="cursor-pointer"
+                onPointerEnter={prefetchExploreFeedInitial}
+                onClick={() => {
+                  setIsCreatePopupOpen(false);
+                  setIsProfileDrawerOpen(false);
+                }}
+              >
+                <Search
+                  className="size-5 sm:size-7"
+                  strokeWidth={2}
+                />
+              </Link>
+
+              <button
+                type="button"
+                className="cursor-pointer rounded-full bg-black/20 p-1"
+                onClick={() => {
+                  setIsCreatePopupOpen(true);
+                  setIsProfileDrawerOpen(false);
+                }}
+              >
+                <Plus
+                  className={`size-7 ${isCreatePopupOpen ? "text-primary" : ""}`}
+                  strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+                />
+              </button>
+
+              <button
+                type="button"
+                className="hidden cursor-pointer sm:inline-block"
+                onClick={() => {
+                  setIsCreatePopupOpen(false);
+                  setIsProfileDrawerOpen(true);
+                }}
+              >
+                <UserRound
+                  className={`${isProfileDrawerOpen ? "text-primary" : ""}`}
+                  strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
+                />
+              </button>
+            </div>
           </div>
         </div>
+      ) : (
+        <div className="fixed bottom-0 left-0 h-[25%] w-[100%] bg-black p-4">
+          <div className="space-y-2">
+            <span className="text-sm font-semibold">
+              Now playing:{" "}
+              {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
+              {playlist[currentContentIndex]?.title.length > 25 ? "..." : ""}
+            </span>
 
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col items-center gap-1 text-xs lg:flex-row lg:gap-2">
-            <div className="flex items-center gap-1">
-              <AudioLines
-                className={`text-primary size-4 lg:size-6 ${isPlaying ? "wave-icon" : ""}`}
-              />
-              <AudioLines
-                className={`text-primary size-4 lg:size-6 ${isPlaying ? "wave-icon" : ""}`}
-              />
-              <span className="font-semibold">Now playing:</span>
-            </div>{" "}
-            {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
-            {playlist[currentContentIndex]?.title.length > 25 ? "..." : ""}
-          </div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 space-y-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  value={currentTime || 0}
+                  step={0.1}
+                  onMouseDown={() => setIsSeeking(true)}
+                  onTouchStart={() => setIsSeeking(true)}
+                  onChange={e => {
+                    // Update UI immediately while dragging
+                    setCurrentTime(parseFloat(e.target.value));
+                  }}
+                  onMouseUp={e => {
+                    const seekTo = parseFloat(
+                      (e.target as HTMLInputElement).value
+                    );
+                    applyUserSeek(seekTo);
+                    setIsSeeking(false);
+                  }}
+                  onTouchEnd={e => {
+                    const seekTo = parseFloat(
+                      (e.target as HTMLInputElement).value
+                    );
+                    applyUserSeek(seekTo);
+                    setIsSeeking(false);
+                  }}
+                  className={cn(
+                    "accent-primary h-2 w-full flex-1 rounded-full",
+                    isFullView && isMobile ? "bg-white/20" : "bg-black"
+                  )}
+                />
 
-          <button
-            type="button"
-            onClick={() => setTipPreviewOpen(true)}
-            className="relative -mt-2 flex cursor-pointer rounded-full bg-gray-200 p-1 text-sm text-black"
-          >
-            <ChevronsUp className="text-primary" />
-            Engage <ChevronsUp className="text-primary" />{" "}
-            <span className="absolute -bottom-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-gray-500"></span>
-          </button>
-
-          {tipPreviewOpen && (
-            <TippingElementsProvider
-              tippingCharacters={tipStrip as RoomCharacter[]}
-            >
-              <div className="absolute -bottom-8 left-1/2 mx-auto h-[240px] w-[40%] -translate-x-1/2 rounded-t-xl bg-white/80 px-4 py-2 lg:w-[45%]">
-                <div className="relative">
-                  <TipSection
-                    eventId={eventId}
-                    tippingCharacters={tipStrip as RoomCharacter[]}
-                    characterSets={tipSets}
-                    performers={[]}
-                    paymentSurface="content_client"
-                    paymentChannelId={paymentChannelIdForTip}
-                    getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
-                    getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
-                    textTipUnitPrice={tipPres.textUnitPrice}
-                    sectionCtaLabel={tipPres.sectionCtaLabel}
-                    payLabel={tipPres.payLabel}
-                    tipQuoteContext={tipPres.quoteCtx}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setTipPreviewOpen(false)}
-                    className="absolute -top-2 -right-2 cursor-pointer rounded-full transition"
-                  >
-                    <X className="size-5 cursor-pointer text-black" />
-                  </button>
+                <div className="flex justify-between text-xs">
+                  <span>{formatTime(currentTime)}</span>
+                  <span>{formatTime(duration)}</span>
                 </div>
               </div>
-            </TippingElementsProvider>
-          )}
 
-          
-
-          <div className="flex items-center gap-4">
-            <Link
-              href="/tv"
-              className="group"
-            >
-              <Tv className="group-hover:text-primary group-hover:stroke-3" />
-            </Link>
-
-            <Link
-              href="/explore"
-              className="cursor-pointer"
-              onPointerEnter={prefetchExploreFeedInitial}
-              onClick={() => {
-                setIsCreatePopupOpen(false);
-                setIsProfileDrawerOpen(false);
-              }}
-            >
-              <Search
-                className="size-7"
-                strokeWidth={2}
-              />
-            </Link>
-
-            <button
-              type="button"
-              className="cursor-pointer rounded-full bg-black/20 p-1"
-              onClick={() => {
-                setIsCreatePopupOpen(true);
-                setIsProfileDrawerOpen(false);
-              }}
-            >
-              <Plus
-                className={`size-7 ${isCreatePopupOpen ? "text-primary" : ""}`}
-                strokeWidth={isCreatePopupOpen ? 3.75 : 2}
-              />
-            </button>
-
-            <button
-              type="button"
-              className="hidden cursor-pointer sm:inline-block"
-              onClick={() => {
-                setIsCreatePopupOpen(false);
-                setIsProfileDrawerOpen(true);
-              }}
-            >
-              <UserRound
-                className={`${isProfileDrawerOpen ? "text-primary" : ""}`}
-                strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
-              />
-            </button>
+              <button
+                type="button"
+                onClick={() => setIsTipDrawerOpen(true)}
+                className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
+              >
+                <ChevronsUp className="text-primary size-4" />
+                Engage <ChevronsUp className="text-primary size-4" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Bottom section - MOBILE */}
       <div
         className={cn(
-          "fixed bottom-0 flex w-full flex-col border-t px-4 py-2 sm:hidden",
+          "absolute right-2 bottom-[env(safe-area-inset-bottom,0px)] left-2 flex flex-col border-t px-4 py-1 sm:hidden",
           isFullView && isMobile && "hidden"
         )}
       >
@@ -1424,7 +1589,7 @@ export const ContentClient = ({
       <div
         className={cn(
           "sm:hidden",
-          !isFullView && "fixed bottom-60 w-[95%] px-4 py-2",
+          !isFullView && mobileInlineScrubberDockClass,
           isFullView &&
             isMobile &&
             immersiveMobileScrubberDockClassName(immersiveLayout)
@@ -1449,33 +1614,45 @@ export const ContentClient = ({
           {playlist[currentContentIndex]?.title.length > 25 ? "..." : ""}
         </div>
 
-        <input
-          type="range"
-          min={0}
-          max={duration || 0}
-          value={currentTime || 0}
-          step={0.1}
-          onMouseDown={() => setIsSeeking(true)}
-          onTouchStart={() => setIsSeeking(true)}
-          onChange={e => {
-            // Update UI immediately while dragging
-            setCurrentTime(parseFloat(e.target.value));
-          }}
-          onMouseUp={e => {
-            const seekTo = parseFloat((e.target as HTMLInputElement).value);
-            applyUserSeek(seekTo);
-            setIsSeeking(false);
-          }}
-          onTouchEnd={e => {
-            const seekTo = parseFloat((e.target as HTMLInputElement).value);
-            applyUserSeek(seekTo);
-            setIsSeeking(false);
-          }}
-          className={cn(
-            "accent-primary h-2 w-full rounded-full",
-            isFullView && isMobile ? "bg-white/20" : "bg-black"
-          )}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            value={currentTime || 0}
+            step={0.1}
+            onMouseDown={() => setIsSeeking(true)}
+            onTouchStart={() => setIsSeeking(true)}
+            onChange={e => {
+              // Update UI immediately while dragging
+              setCurrentTime(parseFloat(e.target.value));
+            }}
+            onMouseUp={e => {
+              const seekTo = parseFloat((e.target as HTMLInputElement).value);
+              applyUserSeek(seekTo);
+              setIsSeeking(false);
+            }}
+            onTouchEnd={e => {
+              const seekTo = parseFloat((e.target as HTMLInputElement).value);
+              applyUserSeek(seekTo);
+              setIsSeeking(false);
+            }}
+            className={cn(
+              "accent-primary h-2 min-w-0 flex-1 rounded-full",
+              isFullView && isMobile ? "bg-white/20" : "bg-black"
+            )}
+          />
+          {isFullView && isMobile ? (
+            <button
+              type="button"
+              onClick={() => setIsTipDrawerOpen(true)}
+              className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
+            >
+              <ChevronsUp className="text-primary size-4" />
+              Engage <ChevronsUp className="text-primary size-4" />
+            </button>
+          ) : null}
+        </div>
         <div
           className={cn(
             "-mt-1 flex justify-between px-1 text-xs",
@@ -1491,14 +1668,14 @@ export const ContentClient = ({
       <TippingElementsProvider tippingCharacters={tipStrip as RoomCharacter[]}>
         <div
           className={cn(
-            "fixed sm:hidden",
+            "absolute sm:hidden",
             isFullView && isMobile
               ? cn(
                   "hidden max-h-[min(38vh,280px)] overflow-y-auto rounded-t-xl border border-white/15 bg-zinc-900/95 px-2 py-2",
                   "right-2 bottom-[5.25rem] left-2",
                   immersiveLayout === "landscape_video" && "left-12"
                 )
-              : "bottom-8 mx-auto h-[220px] w-[95%] rounded-t-xl px-4 py-2"
+              : mobileInlineTipSectionClass
           )}
         >
           <TipSection

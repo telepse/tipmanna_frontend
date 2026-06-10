@@ -717,8 +717,7 @@ export const ExploreFeedClient = forwardRef<
     activeEventId || undefined,
     setIsTipDrawerOpen
   );
-  const tipDrawerStripeMounted =
-    isTipDrawerOpen || openWalletModalNonce > 0;
+  const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
   const activeRef = useRef(active);
   activeRef.current = active;
   const activeIndexRef = useRef(activeIndex);
@@ -1607,8 +1606,13 @@ export const ExploreFeedClient = forwardRef<
       <CreateDialog
         openPopup={createDialogOpen}
         setOpenPopup={setCreateDialogOpen}
-        forceTypePicker
+        onExploreLayer
       />
+
+      {/* <CreateDialog
+          openPopup={openPopup}
+          setOpenPopup={setOpenPopup}
+        /> */}
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider

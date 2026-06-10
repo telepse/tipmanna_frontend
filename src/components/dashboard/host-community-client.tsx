@@ -850,10 +850,10 @@ export function HostCommunityClient() {
   }, [mainTab, loadSubscribers, selected?.role]);
 
   useEffect(() => {
-    if (mainTab === "activation") {
+    if (mainTab === "activation" || memberships.length === 0) {
       void loadActivationRequests();
     }
-  }, [mainTab, loadActivationRequests]);
+  }, [mainTab, memberships.length, loadActivationRequests]);
 
   useEffect(() => {
     if (
@@ -1806,7 +1806,11 @@ export function HostCommunityClient() {
                 activationBusy ||
                 activationEventsLoading ||
                 !pickEventId ||
-                hostEventsPick.length === 0
+                hostEventsPick.length === 0 ||
+                (activationKind === "community" &&
+                  (!activationCommunityName.trim() ||
+                    !activationDescription.trim() ||
+                    !normalizeEmail(activationContactEmail.trim())))
               }
               onClick={() => void submitActivationRequest()}
             >

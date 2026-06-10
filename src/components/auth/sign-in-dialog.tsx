@@ -23,6 +23,9 @@ type SignInDialogProps = {
   /** Default tab in modal — use tipper for dedicated community / Explore flows. */
   defaultUserType?: "host" | "tipper";
   onSuccess?: (payload: SignInModalPayload) => void;
+  /** Raise above parent modals (create dialog, comment drawer). */
+  overlayClassName?: string;
+  contentClassName?: string;
 };
 
 /**
@@ -36,13 +39,18 @@ export default function SignInDialog({
   returnTo = null,
   defaultUserType = "host",
   onSuccess,
+  overlayClassName,
+  contentClassName,
 }: SignInDialogProps) {
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+      <DialogContent
+        overlayClassName={overlayClassName}
+        className={`max-h-[90vh] overflow-y-auto sm:max-w-md ${contentClassName ?? ""}`}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

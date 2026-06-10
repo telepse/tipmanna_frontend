@@ -21,7 +21,7 @@ export const MessageFooter = ({ eventId, tippingCharacters }: Props) => {
 
   const totalAmount = useMemo(() => {
     return selectedTips.reduce((acc, characterName) => {
-      if (characterName === "Text") {
+      if (characterName === "Comment") {
         return acc + 5;
       }
       const character = tippingCharacters.find(c => c.name === characterName);
@@ -31,7 +31,7 @@ export const MessageFooter = ({ eventId, tippingCharacters }: Props) => {
 
   useEffect(() => {
     const amount = selectedTips.reduce((acc, characterName) => {
-      if (characterName === "Text") {
+      if (characterName === "Comment") {
         return acc + 5;
       }
       const character = tippingCharacters.find(c => c.name === characterName);

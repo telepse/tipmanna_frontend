@@ -120,8 +120,8 @@ export const PROFILE_CHARACTERS = [
     price: "20",
   },
   {
-    name: "Text",
-    icon: "/icons/text.png",
+    name: "Comment",
+    icon: "/icons/comment.png",
     time: "16:20",
     price: "50",
   },

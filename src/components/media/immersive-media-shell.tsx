@@ -20,7 +20,7 @@ export function ImmersiveMediaTopBar({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-black/90",
+        "relative z-[1110] flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-black/90",
         "px-[max(1rem,env(safe-area-inset-left,0px))] pt-[max(0.5rem,env(safe-area-inset-top,0px))]",
         "pr-[max(1rem,env(safe-area-inset-right,0px))] pb-2 text-white"
       )}
@@ -48,7 +48,7 @@ export function immersiveFullViewViewportClassName(
   const surface =
     variant === "channel" ? "bg-zinc-950 text-white" : "bg-black text-white";
   return cn(
-    "fixed inset-0 z-[280] flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-none flex-col overflow-hidden",
+    "fixed inset-0 z-[1100] flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-none flex-col overflow-hidden",
     "pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]",
     surface
   );
@@ -82,9 +82,9 @@ export function immersiveMainRowClassName(
     return "flex h-full w-full gap-4";
   }
   if (layoutMode === "portrait_video") {
-    return "flex min-h-0 w-full flex-1 flex-col items-stretch gap-3 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]";
+    return "flex min-h-0 w-full flex-1 flex-col items-stretch gap-2 px-2 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]";
   }
-  return "flex min-h-0 w-full flex-1 flex-row items-stretch gap-3 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]";
+  return "relative flex min-h-0 w-full flex-1 flex-col px-0 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]";
 }
 
 /**
@@ -96,13 +96,13 @@ export function immersiveMobileScrubberDockClassName(
 ): string {
   if (layoutMode === "portrait_video") {
     return cn(
-      "fixed z-[285] bottom-0 left-0 right-0 w-full px-2 pt-1",
+      "fixed z-[1110] bottom-0 left-0 right-0 w-full px-2 pt-1",
       "pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]",
       "bg-gradient-to-t from-black/90 via-black/45 to-transparent"
     );
   }
   return cn(
-    "fixed z-[285] bottom-0 left-0 right-0 pt-1",
+    "fixed z-[1110] bottom-0 left-0 right-0 pt-1",
     "pb-[max(0.35rem,env(safe-area-inset-bottom,0px))] pl-11 pr-2",
     "bg-gradient-to-t from-black/90 via-black/45 to-transparent"
   );
@@ -165,7 +165,27 @@ export function immersiveControlRailClassName(
   const base = "flex gap-3";
   if (!immersiveOpen || !isMobile) return `${base} flex-col`;
   if (layoutMode === "portrait_video") {
-    return `${base} shrink-0 flex-row flex-wrap items-center justify-center py-1`;
+    return `${base} shrink-0 flex-row flex-wrap items-center justify-center gap-2 py-1`;
   }
-  return `${base} shrink-0 flex-col justify-center`;
+  return cn(
+    base,
+    "pointer-events-auto absolute z-[1110] flex-col justify-center gap-2",
+    "left-[max(0.25rem,env(safe-area-inset-left,0px))] top-1/2 -translate-y-1/2"
+  );
 }
+
+/**
+ * Mobile inline (non–full-view) stack — content/channel clients.
+ * Tighter offsets reduce dead space between player and tip UI on iPhone.
+ */
+export const mobileInlinePlayerBoundsClass =
+  "absolute top-[calc(env(safe-area-inset-top,0px)+2.5rem)] right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+17.5rem)]";
+
+export const mobileInlineScrubberDockClass =
+  "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+12.5rem)] w-auto px-2 py-0.5";
+
+export const mobileInlineTipSectionClass =
+  "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)] mx-0 h-[min(8.5rem,32dvh)] w-auto overflow-hidden rounded-t-xl bg-white/95 px-2 py-1";
+
+export const mobileInlineActionRailBottomClass = "bottom-20";
+export const mobileInlineActionRailBottomSmClass = "bottom-4";

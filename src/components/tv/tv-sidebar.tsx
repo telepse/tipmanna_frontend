@@ -115,9 +115,7 @@ export function TVSidebar() {
               ))}
 
               <SidebarMenuItem key="saved">
-                <SidebarMenuButton
-                  onClick={() => console.log("saved button clicked")}
-                >
+                <SidebarMenuButton>
                   <Bookmark className="text-gray-500" />{" "}
                   <span className="text-sm">Saved Videos</span>
                 </SidebarMenuButton>
@@ -141,7 +139,6 @@ export function TVSidebar() {
                       type="button"
                       onClick={() => {
                         setSelectedTag(item.title);
-                        console.log("selectedTag", item.title);
                       }}
                       className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs ${
                         selectedTag === item.title

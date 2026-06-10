@@ -15,10 +15,8 @@ import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
-import {
-  getPublicAbsoluteUrl,
-  getPublicFrontendOrigin,
-} from "@/lib/site-config";
+import { getPublicFrontendOrigin } from "@/lib/site-config";
+import { buildRoomShareUrl } from "@/lib/public-video-url";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 
 interface Props {
@@ -172,7 +170,7 @@ export default async function EventRoomPage({ params }: Props) {
       : []
   );
 
-  const eventUrl = getPublicAbsoluteUrl(`/channel/${eventId}`);
+  const eventUrl = buildRoomShareUrl(eventId);
 
   const isEventOwner = hostId;
 

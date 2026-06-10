@@ -10,7 +10,6 @@ import { useSelector, useDispatch } from "react-redux";
 // Local imports
 import { RootState } from "@/redux/store";
 import { setSelectedTips, markPaymentCompleted } from "@/features/tip-slice";
-import { TIP_MESSAGE_SENT_STORAGE_KEY } from "@/lib/payment-origin";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
 import { notifyTextTipDraftSync } from "@/lib/tip-text-selection";
 
@@ -28,14 +27,6 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
   // ---------------------------------------------
   const runDropTip = useCallback(() => {
     if (tipDropped) return;
-
-    if (localStorage.getItem(TIP_MESSAGE_SENT_STORAGE_KEY)) {
-      localStorage.removeItem(TIP_MESSAGE_SENT_STORAGE_KEY);
-      dispatch(setSelectedTips([]));
-      dispatch(markPaymentCompleted(false));
-      setTipDropped(true);
-      return;
-    }
 
     const amount = localStorage.getItem("amount");
     if (!amount || Number(amount) <= 0) return;
@@ -66,7 +57,7 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
     );
 
     const uniqueTipNames = [...new Set(selectedTips)];
-    if (uniqueTipNames.includes("Text")) {
+    if (uniqueTipNames.includes("Comment")) {
       const delayMs =
         ANIMATION_DURATION.payment.max * Math.max(1, uniqueTipNames.length) +
         1200;

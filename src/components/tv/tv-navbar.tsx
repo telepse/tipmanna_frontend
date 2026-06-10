@@ -4,12 +4,7 @@ import Link from "next/link";
 
 // THird-party imports
 import { Input } from "@/components/ui/input";
-import {
-  Bell,
-  CircleUserRound,
-  Menu,
-  Search,
-} from "lucide-react";
+import { Bell, CircleUserRound, Menu, Search } from "lucide-react";
 import {
   FacebookShareButton,
   FacebookIcon,
@@ -27,6 +22,7 @@ import { CreateDialog } from "../home/create-dialog";
 import { SITE_URL } from "@/lib/site-config";
 import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { TvSourceDropdown } from "./tv-source-dropdown";
+import { useRouter } from "next/navigation";
 
 interface Props {
   active_users: number;
@@ -55,7 +51,6 @@ export const TVNavbar = ({ active_users }: Props) => {
   const [showShare, setShowShare] = useState(false);
 
   const handleToggle = () => {
-    console.log("showShare", showShare);
     setShowShare(prev => !prev);
   };
 
@@ -64,8 +59,14 @@ export const TVNavbar = ({ active_users }: Props) => {
 
   const [openPopup, setOpenPopup] = useState(false);
 
+  const router = useRouter();
+
+  const handleExplore = () => {
+    router.push("/explore?feedTab=trends&tab=discover");
+  };
+
   return (
-    <div className="fixed top-0 right-0 left-0 z-10 flex w-full items-center justify-between border-b border-gray-200 bg-white p-4">
+    <div className="fixed top-0 right-0 left-0 z-10 flex w-full items-center justify-between gap-4 border-b border-gray-200 bg-white p-4">
       {/* Menu icon and logo */}
       <div className="flex items-center gap-2">
         <Menu className="hidden lg:block" />
@@ -78,7 +79,11 @@ export const TVNavbar = ({ active_users }: Props) => {
       </div>
 
       {/* Explore contents */}
-      <div className="bg-gray hidden w-96 items-center gap-2 lg:flex">
+      <div
+        className="bg-gray hidden w-96 items-center gap-2 lg:flex"
+        role="button"
+        onClick={handleExplore}
+      >
         <Input
           className="bg-gray h-8 rounded-md border-none text-sm focus:outline-none"
           placeholder="Explore contents"
@@ -90,19 +95,30 @@ export const TVNavbar = ({ active_users }: Props) => {
       {/* Live TV, create, notification, profile */}
       <div className="hidden items-center gap-4 lg:flex">
         <TvNavbarSourceDropdown />
+
+        <div className="flex items-center gap-2">
+          <span className="bg-moonstone-blue size-[14px] rounded-full sm:size-4" />
+          <span className="text-sm font-medium">
+            {active_users || 0} online
+          </span>
+        </div>
+
         <span className="text-sm">Live TV</span>
         <span className="text-sm">Create</span>
         <Bell className="size-5" />
         <CircleUserRound className="size-5" />
       </div>
 
-      <div className="ml-auto flex items-center gap-2 lg:hidden">
+      <div className="inline-block lg:hidden">
         <TvNavbarSourceDropdown />
+      </div>
+
+      <div className="ml-auto flex items-center gap-2 lg:hidden">
         <span className="bg-moonstone-blue -mt-2 size-[14px] rounded-full sm:size-4"></span>{" "}
         <span className="-mt-2 text-xs font-medium sm:text-sm">
           {active_users || 0} online
         </span>
-        <div className="relative inline-block">
+        {/* <div className="relative inline-block">
           <span
             className="-mt-2 block border-b-2 border-black text-xs sm:text-sm"
             onClick={handleToggle}
@@ -147,7 +163,7 @@ export const TVNavbar = ({ active_users }: Props) => {
               </LinkedinShareButton>
             </div>
           )}
-        </div>
+        </div> */}
       </div>
 
       <CreateDialog

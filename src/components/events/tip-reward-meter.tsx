@@ -1,11 +1,74 @@
 "use client";
 
+import { Flame, Sparkles } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import {
+  GALAXY_ICON_COUNT,
   GALAXY_MIN_AMOUNT_GBP,
   TURBO_MIN_DISTINCT_STYLES,
+  isGalaxyIconFilled,
+  isTurboIconFilled,
   type TipRewardEligibility,
 } from "@/lib/tip-reward-eligibility";
+
+type IconProps = {
+  eligibility: TipRewardEligibility;
+  className?: string;
+  iconClassName?: string;
+};
+
+export function TipRewardTurboIcons({
+  eligibility,
+  className,
+  iconClassName = "size-4",
+}: IconProps) {
+  return (
+    <div
+      className={cn("flex items-center", className)}
+      aria-label={`Turbo progress: ${eligibility.distinctStyleCount} of ${TURBO_MIN_DISTINCT_STYLES} styles`}
+    >
+      {Array.from({ length: TURBO_MIN_DISTINCT_STYLES }, (_, i) => i + 1).map(
+        index => (
+          <Flame
+            key={index}
+            className={cn(
+              iconClassName,
+              isTurboIconFilled(index, eligibility)
+                ? "fill-primary text-primary"
+                : "text-muted-foreground"
+            )}
+          />
+        )
+      )}
+    </div>
+  );
+}
+
+export function TipRewardGalaxyIcons({
+  eligibility,
+  className,
+  iconClassName = "size-4",
+}: IconProps) {
+  return (
+    <div
+      className={cn("flex items-center", className)}
+      aria-label={`Galaxy progress: £${eligibility.totalGbp.toFixed(0)} of £${GALAXY_MIN_AMOUNT_GBP}`}
+    >
+      {Array.from({ length: GALAXY_ICON_COUNT }, (_, index) => (
+        <Sparkles
+          key={index}
+          className={cn(
+            iconClassName,
+            isGalaxyIconFilled(index, eligibility)
+              ? "fill-moonstone-blue text-moonstone-blue"
+              : "text-muted-foreground"
+          )}
+        />
+      ))}
+    </div>
+  );
+}
 
 type Props = {
   eligibility: TipRewardEligibility;
@@ -16,62 +79,37 @@ export function TipRewardMeter({ eligibility, className }: Props) {
   const { distinctStyleCount, totalGbp, rewardTurbo, rewardGalaxy } =
     eligibility;
 
-  const styleProgress = Math.min(
-    1,
-    distinctStyleCount / TURBO_MIN_DISTINCT_STYLES
-  );
-  const amountProgress = Math.min(1, totalGbp / GALAXY_MIN_AMOUNT_GBP);
-
   return (
     <div
-      className={cn("border-border/60 flex gap-1.5 border-t", className)}
+      className={cn(
+        "border-border/60 flex flex-wrap items-center justify-between gap-3 border-t pt-2",
+        className
+      )}
       aria-label="Reward progress"
     >
-      {/* <div className="grid w-full grid-cols-3 gap-2"> */}
-      {/* Reward turbo */}
-      <div className="space-y-1">
-        <div className="flex justify-between text-[10px] sm:text-[11px]">
-          <span>Turbo ({TURBO_MIN_DISTINCT_STYLES} styles)</span>
-          <span className={cn(rewardTurbo ? "text-success font-semibold" : "")}>
-            {rewardTurbo
-              ? "Unlocked"
-              : `${distinctStyleCount}/${TURBO_MIN_DISTINCT_STYLES}`}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="min-w-0 text-[10px] sm:text-[11px]">
+          <span className="whitespace-nowrap">
+            Turbo ({distinctStyleCount}/{TURBO_MIN_DISTINCT_STYLES} styles)
           </span>
+          {/* {rewardTurbo ? (
+            <span className="text-success ml-1 font-semibold">Unlocked</span>
+          ) : null} */}
         </div>
-        <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all duration-300",
-              rewardTurbo ? "bg-success" : "bg-moonstone-blue"
-            )}
-            style={{ width: `${styleProgress * 100}%` }}
-          />
-        </div>
+        <TipRewardTurboIcons eligibility={eligibility} />
       </div>
 
-      {/* Reward galaxy */}
-      <div className="space-y-1">
-        <div className="flex justify-between text-[10px] sm:text-[11px]">
-          <span>Galaxy (£{GALAXY_MIN_AMOUNT_GBP}+)</span>
-          <span
-            className={cn(rewardGalaxy ? "text-success font-semibold" : "")}
-          >
-            {rewardGalaxy
-              ? "Unlocked"
-              : `£${totalGbp.toFixed(0)}/£${GALAXY_MIN_AMOUNT_GBP}`}
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        <TipRewardGalaxyIcons eligibility={eligibility} />
+        <div className="min-w-0 text-right text-[10px] sm:text-[11px]">
+          <span className="whitespace-nowrap">
+            Galaxy (£{totalGbp.toFixed(0)}/{GALAXY_MIN_AMOUNT_GBP}+)
           </span>
-        </div>
-        <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all duration-300",
-              rewardGalaxy ? "bg-success" : "bg-moonstone-blue/80"
-            )}
-            style={{ width: `${amountProgress * 100}%` }}
-          />
+          {/* {rewardGalaxy ? (
+            <span className="text-success ml-1 font-semibold">Unlocked</span>
+          ) : null} */}
         </div>
       </div>
-      {/* </div> */}
     </div>
   );
 }

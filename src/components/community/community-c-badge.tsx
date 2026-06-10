@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 export type CommunityBadgeInfo = {
   id: string;
@@ -22,31 +25,53 @@ export function CommunityCBadge({
 }: Props) {
   const pos =
     position === "top-right" ? "right-3 left-auto" : "left-3 right-auto";
+  const labelPos =
+    position === "top-right" ? "right-full mr-2" : "left-full ml-2";
+  const [showCommunityName, setShowCommunityName] = useState(false);
 
   return (
-    <Link
-      href={`/explore?tab=join&joinCommunity=${encodeURIComponent(community.id)}`}
+    <div
       title={community.name}
       className={cn(
-        "group absolute top-12 z-[55] flex size-7 items-center justify-center rounded-full",
-        "from-moonstone-blue bg-gradient-to-br to-white/90 text-sm font-black text-white shadow-lg",
-        "ring-2 ring-white/25 transition hover:scale-105 hover:ring-white/50",
-        "pointer-events-auto",
+        "absolute top-12 z-[55] flex size-7 items-center justify-center",
+        "pointer-events-auto overflow-visible",
         pos,
         className
       )}
       aria-label={`Community: ${community.name}`}
     >
-      <span className="drop-shadow-md">C</span>
-      <span
+      <button
+        type="button"
         className={cn(
-          "pointer-events-none absolute -bottom-8 max-w-[180px] truncate rounded-md bg-black/80 px-2 py-0.5 text-[10px] font-medium text-white",
-          "opacity-0 transition group-hover:opacity-100",
-          position === "top-right" ? "right-0" : "left-0"
+          "flex size-7 items-center justify-center rounded-full",
+          "from-moonstone-blue bg-gradient-to-br to-white/90 text-sm font-black text-white shadow-lg",
+          "ring-2 ring-white/25 transition hover:scale-105 hover:ring-white/50"
         )}
+        aria-expanded={showCommunityName}
+        onClick={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowCommunityName(prev => !prev);
+        }}
+      >
+        C
+      </button>
+
+      <Link
+        href={`/explore?tab=join&joinCommunity=${encodeURIComponent(community.id)}`}
+        className={cn(
+          "absolute top-1/2 -translate-y-1/2 rounded-full bg-white px-2 py-1 text-xs font-medium whitespace-nowrap text-black shadow-lg ring-1 ring-black/10 transition",
+          labelPos,
+          showCommunityName
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
+        )}
+        onClick={e => {
+          e.stopPropagation();
+        }}
       >
         {community.name}
-      </span>
-    </Link>
+      </Link>
+    </div>
   );
 }

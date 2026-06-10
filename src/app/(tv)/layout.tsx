@@ -26,16 +26,7 @@ export default function TVLayout({ children }: { children: React.ReactNode }) {
     fetchData();
   }, []);
 
-  const [currentUser, setCurrentUser] = useState<UserInfo>({
-    id: "",
-    type: "anonymous",
-    username: "Anonymous",
-    isAuthenticated: false,
-  });
-
-  useEffect(() => {
-    setCurrentUser(getOrCreateAnonymousViewer());
-  }, []);
+  const [currentUser] = useState<UserInfo>(() => getOrCreateAnonymousViewer());
 
   const { activeUsers } = usePusherTrackingGlobalTV({
     tvId: "global-tv", // or specific TV stream id
