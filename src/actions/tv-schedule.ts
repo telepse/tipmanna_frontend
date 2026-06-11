@@ -50,7 +50,24 @@ export async function fetchTvScheduleAction(opts?: {
     }
 
     if (!res.ok) {
-      return actionFail(`Schedule HTTP ${res.status}`);
+      let detail = `Schedule HTTP ${res.status}`;
+      try {
+        const errBody = await res.json();
+        const msg =
+          errBody &&
+          typeof errBody === "object" &&
+          "error" in errBody &&
+          errBody.error &&
+          typeof errBody.error === "object" &&
+          "message" in errBody.error &&
+          typeof errBody.error.message === "string"
+            ? errBody.error.message
+            : null;
+        if (msg) detail = `${detail}: ${msg}`;
+      } catch {
+        /* ignore non-JSON error bodies */
+      }
+      return actionFail(detail);
     }
 
     const body = await res.json();
