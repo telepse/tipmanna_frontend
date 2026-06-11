@@ -367,7 +367,7 @@ export const TipSection = ({
             size="lg"
             onClick={handleOpenDrawer}
             disabled={paymentCompleted || stripeLoading || isOpeningDrawer}
-            className="relative col-span-6 mb-2 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:col-span-2 ml-4"
+            className="relative col-span-6 mb-2 ml-4 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:col-span-2"
           >
             <ChevronsUp className="text-primary -mr-2" /> {sectionCta}{" "}
             <ChevronsUp className="text-primary -ml-2" />

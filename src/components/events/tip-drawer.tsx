@@ -787,7 +787,8 @@ export const TipDrawer = ({
       selectedTips: [...selectedTips],
       amount: Number(walletPayTotal),
       secondaryText:
-        (textTipActive || selectedTips.includes("Comment")) && textTipValue?.trim()
+        (textTipActive || selectedTips.includes("Comment")) &&
+        textTipValue?.trim()
           ? textTipValue.trim().slice(0, 500)
           : undefined,
       ...(paymentChannelId?.trim()

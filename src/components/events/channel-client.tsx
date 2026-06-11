@@ -106,6 +106,7 @@ import {
   WhatsappIcon,
   WhatsappShareButton,
 } from "next-share";
+import { ShareCopyLinkControl } from "@/components/shared/share-copy-link-control";
 import { cn } from "@/lib/utils";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
@@ -1177,6 +1178,7 @@ export const ChannelClient = ({
 
             {showShare && (
               <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
+                <ShareCopyLinkControl url={shareUrl} />
                 <WhatsappShareButton
                   url={shareUrl}
                   title={shareTitle}
@@ -1433,7 +1435,7 @@ export const ChannelClient = ({
           </div>
         </div>
       ) : (
-        <div className="fixed bottom-0 left-0 h-[25%] w-[100%] bg-black p-4">
+        <div className="fixed bottom-4 left-0 h-[25%] w-[100%] bg-black p-4">
           <div className="space-y-2">
             <span className="text-sm font-semibold">
               Now playing:{" "}
@@ -1519,7 +1521,7 @@ export const ChannelClient = ({
             }}
           >
             <Search
-              className="size-5"
+              className="size-7"
               strokeWidth={2}
             />
           </Link>
@@ -1533,7 +1535,7 @@ export const ChannelClient = ({
             }}
           >
             <Plus
-              className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
+              className={`size-7 ${isCreatePopupOpen ? "text-primary" : ""}`}
               strokeWidth={isCreatePopupOpen ? 3.75 : 2}
             />
           </button>
@@ -1547,7 +1549,7 @@ export const ChannelClient = ({
             }}
           >
             <UserRound
-              className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+              className={`size-7 ${isProfileDrawerOpen ? "text-primary" : ""}`}
               strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
             />
           </button>

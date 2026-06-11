@@ -46,7 +46,10 @@ import { setSelectedTips } from "@/features/tip-slice";
 import type { RoomCharacter } from "@/types";
 import { scheduleExploreFeedPrefetchIdle } from "@/lib/explore-feed-prefetch-cache";
 import { TVPageClient } from "@/components/tv/tv-page-client";
-import { TvInteractiveShell, type TvInteractiveShellProps } from "./tv-interactive-shell";
+import {
+  TvInteractiveShell,
+  type TvInteractiveShellProps,
+} from "./tv-interactive-shell";
 import { TvWebExperience } from "./tv-web-experience";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import {

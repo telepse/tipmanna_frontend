@@ -41,6 +41,7 @@ import { Button } from "../ui/button";
 import Image from "next/image";
 import { UpcomingProgramsPanel } from "./upcoming-programs-panel";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "react-responsive";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -183,6 +184,10 @@ export function TvInteractiveShell({
     setShowSearchOptions(prev => !prev);
   };
 
+  const isMobileLandscape =
+    useMediaQuery({ query: "(orientation: landscape)" }) &&
+    window.innerWidth <= 768;
+
   return (
     <>
       {/* {scheduleStale && tvReady && (
@@ -219,12 +224,13 @@ export function TvInteractiveShell({
       {isDesktop && (
         <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">
           <div className="col-span-9 object-cover">
-            {tvReady && (
+            {tvReady && !isMobileLandscape && (
               <WebTvLooper
                 characters={characters}
                 playerLayout="wide"
                 analyticsSurface={tvAnalyticsSurface}
                 onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+                onEngage={() => setIsTipDrawerOpen(true)}
                 commentDrawerVideoTitle={
                   typeof currentPlaying?.channel?.title === "string"
                     ? currentPlaying.channel.title
@@ -281,7 +287,7 @@ export function TvInteractiveShell({
                 {initialTipCount} tips
               </button>
             </div>
-            7{/* TV Categories */}
+            {/* TV Categories */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <div className="relative z-20">
@@ -456,7 +462,7 @@ export function TvInteractiveShell({
         </div>
       )}
 
-      {isMobile && (
+      {isMobile && !isMobileLandscape && (
         <div
           className={cn(
             isMobileFullView
@@ -617,78 +623,110 @@ export function TvInteractiveShell({
         </div>
       )}
 
+      {isMobileLandscape && (
+        <div className="relative z-[999] h-full w-full bg-black text-white">
+          <WebTvLooper
+            characters={characters}
+            playerLayout="wide"
+            analyticsSurface={tvAnalyticsSurface}
+            onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+            onEngage={() => setIsTipDrawerOpen(true)}
+            commentDrawerVideoTitle={
+              typeof currentPlaying?.channel?.title === "string"
+                ? currentPlaying.channel.title
+                : ""
+            }
+            commentDrawerVideoDescription={
+              typeof (currentPlaying?.channel as { description?: string })
+                ?.description === "string"
+                ? String(
+                    (currentPlaying?.channel as { description: string })
+                      .description
+                  )
+                : ""
+            }
+          />
+        </div>
+      )}
+
       <TVScheduleDrawer
         isTVDrawerOpen={isTVDrawerOpen}
         setIsTvDrawerOpen={setIsTvDrawerOpen}
       />
 
-      <div
-        className={cn(
-          isDesktop
-            ? "fixed bottom-0 left-0 z-50 flex w-full justify-center border-t-4 border-gray-200 bg-white py-2 shadow-lg"
-            : "fixed right-0 bottom-0 left-0 z-50 w-full rounded-tl-2xl rounded-tr-2xl border-4 border-gray-200 bg-white pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))] drop-shadow-lg",
-          isMobileFullView && "hidden"
-        )}
-      >
-        <div className={isDesktop ? "w-full max-w-2xl px-4" : "w-full"}>
-          <Button
-            size="lg"
-            onClick={() => setIsTipDrawerOpen(true)}
-            className="relative -mt-1 flex h-11 w-full justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:hidden"
-          >
-            <Image
-              src="/icons/love.png"
-              alt="Love"
-              width={10}
-              height={10}
-              className="size-5"
-            />
-            <Image
-              src="/icons/star.png"
-              alt="Star"
-              width={10}
-              height={10}
-              className="size-5"
-            />
-            <ChevronsUp className="text-primary" />
-            Engage <ChevronsUp className="text-primary" />{" "}
-            <Image
-              src="/icons/burger.png"
-              alt="Burger"
-              width={10}
-              height={10}
-              className="size-5"
-            />
-            <Image
-              src="/icons/chicken.png"
-              alt="Chicken"
-              width={10}
-              height={10}
-              className="size-5"
-            />
-          </Button>
-        </div>
-
-        <TippingElementsProvider
-          tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
-          enabled
+      {isMobileLandscape ? null : (
+        <div
+          className={cn(
+            isDesktop
+              ? "fixed bottom-0 left-0 z-50 flex w-full justify-center border-t-4 border-gray-200 bg-white py-2 shadow-lg"
+              : "fixed right-0 bottom-0 left-0 z-50 w-full rounded-tl-2xl rounded-tr-2xl border-4 border-gray-200 bg-white pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))] drop-shadow-lg",
+            isMobileFullView && "hidden"
+          )}
         >
-          <div className="absolute -bottom-12 hidden h-[220px] w-full bg-white/80 px-4 py-1 sm:block">
-            <TipSection
-              eventId={tipDrawerEventId}
-              tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
-              characterSets={characterSetsForDrawer}
-              paymentSurface={tvAnalyticsSurface}
-              paymentCommunityId={scheduleSourceCommunityId ?? undefined}
-              paymentChannelId={paymentChannelId}
-              getWatchDurationBeforePayMs={() => 0}
-              textTipUnitPrice={0}
-              sectionCtaLabel="Engage"
-              payLabel="Pay"
-            />
+          <div className={isDesktop ? "w-full max-w-2xl px-4" : "w-full"}>
+            <Button
+              size="lg"
+              onClick={() => setIsTipDrawerOpen(true)}
+              className="relative -mt-1 flex h-11 w-full justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:hidden"
+            >
+              <Image
+                src="/icons/love.png"
+                alt="Love"
+                width={10}
+                height={10}
+                className="size-5"
+              />
+              <Image
+                src="/icons/star.png"
+                alt="Star"
+                width={10}
+                height={10}
+                className="size-5"
+              />
+              <ChevronsUp className="text-primary" />
+              Engage <ChevronsUp className="text-primary" />{" "}
+              <Image
+                src="/icons/burger.png"
+                alt="Burger"
+                width={10}
+                height={10}
+                className="size-5"
+              />
+              <Image
+                src="/icons/chicken.png"
+                alt="Chicken"
+                width={10}
+                height={10}
+                className="size-5"
+              />
+            </Button>
           </div>
-        </TippingElementsProvider>
-      </div>
+
+          <TippingElementsProvider
+            tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+            enabled
+          >
+            {!isMobileLandscape && (
+              <div className="absolute -bottom-12 hidden h-[220px] w-full bg-white/80 px-4 py-1 sm:block">
+                <TipSection
+                  eventId={tipDrawerEventId}
+                  tippingCharacters={
+                    tippingCharactersForDrawer as RoomCharacter[]
+                  }
+                  characterSets={characterSetsForDrawer}
+                  paymentSurface={tvAnalyticsSurface}
+                  paymentCommunityId={scheduleSourceCommunityId ?? undefined}
+                  paymentChannelId={paymentChannelId}
+                  getWatchDurationBeforePayMs={() => 0}
+                  textTipUnitPrice={0}
+                  sectionCtaLabel="Engage"
+                  payLabel="Pay"
+                />
+              </div>
+            )}
+          </TippingElementsProvider>
+        </div>
+      )}
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider

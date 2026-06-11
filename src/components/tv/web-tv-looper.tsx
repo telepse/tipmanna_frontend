@@ -26,9 +26,7 @@ import {
   Share2,
   CircleAlert,
   MessageCircleMore,
-  Copy,
-  Link,
-  Check,
+  ChevronsUp,
 } from "lucide-react";
 
 import { SaveHostToggleButton } from "../events/save-host-toggle-button";
@@ -60,6 +58,7 @@ import {
   WhatsappIcon,
   WhatsappShareButton,
 } from "next-share";
+import { ShareCopyLinkControl } from "@/components/shared/share-copy-link-control";
 import { getSavedVideosForTipper, getEventByIdAction } from "@/actions/events";
 import { getExploreChannelMetricsAction } from "@/actions/contents";
 import {
@@ -99,6 +98,7 @@ export const WebTvLooper = ({
   playerLayout = "compact",
   analyticsSurface = "tv_looper",
   onContinueCommentToTip,
+  onEngage,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
 }: {
@@ -107,6 +107,8 @@ export const WebTvLooper = ({
   playerLayout?: "compact" | "wide";
   /** Defaults to tv_looper; use homepage_preview on the marketing homepage embed */
   analyticsSurface?: PaymentSurface;
+  onEngage?: () => void;
+  /** Notifies parent when mobile full-view mode toggles (shell hides chrome). */
   /** Optional: parent opens Stripe tip drawer after comment draft handoff from CommentDrawer. */
   onContinueCommentToTip?: () => void;
   commentDrawerVideoTitle?: string;
@@ -182,6 +184,8 @@ export const WebTvLooper = ({
   const [showCommentDrawer, setShowCommentDrawer] = useState(false);
   const [commentMetricsRefreshKey, setCommentMetricsRefreshKey] = useState(0);
   const [tipsListOpen, setTipsListOpen] = useState(false);
+
+  const openEngageDrawer = onEngage ?? onContinueCommentToTip;
 
   const shareTitle = "Join me on TipManna TV";
 
@@ -285,6 +289,10 @@ export const WebTvLooper = ({
   const fundraisingEventId = isCommunityTv
     ? communityFundraisingEventId || currentEventId
     : currentEventId;
+
+  const isMobileLandscape =
+    useMediaQuery({ query: "(orientation: landscape)" }) &&
+    window.innerWidth <= 768;
 
   useEffect(() => {
     if (!fundraisingEventId) {
@@ -778,26 +786,6 @@ export const WebTvLooper = ({
     }
   };
 
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyShareUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      // Fallback
-      const textArea = document.createElement("textarea");
-      textArea.value = shareUrl;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   if (!current) return null;
 
   const currentTitle = current.channel?.title || "";
@@ -886,143 +874,298 @@ export const WebTvLooper = ({
             </button>
           )}
 
-          <div
-            className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-16 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
-          >
-            <button
-              type="button"
-              title={
-                isCurrentChannelSaved
-                  ? "Remove video from saves"
-                  : "Add video to saves"
-              }
-              onClick={() => {
-                if (!isSaving) void handleSaveToggle();
-              }}
-              disabled={isSaving}
-              className={`pointer-events-auto rounded bg-black/50 p-1 text-white ${isSaving ? "opacity-50" : ""}`}
+          {!isMobileLandscape && (
+            <div
+              className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-16 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
             >
-              {isCurrentChannelSaved ? (
-                <Bookmark className="fill-moonstone-blue size-5" />
-              ) : (
-                <Bookmark className="size-5" />
-              )}
-            </button>
-
-            <SaveHostToggleButton channelId={channelId} />
-
-            <span className="rounded bg-black/50 p-1">
-              <Share2
-                className="size-5 text-white"
+              <button
+                type="button"
+                title={
+                  isCurrentChannelSaved
+                    ? "Remove video from saves"
+                    : "Add video to saves"
+                }
                 onClick={() => {
-                  let willOpen = false;
-                  setShowShare(prev => {
-                    willOpen = !prev;
-                    return willOpen;
-                  });
-                  if (willOpen && channelId) {
-                    trackTvShareClick(channelId);
-                    setCommentMetricsRefreshKey(k => k + 1);
-                  }
+                  if (!isSaving) void handleSaveToggle();
                 }}
-              />
-              {showShare && (
-                <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
-                  {copied ? (
-                    <>
-                      <Check className="text-moonstone-blue size-3" />
-                    </>
-                  ) : (
-                    <>
-                      <Link
-                        className="size-4"
-                        onClick={handleCopyShareUrl}
+                disabled={isSaving}
+                className={`pointer-events-auto rounded bg-black/50 p-1 text-white ${isSaving ? "opacity-50" : ""}`}
+              >
+                {isCurrentChannelSaved ? (
+                  <Bookmark className="fill-moonstone-blue size-5" />
+                ) : (
+                  <Bookmark className="size-5" />
+                )}
+              </button>
+
+              <SaveHostToggleButton channelId={channelId} />
+
+              <span className="rounded bg-black/50 p-1">
+                <Share2
+                  className="size-5 text-white"
+                  onClick={() => {
+                    let willOpen = false;
+                    setShowShare(prev => {
+                      willOpen = !prev;
+                      return willOpen;
+                    });
+                    if (willOpen && channelId) {
+                      trackTvShareClick(channelId);
+                      setCommentMetricsRefreshKey(k => k + 1);
+                    }
+                  }}
+                />
+                {showShare && (
+                  <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
+                    <ShareCopyLinkControl
+                      url={shareUrl}
+                      iconClassName="size-4"
+                    />
+                    <WhatsappShareButton
+                      url={shareUrl}
+                      title={shareTitle}
+                    >
+                      <WhatsappIcon
+                        size={32}
+                        round
                       />
-                    </>
-                  )}
-                  <WhatsappShareButton
-                    url={shareUrl}
-                    title={shareTitle}
-                  >
-                    <WhatsappIcon
-                      size={32}
-                      round
-                    />
-                  </WhatsappShareButton>
+                    </WhatsappShareButton>
 
-                  <FacebookShareButton
-                    url={shareUrl}
-                    quote={shareTitle}
-                  >
-                    <FacebookIcon
-                      size={32}
-                      round
-                    />
-                  </FacebookShareButton>
+                    <FacebookShareButton
+                      url={shareUrl}
+                      quote={shareTitle}
+                    >
+                      <FacebookIcon
+                        size={32}
+                        round
+                      />
+                    </FacebookShareButton>
 
-                  <TwitterShareButton
-                    url={shareUrl}
-                    title={shareTitle}
-                  >
-                    <TwitterIcon
-                      size={32}
-                      round
-                    />
-                  </TwitterShareButton>
-                </div>
-              )}
-            </span>
+                    <TwitterShareButton
+                      url={shareUrl}
+                      title={shareTitle}
+                    >
+                      <TwitterIcon
+                        size={32}
+                        round
+                      />
+                    </TwitterShareButton>
+                  </div>
+                )}
+              </span>
 
-            {/* Comment button */}
-            <button
-              type="button"
-              className="cursor-pointer rounded bg-black/50 p-1"
-              onClick={() => setShowCommentDrawer(true)}
+              {/* Comment button */}
+              <button
+                type="button"
+                className="cursor-pointer rounded bg-black/50 p-1"
+                onClick={() => setShowCommentDrawer(true)}
+              >
+                <MessageCircleMore className="size-5 text-white" />
+              </button>
+
+              <CommentDrawer
+                isCommentDrawerOpen={showCommentDrawer}
+                setIsCommentDrawerOpen={setShowCommentDrawer}
+                metricsRefreshKey={commentMetricsRefreshKey}
+                eventId={currentEventId}
+                channelId={
+                  currentChannelId != null ? String(currentChannelId) : null
+                }
+                videoTitle={
+                  commentDrawerVideoTitle ??
+                  (typeof current?.channel?.title === "string"
+                    ? current.channel.title
+                    : "")
+                }
+                videoDescription={
+                  commentDrawerVideoDescription ??
+                  (typeof (
+                    current?.channel as { description?: string } | undefined
+                  )?.description === "string"
+                    ? (current?.channel as { description: string }).description
+                    : "")
+                }
+                numOfTips={liveNumOfTips}
+                tippingCharacters={characters}
+                onContinueToTip={onContinueCommentToTip}
+              />
+
+              <TipsDrawer
+                open={tipsListOpen}
+                onOpenChange={setTipsListOpen}
+                eventId={currentEventId}
+                channelId={currentChannelId ? String(currentChannelId) : null}
+                eventRoomTipCount={liveNumOfTips}
+                videoTipCount={liveNumOfTips}
+              />
+            </div>
+          )}
+
+          {isMobileLandscape && (
+            <div
+              className={`absolute right-8 -bottom-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex flex-col gap-2`}
             >
-              <MessageCircleMore className="size-5 text-white" />
-            </button>
+              <button
+                type="button"
+                title={
+                  isCurrentChannelSaved
+                    ? "Remove video from saves"
+                    : "Add video to saves"
+                }
+                onClick={() => {
+                  if (!isSaving) void handleSaveToggle();
+                }}
+                disabled={isSaving}
+                className={`pointer-events-auto rounded bg-black/50 p-1 text-white ${isSaving ? "opacity-50" : ""}`}
+              >
+                {isCurrentChannelSaved ? (
+                  <Bookmark className="fill-moonstone-blue size-5" />
+                ) : (
+                  <Bookmark className="size-5" />
+                )}
+              </button>
 
-            <CommentDrawer
-              isCommentDrawerOpen={showCommentDrawer}
-              setIsCommentDrawerOpen={setShowCommentDrawer}
-              metricsRefreshKey={commentMetricsRefreshKey}
-              eventId={currentEventId}
-              channelId={
-                currentChannelId != null ? String(currentChannelId) : null
-              }
-              videoTitle={
-                commentDrawerVideoTitle ??
-                (typeof current?.channel?.title === "string"
-                  ? current.channel.title
-                  : "")
-              }
-              videoDescription={
-                commentDrawerVideoDescription ??
-                (typeof (
-                  current?.channel as { description?: string } | undefined
-                )?.description === "string"
-                  ? (current?.channel as { description: string }).description
-                  : "")
-              }
-              numOfTips={liveNumOfTips}
-              tippingCharacters={characters}
-              onContinueToTip={onContinueCommentToTip}
-            />
+              <SaveHostToggleButton channelId={channelId} />
 
-            <TipsDrawer
-              open={tipsListOpen}
-              onOpenChange={setTipsListOpen}
-              eventId={currentEventId}
-              channelId={currentChannelId ? String(currentChannelId) : null}
-              eventRoomTipCount={liveNumOfTips}
-              videoTipCount={liveNumOfTips}
-            />
-          </div>
+              <span className="rounded bg-black/50 p-1">
+                <Share2
+                  className="size-5 text-white"
+                  onClick={() => {
+                    let willOpen = false;
+                    setShowShare(prev => {
+                      willOpen = !prev;
+                      return willOpen;
+                    });
+                    if (willOpen && channelId) {
+                      trackTvShareClick(channelId);
+                      setCommentMetricsRefreshKey(k => k + 1);
+                    }
+                  }}
+                />
+                {showShare && (
+                  <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
+                    <ShareCopyLinkControl
+                      url={shareUrl}
+                      iconClassName="size-4"
+                    />
+                    <WhatsappShareButton
+                      url={shareUrl}
+                      title={shareTitle}
+                    >
+                      <WhatsappIcon
+                        size={32}
+                        round
+                      />
+                    </WhatsappShareButton>
 
-          {!isNotice && (
+                    <FacebookShareButton
+                      url={shareUrl}
+                      quote={shareTitle}
+                    >
+                      <FacebookIcon
+                        size={32}
+                        round
+                      />
+                    </FacebookShareButton>
+
+                    <TwitterShareButton
+                      url={shareUrl}
+                      title={shareTitle}
+                    >
+                      <TwitterIcon
+                        size={32}
+                        round
+                      />
+                    </TwitterShareButton>
+                  </div>
+                )}
+              </span>
+
+              {/* Comment button */}
+              <button
+                type="button"
+                className="cursor-pointer rounded bg-black/50 p-1"
+                onClick={() => setShowCommentDrawer(true)}
+              >
+                <MessageCircleMore className="size-5 text-white" />
+              </button>
+
+              <CommentDrawer
+                isCommentDrawerOpen={showCommentDrawer}
+                setIsCommentDrawerOpen={setShowCommentDrawer}
+                metricsRefreshKey={commentMetricsRefreshKey}
+                eventId={currentEventId}
+                channelId={
+                  currentChannelId != null ? String(currentChannelId) : null
+                }
+                videoTitle={
+                  commentDrawerVideoTitle ??
+                  (typeof current?.channel?.title === "string"
+                    ? current.channel.title
+                    : "")
+                }
+                videoDescription={
+                  commentDrawerVideoDescription ??
+                  (typeof (
+                    current?.channel as { description?: string } | undefined
+                  )?.description === "string"
+                    ? (current?.channel as { description: string }).description
+                    : "")
+                }
+                numOfTips={liveNumOfTips}
+                tippingCharacters={characters}
+                onContinueToTip={onContinueCommentToTip}
+              />
+
+              <TipsDrawer
+                open={tipsListOpen}
+                onOpenChange={setTipsListOpen}
+                eventId={currentEventId}
+                channelId={currentChannelId ? String(currentChannelId) : null}
+                eventRoomTipCount={liveNumOfTips}
+                videoTipCount={liveNumOfTips}
+              />
+            </div>
+          )}
+
+          {!isNotice && !isMobileLandscape && (
             <div
               className={`${isFullView ? "absolute top-1/2 right-4 z-40 mt-2 -translate-y-1/2" : "absolute right-4 bottom-20 z-40"}`}
             >
+              <button
+                type="button"
+                title="View tips"
+                className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white"
+                onClick={() => setTipsListOpen(true)}
+              >
+                {liveNumOfTips} tips
+              </button>
+              {showRaisedAmount ? (
+                <ChannelProgressBar
+                  amountToRaise={progressAmountToRaise}
+                  amountRaised={progressAmountRaised}
+                  eventId={fundraisingEventId}
+                />
+              ) : null}
+              {showViewCount && typeof channelViewCount === "number" ? (
+                <p className="mt-1 text-center text-[10px] font-medium text-white drop-shadow-md">
+                  {channelViewCount} views
+                </p>
+              ) : null}
+              {!sideTvLogo && showRaisedAmount ? (
+                <Image
+                  src="/icons/black-diamond.png"
+                  alt="Black Diamond"
+                  width={40}
+                  height={40}
+                  className="-mt-4 size-[14px]"
+                />
+              ) : null}
+            </div>
+          )}
+
+          {isMobileLandscape && (
+            <div className={`absolute right-4 -bottom-8 z-40`}>
               <button
                 type="button"
                 title="View tips"
@@ -1193,7 +1336,9 @@ export const WebTvLooper = ({
             />
           )}
 
-          <div className="absolute bottom-24 left-8 z-[20] truncate text-sm font-medium text-white">
+          <div
+            className={`absolute left-8 z-[20] truncate text-sm font-medium text-white ${isMobileLandscape ? "-bottom-4" : "bottom-24"}`}
+          >
             {currentTitle}
           </div>
 
@@ -1201,7 +1346,7 @@ export const WebTvLooper = ({
             className={cn(
               chromeHide.chromeTransitionClass,
               chromeHide.chromeOpacityClass,
-              "absolute right-2 bottom-16 left-8 z-[20]"
+              `absolute right-2 ${isMobileLandscape ? "-bottom-12" : "bottom-16"} left-8 z-[20]`
             )}
           >
             <input
@@ -1227,8 +1372,21 @@ export const WebTvLooper = ({
             />
           </div>
 
+          {openEngageDrawer && isMobileLandscape ? (
+            <button
+              type="button"
+              onClick={openEngageDrawer}
+              className="absolute right-4 -bottom-32 mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
+            >
+              <ChevronsUp className="text-primary size-4" />
+              Engage <ChevronsUp className="text-primary size-4" />
+            </button>
+          ) : null}
+
           {/* Bottom control rail */}
-          <div className="roundeed-2xl absolute bottom-4 left-8 z-10 bg-black/80 p-2">
+          <div
+            className={`absolute rounded-2xl ${isMobileLandscape ? "-bottom-32" : "bottom-4"} left-8 z-10 bg-black/80 p-2`}
+          >
             <div className="flex items-center gap-4">
               <button onClick={togglePlayPause}>
                 {isPlaying ? (
@@ -1252,25 +1410,42 @@ export const WebTvLooper = ({
             </div>
           </div>
 
-          <div
-            className={cn(
-              chromeHide.chromeTransitionClass,
-              chromeHide.chromeOpacityClass,
-              "absolute",
-              isFullView && isMobileTv && immersiveLayout === "portrait_video"
-                ? "right-2 bottom-12 left-2"
-                : null,
-              isFullView && isMobileTv && immersiveLayout === "landscape_video"
-                ? "right-2 bottom-12 left-24"
-                : null,
-              (!isFullView || !isMobileTv) && "right-2 bottom-12 left-10"
-            )}
-          >
-            <div className="flex items-center justify-between text-xs text-white">
-              <span>{formatTime(seekBarValue)}</span>{" "}
-              <span>{formatTime(seekBarDuration)}</span>
+          {isMobileLandscape ? (
+            <div
+              className={cn(
+                chromeHide.chromeTransitionClass,
+                chromeHide.chromeOpacityClass,
+                `absolute right-2 -bottom-16 left-8`
+              )}
+            >
+              <div className="flex items-center justify-between text-xs text-white">
+                <span>{formatTime(seekBarValue)}</span>{" "}
+                <span>{formatTime(seekBarDuration)}</span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div
+              className={cn(
+                chromeHide.chromeTransitionClass,
+                chromeHide.chromeOpacityClass,
+                "absolute",
+                isFullView && isMobileTv && immersiveLayout === "portrait_video"
+                  ? "right-2 bottom-12 left-2"
+                  : null,
+                isFullView &&
+                  isMobileTv &&
+                  immersiveLayout === "landscape_video"
+                  ? "right-2 bottom-12 left-24"
+                  : null,
+                (!isFullView || !isMobileTv) && "right-2 bottom-12 left-10"
+              )}
+            >
+              <div className="flex items-center justify-between text-xs text-white">
+                <span>{formatTime(seekBarValue)}</span>{" "}
+                <span>{formatTime(seekBarDuration)}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
