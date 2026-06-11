@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   computeTipRewardEligibility,
+  displayGalaxyAmountGbp,
+  displayTurboStyleCount,
   isGalaxyIconFilled,
   isTurboIconFilled,
 } from "@/lib/tip-reward-eligibility";
@@ -36,6 +38,20 @@ describe("computeTipRewardEligibility", () => {
     const r = computeTipRewardEligibility(["Comment"], chars, 5);
     expect(r.distinctStyleCount).toBe(1);
     expect(r.rewardTurbo).toBe(false);
+  });
+});
+
+describe("display helpers", () => {
+  it("caps turbo style count at 3 for display", () => {
+    expect(displayTurboStyleCount(2)).toBe(2);
+    expect(displayTurboStyleCount(3)).toBe(3);
+    expect(displayTurboStyleCount(5)).toBe(3);
+  });
+
+  it("caps galaxy amount at £50 for display", () => {
+    expect(displayGalaxyAmountGbp(25)).toBe(25);
+    expect(displayGalaxyAmountGbp(50)).toBe(50);
+    expect(displayGalaxyAmountGbp(75)).toBe(50);
   });
 });
 

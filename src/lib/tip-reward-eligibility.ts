@@ -67,6 +67,16 @@ export function computeTipRewardEligibility(
   };
 }
 
+/** Cap displayed turbo progress at the unlock threshold (e.g. 3/3, not 4/3). */
+export function displayTurboStyleCount(distinctStyleCount: number): number {
+  return Math.min(distinctStyleCount, TURBO_MIN_DISTINCT_STYLES);
+}
+
+/** Cap displayed galaxy progress at the unlock threshold (e.g. £50/£50). */
+export function displayGalaxyAmountGbp(totalGbp: number): number {
+  return Math.min(totalGbp, GALAXY_MIN_AMOUNT_GBP);
+}
+
 /** One-based index (1…3): fill each flame as distinct styles accumulate; all fill when turbo unlocks. */
 export function isTurboIconFilled(
   iconIndexOneBased: number,

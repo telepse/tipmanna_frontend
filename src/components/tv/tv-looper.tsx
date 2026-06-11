@@ -553,6 +553,10 @@ export const TvLooper = ({
     if (!effectivePlayerUrl) return;
     if (videoErrorReloadsRef.current >= 1) return;
     videoErrorReloadsRef.current += 1;
+    if (mode === "GLOBAL") {
+      goLive();
+      return;
+    }
     const vid = extractYoutubeID(effectivePlayerUrl);
     if (vid) p.load(vid, Math.max(0, p.getCurrentTime()));
   };

@@ -21,11 +21,15 @@ export function nextTwelveHourBlockStartMs(
   return broadcastEpoch + (w + 1) * windowMs;
 }
 
-/** Seconds from start of playlist loop until item at `index` begins */
+/** Seconds from start of the current 12h window until item at `index` begins. */
 export function cumulativeStartOffsetSeconds(
-  items: { duration: number }[],
+  items: { duration: number; axisStartSec?: number }[],
   index: number
 ): number {
+  const row = items[index];
+  if (row && typeof row.axisStartSec === "number") {
+    return row.axisStartSec;
+  }
   let s = 0;
   for (let i = 0; i < index && i < items.length; i++) {
     s += items[i]?.duration ?? 0;

@@ -20,6 +20,8 @@ import { startPreview, stopPreview } from "@/lib/previewController";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
 import {
   computeTipRewardEligibility,
+  displayGalaxyAmountGbp,
+  displayTurboStyleCount,
   GALAXY_MIN_AMOUNT_GBP,
   TURBO_MIN_DISTINCT_STYLES,
 } from "@/lib/tip-reward-eligibility";
@@ -344,6 +346,8 @@ export const TipSection = ({
   };
 
   const { distinctStyleCount, totalGbp } = rewardEligibility;
+  const turboDisplayCount = displayTurboStyleCount(distinctStyleCount);
+  const galaxyDisplayAmount = displayGalaxyAmountGbp(totalGbp);
 
   return (
     <div className="space-y-2">
@@ -354,7 +358,7 @@ export const TipSection = ({
           <div className="col-span-3 flex flex-row items-center lg:col-span-5 lg:flex-row lg:gap-2">
             <div className="flex justify-between text-[10px] sm:text-[11px]">
               <span className="whitespace-nowrap">
-                Turbo ({distinctStyleCount}/{TURBO_MIN_DISTINCT_STYLES}{" "}
+                Turbo ({turboDisplayCount}/{TURBO_MIN_DISTINCT_STYLES}{" "}
                 <span className="hidden lg:inline-block">styles</span>)
               </span>
             </div>
@@ -394,7 +398,7 @@ export const TipSection = ({
 
             <div className="flex justify-between text-[10px] sm:text-[11px]">
               <span className="whitespace-nowrap">
-                Galaxy (£{totalGbp.toFixed(0)}/{GALAXY_MIN_AMOUNT_GBP}+)
+                Galaxy (£{galaxyDisplayAmount.toFixed(0)}/£{GALAXY_MIN_AMOUNT_GBP})
               </span>
             </div>
           </div>
