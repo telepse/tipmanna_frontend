@@ -446,6 +446,28 @@ export default function GlobalTVProvider({
     setAlternateBatchItems(data.alternateBatchItems ?? []);
     setAlternateBatchTotalDuration(data.alternateBatchTotalDuration ?? 0);
 
+    const live = data.livePosition as
+      | {
+          scheduleIndex?: number;
+          offsetSeconds?: number;
+          loopPosition?: number;
+          totalDuration?: number;
+        }
+      | undefined;
+    if (
+      live &&
+      typeof live.scheduleIndex === "number" &&
+      typeof live.offsetSeconds === "number"
+    ) {
+      setLastLivePosition({
+        scheduleIndex: live.scheduleIndex,
+        offsetSeconds: live.offsetSeconds,
+        loopPosition: live.loopPosition ?? 0,
+        totalDuration: live.totalDuration ?? data.totalDuration ?? 0,
+      });
+      setLiveBroadcastIndex(live.scheduleIndex);
+    }
+
     const oc =
       typeof data?.ongoingCollection === "object" &&
       data.ongoingCollection != null &&
@@ -511,7 +533,7 @@ export default function GlobalTVProvider({
         }
         const epochMs = data.broadcastEpoch as number | undefined;
         if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
-          const ms = msToNextHalfDayBoundary(epochMs, Date.now());
+          const ms = msToNextHalfDayBoundary(epochMs, Date.now() + driftRef.current);
           boundaryRefetchTimeoutRef.current = setTimeout(() => {
             boundaryRefetchTimeoutRef.current = null;
             void loadScheduleRef.current();
@@ -576,7 +598,7 @@ export default function GlobalTVProvider({
           }
           const epochMs = cached.body.broadcastEpoch as number | undefined;
           if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
-            const ms = msToNextHalfDayBoundary(epochMs, Date.now());
+            const ms = msToNextHalfDayBoundary(epochMs, Date.now() + driftRef.current);
             boundaryRefetchTimeoutRef.current = setTimeout(() => {
               boundaryRefetchTimeoutRef.current = null;
               void loadScheduleRef.current();
@@ -1043,15 +1065,17 @@ export default function GlobalTVProvider({
   ]);
 
   useEffect(() => {
-    /** Reset playback on TV route mount so the next sync re-cues live. */
+    /** Re-sync live position when returning to the TV page without resetting the broadcast timeline. */
     const handler = () => {
       lastSyncedIndex.current = -1;
-      playerRef.current?.stop();
+      if (modeRef.current === "GLOBAL") {
+        queueMicrotask(() => syncToLive());
+      }
     };
 
     window.addEventListener("tv-page-open", handler);
     return () => window.removeEventListener("tv-page-open", handler);
-  }, []);
+  }, [syncToLive]);
 
   /** Restore TV state after full-page return from `/success` (Stripe); same-session uses `resumeAfterPayment`. */
   useEffect(() => {

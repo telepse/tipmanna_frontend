@@ -1,6 +1,12 @@
+export const TV_HALF_DAY_SECONDS = 43_200;
+
 export type ScheduleItem = {
   id: string;
   duration: number;
+  /** Seconds from the start of the current 12h broadcast window. */
+  axisStartSec?: number;
+  /** Exclusive end on the 12h axis. */
+  axisEndSec?: number;
   /** YouTube seek at start of this virtual row (trimmed regular segments). */
   seekBaseSeconds?: number;
   segmentKind?: "regular" | "notice" | "enforcement";
@@ -16,13 +22,27 @@ export type BroadcastPosition = {
   item: ScheduleItem | null;
   loopPosition: number;
   totalDuration: number;
+  windowIndex: number;
+  windowStartMs: number;
 };
 
+export function computeLoopPositionSec(
+  broadcastEpoch: number,
+  totalDuration: number,
+  now: number
+): { loopPosition: number; windowIndex: number; windowStartMs: number } {
+  const total = totalDuration > 0 ? totalDuration : TV_HALF_DAY_SECONDS;
+  const elapsedSeconds = Math.floor((now - broadcastEpoch) / 1000);
+  const windowIndex = Math.floor(elapsedSeconds / total);
+  const loopPosition = ((elapsedSeconds % total) + total) % total;
+  const windowStartMs = broadcastEpoch + windowIndex * total * 1000;
+  return { loopPosition, windowIndex, windowStartMs };
+}
+
 /**
- * Pure function: determines the current broadcast video and offset.
- *
- * All inputs are explicit -- `now` is caller-provided so drift correction
- * happens at the call site, and the function remains testable.
+ * Pure function: determines the current broadcast video and offset from a fixed
+ * channel epoch. Uses axis coordinates when present so filtered playlists stay
+ * on the global timeline.
  */
 export function resolveBroadcastPosition(
   items: ScheduleItem[],
@@ -30,46 +50,83 @@ export function resolveBroadcastPosition(
   totalDuration: number,
   now: number
 ): BroadcastPosition {
-  if (!items.length || !totalDuration) {
+  const total = totalDuration > 0 ? totalDuration : TV_HALF_DAY_SECONDS;
+  const { loopPosition, windowIndex, windowStartMs } = computeLoopPositionSec(
+    broadcastEpoch,
+    total,
+    now
+  );
+
+  if (!items.length) {
     return {
       scheduleIndex: 0,
       offsetSeconds: 0,
       item: null,
-      loopPosition: 0,
-      totalDuration,
+      loopPosition,
+      totalDuration: total,
+      windowIndex,
+      windowStartMs,
     };
   }
 
-  const elapsedSeconds = Math.floor((now - broadcastEpoch) / 1000);
-  const loopPosition =
-    ((elapsedSeconds % totalDuration) + totalDuration) % totalDuration;
+  const hasAxis = items.some(
+    item =>
+      typeof item.axisStartSec === "number" &&
+      Number.isFinite(item.axisStartSec)
+  );
+
+  if (hasAxis) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      const start = item.axisStartSec ?? 0;
+      const end =
+        typeof item.axisEndSec === "number"
+          ? item.axisEndSec
+          : start + item.duration;
+      if (loopPosition >= start && loopPosition < end) {
+        const within = loopPosition - start;
+        const seekBase = item.seekBaseSeconds ?? 0;
+        return {
+          scheduleIndex: i,
+          offsetSeconds: seekBase + within,
+          item,
+          loopPosition,
+          totalDuration: total,
+          windowIndex,
+          windowStartMs,
+        };
+      }
+    }
+  }
 
   let cursor = 0;
-
   for (let i = 0; i < items.length; i++) {
-    const end = cursor + items[i].duration;
-
+    const item = items[i]!;
+    const end = cursor + item.duration;
     if (loopPosition < end) {
       const within = loopPosition - cursor;
-      const seekBase = items[i].seekBaseSeconds ?? 0;
+      const seekBase = item.seekBaseSeconds ?? 0;
       return {
         scheduleIndex: i,
         offsetSeconds: seekBase + within,
-        item: items[i],
+        item,
         loopPosition,
-        totalDuration,
+        totalDuration: total,
+        windowIndex,
+        windowStartMs,
       };
     }
-
     cursor = end;
   }
 
-  const seek0 = items[0]?.seekBaseSeconds ?? 0;
+  const first = items[0]!;
   return {
     scheduleIndex: 0,
-    offsetSeconds: seek0,
-    item: items[0] ?? null,
+    offsetSeconds: first.seekBaseSeconds ?? 0,
+    item: first,
     loopPosition,
-    totalDuration,
+    totalDuration: total,
+    windowIndex,
+    windowStartMs,
   };
 }

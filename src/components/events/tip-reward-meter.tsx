@@ -7,6 +7,8 @@ import {
   GALAXY_ICON_COUNT,
   GALAXY_MIN_AMOUNT_GBP,
   TURBO_MIN_DISTINCT_STYLES,
+  displayGalaxyAmountGbp,
+  displayTurboStyleCount,
   isGalaxyIconFilled,
   isTurboIconFilled,
   type TipRewardEligibility,
@@ -26,7 +28,7 @@ export function TipRewardTurboIcons({
   return (
     <div
       className={cn("flex items-center", className)}
-      aria-label={`Turbo progress: ${eligibility.distinctStyleCount} of ${TURBO_MIN_DISTINCT_STYLES} styles`}
+      aria-label={`Turbo progress: ${displayTurboStyleCount(eligibility.distinctStyleCount)} of ${TURBO_MIN_DISTINCT_STYLES} styles`}
     >
       {Array.from({ length: TURBO_MIN_DISTINCT_STYLES }, (_, i) => i + 1).map(
         index => (
@@ -53,7 +55,7 @@ export function TipRewardGalaxyIcons({
   return (
     <div
       className={cn("flex items-center", className)}
-      aria-label={`Galaxy progress: £${eligibility.totalGbp.toFixed(0)} of £${GALAXY_MIN_AMOUNT_GBP}`}
+      aria-label={`Galaxy progress: £${displayGalaxyAmountGbp(eligibility.totalGbp).toFixed(0)} of £${GALAXY_MIN_AMOUNT_GBP}`}
     >
       {Array.from({ length: GALAXY_ICON_COUNT }, (_, index) => (
         <Sparkles
@@ -76,8 +78,9 @@ type Props = {
 };
 
 export function TipRewardMeter({ eligibility, className }: Props) {
-  const { distinctStyleCount, totalGbp, rewardTurbo, rewardGalaxy } =
-    eligibility;
+  const { distinctStyleCount, totalGbp } = eligibility;
+  const turboDisplayCount = displayTurboStyleCount(distinctStyleCount);
+  const galaxyDisplayAmount = displayGalaxyAmountGbp(totalGbp);
 
   return (
     <div
@@ -90,7 +93,7 @@ export function TipRewardMeter({ eligibility, className }: Props) {
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <div className="min-w-0 text-[10px] sm:text-[11px]">
           <span className="whitespace-nowrap">
-            Turbo ({distinctStyleCount}/{TURBO_MIN_DISTINCT_STYLES} styles)
+            Turbo ({turboDisplayCount}/{TURBO_MIN_DISTINCT_STYLES} styles)
           </span>
           {/* {rewardTurbo ? (
             <span className="text-success ml-1 font-semibold">Unlocked</span>
@@ -103,7 +106,7 @@ export function TipRewardMeter({ eligibility, className }: Props) {
         <TipRewardGalaxyIcons eligibility={eligibility} />
         <div className="min-w-0 text-right text-[10px] sm:text-[11px]">
           <span className="whitespace-nowrap">
-            Galaxy (£{totalGbp.toFixed(0)}/{GALAXY_MIN_AMOUNT_GBP}+)
+            Galaxy (£{galaxyDisplayAmount.toFixed(0)}/£{GALAXY_MIN_AMOUNT_GBP})
           </span>
           {/* {rewardGalaxy ? (
             <span className="text-success ml-1 font-semibold">Unlocked</span>
