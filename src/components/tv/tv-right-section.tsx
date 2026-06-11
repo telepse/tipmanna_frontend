@@ -22,16 +22,7 @@ import { TwitterIcon } from "lucide-react";
 import { WhatsappShareButton, WhatsappIcon } from "next-share";
 
 export const TVRightSection = () => {
-  const [currentUser, setCurrentUser] = useState<UserInfo>(() => ({
-    id: "",
-    type: "anonymous",
-    username: "Anonymous",
-    isAuthenticated: false,
-  }));
-
-  useEffect(() => {
-    setCurrentUser(getOrCreateAnonymousViewer());
-  }, []);
+  const [currentUser] = useState<UserInfo>(() => getOrCreateAnonymousViewer());
 
   const { activeUsers } = usePusherTrackingGlobalTV({
     tvId: "global-tv", // or specific TV stream id
@@ -89,8 +80,6 @@ export const TVRightSection = () => {
   const [scrollProgress, setScrollProgress] = useState(10);
 
   const handleScroll = () => {
-    console.log("scrolling...");
-
     const el = scrollRef.current;
     if (!el) return;
 

@@ -18,7 +18,7 @@ export function CoOwnerApprovedBadge({
     <div
       title="Co-owner revenue share is approved for this video"
       className={cn(
-        "pointer-events-none absolute left-3 z-[54] flex items-center gap-1 rounded-full",
+        "pointer-events-none absolute right-3 z-[54] flex items-center gap-1 rounded-full",
         "bg-emerald-700/95 px-2 py-1 text-[10px] font-semibold text-white shadow-md ring-1 ring-white/30",
         stackBelowCommunity ? "top-14" : "top-3",
         className

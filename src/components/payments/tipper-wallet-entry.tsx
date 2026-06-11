@@ -539,7 +539,7 @@ export function TipperWalletDialog({
           paymentContentId: paymentChannelId ?? null,
           selectedTips: [...selectedTips],
           secondaryText: secondaryText ?? "",
-          textTipActive: selectedTips.includes("Text"),
+          textTipActive: selectedTips.includes("Comment"),
           walletLines: characters.map(c => ({ ...c })),
           walletTotal: totalAmount,
           exploreFeedTab: readExploreFeedTabFromLocation(),

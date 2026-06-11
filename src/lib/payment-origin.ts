@@ -39,9 +39,6 @@ export function getStripeReturnUrl(): string {
   return `${site}/success`;
 }
 
-/** Set on /success after POST /messages succeeds so target surfaces skip duplicate sends. */
-export const TIP_MESSAGE_SENT_STORAGE_KEY = "tipMessageSent";
-
 /**
  * Written immediately before Stripe `confirmPayment` redirect. Survives full page reload and
  * TipDrawer clearing `selectedTips` when TV schedule `eventId` hydrates or changes.

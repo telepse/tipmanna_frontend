@@ -1,15 +1,17 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 
-// Third-party imports
 import { ChevronRight, Sparkles, UsersRound } from "lucide-react";
 
-// Local imports
 import { getLatestContents } from "@/actions/contents";
 import { Content } from "@/types/content.types";
 import { ContentCardSkeleton } from "./content-card-skeleton";
 import { ThumbnailPlayer } from "./thumbnail-player";
+import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
 
 export const LatestContentsPanel = () => {
+  const navigateToExplore = useNavigateToExploreVideo();
   const latestContentsRef = useRef<HTMLDivElement>(null);
   const [latestContents, setLatestContents] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +57,15 @@ export const LatestContentsPanel = () => {
               : latestContents.map((content: Content) => (
                   <div
                     key={content.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigateToExplore(content)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigateToExplore(content);
+                      }
+                    }}
                     className="relative flex min-w-[200px] cursor-pointer gap-1 border-2 bg-black/10"
                   >
                     <div className="space-y-1">
@@ -62,6 +73,7 @@ export const LatestContentsPanel = () => {
                         videoUrl={content.url}
                         contentId={content.id}
                         suppressInlinePlaybackContentId={null}
+                        disableInlinePlayback
                         className="aspect-video w-full rounded-md"
                       />
 

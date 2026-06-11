@@ -175,7 +175,9 @@ export const ProfileTabs = ({
     return ids;
   }, [tipperEventCount]);
 
-  const totalTippedAmount = events.reduce((sum, ev) => sum + ev.totalTipped, 0);
+  const totalTippedAmount = events?.length
+    ? events.reduce((sum, ev) => sum + ev.totalTipped, 0)
+    : 0;
 
   const milestonesWithStatus: Milestone[] = PROFILE_MILESTONES.map(
     milestone => {
@@ -188,7 +190,9 @@ export const ProfileTabs = ({
         status = tipperEventCount >= 1 ? "unlocked" : "locked";
       } else if (milestone.id === "tipper_100") {
         // Count events where totalTipped >= 100
-        const countOver100 = events.filter(ev => ev.totalTipped >= 100).length;
+        const countOver100 = events.length
+          ? events.filter(ev => ev.totalTipped >= 100).length
+          : 0;
         const maxSingleEvent = events.length
           ? Math.max(...events.map(ev => ev.totalTipped))
           : 0;
@@ -381,17 +385,19 @@ export const ProfileTabs = ({
           {/* All events */}
           <Paragraph weight="bold">All Events</Paragraph>
           <div className="space-y-4">
-            {events.map((item, index) => (
-              <ProfileEventCard
-                key={index}
-                name={item.eventName}
-                date={item.eventDate}
-                rating={item.rating}
-                price={item.totalTipped}
-                isActive={selectedEvent?.eventName === item.eventName}
-                onSelect={() => setSelectedEvent(item)}
-              />
-            ))}
+            {events?.length
+              ? events.map((item, index) => (
+                  <ProfileEventCard
+                    key={index}
+                    name={item.eventName}
+                    date={item.eventDate}
+                    rating={item.rating}
+                    price={item.totalTipped}
+                    isActive={selectedEvent?.eventName === item.eventName}
+                    onSelect={() => setSelectedEvent(item)}
+                  />
+                ))
+              : null}
           </div>
 
           {/* Charities */}
@@ -529,7 +535,11 @@ export const ProfileTabs = ({
                 status={item.status}
                 totalTippedAmount={
                   item.id === "tipper_100"
-                    ? Math.max(...events.map(ev => ev.totalTipped))
+                    ? Math.max(
+                        ...(events?.length
+                          ? events.map(ev => ev.totalTipped)
+                          : [])
+                      )
                     : 0
                 }
                 extraInfo={item.extraInfo || 0}

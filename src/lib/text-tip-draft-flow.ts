@@ -36,7 +36,7 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
 
   requestAnimationFrame(() => {
     const next = computeTipRewardEligibility(
-      [...tipsForTotals, "Text"],
+      [...tipsForTotals, "Comment"],
       tippingCharacters
     );
     startPreview(

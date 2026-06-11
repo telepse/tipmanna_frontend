@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Heart, Wallet, X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
@@ -31,7 +26,11 @@ import { startPreview, stopPreview } from "@/lib/previewController";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
 import { computeTipRewardEligibility } from "@/lib/tip-reward-eligibility";
 import SignInDialog from "@/components/auth/sign-in-dialog";
-import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
+import {
+  DRAWER_Z_INDEX,
+  SIGN_IN_NESTED_OVERLAY_Z_INDEX,
+  SIGN_IN_NESTED_Z_INDEX,
+} from "@/lib/drawer-z-index";
 import { toast } from "react-toastify";
 import { useCommentDrawerRealtime } from "@/hooks/use-comment-drawer-realtime";
 import {
@@ -42,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SaveHostToggleButton } from "./save-host-toggle-button";
+import { flushTvAnalytics } from "@/lib/tvAnalytics";
 
 interface Props {
   isCommentDrawerOpen: boolean;
@@ -51,6 +51,7 @@ interface Props {
   videoTitle?: string;
   videoDescription?: string;
   numOfTips?: number;
+  amountRaised?: number | null;
   /** Characters from the room (used to run comment preview when adding a draft). */
   tippingCharacters?: RoomCharacter[];
   /** After saving draft locally: close comment drawer and open tip UI (parent owns drawer open state). */
@@ -68,6 +69,7 @@ export const CommentDrawer = ({
   videoTitle,
   videoDescription,
   numOfTips,
+  amountRaised,
   tippingCharacters,
   onContinueToTip,
   hostName,
@@ -111,16 +113,18 @@ export const CommentDrawer = ({
 
     const loadDrawer = () => {
       setLoading(true);
-      void getChannelCommentDrawerAction(eventId.trim(), channelId.trim()).then(
-        res => {
-          if (cancelled) return;
-          setLoading(false);
-          if (res.success && res.data) {
-            setDrawerData(res.data);
-          } else {
-            setDrawerData(null);
+      void flushTvAnalytics().finally(() =>
+        getChannelCommentDrawerAction(eventId.trim(), channelId.trim()).then(
+          res => {
+            if (cancelled) return;
+            setLoading(false);
+            if (res.success && res.data) {
+              setDrawerData(res.data);
+            } else {
+              setDrawerData(null);
+            }
           }
-        }
+        )
       );
     };
 
@@ -248,7 +252,7 @@ export const CommentDrawer = ({
       if (character?.styleName) {
         requestAnimationFrame(() => {
           const next = computeTipRewardEligibility(
-            [...tipsForTotals, "Text"],
+            [...tipsForTotals, "Comment"],
             chars
           );
           startPreview(
@@ -283,7 +287,7 @@ export const CommentDrawer = ({
     clearTextTipDraftStorage();
     setPendingDraft("");
     setModalDraft("");
-    dispatch(setSelectedTips(selectedTips.filter(name => name !== "Text")));
+    dispatch(setSelectedTips(selectedTips.filter(name => name !== "Comment")));
   };
 
   const handlePay = () => {
@@ -292,17 +296,32 @@ export const CommentDrawer = ({
       localStorage.setItem("textTipValue", text);
       notifyTextTipDraftSync();
     }
-    dispatch(setSelectedTips(ensureSingleTextInCart(["Text"])));
+    dispatch(setSelectedTips(ensureSingleTextInCart(["Comment"])));
     setIsCommentDrawerOpen(false);
     onContinueToTip?.();
   };
 
   const draftActionLabel = pendingDraft.trim() ? "Edit Comment" : "Add Comment";
 
-  const tipsLabel =
-    typeof numOfTips === "number" && Number.isFinite(numOfTips)
-      ? `${numOfTips} tip${numOfTips === 1 ? "" : "s"}`
+  const amountRaisedLabel =
+    typeof amountRaised === "number" && Number.isFinite(amountRaised)
+      ? amountRaised.toLocaleString(undefined, {
+          style: "currency",
+          currency: "GBP",
+        })
       : null;
+
+  const resolvedTitle = videoTitle?.trim() || channelMeta?.title?.trim() || "";
+  const resolvedDescription =
+    videoDescription?.trim() || channelMeta?.description?.trim() || "";
+  const resolvedViewCount = metrics?.viewCount ?? 0;
+  const coOwnerNames = useMemo(() => {
+    const fromApi = channelMeta?.coOwnerNames?.filter(Boolean) ?? [];
+    if (fromApi.length) return fromApi;
+    if (channelMeta?.coOwnerName?.trim())
+      return [channelMeta.coOwnerName.trim()];
+    return [];
+  }, [channelMeta?.coOwnerNames, channelMeta?.coOwnerName]);
 
   return (
     <>
@@ -325,6 +344,9 @@ export const CommentDrawer = ({
                 </div>
                 <span className="text-sm font-medium text-gray-400">
                   Likes {metrics?.commentLikeCount ?? 0}
+                </span>
+                <span className="text-sm font-medium text-gray-400">
+                  Views {resolvedViewCount.toLocaleString()}
                 </span>
               </div>
 
@@ -359,19 +381,29 @@ export const CommentDrawer = ({
                 iconClassName="size-4 text-white"
               />
             </h4>
-            {(videoTitle || channelMeta?.title) && (
+            {coOwnerNames.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                  Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
+                  {coOwnerNames.join(", ")}
+                </span>
+              </div>
+            ) : null}
+            {(resolvedTitle || loading) && (
               <p className="text-sm font-medium">
-                {videoTitle ?? channelMeta?.title}
+                {resolvedTitle || (loading ? "Loading…" : "")}
               </p>
             )}
-            {(videoDescription || channelMeta?.description) && (
-              <p className="text-muted-foreground line-clamp-3 text-xs">
-                {videoDescription ?? channelMeta?.description}
+            {resolvedDescription ? (
+              <p className="text-muted-foreground text-xs whitespace-pre-wrap">
+                {resolvedDescription}
               </p>
-            )}
+            ) : null}
             <p className="flex flex-wrap items-center gap-2 text-xs text-black">
+              <span>Views {resolvedViewCount.toLocaleString()}</span>
+              <span>·</span>
               <span>
-                Event room tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
+                Channel tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
               </span>
               <span>·</span>
               <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
@@ -388,15 +420,31 @@ export const CommentDrawer = ({
                 {channelMeta.communityName
                   ? ` · ${channelMeta.communityName}`
                   : ""}
-                {channelMeta.coOwnerName
-                  ? ` · Co-owner ${channelMeta.coOwnerName}`
-                  : ""}
               </p>
             ) : null}
+            <p className="text-xs text-black">
+              {amountRaisedLabel ? (
+                <>
+                  <span>{amountRaisedLabel} raised</span>
+                  <span>·</span>
+                </>
+              ) : null}
+            </p>
           </div>
 
           {reportOpen ? (
             <div className="space-y-2 border-b px-4 pb-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Report video</p>
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(false)}
+                  className="rounded-full p-1 hover:bg-gray-100"
+                  aria-label="Close report"
+                >
+                  <X className="text-muted-foreground size-5" />
+                </button>
+              </div>
               <Select
                 value={reportReason}
                 onValueChange={setReportReason}
@@ -462,7 +510,7 @@ export const CommentDrawer = ({
                 className="h-9 w-full bg-black pr-10 text-white hover:bg-black/90"
                 onClick={handlePay}
               >
-                £
+                £ {tipsForTotals} {tipsForTotals ? "Send comment" : ""}
               </Button>
 
               <button
@@ -543,7 +591,7 @@ export const CommentDrawer = ({
         onChange={setModalDraft}
         onSave={saveDraftModal}
         onRemove={
-          pendingDraft.trim() || selectedTips.includes("Text")
+          pendingDraft.trim() || selectedTips.includes("Comment")
             ? removeTextTip
             : undefined
         }
@@ -555,6 +603,8 @@ export const CommentDrawer = ({
         onOpenChange={setSignInOpen}
         title="Sign in to like comments"
         defaultUserType="tipper"
+        overlayClassName={SIGN_IN_NESTED_OVERLAY_Z_INDEX}
+        contentClassName={SIGN_IN_NESTED_Z_INDEX}
       />
     </>
   );

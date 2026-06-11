@@ -1,6 +1,7 @@
 /** Mirror backend tip-reward-flags.util.ts for preview UI. */
 export const GALAXY_MIN_AMOUNT_GBP = 50;
 export const TURBO_MIN_DISTINCT_STYLES = 3;
+export const GALAXY_ICON_COUNT = 1;
 
 export type TipRewardEligibility = {
   rewardTurbo: boolean;
@@ -11,7 +12,7 @@ export type TipRewardEligibility = {
 
 function isTextTipName(name: string): boolean {
   const n = name.trim();
-  return n === "Text" || n === "Add Text";
+  return n === "Comment" || n === "Add Text" || n === "Comment";
 }
 
 function resolveCharacter(
@@ -64,4 +65,24 @@ export function computeTipRewardEligibility(
     distinctStyleCount: styleSet.size,
     totalGbp,
   };
+}
+
+/** One-based index (1…3): fill each flame as distinct styles accumulate; all fill when turbo unlocks. */
+export function isTurboIconFilled(
+  iconIndexOneBased: number,
+  eligibility: TipRewardEligibility
+): boolean {
+  if (eligibility.rewardTurbo) {
+    return iconIndexOneBased <= TURBO_MIN_DISTINCT_STYLES;
+  }
+  return eligibility.distinctStyleCount >= iconIndexOneBased;
+}
+
+/** Zero-based index (0…4): fill each sparkle per £10 toward £50 galaxy threshold. */
+export function isGalaxyIconFilled(
+  iconIndexZeroBased: number,
+  eligibility: TipRewardEligibility
+): boolean {
+  const step = GALAXY_MIN_AMOUNT_GBP / GALAXY_ICON_COUNT;
+  return eligibility.totalGbp >= (iconIndexZeroBased + 1) * step;
 }

@@ -16,6 +16,8 @@ import {
   submitCommunityStartInterestAction,
   type CommunityExploreCatalogRow,
 } from "@/actions/communities";
+import { createCommunityActivationRequestAction } from "@/actions/community-activation-requests";
+import { getHostEventsAction } from "@/actions/events";
 import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
 import SignInDialog from "@/components/auth/sign-in-dialog";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,6 +67,41 @@ function exploreCommunityJoinHref(communityId: string) {
 
 function manageHostCommunityHref(eventSlug: string) {
   return `/host/${encodeURIComponent(eventSlug)}/host-community`;
+}
+
+function parseHostEventsEligibleForCommunity(
+  raw: unknown
+): { id: string; eventName: string }[] {
+  const rows: { id: string; eventName: string; communityId?: string | null }[] =
+    [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const e = item as {
+        id?: string;
+        eventName?: string;
+        communityId?: string | null;
+      };
+      const id = String(e?.id ?? "").trim();
+      if (!id || e.communityId) continue;
+      rows.push({
+        id,
+        eventName:
+          e?.eventName != null && String(e.eventName).trim() !== ""
+            ? String(e.eventName)
+            : id,
+        communityId: e.communityId,
+      });
+    }
+  } else if (raw != null && typeof raw === "object") {
+    const o = raw as Record<string, unknown>;
+    if (Array.isArray(o.data)) {
+      return parseHostEventsEligibleForCommunity(o.data);
+    }
+    if (Array.isArray(o.events)) {
+      return parseHostEventsEligibleForCommunity(o.events);
+    }
+  }
+  return rows.map(({ id, eventName }) => ({ id, eventName }));
 }
 
 type HubMembership = {
@@ -212,6 +256,11 @@ export default function CommunityHubClient() {
   const [interestPhone, setInterestPhone] = useState("");
   const [interestSubmitting, setInterestSubmitting] = useState(false);
   const [startCommunityModalOpen, setStartCommunityModalOpen] = useState(false);
+  const [hostEventsPick, setHostEventsPick] = useState<
+    { id: string; eventName: string }[]
+  >([]);
+  const [pickEventId, setPickEventId] = useState("");
+  const [activationEventsLoading, setActivationEventsLoading] = useState(false);
 
   const loadCatalog = useCallback(async () => {
     setCatalogLoading(true);
@@ -332,6 +381,32 @@ export default function CommunityHubClient() {
     setInterestEmail(email);
   }, [user]);
 
+  useEffect(() => {
+    if (!startCommunityModalOpen || user?.role !== "HOST") {
+      setHostEventsPick([]);
+      setPickEventId("");
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      setActivationEventsLoading(true);
+      try {
+        const evRes = await getHostEventsAction();
+        if (cancelled) return;
+        const parsed = evRes.success
+          ? parseHostEventsEligibleForCommunity(evRes.data)
+          : [];
+        setHostEventsPick(parsed);
+        setPickEventId(parsed.length === 1 ? parsed[0].id : "");
+      } finally {
+        if (!cancelled) setActivationEventsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [startCommunityModalOpen, user?.role]);
+
   const defaultSystemRows = useMemo(() => {
     const fromApi = memberships.filter(isDefaultSystemCommunity);
     if (fromApi.length > 0) return fromApi;
@@ -373,7 +448,11 @@ export default function CommunityHubClient() {
       ? (user.eventSlug?.trim() ?? "")
       : "";
 
-  const showStartCommunityForm = Boolean(isAuthenticated);
+  const showStartCommunityForm =
+    Boolean(isAuthenticated) &&
+    owned.length === 0 &&
+    coCreated.length === 0 &&
+    nonSystemMemberships.length === 0;
 
   const setFeedActive = useCallback(
     async (communityId: string, feedActive: boolean) => {
@@ -453,6 +532,47 @@ export default function CommunityHubClient() {
       }
       setInterestSubmitting(true);
       try {
+        if (user?.role === "HOST") {
+          if (activationEventsLoading) {
+            toast.error("Loading your events…");
+            return;
+          }
+          if (hostEventsPick.length === 0) {
+            toast.error(
+              "Create an event without a community first, then submit your request."
+            );
+            return;
+          }
+          if (!pickEventId) {
+            toast.error("Select an event for this community request.");
+            return;
+          }
+          const r = await createCommunityActivationRequestAction(undefined, {
+            eventId: pickEventId,
+            kind: "community",
+            communityName,
+            description,
+            contactEmail,
+            contactPhone: interestPhone.trim() || null,
+          });
+          if (r.success) {
+            toast.success("Request sent — admins can approve it in the queue.");
+            setStartCommunityModalOpen(false);
+            setInterestName("");
+            setInterestDesc("");
+            setInterestStart("");
+            setInterestPhone("");
+            setPickEventId("");
+          } else if (r.message?.includes("(401)")) {
+            setSignInReturnTo(EXPLORE_COMMUNITY_HUB_HREF);
+            setSignInModalTitle("Sign in to send this request");
+            setSignInOpen(true);
+          } else {
+            toast.error(r.message ?? "Could not send request");
+          }
+          return;
+        }
+
         const r = await submitCommunityStartInterestAction(undefined, {
           communityName,
           description,
@@ -485,12 +605,15 @@ export default function CommunityHubClient() {
       }
     },
     [
+      activationEventsLoading,
+      hostEventsPick.length,
       interestDesc,
       interestEmail,
       interestName,
       interestPhone,
       interestStart,
       interestType,
+      pickEventId,
       user,
       userId,
     ]
@@ -520,10 +643,9 @@ export default function CommunityHubClient() {
           <DialogHeader className="shrink-0 space-y-2 pr-6 pb-2">
             <DialogTitle>Send a request to start a community</DialogTitle>
             <DialogDescription>
-              Fill in the details below. Your email defaults to your signed-in
-              account so we can reach you; add a phone number with country code
-              if you like. Admins get an in-app notification with this
-              information.
+              {user?.role === "HOST"
+                ? "Pick an event, then submit the same community activation request admins approve from the host dashboard."
+                : "Fill in the details below. Your email defaults to your signed-in account so we can reach you; add a phone number with country code if you like. Admins get an in-app notification with this information."}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -531,6 +653,46 @@ export default function CommunityHubClient() {
               className="space-y-3 pb-1"
               onSubmit={e => void handleInterestSubmit(e)}
             >
+              {user?.role === "HOST" ? (
+                <div className="space-y-2">
+                  <Label>Event</Label>
+                  {activationEventsLoading ? (
+                    <p className="text-muted-foreground text-sm">
+                      Loading your events…
+                    </p>
+                  ) : hostEventsPick.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      You need an event that is not linked to a community yet.{" "}
+                      <Link
+                        href="/event-only"
+                        className="text-primary font-medium underline underline-offset-2"
+                      >
+                        Create an event
+                      </Link>{" "}
+                      first, then return here.
+                    </p>
+                  ) : (
+                    <Select
+                      value={pickEventId || undefined}
+                      onValueChange={setPickEventId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an event you own" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {hostEventsPick.map(e => (
+                          <SelectItem
+                            key={e.id}
+                            value={e.id}
+                          >
+                            {e.eventName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              ) : null}
               <div className="space-y-1">
                 <Label htmlFor="sc-name">Community name</Label>
                 <Input
@@ -553,43 +715,47 @@ export default function CommunityHubClient() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label id="sc-type-label">Community type</Label>
-                <div
-                  className="flex flex-wrap gap-2"
-                  role="radiogroup"
-                  aria-labelledby="sc-type-label"
-                >
-                  {COMMUNITY_TYPE_OPTIONS.map(opt => (
-                    <Button
-                      key={opt}
-                      type="button"
-                      role="radio"
-                      aria-checked={interestType === opt}
-                      variant={interestType === opt ? "default" : "outline"}
-                      size="sm"
-                      className="h-auto shrink-0 rounded-full px-3 py-1.5 font-normal"
-                      onClick={() => setInterestType(opt)}
+              {user?.role !== "HOST" ? (
+                <>
+                  <div className="space-y-2">
+                    <Label id="sc-type-label">Community type</Label>
+                    <div
+                      className="flex flex-wrap gap-2"
+                      role="radiogroup"
+                      aria-labelledby="sc-type-label"
                     >
-                      {opt}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="sc-start">
-                  Interested start date{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  id="sc-start"
-                  type="date"
-                  value={interestStart}
-                  onChange={e => setInterestStart(e.target.value)}
-                />
-              </div>
+                      {COMMUNITY_TYPE_OPTIONS.map(opt => (
+                        <Button
+                          key={opt}
+                          type="button"
+                          role="radio"
+                          aria-checked={interestType === opt}
+                          variant={interestType === opt ? "default" : "outline"}
+                          size="sm"
+                          className="h-auto shrink-0 rounded-full px-3 py-1.5 font-normal"
+                          onClick={() => setInterestType(opt)}
+                        >
+                          {opt}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="sc-start">
+                      Interested start date{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span>
+                    </Label>
+                    <Input
+                      id="sc-start"
+                      type="date"
+                      value={interestStart}
+                      onChange={e => setInterestStart(e.target.value)}
+                    />
+                  </div>
+                </>
+              ) : null}
               <div className="space-y-1">
                 <Label htmlFor="sc-email">How can we reach you? (email)</Label>
                 <Input
@@ -620,7 +786,13 @@ export default function CommunityHubClient() {
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button
                   type="submit"
-                  disabled={interestSubmitting}
+                  disabled={
+                    interestSubmitting ||
+                    (user?.role === "HOST" &&
+                      (activationEventsLoading ||
+                        hostEventsPick.length === 0 ||
+                        !pickEventId))
+                  }
                 >
                   {interestSubmitting ? "Sending…" : "Send request"}
                 </Button>
@@ -849,24 +1021,36 @@ export default function CommunityHubClient() {
         </section>
 
         <section className="order-4 space-y-4 border-t pt-8">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-medium">Communities you own</h2>
-            {user?.role === "HOST" && eventSlug ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                asChild
-              >
-                <a
-                  href={manageHostCommunityHref(eventSlug)}
-                  target="_blank"
-                  rel="noreferrer"
+            <div className="flex flex-wrap items-center gap-2">
+              {isAuthenticated ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setStartCommunityModalOpen(true)}
                 >
-                  Manage host community
-                </a>
-              </Button>
-            ) : null}
+                  Start community
+                </Button>
+              ) : null}
+              {user?.role === "HOST" && eventSlug ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  asChild
+                >
+                  <a
+                    href={manageHostCommunityHref(eventSlug)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Manage host community
+                  </a>
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           {!isAuthenticated ? (
@@ -900,20 +1084,12 @@ export default function CommunityHubClient() {
           {isAuthenticated && showStartCommunityForm ? (
             <div className="bg-muted/40 space-y-3 rounded-lg border p-4">
               <p className="text-muted-foreground text-sm">
-                No communities detected.
+                No communities on your account yet. Use{" "}
+                <span className="text-foreground font-medium">
+                  Start community
+                </span>{" "}
+                above to send a request.
               </p>
-              <p className="text-sm font-medium">
-                Send a request to start another community
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="w-full sm:w-auto"
-                onClick={() => setStartCommunityModalOpen(true)}
-              >
-                Start community
-              </Button>
             </div>
           ) : null}
 

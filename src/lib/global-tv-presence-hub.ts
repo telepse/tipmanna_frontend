@@ -2,6 +2,12 @@
 import Pusher, { Channel } from "pusher-js";
 import type { UserInfo } from "@/types/tracking.types";
 
+type PusherChannelAuthData = {
+  auth: string;
+  channel_data?: string;
+  shared_secret?: string;
+};
+
 function apiBase() {
   return process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 }
@@ -88,6 +94,37 @@ async function flushJoin(tvId: string, b: BucketState) {
   }
 }
 
+function parsePresenceMembers(members: any): UserInfo[] {
+  const users: UserInfo[] = [];
+
+  const pushMember = (member: any) => {
+    const info = member?.info ?? member?.user_info ?? member ?? {};
+    const id = String(member?.id ?? info?.id ?? "").trim();
+    if (!id) return;
+    users.push({
+      id,
+      type: info.type ?? "anonymous",
+      username: info.username ?? "Anonymous",
+      isAuthenticated: Boolean(info.isAuthenticated),
+      joinedAt: info.joinedAt,
+      currentActivity: info.currentActivity,
+      lastActivity: info.lastActivity,
+    });
+  };
+
+  if (typeof members?.each === "function") {
+    members.each((member: any) => pushMember(member));
+    return users;
+  }
+
+  const raw = members?.members ?? members ?? {};
+  if (typeof raw === "object") {
+    Object.values(raw).forEach((member: any) => pushMember(member));
+  }
+
+  return users;
+}
+
 function wirePusher(tvId: string, b: BucketState) {
   if (b.pusher) return;
 
@@ -104,9 +141,34 @@ function wirePusher(tvId: string, b: BucketState) {
     window.addEventListener("unload", unloadHandler);
   }
 
+  const authUrl = `${apiBase()}/tracking/pusher/auth/global-tv/${encodeURIComponent(tvId)}`;
+
   const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
     cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-    authEndpoint: `${apiBase()}/tracking/pusher/auth/global-tv`,
+    authorizer: (channel, _options) => ({
+      authorize: (socketId, callback) => {
+        const ui = b.getJoinUser();
+        void fetch(authUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            socket_id: socketId,
+            channel_name: channel.name,
+            tvId,
+            userId: ui?.id ?? "",
+            username: ui?.username ?? "Anonymous User",
+          }),
+        })
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`Global TV Pusher auth failed (${res.status})`);
+            }
+            return res.json();
+          })
+          .then(data => callback(null, data as PusherChannelAuthData))
+          .catch(err => callback(err as Error, null));
+      },
+    }),
   });
 
   const channelName = `presence-global-tv-${tvId}`;
@@ -116,9 +178,7 @@ function wirePusher(tvId: string, b: BucketState) {
   b.channel = channel;
 
   channel.bind("pusher:subscription_succeeded", (members: any) => {
-    const users = Object.values(members?.members || {}).map(
-      (m: any) => m?.user_info || m
-    ) as UserInfo[];
+    const users = parsePresenceMembers(members);
     const bx = buckets.get(tvId);
     if (!bx) return;
     bx.latestUsers = users;

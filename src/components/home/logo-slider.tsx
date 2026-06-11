@@ -22,7 +22,7 @@ export const LogoSlider = ({ causes }: Props) => {
   const next = () => setCurrent(i => (i === causes.length - 1 ? 0 : i + 1));
 
   // Calculate the 3 visible CHARITY_LOGOS: prev, current, next
-  const prevIndex = (current - 1 + causes.length) % causes.length;
+  const prevIndex = (current - 1 + causes?.length) % causes?.length;
   const nextIndex = (current + 1) % causes.length;
 
   const visibleCauses = [causes[prevIndex], causes[current], causes[nextIndex]];

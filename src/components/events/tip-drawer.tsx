@@ -246,7 +246,7 @@ export const TipDrawer = ({
 
   useEffect(() => {
     if (paymentCompleted && !prevPaymentCompletedRef.current) {
-      const hasTextTip = textTipActive || selectedTips.includes("Text");
+      const hasTextTip = textTipActive || selectedTips.includes("Comment");
       const hasCommentChar = tippingCharacters.some(
         c => selectedTips.includes(c.name) && c.type === "comment"
       );
@@ -339,7 +339,7 @@ export const TipDrawer = ({
         const v = localStorage.getItem("textTipValue") ?? "";
         setTextTipValue(v);
         const hasLs = !!v.trim();
-        setTextTipActive(hasLs || tipsForTotals.includes("Text"));
+        setTextTipActive(hasLs || tipsForTotals.includes("Comment"));
       } catch {
         setTextTipValue("");
         setTextTipActive(false);
@@ -360,7 +360,7 @@ export const TipDrawer = ({
     if (!open) return;
     try {
       const fromStorage = localStorage.getItem("textTipValue") ?? "";
-      if (!selectedTips.includes("Text") || !fromStorage.trim()) return;
+      if (!selectedTips.includes("Comment") || !fromStorage.trim()) return;
       setTextTipValue(prev => (prev.trim() !== "" ? prev : fromStorage));
       setTextTipActive(true);
     } catch {
@@ -393,7 +393,7 @@ export const TipDrawer = ({
     setTextTipValue(textDraftInput);
     setTextTipActive(true);
     dispatch(
-      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Text"]))
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
     );
     setTextDraftModalOpen(false);
   };
@@ -403,7 +403,7 @@ export const TipDrawer = ({
     // Text Tip — preview animation, then modal (edit skips preview).
     // ─────────────────────────────
     if (isTextCharacterId(characterId)) {
-      if (tipsForTotals.includes("Text")) {
+      if (tipsForTotals.includes("Comment")) {
         openTextDraftModal();
         return;
       }
@@ -461,7 +461,7 @@ export const TipDrawer = ({
   };
 
   const removeAllOfTip = (characterName: string) => {
-    if (characterName === "Text") {
+    if (characterName === "Comment") {
       cancelTextPreviewRef.current?.();
       cancelTextPreviewRef.current = null;
       stopPreview();
@@ -474,7 +474,7 @@ export const TipDrawer = ({
 
   const totalAmount = useMemo(() => {
     return tipsForTotals.reduce((acc, characterName) => {
-      if (characterName === "Text") {
+      if (characterName === "Comment") {
         return acc + textUnit;
       }
       const character = tippingCharacters.find(c => c.name === characterName);
@@ -492,7 +492,7 @@ export const TipDrawer = ({
     const characterCounts: Record<string, number> = {};
 
     tipsForTotals
-      .filter(name => name !== "Text")
+      .filter(name => name !== "Comment")
       .forEach(characterName => {
         characterCounts[characterName] =
           (characterCounts[characterName] || 0) + 1;
@@ -513,18 +513,18 @@ export const TipDrawer = ({
       }
     );
 
-    const textCount = tipsForTotals.filter(name => name === "Text").length;
+    const textCount = tipsForTotals.filter(name => name === "Comment").length;
     const textCharId = textCharacterIdFromEnv() ?? "";
 
     if (textCount > 0) {
       chars.push({
-        name: "Text",
+        name: "Comment",
         price: textUnit * textCount,
         time: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        characterId: textCharId || "Text",
+        characterId: textCharId || "Comment",
       });
     }
 
@@ -569,7 +569,7 @@ export const TipDrawer = ({
 
   const showEditMessageLink = useMemo(() => {
     void draftSyncEpoch;
-    if (tipsForTotals.includes("Text")) return true;
+    if (tipsForTotals.includes("Comment")) return true;
     if (typeof window === "undefined") return false;
     try {
       return !!localStorage.getItem("textTipValue")?.trim();
@@ -752,7 +752,7 @@ export const TipDrawer = ({
               : undefined;
           })(),
           secondaryText:
-            (textTipActive || selectedTips.includes("Text")) &&
+            (textTipActive || selectedTips.includes("Comment")) &&
             textTipValue?.trim()
               ? textTipValue.trim().slice(0, 500)
               : undefined,
@@ -787,7 +787,8 @@ export const TipDrawer = ({
       selectedTips: [...selectedTips],
       amount: Number(walletPayTotal),
       secondaryText:
-        (textTipActive || selectedTips.includes("Text")) && textTipValue?.trim()
+        (textTipActive || selectedTips.includes("Comment")) &&
+        textTipValue?.trim()
           ? textTipValue.trim().slice(0, 500)
           : undefined,
       ...(paymentChannelId?.trim()
@@ -882,7 +883,7 @@ export const TipDrawer = ({
         onOpenChange={nextOpen => {
           if (isProcessing || isRedirecting) return;
           if (!nextOpen) {
-            if (textTipActive || selectedTips.includes("Text")) {
+            if (textTipActive || selectedTips.includes("Comment")) {
               cancelTextPreviewRef.current?.();
               cancelTextPreviewRef.current = null;
               stopPreview();
@@ -920,9 +921,9 @@ export const TipDrawer = ({
               >
                 <div className="flex flex-1 flex-row-reverse gap-2">
                   <div className="scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent ml-auto flex flex-row-reverse items-center gap-1 overflow-x-auto scroll-smooth px-1 py-2 text-sm whitespace-nowrap">
-                    {(selectedTips.includes("Text") || textTipActive) && (
+                    {(selectedTips.includes("Comment") || textTipActive) && (
                       <span
-                        key="Text"
+                        key="Comment"
                         className="relative mr-1 flex items-center gap-1 rounded-full bg-black px-2 py-1 whitespace-nowrap text-white"
                       >
                         Comment
@@ -1011,7 +1012,7 @@ export const TipDrawer = ({
                   {filteredCharacterSets[selectedTabIndex]?.characters.map(
                     (character: Character) => {
                       const characterName = isTextCharacterId(character.id)
-                        ? "Text"
+                        ? "Comment"
                         : character.name;
                       const count = getSelectedCount(characterName);
                       const label = isTextCharacterId(character.id)

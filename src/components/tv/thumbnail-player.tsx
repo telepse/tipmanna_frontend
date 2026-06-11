@@ -10,6 +10,7 @@ interface Props {
   contentId?: string;
   /** When it matches `contentId`, inline preview is forced off (same clip opened in Explore reel). */
   suppressInlinePlaybackContentId?: string | null;
+  disableInlinePlayback?: boolean;
 }
 
 export const ThumbnailPlayer = ({
@@ -17,6 +18,7 @@ export const ThumbnailPlayer = ({
   className,
   contentId,
   suppressInlinePlaybackContentId,
+  disableInlinePlayback = false,
 }: Props) => {
   const [play, setPlay] = useState(false);
 
@@ -36,7 +38,7 @@ export const ThumbnailPlayer = ({
   if (!videoId) return <p>Invalid video link</p>;
 
   const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-  const showPlayer = play && !suppressInline;
+  const showPlayer = !disableInlinePlayback && play && !suppressInline;
 
   return (
     <div className={`relative w-full ${className}`}>
@@ -44,7 +46,11 @@ export const ThumbnailPlayer = ({
         <button
           type="button"
           className="relative w-full cursor-pointer border-0 bg-transparent p-0 text-left"
-          onClick={() => setPlay(true)}
+          onClick={() => {
+            if (!disableInlinePlayback) {
+              setPlay(true);
+            }
+          }}
           aria-label="Play video preview"
         >
           <img

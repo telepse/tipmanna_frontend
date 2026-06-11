@@ -38,9 +38,38 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
   const [saving, setSaving] = useState(false);
   const [channelSearch, setChannelSearch] = useState("");
   const [channelHits, setChannelHits] = useState<
-    { id: string; title: string; eventName?: string }[]
+    {
+      id: string;
+      title: string;
+      eventName?: string;
+      playbackStatus?: string;
+      liveStatus?: string;
+      faultReason?: string | null;
+      tvPlayable?: boolean;
+      globallyBanned?: boolean;
+    }[]
   >([]);
   const [channelSearchLoading, setChannelSearchLoading] = useState(false);
+  const [communityExclusions, setCommunityExclusions] = useState<
+    {
+      id: string;
+      eventChannelId: string;
+      eventChannel: {
+        id: string;
+        title: string;
+        playbackStatus?: string;
+        liveStatus?: string;
+        faultReason?: string | null;
+      };
+    }[]
+  >([]);
+  const [globalBans, setGlobalBans] = useState<
+    {
+      id: string;
+      eventChannelId: string;
+      eventChannel: { id: string; title: string; faultReason?: string | null };
+    }[]
+  >([]);
   const [upcomingItems, setUpcomingItems] = useState<ScheduleRow[]>([]);
   const [ongoingBatchTitle, setOngoingBatchTitle] = useState("Ongoing batch");
   const [upcomingBatchTitle, setUpcomingBatchTitle] =
@@ -111,9 +140,35 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
     }
   }, [base, communityId]);
 
+  const loadBlocks = useCallback(async () => {
+    if (!communityId || !authToken) return;
+    try {
+      const [exRes, gbRes] = await Promise.all([
+        fetch(
+          `${base}/communities/${encodeURIComponent(communityId)}/tv/content-blocks`,
+          { headers: { Authorization: `Bearer ${authToken}` } }
+        ),
+        fetch(
+          `${base}/communities/${encodeURIComponent(communityId)}/tv/global-bans`,
+          { headers: { Authorization: `Bearer ${authToken}` } }
+        ),
+      ]);
+      const exData = (await exRes.json()) as {
+        items?: typeof communityExclusions;
+      };
+      const gbData = (await gbRes.json()) as { items?: typeof globalBans };
+      setCommunityExclusions(Array.isArray(exData.items) ? exData.items : []);
+      setGlobalBans(Array.isArray(gbData.items) ? gbData.items : []);
+    } catch {
+      setCommunityExclusions([]);
+      setGlobalBans([]);
+    }
+  }, [authToken, base, communityId]);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadBlocks();
+  }, [load, loadBlocks]);
 
   const searchChannels = useCallback(async () => {
     const q = channelSearch.trim();
@@ -136,7 +191,16 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
         }
       );
       const data = (await res.json()) as {
-        items?: { id: string; title: string; eventName?: string }[];
+        items?: {
+          id: string;
+          title: string;
+          eventName?: string;
+          playbackStatus?: string;
+          liveStatus?: string;
+          faultReason?: string | null;
+          tvPlayable?: boolean;
+          globallyBanned?: boolean;
+        }[];
       };
       setChannelHits(Array.isArray(data.items) ? data.items : []);
     } catch {
@@ -321,7 +385,79 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
             </Button>
           </div>
 
-          <div className="mt-4 max-w-md space-y-2">
+          <div className="mt-4 max-w-lg space-y-4">
+            {globalBans.length > 0 ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50/80 p-3 text-xs dark:border-amber-900 dark:bg-amber-950/30">
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  Globally banned from TV (cannot be overridden by community)
+                </p>
+                <ul className="text-muted-foreground mt-2 space-y-1">
+                  {globalBans.map(b => (
+                    <li key={b.id}>
+                      {b.eventChannel.title}
+                      {b.eventChannel.faultReason
+                        ? ` · ${b.eventChannel.faultReason}`
+                        : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {communityExclusions.length > 0 ? (
+              <div className="rounded-md border p-3 text-xs">
+                <p className="font-medium">Community exclusions</p>
+                <ul className="mt-2 space-y-1">
+                  {communityExclusions.map(b => (
+                    <li
+                      key={b.id}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span className="text-muted-foreground">
+                        {b.eventChannel.title}
+                        {b.eventChannel.playbackStatus &&
+                        b.eventChannel.playbackStatus !== "OK" ? (
+                          <span className="ml-1 text-amber-600">
+                            ({b.eventChannel.playbackStatus})
+                          </span>
+                        ) : null}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0 text-xs"
+                        onClick={async () => {
+                          const token = authToken;
+                          if (!token || !communityId) return;
+                          try {
+                            const res = await fetch(
+                              `${base}/communities/${encodeURIComponent(communityId)}/tv/content-blocks/${encodeURIComponent(b.eventChannelId)}`,
+                              {
+                                method: "DELETE",
+                                headers: { Authorization: `Bearer ${token}` },
+                              }
+                            );
+                            if (!res.ok) {
+                              const t = await res.text();
+                              throw new Error(t || "Remove failed");
+                            }
+                            await Promise.all([load(), loadBlocks()]);
+                          } catch (e) {
+                            setError(
+                              e instanceof Error ? e.message : "Remove failed"
+                            );
+                          }
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <p className="text-muted-foreground text-xs font-medium">
               Find approved bank clips (search only — schedule is built by cron
               from the bank)
@@ -348,10 +484,73 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
                 {channelHits.map(h => (
                   <li
                     key={h.id}
-                    className="border-b px-2 py-1 last:border-b-0"
+                    className="flex items-center justify-between gap-2 border-b px-2 py-1 last:border-b-0"
                   >
-                    {h.title}
-                    {h.eventName ? ` · ${h.eventName}` : ""}
+                    <span>
+                      {h.title}
+                      {h.eventName ? ` · ${h.eventName}` : ""}
+                      {h.tvPlayable === false || h.globallyBanned ? (
+                        <span className="ml-1 text-amber-600">
+                          [{h.tvPlayable === false ? "not playable" : null}
+                          {h.globallyBanned ? "globally banned" : null}
+                          {h.playbackStatus && h.liveStatus
+                            ? ` · ${h.playbackStatus}/${h.liveStatus}`
+                            : null}
+                          {h.faultReason ? `: ${h.faultReason}` : null}]
+                        </span>
+                      ) : h.playbackStatus && h.playbackStatus !== "OK" ? (
+                        <span className="ml-1 text-amber-600">
+                          [{h.playbackStatus}
+                          {h.faultReason ? `: ${h.faultReason}` : ""}]
+                        </span>
+                      ) : null}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 shrink-0 text-xs"
+                      onClick={async () => {
+                        const token = authToken;
+                        if (!token || !communityId) return;
+                        try {
+                          const res = await fetch(
+                            `${base}/communities/${encodeURIComponent(communityId)}/tv/content-blocks/exclude`,
+                            {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                              },
+                              body: JSON.stringify({
+                                eventChannelId: h.id,
+                                reason: "Host excluded from Community TV",
+                              }),
+                            }
+                          );
+                          if (!res.ok) {
+                            const t = await res.text();
+                            let msg = t || "Exclude failed";
+                            try {
+                              const parsed = JSON.parse(t) as {
+                                message?: string;
+                              };
+                              if (parsed.message) msg = parsed.message;
+                            } catch {
+                              /* plain text */
+                            }
+                            throw new Error(msg);
+                          }
+                          await Promise.all([load(), loadBlocks()]);
+                        } catch (e) {
+                          setError(
+                            e instanceof Error ? e.message : "Exclude failed"
+                          );
+                        }
+                      }}
+                    >
+                      Exclude
+                    </Button>
                   </li>
                 ))}
               </ul>

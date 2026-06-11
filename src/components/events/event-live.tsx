@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // Third-party imports
 import {
@@ -42,6 +42,10 @@ import {
   OVERLAY_Z_INDEX,
   TV_RAIL_Z_INDEX,
 } from "@/lib/drawer-z-index";
+import {
+  buildChannelSharePath,
+  buildRoomSharePath,
+} from "@/lib/public-video-url";
 
 interface Props {
   liveVideoLink: string;
@@ -107,7 +111,10 @@ export const EventLive = ({
   amountToRaise,
   amountRaised,
   numOfTips,
+  frameId,
 }: Props) => {
+  const router = useRouter();
+  const roomPathRef = useRef<string | null>(null);
   const [open, setOpen] = useState(!!liveVideoLink && autoOpen);
   const videoRef = useRef<VideoPlayerRef>(null);
 
@@ -116,10 +123,56 @@ export const EventLive = ({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [tipsListOpen, setTipsListOpen] = useState(false);
 
-  const openLightbox = () => {
-    console.log("lightbox open");
+  const searchParams = useSearchParams();
+
+  const frameParam = searchParams.get("frame");
+  const resolvedChannelId =
+    (typeof frameParam === "string" && frameParam.trim()) ||
+    (typeof frameId === "string" && frameId.trim()) ||
+    null;
+
+  const currentChannel =
+    (resolvedChannelId
+      ? channels?.find(c => String(c.id) === resolvedChannelId)
+      : undefined) ??
+    channels?.find(c => c.isDefault) ??
+    channels?.[0];
+
+  const syncLightboxUrl = useCallback(
+    (channelId: string | null | undefined, mode: "push" | "replace") => {
+      if (typeof window === "undefined" || !eventId?.trim()) return;
+      const path = buildChannelSharePath({
+        eventId,
+        channelId: channelId?.trim() || null,
+      });
+      const state = { eventRoomChannelLightbox: true };
+      if (mode === "push") {
+        window.history.pushState(state, "", path);
+      } else {
+        window.history.replaceState(state, "", path);
+      }
+    },
+    [eventId]
+  );
+
+  const closeLightbox = useCallback(
+    (restoreRoomUrl = true) => {
+      setIsLightboxOpen(false);
+      if (!restoreRoomUrl) return;
+      const roomPath = roomPathRef.current ?? buildRoomSharePath(eventId);
+      router.replace(roomPath, { scroll: false });
+    },
+    [eventId, router]
+  );
+
+  const openLightbox = useCallback(() => {
+    roomPathRef.current = buildRoomSharePath(eventId);
+    syncLightboxUrl(
+      currentChannel?.id ? String(currentChannel.id) : null,
+      "push"
+    );
     setIsLightboxOpen(true);
-  };
+  }, [eventId, currentChannel?.id, syncLightboxUrl]);
 
   const resolvedVideoUrl =
     liveVideoLink && liveVideoLink.trim() !== ""
@@ -183,9 +236,9 @@ export const EventLive = ({
     }
   };
 
-  const searchParams = useSearchParams();
-
-  const channelId = searchParams.get("frame");
+  const currentChannelIndex = currentChannel
+    ? Math.max(0, channels?.findIndex(c => c.id === currentChannel.id) ?? 0)
+    : 0;
 
   const handleUnmute = () => {
     if (!videoRef.current) return;
@@ -199,20 +252,21 @@ export const EventLive = ({
   };
 
   useEffect(() => {
-    if (channelId) {
-      localStorage.setItem("channelId", channelId);
+    if (resolvedChannelId) {
+      localStorage.setItem("channelId", resolvedChannelId);
     }
-  }, [channelId]);
+  }, [resolvedChannelId]);
 
   const [, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const currentChannelIndex =
-    channels?.findIndex(c => c.id === channelId) !== -1
-      ? channels?.findIndex(c => c.id === channelId)
-      : 0;
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+    const onPopState = () => closeLightbox(false);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isLightboxOpen, closeLightbox]);
 
-  const currentChannel = channels?.[currentChannelIndex];
   const displayVideoTitle =
     typeof currentChannel?.title === "string"
       ? currentChannel.title.trim()
@@ -601,10 +655,7 @@ export const EventLive = ({
 
         <button
           type="button"
-          onClick={() => {
-            console.log("lightbox open");
-            openLightbox();
-          }}
+          onClick={openLightbox}
         >
           <Maximize className="size-5" />
         </button>
@@ -765,11 +816,16 @@ export const EventLive = ({
           initialChannelId={
             currentChannel?.id ? String(currentChannel.id) : null
           }
+          onActiveChannelChange={channelId => {
+            if (isLightboxOpen) {
+              syncLightboxUrl(channelId, "replace");
+            }
+          }}
         />
         <button
           type="button"
           className={`absolute top-0 right-0 ${AUTH_MODAL_Z_INDEX} cursor-pointer`}
-          onClick={() => setIsLightboxOpen(false)}
+          onClick={() => closeLightbox()}
         >
           <XIcon className="size-5 text-black" />
         </button>

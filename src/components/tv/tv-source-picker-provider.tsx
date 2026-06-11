@@ -53,7 +53,11 @@ export function TvSourcePickerProvider({
   const communityFeatureOn =
     process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
 
-  const { setScheduleSourceCommunityId, scheduleSourceCommunityId } = useTV();
+  const {
+    setScheduleSourceCommunityId,
+    scheduleSourceCommunityId,
+    retryScheduleLoad,
+  } = useTV();
 
   const [tvPickerOpen, setTvPickerOpen] = useState(false);
   const [tvPickerOptions, setTvPickerOptions] = useState<
@@ -181,8 +185,9 @@ export function TvSourcePickerProvider({
     }
     setScheduleSourceCommunityId(null);
     router.replace("/tv", { scroll: false });
+    retryScheduleLoad();
     setTvPickerOpen(false);
-  }, [router, setScheduleSourceCommunityId]);
+  }, [router, retryScheduleLoad, setScheduleSourceCommunityId]);
 
   const pickCommunity = useCallback(
     (id: string) => {
@@ -195,9 +200,10 @@ export function TvSourcePickerProvider({
       router.replace(`/tv?community=${encodeURIComponent(id)}`, {
         scroll: false,
       });
+      retryScheduleLoad();
       setTvPickerOpen(false);
     },
-    [router, setScheduleSourceCommunityId]
+    [router, retryScheduleLoad, setScheduleSourceCommunityId]
   );
 
   const onTvSourceChange = useCallback(
@@ -215,9 +221,7 @@ export function TvSourcePickerProvider({
 
   const showSourceDropdown = useMemo(
     () =>
-      communityFeatureOn &&
-      !searchParams.get("videoId") &&
-      !tvSideChickLocked,
+      communityFeatureOn && !searchParams.get("videoId") && !tvSideChickLocked,
     [communityFeatureOn, searchParams, tvSideChickLocked]
   );
 

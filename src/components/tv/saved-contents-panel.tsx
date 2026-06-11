@@ -10,6 +10,7 @@ import { ContentCardSkeleton } from "./content-card-skeleton";
 import { ThumbnailPlayer } from "./thumbnail-player";
 import { normalizeSavedVideosList } from "@/lib/save-video-client";
 import type { RootState } from "@/redux/store";
+import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
 
 type SavedVideoItem = {
   id?: string;
@@ -28,6 +29,7 @@ type SavedVideoItem = {
 };
 
 export function SavedContentsPanel() {
+  const navigateToExplore = useNavigateToExploreVideo();
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [savedVideos, setSavedVideos] = useState<SavedVideoItem[]>([]);
@@ -98,16 +100,39 @@ export function SavedContentsPanel() {
                 if (!channel?.url || !eventId) return null;
 
                 return (
-                  <Link
+                  <div
                     key={item.id ?? item.channelId ?? channel.id}
-                    href={`/content/${eventId}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
+                      navigateToExplore({
+                        id: channel.id ?? item.channelId ?? item.id ?? "",
+                        url: channel.url,
+                        title: channel.title,
+                        event: channel.event,
+                      })
+                    }
+                    onKeyDown={e => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigateToExplore({
+                          id: channel.id ?? item.channelId ?? item.id ?? "",
+                          url: channel.url,
+                          title: channel.title,
+                          event: channel.event,
+                        });
+                      }
+                    }}
                     className="relative flex min-w-[200px] cursor-pointer gap-1 border-2 bg-black/10"
                   >
                     <div className="space-y-1">
                       <ThumbnailPlayer
                         videoUrl={channel.url}
-                        contentId={channel.id ?? item.channelId ?? item.id ?? ""}
+                        contentId={
+                          channel.id ?? item.channelId ?? item.id ?? ""
+                        }
                         suppressInlinePlaybackContentId={null}
+                        disableInlinePlayback
                         className="aspect-video w-full rounded-md"
                       />
 
@@ -128,7 +153,7 @@ export function SavedContentsPanel() {
                         </div>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

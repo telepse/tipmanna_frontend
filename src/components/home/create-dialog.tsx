@@ -38,6 +38,10 @@ import {
   AUTH_MODAL_OVERLAY_Z_INDEX,
   AUTH_MODAL_Z_INDEX,
   EXPLORE_MODAL_Z_INDEX,
+  SIGN_IN_EXPLORE_OVERLAY_Z_INDEX,
+  SIGN_IN_EXPLORE_Z_INDEX,
+  SIGN_IN_NESTED_OVERLAY_Z_INDEX,
+  SIGN_IN_NESTED_Z_INDEX,
 } from "@/lib/drawer-z-index";
 import {
   CREATE_FORM_LABEL_CLASS,
@@ -47,6 +51,7 @@ import {
 } from "@/lib/create-form-theme";
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
 import { Button } from "@/components/ui/button";
+import { isHostRole } from "@/lib/is-host-role";
 
 type SignInIntent = "add-video" | "type-picker-proceed" | null;
 
@@ -109,15 +114,33 @@ export const CreateDialog = ({
   const pendingVideoSubmitRef = useRef<AddVideoFormValues | null>(null);
   const [resumeVideoSubmit, setResumeVideoSubmit] = useState(false);
 
+  const [hostSessionActive, setHostSessionActive] = useState(false);
+  const [hostSessionProbed, setHostSessionProbed] = useState(false);
+  const isHostFromRedux = isHostRole(user?.role);
+  const showHostCreateFlow =
+    communityFeatureOn &&
+    !forceTypePicker &&
+    (isHostFromRedux || hostSessionActive);
+
   useEffect(() => {
     if (!openPopup) {
       setIsProceeding(false);
       setShowNewEventRoomPicker(false);
+      setHostSessionActive(false);
+      setHostSessionProbed(false);
     }
   }, [openPopup]);
 
   useEffect(() => {
-    if (!openPopup || user?.role !== "HOST" || !communityFeatureOn) return;
+    if (!openPopup || forceTypePicker || !communityFeatureOn) return;
+
+    if (isHostFromRedux) {
+      setHostSessionActive(true);
+      setHostSessionProbed(true);
+    } else {
+      setHostSessionActive(false);
+      setHostSessionProbed(false);
+    }
 
     setPickerLoading(true);
     (async () => {
@@ -126,8 +149,20 @@ export const CreateDialog = ({
         getMyCommunitiesAction(),
       ]);
 
-      if (evRes.success && Array.isArray(evRes.data)) {
-        setEvents(evRes.data as HostEventRow[]);
+      if (evRes.success) {
+        setHostSessionActive(true);
+      } else if (!isHostFromRedux) {
+        setHostSessionActive(false);
+      }
+
+      if (evRes.success && evRes.data) {
+        const raw = evRes.data as HostEventRow[] | { data?: HostEventRow[] };
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : [];
+        setEvents(list);
       } else {
         setEvents([]);
       }
@@ -143,12 +178,14 @@ export const CreateDialog = ({
         setOwned([]);
         setCoCreated([]);
       }
+
+      setHostSessionProbed(true);
       setPickerLoading(false);
     })();
-  }, [openPopup, user?.role, user?.id]);
+  }, [openPopup, forceTypePicker, isHostFromRedux, user?.id]);
 
   useEffect(() => {
-    if (user?.role !== "HOST" || !communityFeatureOn) return;
+    if (!showHostCreateFlow) return;
     if (hostTab === "event") {
       setTargetId(events[0]?.id ?? "");
     } else if (hostTab === "owner") {
@@ -156,7 +193,7 @@ export const CreateDialog = ({
     } else {
       setTargetId(coCreated[0]?.id ?? "");
     }
-  }, [hostTab, events, owned, coCreated, user?.role]);
+  }, [hostTab, events, owned, coCreated, showHostCreateFlow]);
 
   const resolvedEventType = useMemo(() => {
     if (hostTab === "event") {
@@ -217,7 +254,7 @@ export const CreateDialog = ({
   };
 
   const handleHostVideoSubmit = async (values: AddVideoFormValues) => {
-    if (!user) {
+    if (!showHostCreateFlow) {
       pendingVideoSubmitRef.current = values;
       setSignInIntent("add-video");
       setSignInOpen(true);
@@ -283,13 +320,17 @@ export const CreateDialog = ({
   };
 
   useEffect(() => {
-    if (!resumeVideoSubmit || !user?.id || !pendingVideoSubmitRef.current)
+    if (
+      !resumeVideoSubmit ||
+      !showHostCreateFlow ||
+      !pendingVideoSubmitRef.current
+    )
       return;
     const values = pendingVideoSubmitRef.current;
     pendingVideoSubmitRef.current = null;
     setResumeVideoSubmit(false);
     void handleHostVideoSubmit(values);
-  }, [resumeVideoSubmit, user?.id]);
+  }, [resumeVideoSubmit, showHostCreateFlow, user?.id]);
 
   const dialogOverlayZIndex = onExploreLayer
     ? EXPLORE_MODAL_Z_INDEX
@@ -297,8 +338,55 @@ export const CreateDialog = ({
   const dialogContentZIndex = onExploreLayer
     ? EXPLORE_MODAL_Z_INDEX
     : AUTH_MODAL_Z_INDEX;
+  const signInOverlayZIndex = onExploreLayer
+    ? SIGN_IN_EXPLORE_OVERLAY_Z_INDEX
+    : SIGN_IN_NESTED_OVERLAY_Z_INDEX;
+  const signInContentZIndex = onExploreLayer
+    ? SIGN_IN_EXPLORE_Z_INDEX
+    : SIGN_IN_NESTED_Z_INDEX;
 
-  if (user?.role === "HOST" && communityFeatureOn && !forceTypePicker) {
+  const signInDialog = (
+    <SignInDialog
+      open={signInOpen}
+      onOpenChange={setSignInOpen}
+      title="Sign in to continue"
+      defaultUserType="host"
+      onSuccess={handleModalSignInSuccess}
+      overlayClassName={signInOverlayZIndex}
+      contentClassName={signInContentZIndex}
+    />
+  );
+
+  const awaitingHostSessionProbe =
+    openPopup &&
+    communityFeatureOn &&
+    !forceTypePicker &&
+    !isHostFromRedux &&
+    !hostSessionProbed;
+
+  if (awaitingHostSessionProbe) {
+    return (
+      <>
+        <Dialog
+          open={openPopup}
+          onOpenChange={setOpenPopup}
+        >
+          <DialogContent
+            overlayClassName={dialogOverlayZIndex}
+            className={`${dialogContentZIndex} rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-md`}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-white/70">Add a video</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-white/70">Checking your host session…</p>
+          </DialogContent>
+        </Dialog>
+        {signInDialog}
+      </>
+    );
+  }
+
+  if (showHostCreateFlow) {
     return (
       <>
         <Dialog
@@ -541,13 +629,7 @@ export const CreateDialog = ({
             )}
           </DialogContent>
         </Dialog>
-        <SignInDialog
-          open={signInOpen}
-          onOpenChange={setSignInOpen}
-          title="Sign in to continue"
-          defaultUserType="host"
-          onSuccess={handleModalSignInSuccess}
-        />
+        {signInDialog}
       </>
     );
   }
@@ -665,13 +747,7 @@ export const CreateDialog = ({
         </DialogContent>
       </Dialog>
 
-      <SignInDialog
-        open={signInOpen}
-        onOpenChange={setSignInOpen}
-        title="Sign in to continue"
-        defaultUserType="host"
-        onSuccess={handleModalSignInSuccess}
-      />
+      {signInDialog}
     </>
   );
 };

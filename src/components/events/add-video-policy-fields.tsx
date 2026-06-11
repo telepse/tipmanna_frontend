@@ -113,6 +113,10 @@ export function AddVideoPolicyFields({
       toast.error("Co-owner email is required");
       return;
     }
+    if (!coName.trim()) {
+      toast.error("Co-owner legal name is required");
+      return;
+    }
     setInvitePending(true);
     const res = await createVideoCoOwnerInviteAction({
       draftKey: dk,

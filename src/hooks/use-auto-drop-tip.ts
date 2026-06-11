@@ -6,7 +6,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { setSelectedTips, markPaymentCompleted } from "@/features/tip-slice";
 import {
-  TIP_MESSAGE_SENT_STORAGE_KEY,
   readPendingTipBroadcast,
   clearPendingTipBroadcast,
 } from "@/lib/payment-origin";
@@ -60,15 +59,6 @@ export function useAutoDropTip(eventId: string, enabled = true): void {
 
     const timer = window.setTimeout(() => {
       if (droppedRef.current) return;
-
-      if (localStorage.getItem(TIP_MESSAGE_SENT_STORAGE_KEY)) {
-        localStorage.removeItem(TIP_MESSAGE_SENT_STORAGE_KEY);
-        clearPendingTipBroadcast();
-        dispatch(setSelectedTips([]));
-        dispatch(markPaymentCompleted(false));
-        droppedRef.current = true;
-        return;
-      }
 
       const pending = readPendingTipBroadcast();
       const tips = pending?.selectedTips?.length
@@ -141,7 +131,7 @@ export function useAutoDropTip(eventId: string, enabled = true): void {
           /* ignore */
         }
         const tipsUnique = [...new Set(tips)];
-        if (tipsUnique.includes("Text")) {
+        if (tipsUnique.includes("Comment")) {
           const delayMs =
             ANIMATION_DURATION.payment.max * Math.max(1, tipsUnique.length) +
             1200;

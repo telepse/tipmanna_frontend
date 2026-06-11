@@ -10,6 +10,7 @@ import {
   formatPlaylistClock,
   wallClockStartMsForScheduleIndex,
 } from "@/lib/tv/playlistDisplay";
+import { useMediaQuery } from "react-responsive";
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   CONCERT_MUSIC: "Concert",
@@ -22,7 +23,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   CORPORATE: "Corporate",
   COMEDY: "Comedy",
   FASHION: "Fashion",
-  GAME_SPORT: "Game & Sport",
+  GAME_SPORT: "Games",
   CHILDREN: "Children",
   EDUCATION: "Education",
   OTHER: "Other",
@@ -51,27 +52,23 @@ export function TvPlaylistPreview({
     getSyncedNow,
     liveBroadcastIndex,
     playingItemOverride,
-    schedulePlayingSlot,
+    previewPinIndex,
     ongoingCollection,
     activeBatch,
   } = useTV();
 
-  const previewPinIndex =
-    mode === "GLOBAL"
-      ? liveBroadcastIndex
-      : schedulePlayingSlot?.scope === "active"
-        ? schedulePlayingSlot.rowIndex
-        : currentIndex;
+  const effectivePinIndex =
+    mode === "GLOBAL" ? liveBroadcastIndex : previewPinIndex;
 
   const previewIndices = useMemo(
     () =>
       buildPreviewRowIndices(
         items.length,
-        previewPinIndex,
+        effectivePinIndex,
         liveBroadcastIndex,
         10
       ),
-    [items.length, previewPinIndex, liveBroadcastIndex]
+    [items.length, effectivePinIndex, liveBroadcastIndex]
   );
 
   const now = getSyncedNow();
@@ -94,6 +91,8 @@ export function TvPlaylistPreview({
     );
     return formatPlaylistClock(ms);
   };
+
+  const isMobile = useMediaQuery({ maxWidth: "500px" });
 
   return (
     <>
@@ -120,9 +119,7 @@ export function TvPlaylistPreview({
         const isPlaying =
           mode === "GLOBAL"
             ? originalIndex === liveBroadcastIndex
-            : schedulePlayingSlot?.scope === "active"
-              ? originalIndex === schedulePlayingSlot.rowIndex
-              : originalIndex === currentIndex;
+            : !playingItemOverride && originalIndex === currentIndex;
         const startLabel = pickTimeLabel(originalIndex);
 
         const contentCountryCode = countryToCode[item.channel.contentCountry];
@@ -147,7 +144,7 @@ export function TvPlaylistPreview({
               {isPlaying && (
                 <div className="flex shrink-0 flex-col gap-1">
                   {showTimes && (
-                    <span className="text-muted-foreground -ml-2 rounded border border-black px-1 py-0.5 text-[9.5px]">
+                    <span className="text-muted-foreground z-[9999] rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]">
                       {startLabel}
                     </span>
                   )}
@@ -160,31 +157,26 @@ export function TvPlaylistPreview({
                     : "Loading..."}
                 </h5>
 
-                <p className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-[10px] ">
+                <p className="text-muted-foreground flex flex-wrap items-center gap-x-0.5 text-[10px] text-nowrap">
                   {!isPlaying && showTimes && (
-                    <span className="text-muted-foreground mr-1 -ml-2 rounded border border-black px-1 py-0.5 text-[9.5px]">
+                    <span className="text-muted-foreground z-50 mr-1 -ml-2 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]">
                       {startLabel}
                     </span>
                   )}
-                  <span>
-                    Host:{" "}
+                  <span className="truncate text-[10px] lg:text-[8px]">
+                    <span className="inline-block lg:hidden">Host:</span>{" "}
                     {item?.channel?.hostName
                       ? trimTitle(item.channel.hostName.split(" ")[0], hostTrim)
                       : "Loading..."}
-                  </span>
-                  <span className="text-primary text-[10px] opacity-50">
-                    {/* <Link
-                      href={`/channel/${item?.defaultChannelEventId ?? item?.channel?.eventId ?? ""}`}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      @{item.channel.username?.substring(0, 8) || ""}
-                    </Link> */}
-                    <Link
-                      href={`/channel/${item?.channel?.eventId}`}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      @{item.channel.username?.substring(0, 8) || ""}
-                    </Link>
+                    <span className="text-primary text-[10px] opacity-50">
+                      <Link
+                        href={`/channel/${item?.channel?.eventId}`}
+                        onClick={e => e.stopPropagation()}
+                        className="truncate"
+                      >
+                        @{item.channel.username?.substring(0, 8) || ""}
+                      </Link>
+                    </span>
                   </span>
                 </p>
               </div>
@@ -210,14 +202,14 @@ export function TvPlaylistPreview({
                   {item.channel.contentLanguage}
                 </span>
 
-                <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[10px] text-black">
+                <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[10px] text-black lg:text-[8px]">
                   {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
                 </p>
               </div>
             </div>
 
             {isPlaying && (
-              <div className="absolute top-0 -left-4 bg-white">
+              <div className="absolute top-0 -left-4 z-20 bg-white lg:-left-6">
                 <span className="flex flex-col">
                   <AudioLines className="text-primary wave-icon" />
                   <AudioLines className="text-primary wave-icon" />

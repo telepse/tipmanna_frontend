@@ -157,6 +157,10 @@ type TVContextType = {
   /** Stay on current video/time; stop live sync only (Your TV). */
   switchToLocal: () => void;
   playLocal: (index: number) => void;
+  /** Full TV schedule drawer — plays item without re-pinning the preview playlist. */
+  playLocalFromSchedule: (index: number) => void;
+  /** Index pinned to top of preview playlist (updated only by preview clicks, not schedule drawer). */
+  previewPinIndex: number;
   /** Play a schedule row by item (Batch A row or Batch B row); maps to index when in active batch */
   playLocalScheduleItem: (item: any) => void;
 
@@ -262,6 +266,8 @@ export default function GlobalTVProvider({
   const [liveBroadcastIndex, setLiveBroadcastIndex] = useState(0);
   const [schedulePlayingSlot, setSchedulePlayingSlot] =
     useState<SchedulePlayingSlot | null>(null);
+  /** Preview playlist pin — only moves on preview-panel clicks, not schedule drawer. */
+  const [previewPinIndex, setPreviewPinIndex] = useState(0);
 
   const lastSyncedIndex = useRef(-1);
   const liveBroadcastIndexRef = useRef(0);
@@ -773,11 +779,20 @@ export default function GlobalTVProvider({
     enterLocalMode("manual", idx);
   }, [enterLocalMode]);
 
-  const playLocal = useCallback(
-    (index: number) => {
-      trackTvUserInteraction("click", "playlist");
+  const loadLocalAtIndex = useCallback(
+    (
+      index: number,
+      opts: { source: "preview" | "schedule"; updatePreviewPin: boolean }
+    ) => {
       setPlayingItemOverride(null);
-      setSchedulePlayingSlot({ scope: "active", rowIndex: index });
+      setSchedulePlayingSlot({
+        scope: "active",
+        rowIndex: index,
+        source: opts.source,
+      });
+      if (opts.updatePreviewPin) {
+        setPreviewPinIndex(index);
+      }
       enterLocalMode("playlist", index);
 
       const item = items[index];
@@ -792,13 +807,29 @@ export default function GlobalTVProvider({
     [items, enterLocalMode]
   );
 
+  const playLocal = useCallback(
+    (index: number) => {
+      trackTvUserInteraction("click", "playlist");
+      loadLocalAtIndex(index, { source: "preview", updatePreviewPin: true });
+    },
+    [loadLocalAtIndex]
+  );
+
+  const playLocalFromSchedule = useCallback(
+    (index: number) => {
+      trackTvUserInteraction("click", "schedule_row");
+      loadLocalAtIndex(index, { source: "schedule", updatePreviewPin: false });
+    },
+    [loadLocalAtIndex]
+  );
+
   const playLocalScheduleItem = useCallback(
     (item: any) => {
       trackTvUserInteraction("click", "schedule_row");
       if (!item?.channel?.url) return;
       const idx = items.findIndex((i: any) => i.id === item.id);
       if (idx >= 0) {
-        playLocal(idx);
+        playLocalFromSchedule(idx);
         return;
       }
       const altIdx = alternateBatchItems.findIndex(
@@ -818,7 +849,7 @@ export default function GlobalTVProvider({
       const videoId = extractYoutubeID(item.channel.url);
       if (videoId) player.load(videoId, 0);
     },
-    [items, alternateBatchItems, enterLocalMode, playLocal]
+    [items, alternateBatchItems, enterLocalMode, playLocalFromSchedule]
   );
 
   const onVideoEnd = useCallback(() => {
@@ -1128,6 +1159,8 @@ export default function GlobalTVProvider({
         goLive,
         switchToLocal,
         playLocal,
+        playLocalFromSchedule,
+        previewPinIndex,
         playLocalScheduleItem,
         playingItemOverride,
         schedulePlayingSlot,

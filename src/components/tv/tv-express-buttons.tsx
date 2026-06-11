@@ -9,7 +9,7 @@ import { Plus, Search, Tv, UserRound } from "lucide-react";
 import { NotificationBadge } from "@/components/notifications/notification-badge";
 
 // Local imports
-import { CreateDrawer } from "./create-drawer";
+import { CreateDialog } from "@/components/home/create-dialog";
 import { ProfileDrawer } from "./profile-drawer";
 import {
   getTippedEventsForTipper,
@@ -24,7 +24,7 @@ import type { RootState } from "@/redux/store";
 export const TVExpressButtons = () => {
   const userId = useSelector((s: RootState) => s.auth.user?.id);
   const router = useRouter();
-  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
 
   const [tipperEvents, setTipperEvents] = useState<any[]>([]);
@@ -57,7 +57,7 @@ export const TVExpressButtons = () => {
     void fetchData();
   }, [userId]);
 
-  const isTVActive = isCreateDrawerOpen || isProfileDrawerOpen;
+  const isTVActive = createDialogOpen || isProfileDrawerOpen;
 
   return (
     <div className="fixed top-10 right-0 left-0 z-[1000] flex w-full items-center justify-center border-t border-gray-200 bg-white px-0 py-2 sm:hidden">
@@ -77,7 +77,7 @@ export const TVExpressButtons = () => {
           onPointerEnter={prefetchExploreFeedInitial}
           onClick={() => {
             prefetchExploreFeedInitial();
-            setIsCreateDrawerOpen(false);
+            setCreateDialogOpen(false);
             setIsProfileDrawerOpen(false);
             router.push("/explore");
           }}
@@ -95,12 +95,12 @@ export const TVExpressButtons = () => {
             className="rounded-full bg-black/20 p-1"
             onClick={() => {
               setIsProfileDrawerOpen(false);
-              setIsCreateDrawerOpen(true);
+              setCreateDialogOpen(true);
             }}
           >
             <Plus
-              className={`? "text-primary" : ""} size-4`}
-              strokeWidth={isCreateDrawerOpen ? 3.75 : 2}
+              className={`size-4 ${createDialogOpen ? "text-primary" : ""}`}
+              strokeWidth={createDialogOpen ? 3.75 : 2}
             />
           </button>
         </div>
@@ -109,7 +109,7 @@ export const TVExpressButtons = () => {
           type="button"
           className="relative flex items-center justify-center border border-black/20"
           onClick={() => {
-            setIsCreateDrawerOpen(false);
+            setCreateDialogOpen(false);
             setIsProfileDrawerOpen(true);
           }}
         >
@@ -124,9 +124,9 @@ export const TVExpressButtons = () => {
         </button>
       </div>
 
-      <CreateDrawer
-        isCreateDrawerOpen={isCreateDrawerOpen}
-        setIsCreateDrawerOpen={setIsCreateDrawerOpen}
+      <CreateDialog
+        openPopup={createDialogOpen}
+        setOpenPopup={setCreateDialogOpen}
       />
 
       <ProfileDrawer

@@ -80,6 +80,7 @@ export type CommentDrawerData = {
     eventRoomTipCount: number;
     communityName: string | null;
     coOwnerName: string | null;
+    coOwnerNames: string[];
   };
   host: {
     firstName: string | null;
@@ -93,6 +94,7 @@ export type CommentDrawerData = {
     saveCount: number;
     videoTipCount: number;
     eventRoomTipCount: number;
+    viewCount: number;
   };
   comments: Array<{
     id: string;

@@ -32,7 +32,7 @@ export function buildTipQuoteRequestBody(
   const lines: TipQuoteLine[] = [];
   const counts: Record<string, number> = {};
   for (const name of tipsForTotals) {
-    if (name === "Text") continue;
+    if (name === "Comment") continue;
     counts[name] = (counts[name] || 0) + 1;
   }
   for (const [name, qty] of Object.entries(counts)) {
@@ -48,7 +48,7 @@ export function buildTipQuoteRequestBody(
   }
 
   let textLine: { priceMinor: number; qty: 1 } | undefined;
-  if (tipsForTotals.includes("Text")) {
+  if (tipsForTotals.includes("Comment")) {
     textLine = { priceMinor: Math.round(textUnitPrice * 100), qty: 1 };
   }
 

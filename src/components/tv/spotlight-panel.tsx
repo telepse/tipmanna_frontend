@@ -1,14 +1,16 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 
-// Third-party imports
 import { ChevronRight, Sparkles, UsersRound } from "lucide-react";
 
-// Local imports
 import { getLatestContents } from "@/actions/contents";
 import { Content } from "@/types/content.types";
 import { ThumbnailPlayer } from "./thumbnail-player";
+import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
 
 export const SpotlightPanel = () => {
+  const navigateToExplore = useNavigateToExploreVideo();
   const spotlightContentsRef = useRef<HTMLDivElement>(null);
   const [spotlightContents, setSpotlightContents] = useState<Content[]>([]);
 
@@ -17,7 +19,7 @@ export const SpotlightPanel = () => {
       const res = await getLatestContents();
       setSpotlightContents(res.data as Content[]);
     };
-    fetchLatestContents();
+    void fetchLatestContents();
   }, []);
 
   const scrollNext = (ref: React.RefObject<HTMLDivElement | null>) => {
@@ -28,7 +30,7 @@ export const SpotlightPanel = () => {
 
   return (
     <div className="space-y-4">
-      <h5 className="font-semibold">Top contents</h5>
+      <h5 className="font-semibold">Spotlight</h5>
 
       <div className="relative">
         <div
@@ -39,7 +41,15 @@ export const SpotlightPanel = () => {
             {spotlightContents.map((content: Content) => (
               <div
                 key={content.id}
-                // onClick={() => openDiscoverContent(content)}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigateToExplore(content)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigateToExplore(content);
+                  }
+                }}
                 className="relative flex min-w-[270px] cursor-pointer gap-1 border-2 bg-black/10"
               >
                 <div className="space-y-1">
@@ -47,6 +57,7 @@ export const SpotlightPanel = () => {
                     videoUrl={content.url}
                     contentId={content.id}
                     suppressInlinePlaybackContentId={null}
+                    disableInlinePlayback
                     className="aspect-video w-full rounded-md"
                   />
 

@@ -19,6 +19,7 @@ import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 import { verifyYoutubeOwnershipAction } from "@/actions/policy";
+import { getYoutubeChannelsAction } from "@/actions/events";
 import { VideoLinkContentCountryCombobox } from "@/components/events/video-link-content-country-combobox";
 import { VideoLinkContentLanguageCombobox } from "@/components/events/video-link-content-language-combobox";
 import { EventVideoTypeTagPicker } from "@/components/events/event-video-type-tag-picker";
@@ -68,6 +69,12 @@ export type AddVideoFormValues = {
 };
 
 const reminderKeys = ["r1", "r2", "r3"] as const;
+
+function isHostRole(role: string | undefined): boolean {
+  return role?.toUpperCase() === "HOST";
+}
+
+type YoutubeChannelRow = { slot: number; url: string; locked: boolean };
 
 export function buildCreateChannelPayload(values: AddVideoFormValues) {
   const reminderNums =
@@ -141,6 +148,12 @@ export function AddVideoForm({
   draftAutosave,
 }: AddVideoFormProps) {
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const isHost = isHostRole(authUser?.role);
+  const [youtubeChannels, setYoutubeChannels] = useState<YoutubeChannelRow[]>(
+    []
+  );
+  const [youtubeChannelsLoading, setYoutubeChannelsLoading] = useState(false);
+  const [youtubeChannelsLoaded, setYoutubeChannelsLoaded] = useState(false);
   const [verifyState, setVerifyState] = useState<
     "idle" | "checking" | "verified" | "failed"
   >("idle");
@@ -169,6 +182,44 @@ export function AddVideoForm({
   useEffect(() => {
     onFormReady?.(form);
   }, [form, onFormReady]);
+
+  useEffect(() => {
+    if (!showHostYoutubeSlot || !isHost) {
+      setYoutubeChannels([]);
+      setYoutubeChannelsLoaded(false);
+      return;
+    }
+    setYoutubeChannelsLoading(true);
+    void getYoutubeChannelsAction().then(res => {
+      setYoutubeChannelsLoading(false);
+      setYoutubeChannelsLoaded(true);
+      if (res.success && res.data && typeof res.data === "object") {
+        const rows = (res.data as { channels?: YoutubeChannelRow[] }).channels;
+        setYoutubeChannels(Array.isArray(rows) ? rows : []);
+        return;
+      }
+      setYoutubeChannels([]);
+      if (!res.success) {
+        toast.error(res.message ?? "Could not load your YouTube channels");
+      }
+    });
+  }, [showHostYoutubeSlot, isHost, authUser?.id]);
+
+  const slotLabel = (slot: 1 | 2) => {
+    const row = youtubeChannels.find(c => c.slot === slot);
+    if (!row?.url?.trim()) {
+      return `Slot ${slot} — not configured (add in dashboard co-owner / YouTube tools)`;
+    }
+    const short = row.url.length > 48 ? `${row.url.slice(0, 45)}…` : row.url;
+    return `Slot ${slot}: ${short}${row.locked ? " (locked)" : ""}`;
+  };
+
+  const watchedUrl = form.watch("url");
+  const watchedSlot = form.watch("hostYoutubeSlot");
+
+  useEffect(() => {
+    setVerifyState("idle");
+  }, [watchedUrl, watchedSlot]);
 
   useFormDraftAutosave(form.watch(), {
     kind: draftAutosave?.kind ?? "room_add_video",
@@ -228,6 +279,16 @@ export function AddVideoForm({
           ) {
             toast.error(
               "Verify the video on your YouTube channel before submitting"
+            );
+            return;
+          }
+          if (
+            showHostYoutubeSlot &&
+            (slot === "1" || slot === "2") &&
+            !youtubeChannels.some(c => c.slot === Number(slot) && c.url?.trim())
+          ) {
+            toast.error(
+              `Configure YouTube channel slot ${slot} in your dashboard before linking this video`
             );
             return;
           }
@@ -354,6 +415,51 @@ export function AddVideoForm({
 
         {showHostYoutubeSlot ? (
           <>
+            {isHost ? (
+              <div
+                className={cn(
+                  "space-y-2 rounded-lg border p-3",
+                  isCreate
+                    ? "border-white/20 bg-white/5"
+                    : "border-border bg-muted/30"
+                )}
+              >
+                <p
+                  className={cn(
+                    "text-sm font-medium",
+                    isCreate && "text-white"
+                  )}
+                >
+                  Your saved YouTube channels
+                </p>
+                {youtubeChannelsLoading ? (
+                  <p className={mutedClass}>Loading channels…</p>
+                ) : youtubeChannels.some(c => c.url?.trim()) ? (
+                  <ul className={cn("space-y-1 text-xs", mutedClass)}>
+                    {[1, 2].map(slot => {
+                      const row = youtubeChannels.find(c => c.slot === slot);
+                      if (!row?.url?.trim()) return null;
+                      return (
+                        <li key={slot}>
+                          <span className="font-medium">Slot {slot}:</span>{" "}
+                          {row.url}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : youtubeChannelsLoaded ? (
+                  <p className={mutedClass}>
+                    No channels saved yet. Add slot URLs in dashboard co-owner /
+                    YouTube tools, then pick a slot below to verify this video.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className={mutedClass}>
+                Sign in as a host to link and verify videos on your YouTube
+                channels.
+              </p>
+            )}
             <FormField
               control={form.control}
               name="hostYoutubeSlot"
@@ -363,6 +469,7 @@ export function AddVideoForm({
                     Host YouTube channel slot
                   </FormLabel>
                   <Select
+                    key={`host-yt-slot-${youtubeChannels.map(c => c.url).join("|")}`}
                     value={field.value}
                     onValueChange={v => {
                       field.onChange(v);
@@ -399,7 +506,7 @@ export function AddVideoForm({
                           isCreate ? CREATE_FORM_SELECT_ITEM_CLASS : undefined
                         }
                       >
-                        Slot 1 (verified in dashboard)
+                        {slotLabel(1)}
                       </SelectItem>
                       <SelectItem
                         value="2"
@@ -407,7 +514,7 @@ export function AddVideoForm({
                           isCreate ? CREATE_FORM_SELECT_ITEM_CLASS : undefined
                         }
                       >
-                        Slot 2 (verified in dashboard)
+                        {slotLabel(2)}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -430,7 +537,21 @@ export function AddVideoForm({
                   const url = form.getValues("url")?.trim();
                   const slot = Number(form.getValues("hostYoutubeSlot"));
                   if (!authUser) {
-                    toast.error("Sign in required");
+                    toast.error("Sign in as host to verify YouTube ownership");
+                    return;
+                  }
+                  if (!isHost) {
+                    toast.error(
+                      "Host account required for YouTube verification"
+                    );
+                    return;
+                  }
+                  if (
+                    !youtubeChannels.some(c => c.slot === slot && c.url?.trim())
+                  ) {
+                    toast.error(
+                      `Save your YouTube channel URL for slot ${slot} in dashboard co-owner / YouTube tools first`
+                    );
                     return;
                   }
                   if (!url) {
