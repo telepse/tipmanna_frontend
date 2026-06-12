@@ -67,6 +67,7 @@ import {
   listMyCommunityActivationRequestsAction,
 } from "@/actions/community-activation-requests";
 import { normalizeEmail } from "@/lib/normalize-email";
+import { parseHostEventsEligibleForCommunity } from "@/lib/parse-host-events";
 
 type CommunityBrief = {
   id: string;
@@ -169,28 +170,9 @@ type OwedPayload = {
 const communityFeatureOn =
   process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
 
-/** Host GET /events/host/me returns a JSON array or a paginated `{ data: Event[] }` wrapper. */
-function parseHostEventsPickList(
-  raw: unknown
-): { id: string; eventName: string }[] {
-  if (raw == null) return [];
-  if (Array.isArray(raw)) {
-    return raw
-      .map((e: { id?: string; eventName?: string }) => ({
-        id: String(e?.id ?? "").trim(),
-        eventName:
-          e?.eventName != null && String(e.eventName).trim() !== ""
-            ? String(e.eventName)
-            : "",
-      }))
-      .filter(e => e.id);
-  }
-  if (typeof raw === "object") {
-    const o = raw as Record<string, unknown>;
-    if (Array.isArray(o.data)) return parseHostEventsPickList(o.data);
-    if (Array.isArray(o.events)) return parseHostEventsPickList(o.events);
-  }
-  return [];
+function isCommunityApiUnavailable(message?: string | null): boolean {
+  const m = (message ?? "").toLowerCase();
+  return m.includes("not found") || m.includes("(404)");
 }
 
 function OwnerBankCard({
@@ -203,6 +185,7 @@ function OwnerBankCard({
   onUpdated: () => void;
 }) {
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const authToken = useSelector((s: RootState) => s.auth.token);
   const [busy, setBusy] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -260,13 +243,13 @@ function OwnerBankCard({
               variant="destructive"
               disabled={busy}
               onClick={() => {
-                if (!authUser) {
+                if (!authUser || !authToken) {
                   toast.error("Not signed in");
                   return;
                 }
                 void run(async () => {
                   const res = await rejectCommunityBankEntryAction(
-                    undefined,
+                    authToken,
                     communityId,
                     item.id,
                     { reason: rejectReason || undefined }
@@ -315,13 +298,13 @@ function OwnerBankCard({
               size="sm"
               disabled={busy}
               onClick={() => {
-                if (!authUser) {
+                if (!authUser || !authToken) {
                   toast.error("Not signed in");
                   return;
                 }
                 void run(async () => {
                   const res = await approveCommunityBankEntryAction(
-                    undefined,
+                    authToken,
                     communityId,
                     item.id
                   );
@@ -353,13 +336,13 @@ function OwnerBankCard({
               value={visibility}
               disabled={busy}
               onValueChange={(v: "public" | "private") => {
-                if (!authUser) {
+                if (!authUser || !authToken) {
                   toast.error("Not signed in");
                   return;
                 }
                 void run(async () => {
                   const res = await patchCommunityBankEntryVisibilityAction(
-                    undefined,
+                    authToken,
                     communityId,
                     item.id,
                     v
@@ -433,6 +416,7 @@ export function HostCommunityClient() {
   const params = useParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const authToken = useSelector((s: RootState) => s.auth.token);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState("bank");
@@ -479,6 +463,9 @@ export function HostCommunityClient() {
   >([]);
   const [activationListLoading, setActivationListLoading] = useState(false);
   const [activationEventsLoading, setActivationEventsLoading] = useState(false);
+  const [communityApiError, setCommunityApiError] = useState<string | null>(
+    null
+  );
 
   const [subscribers, setSubscribers] = useState<PaidSubRow[]>([]);
   const [owed, setOwed] = useState<OwedPayload | null>(null);
@@ -579,14 +566,21 @@ export function HostCommunityClient() {
   );
 
   const loadMemberships = useCallback(async () => {
-    if (!authUser) {
+    if (!authUser || !authToken) {
       setLoadingMeta(false);
       return;
     }
     setLoadingMeta(true);
-    const res = await getMyCommunitiesAction();
+    setCommunityApiError(null);
+    const res = await getMyCommunitiesAction(authToken);
     if (!res.success || !res.data) {
-      toast.error(res.message ?? "Could not load communities");
+      if (isCommunityApiUnavailable(res.message)) {
+        setCommunityApiError(
+          "Community API is unavailable. Ensure the backend has COMMUNITY_FEATURE_ENABLED=true and is running."
+        );
+      } else {
+        toast.error(res.message ?? "Could not load communities");
+      }
       setLoadingMeta(false);
       return;
     }
@@ -629,7 +623,7 @@ export function HostCommunityClient() {
     setMemberships(list);
     setSelectedId(prev => prev ?? list[0]?.id ?? null);
     setLoadingMeta(false);
-  }, [authUser]);
+  }, [authUser, authToken]);
 
   useEffect(() => {
     if (!communityFeatureOn) return;
@@ -637,19 +631,21 @@ export function HostCommunityClient() {
   }, [loadMemberships]);
 
   const loadActivationRequests = useCallback(async () => {
-    if (!authUser) return;
+    if (!authUser || !authToken) return;
     setActivationListLoading(true);
-    const res = await listMyCommunityActivationRequestsAction();
+    const res = await listMyCommunityActivationRequestsAction(authToken);
     setActivationListLoading(false);
     if (!res.success || !res.data) {
-      toast.error(res.message ?? "Could not load requests");
+      if (!isCommunityApiUnavailable(res.message)) {
+        toast.error(res.message ?? "Could not load requests");
+      }
       return;
     }
     const rows = (res.data as { requests?: unknown[] }).requests;
     setActivationRows(
       Array.isArray(rows) ? (rows as Record<string, unknown>[]) : []
     );
-  }, [authUser]);
+  }, [authUser, authToken]);
 
   const openActivationDialog = useCallback(
     async (kind: "community" | "tv") => {
@@ -665,20 +661,22 @@ export function HostCommunityClient() {
           ? authUser.email
           : "";
       setActivationContactEmail(defaultEmail);
-      if (!authUser) {
+      if (!authUser || !authToken) {
         toast.error("Sign in to submit an activation request.");
         return;
       }
       setActivationOpen(true);
       setActivationEventsLoading(true);
       try {
-        const evRes = await getHostEventsAction();
+        const evRes = await getHostEventsAction(authToken);
         if (!evRes.success || evRes.data == null) {
           toast.error(evRes.message ?? "Could not load your events");
           setHostEventsPick([]);
           return;
         }
-        setHostEventsPick(parseHostEventsPickList(evRes.data));
+        const eligible = parseHostEventsEligibleForCommunity(evRes.data);
+        setHostEventsPick(eligible);
+        setPickEventId(eligible.length === 1 ? eligible[0].id : "");
       } catch {
         toast.error("Could not load your events");
         setHostEventsPick([]);
@@ -686,11 +684,11 @@ export function HostCommunityClient() {
         setActivationEventsLoading(false);
       }
     },
-    [authUser]
+    [authUser, authToken]
   );
 
   const submitActivationRequest = useCallback(async () => {
-    if (!authUser || !pickEventId) {
+    if (!authUser || !authToken || !pickEventId) {
       toast.error("Pick an event");
       return;
     }
@@ -708,7 +706,7 @@ export function HostCommunityClient() {
     }
     setActivationBusy(true);
     try {
-      const res = await createCommunityActivationRequestAction(undefined, {
+      const res = await createCommunityActivationRequestAction(authToken, {
         eventId: pickEventId,
         kind: activationKind === "tv" ? "tv" : "community",
         communityName: communityName || null,
@@ -729,6 +727,7 @@ export function HostCommunityClient() {
     }
   }, [
     authUser,
+    authToken,
     pickEventId,
     activationKind,
     activationCommunityName,
@@ -741,20 +740,20 @@ export function HostCommunityClient() {
 
   const resumeCommunityTv = useCallback(async () => {
     if (!selected?.id) return;
-    const res = await resumeCommunityTvAction(selected.id);
+    const res = await resumeCommunityTvAction(selected.id, authToken);
     if (!res.success) {
       toast.error(res.message ?? "Resume failed");
       return;
     }
     toast.success("Community TV resumed");
     await loadMemberships();
-  }, [selected?.id, loadMemberships]);
+  }, [authToken, selected?.id, loadMemberships]);
 
   const loadBank = useCallback(async () => {
     if (!selected || selected.role !== "owner") return;
     if (!authUser) return;
     setLoadingBank(true);
-    const res = await getCommunityContentBankAction(undefined, selected.id);
+    const res = await getCommunityContentBankAction(authToken, selected.id);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load content bank");
       setLoadingBank(false);
@@ -763,13 +762,13 @@ export function HostCommunityClient() {
     const d = res.data as { approved: BankItem[]; pending: BankItem[] };
     setBank({ approved: d.approved ?? [], pending: d.pending ?? [] });
     setLoadingBank(false);
-  }, [authUser, selected]);
+  }, [authToken, authUser, selected]);
 
   const loadSends = useCallback(async () => {
     if (!selected || selected.role !== "coCreator") return;
     if (!authUser) return;
     setLoadingSends(true);
-    const res = await getCommunitySendsAction(undefined, selected.id);
+    const res = await getCommunitySendsAction(authToken, selected.id);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load sends");
       setLoadingSends(false);
@@ -778,13 +777,13 @@ export function HostCommunityClient() {
     const d = res.data as { sends: BankItem[] };
     setSends(d.sends ?? []);
     setLoadingSends(false);
-  }, [authUser, selected]);
+  }, [authToken, authUser, selected]);
 
   const loadCoCreators = useCallback(async () => {
     if (!selected || selected.role !== "owner") return;
     if (!authUser) return;
     setLoadingCo(true);
-    const res = await listCoCreatorsAction(undefined, selected.id);
+    const res = await listCoCreatorsAction(authToken, selected.id);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load co-creators");
       setLoadingCo(false);
@@ -803,14 +802,14 @@ export function HostCommunityClient() {
       pendingInvites: d.pendingInvites ?? [],
     });
     setLoadingCo(false);
-  }, [authUser, selected]);
+  }, [authToken, authUser, selected]);
 
   const loadOwed = useCallback(async () => {
     if (!selected || selected.role !== "owner") return;
     if (!authUser) return;
     setLoadingOwed(true);
     try {
-      const res = await getCommunityOwedAction(undefined, selected.id);
+      const res = await getCommunityOwedAction(authToken, selected.id);
       if (res.success && res.data) {
         setOwed(res.data as OwedPayload);
       } else {
@@ -819,14 +818,14 @@ export function HostCommunityClient() {
     } finally {
       setLoadingOwed(false);
     }
-  }, [authUser, selected]);
+  }, [authToken, authUser, selected]);
 
   const loadSubscribers = useCallback(async () => {
     if (!selected || selected.role !== "owner") return;
     if (!authUser) return;
     setLoadingSubs(true);
     try {
-      const res = await listCommunitySubscribersAction(undefined, selected.id);
+      const res = await listCommunitySubscribersAction(authToken, selected.id);
       if (res.success && res.data) {
         const d = res.data as { subscribers: PaidSubRow[] };
         setSubscribers(d.subscribers ?? []);
@@ -836,7 +835,7 @@ export function HostCommunityClient() {
     } finally {
       setLoadingSubs(false);
     }
-  }, [authUser, selected]);
+  }, [authToken, authUser, selected]);
 
   useEffect(() => {
     if (!selected) return;
@@ -925,7 +924,7 @@ export function HostCommunityClient() {
     try {
       const payload = buildCreateChannelPayload(values);
       const res = await addCommunityVideoAction(
-        undefined,
+        authToken,
         selected.id,
         payload
       );
@@ -969,7 +968,7 @@ export function HostCommunityClient() {
     if (!authUser) return;
     setInviteLoading(true);
     try {
-      const res = await inviteCoCreatorAction(undefined, selected.id, email);
+      const res = await inviteCoCreatorAction(authToken, selected.id, email);
       if (!res.success) {
         toast.error(res.message ?? "Invite failed");
         return;
@@ -986,7 +985,7 @@ export function HostCommunityClient() {
   const onRevokeCoCreatorMember = async (hostId: string) => {
     if (!selected || selected.role !== "owner") return;
     if (!authUser) return;
-    const res = await revokeCoCreatorAction(undefined, selected.id, hostId);
+    const res = await revokeCoCreatorAction(authToken, selected.id, hostId);
     if (!res.success) {
       toast.error(res.message ?? "Could not revoke");
       return;
@@ -1000,7 +999,7 @@ export function HostCommunityClient() {
     if (!selected || selected.role !== "owner") return;
     if (!authUser) return;
     const res = await revokeCoCreatorInviteAction(
-      undefined,
+      authToken,
       selected.id,
       inviteId
     );
@@ -1026,6 +1025,12 @@ export function HostCommunityClient() {
 
   if (loadingMeta) {
     return <p className="text-muted-foreground text-sm">Loading…</p>;
+  }
+
+  if (communityApiError) {
+    return (
+      <p className="text-destructive text-sm">{communityApiError}</p>
+    );
   }
 
   const tvUnpaused =
@@ -1239,7 +1244,7 @@ export function HostCommunityClient() {
                       size="sm"
                       onClick={() => {
                         void acceptPayoutSettlementAction(
-                          undefined,
+                          authToken,
                           row.id
                         ).then(r => {
                           if (r.success) {
@@ -1686,7 +1691,7 @@ export function HostCommunityClient() {
                 </p>
               ) : hostEventsPick.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
-                  You don&apos;t have any events yet.{" "}
+                  You need an event that is not linked to a community yet.{" "}
                   <Link
                     href="/event-only"
                     className="text-primary font-medium underline underline-offset-2"

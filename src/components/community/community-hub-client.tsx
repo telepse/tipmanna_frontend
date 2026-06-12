@@ -43,6 +43,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { normalizeEmail } from "@/lib/normalize-email";
+import { parseHostEventsEligibleForCommunity } from "@/lib/parse-host-events";
 import type { RootState } from "@/redux/store";
 import { toast } from "react-toastify";
 
@@ -67,41 +68,6 @@ function exploreCommunityJoinHref(communityId: string) {
 
 function manageHostCommunityHref(eventSlug: string) {
   return `/host/${encodeURIComponent(eventSlug)}/host-community`;
-}
-
-function parseHostEventsEligibleForCommunity(
-  raw: unknown
-): { id: string; eventName: string }[] {
-  const rows: { id: string; eventName: string; communityId?: string | null }[] =
-    [];
-  if (Array.isArray(raw)) {
-    for (const item of raw) {
-      const e = item as {
-        id?: string;
-        eventName?: string;
-        communityId?: string | null;
-      };
-      const id = String(e?.id ?? "").trim();
-      if (!id || e.communityId) continue;
-      rows.push({
-        id,
-        eventName:
-          e?.eventName != null && String(e.eventName).trim() !== ""
-            ? String(e.eventName)
-            : id,
-        communityId: e.communityId,
-      });
-    }
-  } else if (raw != null && typeof raw === "object") {
-    const o = raw as Record<string, unknown>;
-    if (Array.isArray(o.data)) {
-      return parseHostEventsEligibleForCommunity(o.data);
-    }
-    if (Array.isArray(o.events)) {
-      return parseHostEventsEligibleForCommunity(o.events);
-    }
-  }
-  return rows.map(({ id, eventName }) => ({ id, eventName }));
 }
 
 type HubMembership = {
@@ -220,7 +186,9 @@ function communityHistoryReason(m: HubMembership): string {
 
 export default function CommunityHubClient() {
   const router = useRouter();
-  const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
+  const { user, isAuthenticated, token: authToken } = useSelector(
+    (s: RootState) => s.auth
+  );
   const userId = user?.id;
 
   const [memberships, setMemberships] = useState<HubMembership[]>([]);
@@ -293,7 +261,7 @@ export default function CommunityHubClient() {
     }
     setRefreshing(true);
     try {
-      const r = await getMeJoinedCommunitiesAction();
+      const r = await getMeJoinedCommunitiesAction(authToken);
       if (r.success && Array.isArray(r.data?.memberships)) {
         setMemberships(r.data.memberships as HubMembership[]);
       } else {
@@ -302,7 +270,7 @@ export default function CommunityHubClient() {
     } finally {
       setRefreshing(false);
     }
-  }, [userId]);
+  }, [authToken, userId]);
 
   useEffect(() => {
     void loadMemberships();
@@ -358,7 +326,7 @@ export default function CommunityHubClient() {
     if (user?.role !== "HOST" || !userId) return;
 
     void (async () => {
-      const commRes = await getMyCommunitiesAction();
+      const commRes = await getMyCommunitiesAction(authToken);
       if (commRes.success && commRes.data) {
         const raw = commRes.data as {
           owned: CommunityBrief[];
@@ -371,7 +339,7 @@ export default function CommunityHubClient() {
         setCoCreated([]);
       }
     })();
-  }, [user?.role, userId]);
+  }, [authToken, user?.role, userId]);
 
   useEffect(() => {
     const email =
@@ -391,7 +359,7 @@ export default function CommunityHubClient() {
     void (async () => {
       setActivationEventsLoading(true);
       try {
-        const evRes = await getHostEventsAction();
+        const evRes = await getHostEventsAction(authToken);
         if (cancelled) return;
         const parsed = evRes.success
           ? parseHostEventsEligibleForCommunity(evRes.data)
@@ -405,7 +373,7 @@ export default function CommunityHubClient() {
     return () => {
       cancelled = true;
     };
-  }, [startCommunityModalOpen, user?.role]);
+  }, [authToken, startCommunityModalOpen, user?.role]);
 
   const defaultSystemRows = useMemo(() => {
     const fromApi = memberships.filter(isDefaultSystemCommunity);
@@ -461,13 +429,13 @@ export default function CommunityHubClient() {
         cur.map(m => (m.communityId === communityId ? { ...m, feedActive } : m))
       );
       const r = await patchMembershipFeedActiveAction(
-        undefined,
+        authToken,
         communityId,
         feedActive
       );
       if (!r.success) await loadMemberships();
     },
-    [loadMemberships, userId]
+    [authToken, loadMemberships, userId]
   );
 
   const leaveCommunity = useCallback(
@@ -480,16 +448,16 @@ export default function CommunityHubClient() {
         return;
       }
       if (!userId) return;
-      const r = await leaveJoinedCommunityAction(undefined, communityId);
+      const r = await leaveJoinedCommunityAction(authToken, communityId);
       if (r.success) await loadMemberships();
     },
-    [loadMemberships, userId]
+    [authToken, loadMemberships, userId]
   );
 
   const rejoinCommunity = useCallback(
     async (communityId: string, name: string) => {
       if (!userId) return;
-      const r = await rejoinCommunityMembershipAction(undefined, communityId);
+      const r = await rejoinCommunityMembershipAction(authToken, communityId);
       if (r.success) {
         toast.success(`Welcome back to ${name}`);
         await loadMemberships();
@@ -497,7 +465,7 @@ export default function CommunityHubClient() {
         toast.error(r.message ?? "Could not rejoin");
       }
     },
-    [loadMemberships, userId]
+    [authToken, loadMemberships, userId]
   );
 
   const filteredCatalog = useMemo(() => {
@@ -519,7 +487,7 @@ export default function CommunityHubClient() {
   const handleInterestSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!userId) {
+      if (!userId || !authToken) {
         toast.error("Sign in to send this request.");
         return;
       }
@@ -547,7 +515,7 @@ export default function CommunityHubClient() {
             toast.error("Select an event for this community request.");
             return;
           }
-          const r = await createCommunityActivationRequestAction(undefined, {
+          const r = await createCommunityActivationRequestAction(authToken, {
             eventId: pickEventId,
             kind: "community",
             communityName,
@@ -573,7 +541,7 @@ export default function CommunityHubClient() {
           return;
         }
 
-        const r = await submitCommunityStartInterestAction(undefined, {
+        const r = await submitCommunityStartInterestAction(authToken, {
           communityName,
           description,
           communityType: interestType,
@@ -605,6 +573,7 @@ export default function CommunityHubClient() {
       }
     },
     [
+      authToken,
       activationEventsLoading,
       hostEventsPick.length,
       interestDesc,
