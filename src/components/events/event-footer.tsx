@@ -12,7 +12,7 @@ interface Character {
 interface Props {
   eventId: string;
   tippingCharacters: Character[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   characterSets: any;
   performers: any[];
   textTipUnitPrice?: number;
