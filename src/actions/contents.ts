@@ -248,3 +248,24 @@ export async function getExploreChannelMetricsAction(
     "getExploreChannelMetricsAction"
   );
 }
+
+export async function getExploreChannelMetricsBatchAction(
+  channelIds: string[],
+  authToken?: string | null
+) {
+  return runServerFetch<{
+    metrics: Record<string, ExploreChannelMetricsResponse>;
+  }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/channels/metrics/batch`,
+    {
+      method: "POST",
+      headers: {
+        ...(await serverAuthHeaders(authToken)),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ channelIds }),
+      cache: "no-store",
+    },
+    "getExploreChannelMetricsBatchAction"
+  );
+}

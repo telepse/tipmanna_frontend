@@ -186,7 +186,6 @@ export const DashboardClient = () => {
       <CreateDialog
         openPopup={createOpen}
         setOpenPopup={setCreateOpen}
-        forceTypePicker
       />
     </section>
   );

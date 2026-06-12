@@ -18,7 +18,6 @@ import { useMediaQuery } from "react-responsive";
 import { Channel } from "@/types/channel.types";
 
 import {
-  getAllEventChannels,
   getAllTopTippers,
   getEventByIdAction,
   getTippedEventsForTipper,
@@ -366,7 +365,6 @@ export default function TVPageClientWrapper({
         { data: _tipperEvents },
         { data: _iTipped },
         { data: _causes },
-        { data: _contents },
         { data: _latestContents },
         { data: _mostTippedContents },
       ] = await Promise.all([
@@ -374,7 +372,6 @@ export default function TVPageClientWrapper({
         userId ? getTippedEventsForTipper() : Promise.resolve({ data: [] }),
         userId ? getTotalAmountTippedByTipper() : Promise.resolve({ data: 0 }),
         getAllCausesAction(),
-        getAllEventChannels(),
         getLatestContents(),
         getMostTippedContents(),
       ]);
@@ -385,7 +382,7 @@ export default function TVPageClientWrapper({
       setTipperEvents(Array.isArray(_tipperEvents) ? _tipperEvents : []);
       setITipped(coalesceNumber(_iTipped));
       setCauses(Array.isArray(_causes) ? _causes : []);
-      setContents(Array.isArray(_contents) ? _contents : []);
+      setContents([]);
       setLatestContents(Array.isArray(_latestContents) ? _latestContents : []);
       setMostTippedContents(
         Array.isArray(_mostTippedContents) ? _mostTippedContents : []

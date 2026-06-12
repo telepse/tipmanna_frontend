@@ -15,6 +15,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MessageCircle, Plus, Volume2, VolumeX } from "lucide-react";
 import SignInDialog from "@/components/auth/sign-in-dialog";
@@ -1542,6 +1543,13 @@ export const ExploreFeedClient = forwardRef<
                       amountToRaise={active.event.amountToRaise}
                       amountRaised={Number(liveAmountRaised)}
                     />
+                    <Image
+              src="/icons/black-diamond.png"
+              alt="Black Diamond"
+              width={40}
+              height={40}
+              className="-mt-4 size-[14px]"
+            />
                   </div>
                 ) : null}
               </>

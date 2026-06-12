@@ -657,6 +657,26 @@ export async function getAllEventChannels() {
   );
 }
 
+/** Targeted lookup for /tv?videoId= deep-link metadata and fullscreen. */
+export async function getEventChannelByYoutubeVideoId(videoId: string) {
+  const id = videoId.trim();
+  if (!id) {
+    return { success: false as const, message: "videoId required", data: null };
+  }
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/channels/by-youtube/${encodeURIComponent(id)}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "force-cache",
+      next: { revalidate: 300 },
+    },
+    "getEventChannelByYoutubeVideoId"
+  );
+}
+
 export async function getAllTopTippers() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/top-tippers`,
