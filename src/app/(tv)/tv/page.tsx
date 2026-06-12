@@ -2,10 +2,9 @@ import {
   getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
-import { getAllEventChannels } from "@/actions/events";
+import { getEventChannelByYoutubeVideoId } from "@/actions/events";
 import TVFullscreen from "@/components/tv/tv-fullscreen";
 import TVPageShell from "@/components/tv/tv-page-shell";
-import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { Metadata } from "next";
 import { Suspense } from "react";
 import { getPublicFrontendOrigin } from "@/lib/site-config";
@@ -20,6 +19,12 @@ interface Props {
   searchParams: Promise<{ videoId?: string }>;
 }
 
+async function loadChannelForVideoId(videoId: string | undefined) {
+  if (!videoId?.trim()) return null;
+  const { data } = await getEventChannelByYoutubeVideoId(videoId);
+  return (data ?? null) as EventChannelListItem | null;
+}
+
 /**
  * GENERATE METADATA
  * Handles SEO and Social Media tags for LinkedIn, Twitter, etc.
@@ -28,11 +33,7 @@ export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
   const { videoId } = await searchParams;
-  const { data: channels } = await getAllEventChannels();
-  const channelList = (channels ?? []) as EventChannelListItem[];
-  const currentChannel = channelList.find(
-    ch => ch.url && extractYoutubeID(ch.url) === videoId
-  );
+  const currentChannel = await loadChannelForVideoId(videoId);
 
   if (!currentChannel) return { title: "Tipmanna TV" };
 
@@ -75,18 +76,12 @@ export default async function TVPage({
 }) {
   const { videoId } = await searchParams;
 
-  // Only load critical data
-  const [{ data: channels }, { data: characters }, { data: characterSets }] =
+  const [{ data: characters }, { data: characterSets }, currentChannel] =
     await Promise.all([
-      getAllEventChannels(),
       getCharactersForTipping(),
       getAllCharacterSets(),
+      loadChannelForVideoId(videoId),
     ]);
-
-  const channelList = (channels ?? []) as EventChannelListItem[];
-  const currentChannel = channelList.find(
-    ch => ch.url && extractYoutubeID(ch.url) === videoId
-  );
 
   if (currentChannel && videoId) {
     return (
@@ -108,7 +103,6 @@ export default async function TVPage({
           }
         >
           <TVPageShell
-            channels={channelList}
             characters={characters ?? []}
             characterSets={characterSets ?? []}
           />

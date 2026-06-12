@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 
 import { getEventChannels } from "@/actions/events";
 import {
-  getExploreChannelMetricsAction,
+  getExploreChannelMetricsBatchAction,
   type ExploreChannelMetrics,
 } from "@/actions/contents";
 import {
@@ -129,25 +129,24 @@ export function EventRoomVideosModal({
       }));
       setRows(initial);
 
-      await Promise.all(
-        initial.map(async (ch, index) => {
-          const metricsRes = await getExploreChannelMetricsAction(ch.id);
-          setRows(prev => {
-            const next = [...prev];
-            const row = next[index];
-            if (!row || row.id !== ch.id) return prev;
-            next[index] = {
-              ...row,
-              metricsLoading: false,
-              metrics:
-                metricsRes.success &&
-                metricsRes.data &&
-                !("restricted" in metricsRes.data)
-                  ? metricsRes.data
-                  : null,
-            };
-            return next;
-          });
+      const metricsRes = await getExploreChannelMetricsBatchAction(
+        initial.map(ch => ch.id)
+      );
+      const metricsMap =
+        metricsRes.success && metricsRes.data?.metrics
+          ? metricsRes.data.metrics
+          : {};
+
+      setRows(
+        initial.map(ch => {
+          const raw = metricsMap[ch.id];
+          const metrics =
+            raw && !("restricted" in raw) ? raw : null;
+          return {
+            ...ch,
+            metricsLoading: false,
+            metrics,
+          };
         })
       );
     } finally {

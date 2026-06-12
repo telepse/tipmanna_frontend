@@ -4,13 +4,13 @@
 import TVPageClientWrapper from "./tv-page-client-wrapper";
 
 type Props = {
-  channels: any[];
+  channels?: any[];
   characters: any[];
   characterSets: any[];
 };
 
 export default function TVPageShell({
-  channels,
+  channels = [],
   characters,
   characterSets,
 }: Props) {

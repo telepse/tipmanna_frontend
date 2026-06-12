@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Share2 } from "lucide-react";
+import { ChevronDown, CircleEllipsis } from "lucide-react";
 import { toast } from "react-toastify";
 
 import {
@@ -57,7 +57,7 @@ export function TvSourceDropdown({
         disabled={copying}
         onClick={handleCopyShare}
       >
-        <Share2 className="size-4 shrink-0" />
+        <CircleEllipsis className="size-4 shrink-0" />
       </button>
 
       <DropdownMenu>
