@@ -11,10 +11,24 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 
-import { getMeJoinedCommunitiesAction } from "@/actions/communities";
+import {
+  getMeJoinedCommunitiesAction,
+  getMyCommunitiesAction,
+} from "@/actions/communities";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import { RootState } from "@/redux/store";
 import { useTV } from "@/components/tv-provider";
+import {
+  buildTvPickerOptionsForUser,
+  type TvCommunityBrief,
+  type TvMembershipRow,
+} from "@/lib/tv-community-picker";
+import {
+  buildTvPagePath,
+  navigateToTvSource,
+  persistTvSourceCommunityId,
+  readTvSourceCommunityIdFromLocation,
+} from "@/lib/tv-source-navigation";
 
 type TvSourcePickerContextValue = {
   communityFeatureOn: boolean;
@@ -47,17 +61,15 @@ export function TvSourcePickerProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const userId = useSelector((s: RootState) => s.auth.user?.id);
+  const authUser = useSelector((s: RootState) => s.auth.user);
+  const authToken = useSelector((s: RootState) => s.auth.token);
+  const userId = authUser?.id;
   const searchParams = useSearchParams();
   const router = useRouter();
   const communityFeatureOn =
     process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
 
-  const {
-    setScheduleSourceCommunityId,
-    scheduleSourceCommunityId,
-    retryScheduleLoad,
-  } = useTV();
+  const { setScheduleSourceCommunityId, scheduleSourceCommunityId } = useTV();
 
   const [tvPickerOpen, setTvPickerOpen] = useState(false);
   const [tvPickerOptions, setTvPickerOptions] = useState<
@@ -75,58 +87,62 @@ export function TvSourcePickerProvider({
     const id = sideChick.activation.communityId;
     const videoId = searchParams.get("videoId");
     if (videoId) return;
-    setScheduleSourceCommunityId(id);
-    try {
-      localStorage.setItem("tipmanna-tv-community-id", id);
-    } catch {
-      /* ignore */
-    }
     setTvPickerOpen(false);
-    router.replace(`/tv?community=${encodeURIComponent(id)}`, {
-      scroll: false,
-    });
+    const target = buildTvPagePath(id);
+    const current =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "";
+    if (current !== target) {
+      navigateToTvSource(id);
+      return;
+    }
+    setScheduleSourceCommunityId(id);
+    persistTvSourceCommunityId(id);
   }, [
     tvSideChickLocked,
     sideChick.activation?.communityId,
     searchParams,
     setScheduleSourceCommunityId,
-    router,
   ]);
 
   const fetchTvPickerMemberships = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !authToken) {
       setTvPickerOptions([]);
       return;
     }
-    const r = await getMeJoinedCommunitiesAction();
-    if (!r.success || !Array.isArray(r.data?.memberships)) return;
-    const rows = r.data.memberships as {
-      communityId: string;
-      active: boolean;
-      membershipStatus: string;
-      revokedAt: string | null;
-      expiresAt: string | null;
-      community?: {
-        name?: string;
-        tvActivatedAt?: string | null;
-        tvHostPaused?: boolean | null;
+    const joinedPromise = getMeJoinedCommunitiesAction(authToken);
+    const hostCommunitiesPromise =
+      authUser?.role === "HOST"
+        ? getMyCommunitiesAction(authToken)
+        : Promise.resolve(null);
+
+    const [joinedRes, hostRes] = await Promise.all([
+      joinedPromise,
+      hostCommunitiesPromise,
+    ]);
+
+    const memberships = (
+      joinedRes.success && Array.isArray(joinedRes.data?.memberships)
+        ? joinedRes.data.memberships
+        : []
+    ) as TvMembershipRow[];
+
+    let owned: TvCommunityBrief[] = [];
+    let coCreator: TvCommunityBrief[] = [];
+    if (hostRes?.success && hostRes.data) {
+      const raw = hostRes.data as {
+        owned?: TvCommunityBrief[];
+        coCreator?: TvCommunityBrief[];
       };
-    }[];
-    const opts = rows
-      .filter(m => {
-        if (!m.active || m.revokedAt) return false;
-        if (m.membershipStatus !== "active") return false;
-        if (m.expiresAt && new Date(m.expiresAt) <= new Date()) return false;
-        return (
-          Boolean(m.community?.tvActivatedAt) && !m.community?.tvHostPaused
-        );
-      })
-      .map(m => ({
-        id: m.communityId,
-        name: m.community?.name ?? m.communityId,
-      }));
-    setTvPickerOptions(opts);
-  }, [userId]);
+      owned = raw.owned ?? [];
+      coCreator = raw.coCreator ?? [];
+    }
+
+    setTvPickerOptions(
+      buildTvPickerOptionsForUser({ memberships, owned, coCreator })
+    );
+  }, [authToken, authUser?.role, userId]);
 
   useEffect(() => {
     if (communityFeatureOn) void fetchTvPickerMemberships();
@@ -145,26 +161,18 @@ export function TvSourcePickerProvider({
     const fromQuery = searchParams.get("community")?.trim();
     if (fromQuery) {
       setScheduleSourceCommunityId(fromQuery);
-      try {
-        localStorage.setItem("tipmanna-tv-community-id", fromQuery);
-      } catch {
-        /* ignore */
-      }
+      persistTvSourceCommunityId(fromQuery);
       setTvPickerOpen(false);
       return;
     }
-    try {
-      const stored = localStorage.getItem("tipmanna-tv-community-id")?.trim();
-      if (stored) {
-        setScheduleSourceCommunityId(stored);
-        router.replace(`/tv?community=${encodeURIComponent(stored)}`, {
-          scroll: false,
-        });
-        setTvPickerOpen(false);
-        return;
-      }
-    } catch {
-      /* ignore */
+    const stored = readTvSourceCommunityIdFromLocation();
+    if (stored) {
+      setScheduleSourceCommunityId(stored);
+      router.replace(`/tv?community=${encodeURIComponent(stored)}`, {
+        scroll: false,
+      });
+      setTvPickerOpen(false);
+      return;
     }
     setScheduleSourceCommunityId(null);
   }, [
@@ -178,33 +186,14 @@ export function TvSourcePickerProvider({
   ]);
 
   const pickTipmanna = useCallback(() => {
-    try {
-      localStorage.removeItem("tipmanna-tv-community-id");
-    } catch {
-      /* ignore */
-    }
-    setScheduleSourceCommunityId(null);
-    router.replace("/tv", { scroll: false });
-    retryScheduleLoad();
     setTvPickerOpen(false);
-  }, [router, retryScheduleLoad, setScheduleSourceCommunityId]);
+    navigateToTvSource(null);
+  }, []);
 
-  const pickCommunity = useCallback(
-    (id: string) => {
-      try {
-        localStorage.setItem("tipmanna-tv-community-id", id);
-      } catch {
-        /* ignore */
-      }
-      setScheduleSourceCommunityId(id);
-      router.replace(`/tv?community=${encodeURIComponent(id)}`, {
-        scroll: false,
-      });
-      retryScheduleLoad();
-      setTvPickerOpen(false);
-    },
-    [router, retryScheduleLoad, setScheduleSourceCommunityId]
-  );
+  const pickCommunity = useCallback((id: string) => {
+    setTvPickerOpen(false);
+    navigateToTvSource(id);
+  }, []);
 
   const onTvSourceChange = useCallback(
     (id: string | null) => {

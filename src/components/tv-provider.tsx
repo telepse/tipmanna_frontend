@@ -39,6 +39,7 @@ import {
   releaseCommunityLiveTvChannel,
   releaseGlobalLiveTvChannel,
 } from "@/hooks/use-global-tip-stream";
+import { readTvSourceCommunityIdFromLocation } from "@/lib/tv-source-navigation";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -303,14 +304,46 @@ export default function GlobalTVProvider({
   const syncMissRef = useRef(0);
 
   const pathname = usePathname();
-  const [scheduleSourceCommunityId, setScheduleSourceCommunityIdState] =
-    useState<string | null>(null);
   const scheduleSourceCommunityIdRef = useRef<string | null>(null);
+  const [scheduleSourceCommunityId, setScheduleSourceCommunityIdState] =
+    useState<string | null>(() => {
+      const id = readTvSourceCommunityIdFromLocation();
+      scheduleSourceCommunityIdRef.current = id;
+      return id;
+    });
 
   const setScheduleSourceCommunityId = useCallback((id: string | null) => {
     scheduleSourceCommunityIdRef.current = id;
     scheduleEtagRef.current = null;
     setScheduleSourceCommunityIdState(id);
+  }, []);
+
+  const resetPlaybackForScheduleSourceChange = useCallback(() => {
+    lastSyncedIndex.current = -1;
+    activeScheduleIdRef.current = null;
+    syncMissRef.current = 0;
+    setMode("GLOBAL");
+    modeRef.current = "GLOBAL";
+    setLocalModeReason(null);
+    setPlayingItemOverride(null);
+    setSchedulePlayingSlot(null);
+    setCurrentIndex(0);
+    currentIndexRef.current = 0;
+    setLiveBroadcastIndex(0);
+    liveBroadcastIndexRef.current = 0;
+    setLastLivePosition(null);
+    setItems([]);
+    setBroadcastEpoch(null);
+    setTotalDuration(0);
+    setActiveBatch(null);
+    setAlternateBatch(null);
+    setAlternateBatchItems([]);
+    setAlternateBatchTotalDuration(0);
+    setOngoingCollection(null);
+    setUpcomingCollection(null);
+    setIsReady(false);
+    setScheduleError(false);
+    setScheduleStale(false);
   }, []);
 
   useEffect(() => {
@@ -577,6 +610,10 @@ export default function GlobalTVProvider({
         });
 
         applySuccess(data, etag);
+        if (modeRef.current === "GLOBAL") {
+          lastSyncedIndex.current = -1;
+          queueMicrotask(() => syncToLive());
+        }
       } catch (err) {
         console.error("Failed to load TV schedule:", err);
         const cid = scheduleSourceCommunityIdRef.current;
@@ -620,7 +657,7 @@ export default function GlobalTVProvider({
         }
       }
     },
-    [applySchedulePayload]
+    [applySchedulePayload, syncToLive]
   );
 
   useEffect(() => {
@@ -657,8 +694,9 @@ export default function GlobalTVProvider({
 
   useEffect(() => {
     scheduleEtagRef.current = null;
+    resetPlaybackForScheduleSourceChange();
     void loadScheduleRef.current?.({ resetRetry: true });
-  }, [scheduleSourceCommunityId]);
+  }, [resetPlaybackForScheduleSourceChange, scheduleSourceCommunityId]);
 
   useEffect(() => {
     return () => {

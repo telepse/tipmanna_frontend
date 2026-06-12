@@ -24,8 +24,15 @@ import {
   getTotalAmountTippedByTipper,
 } from "@/actions/events";
 import { getAllCausesAction } from "@/actions/home";
-import { getMeJoinedCommunitiesAction } from "@/actions/communities";
+import {
+  getMeJoinedCommunitiesAction,
+  getMyCommunitiesAction,
+} from "@/actions/communities";
 import { cn } from "@/lib/utils";
+import {
+  buildTvPickerOptionsForUser,
+  type TvCommunityBrief,
+} from "@/lib/tv-community-picker";
 
 import {
   ExploreFeedClient,
@@ -280,32 +287,60 @@ export default function ExplorePageClient({
   const [joinedMemberships, setJoinedMemberships] = useState<
     JoinedMembershipRow[]
   >([]);
+  const [hostTvCommunities, setHostTvCommunities] = useState<{
+    owned: TvCommunityBrief[];
+    coCreator: TvCommunityBrief[];
+  }>({ owned: [], coCreator: [] });
 
   const exploreUserRole = useSelector((s: RootState) => s.auth.user?.role);
+  const exploreAuthToken = useSelector((s: RootState) => s.auth.token);
   const isSignedInExplore =
     useSelector((s: RootState) => s.auth.isAuthenticated) &&
     (exploreUserRole === "HOST" || exploreUserRole === "TIPPER");
   const exploreUserId = useSelector((s: RootState) => s.auth.user?.id);
 
   useEffect(() => {
-    if (!isSignedInExplore || !exploreUserId) {
+    if (!isSignedInExplore || !exploreUserId || !exploreAuthToken) {
       setJoinedMemberships([]);
+      setHostTvCommunities({ owned: [], coCreator: [] });
       return;
     }
     let cancelled = false;
     void (async () => {
-      const r = await getMeJoinedCommunitiesAction();
+      const joinedPromise = getMeJoinedCommunitiesAction(exploreAuthToken);
+      const hostPromise =
+        exploreUserRole === "HOST"
+          ? getMyCommunitiesAction(exploreAuthToken)
+          : Promise.resolve(null);
+      const [joinedRes, hostRes] = await Promise.all([
+        joinedPromise,
+        hostPromise,
+      ]);
       if (cancelled) return;
-      if (r.success && Array.isArray(r.data?.memberships)) {
-        setJoinedMemberships(r.data.memberships as JoinedMembershipRow[]);
+      if (joinedRes.success && Array.isArray(joinedRes.data?.memberships)) {
+        setJoinedMemberships(
+          joinedRes.data.memberships as JoinedMembershipRow[]
+        );
       } else {
         setJoinedMemberships([]);
+      }
+      if (hostRes?.success && hostRes.data) {
+        const raw = hostRes.data as {
+          owned?: TvCommunityBrief[];
+          coCreator?: TvCommunityBrief[];
+        };
+        setHostTvCommunities({
+          owned: raw.owned ?? [],
+          coCreator: raw.coCreator ?? [],
+        });
+      } else {
+        setHostTvCommunities({ owned: [], coCreator: [] });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isSignedInExplore, exploreUserId]);
+  }, [exploreAuthToken, exploreUserRole, isSignedInExplore, exploreUserId]);
 
   const [feedSubTab, setFeedSubTab] = useState<
     "trends" | "saves" | "tv" | "community"
@@ -640,26 +675,14 @@ export default function ExplorePageClient({
     [joinedMemberships]
   );
 
-  const tvCommunityOptions = useMemo(
-    () =>
-      joinedMemberships.filter(m => {
-        if (!m.active || m.revokedAt) return false;
-        if (m.membershipStatus !== "active") return false;
-        if (m.expiresAt && new Date(m.expiresAt) <= new Date()) return false;
-        return Boolean(m.community?.name);
-      }),
-    [joinedMemberships]
-  );
-
   const tvCommunitySelectOptions = useMemo(
     () =>
-      tvCommunityOptions
-        .filter(m => Boolean(m.community?.tvActivatedAt))
-        .map(m => ({
-          id: m.communityId,
-          name: m.community?.name ?? m.communityId,
-        })),
-    [tvCommunityOptions]
+      buildTvPickerOptionsForUser({
+        memberships: joinedMemberships,
+        owned: hostTvCommunities.owned,
+        coCreator: hostTvCommunities.coCreator,
+      }),
+    [hostTvCommunities.coCreator, hostTvCommunities.owned, joinedMemberships]
   );
 
   const toggleCommunityFeedId = useCallback((id: string) => {
