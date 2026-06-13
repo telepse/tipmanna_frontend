@@ -970,125 +970,127 @@ export const TvLooper = ({
             </button>
           )}
 
-          <div
-            className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-12 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
-          >
-            <button
-              type="button"
-              title={
-                isCurrentChannelSaved
-                  ? "Remove video from saves"
-                  : "Add video to saves"
-              }
-              onClick={() => {
-                if (!isSaving) void handleSaveToggle();
-              }}
-              disabled={isSaving}
-              className={`pointer-events-auto rounded bg-black/50 p-1 text-white ${isSaving ? "opacity-50" : ""}`}
+          {showSideRails && (
+            <div
+              className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-12 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
             >
-              {isCurrentChannelSaved ? (
-                <Bookmark className="fill-moonstone-blue size-5" />
-              ) : (
-                <Bookmark className="size-5" />
-              )}
-            </button>
-
-            <span className="rounded bg-black/50 p-1">
-              <Share2
-                className="size-5 text-white"
+              <button
+                type="button"
+                title={
+                  isCurrentChannelSaved
+                    ? "Remove video from saves"
+                    : "Add video to saves"
+                }
                 onClick={() => {
-                  let willOpen = false;
-                  setShowShare(prev => {
-                    willOpen = !prev;
-                    return willOpen;
-                  });
-                  if (willOpen && channelId) {
-                    trackTvShareClick(channelId);
-                    setCommentMetricsRefreshKey(k => k + 1);
-                  }
+                  if (!isSaving) void handleSaveToggle();
                 }}
+                disabled={isSaving}
+                className={`pointer-events-auto rounded bg-black/50 p-1 text-white ${isSaving ? "opacity-50" : ""}`}
+              >
+                {isCurrentChannelSaved ? (
+                  <Bookmark className="fill-moonstone-blue size-5" />
+                ) : (
+                  <Bookmark className="size-5" />
+                )}
+              </button>
+
+              <span className="rounded bg-black/50 p-1">
+                <Share2
+                  className="size-5 text-white"
+                  onClick={() => {
+                    let willOpen = false;
+                    setShowShare(prev => {
+                      willOpen = !prev;
+                      return willOpen;
+                    });
+                    if (willOpen && channelId) {
+                      trackTvShareClick(channelId);
+                      setCommentMetricsRefreshKey(k => k + 1);
+                    }
+                  }}
+                />
+                {showShare && (
+                  <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
+                    <ShareCopyLinkControl url={shareUrl} />
+                    <WhatsappShareButton
+                      url={shareUrl}
+                      title={shareTitle}
+                    >
+                      <WhatsappIcon
+                        size={32}
+                        round
+                      />
+                    </WhatsappShareButton>
+
+                    <FacebookShareButton
+                      url={shareUrl}
+                      quote={shareTitle}
+                    >
+                      <FacebookIcon
+                        size={32}
+                        round
+                      />
+                    </FacebookShareButton>
+
+                    <TwitterShareButton
+                      url={shareUrl}
+                      title={shareTitle}
+                    >
+                      <TwitterIcon
+                        size={32}
+                        round
+                      />
+                    </TwitterShareButton>
+                  </div>
+                )}
+              </span>
+
+              {/* Comment button */}
+              <button
+                type="button"
+                className="cursor-pointer rounded bg-black/50 p-1"
+                onClick={() => setShowCommentDrawer(true)}
+              >
+                <MessageCircleMore className="size-5 text-white" />
+              </button>
+
+              <CommentDrawer
+                isCommentDrawerOpen={showCommentDrawer}
+                setIsCommentDrawerOpen={setShowCommentDrawer}
+                metricsRefreshKey={commentMetricsRefreshKey}
+                eventId={currentEventId}
+                channelId={
+                  currentChannelId != null ? String(currentChannelId) : null
+                }
+                videoTitle={
+                  commentDrawerVideoTitle ??
+                  (typeof current?.channel?.title === "string"
+                    ? current.channel.title
+                    : "")
+                }
+                videoDescription={
+                  commentDrawerVideoDescription ??
+                  (typeof (
+                    current?.channel as { description?: string } | undefined
+                  )?.description === "string"
+                    ? (current?.channel as { description: string }).description
+                    : "")
+                }
+                numOfTips={liveNumOfTips}
+                tippingCharacters={characters}
+                onContinueToTip={onContinueCommentToTip}
               />
-              {showShare && (
-                <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
-                  <ShareCopyLinkControl url={shareUrl} />
-                  <WhatsappShareButton
-                    url={shareUrl}
-                    title={shareTitle}
-                  >
-                    <WhatsappIcon
-                      size={32}
-                      round
-                    />
-                  </WhatsappShareButton>
 
-                  <FacebookShareButton
-                    url={shareUrl}
-                    quote={shareTitle}
-                  >
-                    <FacebookIcon
-                      size={32}
-                      round
-                    />
-                  </FacebookShareButton>
-
-                  <TwitterShareButton
-                    url={shareUrl}
-                    title={shareTitle}
-                  >
-                    <TwitterIcon
-                      size={32}
-                      round
-                    />
-                  </TwitterShareButton>
-                </div>
-              )}
-            </span>
-
-            {/* Comment button */}
-            <button
-              type="button"
-              className="cursor-pointer rounded bg-black/50 p-1"
-              onClick={() => setShowCommentDrawer(true)}
-            >
-              <MessageCircleMore className="size-5 text-white" />
-            </button>
-
-            <CommentDrawer
-              isCommentDrawerOpen={showCommentDrawer}
-              setIsCommentDrawerOpen={setShowCommentDrawer}
-              metricsRefreshKey={commentMetricsRefreshKey}
-              eventId={currentEventId}
-              channelId={
-                currentChannelId != null ? String(currentChannelId) : null
-              }
-              videoTitle={
-                commentDrawerVideoTitle ??
-                (typeof current?.channel?.title === "string"
-                  ? current.channel.title
-                  : "")
-              }
-              videoDescription={
-                commentDrawerVideoDescription ??
-                (typeof (
-                  current?.channel as { description?: string } | undefined
-                )?.description === "string"
-                  ? (current?.channel as { description: string }).description
-                  : "")
-              }
-              numOfTips={liveNumOfTips}
-              tippingCharacters={characters}
-              onContinueToTip={onContinueCommentToTip}
-            />
-
-            <TipsDrawer
-              open={tipsListOpen}
-              onOpenChange={setTipsListOpen}
-              eventId={currentEventId}
-              channelId={currentChannelId ? String(currentChannelId) : null}
-              eventRoomTipCount={eventRoomTipCount}
-              videoTipCount={videoTipCount}
-            />
-          </div>
+              <TipsDrawer
+                open={tipsListOpen}
+                onOpenChange={setTipsListOpen}
+                eventId={currentEventId}
+                channelId={currentChannelId ? String(currentChannelId) : null}
+                eventRoomTipCount={eventRoomTipCount}
+                videoTipCount={videoTipCount}
+              />
+            </div>
+          )}
 
           {!isNotice && showSideRails && (
             <div
