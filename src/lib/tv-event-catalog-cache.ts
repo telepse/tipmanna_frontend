@@ -58,7 +58,9 @@ function toCatalog(rawSets: unknown): TvEventCatalog {
   };
 }
 
-export function getCachedTvEventCatalog(eventId: string): TvEventCatalog | null {
+export function getCachedTvEventCatalog(
+  eventId: string
+): TvEventCatalog | null {
   const trimmed = eventId.trim();
   if (!trimmed) return null;
   return memoryCache.get(trimmed) ?? readSessionCatalog(trimmed);
@@ -71,7 +73,9 @@ export function subscribeTvEventCatalog(listener: () => void) {
   };
 }
 
-export async function loadTvEventCatalog(eventId: string): Promise<TvEventCatalog> {
+export async function loadTvEventCatalog(
+  eventId: string
+): Promise<TvEventCatalog> {
   const trimmed = eventId.trim();
   if (!trimmed) return EMPTY_CATALOG;
 

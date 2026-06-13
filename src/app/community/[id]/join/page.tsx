@@ -3,12 +3,33 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { Metadata } from "next";
+import { getJoinFormAction } from "@/actions/communities";
+import { ActionResult } from "@/lib/action-fetch";
 
 const communityFeatureOn =
   process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
 
 function exploreJoinHref(communityId: string) {
   return `/explore?tab=join&joinCommunity=${encodeURIComponent(communityId)}`;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ communityId: string }>;
+}): Promise<Metadata> {
+  const { communityId } = await params;
+  const communityRes = (await getJoinFormAction(
+    null,
+    communityId
+  )) as ActionResult<{ name: string }>;
+
+  return {
+    title: `Join the ${communityRes.data?.name} community 🌍`,
+    description:
+      "Join our community network to watch exclusive content, participate live, connect with members, and support the experiences you enjoy.",
+  };
 }
 
 export default function CommunityJoinPage() {

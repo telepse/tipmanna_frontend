@@ -42,9 +42,7 @@ export function isTipmannaSystemCommunity(
   ) {
     return true;
   }
-  return Boolean(
-    isSystem && /\btipmanna\b/.test(n) && /\bpublic\b/.test(n)
-  );
+  return Boolean(isSystem && /\btipmanna\b/.test(n) && /\bpublic\b/.test(n));
 }
 
 function communityTvIsWatchable(

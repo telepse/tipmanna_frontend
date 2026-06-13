@@ -573,7 +573,10 @@ export default function GlobalTVProvider({
         }
         const epochMs = data.broadcastEpoch as number | undefined;
         if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
-          const ms = msToNextHalfDayBoundary(epochMs, Date.now() + driftRef.current);
+          const ms = msToNextHalfDayBoundary(
+            epochMs,
+            Date.now() + driftRef.current
+          );
           boundaryRefetchTimeoutRef.current = setTimeout(() => {
             boundaryRefetchTimeoutRef.current = null;
             void loadScheduleRef.current();
@@ -642,7 +645,10 @@ export default function GlobalTVProvider({
           }
           const epochMs = cached.body.broadcastEpoch as number | undefined;
           if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
-            const ms = msToNextHalfDayBoundary(epochMs, Date.now() + driftRef.current);
+            const ms = msToNextHalfDayBoundary(
+              epochMs,
+              Date.now() + driftRef.current
+            );
             boundaryRefetchTimeoutRef.current = setTimeout(() => {
               boundaryRefetchTimeoutRef.current = null;
               void loadScheduleRef.current();

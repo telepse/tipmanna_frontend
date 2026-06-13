@@ -72,6 +72,7 @@ export default function TvHomePreviewSection() {
                 characters={characters}
                 playerLayout={isNarrow ? "compact" : "wide"}
                 analyticsSurface="homepage_preview"
+                showSideRails={false}
               />
             </div>
           )}

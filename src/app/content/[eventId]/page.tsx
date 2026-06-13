@@ -11,10 +11,42 @@ import { resolveProgramWatchAllPlaylist } from "@/actions/program-actions";
 import { getToken } from "@/lib/getToken";
 import { parseChannelSearchParam } from "@/lib/public-video-url";
 import { notFound, redirect } from "next/navigation";
+import { ActionResult } from "@/lib/action-fetch";
+import { Metadata } from "next";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+interface ContentData {
+  title: string;
+  event: {
+    hostName: string;
+  };
+}
+
+/**
+ * GENERATE METADATA
+ * Handles SEO and Social Media tags for LinkedIn, Twitter, etc.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ eventId: string }>;
+}): Promise<Metadata> {
+  const { eventId } = await params;
+
+  // fetch creator data
+  const res = (await getContentChannelAction(eventId)) as ActionResult<
+    ContentData[]
+  >;
+  const videoRes = res.data?.[0];
+
+  return {
+    title: `Watch "${videoRes?.title}" by ${videoRes?.event.hostName} 🎬 💎`,
+    description: `Watch this video on Tipmanna and join the experience through comments, reactions, and realtime supporter engagement.`,
+  };
 }
 
 export default async function ContentPage({ params, searchParams }: Props) {

@@ -603,10 +603,9 @@ export const ExploreFeedClient = forwardRef<
     set => Array.isArray(set.characters) && set.characters.length > 0
   );
 
-  const tippingCharactersForDrawer =
-    videoTipCatalog?.characters?.length
-      ? (videoTipCatalog.characters as RoomCharacter[])
-      : (characters as RoomCharacter[]);
+  const tippingCharactersForDrawer = videoTipCatalog?.characters?.length
+    ? (videoTipCatalog.characters as RoomCharacter[])
+    : (characters as RoomCharacter[]);
 
   const dispatch = useDispatch();
   const prevPlayingVideoKeyRef = useRef("");

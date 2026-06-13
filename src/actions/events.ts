@@ -282,8 +282,11 @@ export async function getEventCharacterCatalogAction(eventId: string) {
     raw => {
       const data = raw as Record<string, unknown>;
       return {
-        eventId: typeof data.eventId === "string" ? data.eventId : eventId.trim(),
-        characterSets: Array.isArray(data.characterSets) ? data.characterSets : [],
+        eventId:
+          typeof data.eventId === "string" ? data.eventId : eventId.trim(),
+        characterSets: Array.isArray(data.characterSets)
+          ? data.characterSets
+          : [],
       } as EventCharacterCatalogData;
     }
   );

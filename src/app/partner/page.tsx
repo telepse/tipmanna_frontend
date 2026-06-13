@@ -16,6 +16,7 @@ import KeyStatsLazy from "@/components/home/key-stats-lazy";
 import FAQs from "@/components/home/faqs";
 import TvHomePreviewSectionLazy from "@/components/home/tv-home-preview-section-lazy";
 import PricingGrid from "@/components/home/pricing-grid";
+import { Metadata } from "next";
 
 function DataSection({ children }: { children: ReactNode }) {
   return <section className="contents">{children}</section>;
@@ -26,6 +27,14 @@ const BACKGROUND_IMAGES = {
 } as const;
 
 export const dynamic = "force-static";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "Welcome to Tipmanna — Participatory Community Media",
+    description:
+      "Tipmanna helps creators and communities turn audiences into active participants through TV, realtime engagement, memberships, and supporter experiences.",
+  };
+}
 
 export default function Home() {
   return (

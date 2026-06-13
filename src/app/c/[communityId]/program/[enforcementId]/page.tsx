@@ -31,10 +31,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${program.title} | ${program.community?.name ?? "Community"}`,
     description: `Watch ${program.title} on Tipmanna.`,
     openGraph: {
-      title: program.title,
-      description: program.community?.name
-        ? `${program.community.name} · ${new Date(program.scheduledAt).toLocaleString()}`
-        : undefined,
+      title: `${program.title} is live on ${program.community?.name} TV 📅`,
+      description:
+        "Set a reminder and join viewers around the world for this scheduled community broadcast and realtime shared experience.",
       url,
       type: "website",
       ...(thumb ? { images: [{ url: thumb, width: 1200, height: 630 }] } : {}),

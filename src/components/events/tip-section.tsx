@@ -398,7 +398,8 @@ export const TipSection = ({
 
             <div className="flex justify-between text-[10px] sm:text-[11px]">
               <span className="whitespace-nowrap">
-                Galaxy (£{galaxyDisplayAmount.toFixed(0)}/£{GALAXY_MIN_AMOUNT_GBP})
+                Galaxy (£{galaxyDisplayAmount.toFixed(0)}/£
+                {GALAXY_MIN_AMOUNT_GBP})
               </span>
             </div>
           </div>
@@ -430,7 +431,10 @@ export const TipSection = ({
                   onClick={
                     !paymentCompleted
                       ? () => {
-                          if (isTextCharacter && tipsForTotals.includes("Comment")) {
+                          if (
+                            isTextCharacter &&
+                            tipsForTotals.includes("Comment")
+                          ) {
                             openTextDraftModal();
                             return;
                           }

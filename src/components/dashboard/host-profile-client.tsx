@@ -1,4 +1,3 @@
- 
 "use client";
 
 import { useHostEvents } from "@/hooks/useHostEvents";

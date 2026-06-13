@@ -186,9 +186,11 @@ function communityHistoryReason(m: HubMembership): string {
 
 export default function CommunityHubClient() {
   const router = useRouter();
-  const { user, isAuthenticated, token: authToken } = useSelector(
-    (s: RootState) => s.auth
-  );
+  const {
+    user,
+    isAuthenticated,
+    token: authToken,
+  } = useSelector((s: RootState) => s.auth);
   const userId = user?.id;
 
   const [memberships, setMemberships] = useState<HubMembership[]>([]);

@@ -3,14 +3,12 @@
 import { cn } from "@/lib/utils";
 
 function PulseBlock({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-md bg-gray-300", className)} />;
+  return (
+    <div className={cn("animate-pulse rounded-md bg-gray-300", className)} />
+  );
 }
 
-export function TvLooperSkeleton({
-  layout,
-}: {
-  layout: "wide" | "compact";
-}) {
+export function TvLooperSkeleton({ layout }: { layout: "wide" | "compact" }) {
   const isWide = layout === "wide";
 
   return (

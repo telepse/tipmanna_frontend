@@ -6,13 +6,45 @@ import {
 import { getContentChannelAction } from "@/actions/contents";
 import { getEventByIdAction } from "@/actions/events";
 import { ChannelClient } from "@/components/events/channel-client";
+import { ActionResult } from "@/lib/action-fetch";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { parseChannelSearchParam } from "@/lib/public-video-url";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+interface ChannelData {
+  event: {
+    hostName: string;
+  };
+}
+
+/**
+ * GENERATE METADATA
+ * Handles SEO and Social Media tags for LinkedIn, Twitter, etc.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ eventId: string }>;
+}): Promise<Metadata> {
+  const { eventId } = await params;
+
+  // fetch creator data
+  const res = (await getContentChannelAction(eventId)) as ActionResult<
+    ChannelData[]
+  >;
+  const hostName = res.data?.[0]?.event?.hostName ?? "";
+  const creatorFirstName = hostName.split(" ")[0];
+
+  return {
+    title: `Watch & support ${creatorFirstName} ⚡💎`,
+    description: `Discover videos, join live conversations, and support ${creatorFirstName} through realtime visible participation on Tipmanna.`,
+  };
 }
 
 export default async function ChannelPage({ params, searchParams }: Props) {

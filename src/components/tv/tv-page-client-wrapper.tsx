@@ -125,10 +125,7 @@ const coalesceNumber = (value: unknown): number => {
   return 0;
 };
 
-export default function TVPageClientWrapper({
-  channels,
-  characters,
-}: Props) {
+export default function TVPageClientWrapper({ channels, characters }: Props) {
   const userId = useSelector((s: RootState) => s.auth.user?.id);
   const {
     items,

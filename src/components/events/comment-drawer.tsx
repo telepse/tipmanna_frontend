@@ -94,6 +94,36 @@ export const CommentDrawer = ({
   const [reportOther, setReportOther] = useState("");
   const [likeBusyId, setLikeBusyId] = useState<string | null>(null);
 
+  const textTipUnitPrice = useMemo(() => {
+    const textChar = tippingCharacters?.find(c => isTextCharacterId(c.id));
+    return typeof textChar?.price === "number" &&
+      Number.isFinite(textChar.price)
+      ? textChar.price
+      : 5;
+  }, [tippingCharacters]);
+
+  const commentPreviewTotal = useMemo(() => {
+    const fromCart = tipsForTotals.reduce((acc, characterName) => {
+      if (characterName === "Comment") {
+        return acc + textTipUnitPrice;
+      }
+      const character = tippingCharacters?.find(c => c.name === characterName);
+      return acc + (character?.price ?? 0);
+    }, 0);
+
+    if (pendingDraft.trim() && !tipsForTotals.includes("Comment")) {
+      return fromCart + textTipUnitPrice;
+    }
+
+    return fromCart;
+  }, [tipsForTotals, tippingCharacters, textTipUnitPrice, pendingDraft]);
+
+  useEffect(() => {
+    if (commentPreviewTotal > 0) {
+      localStorage.setItem("amount", String(commentPreviewTotal));
+    }
+  }, [commentPreviewTotal]);
+
   const items = drawerData?.comments ?? [];
   const metrics = drawerData?.metrics;
   const channelMeta = drawerData?.channel;
@@ -509,13 +539,17 @@ export const CommentDrawer = ({
                 type="button"
                 className="h-9 w-full bg-black pr-10 text-white hover:bg-black/90"
                 onClick={handlePay}
+                disabled={!pendingDraft.trim()}
               >
-                £ {tipsForTotals} {tipsForTotals ? "Send comment" : ""}
+                {commentPreviewTotal > 0
+                  ? `£${commentPreviewTotal} Send comment`
+                  : "Add a comment to send"}
               </Button>
 
               <button
                 type="button"
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white p-1.5 shadow"
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white p-1.5 shadow disabled:opacity-50"
+                disabled={!pendingDraft.trim()}
                 onClick={e => {
                   e.stopPropagation();
                   handlePay();

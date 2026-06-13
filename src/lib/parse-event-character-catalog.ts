@@ -6,22 +6,19 @@ export type EventCharacterSet = {
   characters: RoomCharacter[];
 };
 
-export function parseEventCharacterCatalog(
-  rawSets: unknown
-): {
+export function parseEventCharacterCatalog(rawSets: unknown): {
   characterSets: EventCharacterSet[];
   tippingCharacters: RoomCharacter[];
 } {
   const sets = Array.isArray(rawSets) ? rawSets : [];
-  const characterSets = sets.filter(
-    (s): s is EventCharacterSet =>
-      Boolean(
-        s &&
-          typeof s === "object" &&
-          "id" in s &&
-          Array.isArray((s as EventCharacterSet).characters) &&
-          (s as EventCharacterSet).characters.length > 0
-      )
+  const characterSets = sets.filter((s): s is EventCharacterSet =>
+    Boolean(
+      s &&
+        typeof s === "object" &&
+        "id" in s &&
+        Array.isArray((s as EventCharacterSet).characters) &&
+        (s as EventCharacterSet).characters.length > 0
+    )
   );
 
   const tippingCharacters = characterSets.flatMap(set =>

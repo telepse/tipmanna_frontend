@@ -104,6 +104,7 @@ export const TvLooper = ({
   onFullViewChange,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
+  showSideRails,
 }: {
   characters: RoomCharacter[];
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
@@ -118,6 +119,7 @@ export const TvLooper = ({
   onFullViewChange?: (isFullView: boolean) => void;
   commentDrawerVideoTitle?: string;
   commentDrawerVideoDescription?: string;
+  showSideRails?: boolean;
 }) => {
   const {
     items,
@@ -1088,7 +1090,7 @@ export const TvLooper = ({
             />
           </div>
 
-          {!isNotice && (
+          {!isNotice && showSideRails && (
             <div
               className={`${isFullView ? "absolute top-1/2 right-4 z-40 mt-2 -translate-y-1/2" : "absolute right-4 bottom-12 z-40"}`}
             >
