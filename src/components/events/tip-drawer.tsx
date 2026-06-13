@@ -65,6 +65,7 @@ import {
   notifyTextTipDraftSync,
   clearTextTipDraftStorage,
   textCharacterIdFromEnv,
+  tipCartNameForCharacter,
 } from "@/lib/tip-text-selection";
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
 import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
@@ -181,6 +182,17 @@ export const TipDrawer = ({
     }));
   }, [characterSets]);
 
+  const characterSetsKey = useMemo(
+    () =>
+      (characterSets ?? [])
+        .map(
+          set =>
+            `${set?.id ?? ""}:${Array.isArray(set?.characters) ? set.characters.map((c: Character) => c.id).join(",") : ""}`
+        )
+        .join("|"),
+    [characterSets]
+  );
+
   const router = useRouter();
   const { activeVideoFeatureCardId, setActiveVideoFeatureCardId } =
     useFeatureCardTipContext();
@@ -241,6 +253,7 @@ export const TipDrawer = ({
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
   const boundEventIdRef = useRef<string | undefined>(undefined);
+  const prevCharacterSetsKeyRef = useRef<string | undefined>(undefined);
   const drawerShellRef = useRef<HTMLDivElement>(null);
   const appliedResumeKeyRef = useRef<string | null>(null);
 
@@ -291,6 +304,21 @@ export const TipDrawer = ({
     appliedResumeKeyRef.current = null;
     clearTipResumeCtx();
   }, [eventId, isProcessing, isRedirecting, dispatch]);
+
+  useEffect(() => {
+    const previous = prevCharacterSetsKeyRef.current;
+    prevCharacterSetsKeyRef.current = characterSetsKey;
+    if (previous === undefined) return;
+    if (previous === characterSetsKey) return;
+    setSelectedTabIndex(0);
+    if (isProcessing || isRedirecting) return;
+    dispatch(setSelectedTips([]));
+    setTextTipActive(false);
+    setTextTipValue("");
+    setCardModalOpen(false);
+    setShowDefaultPayButton(true);
+    setWalletDebitSnapshot(null);
+  }, [characterSetsKey, dispatch, isProcessing, isRedirecting]);
 
   useEffect(() => {
     if (!open) {
@@ -431,14 +459,17 @@ export const TipDrawer = ({
       return;
     }
 
-    dispatch(setSelectedTips([...tipsForTotals, character.name]));
+    const cartName = tipCartNameForCharacter(character);
+    dispatch(
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, cartName]))
+    );
 
     // ─────────────────────────────
     // Start Preview (auto-cancels previous)
     // ─────────────────────────────
     requestAnimationFrame(() => {
       const next = computeTipRewardEligibility(
-        [...tipsForTotals, character.name],
+        ensureSingleTextInCart([...tipsForTotals, cartName]),
         tippingCharacters
       );
       startPreview(
@@ -921,7 +952,7 @@ export const TipDrawer = ({
               >
                 <div className="flex flex-1 flex-row-reverse gap-2">
                   <div className="scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent ml-auto flex flex-row-reverse items-center gap-1 overflow-x-auto scroll-smooth px-1 py-2 text-sm whitespace-nowrap">
-                    {(selectedTips.includes("Comment") || textTipActive) && (
+                    {(tipsForTotals.includes("Comment") || textTipActive) && (
                       <span
                         key="Comment"
                         className="relative mr-1 flex items-center gap-1 rounded-full bg-black px-2 py-1 whitespace-nowrap text-white"
@@ -930,16 +961,27 @@ export const TipDrawer = ({
                         <button
                           type="button"
                           className="text-md ml-1 rounded-full px-1 text-xs text-white focus:outline-none"
-                          onClick={() => removeAllOfTip("Text")}
+                          onClick={() => removeAllOfTip("Comment")}
                           aria-label="Remove all Comment"
                         >
                           x
                         </button>
                       </span>
                     )}
-                    {selectedTips.length > 0 &&
-                      Array.from(new Set(selectedTips))
-                        .filter(characterName => characterName !== "Text")
+                    {tipsForTotals.length > 0 &&
+                      Array.from(new Set(tipsForTotals))
+                        .filter(characterName => {
+                          if (
+                            characterName === "Text" ||
+                            characterName === "Comment"
+                          ) {
+                            return false;
+                          }
+                          const match = tippingCharacters.find(
+                            c => c.name === characterName
+                          );
+                          return !(match && isTextCharacterId(match.id));
+                        })
                         .map(characterName => (
                           <span
                             key={characterName}
@@ -956,7 +998,7 @@ export const TipDrawer = ({
                             </button>
                           </span>
                         ))}
-                    {selectedTips.length === 0 && !textTipActive && (
+                    {tipsForTotals.length === 0 && !textTipActive && (
                       <span className="text-muted-foreground text-xs"></span>
                     )}
                   </div>

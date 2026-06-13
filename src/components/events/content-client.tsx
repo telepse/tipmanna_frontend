@@ -193,7 +193,7 @@ export const ContentClient = ({
     paymentSurface: "content_client",
   });
   const tipStrip = tipPres.strip;
-  const tipSets = tipPres.drawerSets ?? baseTipSets;
+  const tipSets = baseTipSets;
   const videoRef = useRef<VideoPlayerRef>(null);
   const [playlist, setPlaylist] = useState(playableInitial);
   const [currentContent, setCurrentContent] = useState(() =>
@@ -1282,13 +1282,6 @@ export const ContentClient = ({
                   amountToRaise={playlist[0]?.event?.amountToRaise}
                   amountRaised={liveAmountRaised}
                   eventId={eventId}
-                />
-                <Image
-                  src="/icons/black-diamond.png"
-                  alt="Black Diamond"
-                  width={40}
-                  height={40}
-                  className="-mt-4 size-[14px]"
                 />
               </>
             ) : null}

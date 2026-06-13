@@ -26,7 +26,6 @@ import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
 import { useTV } from "../tv-provider";
-import { BeatLoader } from "react-spinners";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
 import { WebTvLooper } from "./web-tv-looper";
@@ -42,6 +41,10 @@ import Image from "next/image";
 import { UpcomingProgramsPanel } from "./upcoming-programs-panel";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "react-responsive";
+import {
+  TvLooperSkeleton,
+  TvRightPanelSkeleton,
+} from "./tv-loading-skeletons";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -68,6 +71,7 @@ export type TvInteractiveShellProps = {
   tipDrawerEventId: string;
   tippingCharactersForDrawer: any[];
   characterSetsForDrawer: any[];
+  videoTipKey?: string;
   openWalletModalNonce?: number;
   onSnapshotPaymentRedirect?: () => void;
 };
@@ -99,6 +103,7 @@ export function TvInteractiveShell({
   tipDrawerEventId,
   tippingCharactersForDrawer,
   characterSetsForDrawer,
+  videoTipKey = "",
   openWalletModalNonce = 0,
   onSnapshotPaymentRedirect,
 }: TvInteractiveShellProps) {
@@ -224,7 +229,7 @@ export function TvInteractiveShell({
       {isDesktop && (
         <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">
           <div className="col-span-9 object-cover">
-            {tvReady && !isMobileLandscape && (
+            {tvReady && !isMobileLandscape ? (
               <WebTvLooper
                 characters={characters}
                 playerLayout="wide"
@@ -246,10 +251,17 @@ export function TvInteractiveShell({
                     : ""
                 }
               />
-            )}
+            ) : null}
+            {!tvReady && !isMobileLandscape ? (
+              <TvLooperSkeleton layout="wide" />
+            ) : null}
           </div>
 
           <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
+            {!tvReady ? (
+              <TvRightPanelSkeleton layout="desktop" />
+            ) : (
+              <>
             {/* Existing content */}
             <div className="flex items-center justify-between gap-4 border-b-2 border-gray-300">
               <div className="flex items-center gap-2">
@@ -458,6 +470,8 @@ export function TvInteractiveShell({
                 {tipsFeedPanelEl}
               </div>
             )}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -470,7 +484,7 @@ export function TvInteractiveShell({
               : "fixed top-[88px] right-0 bottom-0 left-0 flex max-h-[calc(100dvh-88px)] min-h-0 w-full flex-col overflow-hidden p-2"
           )}
         >
-          {tvReady && (
+          {tvReady ? (
             <div
               className={cn(
                 "flex min-h-0 w-full flex-col",
@@ -606,18 +620,12 @@ export function TvInteractiveShell({
                 </>
               ) : null}
             </div>
-          )}
-
-          {!tvReady && (
-            <div
-              className="flex h-full min-h-0 items-center justify-center"
-              aria-busy="true"
-              aria-label="Loading"
-            >
-              <BeatLoader
-                color="#f57d11"
-                size={20}
-              />
+          ) : (
+            <div className="flex min-h-0 w-full flex-1 flex-col gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]">
+              <div className="min-h-[220px] shrink-0 basis-[min(52dvh,420px)]">
+                <TvLooperSkeleton layout="compact" />
+              </div>
+              <TvRightPanelSkeleton layout="mobile" />
             </div>
           )}
         </div>
@@ -709,6 +717,7 @@ export function TvInteractiveShell({
             {!isMobileLandscape && (
               <div className="absolute -bottom-12 hidden h-[220px] w-full bg-white/80 px-4 py-1 sm:block">
                 <TipSection
+                  key={videoTipKey || tipDrawerEventId}
                   eventId={tipDrawerEventId}
                   tippingCharacters={
                     tippingCharactersForDrawer as RoomCharacter[]
@@ -734,6 +743,7 @@ export function TvInteractiveShell({
           enabled
         >
           <TipDrawer
+            key={videoTipKey || tipDrawerEventId}
             open={isTipDrawerOpen}
             onOpenChange={setIsTipDrawerOpen}
             eventId={tipDrawerEventId}

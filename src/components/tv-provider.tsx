@@ -40,6 +40,10 @@ import {
   releaseGlobalLiveTvChannel,
 } from "@/hooks/use-global-tip-stream";
 import { readTvSourceCommunityIdFromLocation } from "@/lib/tv-source-navigation";
+import {
+  collectTvScheduleEventIds,
+  prefetchTvEventCatalogs,
+} from "@/lib/tv-event-catalog-cache";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -472,6 +476,9 @@ export default function GlobalTVProvider({
     }
 
     setItems(data.items ?? []);
+    prefetchTvEventCatalogs(
+      collectTvScheduleEventIds((data.items as any[]) ?? [], 24)
+    );
     setBroadcastEpoch(data.broadcastEpoch ?? null);
     setTotalDuration(data.totalDuration ?? 0);
     setActiveBatch(data.activeBatch ?? null);

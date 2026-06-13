@@ -40,11 +40,12 @@ import { Textarea } from "../ui/textarea";
 import type { PaymentSurface } from "@/lib/analytics-types";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import {
+  buildTipSectionPreviewCharacters,
   ensureSingleTextInCart,
   isTextCharacterId,
   notifyTextTipDraftSync,
-  textCharacterIdFromEnv,
   clearTextTipDraftStorage,
+  tipCartNameForCharacter,
 } from "@/lib/tip-text-selection";
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
 import type { TipQuoteContext } from "@/hooks/use-tip-presentation";
@@ -135,18 +136,10 @@ export const TipSection = ({
     setOpenDrawer
   );
 
-  const allTips = useMemo(() => {
-    const list = [...tippingCharacters.filter(c => c.name !== "Comment")];
-    const tid = textCharacterIdFromEnv();
-    if (!tid) return list;
-    return list.sort((a, b) => {
-      const aText = isTextCharacterId(a.id);
-      const bText = isTextCharacterId(b.id);
-      if (aText && !bText) return -1;
-      if (!aText && bText) return 1;
-      return 0;
-    });
-  }, [tippingCharacters]);
+  const allTips = useMemo(
+    () => buildTipSectionPreviewCharacters(tippingCharacters),
+    [tippingCharacters]
+  );
 
   const cancelTextDraft = () => {
     cancelTextPreviewRef.current?.();
@@ -192,6 +185,10 @@ export const TipSection = ({
     // Text Tip — preview animation, then modal; max one Text in cart on save.
     // ─────────────────────────────
     if (isTextCharacterId(characterId)) {
+      if (tipsForTotals.includes("Comment")) {
+        openTextDraftModal();
+        return;
+      }
       const character = tippingCharacters.find(c => isTextCharacterId(c.id));
       if (!character) {
         openTextDraftModal();
@@ -210,7 +207,10 @@ export const TipSection = ({
     const character = tippingCharacters.find(c => c.id === characterId);
     if (!character) return;
 
-    dispatch(setSelectedTips([...tipsForTotals, character.name]));
+    const cartName = tipCartNameForCharacter(character);
+    dispatch(
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, cartName]))
+    );
 
     if (!character.styleName) {
       console.error("Missing styleName for character", character);
@@ -222,7 +222,7 @@ export const TipSection = ({
     // ─────────────────────────────
     requestAnimationFrame(() => {
       const next = computeTipRewardEligibility(
-        [...tipsForTotals, character.name],
+        ensureSingleTextInCart([...tipsForTotals, cartName]),
         tippingCharacters
       );
       startPreview(() => createAnimationFromStyle(character, "preview"), {
@@ -410,15 +410,9 @@ export const TipSection = ({
             style={{ rowGap: "1rem" }}
           >
             {allTips.map(character => {
-              const tid = textCharacterIdFromEnv();
-              const characterName =
-                tid && isTextCharacterId(character.id)
-                  ? "Comment"
-                  : character.name;
+              const characterName = tipCartNameForCharacter(character);
               const count = getSelectedCount(characterName);
-              const isTextCharacter = Boolean(
-                tid && isTextCharacterId(character.id)
-              );
+              const isTextCharacter = isTextCharacterId(character.id);
 
               const label = isTextCharacter
                 ? "Comment"
@@ -436,10 +430,7 @@ export const TipSection = ({
                   onClick={
                     !paymentCompleted
                       ? () => {
-                          if (
-                            isTextCharacter &&
-                            selectedTips.includes("Comment")
-                          ) {
+                          if (isTextCharacter && tipsForTotals.includes("Comment")) {
                             openTextDraftModal();
                             return;
                           }

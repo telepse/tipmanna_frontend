@@ -56,3 +56,40 @@ export function clearTextTipDraftStorage(): void {
   }
   notifyTextTipDraftSync();
 }
+
+/** Cart label for a tipping character (text env id maps to "Comment"). */
+export function tipCartNameForCharacter(character: {
+  id: string;
+  name: string;
+}): string {
+  return isTextCharacterId(character.id) ? "Comment" : character.name;
+}
+
+/**
+ * Tip section strip: Comment/text first, no duplicate comment rows.
+ */
+export function buildTipSectionPreviewCharacters<
+  T extends { id: string; name: string },
+>(tippingCharacters: T[]): T[] {
+  const tid = textCharacterIdFromEnv();
+  const restById = new Map<string, T>();
+  let commentChar: T | undefined;
+
+  for (const character of tippingCharacters) {
+    if (tid && isTextCharacterId(character.id)) {
+      commentChar = character;
+      continue;
+    }
+    if (character.name === "Comment") {
+      if (tid) continue;
+      if (!commentChar) commentChar = character;
+      continue;
+    }
+    if (!restById.has(character.id)) {
+      restById.set(character.id, character);
+    }
+  }
+
+  const rest = [...restById.values()];
+  return commentChar ? [commentChar, ...rest] : rest;
+}

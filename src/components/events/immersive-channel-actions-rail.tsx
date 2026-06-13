@@ -19,6 +19,7 @@ import {
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import { TipsDrawer } from "@/components/events/tips-drawer";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
+import { ShareCopyLinkControl } from "@/components/shared/share-copy-link-control";
 import type { RoomCharacter } from "@/types";
 import type { VideoPlayerRef } from "@/components/events/video-player";
 import { trackTvShareClick } from "@/lib/tvAnalytics";
@@ -177,6 +178,7 @@ export function ImmersiveChannelActionsRail({
           </button>
           {showShare ? (
             <div className="absolute top-1/2 right-full z-[100] mr-2 flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
+              <ShareCopyLinkControl url={shareUrl} />
               <WhatsappShareButton
                 url={shareUrl}
                 title={shareTitle}

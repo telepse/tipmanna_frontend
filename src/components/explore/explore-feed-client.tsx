@@ -19,7 +19,8 @@ import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MessageCircle, Plus, Volume2, VolumeX } from "lucide-react";
 import SignInDialog from "@/components/auth/sign-in-dialog";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { setSelectedTips } from "@/features/tip-slice";
 
 import {
   getContentChannelAction,
@@ -85,6 +86,13 @@ import { toast } from "react-toastify";
 import type { RootState } from "@/redux/store";
 import { trackTvSaveClick } from "@/lib/tvAnalytics";
 import { buildChannelShareUrl } from "@/lib/public-video-url";
+import {
+  collectExploreFeedEventIds,
+  getCachedTvEventCatalog,
+  loadTvEventCatalog,
+  prefetchTvEventCatalogs,
+  type TvEventCatalog,
+} from "@/lib/tv-event-catalog-cache";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import { isYoutubeShortsUrl } from "@/lib/youtube-immersive-meta";
 
@@ -443,7 +451,7 @@ export const ExploreFeedClient = forwardRef<
 >(function ExploreFeedClient(
   {
     characters,
-    characterSets,
+    characterSets: _characterSets,
     feedSurfaceActive = true,
     feedMode = "trends",
     communityIds,
@@ -558,6 +566,59 @@ export const ExploreFeedClient = forwardRef<
   const active = items[activeIndex];
   const activeEventId = active?.event?.id ?? "";
   const activeChannelId = active?.id;
+
+  const playingVideoKey = useMemo(() => {
+    if (!activeEventId || activeChannelId == null) return "";
+    return `${activeChannelId}:${activeEventId}`;
+  }, [activeChannelId, activeEventId]);
+
+  const [videoTipCatalog, setVideoTipCatalog] = useState<TvEventCatalog | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!playingVideoKey || !activeEventId) {
+      setVideoTipCatalog(null);
+      return;
+    }
+
+    setVideoTipCatalog(getCachedTvEventCatalog(activeEventId));
+
+    let cancelled = false;
+    void loadTvEventCatalog(activeEventId).then(catalog => {
+      if (!cancelled) setVideoTipCatalog(catalog);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playingVideoKey, activeEventId]);
+
+  useEffect(() => {
+    if (!items.length) return;
+    prefetchTvEventCatalogs(collectExploreFeedEventIds(items, 24));
+  }, [items]);
+
+  const characterSetsForDrawer = (videoTipCatalog?.characterSets ?? []).filter(
+    set => Array.isArray(set.characters) && set.characters.length > 0
+  );
+
+  const tippingCharactersForDrawer =
+    videoTipCatalog?.characters?.length
+      ? (videoTipCatalog.characters as RoomCharacter[])
+      : (characters as RoomCharacter[]);
+
+  const dispatch = useDispatch();
+  const prevPlayingVideoKeyRef = useRef("");
+
+  useEffect(() => {
+    if (!playingVideoKey) return;
+    if (prevPlayingVideoKeyRef.current === playingVideoKey) return;
+    const prev = prevPlayingVideoKeyRef.current;
+    prevPlayingVideoKeyRef.current = playingVideoKey;
+    if (prev === "") return;
+    dispatch(setSelectedTips([]));
+  }, [playingVideoKey, dispatch]);
 
   const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
 
@@ -1543,13 +1604,6 @@ export const ExploreFeedClient = forwardRef<
                       amountToRaise={active.event.amountToRaise}
                       amountRaised={Number(liveAmountRaised)}
                     />
-                    <Image
-              src="/icons/black-diamond.png"
-              alt="Black Diamond"
-              width={40}
-              height={40}
-              className="-mt-4 size-[14px]"
-            />
                   </div>
                 ) : null}
               </>
@@ -1624,15 +1678,16 @@ export const ExploreFeedClient = forwardRef<
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
-          tippingCharacters={characters as RoomCharacter[]}
+          tippingCharacters={tippingCharactersForDrawer}
           enabled
         >
           <TipDrawer
+            key={playingVideoKey || activeEventId}
             open={isTipDrawerOpen}
             onOpenChange={setIsTipDrawerOpen}
             eventId={activeEventId}
-            tippingCharacters={characters}
-            characterSets={characterSets}
+            tippingCharacters={tippingCharactersForDrawer}
+            characterSets={characterSetsForDrawer}
             paymentSurface={
               feedMode === "community" ? "community_feed" : "explore_feed"
             }

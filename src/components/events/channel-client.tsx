@@ -181,7 +181,7 @@ export const ChannelClient = ({
     paymentSurface: "channel_client",
   });
   const tipStrip = tipPres.strip;
-  const tipSets = tipPres.drawerSets ?? baseTipSets;
+  const tipSets = baseTipSets;
 
   const videoRef = useRef<VideoPlayerRef>(null);
   const baseList = Array.isArray(initialContents) ? initialContents : [];
@@ -1278,13 +1278,6 @@ export const ChannelClient = ({
                 eventId={eventId}
               />
             ) : null}
-            <Image
-              src="/icons/black-diamond.png"
-              alt="Black Diamond"
-              width={40}
-              height={40}
-              className="-mt-4 size-[14px]"
-            />
           </div>
         </div>
       </div>

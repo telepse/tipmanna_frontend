@@ -4,7 +4,9 @@ import {
   getCharactersForTipping,
 } from "@/actions/characters";
 import { getContentChannelAction } from "@/actions/contents";
+import { getEventByIdAction } from "@/actions/events";
 import { ChannelClient } from "@/components/events/channel-client";
+import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { parseChannelSearchParam } from "@/lib/public-video-url";
 import { redirect } from "next/navigation";
 
@@ -18,12 +20,33 @@ export default async function ChannelPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
 
-  const [{ data: contents }, { data: characters }, { data: characterSets }] =
-    await Promise.all([
-      getContentChannelAction(eventId),
-      getCharactersForTipping(),
-      getAllCharacterSets(),
-    ]);
+  const [
+    { data: contents },
+    { data: characters },
+    { data: globalCharacterSets },
+    eventRes,
+  ] = await Promise.all([
+    getContentChannelAction(eventId),
+    getCharactersForTipping(),
+    getAllCharacterSets(),
+    getEventByIdAction(eventId),
+  ]);
+
+  const eventCatalog = parseEventCharacterCatalog(
+    eventRes.success ? eventRes.data?.characterSets : []
+  );
+  const characterSets =
+    eventCatalog.characterSets.length > 0
+      ? eventCatalog.characterSets
+      : Array.isArray(globalCharacterSets)
+        ? globalCharacterSets
+        : [];
+  const tippingCharacters =
+    eventCatalog.tippingCharacters.length > 0
+      ? eventCatalog.tippingCharacters
+      : Array.isArray(characters)
+        ? characters
+        : [];
 
   if (!eventId) return <div>Channel not found</div>;
 
@@ -52,7 +75,7 @@ export default async function ChannelPage({ params, searchParams }: Props) {
     <div className="flex h-screen flex-col items-center justify-center">
       <ChannelClient
         contents={playable.length ? playable : list}
-        characters={characters as any[]}
+        characters={tippingCharacters as any[]}
         characterSets={characterSets as any[]}
         eventId={eventId}
         initialChannelId={initialChannelId}
