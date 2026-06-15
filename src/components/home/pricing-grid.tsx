@@ -16,6 +16,8 @@ import "swiper/css/pagination";
 import "swiper/css/a11y";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 
 const Swiper = dynamic(() => import("swiper/react").then(m => m.Swiper), {
   ssr: false,
@@ -39,6 +41,10 @@ export default function PricingGrid() {
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
   }, []);
+
+  const { user, isAuthenticated } = useSelector(
+    (state: RootState) => state.auth
+  );
 
   return (
     <section className="wrapper section items-center">

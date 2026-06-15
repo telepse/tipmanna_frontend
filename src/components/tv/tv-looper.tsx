@@ -677,7 +677,7 @@ export const TvLooper = ({
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
-  
+
     if (isMuted) player.mute();
     else player.unmute();
   }, [isMuted, playerRef]);
@@ -685,7 +685,7 @@ export const TvLooper = ({
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
-  
+
     if (miniPlayerActive) {
       player.pause();
     } else if (isPlaying) {

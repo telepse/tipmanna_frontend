@@ -94,7 +94,12 @@ export const TVNavbar = ({ active_users }: Props) => {
               </span>
             </div>
 
-            <Link href="/explore" className="text-sm">TV Explore</Link>
+            <Link
+              href="/explore"
+              className="text-sm"
+            >
+              TV Explore
+            </Link>
             <span className="text-sm">Create</span>
             <Bell className="size-5" />
             <CircleUserRound className="size-5" />

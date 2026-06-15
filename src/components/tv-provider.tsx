@@ -220,7 +220,6 @@ type TVContextType = {
 
   selectedIndex: number | null;
   setSelectedIndex: (index: number | null) => void;
-
 };
 
 const TVContext = createContext<TVContextType | null>(null);
@@ -446,7 +445,7 @@ export default function GlobalTVProvider({
     if (pos.scheduleIndex !== lastSyncedIndex.current) {
       lastSyncedIndex.current = pos.scheduleIndex;
       setCurrentIndex(pos.scheduleIndex);
-      
+
       if (!isNotice) {
         const videoId = extractYoutubeID(pos.item.channel.url);
         if (videoId) player.load(videoId, pos.offsetSeconds);
@@ -463,9 +462,9 @@ export default function GlobalTVProvider({
 
   const selectedIndexRef = useRef<number | null>(null);
 
-useEffect(() => {
-  selectedIndexRef.current = selectedIndex;
-}, [selectedIndex]);
+  useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+  }, [selectedIndex]);
 
   const setPlayerVisible = useCallback(
     (visible: boolean) => {
@@ -1285,7 +1284,7 @@ useEffect(() => {
         setScheduleSourceCommunityId,
 
         selectedIndex,
-setSelectedIndex,
+        setSelectedIndex,
       }}
     >
       {children}

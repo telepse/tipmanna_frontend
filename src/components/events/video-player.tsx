@@ -388,13 +388,14 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       unmute: () => {
         const p = playerRef.current;
         if (!p) return;
-      
-        const wasPlaying = p.getPlayerState?.() === window.YT.PlayerState.PLAYING;
-      
+
+        const wasPlaying =
+          p.getPlayerState?.() === window.YT.PlayerState.PLAYING;
+
         p.unMute();
         setPlayerMuteState(false);
         persistReelSoundPref(true);
-      
+
         // 🔥 IMPORTANT: restore playback if YouTube paused internally
         if (!wasPlaying) {
           p.playVideo();

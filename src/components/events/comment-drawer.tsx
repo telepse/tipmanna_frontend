@@ -427,7 +427,6 @@ export const CommentDrawer = ({
               </p>
             ) : null}
             <p className="flex flex-wrap items-center gap-2 text-xs text-black">
-              
               <span>
                 Channel tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
               </span>
@@ -448,13 +447,11 @@ export const CommentDrawer = ({
                   : ""}
               </p>
             ) : null}
-            
           </div>
 
-          <div className="border flex items-center gap-2 text-xs p-2 w-fit ml-4 rounded-sm">
-          <span>Views {resolvedViewCount.toLocaleString()}</span> &middot;
-
-          <span>
+          <div className="ml-4 flex w-fit items-center gap-2 rounded-sm border p-2 text-xs">
+            <span>Views {resolvedViewCount.toLocaleString()}</span> &middot;
+            <span>
               {amountRaisedLabel ? (
                 <>
                   <span>{amountRaisedLabel} raised</span>

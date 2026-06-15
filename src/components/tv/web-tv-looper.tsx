@@ -663,7 +663,7 @@ export const WebTvLooper = ({
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
-  
+
     if (isMuted) player.mute();
     else player.unmute();
   }, [isMuted, playerRef]);
@@ -671,7 +671,7 @@ export const WebTvLooper = ({
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
-  
+
     if (miniPlayerActive) {
       player.pause();
     } else if (isPlaying) {
@@ -1302,13 +1302,13 @@ export const WebTvLooper = ({
 
                 const player = playerRef.current;
 
-  if (player?.isReady()) {
-    if (isMuted) {
-      player.mute();
-    } else {
-      player.unmute();
-    }
-  }
+                if (player?.isReady()) {
+                  if (isMuted) {
+                    player.mute();
+                  } else {
+                    player.unmute();
+                  }
+                }
 
                 setPlayerVisible(true);
                 emitEncounterWhenVideoLoads();
@@ -1318,14 +1318,14 @@ export const WebTvLooper = ({
 
                 const player = playerRef.current;
 
-  if (player?.isReady()) {
-    if (isMuted) {
-      player.mute();
-    } else {
-      player.unmute();
-    }
-  }
-                
+                if (player?.isReady()) {
+                  if (isMuted) {
+                    player.mute();
+                  } else {
+                    player.unmute();
+                  }
+                }
+
                 applyPendingPlaybackRestore();
                 emitEncounterWhenVideoLoads();
                 const dur = playerRef.current?.getDuration() ?? 0;
