@@ -55,6 +55,7 @@ export function SetReminderButton({
         title: programTitle,
         body: `${programTitle} starts soon.`,
       };
+      console.log("body", body);
       if (enforcementId) body.enforcementId = enforcementId;
       if (globalEnforcementId) body.globalEnforcementId = globalEnforcementId;
 
