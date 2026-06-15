@@ -224,7 +224,7 @@ export const EVENT_STATS = [
 
 export const EVENT_PROFILE_STATS = [
   {
-    title: "Total Events Created",
+    title: "Total Channels Created",
     value: 12,
     icon: Calendar,
   },
@@ -277,8 +277,8 @@ export const RECENT_EVENTS = [
 export const ACHIEVEMENTS = [
   {
     icon: Trophy,
-    title: "First Event",
-    subtitle: "Hosted your first event",
+    title: "First Channel",
+    subtitle: "Hosted your first channel",
     iconColor: "#f57d11",
   },
   {
@@ -298,13 +298,13 @@ export const ACHIEVEMENTS = [
 export const PAYOUT_SUMMARY = [
   {
     label: "Pending Payouts",
-    value: 1267,
+    value: 0,
     bgColor: "#FFF3E7",
     txtColor: "#CB6305",
   },
   {
     label: "Total Received",
-    value: 12750,
+    value: 0,
     bgColor: "#E5FFE3",
     txtColor: "#04802E",
   },

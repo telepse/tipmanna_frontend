@@ -657,22 +657,41 @@ export const TvLooper = ({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [mode]);
 
+  // useEffect(() => {
+  //   const player = playerRef.current;
+  //   if (!player || !player.isReady()) return;
+  //   if (mode === "GLOBAL") {
+  //     if (isMuted) player.mute();
+  //     else player.unmute();
+  //     return;
+  //   }
+  //   if (miniPlayerActive) {
+  //     player.pause();
+  //     player.mute();
+  //   } else {
+  //     if (!isMuted) player.unmute();
+  //     if (isPlaying) player.play();
+  //   }
+  // }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
+
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
-    if (mode === "GLOBAL") {
-      if (isMuted) player.mute();
-      else player.unmute();
-      return;
-    }
+  
+    if (isMuted) player.mute();
+    else player.unmute();
+  }, [isMuted, playerRef]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !player.isReady()) return;
+  
     if (miniPlayerActive) {
       player.pause();
-      player.mute();
-    } else {
-      if (!isMuted) player.unmute();
-      if (isPlaying) player.play();
+    } else if (isPlaying) {
+      player.play();
     }
-  }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
+  }, [miniPlayerActive, isPlaying, playerRef]);
 
   // ---- Local controls (cosmetic -- do not affect broadcast state) ----
   const togglePlayPause = () => {

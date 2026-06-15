@@ -89,7 +89,7 @@ export const HostStats = ({ events }: Props) => {
           <h2 className="text-2xl font-semibold">Event statistics</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <EventStatCard
-              title="Events Created"
+              title="Channels Created"
               value={totalEventsCreated}
               icon={Calendar}
             />
@@ -180,8 +180,8 @@ export const HostStats = ({ events }: Props) => {
           </div>
 
           <AchievementCard
-            title="First Event"
-            subtitle="Hosted your first event"
+            title="First Channel"
+            subtitle="Hosted your first channel"
             icon={Trophy}
             iconColor="#f57d11"
             met={totalEventsCreated >= 1}

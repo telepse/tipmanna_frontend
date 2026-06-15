@@ -214,7 +214,8 @@ export const HostEventAndContentInfo = ({ control }: Props) => {
                       <SelectItem value="CORPORATE">Corporate</SelectItem>
                       <SelectItem value="COMEDY">Comedy</SelectItem>
                       <SelectItem value="FASHION">Fashion</SelectItem>
-                      <SelectItem value="GAME_SPORT">Game/Sport</SelectItem>
+                      <SelectItem value="CHILDREN">Children</SelectItem>
+                      <SelectItem value="EDUCATION">Education</SelectItem>
                       <SelectItem value="OTHER">Other</SelectItem>
                     </SelectContent>
                   </Select>

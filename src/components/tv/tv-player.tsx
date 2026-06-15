@@ -174,8 +174,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         height:
           cover || containFill ? "100%" : miniPlayerActive ? "100%" : "375px",
         playerVars: getYoutubePlayerVarsChromeless({
-          autoplay: autoplay,
-          mute: true,
+          autoplay: autoplay
         }) as Record<string, string | number>,
       }),
       [cover, containFill, miniPlayerActive, autoplay]

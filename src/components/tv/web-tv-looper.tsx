@@ -82,8 +82,6 @@ import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import {
   ImmersiveMediaTopBar,
-  immersiveControlRailClassName,
-  immersiveFullViewViewportClassName,
   immersiveMainRowClassName,
   immersivePlayerStageClassName,
 } from "@/components/media/immersive-media-shell";
@@ -645,22 +643,41 @@ export const WebTvLooper = ({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [mode]);
 
+  // useEffect(() => {
+  //   const player = playerRef.current;
+  //   if (!player || !player.isReady()) return;
+  //   if (mode === "GLOBAL") {
+  //     if (isMuted) player.mute();
+  //     else player.unmute();
+  //     return;
+  //   }
+  //   if (miniPlayerActive) {
+  //     player.pause();
+  //     player.mute();
+  //   } else {
+  //     if (!isMuted) player.unmute();
+  //     if (isPlaying) player.play();
+  //   }
+  // }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
+
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
-    if (mode === "GLOBAL") {
-      if (isMuted) player.mute();
-      else player.unmute();
-      return;
-    }
+  
+    if (isMuted) player.mute();
+    else player.unmute();
+  }, [isMuted, playerRef]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !player.isReady()) return;
+  
     if (miniPlayerActive) {
       player.pause();
-      player.mute();
-    } else {
-      if (!isMuted) player.unmute();
-      if (isPlaying) player.play();
+    } else if (isPlaying) {
+      player.play();
     }
-  }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
+  }, [miniPlayerActive, isPlaying, playerRef]);
 
   // ---- Local controls (cosmetic -- do not affect broadcast state) ----
   const togglePlayPause = () => {
@@ -1282,11 +1299,33 @@ export const WebTvLooper = ({
               autoplay
               onReady={() => {
                 setIsPlayerLoading(false);
+
+                const player = playerRef.current;
+
+  if (player?.isReady()) {
+    if (isMuted) {
+      player.mute();
+    } else {
+      player.unmute();
+    }
+  }
+
                 setPlayerVisible(true);
                 emitEncounterWhenVideoLoads();
               }}
               onPlaybackReady={() => {
                 setIsPlayerLoading(false);
+
+                const player = playerRef.current;
+
+  if (player?.isReady()) {
+    if (isMuted) {
+      player.mute();
+    } else {
+      player.unmute();
+    }
+  }
+                
                 applyPendingPlaybackRestore();
                 emitEncounterWhenVideoLoads();
                 const dur = playerRef.current?.getDuration() ?? 0;
@@ -1406,7 +1445,9 @@ export const WebTvLooper = ({
 
               <button onClick={toggleMute}>
                 {isMuted ? (
-                  <VolumeX className="size-5 text-white" />
+                  <VolumeX
+                    className={`size-5 ${isMuted ? "text-destructive" : ""}`}
+                  />
                 ) : (
                   <Volume2 className="size-5 text-white" />
                 )}

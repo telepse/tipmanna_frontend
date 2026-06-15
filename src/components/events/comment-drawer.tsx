@@ -375,9 +375,6 @@ export const CommentDrawer = ({
                 <span className="text-sm font-medium text-gray-400">
                   Likes {metrics?.commentLikeCount ?? 0}
                 </span>
-                <span className="text-sm font-medium text-gray-400">
-                  Views {resolvedViewCount.toLocaleString()}
-                </span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -430,8 +427,7 @@ export const CommentDrawer = ({
               </p>
             ) : null}
             <p className="flex flex-wrap items-center gap-2 text-xs text-black">
-              <span>Views {resolvedViewCount.toLocaleString()}</span>
-              <span>·</span>
+              
               <span>
                 Channel tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
               </span>
@@ -452,14 +448,20 @@ export const CommentDrawer = ({
                   : ""}
               </p>
             ) : null}
-            <p className="text-xs text-black">
+            
+          </div>
+
+          <div className="border flex items-center gap-2 text-xs p-2 w-fit ml-4 rounded-sm">
+          <span>Views {resolvedViewCount.toLocaleString()}</span> &middot;
+
+          <span>
               {amountRaisedLabel ? (
                 <>
                   <span>{amountRaisedLabel} raised</span>
                   <span>·</span>
                 </>
               ) : null}
-            </p>
+            </span>
           </div>
 
           {reportOpen ? (

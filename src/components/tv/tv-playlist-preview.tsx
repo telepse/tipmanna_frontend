@@ -55,6 +55,7 @@ export function TvPlaylistPreview({
     previewPinIndex,
     ongoingCollection,
     activeBatch,
+    schedulePlayingSlot
   } = useTV();
 
   const effectivePinIndex =
@@ -116,10 +117,14 @@ export function TvPlaylistPreview({
             ? playingItemOverride
             : items[originalIndex];
         if (!item) return null;
+        // const isPlaying =
+        //   mode === "GLOBAL"
+        //     ? originalIndex === liveBroadcastIndex
+        //     : !playingItemOverride && originalIndex === currentIndex;
         const isPlaying =
-          mode === "GLOBAL"
-            ? originalIndex === liveBroadcastIndex
-            : !playingItemOverride && originalIndex === currentIndex;
+  mode === "GLOBAL"
+    ? originalIndex === liveBroadcastIndex
+    : schedulePlayingSlot?.rowIndex === originalIndex;
         const startLabel = pickTimeLabel(originalIndex);
 
         const contentCountryCode = countryToCode[item.channel.contentCountry];

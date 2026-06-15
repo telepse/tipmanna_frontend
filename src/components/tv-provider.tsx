@@ -217,6 +217,10 @@ type TVContextType = {
   /** True when playing from sessionStorage cache after a fetch failure. */
   scheduleStale: boolean;
   retryScheduleLoad: () => void;
+
+  selectedIndex: number | null;
+  setSelectedIndex: (index: number | null) => void;
+
 };
 
 const TVContext = createContext<TVContextType | null>(null);
@@ -293,6 +297,8 @@ export default function GlobalTVProvider({
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const scheduleRetryCountRef = useRef(0);
   const scheduleRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -440,6 +446,7 @@ export default function GlobalTVProvider({
     if (pos.scheduleIndex !== lastSyncedIndex.current) {
       lastSyncedIndex.current = pos.scheduleIndex;
       setCurrentIndex(pos.scheduleIndex);
+      
       if (!isNotice) {
         const videoId = extractYoutubeID(pos.item.channel.url);
         if (videoId) player.load(videoId, pos.offsetSeconds);
@@ -453,6 +460,12 @@ export default function GlobalTVProvider({
       }
     }
   }, [broadcastEpoch, items, totalDuration, getNow]);
+
+  const selectedIndexRef = useRef<number | null>(null);
+
+useEffect(() => {
+  selectedIndexRef.current = selectedIndex;
+}, [selectedIndex]);
 
   const setPlayerVisible = useCallback(
     (visible: boolean) => {
@@ -883,6 +896,7 @@ export default function GlobalTVProvider({
   const playLocal = useCallback(
     (index: number) => {
       trackTvUserInteraction("click", "playlist");
+      setSelectedIndex(index);
       loadLocalAtIndex(index, { source: "preview", updatePreviewPin: true });
     },
     [loadLocalAtIndex]
@@ -891,6 +905,10 @@ export default function GlobalTVProvider({
   const playLocalFromSchedule = useCallback(
     (index: number) => {
       trackTvUserInteraction("click", "schedule_row");
+
+      setSelectedIndex(index);
+      setPreviewPinIndex(index);
+
       loadLocalAtIndex(index, { source: "schedule", updatePreviewPin: false });
     },
     [loadLocalAtIndex]
@@ -1265,6 +1283,9 @@ export default function GlobalTVProvider({
 
         scheduleSourceCommunityId,
         setScheduleSourceCommunityId,
+
+        selectedIndex,
+setSelectedIndex,
       }}
     >
       {children}

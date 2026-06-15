@@ -1156,8 +1156,15 @@ export default function ExplorePageClient({
                       <DropdownMenuSeparator />
                       {eligibleCommunityPickerRows.length === 0 ? (
                         <div className="text-muted-foreground px-2 py-3 text-xs">
-                          Join a community with an active membership and feed
-                          inclusion enabled to see it here.
+                          Join a community with an active membership .<br />{" "}
+                          Explore new communities on the{" "}
+                          <Link
+                            href="/community"
+                            className="text-primary underline"
+                          >
+                            Communities
+                          </Link>{" "}
+                          page.
                         </div>
                       ) : (
                         eligibleCommunityPickerRows.map(m => (
