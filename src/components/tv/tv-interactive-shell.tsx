@@ -520,6 +520,7 @@ export function TvInteractiveShell({
                         )
                       : ""
                   }
+                  showSideRails={true}
                 />
               </div>
 
