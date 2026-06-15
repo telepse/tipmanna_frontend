@@ -104,7 +104,7 @@ export const TvLooper = ({
   onFullViewChange,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
-  showSideRails,
+  showSideRails = true,
 }: {
   characters: RoomCharacter[];
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
