@@ -34,7 +34,7 @@ export function SetReminderButton({
   globalEnforcementId?: string;
 }) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
-  console.log(isAuthenticated);
+  
   const [open, setOpen] = useState(false);
   const [offset, setOffset] = useState(defaultOffset);
   const [email, setEmail] = useState("");
@@ -60,6 +60,7 @@ export function SetReminderButton({
 
       if (isAuthenticated) {
         const res = await setProgramReminderAction(postId, body);
+        console.log("res", res);
         if (!res.success) {
           throw new Error(res.message ?? "Failed to set reminder");
         }
