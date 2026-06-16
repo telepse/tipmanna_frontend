@@ -61,6 +61,7 @@ import {
 import { useTipperWalletStatus } from "@/hooks/use-tipper-wallet-status";
 import {
   ensureSingleTextInCart,
+  buildTipSectionPreviewCharacters,
   isTextCharacterId,
   notifyTextTipDraftSync,
   clearTextTipDraftStorage,
@@ -167,18 +168,9 @@ export const TipDrawer = ({
       return 0;
     });
 
-    const sortTextFirst = (chars: Character[]) =>
-      [...chars].sort((a, b) => {
-        const aText = isTextCharacterId(a.id);
-        const bText = isTextCharacterId(b.id);
-        if (aText && !bText) return -1;
-        if (!aText && bText) return 1;
-        return 0;
-      });
-
     return filtered.map(set => ({
       ...set,
-      characters: sortTextFirst(set.characters),
+      characters: buildTipSectionPreviewCharacters(set.characters),
     }));
   }, [characterSets]);
 

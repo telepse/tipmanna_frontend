@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Heart, Wallet, X } from "lucide-react";
@@ -24,9 +24,8 @@ import {
   type CommentDrawerData,
 } from "@/actions/messages";
 import { Input } from "@/components/ui/input";
-import { startPreview, stopPreview } from "@/lib/previewController";
-import { createAnimationFromStyle } from "@/lib/factory-to-style";
-import { computeTipRewardEligibility } from "@/lib/tip-reward-eligibility";
+import { stopPreview } from "@/lib/previewController";
+import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
 import SignInDialog from "@/components/auth/sign-in-dialog";
 import {
   DRAWER_Z_INDEX,
@@ -95,6 +94,7 @@ export const CommentDrawer = ({
   const [reportReason, setReportReason] = useState("deceptive");
   const [reportOther, setReportOther] = useState("");
   const [likeBusyId, setLikeBusyId] = useState<string | null>(null);
+  const cancelTextPreviewRef = useRef<(() => void) | null>(null);
 
   const tipPriceCatalog = useMemo(
     () => tippingCharacters ?? [],
@@ -285,40 +285,43 @@ export const CommentDrawer = ({
     setReportOpen(false);
   };
 
-  const openDraftModal = () => {
+  const openDraftModalOnly = () => {
+    cancelTextPreviewRef.current?.();
+    cancelTextPreviewRef.current = null;
     setModalDraft(pendingDraft);
-
-    const isFirstAdd = !pendingDraft.trim();
-    const chars = tippingCharacters;
-    if (isFirstAdd && chars?.length) {
-      const character = chars.find(c => isTextCharacterId(c.id));
-      if (character?.styleName) {
-        requestAnimationFrame(() => {
-          const next = computeTipRewardEligibility(
-            [...tipsForTotals, "Comment"],
-            chars
-          );
-          startPreview(
-            () =>
-              createAnimationFromStyle(
-                {
-                  name: character.name,
-                  iconUrl: character.iconUrl,
-                  styleName: character.styleName || "",
-                },
-                "preview"
-              ),
-            {
-              rewardTurbo: next.rewardTurbo,
-              rewardGalaxy: next.rewardGalaxy,
-            }
-          );
-        });
-      }
-    }
-
     setDraftModalOpen(true);
   };
+
+  const openDraftModal = () => {
+    if (pendingDraft.trim()) {
+      openDraftModalOnly();
+      return;
+    }
+
+    const chars = tippingCharacters;
+    const character =
+      chars?.find(c => isTextCharacterId(c.id)) ??
+      chars?.find(c => c.name === "Comment");
+    if (!character) {
+      openDraftModalOnly();
+      return;
+    }
+
+    cancelTextPreviewRef.current?.();
+    cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
+      character,
+      tippingCharacters: chars ?? [],
+      tipsForTotals,
+      openDraftModal: openDraftModalOnly,
+    });
+  };
+
+  useEffect(
+    () => () => {
+      cancelTextPreviewRef.current?.();
+    },
+    []
+  );
 
   const saveDraftModal = () => {
     const text = modalDraft.trim();

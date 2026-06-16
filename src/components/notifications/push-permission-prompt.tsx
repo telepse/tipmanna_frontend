@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell } from "lucide-react";
+import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
 import { usePushPermission } from "@/hooks/use-push-permission";
@@ -11,11 +12,23 @@ interface Props {
 }
 
 export function PushPermissionPrompt({ className }: Props) {
-  const { state, loading, error, subscribe } = usePushPermission();
+  const { state, detecting, loading, error, subscribe } = usePushPermission();
 
-  if (state === "unsupported" || state === "denied" || state === "subscribed") {
+  if (
+    detecting ||
+    state === "unsupported" ||
+    state === "denied" ||
+    state === "subscribed"
+  ) {
     return null;
   }
+
+  const handleEnable = async () => {
+    const ok = await subscribe();
+    if (ok) {
+      toast.success("Push notifications enabled");
+    }
+  };
 
   return (
     <div
@@ -38,7 +51,7 @@ export function PushPermissionPrompt({ className }: Props) {
           size="sm"
           className="mt-2 bg-black"
           disabled={loading}
-          onClick={() => void subscribe()}
+          onClick={() => void handleEnable()}
         >
           {loading ? "Enabling…" : "Turn on notifications"}
         </Button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSelector } from "react-redux";
 import { setPushAuthToken } from "@/lib/push-auth-cache";
 import { subscribePushAction } from "@/actions/notifications";
@@ -116,88 +116,150 @@ export type PushPermissionState =
   | "denied"
   | "subscribed";
 
+type PushPermissionSnapshot = {
+  state: PushPermissionState;
+  detecting: boolean;
+  loading: boolean;
+  error: string | null;
+};
+
+const listeners = new Set<() => void>();
+
+let snapshot: PushPermissionSnapshot = {
+  state: "default",
+  detecting: true,
+  loading: false,
+  error: null,
+};
+
+let detectRunId = 0;
+let detectPromise: Promise<void> | null = null;
+
+function emitPushPermissionChange() {
+  for (const listener of listeners) listener();
+}
+
+function setSnapshot(patch: Partial<PushPermissionSnapshot>) {
+  snapshot = { ...snapshot, ...patch };
+  emitPushPermissionChange();
+}
+
+function applySharedState(next: PushPermissionState) {
+  setSnapshot({ state: mergePushState(snapshot.state, next) });
+}
+
+function subscribePushPermissionStore(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+const SERVER_SNAPSHOT: PushPermissionSnapshot = {
+  state: "default",
+  detecting: true,
+  loading: false,
+  error: null,
+};
+
+function getPushPermissionServerSnapshot() {
+  return SERVER_SNAPSHOT;
+}
+
+function getPushPermissionSnapshot() {
+  return snapshot;
+}
+
+async function runPushPermissionDetect(
+  userId: string | undefined,
+  authToken: string | null | undefined
+) {
+  const runId = ++detectRunId;
+  setSnapshot({ detecting: true });
+
+  const next = await resolvePushPermissionState(userId, authToken, {
+    syncToBackend: true,
+  });
+
+  if (runId !== detectRunId) return;
+  applySharedState(next);
+  setSnapshot({ detecting: false });
+}
+
+function schedulePushPermissionDetect(
+  userId: string | undefined,
+  authToken: string | null | undefined
+) {
+  detectPromise = runPushPermissionDetect(userId, authToken).finally(() => {
+    detectPromise = null;
+  });
+  return detectPromise;
+}
+
 export function usePushPermission() {
   const userId = useSelector((s: RootState) => s.auth.user?.id);
   const authToken = useSelector((s: RootState) => s.auth.token);
-  const [state, setState] = useState<PushPermissionState>("default");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const detectRunRef = useRef(0);
-
-  const applyState = useCallback(
-    (next: PushPermissionState | ((prev: PushPermissionState) => PushPermissionState)) => {
-      setState(prev =>
-        mergePushState(
-          prev,
-          typeof next === "function" ? next(prev) : next
-        )
-      );
-    },
-    []
+  const { state, detecting, loading, error } = useSyncExternalStore(
+    subscribePushPermissionStore,
+    getPushPermissionSnapshot,
+    getPushPermissionServerSnapshot
   );
+  const subscribeRunRef = useRef(0);
 
   useEffect(() => {
-    const runId = ++detectRunRef.current;
-    let cancelled = false;
-
-    void (async () => {
-      const next = await resolvePushPermissionState(userId, authToken, {
-        syncToBackend: true,
-      });
-      if (cancelled || runId !== detectRunRef.current) return;
-      applyState(prev => mergePushState(prev, next));
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, authToken, applyState]);
+    setSnapshot({ detecting: true, error: null });
+    void schedulePushPermissionDetect(userId, authToken);
+  }, [userId, authToken]);
 
   const subscribe = useCallback(async () => {
-    detectRunRef.current += 1;
-    setError(null);
+    const runId = ++subscribeRunRef.current;
+    detectRunId += 1;
+    setSnapshot({ error: null });
+
     if (typeof window === "undefined") return false;
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-      applyState("unsupported");
-      setError("Push notifications are not supported on this device.");
+      applySharedState("unsupported");
+      setSnapshot({ error: "Push notifications are not supported on this device." });
       return false;
     }
 
     if (!userId) {
-      setError("Sign in to enable push notifications.");
+      setSnapshot({ error: "Sign in to enable push notifications." });
       return false;
     }
 
-    setLoading(true);
+    setSnapshot({ loading: true });
     try {
       if (authToken) await setPushAuthToken(authToken);
 
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        applyState(permission === "denied" ? "denied" : "default");
-        setError("Notification permission was not granted.");
+        applySharedState(permission === "denied" ? "denied" : "default");
+        setSnapshot({ error: "Notification permission was not granted." });
         return false;
       }
 
       const publicKey = await fetchVapidPublicKey();
       const sub = await getOrCreatePushSubscription(publicKey);
       await persistPushSubscription(sub);
-      applyState("subscribed");
+      if (runId !== subscribeRunRef.current) return true;
+      applySharedState("subscribed");
+      setSnapshot({ detecting: false });
       return true;
     } catch (e) {
       const localSub = await getLocalPushSubscription();
       if (localSub) {
-        // Browser subscription exists; hide prompt and retry backend sync on remount.
-        applyState("subscribed");
+        applySharedState("subscribed");
+        setSnapshot({ detecting: false });
         return true;
       }
       const msg = e instanceof Error ? e.message : "Push subscription failed";
-      setError(msg);
+      setSnapshot({ error: msg });
       return false;
     } finally {
-      setLoading(false);
+      if (runId === subscribeRunRef.current) {
+        setSnapshot({ loading: false });
+      }
     }
-  }, [applyState, authToken, userId]);
+  }, [authToken, userId]);
 
-  return { state, loading, error, subscribe };
+  return { state, detecting, loading, error, subscribe };
 }
