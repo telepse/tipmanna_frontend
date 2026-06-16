@@ -364,7 +364,7 @@ export const CommentDrawer = ({
   const draftActionLabel = pendingDraft.trim() ? "Edit Comment" : "Add Comment";
 
   const sendCommentLabel = pendingDraft.trim()
-    ? `£${commentPreviewTotal} Send comment`
+    ? `Send comment £${commentPreviewTotal}`
     : "Add a comment to send";
 
   const amountRaisedLabel =

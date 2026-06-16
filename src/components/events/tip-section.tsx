@@ -382,7 +382,7 @@ export const TipSection = ({
               className="absolute  -bottom-0.5 left-24 h-0.5 origin-left rounded-full"
             ></span> */}
           </Button>
-          {!paymentCompleted && showEditMessageLink && (
+          {/* {!paymentCompleted && showEditMessageLink && (
             <button
               type="button"
               className="text-primary -mt-1 mb-2 text-xs font-medium underline underline-offset-2 hover:text-black"
@@ -390,7 +390,7 @@ export const TipSection = ({
             >
               Edit message
             </button>
-          )}
+          )} */}
 
           {/* Reward galaxy */}
           <div className="col-span-3 flex flex-row items-center justify-end gap-1 lg:col-span-5 lg:flex-row lg:gap-2">
