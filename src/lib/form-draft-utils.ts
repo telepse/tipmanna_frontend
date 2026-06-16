@@ -8,6 +8,27 @@ type VideoPolicySlice = {
   isOnHostYoutube?: boolean;
 };
 
+type VideoLinkItem = NonNullable<NewEventFormData["videoLinks"]>[number];
+type VideoLinkPayloadItem = Omit<
+  VideoLinkItem,
+  keyof VideoPolicySlice
+>;
+
+const VIDEO_LINK_POLICY_KEYS = [
+  "ownershipAnswer",
+  "coOwnerDraftKey",
+  "onYoutubeChannelSlot",
+  "isOnHostYoutube",
+] as const satisfies readonly (keyof VideoPolicySlice)[];
+
+function stripVideoLinkPolicy(link: VideoLinkItem): VideoLinkPayloadItem {
+  const rest = { ...link };
+  for (const key of VIDEO_LINK_POLICY_KEYS) {
+    delete rest[key];
+  }
+  return rest;
+}
+
 export type FormDraftPolicyJson = {
   videoLinks?: VideoPolicySlice[];
   verifyStatus?: Record<string, "idle" | "checking" | "verified" | "failed">;
@@ -43,16 +64,7 @@ export function splitDraftPayload(payload: NewEventFormData): {
 
   const payloadJson: NewEventFormData = {
     ...payload,
-    videoLinks: videoLinks.map(link => {
-      const {
-        ownershipAnswer: _o,
-        coOwnerDraftKey: _k,
-        onYoutubeChannelSlot: _s,
-        isOnHostYoutube: _y,
-        ...rest
-      } = link;
-      return rest;
-    }),
+    videoLinks: videoLinks.map(stripVideoLinkPolicy),
   };
 
   return {
@@ -126,6 +138,7 @@ export function mergeModalDraftPayload(
   const modal = policy.modal ?? {};
   return {
     title: base.title ?? "",
+    description: base.description ?? "",
     url: base.url ?? "",
     isLive: base.isLive ?? false,
     setReminder: base.setReminder ?? false,

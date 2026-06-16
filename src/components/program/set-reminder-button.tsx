@@ -25,6 +25,7 @@ export function SetReminderButton({
   defaultOffset,
   enforcementId,
   globalEnforcementId,
+  communityId,
 }: {
   programTitle: string;
   scheduledAt: string;
@@ -32,9 +33,10 @@ export function SetReminderButton({
   defaultOffset: number;
   enforcementId?: string;
   globalEnforcementId?: string;
+  communityId?: string;
 }) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
-  
+
   const [open, setOpen] = useState(false);
   const [offset, setOffset] = useState(defaultOffset);
   const [email, setEmail] = useState("");
@@ -55,13 +57,12 @@ export function SetReminderButton({
         title: programTitle,
         body: `${programTitle} starts soon.`,
       };
-      console.log("body", body);
       if (enforcementId) body.enforcementId = enforcementId;
       if (globalEnforcementId) body.globalEnforcementId = globalEnforcementId;
+      if (communityId) body.communityId = communityId;
 
       if (isAuthenticated) {
         const res = await setProgramReminderAction(postId, body);
-        console.log("res", res);
         if (!res.success) {
           throw new Error(res.message ?? "Failed to set reminder");
         }
@@ -111,10 +112,11 @@ export function SetReminderButton({
   }
 
   return (
-    <div className="relative rounded-lg border p-3 shadow-lg">
+    <div className="relative rounded-lg border">
       <Button
         type="button"
         variant="outline"
+        className="bg-primary text-white"
         size="sm"
         onClick={() => setOpen(v => !v)}
       >
@@ -122,7 +124,7 @@ export function SetReminderButton({
         Set reminder
       </Button>
       {open ? (
-        <div className="bg-background overflow absolute bottom-full left-0 z-[100030000] mt-2 w-72 rounded-lg border p-3 shadow-lg">
+        <div className="absolute bottom-full left-0 z-[100030000] mt-2 max-h-[320px] w-72 overflow-y-auto rounded-lg border bg-white p-3 shadow-lg">
           <p className="mb-2 text-sm font-medium">Remind me</p>
           <div className="space-y-1">
             {offsetOptions.map(min => (
