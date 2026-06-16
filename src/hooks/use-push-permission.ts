@@ -19,6 +19,50 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return out;
 }
 
+async function fetchVapidPublicKey(): Promise<string> {
+  const vapidRes = await fetch(
+    `${apiBase()}/notifications/push/vapid-public-key`
+  );
+  if (!vapidRes.ok) {
+    throw new Error("Could not load push configuration");
+  }
+  const { publicKey } = (await vapidRes.json()) as { publicKey?: string };
+  if (!publicKey) {
+    throw new Error("Push is not configured on the server");
+  }
+  return publicKey;
+}
+
+async function persistPushSubscription(sub: PushSubscription): Promise<void> {
+  const json = sub.toJSON();
+  const subscribeRes = await subscribePushAction({
+    endpoint: json.endpoint,
+    keys: json.keys,
+    userAgent: navigator.userAgent,
+  });
+  if (!subscribeRes.success) {
+    throw new Error(
+      subscribeRes.message || "Failed to register push subscription"
+    );
+  }
+}
+
+async function getOrCreatePushSubscription(
+  publicKey: string
+): Promise<PushSubscription> {
+  const registration = await navigator.serviceWorker.ready;
+  const existing = await registration.pushManager.getSubscription();
+  if (existing) return existing;
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as
+      | string
+      | BufferSource
+      | null
+      | undefined,
+  });
+}
+
 export type PushPermissionState =
   | "unsupported"
   | "default"
@@ -33,17 +77,69 @@ export function usePushPermission() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const syncPushSubscription = useCallback(
+    async (opts?: { silent?: boolean }): Promise<boolean> => {
+      if (typeof window === "undefined") return false;
+      if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+        return false;
+      }
+      if (!userId || !authToken) return false;
+      if (Notification.permission !== "granted") return false;
+
+      try {
+        await setPushAuthToken(authToken);
+        const registration = await navigator.serviceWorker.ready;
+        const existing = await registration.pushManager.getSubscription();
+        if (!existing) return false;
+
+        await persistPushSubscription(existing);
+        setState("subscribed");
+        return true;
+      } catch (e) {
+        if (!opts?.silent) {
+          const msg =
+            e instanceof Error ? e.message : "Push subscription failed";
+          setError(msg);
+        }
+        return false;
+      }
+    },
+    [authToken, userId]
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
       setState("unsupported");
       return;
     }
+
     const perm = Notification.permission;
-    if (perm === "granted") setState("granted");
-    else if (perm === "denied") setState("denied");
-    else setState("default");
-  }, []);
+    if (perm === "denied") {
+      setState("denied");
+      return;
+    }
+    if (perm === "default") {
+      setState("default");
+      return;
+    }
+
+    if (!userId || !authToken) {
+      setState("granted");
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const ok = await syncPushSubscription({ silent: true });
+      if (cancelled) return;
+      setState(ok ? "subscribed" : "granted");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, authToken, syncPushSubscription]);
 
   const subscribe = useCallback(async () => {
     setError(null);
@@ -70,43 +166,9 @@ export function usePushPermission() {
         return false;
       }
 
-      const vapidRes = await fetch(
-        `${apiBase()}/notifications/push/vapid-public-key`
-      );
-      if (!vapidRes.ok) {
-        throw new Error("Could not load push configuration");
-      }
-      const { publicKey } = (await vapidRes.json()) as { publicKey?: string };
-      if (!publicKey) {
-        throw new Error("Push is not configured on the server");
-      }
-
-      const registration = await navigator.serviceWorker.ready;
-      const existing = await registration.pushManager.getSubscription();
-      const sub =
-        existing ??
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as
-            | string
-            | BufferSource
-            | null
-            | undefined,
-        }));
-
-      const json = sub.toJSON();
-      const subscribeRes = await subscribePushAction({
-        endpoint: json.endpoint,
-        keys: json.keys,
-        userAgent: navigator.userAgent,
-      });
-
-      if (!subscribeRes.success) {
-        throw new Error(
-          subscribeRes.message || "Failed to register push subscription"
-        );
-      }
-
+      const publicKey = await fetchVapidPublicKey();
+      const sub = await getOrCreatePushSubscription(publicKey);
+      await persistPushSubscription(sub);
       setState("subscribed");
       return true;
     } catch (e) {

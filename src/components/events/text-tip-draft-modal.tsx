@@ -73,7 +73,7 @@ export function TextTipDraftModal({
         </p>
 
         <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          {onRemove ? (
+          {/* {onRemove ? (
             <Button
               type="button"
               variant="destructive"
@@ -85,7 +85,7 @@ export function TextTipDraftModal({
             >
               Remove text tip
             </Button>
-          ) : null}
+          ) : null} */}
           <Button
             type="button"
             variant="outline"

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
@@ -130,6 +130,7 @@ import { TipsDrawer } from "./tips-drawer";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { mergeTipPriceCatalog } from "@/lib/tip-text-selection";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
 
 interface Props {
@@ -182,6 +183,16 @@ export const ChannelClient = ({
   });
   const tipStrip = tipPres.strip;
   const tipSets = baseTipSets;
+  const tipPriceCatalog = useMemo(
+    () =>
+      mergeTipPriceCatalog(
+        tipPres.catalog as RoomCharacter[],
+        ...baseTipSets.map((set: { characters?: RoomCharacter[] }) =>
+          Array.isArray(set.characters) ? set.characters : []
+        )
+      ),
+    [tipPres.catalog, baseTipSets]
+  );
 
   const videoRef = useRef<VideoPlayerRef>(null);
   const baseList = Array.isArray(initialContents) ? initialContents : [];
@@ -1241,7 +1252,7 @@ export const ChannelClient = ({
               }
               numOfTips={liveNumOfTips}
               amountRaised={showRaisedAmount ? Number(liveAmountRaised) : null}
-              tippingCharacters={tipStrip as RoomCharacter[]}
+              tippingCharacters={tipPriceCatalog}
               onContinueToTip={() => setIsTipDrawerOpen(true)}
               hostName={currentContent?.event?.hostName}
             />

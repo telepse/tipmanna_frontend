@@ -13,6 +13,8 @@ import {
   isTextCharacterId,
   notifyTextTipDraftSync,
   clearTextTipDraftStorage,
+  resolveTextTipUnitPrice,
+  sumSelectedTipCartTotal,
 } from "@/lib/tip-text-selection";
 import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
 import {
@@ -94,29 +96,28 @@ export const CommentDrawer = ({
   const [reportOther, setReportOther] = useState("");
   const [likeBusyId, setLikeBusyId] = useState<string | null>(null);
 
-  const textTipUnitPrice = useMemo(() => {
-    const textChar = tippingCharacters?.find(c => isTextCharacterId(c.id));
-    return typeof textChar?.price === "number" &&
-      Number.isFinite(textChar.price)
-      ? textChar.price
-      : 5;
-  }, [tippingCharacters]);
+  const tipPriceCatalog = useMemo(
+    () => tippingCharacters ?? [],
+    [tippingCharacters]
+  );
+
+  const textTipUnitPrice = useMemo(
+    () => resolveTextTipUnitPrice(tipPriceCatalog),
+    [tipPriceCatalog]
+  );
 
   const commentPreviewTotal = useMemo(() => {
-    const fromCart = tipsForTotals.reduce((acc, characterName) => {
-      if (characterName === "Comment") {
-        return acc + textTipUnitPrice;
-      }
-      const character = tippingCharacters?.find(c => c.name === characterName);
-      return acc + (character?.price ?? 0);
-    }, 0);
+    const cartForTotal =
+      pendingDraft.trim() && !tipsForTotals.includes("Comment")
+        ? ensureSingleTextInCart([...tipsForTotals, "Comment"])
+        : tipsForTotals;
 
-    if (pendingDraft.trim() && !tipsForTotals.includes("Comment")) {
-      return fromCart + textTipUnitPrice;
-    }
-
-    return fromCart;
-  }, [tipsForTotals, tippingCharacters, textTipUnitPrice, pendingDraft]);
+    return sumSelectedTipCartTotal(
+      cartForTotal,
+      tipPriceCatalog,
+      textTipUnitPrice
+    );
+  }, [tipsForTotals, tipPriceCatalog, textTipUnitPrice, pendingDraft]);
 
   useEffect(() => {
     if (commentPreviewTotal > 0) {
@@ -132,6 +133,18 @@ export const CommentDrawer = ({
   useEffect(() => {
     setPendingDraft("");
   }, [channelId]);
+
+  useEffect(() => {
+    if (!isCommentDrawerOpen) return;
+    try {
+      const fromStorage = localStorage.getItem("textTipValue") ?? "";
+      if (fromStorage.trim()) {
+        setPendingDraft(prev => (prev.trim() ? prev : fromStorage));
+      }
+    } catch {
+      /* quota / private mode */
+    }
+  }, [isCommentDrawerOpen]);
 
   useEffect(() => {
     if (!isCommentDrawerOpen || !eventId?.trim() || !channelId?.trim()) {
@@ -308,7 +321,19 @@ export const CommentDrawer = ({
   };
 
   const saveDraftModal = () => {
-    setPendingDraft(modalDraft);
+    const text = modalDraft.trim();
+    if (!text) return;
+
+    setPendingDraft(text);
+    try {
+      localStorage.setItem("textTipValue", text);
+    } catch {
+      /* quota / private mode */
+    }
+    notifyTextTipDraftSync();
+    dispatch(
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
+    );
     setDraftModalOpen(false);
   };
 
@@ -326,12 +351,18 @@ export const CommentDrawer = ({
       localStorage.setItem("textTipValue", text);
       notifyTextTipDraftSync();
     }
-    dispatch(setSelectedTips(ensureSingleTextInCart(["Comment"])));
+    dispatch(
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
+    );
     setIsCommentDrawerOpen(false);
     onContinueToTip?.();
   };
 
   const draftActionLabel = pendingDraft.trim() ? "Edit Comment" : "Add Comment";
+
+  const sendCommentLabel = pendingDraft.trim()
+    ? `£${commentPreviewTotal} Send comment`
+    : "Add a comment to send";
 
   const amountRaisedLabel =
     typeof amountRaised === "number" && Number.isFinite(amountRaised)
@@ -540,9 +571,7 @@ export const CommentDrawer = ({
                 onClick={handlePay}
                 disabled={!pendingDraft.trim()}
               >
-                {commentPreviewTotal > 0
-                  ? `£${commentPreviewTotal} Send comment`
-                  : "Add a comment to send"}
+                {sendCommentLabel}
               </Button>
 
               <button

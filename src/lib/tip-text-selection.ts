@@ -65,6 +65,52 @@ export function tipCartNameForCharacter(character: {
   return isTextCharacterId(character.id) ? "Comment" : character.name;
 }
 
+/** Unit price for the text / paid-comment character. */
+export function resolveTextTipUnitPrice(
+  catalog: Array<{ id: string; price?: number | null }>,
+  fallback = 5
+): number {
+  const textChar = catalog.find(c => isTextCharacterId(c.id));
+  const price = textChar?.price;
+  return typeof price === "number" && Number.isFinite(price) && price > 0
+    ? price
+    : fallback;
+}
+
+/** Sum cart line prices (Comment counts once; other names may repeat for quantity). */
+export function sumSelectedTipCartTotal(
+  cartNames: string[],
+  catalog: Array<{ id: string; name: string; price?: number | null }>,
+  textUnitPrice?: number
+): number {
+  const normalized = ensureSingleTextInCart(cartNames);
+  const unit = textUnitPrice ?? resolveTextTipUnitPrice(catalog);
+  const byName = new Map(catalog.map(c => [c.name, c]));
+
+  return normalized.reduce((acc, characterName) => {
+    if (characterName === "Comment") {
+      return acc + unit;
+    }
+    const character = byName.get(characterName);
+    return acc + (character?.price ?? 0);
+  }, 0);
+}
+
+/** Merge character lists for cart price lookup (first source wins per id). */
+export function mergeTipPriceCatalog<
+  T extends { id: string; name: string; price?: number | null },
+>(...sources: Array<T[] | undefined>): T[] {
+  const byId = new Map<string, T>();
+  for (const source of sources) {
+    for (const character of source ?? []) {
+      if (character?.id && !byId.has(character.id)) {
+        byId.set(character.id, character);
+      }
+    }
+  }
+  return [...byId.values()];
+}
+
 /**
  * Tip section strip: Comment/text first, no duplicate comment rows.
  */
