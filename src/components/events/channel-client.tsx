@@ -110,6 +110,7 @@ import { cn } from "@/lib/utils";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import {
   ImmersiveMediaTopBar,
@@ -793,7 +794,14 @@ export const ChannelClient = ({
           )}
         </>
       ) : (
-        <MobileLandscapeCloseButton />
+        <MobileLandscapeCloseButton
+          onClose={() =>
+            runPortraitAlignedMobileLandscapeClose(router, {
+              isFullView,
+              exitFull,
+            })
+          }
+        />
       )}
 
       <div

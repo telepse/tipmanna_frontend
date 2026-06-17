@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { cn } from "@/lib/utils";
 import type { ImmersiveLayoutMode } from "@/lib/youtube-immersive-meta";
 
@@ -22,10 +23,13 @@ export function MobileLandscapeCloseButton({
   return (
     <button
       type="button"
-      onClick={onClose ?? (() => router.back())}
+      onClick={
+        onClose ??
+        (() => runPortraitAlignedMobileLandscapeClose(router))
+      }
       aria-label="Close"
       className={cn(
-        "fixed z-[1200] rounded-md p-2 text-white hover:bg-white/10",
+        "pointer-events-auto fixed z-[2000] rounded-md p-2 text-white touch-manipulation hover:bg-white/10",
         "top-[max(0.5rem,env(safe-area-inset-top,0px))]",
         "right-[max(0.5rem,env(safe-area-inset-right,0px))]",
         className

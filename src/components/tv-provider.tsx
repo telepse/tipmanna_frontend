@@ -12,6 +12,7 @@ import { TvPlayerRef } from "@/components/tv/tv-player";
 import {
   resolveBroadcastPosition,
   type BroadcastPosition,
+  type ScheduleItem,
 } from "@/lib/tv/broadcastEngine";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { logTV } from "@/lib/tvDebugLog";
@@ -44,6 +45,10 @@ import {
   collectTvScheduleEventIds,
   prefetchTvEventCatalogs,
 } from "@/lib/tv-event-catalog-cache";
+import {
+  fetchCommunityProgramBootstrap,
+  fetchGlobalProgramBootstrap,
+} from "@/lib/program-api";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -109,6 +114,20 @@ const SESSION_LOCAL_INDEX_KEY = "tv-local-index";
 const RETRY_DELAYS_MS = [10_000, 30_000, 60_000] as const;
 const MAX_SCHEDULE_RETRIES = 10;
 
+function isEnforcementScheduleItem(
+  item: ScheduleItem | null | undefined,
+  enforcementId: string
+): item is ScheduleItem & {
+  segmentKind: "enforcement";
+  enforcementId: string;
+} {
+  return Boolean(
+    item &&
+      item.segmentKind === "enforcement" &&
+      item.enforcementId === enforcementId
+  );
+}
+
 export type LastLivePosition = Pick<
   BroadcastPosition,
   "scheduleIndex" | "offsetSeconds" | "loopPosition" | "totalDuration"
@@ -168,6 +187,11 @@ type TVContextType = {
   previewPinIndex: number;
   /** Play a schedule row by item (Batch A row or Batch B row); maps to index when in active batch */
   playLocalScheduleItem: (item: any) => void;
+  /** Deep link from reminder email: play enforced program/video on TV. */
+  playEnforcementProgram: (
+    enforcementId: string,
+    communityId?: string | null
+  ) => Promise<void>;
 
   /** When playing a video not in active `items`, UI uses this for title/thumbnail */
   playingItemOverride: any | null;
@@ -282,6 +306,12 @@ export default function GlobalTVProvider({
   const activeScheduleIdRef = useRef<string | null>(null);
   const currentIndexRef = useRef(0);
   const modeRef = useRef<"GLOBAL" | "LOCAL">("GLOBAL");
+  const enforcementPlaybackQueueRef = useRef<any[] | null>(null);
+  const enforcementPlaybackIndexRef = useRef(0);
+  const pendingEnforcementPlaybackRef = useRef<{
+    item: any;
+    offsetSeconds: number;
+  } | null>(null);
 
   const paymentActiveRef = useRef(false);
   const paymentSnapshotRef = useRef<TvPaymentPlaybackSnapshot | null>(null);
@@ -336,6 +366,8 @@ export default function GlobalTVProvider({
     setLocalModeReason(null);
     setPlayingItemOverride(null);
     setSchedulePlayingSlot(null);
+    enforcementPlaybackQueueRef.current = null;
+    pendingEnforcementPlaybackRef.current = null;
     setCurrentIndex(0);
     currentIndexRef.current = 0;
     setLiveBroadcastIndex(0);
@@ -838,6 +870,8 @@ export default function GlobalTVProvider({
     setLocalModeReason(null);
     setPlayingItemOverride(null);
     setSchedulePlayingSlot(null);
+    enforcementPlaybackQueueRef.current = null;
+    pendingEnforcementPlaybackRef.current = null;
     setMode("GLOBAL");
     modeRef.current = "GLOBAL";
     lastSyncedIndex.current = -1;
@@ -942,8 +976,129 @@ export default function GlobalTVProvider({
     [items, alternateBatchItems, enterLocalMode, playLocalFromSchedule]
   );
 
+  const loadEnforcementPlayerItem = useCallback(
+    (item: any, offsetSeconds = 0) => {
+      if (!item?.channel?.url) return false;
+      const player = playerRef.current;
+      if (!player || !player.isReady()) {
+        pendingEnforcementPlaybackRef.current = { item, offsetSeconds };
+        return false;
+      }
+      pendingEnforcementPlaybackRef.current = null;
+      const videoId = extractYoutubeID(item.channel.url);
+      if (!videoId) return false;
+      player.load(videoId, offsetSeconds);
+      return true;
+    },
+    []
+  );
+
+  const playEnforcementProgram = useCallback(
+    async (enforcementId: string, communityId?: string | null) => {
+      const enfId = enforcementId.trim();
+      if (!enfId) return;
+
+      enforcementPlaybackQueueRef.current = null;
+
+      if (
+        modeRef.current === "GLOBAL" &&
+        broadcastEpoch &&
+        items.length &&
+        totalDuration
+      ) {
+        const pos = resolveBroadcastPosition(
+          items,
+          broadcastEpoch,
+          totalDuration,
+          getNow()
+        );
+        const liveItem = pos.item;
+        if (isEnforcementScheduleItem(liveItem, enfId)) {
+          loadLocalAtIndex(pos.scheduleIndex, {
+            source: "schedule",
+            updatePreviewPin: false,
+          });
+          loadEnforcementPlayerItem(liveItem, pos.offsetSeconds);
+          return;
+        }
+      }
+
+      const scheduleIdx = items.findIndex(
+        (i: ScheduleItem) => isEnforcementScheduleItem(i, enfId)
+      );
+      if (scheduleIdx >= 0) {
+        playLocalFromSchedule(scheduleIdx);
+        return;
+      }
+
+      const program = communityId?.trim()
+        ? await fetchCommunityProgramBootstrap(communityId.trim(), enfId)
+        : await fetchGlobalProgramBootstrap(enfId);
+      if (!program?.items?.length) return;
+
+      const queue = program.items
+        .filter(item => item.contentUrl)
+        .map((item, position) => ({
+          id: `enf-bootstrap:${item.id}`,
+          duration: item.durationSec,
+          position,
+          segmentKind: "enforcement" as const,
+          enforcementId: program.id,
+          blockTitle: program.title,
+          channel: {
+            id: item.channelId,
+            url: item.contentUrl!,
+            title: item.title,
+            hostName: "",
+            username: "",
+            numOfTips: 0,
+            eventType: "video",
+            eventId: item.eventId,
+            organizationName: null,
+          },
+          defaultChannelEventId: item.eventId,
+        }));
+      if (!queue.length) return;
+
+      enforcementPlaybackQueueRef.current = queue;
+      enforcementPlaybackIndexRef.current = 0;
+      setPlayingItemOverride(queue[0]);
+      setSchedulePlayingSlot({ scope: "alternate", rowIndex: 0 });
+      const anchor = liveBroadcastIndexRef.current;
+      enterLocalMode("enforcement_deep_link", anchor);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(SESSION_LOCAL_INDEX_KEY, String(anchor));
+      }
+      loadEnforcementPlayerItem(queue[0], 0);
+    },
+    [
+      broadcastEpoch,
+      items,
+      totalDuration,
+      getNow,
+      loadLocalAtIndex,
+      playLocalFromSchedule,
+      enterLocalMode,
+      loadEnforcementPlayerItem,
+    ]
+  );
+
   const onVideoEnd = useCallback(() => {
     if (paymentActiveRef.current) return;
+
+    const queue = enforcementPlaybackQueueRef.current;
+    if (queue && modeRef.current !== "GLOBAL") {
+      const nextIdx = enforcementPlaybackIndexRef.current + 1;
+      if (nextIdx < queue.length) {
+        enforcementPlaybackIndexRef.current = nextIdx;
+        const item = queue[nextIdx];
+        setPlayingItemOverride(item);
+        setSchedulePlayingSlot({ scope: "alternate", rowIndex: nextIdx });
+        loadEnforcementPlayerItem(item, 0);
+        return;
+      }
+      enforcementPlaybackQueueRef.current = null;
+    }
 
     if (modeRef.current !== "GLOBAL") {
       const len = items.length;
@@ -957,7 +1112,13 @@ export default function GlobalTVProvider({
     }
 
     syncToLive();
-  }, [items.length, playLocal, syncToLive]);
+  }, [items.length, playLocal, syncToLive, loadEnforcementPlayerItem]);
+
+  useEffect(() => {
+    const pending = pendingEnforcementPlaybackRef.current;
+    if (!pending) return;
+    loadEnforcementPlayerItem(pending.item, pending.offsetSeconds);
+  }, [isReady, playingItemOverride, loadEnforcementPlayerItem]);
 
   const onPlayerPause = useCallback(() => {
     if (paymentActiveRef.current) return;
@@ -1254,6 +1415,7 @@ export default function GlobalTVProvider({
         playLocalFromSchedule,
         previewPinIndex,
         playLocalScheduleItem,
+        playEnforcementProgram,
         playingItemOverride,
         schedulePlayingSlot,
 

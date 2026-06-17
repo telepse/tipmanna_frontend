@@ -13,7 +13,6 @@ import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { TvSourceDropdown } from "./tv-source-dropdown";
 import { useRouter } from "next/navigation";
 import { useMediaQuery } from "react-responsive";
-import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-shell";
 
 interface Props {
   active_users: number;
@@ -40,7 +39,6 @@ function TvNavbarSourceDropdown() {
 
 export const TVNavbar = ({ active_users }: Props) => {
   const [openPopup, setOpenPopup] = useState(false);
-
   const router = useRouter();
 
   const handleExplore = () => {
@@ -51,12 +49,11 @@ export const TVNavbar = ({ active_users }: Props) => {
     useMediaQuery({ query: "(orientation: landscape)" }) &&
     window.innerWidth <= 768;
 
+  if (isMobileLandscape) return null;
+
   return (
     <div className="relative">
-      {isMobileLandscape ? (
-        <MobileLandscapeCloseButton />
-      ) : (
-        <div className="fixed top-0 right-0 left-0 z-10 flex w-full items-center justify-between gap-4 border-b border-gray-200 bg-white p-4">
+      <div className="fixed top-0 right-0 left-0 z-10 flex w-full items-center justify-between gap-4 border-b border-gray-200 bg-white p-4">
           {/* Menu icon and logo */}
           <div className="flex items-center gap-2">
             <Menu className="hidden lg:block" />
@@ -120,7 +117,6 @@ export const TVNavbar = ({ active_users }: Props) => {
             setOpenPopup={setOpenPopup}
           />
         </div>
-      )}
     </div>
   );
 };

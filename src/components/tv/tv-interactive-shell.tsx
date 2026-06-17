@@ -3,6 +3,7 @@
 
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -43,6 +44,8 @@ import { cn } from "@/lib/utils";
 import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
+import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-shell";
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -190,6 +193,13 @@ export function TvInteractiveShell({
   const isMobileLandscape =
     useMediaQuery({ query: "(orientation: landscape)" }) &&
     window.innerWidth <= 768;
+
+  const router = useRouter();
+
+  const handleMobileLandscapeClose = () => {
+    setIsMobileFullView(false);
+    runPortraitAlignedMobileLandscapeClose(router);
+  };
 
   return (
     <>
@@ -641,8 +651,10 @@ export function TvInteractiveShell({
       )}
 
       {isMobileLandscape && (
-        <div className="relative z-[999] h-full w-full bg-black text-white">
-          <WebTvLooper
+        <>
+          <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
+          <div className="relative z-[999] h-full w-full bg-black text-white">
+            <WebTvLooper
             characters={characters}
             playerLayout="wide"
             analyticsSurface={tvAnalyticsSurface}
@@ -663,7 +675,8 @@ export function TvInteractiveShell({
                 : ""
             }
           />
-        </div>
+          </div>
+        </>
       )}
 
       <TVScheduleDrawer

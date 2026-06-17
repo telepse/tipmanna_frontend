@@ -109,6 +109,7 @@ import {
 } from "@/lib/public-video-url";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import {
   ImmersiveMediaTopBar,
@@ -815,7 +816,14 @@ export const ContentClient = ({
           )}
         </>
       ) : (
-        <MobileLandscapeCloseButton />
+        <MobileLandscapeCloseButton
+          onClose={() =>
+            runPortraitAlignedMobileLandscapeClose(router, {
+              isFullView,
+              exitFull,
+            })
+          }
+        />
       )}
 
       <div

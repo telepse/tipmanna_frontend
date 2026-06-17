@@ -71,6 +71,7 @@ import {
   prefetchTvEventCatalogs,
   type TvEventCatalog,
 } from "@/lib/tv-event-catalog-cache";
+import { useTvEnforcementDeepLink } from "@/hooks/use-tv-enforcement-deep-link";
 
 interface Character {
   id: string;
@@ -145,6 +146,7 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
     playingItemOverride,
     selectedTag,
     scheduleSourceCommunityId,
+    playEnforcementProgram,
   } = useTV();
 
   const {
@@ -164,6 +166,13 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
   }, []);
 
   const isMobile = useMediaQuery({ maxWidth: "500px" });
+
+  useTvEnforcementDeepLink({
+    tvReady,
+    itemsLength: items.length,
+    scheduleSourceCommunityId,
+    playEnforcementProgram,
+  });
 
   useEffect(() => {
     if (!isMobile) return;
