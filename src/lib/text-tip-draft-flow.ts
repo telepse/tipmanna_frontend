@@ -29,7 +29,9 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
     drawerTintRoot,
   } = options;
 
-  if (!character.styleName) {
+  const styleName = character.styleName?.trim() || "Screen Shake";
+  const iconUrl = character.iconUrl?.trim();
+  if (!iconUrl) {
     openDraftModal();
     return () => {};
   }
@@ -44,8 +46,8 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
         createAnimationFromStyle(
           {
             name: character.name,
-            iconUrl: character.iconUrl,
-            styleName: character.styleName || "",
+            iconUrl,
+            styleName,
           },
           "preview"
         ),

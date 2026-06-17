@@ -10,8 +10,8 @@ import type { RootState } from "@/redux/store";
 import type { RoomCharacter } from "@/types";
 import {
   ensureSingleTextInCart,
-  isTextCharacterId,
   notifyTextTipDraftSync,
+  resolveCommentPreviewCharacter,
   clearTextTipDraftStorage,
   resolveTextTipUnitPrice,
   sumSelectedTipCartTotal,
@@ -95,6 +95,7 @@ export const CommentDrawer = ({
   const [reportOther, setReportOther] = useState("");
   const [likeBusyId, setLikeBusyId] = useState<string | null>(null);
   const cancelTextPreviewRef = useRef<(() => void) | null>(null);
+  const drawerShellRef = useRef<HTMLDivElement | null>(null);
 
   const tipPriceCatalog = useMemo(
     () => tippingCharacters ?? [],
@@ -298,10 +299,7 @@ export const CommentDrawer = ({
       return;
     }
 
-    const chars = tippingCharacters;
-    const character =
-      chars?.find(c => isTextCharacterId(c.id)) ??
-      chars?.find(c => c.name === "Comment");
+    const character = resolveCommentPreviewCharacter(tippingCharacters);
     if (!character) {
       openDraftModalOnly();
       return;
@@ -310,9 +308,10 @@ export const CommentDrawer = ({
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
       character,
-      tippingCharacters: chars ?? [],
+      tippingCharacters: tippingCharacters ?? [],
       tipsForTotals,
       openDraftModal: openDraftModalOnly,
+      drawerTintRoot: drawerShellRef.current,
     });
   };
 
@@ -394,6 +393,7 @@ export const CommentDrawer = ({
         onOpenChange={setIsCommentDrawerOpen}
       >
         <DrawerContent
+          ref={drawerShellRef}
           className={`${DRAWER_Z_INDEX} flex h-[72vh] flex-col overflow-hidden rounded-t-[32px] bg-white p-0`}
         >
           {/* Top Bar */}

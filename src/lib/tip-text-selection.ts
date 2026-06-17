@@ -27,6 +27,35 @@ export function isTextCharacterId(characterId: unknown): boolean {
   return String(characterId).trim() === env;
 }
 
+/** Cart uses "Comment"; catalog often uses "Add Comment". */
+export function isTextTipCharacterName(name: string): boolean {
+  const normalized = name.trim();
+  return normalized === "Comment" || normalized === "Add Comment";
+}
+
+/** Resolve the paid-comment character for preview animations. */
+export function resolveCommentPreviewCharacter(
+  catalog?: Array<{
+    id: string;
+    name: string;
+    iconUrl?: string | null;
+    styleName?: string | null;
+  }>
+): { name: string; iconUrl: string; styleName: string } | null {
+  if (!catalog?.length) return null;
+
+  const match =
+    catalog.find(c => isTextCharacterId(c.id)) ??
+    catalog.find(c => isTextTipCharacterName(c.name));
+  if (!match?.iconUrl?.trim()) return null;
+
+  return {
+    name: match.name,
+    iconUrl: match.iconUrl.trim(),
+    styleName: match.styleName?.trim() || "Screen Shake",
+  };
+}
+
 /**
  * At most one `"Comment"` entry (other tip names may repeat for quantity).
  */
