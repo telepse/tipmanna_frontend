@@ -141,7 +141,7 @@ export function TipsFeedPanel({
           </div>
 
           <p className="text-muted-foreground ml-auto text-[10px]">
-            {formatUtcTime(row.purchasedAt)}
+            {row.purchasedAt}
           </p>
         </li>
       ))}
