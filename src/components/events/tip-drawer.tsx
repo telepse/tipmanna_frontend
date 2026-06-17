@@ -65,6 +65,7 @@ import {
   isTextCharacterId,
   notifyTextTipDraftSync,
   clearTextTipDraftStorage,
+  resolveCommentPreviewCharacter,
   textCharacterIdFromEnv,
   tipCartNameForCharacter,
 } from "@/lib/tip-text-selection";
@@ -388,7 +389,7 @@ export const TipDrawer = ({
     }
   }, [open, selectedTips]);
 
-  const openTextDraftModal = () => {
+  const openTextDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
     stopPreview();
@@ -402,6 +403,34 @@ export const TipDrawer = ({
       setTextDraftInput("");
     }
     setTextDraftModalOpen(true);
+  };
+
+  const openTextDraftModal = () => {
+    let existingDraft = "";
+    try {
+      existingDraft = (localStorage.getItem("textTipValue") ?? "").trim();
+    } catch {
+      /* ignore */
+    }
+    if (existingDraft || tipsForTotals.includes("Comment")) {
+      openTextDraftModalOnly();
+      return;
+    }
+
+    const character = resolveCommentPreviewCharacter(tippingCharacters);
+    if (!character) {
+      openTextDraftModalOnly();
+      return;
+    }
+
+    cancelTextPreviewRef.current?.();
+    cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
+      character,
+      tippingCharacters,
+      tipsForTotals,
+      openDraftModal: openTextDraftModalOnly,
+      drawerTintRoot: drawerShellRef.current,
+    });
   };
 
   const saveTextDraftModal = () => {
@@ -424,23 +453,7 @@ export const TipDrawer = ({
     // Text Tip — preview animation, then modal (edit skips preview).
     // ─────────────────────────────
     if (isTextCharacterId(characterId)) {
-      if (tipsForTotals.includes("Comment")) {
-        openTextDraftModal();
-        return;
-      }
-      const character = tippingCharacters.find(c => isTextCharacterId(c.id));
-      if (!character) {
-        openTextDraftModal();
-        return;
-      }
-      cancelTextPreviewRef.current?.();
-      cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
-        character,
-        tippingCharacters,
-        tipsForTotals,
-        openDraftModal: openTextDraftModal,
-        drawerTintRoot: drawerShellRef.current,
-      });
+      openTextDraftModal();
       return;
     }
 
@@ -1216,7 +1229,7 @@ export const TipDrawer = ({
         value={textDraftInput}
         onChange={setTextDraftInput}
         onSave={saveTextDraftModal}
-        stackOnTop={stackAboveImmersive}
+        stackOnTop
       />
 
       <TipperWalletDialog

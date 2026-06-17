@@ -34,9 +34,8 @@ import {
   DialogHeader,
   DialogContent,
   DialogTitle,
-  DialogFooter,
 } from "../ui/dialog";
-import { Textarea } from "../ui/textarea";
+import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
 import type { PaymentSurface } from "@/lib/analytics-types";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import {
@@ -44,7 +43,7 @@ import {
   ensureSingleTextInCart,
   isTextCharacterId,
   notifyTextTipDraftSync,
-  clearTextTipDraftStorage,
+  resolveCommentPreviewCharacter,
   tipCartNameForCharacter,
 } from "@/lib/tip-text-selection";
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
@@ -141,18 +140,7 @@ export const TipSection = ({
     [tippingCharacters]
   );
 
-  const cancelTextDraft = () => {
-    cancelTextPreviewRef.current?.();
-    cancelTextPreviewRef.current = null;
-    stopPreview();
-    clearTextTipDraftStorage();
-    notifyTextTipDraftSync();
-    dispatch(setSelectedTips([]));
-    setTextDraftModalOpen(false);
-    setTextDraftInput("");
-  };
-
-  const openTextDraftModal = () => {
+  const openTextDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
     stopPreview();
@@ -166,6 +154,33 @@ export const TipSection = ({
       setTextDraftInput("");
     }
     setTextDraftModalOpen(true);
+  };
+
+  const openTextDraftModal = () => {
+    let existingDraft = "";
+    try {
+      existingDraft = (localStorage.getItem("textTipValue") ?? "").trim();
+    } catch {
+      /* ignore */
+    }
+    if (existingDraft || tipsForTotals.includes("Comment")) {
+      openTextDraftModalOnly();
+      return;
+    }
+
+    const character = resolveCommentPreviewCharacter(tippingCharacters);
+    if (!character) {
+      openTextDraftModalOnly();
+      return;
+    }
+
+    cancelTextPreviewRef.current?.();
+    cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
+      character,
+      tippingCharacters,
+      tipsForTotals,
+      openDraftModal: openTextDraftModalOnly,
+    });
   };
 
   const saveTextDraftModal = () => {
@@ -186,22 +201,7 @@ export const TipSection = ({
     // Text Tip — preview animation, then modal; max one Text in cart on save.
     // ─────────────────────────────
     if (isTextCharacterId(characterId)) {
-      if (tipsForTotals.includes("Comment")) {
-        openTextDraftModal();
-        return;
-      }
-      const character = tippingCharacters.find(c => isTextCharacterId(c.id));
-      if (!character) {
-        openTextDraftModal();
-        return;
-      }
-      cancelTextPreviewRef.current?.();
-      cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
-        character,
-        tippingCharacters,
-        tipsForTotals,
-        openDraftModal: openTextDraftModal,
-      });
+      openTextDraftModal();
       return;
     }
 
@@ -431,16 +431,7 @@ export const TipSection = ({
                   key={character.id}
                   onClick={
                     !paymentCompleted
-                      ? () => {
-                          if (
-                            isTextCharacter &&
-                            tipsForTotals.includes("Comment")
-                          ) {
-                            openTextDraftModal();
-                            return;
-                          }
-                          makeTipSelection(character.id);
-                        }
+                      ? () => makeTipSelection(character.id)
                       : undefined
                   }
                   className={`hide__scrollbar relative flex size-16! w-full cursor-pointer flex-col items-center justify-center rounded-lg border transition-all hover:bg-gray-50 ${
@@ -595,54 +586,14 @@ export const TipSection = ({
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <TextTipDraftModal
         open={textDraftModalOpen}
-        onOpenChange={open => {
-          if (!open) cancelTextDraft();
-          else setTextDraftModalOpen(true);
-        }}
-      >
-        <DialogContent
-          overlayClassName="bg-black/60"
-          className="max-w-[min(100%,380px)] rounded-md bg-white p-6 sm:max-w-md"
-        >
-          <DialogHeader>
-            <DialogTitle className="text-center text-lg font-semibold">
-              Add your message
-            </DialogTitle>
-            <p className="text-muted-foreground text-center text-sm">
-              Draft is saved locally until you complete payment.
-            </p>
-          </DialogHeader>
-
-          <Textarea
-            value={textDraftInput}
-            onChange={e => setTextDraftInput(e.target.value)}
-            placeholder="Type your shout or comment…"
-            className="min-h-[120px] resize-y"
-            maxLength={500}
-            autoFocus
-          />
-
-          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={cancelTextDraft}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="w-full bg-black text-white sm:w-auto"
-              onClick={saveTextDraftModal}
-            >
-              Save draft
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setTextDraftModalOpen}
+        value={textDraftInput}
+        onChange={setTextDraftInput}
+        onSave={saveTextDraftModal}
+        stackOnTop
+      />
     </div>
   );
 };

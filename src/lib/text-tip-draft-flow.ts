@@ -66,6 +66,7 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
 
     modalTimer = window.setTimeout(() => {
       if (cancelled) return;
+      modalTimer = null;
       stopPreview();
       openDraftModal();
     }, TEXT_PREVIEW_BEFORE_MODAL_MS);
