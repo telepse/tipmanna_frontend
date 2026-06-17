@@ -20,6 +20,11 @@ import Link from "next/link";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
+import { useMediaQuery } from "react-responsive";
+
+/** Portrait mobile TV chrome below navbar — keep in sync with tv-interactive-shell. */
+export const TV_MOBILE_SHELL_TOP =
+  "calc(env(safe-area-inset-top,0px) + 5rem)" as const;
 
 export const TVExpressButtons = () => {
   const userId = useSelector((s: RootState) => s.auth.user?.id);
@@ -59,9 +64,15 @@ export const TVExpressButtons = () => {
 
   const isTVActive = createDialogOpen || isProfileDrawerOpen;
 
+  const isMobileLandscape =
+    useMediaQuery({ query: "(orientation: landscape)" }) &&
+    window.innerWidth <= 768;
+
+  if (isMobileLandscape) return null;
+
   return (
-    <div className="fixed top-10 right-0 left-0 z-[1000] flex w-full items-center justify-center border-t border-gray-200 bg-white px-0 py-2 sm:hidden">
-      <div className="-mt-2 grid w-full grid-cols-4 border-b border-black/20 bg-white/80 px-2">
+    <div className="fixed top-10 right-0 left-0 z-[1000] flex w-full items-center justify-center border-t border-gray-200 bg-white px-0 py-1 sm:hidden">
+      <div className="-mt-1 grid w-full grid-cols-4 border-b border-black/20 bg-white/80 px-2">
         <Link
           href="/tv"
           className="flex items-center justify-center border border-black/20"

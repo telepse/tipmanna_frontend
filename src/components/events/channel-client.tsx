@@ -37,7 +37,6 @@ import {
   Volume2,
   VolumeX,
   X,
-  XIcon,
 } from "lucide-react";
 import { useMediaQuery } from "react-responsive";
 import { useSelector } from "react-redux";
@@ -114,6 +113,7 @@ import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import {
   ImmersiveMediaTopBar,
+  MobileLandscapeCloseButton,
   immersiveControlRailClassName,
   immersiveFullViewViewportClassName,
   immersiveMainRowClassName,
@@ -793,9 +793,7 @@ export const ChannelClient = ({
           )}
         </>
       ) : (
-        <div className="bg-black">
-          <XIcon className="absolute top-4 right-4 z-50 text-white" />
-        </div>
+        <MobileLandscapeCloseButton />
       )}
 
       <div

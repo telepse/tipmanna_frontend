@@ -1,10 +1,40 @@
 "use client";
 
 import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import type { ImmersiveLayoutMode } from "@/lib/youtube-immersive-meta";
+
+type MobileLandscapeCloseButtonProps = {
+  onClose?: () => void;
+  className?: string;
+};
+
+/** Fixed close control for phone landscape — exits via router.back() by default. */
+export function MobileLandscapeCloseButton({
+  onClose,
+  className,
+}: MobileLandscapeCloseButtonProps) {
+  const router = useRouter();
+
+  return (
+    <button
+      type="button"
+      onClick={onClose ?? (() => router.back())}
+      aria-label="Close"
+      className={cn(
+        "fixed z-[1200] rounded-md p-2 text-white hover:bg-white/10",
+        "top-[max(0.5rem,env(safe-area-inset-top,0px))]",
+        "right-[max(0.5rem,env(safe-area-inset-right,0px))]",
+        className
+      )}
+    >
+      <X className="size-6" />
+    </button>
+  );
+}
 
 type TopBarProps = {
   onClose: () => void;

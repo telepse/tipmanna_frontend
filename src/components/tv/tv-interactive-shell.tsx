@@ -40,6 +40,7 @@ import { Button } from "../ui/button";
 import Image from "next/image";
 import { UpcomingProgramsPanel } from "./upcoming-programs-panel";
 import { cn } from "@/lib/utils";
+import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
 
@@ -480,8 +481,16 @@ export function TvInteractiveShell({
           className={cn(
             isMobileFullView
               ? "fixed inset-0 z-[1100] flex min-h-0 w-full flex-col overflow-hidden bg-black"
-              : "fixed top-[88px] right-0 bottom-0 left-0 flex max-h-[calc(100dvh-88px)] min-h-0 w-full flex-col overflow-hidden p-2"
+              : "fixed right-0 bottom-0 left-0 flex min-h-0 w-full flex-col overflow-hidden px-2 pt-0 pb-2"
           )}
+          style={
+            isMobileFullView
+              ? undefined
+              : {
+                  top: TV_MOBILE_SHELL_TOP,
+                  maxHeight: `calc(100dvh - ${TV_MOBILE_SHELL_TOP})`,
+                }
+          }
         >
           {tvReady ? (
             <div

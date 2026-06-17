@@ -4,7 +4,7 @@ import Link from "next/link";
 
 // THird-party imports
 import { Input } from "@/components/ui/input";
-import { Bell, CircleUserRound, Menu, Search, XIcon } from "lucide-react";
+import { Bell, CircleUserRound, Menu, Search } from "lucide-react";
 
 // Local imports
 import { useState } from "react";
@@ -13,6 +13,7 @@ import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { TvSourceDropdown } from "./tv-source-dropdown";
 import { useRouter } from "next/navigation";
 import { useMediaQuery } from "react-responsive";
+import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-shell";
 
 interface Props {
   active_users: number;
@@ -53,9 +54,7 @@ export const TVNavbar = ({ active_users }: Props) => {
   return (
     <div className="relative">
       {isMobileLandscape ? (
-        <div className="bg-black">
-          <XIcon className="absolute top-4 right-4 z-50 text-white" />
-        </div>
+        <MobileLandscapeCloseButton />
       ) : (
         <div className="fixed top-0 right-0 left-0 z-10 flex w-full items-center justify-between gap-4 border-b border-gray-200 bg-white p-4">
           {/* Menu icon and logo */}
