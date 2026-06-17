@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTipsDrawerAction } from "@/actions/messages";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatUtcTime } from "@/lib/utils";
 
 export type TipFeedRow = {
   id: string;
@@ -127,20 +127,22 @@ export function TipsFeedPanel({
       {items.map(row => (
         <li
           key={row.id}
-          className="rounded-lg border px-3 py-2"
+          className="rounded-lg border p-2"
         >
-          <p className="text-sm font-semibold">{row.username}</p>
-          <p className="text-sm text-gray-700">{row.characterName}</p>
-          {typeof row.amount === "number" && row.amount > 0 ? (
-            <p className="text-primary mt-0.5 text-sm font-medium">
-              {row.amount.toLocaleString(undefined, {
-                style: "currency",
-                currency: "GBP",
-              })}
-            </p>
-          ) : null}
-          <p className="text-muted-foreground mt-1 text-xs">
-            {new Date(row.purchasedAt).toLocaleString()}
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold">{row.username}</p>
+            <span className="text-muted-foreground text-[10px]">
+              {formatUtcTime(row.purchasedAt)}
+            </span>
+          </div>
+
+          <p>
+            {row.characterName}{" "}
+            {row.amount && (
+              <div className="bg-secondary inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold">
+                {formatCurrency(row.amount)}
+              </div>
+            )}
           </p>
         </li>
       ))}

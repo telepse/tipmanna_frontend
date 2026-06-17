@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useSelector } from "react-redux";
 import { setPushAuthToken } from "@/lib/push-auth-cache";
 import { subscribePushAction } from "@/actions/notifications";
@@ -217,7 +223,9 @@ export function usePushPermission() {
     if (typeof window === "undefined") return false;
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
       applySharedState("unsupported");
-      setSnapshot({ error: "Push notifications are not supported on this device." });
+      setSnapshot({
+        error: "Push notifications are not supported on this device.",
+      });
       return false;
     }
 

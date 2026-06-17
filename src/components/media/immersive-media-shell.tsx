@@ -24,12 +24,11 @@ export function MobileLandscapeCloseButton({
     <button
       type="button"
       onClick={
-        onClose ??
-        (() => runPortraitAlignedMobileLandscapeClose(router))
+        onClose ?? (() => runPortraitAlignedMobileLandscapeClose(router))
       }
       aria-label="Close"
       className={cn(
-        "pointer-events-auto fixed z-[2000] rounded-md p-2 text-white touch-manipulation hover:bg-white/10",
+        "pointer-events-auto fixed z-[2000] touch-manipulation rounded-md p-2 text-white hover:bg-white/10",
         "top-[max(0.5rem,env(safe-area-inset-top,0px))]",
         "right-[max(0.5rem,env(safe-area-inset-right,0px))]",
         className

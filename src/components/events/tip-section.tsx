@@ -29,12 +29,7 @@ import {
   TipRewardGalaxyIcons,
   TipRewardTurboIcons,
 } from "@/components/events/tip-reward-meter";
-import {
-  Dialog,
-  DialogHeader,
-  DialogContent,
-  DialogTitle,
-} from "../ui/dialog";
+import { Dialog, DialogHeader, DialogContent, DialogTitle } from "../ui/dialog";
 import { presentTextTipDraftModal } from "@/components/events/text-tip-draft-modal-layer";
 import type { PaymentSurface } from "@/lib/analytics-types";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";

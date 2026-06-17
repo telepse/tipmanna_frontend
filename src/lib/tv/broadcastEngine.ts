@@ -4,11 +4,7 @@ import {
   type ScheduleItem,
 } from "@/lib/tv/broadcastResolver";
 
-export {
-  resolveBroadcastPosition,
-  type BroadcastPosition,
-  type ScheduleItem,
-};
+export { resolveBroadcastPosition, type BroadcastPosition, type ScheduleItem };
 
 /** Single call site for “which row is live now” (no player side effects). */
 export function getLiveScheduleIndex(

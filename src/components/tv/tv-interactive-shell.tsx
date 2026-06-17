@@ -298,7 +298,7 @@ export function TvInteractiveShell({
                     type="button"
                     data-testid="tv-nav-tips"
                     onClick={() => setActiveTab("tips")}
-                    className={`flex items-center gap-1 rounded-md px-1  text-xs whitespace-nowrap outline ${
+                    className={`flex items-center gap-1 rounded-md px-1 text-xs whitespace-nowrap outline ${
                       activeTab === "tips"
                         ? "bg-black text-white"
                         : "bg-white text-black outline-black"
@@ -655,26 +655,26 @@ export function TvInteractiveShell({
           <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
           <div className="relative z-[999] h-full w-full bg-black text-white">
             <WebTvLooper
-            characters={characters}
-            playerLayout="wide"
-            analyticsSurface={tvAnalyticsSurface}
-            onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
-            onEngage={() => setIsTipDrawerOpen(true)}
-            commentDrawerVideoTitle={
-              typeof currentPlaying?.channel?.title === "string"
-                ? currentPlaying.channel.title
-                : ""
-            }
-            commentDrawerVideoDescription={
-              typeof (currentPlaying?.channel as { description?: string })
-                ?.description === "string"
-                ? String(
-                    (currentPlaying?.channel as { description: string })
-                      .description
-                  )
-                : ""
-            }
-          />
+              characters={characters}
+              playerLayout="wide"
+              analyticsSurface={tvAnalyticsSurface}
+              onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+              onEngage={() => setIsTipDrawerOpen(true)}
+              commentDrawerVideoTitle={
+                typeof currentPlaying?.channel?.title === "string"
+                  ? currentPlaying.channel.title
+                  : ""
+              }
+              commentDrawerVideoDescription={
+                typeof (currentPlaying?.channel as { description?: string })
+                  ?.description === "string"
+                  ? String(
+                      (currentPlaying?.channel as { description: string })
+                        .description
+                    )
+                  : ""
+              }
+            />
           </div>
         </>
       )}

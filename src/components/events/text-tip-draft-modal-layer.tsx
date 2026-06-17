@@ -29,7 +29,9 @@ export function TextTipDraftModalLayer() {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   const dispatch = useDispatch();
-  const selectedTips = useSelector((state: RootState) => state.tip.selectedTips);
+  const selectedTips = useSelector(
+    (state: RootState) => state.tip.selectedTips
+  );
 
   useEffect(() => setMounted(true), []);
 

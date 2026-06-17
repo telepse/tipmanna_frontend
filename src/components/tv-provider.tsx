@@ -1023,8 +1023,8 @@ export default function GlobalTVProvider({
         }
       }
 
-      const scheduleIdx = items.findIndex(
-        (i: ScheduleItem) => isEnforcementScheduleItem(i, enfId)
+      const scheduleIdx = items.findIndex((i: ScheduleItem) =>
+        isEnforcementScheduleItem(i, enfId)
       );
       if (scheduleIdx >= 0) {
         playLocalFromSchedule(scheduleIdx);

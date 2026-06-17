@@ -9,10 +9,7 @@ type VideoPolicySlice = {
 };
 
 type VideoLinkItem = NonNullable<NewEventFormData["videoLinks"]>[number];
-type VideoLinkPayloadItem = Omit<
-  VideoLinkItem,
-  keyof VideoPolicySlice
->;
+type VideoLinkPayloadItem = Omit<VideoLinkItem, keyof VideoPolicySlice>;
 
 const VIDEO_LINK_POLICY_KEYS = [
   "ownershipAnswer",
