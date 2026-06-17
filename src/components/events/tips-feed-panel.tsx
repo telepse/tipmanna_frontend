@@ -130,17 +130,17 @@ export function TipsFeedPanel({
           className="rounded-lg border p-2"
         >
           <div className="flex items-center gap-2">
-            <p className="text-xs font-semibold">
+            <p className="text-xs">
               {row.amount && (
                 <div className="bg-secondary inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold">
                   {formatCurrency(row.amount)}
                 </div>
               )}{" "}
-              {row.username} just sent {row.characterName}
+              <span className="font-semibold">{row.username}</span> just sent {row.characterName}
             </p>
           </div>
 
-          <p className="text-muted-foreground ml-auto text-[10px]">
+          <p className="text-muted-foreground text-right text-[10px]">
             {row.purchasedAt}
           </p>
         </li>
