@@ -123,26 +123,25 @@ export function TipsFeedPanel({
       No tips yet for this {scope === "video" ? "video" : "event room"}.
     </p>
   ) : (
-    <ul className="space-y-3 overflow-y-auto">
+    <ul className="space-y-1 overflow-y-auto">
       {items.map(row => (
         <li
           key={row.id}
           className="rounded-lg border p-2"
         >
           <div className="flex items-center gap-2">
-            <p className="text-xs font-semibold">{row.username}</p>
-            <span className="text-muted-foreground text-[10px]">
-              {formatUtcTime(row.purchasedAt)}
-            </span>
+            <p className="text-xs font-semibold">
+              {row.amount && (
+                <div className="bg-secondary inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold">
+                  {formatCurrency(row.amount)}
+                </div>
+              )}{" "}
+              {row.username} just sent {row.characterName}
+            </p>
           </div>
 
-          <p>
-            {row.characterName}{" "}
-            {row.amount && (
-              <div className="bg-secondary inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold">
-                {formatCurrency(row.amount)}
-              </div>
-            )}
+          <p className="text-muted-foreground ml-auto text-[10px]">
+            {formatUtcTime(row.purchasedAt)}
           </p>
         </li>
       ))}
