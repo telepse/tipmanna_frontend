@@ -298,7 +298,7 @@ export function TvInteractiveShell({
                     type="button"
                     data-testid="tv-nav-tips"
                     onClick={() => setActiveTab("tips")}
-                    className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
+                    className={`flex items-center gap-1 rounded-md px-2  text-xs whitespace-nowrap outline ${
                       activeTab === "tips"
                         ? "bg-black text-white"
                         : "bg-white text-black outline-black"
