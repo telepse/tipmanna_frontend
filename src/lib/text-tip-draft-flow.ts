@@ -39,6 +39,21 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
 
   let modalTimer: number | null = null;
   let cancelled = false;
+  let opened = false;
+
+  const openAfterPreview = () => {
+    if (cancelled || opened) return;
+    opened = true;
+    if (modalTimer !== null) {
+      window.clearTimeout(modalTimer);
+      modalTimer = null;
+    }
+    stopPreview();
+    requestAnimationFrame(() => {
+      if (cancelled) return;
+      openDraftModal();
+    });
+  };
 
   requestAnimationFrame(() => {
     if (cancelled) return;
@@ -47,7 +62,7 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
       [...tipsForTotals, "Comment"],
       tippingCharacters
     );
-    startPreview(
+    const handle = startPreview(
       () =>
         createAnimationFromStyle(
           {
@@ -64,12 +79,14 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
       }
     );
 
-    modalTimer = window.setTimeout(() => {
-      if (cancelled) return;
-      modalTimer = null;
-      stopPreview();
-      openDraftModal();
-    }, TEXT_PREVIEW_BEFORE_MODAL_MS);
+    modalTimer = window.setTimeout(
+      openAfterPreview,
+      TEXT_PREVIEW_BEFORE_MODAL_MS
+    );
+
+    void handle?.finished.finally(() => {
+      openAfterPreview();
+    });
   });
 
   return () => {

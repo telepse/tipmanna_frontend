@@ -63,14 +63,13 @@ import {
   ensureSingleTextInCart,
   buildTipSectionPreviewCharacters,
   isTextCharacterId,
-  notifyTextTipDraftSync,
   clearTextTipDraftStorage,
   resolveCommentPreviewCharacter,
   textCharacterIdFromEnv,
   tipCartNameForCharacter,
 } from "@/lib/tip-text-selection";
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
-import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
+import { presentTextTipDraftModal } from "@/components/events/text-tip-draft-modal-layer";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import type { TipQuoteContext } from "@/hooks/use-tip-presentation";
 import {
@@ -145,8 +144,6 @@ export const TipDrawer = ({
   const payCta = payLabel?.trim() || "Pay";
   const [textTipActive, setTextTipActive] = useState(false);
   const [textTipValue, setTextTipValue] = useState("");
-  const [textDraftModalOpen, setTextDraftModalOpen] = useState(false);
-  const [textDraftInput, setTextDraftInput] = useState("");
   const [draftSyncEpoch, setDraftSyncEpoch] = useState(0);
   const cancelTextPreviewRef = useRef<(() => void) | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -393,16 +390,7 @@ export const TipDrawer = ({
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
     stopPreview();
-    try {
-      const draft =
-        typeof window !== "undefined"
-          ? (localStorage.getItem("textTipValue") ?? "")
-          : "";
-      setTextDraftInput(draft);
-    } catch {
-      setTextDraftInput("");
-    }
-    setTextDraftModalOpen(true);
+    presentTextTipDraftModal();
   };
 
   const openTextDraftModal = () => {
@@ -428,24 +416,12 @@ export const TipDrawer = ({
       character,
       tippingCharacters,
       tipsForTotals,
-      openDraftModal: openTextDraftModalOnly,
+      openDraftModal: () => {
+        cancelTextPreviewRef.current = null;
+        presentTextTipDraftModal();
+      },
       drawerTintRoot: drawerShellRef.current,
     });
-  };
-
-  const saveTextDraftModal = () => {
-    try {
-      localStorage.setItem("textTipValue", textDraftInput);
-    } catch {
-      /* quota / private mode */
-    }
-    notifyTextTipDraftSync();
-    setTextTipValue(textDraftInput);
-    setTextTipActive(true);
-    dispatch(
-      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
-    );
-    setTextDraftModalOpen(false);
   };
 
   const makeTipSelection = (characterId: string) => {
@@ -1222,15 +1198,6 @@ export const TipDrawer = ({
           </Dialog>
         </DrawerContent>
       </Drawer>
-
-      <TextTipDraftModal
-        open={textDraftModalOpen}
-        onOpenChange={setTextDraftModalOpen}
-        value={textDraftInput}
-        onChange={setTextDraftInput}
-        onSave={saveTextDraftModal}
-        stackOnTop
-      />
 
       <TipperWalletDialog
         open={walletDialogOpen}

@@ -45,10 +45,13 @@ export function TextTipDraftModal({
       onOpenChange={onOpenChange}
     >
       <DialogContent
-        overlayClassName={cn("bg-black/60", stackOnTop && "z-[1000000001]")}
+        overlayClassName={cn(
+          "bg-black/60",
+          stackOnTop && "z-[2147483646]"
+        )}
         className={cn(
           "max-w-[min(100%,380px)] rounded-md bg-white p-6 sm:max-w-md",
-          stackOnTop && "z-[1000000002]"
+          stackOnTop && "z-[2147483647]"
         )}
       >
         <DialogHeader>

@@ -35,14 +35,13 @@ import {
   DialogContent,
   DialogTitle,
 } from "../ui/dialog";
-import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
+import { presentTextTipDraftModal } from "@/components/events/text-tip-draft-modal-layer";
 import type { PaymentSurface } from "@/lib/analytics-types";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import {
   buildTipSectionPreviewCharacters,
   ensureSingleTextInCart,
   isTextCharacterId,
-  notifyTextTipDraftSync,
   resolveCommentPreviewCharacter,
   tipCartNameForCharacter,
 } from "@/lib/tip-text-selection";
@@ -106,8 +105,6 @@ export const TipSection = ({
     [selectedTips]
   );
 
-  const [textDraftModalOpen, setTextDraftModalOpen] = useState(false);
-  const [textDraftInput, setTextDraftInput] = useState("");
   const [draftSyncEpoch, setDraftSyncEpoch] = useState(0);
   const cancelTextPreviewRef = useRef<(() => void) | null>(null);
 
@@ -144,16 +141,7 @@ export const TipSection = ({
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
     stopPreview();
-    try {
-      const draft =
-        typeof window !== "undefined"
-          ? (localStorage.getItem("textTipValue") ?? "")
-          : "";
-      setTextDraftInput(draft);
-    } catch {
-      setTextDraftInput("");
-    }
-    setTextDraftModalOpen(true);
+    presentTextTipDraftModal();
   };
 
   const openTextDraftModal = () => {
@@ -179,21 +167,11 @@ export const TipSection = ({
       character,
       tippingCharacters,
       tipsForTotals,
-      openDraftModal: openTextDraftModalOnly,
+      openDraftModal: () => {
+        cancelTextPreviewRef.current = null;
+        presentTextTipDraftModal();
+      },
     });
-  };
-
-  const saveTextDraftModal = () => {
-    try {
-      localStorage.setItem("textTipValue", textDraftInput);
-    } catch {
-      /* quota / private mode */
-    }
-    notifyTextTipDraftSync();
-    dispatch(
-      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
-    );
-    setTextDraftModalOpen(false);
   };
 
   const makeTipSelection = (characterId: string) => {
@@ -585,15 +563,6 @@ export const TipSection = ({
           </Button>
         </DialogContent>
       </Dialog>
-
-      <TextTipDraftModal
-        open={textDraftModalOpen}
-        onOpenChange={setTextDraftModalOpen}
-        value={textDraftInput}
-        onChange={setTextDraftInput}
-        onSave={saveTextDraftModal}
-        stackOnTop
-      />
     </div>
   );
 };
