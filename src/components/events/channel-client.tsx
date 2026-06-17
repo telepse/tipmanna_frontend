@@ -1584,7 +1584,7 @@ export const ChannelClient = ({
       {/* Scrubber - MOBILE */}
       <div
         className={cn(
-          "sm:hidden flex flex-col gap-1",
+          "sm:hidden flex flex-col gap-2",
           !isFullView && mobileInlineScrubberDockClass,
           isFullView &&
             isMobile &&

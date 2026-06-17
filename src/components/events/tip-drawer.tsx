@@ -391,6 +391,7 @@ export const TipDrawer = ({
   const openTextDraftModal = () => {
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
+    stopPreview();
     try {
       const draft =
         typeof window !== "undefined"
@@ -1215,6 +1216,7 @@ export const TipDrawer = ({
         value={textDraftInput}
         onChange={setTextDraftInput}
         onSave={saveTextDraftModal}
+        stackOnTop={stackAboveImmersive}
       />
 
       <TipperWalletDialog

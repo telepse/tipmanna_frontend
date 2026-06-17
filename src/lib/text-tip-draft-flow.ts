@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ANIMATION_DURATION } from "@/lib/animationContract";
-import { startPreview } from "@/lib/previewController";
+import { startPreview, stopPreview } from "@/lib/previewController";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
 import { computeTipRewardEligibility } from "@/lib/tip-reward-eligibility";
 
@@ -32,11 +32,17 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
   const styleName = character.styleName?.trim() || "Screen Shake";
   const iconUrl = character.iconUrl?.trim();
   if (!iconUrl) {
+    stopPreview();
     openDraftModal();
     return () => {};
   }
 
+  let modalTimer: number | null = null;
+  let cancelled = false;
+
   requestAnimationFrame(() => {
+    if (cancelled) return;
+
     const next = computeTipRewardEligibility(
       [...tipsForTotals, "Comment"],
       tippingCharacters
@@ -57,8 +63,16 @@ export function runTextTipPreviewThenOpenDraftModal(options: {
         drawerTintRoot: drawerTintRoot ?? null,
       }
     );
+
+    modalTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      stopPreview();
+      openDraftModal();
+    }, TEXT_PREVIEW_BEFORE_MODAL_MS);
   });
 
-  const id = window.setTimeout(openDraftModal, TEXT_PREVIEW_BEFORE_MODAL_MS);
-  return () => window.clearTimeout(id);
+  return () => {
+    cancelled = true;
+    if (modalTimer !== null) window.clearTimeout(modalTimer);
+  };
 }

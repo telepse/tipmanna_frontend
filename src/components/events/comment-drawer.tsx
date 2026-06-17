@@ -289,6 +289,7 @@ export const CommentDrawer = ({
   const openDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
+    stopPreview();
     setModalDraft(pendingDraft);
     setDraftModalOpen(true);
   };

@@ -155,6 +155,7 @@ export const TipSection = ({
   const openTextDraftModal = () => {
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
+    stopPreview();
     try {
       const draft =
         typeof window !== "undefined"
