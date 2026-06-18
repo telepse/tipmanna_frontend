@@ -885,11 +885,11 @@ export default function ExplorePageClient({
         }
       >
         <div className="grid w-full grid-cols-12 gap-1 border-b bg-black">
-          <div className="flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center justify-center col-span-2">
           <button
             type="button"
             className={cn(
-              "col-span-2 flex shrink-0 items-center justify-center gap-1 px-2.5 py-1 text-xs transition sm:px-3",
+              " flex shrink-0 items-center justify-center gap-1 px-2.5 py-1 text-xs transition sm:px-3",
               findCommunitiesChromeTabActive &&
                 (sideChickLocked ? sideChickPillActive : "")
             )}
