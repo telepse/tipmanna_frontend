@@ -991,7 +991,7 @@ export const TvLooper = ({
 
           {showSideRails && (
             <div
-              className={`${isFullView ? `absolute top-1/2 right-7 items-center ${TV_RAIL_Z_INDEX} flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-7 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
+              className={`${isFullView ? `absolute top-1/2 right-7 items-center ${TV_RAIL_Z_INDEX} flex -translate-y-1/2 flex-col gap-2` : `absolute right-7 bottom-10 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
             >
               <button
                 type="button"
