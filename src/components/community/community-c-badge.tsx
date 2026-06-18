@@ -13,6 +13,8 @@ type Props = {
   community: CommunityBadgeInfo;
   className?: string;
   position?: "top-left" | "top-right";
+  /** Flow inside a parent badge stack (no absolute corner placement). */
+  inline?: boolean;
 };
 
 /**
@@ -22,6 +24,7 @@ export function CommunityCBadge({
   community,
   className,
   position = "top-left",
+  inline = false,
 }: Props) {
   const pos =
     position === "top-right" ? "right-3 left-auto" : "left-3 right-auto";
@@ -33,9 +36,9 @@ export function CommunityCBadge({
     <div
       title={community.name}
       className={cn(
-        "absolute top-12 z-[55] flex size-7 items-center justify-center",
+        "z-[55] flex size-7 items-center justify-center",
         "pointer-events-auto overflow-visible",
-        pos,
+        inline ? "relative" : cn("absolute top-12", pos),
         className
       )}
       aria-label={`Community: ${community.name}`}

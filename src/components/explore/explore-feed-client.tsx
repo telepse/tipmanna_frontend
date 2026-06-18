@@ -42,8 +42,7 @@ import VideoPlayer, {
   VideoPlayerRef,
   loadReelSoundPref,
 } from "@/components/events/video-player";
-import { CommunityCBadge } from "@/components/community/community-c-badge";
-import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
+import { VideoSurfaceBadges } from "@/components/video/video-surface-badges";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
@@ -330,19 +329,12 @@ function ExploreFeedSlideVideo({
       data-testid="explore-video-shell"
       className={`relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden ${isFullBleed ? "" : ""}`}
     >
-      {item.community?.id && item.community?.name ? (
-        <CommunityCBadge
-          community={item.community}
-          position="top-right"
-        />
-      ) : null}
-      {item.coOwnerApproved ? (
-        <CoOwnerApprovedBadge
-          stackBelowCommunity={
-            !!(item.community?.id && item.community?.name)
-          }
-        />
-      ) : null}
+      <VideoSurfaceBadges
+        community={item.community}
+        coOwnerApproved={item.coOwnerApproved}
+        coOwnerNames={item.coOwnerNames}
+        position="top-right"
+      />
       {showPlayerMount ? (
         <>
           {aspectLoading ? (

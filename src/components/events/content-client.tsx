@@ -42,9 +42,8 @@ import { useMediaQuery } from "react-responsive";
 import { useSelector } from "react-redux";
 // Local imports
 import VideoPlayer, { VideoPlayerRef } from "./video-player";
-import { CommunityCBadge } from "@/components/community/community-c-badge";
+import { VideoSurfaceBadges } from "@/components/video/video-surface-badges";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
-import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
 const TipDrawer = dynamic(
   () =>
     import("./tip-drawer").then(m => ({
@@ -930,23 +929,12 @@ export const ContentClient = ({
           )}
         >
           <div className="relative h-full w-full">
-            {currentContent?.community?.id &&
-            currentContent?.community?.name ? (
-              <CommunityCBadge
-                community={currentContent.community}
-                position="top-right"
-              />
-            ) : null}
-            {currentContent?.coOwnerApproved ? (
-              <CoOwnerApprovedBadge
-                stackBelowCommunity={
-                  !!(
-                    currentContent?.community?.id &&
-                    currentContent?.community?.name
-                  )
-                }
-              />
-            ) : null}
+            <VideoSurfaceBadges
+              community={currentContent?.community}
+              coOwnerApproved={currentContent?.coOwnerApproved}
+              coOwnerNames={currentContent?.coOwnerNames}
+              position="top-right"
+            />
             {paymentChannelIdForTip &&
             process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
               <div className="pointer-events-none absolute bottom-28 left-2 z-[62] max-w-[min(360px,calc(100%-1rem))]">
@@ -1571,7 +1559,7 @@ export const ContentClient = ({
           </div>
 
           <button
-            type="button"
+            type="button" 
             className="cursor-pointer  flex flex-col items-center"
             onClick={() => {
               setIsCreatePopupOpen(false);
