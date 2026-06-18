@@ -132,6 +132,7 @@ import { useFeatureCardTipContext } from "@/components/video-feature/feature-car
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { mergeTipPriceCatalog } from "@/lib/tip-text-selection";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
+import { NotificationBadge } from "../notifications/notification-badge";
 
 interface Props {
   contents: any[];
@@ -720,6 +721,12 @@ export const ContentClient = ({
   const isMobileLandscape =
     useMediaQuery({ query: "(orientation: landscape)" }) &&
     window.innerWidth <= 768;
+
+  const userRole = useSelector((s: RootState) => s.auth.user?.role);
+  const authToken = useSelector((s: RootState) => s.auth.token);
+  const isSignedIn =
+    useSelector((s: RootState) => s.auth.isAuthenticated) &&
+    (userRole === "HOST" || userRole === "TIPPER");
 
   return (
     <div
@@ -1523,14 +1530,15 @@ export const ContentClient = ({
         <div className="flex items-center justify-between gap-4">
           <Link
             href="/tv"
-            className="group"
+            className="group flex flex-col items-center justify-center gap-1"
           >
-            <Tv className="group-hover:text-primary group-hover:stroke-3" />
+            <Tv className="group-hover:text-primary size-5 group-hover:stroke-3" />{" "}
+            <span className="text-[10px]">Watch TV</span>
           </Link>
 
           <Link
             href="/explore"
-            className="cursor-pointer"
+            className="flex cursor-pointer flex-col items-center justify-center gap-1"
             onPointerEnter={prefetchExploreFeedInitial}
             onClick={() => {
               setIsCreatePopupOpen(false);
@@ -1538,24 +1546,29 @@ export const ContentClient = ({
             }}
           >
             <Search
-              className="size-7"
+              className="size-5"
               strokeWidth={2}
-            />
+            />{" "}
+            <span className="text-[10px]">Explore</span>
           </Link>
 
-          <button
-            type="button"
-            className="cursor-pointer rounded-full bg-black/20 p-1"
-            onClick={() => {
-              setIsCreatePopupOpen(true);
-              setIsProfileDrawerOpen(false);
-            }}
-          >
-            <Plus
-              className={`size-7 ${isCreatePopupOpen ? "text-primary" : ""}`}
-              strokeWidth={isCreatePopupOpen ? 3.75 : 2}
-            />
-          </button>
+          <div className="flex flex-col items-center justify-center">
+            <button
+              type="button"
+              className="cursor-pointer rounded-full bg-black/20 p-1"
+              onClick={() => {
+                setIsCreatePopupOpen(true);
+                setIsProfileDrawerOpen(false);
+              }}
+            >
+              <Plus
+                className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
+                strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+              />
+            </button>
+
+            <span className="text-[10px]">Create</span>
+          </div>
 
           <button
             type="button"
@@ -1566,9 +1579,20 @@ export const ContentClient = ({
             }}
           >
             <UserRound
-              className={`size-7 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+              className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
               strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
             />
+            <NotificationBadge
+              variant="dot"
+              className="-top-0.5 right-6"
+            />
+            <span className="max-w-[4.5rem] truncate text-[10px] text-black">
+              {isSignedIn
+                ? "Signed in"
+                : userRole === "VISITOR"
+                  ? "Guest"
+                  : "Not signed in"}
+            </span>
           </button>
         </div>
       </div>

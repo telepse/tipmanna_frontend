@@ -142,7 +142,7 @@ export function TipsFeedPanel({
       {items.map(row => (
         <li
           key={row.id}
-          className="rounded-lg border p-2"
+          className="rounded-lg border px-2 py-1"
         >
           <div className="flex items-center gap-2">
             <p className="text-xs">
@@ -184,7 +184,7 @@ export function TipsFeedPanel({
           </div>
           <div className="mt-3">{scopeToggle}</div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="-mt-3 min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {listBody}
         </div>
       </>
