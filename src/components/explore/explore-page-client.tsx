@@ -900,7 +900,7 @@ export default function ExplorePageClient({
               strokeWidth={3}
             />
           </button>
-          <span className="text-[8px] text-whiteg">Create</span></div>
+          <span className="text-[8px] text-white">Create</span></div>
 
           <CreateDialog
             openPopup={createDialogOpen}
