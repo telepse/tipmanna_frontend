@@ -431,7 +431,7 @@ export const TipSection = ({
                   <h5 className="mt-0.5 text-center text-[8px] font-medium whitespace-nowrap sm:text-xs">
                     {label.substring(0, 7)}
                   </h5>
-                  <p className="text-muted-foreground absolute -bottom-5 left-1/2 -translate-x-1/2 overflow-visible rounded-full border border-black border-t-transparent border-r-transparent border-l-transparent bg-white p-0.5 text-xs"> <span className="border-primary inline-block border-b pb-px">
+                  <p className="text-muted-foreground absolute -bottom-5 left-1/2 -translate-x-1/2 overflow-visible rounded-full border border-black  border-r-transparent border-l-transparent bg-white p-0.5 text-xs"> <span className="border-primary inline-block border-b pb-px">
                       £{character.price}
                     </span></p>
                 </div>
