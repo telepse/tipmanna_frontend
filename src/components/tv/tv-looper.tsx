@@ -863,7 +863,7 @@ export const TvLooper = ({
         className={cn(
           isFullView
             ? immersiveMainRowClassName(isFullView, isMobileTv, immersiveLayout)
-            : "-ml-2 flex size-full gap-2 mt-2"
+            : "mt-2 -ml-2 flex size-full gap-2"
         )}
       >
         {/* Left control rail */}

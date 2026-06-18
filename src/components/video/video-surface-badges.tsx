@@ -43,9 +43,7 @@ export function VideoSurfaceBadges({
       className={cn(
         "pointer-events-none absolute z-[55] flex flex-col gap-1.5 overflow-visible",
         hasCommunity ? "top-12" : "top-3",
-        position === "top-right"
-          ? "right-3 items-end"
-          : "left-3 items-start",
+        position === "top-right" ? "right-3 items-end" : "left-3 items-start",
         className
       )}
     >

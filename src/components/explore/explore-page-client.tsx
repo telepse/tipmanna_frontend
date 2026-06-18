@@ -885,22 +885,23 @@ export default function ExplorePageClient({
         }
       >
         <div className="grid w-full grid-cols-12 gap-1 border-b bg-black">
-          <div className="flex flex-col items-center justify-center col-span-2 pb-1">
-          <button
-            type="button"
-            className={cn(
-              " flex shrink-0 items-center justify-center gap-1 px-2.5 py-1 text-xs transition sm:px-3",
-              findCommunitiesChromeTabActive &&
-                (sideChickLocked ? sideChickPillActive : "")
-            )}
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            <Plus
-              className="size-5 text-white"
-              strokeWidth={3}
-            />
-          </button>
-          <span className="text-[8px] text-white">Create</span></div>
+          <div className="col-span-2 flex flex-col items-center justify-center pb-1">
+            <button
+              type="button"
+              className={cn(
+                "flex shrink-0 items-center justify-center gap-1 px-2.5 py-1 text-xs transition sm:px-3",
+                findCommunitiesChromeTabActive &&
+                  (sideChickLocked ? sideChickPillActive : "")
+              )}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              <Plus
+                className="size-5 text-white"
+                strokeWidth={3}
+              />
+            </button>
+            <span className="text-[8px] text-white">Create</span>
+          </div>
 
           <CreateDialog
             openPopup={createDialogOpen}
@@ -978,7 +979,7 @@ export default function ExplorePageClient({
                 className="-top-1 -right-1"
               />
             </span>
-            <span className="max-w-[4.5rem] truncate text-white/90 text-[8px]">
+            <span className="max-w-[4.5rem] truncate text-[8px] text-white/90">
               {isSignedInExplore
                 ? "Signed in"
                 : exploreUserRole === "VISITOR"

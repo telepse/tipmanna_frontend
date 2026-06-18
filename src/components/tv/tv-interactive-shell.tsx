@@ -552,7 +552,7 @@ export function TvInteractiveShell({
                       className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
                         activeTab === "playlist"
                           ? "bg-black text-white"
-                          : "bg-white text-black border border-black"
+                          : "border border-black bg-white text-black"
                       }`}
                     >
                       TV Playlist <ChevronDown className="size-4" />
@@ -594,7 +594,7 @@ export function TvInteractiveShell({
                   </div>
 
                   {activeTab === "playlist" && (
-                    <div className="relative flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2 -mt-2">
+                    <div className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2">
                       <div
                         className="custom-scrollbar hide__scrollbar relative h-full min-h-0 w-full space-y-3 overflow-y-auto p-2"
                         ref={scrollRef}
@@ -631,7 +631,7 @@ export function TvInteractiveShell({
                   {activeTab === "tips" && (
                     <div
                       data-testid="tv-tips-feed"
-                      className="relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2 -mt-2"
+                      className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2"
                     >
                       {tipsFeedPanelEl}
                     </div>

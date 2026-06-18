@@ -59,7 +59,7 @@ export function CommunityCBadge({
         type="button"
         className={cn(
           VIDEO_SURFACE_BADGE_CHIP,
-          "from-white bg-gradient-to-br to-white/90 text-xs font-black text-black"
+          "bg-gradient-to-br from-white to-white/90 text-xs font-black text-black"
         )}
         aria-expanded={showCommunityName}
         onClick={e => {
@@ -78,7 +78,7 @@ export function CommunityCBadge({
           labelPos,
           showCommunityName
             ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0",
+            : "pointer-events-none opacity-0"
         )}
         onClick={e => {
           e.stopPropagation();

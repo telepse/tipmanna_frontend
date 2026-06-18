@@ -937,7 +937,9 @@ export const ChannelClient = ({
               coOwnerNames={currentContent?.coOwnerNames}
               coOwnerName={currentContent?.coOwnerName}
               channelId={
-                currentContent?.id != null ? String(currentContent.id) : undefined
+                currentContent?.id != null
+                  ? String(currentContent.id)
+                  : undefined
               }
               eventId={eventId}
               position="top-right"
@@ -1558,7 +1560,7 @@ export const ChannelClient = ({
 
           <button
             type="button"
-            className="cursor-pointer flex flex-col items-center mt-1"
+            className="mt-1 flex cursor-pointer flex-col items-center"
             onClick={() => {
               setIsCreatePopupOpen(false);
               setIsProfileDrawerOpen(true);

@@ -121,7 +121,12 @@ export function TipperEmailOtpSignInDialog({
       }
 
       const payload = res.data as {
-        user?: { id: string; fullName: string; email: string; username: string };
+        user?: {
+          id: string;
+          fullName: string;
+          email: string;
+          username: string;
+        };
         token?: string;
         tag?: string;
       };

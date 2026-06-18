@@ -29,7 +29,9 @@ function normalizeCoOwnerNames(
   names?: string[],
   single?: string | null
 ): string[] {
-  const fromList = (names ?? []).map(n => n?.trim()).filter(Boolean) as string[];
+  const fromList = (names ?? [])
+    .map(n => n?.trim())
+    .filter(Boolean) as string[];
   if (fromList.length) return fromList;
   const one = single?.trim();
   return one ? [one] : [];
@@ -68,10 +70,7 @@ export function CoOwnerApprovedBadge({
     void getChannelCommentDrawerAction(eventId, channelId).then(res => {
       if (cancelled || !res.success || !res.data?.channel) return;
       const ch = res.data.channel;
-      const resolved = normalizeCoOwnerNames(
-        ch.coOwnerNames,
-        ch.coOwnerName
-      );
+      const resolved = normalizeCoOwnerNames(ch.coOwnerNames, ch.coOwnerName);
       if (resolved.length) setFetchedNames(resolved);
     });
     return () => {
@@ -92,7 +91,9 @@ export function CoOwnerApprovedBadge({
           ? "relative"
           : cn(
               "absolute",
-              position === "top-right" ? "right-3 left-auto" : "left-3 right-auto",
+              position === "top-right"
+                ? "right-3 left-auto"
+                : "right-auto left-3",
               stackBelowCommunity ? "top-[5.25rem]" : "top-3"
             ),
         className

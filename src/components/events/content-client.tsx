@@ -935,7 +935,9 @@ export const ContentClient = ({
               coOwnerNames={currentContent?.coOwnerNames}
               coOwnerName={currentContent?.coOwnerName}
               channelId={
-                currentContent?.id != null ? String(currentContent.id) : undefined
+                currentContent?.id != null
+                  ? String(currentContent.id)
+                  : undefined
               }
               eventId={eventId}
               position="top-right"
@@ -1564,8 +1566,8 @@ export const ContentClient = ({
           </div>
 
           <button
-            type="button" 
-            className="cursor-pointer  flex flex-col items-center"
+            type="button"
+            className="flex cursor-pointer flex-col items-center"
             onClick={() => {
               setIsCreatePopupOpen(false);
               setIsProfileDrawerOpen(true);

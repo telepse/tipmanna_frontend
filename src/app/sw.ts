@@ -61,7 +61,9 @@ async function recordNotificationClick(
 ): Promise<void> {
   if (!notificationId || !API_BASE) return;
   const token = await getStoredToken();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (token) headers.Authorization = `Bearer ${token}`;
 
   try {

@@ -335,9 +335,7 @@ function ExploreFeedSlideVideo({
         coOwnerNames={item.coOwnerNames}
         coOwnerName={item.coOwnerName}
         channelId={item.id != null ? String(item.id) : undefined}
-        eventId={
-          item.event?.id != null ? String(item.event.id) : undefined
-        }
+        eventId={item.event?.id != null ? String(item.event.id) : undefined}
         position="top-right"
       />
       {showPlayerMount ? (
