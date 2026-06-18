@@ -1560,7 +1560,7 @@ export const ChannelClient = ({
 
           <button
             type="button"
-            className="mt-1 flex cursor-pointer flex-col items-center"
+            className="mt-[5px] flex cursor-pointer flex-col items-center"
             onClick={() => {
               setIsCreatePopupOpen(false);
               setIsProfileDrawerOpen(true);
