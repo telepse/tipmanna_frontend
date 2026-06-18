@@ -885,7 +885,7 @@ export default function ExplorePageClient({
         }
       >
         <div className="grid w-full grid-cols-12 gap-1 border-b bg-black">
-          <div className="flex flex-col items-center justify-center col-span-2">
+          <div className="flex flex-col items-center justify-center col-span-2 py-0.5">
           <button
             type="button"
             className={cn(
