@@ -1156,7 +1156,7 @@ export const ChannelClient = ({
           )}
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-6 z-[90] mt-2 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-8 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-7 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1285,7 +1285,7 @@ export const ChannelClient = ({
             <button
               type="button"
               title="View tips"
-              className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
+              className="absolute -top-6 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
               onClick={() => setTipsListOpen(true)}
             >
               {liveNumOfTips} tips
