@@ -1161,7 +1161,7 @@ export const ContentClient = ({
           )}
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-8 z-[90] mt-2 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-8 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-6 z-[90] mt-2 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-8 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1285,7 +1285,7 @@ export const ContentClient = ({
           </div>
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] mt-2 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             {showRaisedAmount ? (
               <>
