@@ -1,13 +1,13 @@
 "use client";
 
-import { CommunityCBadge } from "@/components/community/community-c-badge";
+import {
+  CommunityCBadge,
+  type CommunityBadgeInfo,
+} from "@/components/community/community-c-badge";
 import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
 import { cn } from "@/lib/utils";
 
-export type VideoSurfaceBadgeCommunity = {
-  id: string;
-  name: string;
-};
+export type VideoSurfaceBadgeCommunity = CommunityBadgeInfo;
 
 type Props = {
   community?: VideoSurfaceBadgeCommunity | null;

@@ -12,8 +12,15 @@ import {
 export type CommunityBadgeInfo = {
   id: string;
   name: string;
-  visibility: string;
+  visibility?: string;
 };
+
+function formatCommunityVisibility(visibility?: string): string {
+  const v = (visibility ?? "public").trim().toLowerCase();
+  if (v === "private") return "Private";
+  if (v === "public") return "Public";
+  return visibility?.trim() || "Public";
+}
 
 type Props = {
   community: CommunityBadgeInfo;
@@ -77,7 +84,8 @@ export function CommunityCBadge({
           e.stopPropagation();
         }}
       >
-        This video ({community.visibility}) is by {community.name}
+        This video ({formatCommunityVisibility(community.visibility)}) is by{" "}
+        {community.name}
       </Link>
     </div>
   );
