@@ -28,6 +28,21 @@ type Props = {
   onClose?: () => void;
 };
 
+export function formatPurchasedAt(dateString: string): string {
+  const date = new Date(dateString);
+
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = date.toLocaleString("en-GB", {
+    month: "long",
+    timeZone: "UTC",
+  });
+  const year = date.getUTCFullYear();
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+
+  return `${day} ${month}, ${year} ${hours}:${minutes}`;
+}
+
 export function TipsFeedPanel({
   eventId,
   channelId,
@@ -141,7 +156,7 @@ export function TipsFeedPanel({
           </div>
 
           <p className="text-muted-foreground text-right text-[10px]">
-            {row.purchasedAt}
+          {formatPurchasedAt(row.purchasedAt)}
           </p>
         </li>
       ))}
