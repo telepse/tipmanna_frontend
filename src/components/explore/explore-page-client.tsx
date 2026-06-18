@@ -885,6 +885,7 @@ export default function ExplorePageClient({
         }
       >
         <div className="grid w-full grid-cols-12 gap-1 border-b bg-black">
+          <div className="flex flex-col items-center justify-center">
           <button
             type="button"
             className={cn(
@@ -895,10 +896,11 @@ export default function ExplorePageClient({
             onClick={() => setCreateDialogOpen(true)}
           >
             <Plus
-              className="size-6 text-white"
+              className="size-5 text-white"
               strokeWidth={3}
             />
           </button>
+          <span className="text-[8px]">Create</span></div>
 
           <CreateDialog
             openPopup={createDialogOpen}
@@ -976,7 +978,7 @@ export default function ExplorePageClient({
                 className="-top-1 -right-1"
               />
             </span>
-            <span className="max-w-[4.5rem] truncate text-white/90">
+            <span className="max-w-[4.5rem] truncate text-white/90 text-[8px]">
               {isSignedInExplore
                 ? "Signed in"
                 : exploreUserRole === "VISITOR"

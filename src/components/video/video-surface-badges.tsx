@@ -13,6 +13,9 @@ type Props = {
   community?: VideoSurfaceBadgeCommunity | null;
   coOwnerApproved?: boolean;
   coOwnerNames?: string[];
+  coOwnerName?: string | null;
+  channelId?: string;
+  eventId?: string;
   position?: "top-left" | "top-right";
   className?: string;
 };
@@ -24,6 +27,9 @@ export function VideoSurfaceBadges({
   community,
   coOwnerApproved,
   coOwnerNames,
+  coOwnerName,
+  channelId,
+  eventId,
   position = "top-right",
   className,
 }: Props) {
@@ -53,6 +59,9 @@ export function VideoSurfaceBadges({
       {hasCoOwner ? (
         <CoOwnerApprovedBadge
           coOwnerNames={coOwnerNames}
+          coOwnerName={coOwnerName}
+          channelId={channelId}
+          eventId={eventId}
           position={position}
           inline
         />

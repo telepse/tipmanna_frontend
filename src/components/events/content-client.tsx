@@ -933,6 +933,11 @@ export const ContentClient = ({
               community={currentContent?.community}
               coOwnerApproved={currentContent?.coOwnerApproved}
               coOwnerNames={currentContent?.coOwnerNames}
+              coOwnerName={currentContent?.coOwnerName}
+              channelId={
+                currentContent?.id != null ? String(currentContent.id) : undefined
+              }
+              eventId={eventId}
               position="top-right"
             />
             {paymentChannelIdForTip &&
