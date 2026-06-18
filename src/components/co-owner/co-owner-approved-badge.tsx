@@ -130,7 +130,7 @@ export function CoOwnerApprovedBadge({
           )}
           aria-hidden={!showName}
         >
-          {label}
+          {label} is a co-owner of this video.
         </span>
       ) : null}
     </div>

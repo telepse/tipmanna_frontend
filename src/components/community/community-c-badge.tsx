@@ -12,6 +12,7 @@ import {
 export type CommunityBadgeInfo = {
   id: string;
   name: string;
+  visibility: string;
 };
 
 type Props = {
@@ -76,7 +77,7 @@ export function CommunityCBadge({
           e.stopPropagation();
         }}
       >
-        {community.name}
+        This video ({community.visibility}) is by {community.name}
       </Link>
     </div>
   );
