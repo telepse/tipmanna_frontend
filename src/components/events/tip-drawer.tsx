@@ -1073,7 +1073,7 @@ export const TipDrawer = ({
                             className="size-12 object-contain"
                           />
 
-                          <h5 className="mt-0.5 text-center text-xs font-medium whitespace-nowrap">
+                          <h5 className="mt-0.5 text-center text-[8px] sm:text-xs font-medium whitespace-nowrap">
                             {label.substring(0, 7)}
                           </h5>
                           <p className="text-muted-foreground absolute -bottom-5 left-1/2 -translate-x-1/2 overflow-visible rounded-full border border-black border-t-transparent border-r-transparent border-l-transparent bg-white p-0.5 text-xs">
