@@ -1525,7 +1525,7 @@ export const ChannelClient = ({
             href="/tv"
             className="group flex flex-col items-center justify-center gap-1"
           >
-            <Tv className="group-hover:text-primary size-5 group-hover:stroke-3" />{" "}
+            <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />{" "}
             <span className="text-[8px]">Watch TV</span>
           </Link>
 
@@ -1548,7 +1548,7 @@ export const ChannelClient = ({
           <div className="flex flex-col items-center justify-center">
             <button
               type="button"
-              className="cursor-pointer rounded-full bg-black/20 p-1"
+              className="cursor-pointer rounded-full bg-black/20 p-[3px]"
               onClick={() => {
                 setIsCreatePopupOpen(true);
                 setIsProfileDrawerOpen(false);

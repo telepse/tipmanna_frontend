@@ -85,7 +85,7 @@ export const TVExpressButtons = () => {
         >
           <Tv
             className={`size-5 ${isTVActive ? "" : "text-primary"}`}
-            strokeWidth={isTVActive ? 2 : 3.75}
+            strokeWidth={isTVActive ? 2 : 2}
           />{" "}
           <span className="text-[8px]">Watch TV</span>
         </Link>
@@ -112,7 +112,7 @@ export const TVExpressButtons = () => {
           <div className="flex items-center justify-center">
             <button
               type="button"
-              className="rounded-full bg-black/20 p-1"
+              className="rounded-full bg-black/20 p-[3px]"
               onClick={() => {
                 setIsProfileDrawerOpen(false);
                 setCreateDialogOpen(true);
