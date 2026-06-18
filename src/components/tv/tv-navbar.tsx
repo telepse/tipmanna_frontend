@@ -59,7 +59,7 @@ export const TVNavbar = ({ active_users }: Props) => {
           <Menu className="hidden lg:block" />
           <Link
             href="/partner"
-            className="racing_sans_one text-sm sm:text-2xl -mt-1 sm:mt-0"
+            className="racing_sans_one text-sm sm:text-2xl -mt-2 sm:mt-0"
           >
             tip<span className="text-primary">manna</span>
           </Link>

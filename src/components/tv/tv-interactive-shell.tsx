@@ -552,7 +552,7 @@ export function TvInteractiveShell({
                       className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
                         activeTab === "playlist"
                           ? "bg-black text-white"
-                          : "bg-white text-black outline-black"
+                          : "bg-white text-black border border-black"
                       }`}
                     >
                       TV Playlist <ChevronDown className="size-4" />
