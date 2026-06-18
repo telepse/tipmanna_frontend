@@ -103,7 +103,7 @@ export function CoOwnerApprovedBadge({
         type="button"
         className={cn(
           VIDEO_SURFACE_BADGE_CHIP,
-          "bg-emerald-700/95 text-white",
+          "bg-white text-black",
           !label && "opacity-90"
         )}
         aria-expanded={showName}

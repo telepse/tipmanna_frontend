@@ -51,7 +51,7 @@ export function CommunityCBadge({
         type="button"
         className={cn(
           VIDEO_SURFACE_BADGE_CHIP,
-          "from-moonstone-blue bg-gradient-to-br to-white/90 text-xs font-black text-white"
+          "from-white bg-gradient-to-br to-white/90 text-xs font-black text-black"
         )}
         aria-expanded={showCommunityName}
         onClick={e => {
