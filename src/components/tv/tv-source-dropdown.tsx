@@ -64,7 +64,7 @@ export function TvSourceDropdown({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="inline-flex h-8 max-w-[160px] items-center gap-1 rounded-r-md border-l border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-800 hover:bg-zinc-50 sm:max-w-[180px] -mt-2"
+            className="inline-flex h-8 max-w-[160px] items-center gap-1 rounded-r-md border-l border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-800 hover:bg-zinc-50 sm:max-w-[180px] -mt-1"
             aria-label="TV source"
           >
             <span className="truncate">
