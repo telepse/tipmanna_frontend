@@ -143,7 +143,7 @@ export const TVExpressButtons = () => {
             variant="dot"
             className="-top-0.5 right-6"
           />
-          <span className="max-w-[4.5rem] truncate text-[10px] text-white/90">
+          <span className="max-w-[4.5rem] truncate text-[10px] text-black">
             {isSignedIn
               ? "Signed in"
               : userRole === "VISITOR"
