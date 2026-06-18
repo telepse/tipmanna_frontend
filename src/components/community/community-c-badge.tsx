@@ -40,7 +40,7 @@ export function CommunityCBadge({
   inline = false,
 }: Props) {
   const pos =
-    position === "top-right" ? "right2 left-auto" : "left-2 right-auto";
+    position === "top-right" ? "right-2 left-auto" : "left-2 right-auto";
   const labelPos = videoSurfaceBadgeLabelPos(position);
   const [showCommunityName, setShowCommunityName] = useState(false);
 
