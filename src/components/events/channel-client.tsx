@@ -1678,7 +1678,7 @@ export const ChannelClient = ({
         </div>
         <div
           className={cn(
-            "flex justify-between px-1 text-xs",
+            "flex justify-between px-1 text-xs -mt-0.5",
             isFullView && isMobile && "text-white"
           )}
         >
