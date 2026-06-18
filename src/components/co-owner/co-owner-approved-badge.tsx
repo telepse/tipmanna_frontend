@@ -20,7 +20,7 @@ export function CoOwnerApprovedBadge({
       className={cn(
         "pointer-events-none absolute right-3 z-[54] flex items-center gap-1 rounded-full",
         "bg-emerald-700/95 px-2 py-1 text-[10px] font-semibold text-white shadow-md ring-1 ring-white/30",
-        stackBelowCommunity ? "top-14" : "top-3",
+        stackBelowCommunity ? "top-[5.25rem]" : "top-3",
         className
       )}
     >

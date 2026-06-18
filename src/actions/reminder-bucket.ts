@@ -128,6 +128,22 @@ export async function createCommunityReminderPostAction(
   );
 }
 
+export async function mergeSubscriberRemindersAction(
+  body: { email?: string; subscriberId?: string },
+  clientToken?: string | null
+) {
+  return runServerFetch<{ ok?: boolean; mergedCount?: number }>(
+    `${base()}/reminder-bucket/merge-subscriber`,
+    {
+      method: "POST",
+      headers: await serverAuthHeaders(clientToken),
+      body: JSON.stringify(body),
+      cache: "no-store",
+    },
+    "mergeSubscriberRemindersAction"
+  );
+}
+
 export async function searchReminderEnforcementsAction(
   scope: "community" | "global",
   communityId?: string

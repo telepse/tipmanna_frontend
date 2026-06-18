@@ -1526,7 +1526,7 @@ export const ChannelClient = ({
             className="group flex flex-col items-center justify-center gap-1"
           >
             <Tv className="group-hover:text-primary size-5 group-hover:stroke-3" />{" "}
-            <span className="text-[10px]">Watch TV</span>
+            <span className="text-[8px]">Watch TV</span>
           </Link>
 
           <Link
@@ -1542,7 +1542,7 @@ export const ChannelClient = ({
               className="size-5"
               strokeWidth={2}
             />{" "}
-            <span className="text-[10px]">Explore</span>
+            <span className="text-[8px]">Explore</span>
           </Link>
 
           <div className="flex flex-col items-center justify-center">
@@ -1560,7 +1560,7 @@ export const ChannelClient = ({
               />
             </button>
 
-            <span className="text-[10px]">Create</span>
+            <span className="text-[8px]">Create</span>
           </div>
 
           <button
@@ -1579,7 +1579,7 @@ export const ChannelClient = ({
               variant="dot"
               className="-top-0.5 right-6"
             />
-            <span className="max-w-[4.5rem] truncate text-[10px] text-black">
+            <span className="max-w-[4.5rem] truncate text-[8px] text-black">
               {isSignedIn
                 ? "Signed in"
                 : userRole === "VISITOR"

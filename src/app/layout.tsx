@@ -50,6 +50,11 @@ export const metadata = {
     apple: "/icons/icon-192.png",
   },
   manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Tipmanna",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
@@ -96,6 +101,22 @@ export default function RootLayout({
         <meta
           name="theme-color"
           content="#000000"
+        />
+        <meta
+          name="apple-mobile-web-app-capable"
+          content="yes"
+        />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <meta
+          name="apple-mobile-web-app-title"
+          content="Tipmanna"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/icons/icon-512.png"
         />
       </head>
       <body

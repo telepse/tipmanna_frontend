@@ -43,6 +43,7 @@ import VideoPlayer, {
   loadReelSoundPref,
 } from "@/components/events/video-player";
 import { CommunityCBadge } from "@/components/community/community-c-badge";
+import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
@@ -333,6 +334,13 @@ function ExploreFeedSlideVideo({
         <CommunityCBadge
           community={item.community}
           position="top-right"
+        />
+      ) : null}
+      {item.coOwnerApproved ? (
+        <CoOwnerApprovedBadge
+          stackBelowCommunity={
+            !!(item.community?.id && item.community?.name)
+          }
         />
       ) : null}
       {showPlayerMount ? (

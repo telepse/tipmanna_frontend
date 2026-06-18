@@ -39,13 +39,19 @@ async function fetchVapidPublicKey(): Promise<string> {
   return publicKey;
 }
 
-async function persistPushSubscription(sub: PushSubscription): Promise<void> {
+async function persistPushSubscription(
+  sub: PushSubscription,
+  authToken?: string | null
+): Promise<void> {
   const json = sub.toJSON();
-  const subscribeRes = await subscribePushAction({
-    endpoint: json.endpoint,
-    keys: json.keys,
-    userAgent: navigator.userAgent,
-  });
+  const subscribeRes = await subscribePushAction(
+    {
+      endpoint: json.endpoint,
+      keys: json.keys,
+      userAgent: navigator.userAgent,
+    },
+    authToken
+  );
   if (!subscribeRes.success) {
     throw new Error(
       subscribeRes.message || "Failed to register push subscription"
@@ -106,7 +112,7 @@ async function resolvePushPermissionState(
   if (opts?.syncToBackend && userId && authToken) {
     try {
       await setPushAuthToken(authToken);
-      await persistPushSubscription(localSub);
+      await persistPushSubscription(localSub, authToken);
     } catch {
       // Browser is subscribed; keep prompt hidden even if backend sync fails.
     }
@@ -247,7 +253,7 @@ export function usePushPermission() {
 
       const publicKey = await fetchVapidPublicKey();
       const sub = await getOrCreatePushSubscription(publicKey);
-      await persistPushSubscription(sub);
+      await persistPushSubscription(sub, authToken);
       if (runId !== subscribeRunRef.current) return true;
       applySharedState("subscribed");
       setSnapshot({ detecting: false });

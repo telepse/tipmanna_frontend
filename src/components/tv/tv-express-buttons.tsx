@@ -87,7 +87,7 @@ export const TVExpressButtons = () => {
             className={`size-5 ${isTVActive ? "" : "text-primary"}`}
             strokeWidth={isTVActive ? 2 : 3.75}
           />{" "}
-          <span className="text-[10px]">Watch TV</span>
+          <span className="text-[8px]">Watch TV</span>
         </Link>
 
         <button
@@ -105,7 +105,7 @@ export const TVExpressButtons = () => {
             className="size-5"
             strokeWidth={2}
           />{" "}
-          <span className="text-[10px]">Explore</span>
+          <span className="text-[8px]">Explore</span>
         </button>
 
         <div className="flex flex-col items-center justify-center border border-black/20">
@@ -124,7 +124,7 @@ export const TVExpressButtons = () => {
               />
             </button>
           </div>{" "}
-          <span className="text-[10px]">Create</span>
+          <span className="text-[8px]">Create</span>
         </div>
 
         <button
@@ -143,7 +143,7 @@ export const TVExpressButtons = () => {
             variant="dot"
             className="-top-0.5 right-6"
           />
-          <span className="max-w-[4.5rem] truncate text-[10px] text-black">
+          <span className="max-w-[4.5rem] truncate text-[8px] text-black">
             {isSignedIn
               ? "Signed in"
               : userRole === "VISITOR"

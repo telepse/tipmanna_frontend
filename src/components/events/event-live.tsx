@@ -699,7 +699,16 @@ export const EventLive = ({
                 position="top-right"
               />
             ) : null}
-            {currentChannel?.coOwnerApproved ? <CoOwnerApprovedBadge /> : null}
+            {currentChannel?.coOwnerApproved ? (
+              <CoOwnerApprovedBadge
+                stackBelowCommunity={
+                  !!(
+                    currentChannel?.community?.id &&
+                    currentChannel?.community?.name
+                  )
+                }
+              />
+            ) : null}
           </div>
         )}
 

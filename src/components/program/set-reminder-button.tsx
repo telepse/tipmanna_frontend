@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setProgramReminderAction } from "@/actions/program-actions";
+import { GuestReminderPushOffer } from "@/components/program/guest-reminder-push-offer";
 import type { RootState } from "@/redux/store";
 
 const OFFSET_LABELS: Record<number, string> = {
@@ -42,6 +43,8 @@ export function SetReminderButton({
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [pushOfferOpen, setPushOfferOpen] = useState(false);
+  const [guestEmailUsed, setGuestEmailUsed] = useState("");
 
   const apiBase = () =>
     (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(/\/$/, "");
@@ -85,6 +88,8 @@ export function SetReminderButton({
             (err as { message?: string }).message ?? `Failed (${res.status})`
           );
         }
+        setGuestEmailUsed(email.trim());
+        setPushOfferOpen(true);
       }
 
       setDone(true);
@@ -99,15 +104,24 @@ export function SetReminderButton({
 
   if (done) {
     return (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled
-      >
-        <Check className="mr-1 size-4" />
-        Reminder set
-      </Button>
+      <>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled
+        >
+          <Check className="mr-1 size-4" />
+          Reminder set
+        </Button>
+        {!isAuthenticated && guestEmailUsed ? (
+          <GuestReminderPushOffer
+            email={guestEmailUsed}
+            open={pushOfferOpen}
+            onOpenChange={setPushOfferOpen}
+          />
+        ) : null}
+      </>
     );
   }
 
