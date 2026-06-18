@@ -1156,7 +1156,7 @@ export const ChannelClient = ({
           )}
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-7 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] flex -translate-y-1/2 flex-col items-center gap-2 -mt-1" : `absolute right-7 -mt-1 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1280,7 +1280,7 @@ export const ChannelClient = ({
           </div>
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] flex -translate-y-1/2 flex-col items-center gap-2 " : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"

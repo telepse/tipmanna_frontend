@@ -218,7 +218,7 @@ export const mobileInlineScrubberDockClass =
   "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+13.0rem)] w-auto px-2 py-0.5";
 
 export const mobileInlineTipSectionClass =
-  "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+3.0rem)] mx-0 w-auto overflow-visible rounded-t-xl bg-white/95 px-2 py-1";
+  "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+2.5rem)] mx-0 w-auto overflow-visible rounded-t-xl bg-white/95 px-2 py-1";
 
 export const mobileInlineActionRailBottomClass = "bottom-20";
 export const mobileInlineActionRailBottomSmClass = "bottom-4";
