@@ -863,7 +863,7 @@ export const TvLooper = ({
         className={cn(
           isFullView
             ? immersiveMainRowClassName(isFullView, isMobileTv, immersiveLayout)
-            : "mt-2 -ml-2 flex size-full gap-2"
+            : "-ml-2 flex size-full gap-2"
         )}
       >
         {/* Left control rail */}
@@ -991,7 +991,7 @@ export const TvLooper = ({
 
           {showSideRails && (
             <div
-              className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-12 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
+              className={`${isFullView ? `absolute top-1/2 right-7 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-7 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
             >
               <button
                 type="button"
@@ -1113,7 +1113,7 @@ export const TvLooper = ({
 
           {!isNotice && showSideRails && (
             <div
-              className={`${isFullView ? "absolute top-1/2 right-4 z-40 mt-2 -translate-y-1/2" : "absolute right-4 bottom-12 z-40"}`}
+              className={`${isFullView ? "absolute top-1/2 right-2 z-40 mt-2 -translate-y-1/2" : "absolute right-2 bottom-12 z-40"}`}
             >
               {/* <button
                 type="button"
