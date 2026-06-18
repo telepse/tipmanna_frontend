@@ -36,6 +36,12 @@ export const TVExpressButtons = () => {
   const [iTipped, setITipped] = useState(0);
   const [causes, setCauses] = useState<any[]>([]);
 
+  const userRole = useSelector((s: RootState) => s.auth.user?.role);
+  const authToken = useSelector((s: RootState) => s.auth.token);
+  const isSignedIn =
+    useSelector((s: RootState) => s.auth.isAuthenticated) &&
+    (userRole === "HOST" || userRole === "TIPPER");
+
   useEffect(() => {
     const fetchData = async () => {
       const [tipperEventsRes, iTippedRes, causesRes] = await Promise.all([
@@ -75,12 +81,13 @@ export const TVExpressButtons = () => {
       <div className="-mt-1 grid w-full grid-cols-4 border-b border-black/20 bg-white/80 px-2">
         <Link
           href="/tv"
-          className="flex items-center justify-center border border-black/20"
+          className="flex flex-col items-center justify-center gap-1 border border-black/20"
         >
           <Tv
             className={`size-5 ${isTVActive ? "" : "text-primary"}`}
             strokeWidth={isTVActive ? 2 : 3.75}
-          />
+          />{" "}
+          <span className="text-[10px]">Watch TV</span>
         </Link>
 
         <button
@@ -92,33 +99,37 @@ export const TVExpressButtons = () => {
             setIsProfileDrawerOpen(false);
             router.push("/explore");
           }}
-          className="flex items-center justify-center border border-black/20"
+          className="flex flex-col items-center justify-center border border-black/20"
         >
           <Search
             className="size-5"
             strokeWidth={2}
-          />
+          />{" "}
+          <span className="text-[10px]">Explore</span>
         </button>
 
-        <div className="flex items-center justify-center border border-black/20 p-1">
-          <button
-            type="button"
-            className="rounded-full bg-black/20 p-1"
-            onClick={() => {
-              setIsProfileDrawerOpen(false);
-              setCreateDialogOpen(true);
-            }}
-          >
-            <Plus
-              className={`size-4 ${createDialogOpen ? "text-primary" : ""}`}
-              strokeWidth={createDialogOpen ? 3.75 : 2}
-            />
-          </button>
+        <div className="flex flex-col items-center justify-center border border-black/20">
+          <div className="flex items-center justify-center">
+            <button
+              type="button"
+              className="rounded-full bg-black/20 p-1"
+              onClick={() => {
+                setIsProfileDrawerOpen(false);
+                setCreateDialogOpen(true);
+              }}
+            >
+              <Plus
+                className={`size-4 ${createDialogOpen ? "text-primary" : ""}`}
+                strokeWidth={createDialogOpen ? 3.75 : 2}
+              />
+            </button>
+          </div>{" "}
+          <span className="text-[10px]">Create</span>
         </div>
 
         <button
           type="button"
-          className="relative flex items-center justify-center border border-black/20"
+          className="relative flex flex-col items-center justify-center border border-black/20"
           onClick={() => {
             setCreateDialogOpen(false);
             setIsProfileDrawerOpen(true);
@@ -132,6 +143,13 @@ export const TVExpressButtons = () => {
             variant="dot"
             className="-top-0.5 right-6"
           />
+          <span className="max-w-[4.5rem] truncate text-[10px] text-white/90">
+            {isSignedIn
+              ? "Signed in"
+              : userRole === "VISITOR"
+                ? "Guest"
+                : "Not signed in"}
+          </span>
         </button>
       </div>
 

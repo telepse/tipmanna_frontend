@@ -151,12 +151,13 @@ export function TipsFeedPanel({
                   {formatCurrency(row.amount)}
                 </div>
               )}{" "}
-              <span className="font-semibold">{row.username}</span> just sent {row.characterName}
+              <span className="font-semibold">{row.username}</span> just sent{" "}
+              {row.characterName}
             </p>
           </div>
 
           <p className="text-muted-foreground text-right text-[10px]">
-          {formatPurchasedAt(row.purchasedAt)}
+            {formatPurchasedAt(row.purchasedAt)}
           </p>
         </li>
       ))}
