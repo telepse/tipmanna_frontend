@@ -1070,7 +1070,7 @@ export const TipDrawer = ({
                             alt={character.name}
                             width={60}
                             height={60}
-                            className="size-10 object-contain"
+                            className="size-12 object-contain"
                           />
 
                           <h5 className="mt-0.5 text-center text-[8px] font-medium whitespace-nowrap sm:text-xs">
