@@ -1372,7 +1372,7 @@ export const TvLooper = ({
       {isFullView && isMobileTv ? (
         <div className={immersiveMobileScrubberDockClassName(immersiveLayout)}>
           <p className="truncate text-xs text-white">{currentTitle}</p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-1">
             <div className="flex flex-col gap-1 flex-1">
             <input
               type="range"
