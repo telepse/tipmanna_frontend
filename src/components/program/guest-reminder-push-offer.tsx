@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
-import { mergeSubscriberRemindersAction } from "@/actions/reminder-bucket";
 import { usePushPermission } from "@/hooks/use-push-permission";
+import { completeGuestProgramPushSetup } from "@/lib/program-push-setup";
 import { store } from "@/redux/store";
 import type { RootState } from "@/redux/store";
 
@@ -33,28 +33,38 @@ export function GuestReminderPushOffer({
   onComplete,
 }: Props) {
   const authToken = useSelector((s: RootState) => s.auth.token);
-  const { subscribe } = usePushPermission();
+  const { subscribe, state: pushState } = usePushPermission();
   const [otpOpen, setOtpOpen] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   const handleEnablePush = () => {
     onOpenChange(false);
+    setConsentOpen(true);
+  };
+
+  const handleConsentContinue = () => {
+    setConsentOpen(false);
     setOtpOpen(true);
   };
 
   const handleVerified = async () => {
     const token = store.getState().auth.token ?? authToken;
-    const mergeRes = await mergeSubscriberRemindersAction({ email }, token);
-    if (!mergeRes.success) {
+    const result = await completeGuestProgramPushSetup({
+      email,
+      token,
+      pushState,
+      subscribe,
+    });
+
+    if (result === "merge_failed") {
       toast.warn(
-        mergeRes.message ??
-          "Reminder saved, but we could not link it to your account for push. Try again or use email only."
+        "Reminder saved, but we could not link it to your account for push. Try again or use email only."
       );
       return;
     }
 
-    const pushOk = await subscribe();
-    if (pushOk) {
-      toast.success("Push reminders enabled for this program.");
+    if (result === "already_subscribed" || result === "push_enabled") {
+      toast.success("Push reminder set for this program.");
     } else {
       toast.info(
         "Account verified. You can enable push from your profile alerts tab."
@@ -96,6 +106,39 @@ export function GuestReminderPushOffer({
               onClick={() => onOpenChange(false)}
             >
               Email only
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={consentOpen}
+        onOpenChange={setConsentOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verify to enable push</DialogTitle>
+            <DialogDescription>
+              We will verify <strong>{email}</strong>. If you do not have a
+              Tipmanna tipper account yet, we will create one for this email so
+              push reminders can reach this device. By continuing you agree to
+              the Terms and Privacy Policy.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              className="bg-black"
+              onClick={handleConsentContinue}
+            >
+              Continue
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setConsentOpen(false)}
+            >
+              Cancel
             </Button>
           </div>
         </DialogContent>

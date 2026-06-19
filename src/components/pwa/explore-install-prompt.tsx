@@ -23,7 +23,9 @@ function isIos(): boolean {
 /** Manual install affordance — ignores do_not_show; shown after at least one dismiss. */
 export function ExploreInstallPrompt() {
   const { canInstall, installed, promptInstall } = useInstallPrompt();
-  const [preference, setPreference] = useState<PwaPreferenceRecord | null>(null);
+  const [preference, setPreference] = useState<PwaPreferenceRecord | null>(
+    null
+  );
   const [sessionDismissed, setSessionDismissed] = useState(false);
   const [showIosHelp, setShowIosHelp] = useState(false);
 

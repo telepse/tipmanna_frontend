@@ -62,6 +62,10 @@ export default function SignInDialog({
             onSuccess?.(payload);
             onOpenChange(false);
           }}
+          onModalTipperSuccess={() => {
+            onSuccess?.({ role: "TIPPER" });
+            onOpenChange(false);
+          }}
         />
       </DialogContent>
     </Dialog>

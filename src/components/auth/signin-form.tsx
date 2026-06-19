@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import OTPInput from "react-otp-input";
+import { useMediaQuery } from "react-responsive";
 
 // Third-party imports
 import { useForm } from "react-hook-form";
@@ -18,9 +20,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Eye, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Eye, Loader2, MoveLeft } from "lucide-react";
 import { toast } from "react-toastify";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
 // Local imports
 import { HostSignInFormData, hostSignInSchema } from "@/schemas/host.schema";
@@ -31,8 +34,10 @@ import {
 import { Paragraph } from "@/components/shared/paragraph";
 import {
   loginHostAction,
+  loginOrRegisterTipperAction,
   loginTipperAction,
   requestLoginCodeAction,
+  verifyCodeAction,
 } from "@/actions/auth";
 import { setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
@@ -42,6 +47,7 @@ import {
   parseAuthResponse,
 } from "@/lib/auth-response";
 import { persistAuthSession } from "@/lib/session-client";
+import { store, type RootState } from "@/redux/store";
 
 function safeInternalPath(next: string | null): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
@@ -60,6 +66,8 @@ export type SigninFormProps = {
     username: string;
     eventSlug: string | null;
   }) => void;
+  /** Called when tipper verifies email inside a modal (no navigation). */
+  onModalTipperSuccess?: () => void;
 };
 
 export const SigninForm = ({
@@ -67,11 +75,19 @@ export const SigninForm = ({
   returnTo: returnToProp,
   defaultUserType = "host",
   onModalHostSuccess,
+  onModalTipperSuccess,
 }: SigninFormProps = {}) => {
   const [userType, setUserType] = useState<"host" | "tipper">(
     () => defaultUserType
   );
   const [showPassword, setShowPassword] = useState(false);
+  const [tipperStep, setTipperStep] = useState<"email" | "verify">("email");
+  const [tipperCode, setTipperCode] = useState("");
+  const [tipperAcceptedTerms, setTipperAcceptedTerms] = useState(false);
+  const [tipperAccountTag, setTipperAccountTag] = useState<string | null>(null);
+
+  const authUser = useSelector((s: RootState) => s.auth.user);
+  const authToken = useSelector((s: RootState) => s.auth.token);
 
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email");
@@ -85,6 +101,16 @@ export const SigninForm = ({
 
   const { push } = useAppRouter();
   const dispatch = useDispatch();
+  const isMobile = useMediaQuery({ query: "(max-width: 500px)" });
+  const otpInputStyle = {
+    background: "#f7c87c80",
+    width: isMobile ? "36px" : "44px",
+    height: isMobile ? "36px" : "50px",
+    margin: isMobile ? "0 4px" : "0 8px",
+    borderRadius: isMobile ? "4px" : "8px",
+    outline: "none",
+    fontSize: isMobile ? "16px" : "20px",
+  };
 
   const signupHref = returnTo
     ? `/create-account?redirect=${encodeURIComponent(returnTo)}`
@@ -180,7 +206,15 @@ export const SigninForm = ({
     try {
       setIsTipperLoading(true);
 
-      const res = await loginTipperAction(values);
+      const res =
+        mode === "modal"
+          ? await loginOrRegisterTipperAction({
+              fullName: "",
+              email: values.email,
+              acceptedTerms: tipperAcceptedTerms,
+            })
+          : await loginTipperAction(values);
+
       if (!res.success) {
         toast.error(res.message);
         return;
@@ -194,25 +228,25 @@ export const SigninForm = ({
 
       const { user, token, message, role, tag } = parsed;
       toast.success(message);
+      setTipperAccountTag(tag ?? null);
+
+      dispatch(
+        setCredentials({
+          user: { ...user, role },
+          token,
+          requiresVerification: true,
+          tag: tag ?? null,
+        })
+      );
+
+      if (mode === "modal") {
+        setTipperStep("verify");
+        return;
+      }
 
       if (role === "TIPPER") {
-        dispatch(
-          setCredentials({
-            user: { ...user, role: "TIPPER" },
-            token,
-            requiresVerification: true,
-          })
-        );
         await persistAuthSession(token, user, { expiresDays: 60 });
       } else {
-        dispatch(
-          setCredentials({
-            user: { ...user, role: "HOST" },
-            token,
-            requiresVerification: true,
-            tag: tag ?? null,
-          })
-        );
         await persistAuthSession(token, user, { expiresDays: 7 });
       }
 
@@ -229,6 +263,55 @@ export const SigninForm = ({
         toast.error(apiErr.error.message);
       } else {
         toast.error("Failed to sign in tipper");
+      }
+    } finally {
+      setIsTipperLoading(false);
+    }
+  };
+
+  const handleModalTipperVerify = async () => {
+    try {
+      setIsTipperLoading(true);
+      const user = authUser ?? store.getState().auth.user;
+      const token = authToken ?? store.getState().auth.token;
+      if (!user?.email || !token) return;
+
+      const verifyRes = await verifyCodeAction(user.email, tipperCode);
+      if (!verifyRes.success) {
+        toast.error(verifyRes.message ?? "Verification failed");
+        return;
+      }
+
+      dispatch(
+        setCredentials({
+          user,
+          token,
+          requiresVerification: false,
+        })
+      );
+
+      await persistAuthSession(
+        token,
+        {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+        },
+        { expiresDays: user.role === "HOST" ? 7 : 60 }
+      );
+
+      toast.success("Email verified successfully!");
+      onModalTipperSuccess?.();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else if (typeof err === "object" && err !== null && "error" in err) {
+        const apiErr = err as ApiError;
+        toast.error(apiErr.error.message);
+      } else {
+        toast.error("Failed to verify tipper");
       }
     } finally {
       setIsTipperLoading(false);
@@ -421,59 +504,139 @@ export const SigninForm = ({
           value="tipper"
           className="space-y-6"
         >
-          <Form {...tipperForm}>
-            <form
-              onSubmit={tipperForm.handleSubmit(onSubmitTipper)}
-              className="mt-6 space-y-6"
-            >
-              <FormField
-                control={tipperForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter email address"
-                        autoComplete="off"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-                data-testid="signin-tipper-submit"
-                disabled={isTipperLoading}
-              >
-                {isTipperLoading ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" /> Signing in...
-                  </span>
-                ) : (
-                  <span>Sign in</span>
-                )}
-              </Button>
-
+          {mode === "modal" && tipperStep === "verify" ? (
+            <div className="relative flex flex-col items-center justify-center gap-6 px-2">
+              <h2 className="mt-2 text-center text-2xl font-semibold">
+                Verify your email
+              </h2>
               <Paragraph
                 align="center"
                 size="sm"
+                color="muted"
               >
-                Don&apos;t have an account?{" "}
-                <Link
-                  href={signupHref}
-                  className="text-primary hover:underline"
-                >
-                  Sign up
-                </Link>
+                We&apos;ve sent a 6-digit code to{" "}
+                <strong>{tipperForm.getValues("email")}</strong>.
+                {tipperAccountTag === "NEW_TIPPER"
+                  ? " We created a free tipper account for this email."
+                  : tipperAccountTag === "EXISTING_HOST"
+                    ? " This email belongs to a host account — verify to continue."
+                    : null}
               </Paragraph>
-            </form>
-          </Form>
+              <div className="react-otp-input">
+                <OTPInput
+                  value={tipperCode}
+                  onChange={setTipperCode}
+                  numInputs={6}
+                  renderInput={props => <input {...props} />}
+                  inputStyle={otpInputStyle}
+                  shouldAutoFocus
+                />
+              </div>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full bg-black"
+                disabled={isTipperLoading || tipperCode.length < 6}
+                onClick={() => void handleModalTipperVerify()}
+              >
+                {isTipperLoading ? "Verifying email..." : "Verify email"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="hover:bg-gray absolute top-0 left-0 border-none outline-none hover:text-black"
+                onClick={() => setTipperStep("email")}
+              >
+                <MoveLeft /> Back
+              </Button>
+            </div>
+          ) : (
+            <Form {...tipperForm}>
+              <form
+                onSubmit={tipperForm.handleSubmit(onSubmitTipper)}
+                className="mt-6 space-y-6"
+              >
+                <FormField
+                  control={tipperForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter email address"
+                          autoComplete="off"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {mode === "modal" ? (
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={tipperAcceptedTerms}
+                      onCheckedChange={v => setTipperAcceptedTerms(v === true)}
+                      className="data-[state=checked]:border-black! data-[state=checked]:bg-black!"
+                    />
+                    <Paragraph
+                      size="sm"
+                      className="text-sm font-normal"
+                    >
+                      I agree to the Terms and Privacy Policy
+                    </Paragraph>
+                  </div>
+                ) : null}
+
+                <Paragraph
+                  align="center"
+                  size="sm"
+                  color="muted"
+                >
+                  {mode === "modal"
+                    ? "No account yet? Continue and we will create a free tipper account when you verify."
+                    : "Use your Tipmanna tipper email — we'll send a verification code."}
+                </Paragraph>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  data-testid="signin-tipper-submit"
+                  disabled={
+                    isTipperLoading ||
+                    (mode === "modal" && !tipperAcceptedTerms)
+                  }
+                >
+                  {isTipperLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" /> Sending
+                      code...
+                    </span>
+                  ) : (
+                    <span>{mode === "modal" ? "Continue" : "Sign in"}</span>
+                  )}
+                </Button>
+
+                {mode === "page" ? (
+                  <Paragraph
+                    align="center"
+                    size="sm"
+                  >
+                    Don&apos;t have an account?{" "}
+                    <Link
+                      href={signupHref}
+                      className="text-primary hover:underline"
+                    >
+                      Sign up
+                    </Link>
+                  </Paragraph>
+                ) : null}
+              </form>
+            </Form>
+          )}
         </TabsContent>
       </Tabs>
     </div>

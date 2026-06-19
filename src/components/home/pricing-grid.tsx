@@ -47,8 +47,7 @@ export default function PricingGrid() {
     (state: RootState) => state.auth
   );
 
-  const isSignedInHost =
-    isAuthenticated && !!user && isHostRole(user.role);
+  const isSignedInHost = isAuthenticated && !!user && isHostRole(user.role);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

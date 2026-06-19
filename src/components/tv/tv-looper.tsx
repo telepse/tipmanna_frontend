@@ -867,7 +867,7 @@ export const TvLooper = ({
         className={cn(
           isFullView
             ? immersiveMainRowClassName(isFullView, isMobileTv, immersiveLayout)
-            : "-ml-2 flex size-full gap-2 mt-2"
+            : "mt-2 -ml-2 flex size-full gap-2"
         )}
       >
         {/* Left control rail */}
@@ -1372,45 +1372,44 @@ export const TvLooper = ({
       {isFullView && isMobileTv ? (
         <div className={immersiveMobileScrubberDockClassName(immersiveLayout)}>
           <div className="flex items-center gap-2 px-1">
-            <div className="flex flex-col gap-1 flex-1">
-            <input
-              type="range"
-              min={0}
-              max={seekBarMax}
-              step={0.1}
-              value={seekBarValue}
-              onMouseDown={() => setIsSeeking(true)}
-              onTouchStart={() => setIsSeeking(true)}
-              onChange={e => setCurrentTime(parseFloat(e.target.value))}
-              onMouseUp={e => {
-                const time = parseFloat((e.target as HTMLInputElement).value);
-                seekTo(time);
-                setIsSeeking(false);
-              }}
-              onTouchEnd={e => {
-                const time = parseFloat((e.target as HTMLInputElement).value);
-                seekTo(time);
-                setIsSeeking(false);
-              }}
-              className="accent-primary h-1 min-w-0 flex-1 rounded-full bg-white/20"
-            />
-            <div className="-mt-1 flex justify-between px-1 text-xs text-white">
-            <span>{formatTime(seekBarValue)}</span>
-            <span>{formatTime(seekBarDuration)}</span>
-          </div>
+            <div className="flex flex-1 flex-col gap-1">
+              <input
+                type="range"
+                min={0}
+                max={seekBarMax}
+                step={0.1}
+                value={seekBarValue}
+                onMouseDown={() => setIsSeeking(true)}
+                onTouchStart={() => setIsSeeking(true)}
+                onChange={e => setCurrentTime(parseFloat(e.target.value))}
+                onMouseUp={e => {
+                  const time = parseFloat((e.target as HTMLInputElement).value);
+                  seekTo(time);
+                  setIsSeeking(false);
+                }}
+                onTouchEnd={e => {
+                  const time = parseFloat((e.target as HTMLInputElement).value);
+                  seekTo(time);
+                  setIsSeeking(false);
+                }}
+                className="accent-primary h-1 min-w-0 flex-1 rounded-full bg-white/20"
+              />
+              <div className="-mt-1 flex justify-between px-1 text-xs text-white">
+                <span>{formatTime(seekBarValue)}</span>
+                <span>{formatTime(seekBarDuration)}</span>
+              </div>
             </div>
             {openEngageDrawer ? (
               <button
                 type="button"
                 onClick={openEngageDrawer}
-                className="mb-2 flex  shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
+                className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
               >
                 <ChevronsUp className="text-primary size-4" />
                 Engage <ChevronsUp className="text-primary size-4" />
               </button>
             ) : null}
           </div>
-          
         </div>
       ) : null}
 

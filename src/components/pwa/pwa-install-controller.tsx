@@ -28,7 +28,9 @@ const PAYMENT_PROMPT_DELAY_MS = 3500;
 export function PwaInstallController() {
   const { installed } = useInstallPrompt();
   const [open, setOpen] = useState(false);
-  const [preference, setPreference] = useState<PwaPreferenceRecord | null>(null);
+  const [preference, setPreference] = useState<PwaPreferenceRecord | null>(
+    null
+  );
   const prefRef = useRef<PwaPreferenceRecord | null>(null);
   const installedRef = useRef(installed);
   const engagementFiredRef = useRef(hasEngagementFiredThisSession());

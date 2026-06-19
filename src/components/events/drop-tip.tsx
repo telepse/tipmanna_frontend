@@ -75,9 +75,7 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
     dispatch(setSelectedTips([]));
     dispatch(markPaymentCompleted(false));
 
-    schedulePwaPromptAfterPaymentAnimation(
-      Math.max(1, uniqueTipNames.length)
-    );
+    schedulePwaPromptAfterPaymentAnimation(Math.max(1, uniqueTipNames.length));
 
     setTipDropped(true);
   }, [tipDropped, user, eventId, selectedTips, dispatch]);

@@ -1150,7 +1150,7 @@ export const ChannelClient = ({
           )}
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] flex -translate-y-1/2 flex-col items-center gap-2 -mt-1" : `absolute right-7 -mt-1 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] -mt-1 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-7 -mt-1 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1274,7 +1274,7 @@ export const ChannelClient = ({
           </div>
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] flex -translate-y-1/2 flex-col items-center gap-2 " : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1633,45 +1633,45 @@ export const ChannelClient = ({
 
         <div className="flex items-center gap-2">
           <div className="flex flex-col px-1">
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            value={currentTime || 0}
-            step={0.1}
-            onMouseDown={() => setIsSeeking(true)}
-            onTouchStart={() => setIsSeeking(true)}
-            onChange={e => {
-              // Update UI immediately while dragging
-              setCurrentTime(parseFloat(e.target.value));
-            }}
-            onMouseUp={e => {
-              const seekTo = parseFloat((e.target as HTMLInputElement).value);
-              applyUserSeek(seekTo);
-              setIsSeeking(false);
-            }}
-            onTouchEnd={e => {
-              const seekTo = parseFloat((e.target as HTMLInputElement).value);
-              applyUserSeek(seekTo);
-              setIsSeeking(false);
-            }}
-            className={cn(
-              "accent-primary h-2 min-w-0 flex-1 rounded-full",
-              isFullView && isMobile ? "bg-white/20" : "bg-black"
-            )}
-          />
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              value={currentTime || 0}
+              step={0.1}
+              onMouseDown={() => setIsSeeking(true)}
+              onTouchStart={() => setIsSeeking(true)}
+              onChange={e => {
+                // Update UI immediately while dragging
+                setCurrentTime(parseFloat(e.target.value));
+              }}
+              onMouseUp={e => {
+                const seekTo = parseFloat((e.target as HTMLInputElement).value);
+                applyUserSeek(seekTo);
+                setIsSeeking(false);
+              }}
+              onTouchEnd={e => {
+                const seekTo = parseFloat((e.target as HTMLInputElement).value);
+                applyUserSeek(seekTo);
+                setIsSeeking(false);
+              }}
+              className={cn(
+                "accent-primary h-2 w-full flex-1 rounded-full",
+                isFullView && isMobile ? "bg-white/20" : "bg-black"
+              )}
+            />
 
-          <div
-          className={cn(
-            "flex justify-between px-1 text-xs -mt-0.5",
-            isFullView && isMobile && "text-white"
-          )}
-        >
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
+            <div
+              className={cn(
+                "-mt-0.5 flex justify-between px-1 text-xs",
+                isFullView && isMobile && "text-white"
+              )}
+            >
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
           </div>
-          
+
           {isFullView && isMobile ? (
             <button
               type="button"
@@ -1683,7 +1683,6 @@ export const ChannelClient = ({
             </button>
           ) : null}
         </div>
-        
       </div>
 
       {/* Tip section - MOBILE */}

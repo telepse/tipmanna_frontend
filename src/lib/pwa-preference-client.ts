@@ -21,7 +21,9 @@ export async function fetchPwaPreference(): Promise<PwaPreferenceRecord | null> 
     `${apiBase()}/pwa/preference?deviceKey=${encodeURIComponent(deviceKey)}`
   );
   if (!res.ok) return null;
-  const data = (await res.json()) as { preference?: PwaPreferenceRecord | null };
+  const data = (await res.json()) as {
+    preference?: PwaPreferenceRecord | null;
+  };
   return data.preference ?? null;
 }
 

@@ -1155,7 +1155,7 @@ export const ContentClient = ({
           )}
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] flex -translate-y-1/2 flex-col items-center gap-2 -mt-1" : `absolute right-7 -mt-1 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] -mt-1 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-7 -mt-1 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1663,7 +1663,7 @@ export const ContentClient = ({
               setIsSeeking(false);
             }}
             className={cn(
-              "accent-primary h-1 min-w-0 flex-1 rounded-full",
+              "accent-primary h-1 w-full flex-1 rounded-full",
               isFullView && isMobile ? "bg-white/20" : "bg-black"
             )}
           />
