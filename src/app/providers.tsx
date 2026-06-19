@@ -8,6 +8,7 @@ import { NavigationProgressProvider } from "@/components/navigation/navigation-p
 import { TvAnalyticsAuthBridge } from "@/components/tv-analytics-auth-bridge";
 import { SideChickProvider } from "@/components/community/side-chick-provider";
 import { FeatureCardTipProvider } from "@/components/video-feature/feature-card-tip-context";
+import { PwaInstallController } from "@/components/pwa/pwa-install-controller";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -20,6 +21,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <TvAnalyticsAuthBridge />
           <SideChickProvider>
             <FeatureCardTipProvider>
+              <PwaInstallController />
               <ClientErrorBoundary>{children}</ClientErrorBoundary>
             </FeatureCardTipProvider>
           </SideChickProvider>

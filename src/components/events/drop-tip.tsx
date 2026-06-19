@@ -12,6 +12,7 @@ import { RootState } from "@/redux/store";
 import { setSelectedTips, markPaymentCompleted } from "@/features/tip-slice";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
 import { notifyTextTipDraftSync } from "@/lib/tip-text-selection";
+import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
 
 export const DropTip = ({ eventId }: { eventId: string }) => {
   const [tipDropped, setTipDropped] = useState(false);
@@ -73,6 +74,10 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
 
     dispatch(setSelectedTips([]));
     dispatch(markPaymentCompleted(false));
+
+    schedulePwaPromptAfterPaymentAnimation(
+      Math.max(1, uniqueTipNames.length)
+    );
 
     setTipDropped(true);
   }, [tipDropped, user, eventId, selectedTips, dispatch]);

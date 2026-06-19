@@ -77,7 +77,10 @@ import { cn } from "@/lib/utils";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import { useVideoChromeAutoHide } from "@/hooks/use-video-chrome-auto-hide";
-import { CommunityCBadge } from "@/components/community/community-c-badge";
+import {
+  VideoSurfaceBadges,
+  pickVideoSurfaceBadgeProps,
+} from "@/components/video/video-surface-badges";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { buildContentShareUrl } from "@/lib/public-video-url";
@@ -824,9 +827,10 @@ export const TvLooper = ({
   if (!current) return null;
 
   const currentTitle = current.channel?.title || "";
-  const channelCommunity = (
-    current.channel as { community?: { id: string; name: string } } | undefined
-  )?.community;
+  const channelBadgeProps = pickVideoSurfaceBadgeProps(
+    current.channel as Parameters<typeof pickVideoSurfaceBadgeProps>[0],
+    currentEventId || undefined
+  );
   const fillViewport = isFullView || isFullscreen;
   const widePlayer = playerLayout === "wide" && !isMobileTv && !fillViewport;
 
@@ -1274,15 +1278,12 @@ export const TvLooper = ({
             />
           ) : null}
 
-          {!isNotice && channelCommunity?.id && channelCommunity?.name && (
-            <CommunityCBadge
-              community={{
-                id: channelCommunity.id,
-                name: channelCommunity.name,
-              }}
+          {!isNotice ? (
+            <VideoSurfaceBadges
+              {...channelBadgeProps}
               position="top-right"
             />
-          )}
+          ) : null}
 
           <div
             className={cn(

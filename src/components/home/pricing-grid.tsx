@@ -1,10 +1,12 @@
 "use client";
 
-import { PRICING } from "@/constants";
+import { PRICING, type PricingTier } from "@/constants";
 import { Badge } from "../shared/badge";
 import { Paragraph } from "../shared/paragraph";
 import { Title } from "../shared/title";
 import { PricingCard } from "./pricing-card";
+import { CreateDialog } from "./create-dialog";
+import SignInDialog from "@/components/auth/sign-in-dialog";
 
 // Import Swiper React components
 import { SwiperSlide } from "swiper/react";
@@ -15,17 +17,38 @@ import "swiper/css";
 import "swiper/css/pagination";
 import "swiper/css/a11y";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
+import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
+import { isHostRole } from "@/lib/is-host-role";
+import { toast } from "react-toastify";
 
 const Swiper = dynamic(() => import("swiper/react").then(m => m.Swiper), {
   ssr: false,
 });
 
+const PRICING_RETURN_PATH = "/#pricing";
+
+function hostDashboardSlug(user: RootState["auth"]["user"]): string | null {
+  if (!user || !isHostRole(user.role)) return null;
+  if ("eventSlug" in user && user.eventSlug) return user.eventSlug;
+  return user.username ?? null;
+}
+
 export default function PricingGrid() {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+
+  const { push } = useAppRouter();
+  const { user, isAuthenticated } = useSelector(
+    (state: RootState) => state.auth
+  );
+
+  const isSignedInHost =
+    isAuthenticated && !!user && isHostRole(user.role);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -42,12 +65,53 @@ export default function PricingGrid() {
     return () => observer.disconnect();
   }, []);
 
-  const { user, isAuthenticated } = useSelector(
-    (state: RootState) => state.auth
+  const handlePlanClick = useCallback(
+    (tier: PricingTier) => {
+      if (!isSignedInHost) {
+        setSignInOpen(true);
+        return;
+      }
+
+      const slug = hostDashboardSlug(user);
+      if (!slug) {
+        toast.error("Unable to open host dashboard. Please sign in again.");
+        setSignInOpen(true);
+        return;
+      }
+
+      switch (tier) {
+        case "free":
+          setCreateOpen(true);
+          break;
+        case "premium":
+          push(`/host/${slug}/host-premium`);
+          break;
+        case "community":
+          push(`/host/${slug}/host-community`);
+          break;
+      }
+    },
+    [isSignedInHost, push, user]
+  );
+
+  const renderCard = (item: (typeof PRICING)[number], key: number) => (
+    <PricingCard
+      key={key}
+      name={item.name}
+      desc={item.desc}
+      price={item.price}
+      discountPrice={item.discountPrice}
+      features={item.features}
+      btnText={item.btnText}
+      onButtonClick={() => handlePlanClick(item.tier)}
+    />
   );
 
   return (
-    <section className="wrapper section items-center">
+    <section
+      id="pricing"
+      className="wrapper section items-center"
+    >
       <Badge title="Pricing" />
 
       <h2
@@ -73,21 +137,6 @@ export default function PricingGrid() {
         your community grows.
       </Paragraph>
 
-      {/* Static grid for large screens */}
-      {/* <div className="mt-6 grid grid-cols-1 items-center gap-6 lg:grid-cols-3">
-        {PRICING.map((item, index) => (
-          <PricingCard
-            key={index}
-            name={item.name}
-            price={item.price}
-            discountPrice={item.discountPrice}
-            features={item.features}
-            btnText={item.btnText}
-          />
-        ))}
-      </div> */}
-
-      {/* ✅ Swiper for small/medium, Grid for large */}
       <div
         className="mt-6 min-h-[200px] w-full lg:hidden"
         ref={ref}
@@ -116,35 +165,28 @@ export default function PricingGrid() {
             className="lg:hidden"
           >
             {PRICING.map((item, index) => (
-              <SwiperSlide key={index}>
-                <PricingCard
-                  name={item.name}
-                  desc={item.desc}
-                  price={item.price}
-                  discountPrice={item.discountPrice}
-                  features={item.features}
-                  btnText={item.btnText}
-                />
-              </SwiperSlide>
+              <SwiperSlide key={index}>{renderCard(item, index)}</SwiperSlide>
             ))}
           </Swiper>
         ) : null}
       </div>
 
-      {/* Static grid for large screens */}
       <div className="mt-6 hidden grid-cols-3 items-start gap-6 lg:grid">
-        {PRICING.map((item, index) => (
-          <PricingCard
-            key={index}
-            name={item.name}
-            desc={item.desc}
-            price={item.price}
-            discountPrice={item.discountPrice}
-            features={item.features}
-            btnText={item.btnText}
-          />
-        ))}
+        {PRICING.map((item, index) => renderCard(item, index))}
       </div>
+
+      <CreateDialog
+        openPopup={createOpen}
+        setOpenPopup={setCreateOpen}
+      />
+
+      <SignInDialog
+        open={signInOpen}
+        onOpenChange={setSignInOpen}
+        title="Sign in as host to continue"
+        returnTo={PRICING_RETURN_PATH}
+        defaultUserType="host"
+      />
     </section>
   );
 }

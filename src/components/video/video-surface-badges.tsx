@@ -9,6 +9,14 @@ import { cn } from "@/lib/utils";
 
 export type VideoSurfaceBadgeCommunity = CommunityBadgeInfo;
 
+export type VideoSurfaceBadgeChannel = {
+  community?: VideoSurfaceBadgeCommunity | null;
+  coOwnerApproved?: boolean;
+  coOwnerNames?: string[];
+  coOwnerName?: string | null;
+  id?: string | number;
+};
+
 type Props = {
   community?: VideoSurfaceBadgeCommunity | null;
   coOwnerApproved?: boolean;
@@ -20,8 +28,31 @@ type Props = {
   className?: string;
 };
 
+/** Resolve badge props from a channel/content payload (TV, room, explore). */
+export function pickVideoSurfaceBadgeProps(
+  channel: VideoSurfaceBadgeChannel | null | undefined,
+  eventId?: string
+): Props {
+  const coOwnerApproved = Boolean(channel?.coOwnerApproved);
+  const community =
+    channel?.community?.id && channel?.community?.name
+      ? channel.community
+      : null;
+
+  return {
+    community,
+    coOwnerApproved,
+    coOwnerNames: channel?.coOwnerNames,
+    coOwnerName: channel?.coOwnerName,
+    channelId: channel?.id != null ? String(channel.id) : undefined,
+    eventId,
+  };
+}
+
 /**
- * Top-corner badge stack for video surfaces — community + co-owner when both apply.
+ * Top-corner badge stack for video surfaces.
+ * Co-owned clips show the co-owner badge; community-bank clips show the C badge.
+ * Co-owned community-bank videos show both (community metadata is server-enriched).
  */
 export function VideoSurfaceBadges({
   community,
@@ -33,8 +64,8 @@ export function VideoSurfaceBadges({
   position = "top-right",
   className,
 }: Props) {
-  const hasCommunity = Boolean(community?.id && community?.name);
   const hasCoOwner = Boolean(coOwnerApproved);
+  const hasCommunity = Boolean(community?.id && community?.name);
 
   if (!hasCommunity && !hasCoOwner) return null;
 

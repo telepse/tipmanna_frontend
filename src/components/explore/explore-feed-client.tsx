@@ -42,7 +42,10 @@ import VideoPlayer, {
   VideoPlayerRef,
   loadReelSoundPref,
 } from "@/components/events/video-player";
-import { VideoSurfaceBadges } from "@/components/video/video-surface-badges";
+import {
+  VideoSurfaceBadges,
+  pickVideoSurfaceBadgeProps,
+} from "@/components/video/video-surface-badges";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
@@ -330,12 +333,10 @@ function ExploreFeedSlideVideo({
       className={`relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden ${isFullBleed ? "" : ""}`}
     >
       <VideoSurfaceBadges
-        community={item.community}
-        coOwnerApproved={item.coOwnerApproved}
-        coOwnerNames={item.coOwnerNames}
-        coOwnerName={item.coOwnerName}
-        channelId={item.id != null ? String(item.id) : undefined}
-        eventId={item.event?.id != null ? String(item.event.id) : undefined}
+        {...pickVideoSurfaceBadgeProps(
+          item,
+          item.event?.id != null ? String(item.event.id) : undefined
+        )}
         position="top-right"
       />
       {showPlayerMount ? (

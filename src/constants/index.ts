@@ -40,13 +40,23 @@ export const FEATURES = [
   },
 ];
 
-export const PRICING = [
+export type PricingTier = "free" | "premium" | "community";
+
+export const PRICING: {
+  name: string;
+  price: string;
+  desc: string;
+  btnText: string;
+  tier: PricingTier;
+  discountPrice?: string;
+  features: string[];
+}[] = [
   {
     name: "Free",
     price: "£0",
     desc: "Perfect for getting started.",
     btnText: "Create free",
-    btnLink: "/create",
+    tier: "free",
     features: [
       "Upload videos",
       "Create channels",
@@ -62,7 +72,7 @@ export const PRICING = [
     desc: "For serious creators and organisers.",
     discountPrice: "£49.99",
     btnText: "Upgrade to Premium",
-    btnLink: "/create",
+    tier: "premium",
     features: [
       "Everything in Free",
       "Advanced analytics",
@@ -80,7 +90,7 @@ export const PRICING = [
     desc: "Operate your own media network.",
     discountPrice: "",
     btnText: "Launch Community TV",
-    btnLink: "/create",
+    tier: "community",
     features: [
       "Everything in Premium",
       "Community TV",

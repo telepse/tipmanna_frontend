@@ -43,7 +43,10 @@ import { useSelector } from "react-redux";
 
 // Local imports
 import VideoPlayer, { VideoPlayerRef } from "./video-player";
-import { VideoSurfaceBadges } from "@/components/video/video-surface-badges";
+import {
+  VideoSurfaceBadges,
+  pickVideoSurfaceBadgeProps,
+} from "@/components/video/video-surface-badges";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 const TipDrawer = dynamic(
   () =>
@@ -932,16 +935,7 @@ export const ChannelClient = ({
         >
           <div className="relative h-full w-full">
             <VideoSurfaceBadges
-              community={currentContent?.community}
-              coOwnerApproved={currentContent?.coOwnerApproved}
-              coOwnerNames={currentContent?.coOwnerNames}
-              coOwnerName={currentContent?.coOwnerName}
-              channelId={
-                currentContent?.id != null
-                  ? String(currentContent.id)
-                  : undefined
-              }
-              eventId={eventId}
+              {...pickVideoSurfaceBadgeProps(currentContent, eventId)}
               position="top-right"
             />
             {paymentChannelIdForTip &&

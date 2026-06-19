@@ -1,17 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import {
+  shouldShowManualInstallAffordance,
+  subscribePwaPreferenceRefresh,
+} from "@/lib/pwa-install-trigger";
+import {
+  fetchPwaPreference,
+  markPwaInstalled,
+  type PwaPreferenceRecord,
+} from "@/lib/pwa-preference-client";
 
-/** Lightweight install banner on Explore when `beforeinstallprompt` is available. */
+function isIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
+/** Manual install affordance — ignores do_not_show; shown after at least one dismiss. */
 export function ExploreInstallPrompt() {
   const { canInstall, installed, promptInstall } = useInstallPrompt();
-  const [dismissed, setDismissed] = useState(false);
+  const [preference, setPreference] = useState<PwaPreferenceRecord | null>(null);
+  const [sessionDismissed, setSessionDismissed] = useState(false);
+  const [showIosHelp, setShowIosHelp] = useState(false);
 
-  if (installed || dismissed || !canInstall) return null;
+  const refreshPreference = useCallback(() => {
+    void fetchPwaPreference().then(setPreference);
+  }, []);
+
+  useEffect(() => {
+    refreshPreference();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshPreference();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    const unsub = subscribePwaPreferenceRefresh(refreshPreference);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      unsub();
+    };
+  }, [refreshPreference]);
+
+  const showManual = shouldShowManualInstallAffordance(preference, installed);
+
+  if (!showManual || sessionDismissed) return null;
+
+  const handleInstallClick = () => {
+    if (canInstall) {
+      void promptInstall().then(ok => {
+        if (ok) void markPwaInstalled();
+      });
+      return;
+    }
+    if (isIos()) {
+      setShowIosHelp(true);
+    }
+  };
 
   return (
     <div
@@ -28,22 +75,27 @@ export function ExploreInstallPrompt() {
         <p className="text-muted-foreground mt-0.5 text-xs">
           Add to your home screen for quick access to Explore and live tipping.
         </p>
+        {showIosHelp && !canInstall ? (
+          <ol className="text-muted-foreground mt-2 list-decimal space-y-1 pl-4 text-xs">
+            <li>Tap the Share button in Safari</li>
+            <li>Scroll down and tap &quot;Add to Home Screen&quot;</li>
+            <li>Tap Add</li>
+          </ol>
+        ) : null}
         <div className="mt-2 flex gap-2">
           <Button
             type="button"
             size="sm"
             className="bg-black"
-            onClick={() =>
-              void promptInstall().then(ok => ok && setDismissed(true))
-            }
+            onClick={handleInstallClick}
           >
-            Install
+            {canInstall ? "Install" : isIos() ? "How to install" : "Install"}
           </Button>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            onClick={() => setDismissed(true)}
+            onClick={() => setSessionDismissed(true)}
           >
             Not now
           </Button>
@@ -53,7 +105,7 @@ export function ExploreInstallPrompt() {
         type="button"
         className="text-muted-foreground hover:text-foreground shrink-0 rounded p-1"
         aria-label="Dismiss install prompt"
-        onClick={() => setDismissed(true)}
+        onClick={() => setSessionDismissed(true)}
       >
         <X className="size-4" />
       </button>

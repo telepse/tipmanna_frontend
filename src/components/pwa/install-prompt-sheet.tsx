@@ -11,11 +11,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
-import { upsertPwaPreference } from "@/lib/pwa-preference-client";
+import {
+  markPwaDismissed,
+  markPwaInstalled,
+} from "@/lib/pwa-preference-client";
+import type { PwaPreferenceSnapshot } from "@/lib/pwa-install-trigger";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onPreferenceChange?: (pref: PwaPreferenceSnapshot | null) => void;
 }
 
 function isIos(): boolean {
@@ -23,13 +28,18 @@ function isIos(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
 
-export function InstallPromptSheet({ open, onOpenChange }: Props) {
+export function InstallPromptSheet({
+  open,
+  onOpenChange,
+  onPreferenceChange,
+}: Props) {
   const { canInstall, installed, promptInstall } = useInstallPrompt();
 
   if (installed) return null;
 
   const handleDismiss = async () => {
-    await upsertPwaPreference("dismissed").catch(() => {});
+    const pref = await markPwaDismissed().catch(() => null);
+    onPreferenceChange?.(pref);
     onOpenChange(false);
   };
 
@@ -37,7 +47,8 @@ export function InstallPromptSheet({ open, onOpenChange }: Props) {
     if (canInstall) {
       const ok = await promptInstall();
       if (ok) {
-        await upsertPwaPreference("installed").catch(() => {});
+        const pref = await markPwaInstalled().catch(() => null);
+        onPreferenceChange?.(pref);
         onOpenChange(false);
       }
       return;

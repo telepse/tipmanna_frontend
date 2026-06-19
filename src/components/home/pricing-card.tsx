@@ -16,6 +16,7 @@ interface Props {
   discountPrice?: string;
   features: string[];
   btnText: string;
+  onButtonClick?: () => void;
 }
 
 export const PricingCard = ({
@@ -25,6 +26,7 @@ export const PricingCard = ({
   discountPrice,
   features,
   btnText,
+  onButtonClick,
 }: Props) => {
   const isMobile = useMediaQuery({
     query: "(max-width: 500px)",
@@ -73,7 +75,11 @@ export const PricingCard = ({
         <span className="text-sm text-gray-800">{"/ month"}</span>
       </div>
 
-      <button className="bg-primary hover:bg-primary/80 w-full cursor-pointer rounded-md px-4 py-2 text-white transition-all">
+      <button
+        type="button"
+        className="bg-primary hover:bg-primary/80 w-full cursor-pointer rounded-md px-4 py-2 text-white transition-all"
+        onClick={onButtonClick}
+      >
         {btnText}
       </button>
 
