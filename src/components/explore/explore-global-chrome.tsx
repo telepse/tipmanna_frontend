@@ -334,7 +334,12 @@ export function ExploreGlobalChrome({
                 : undefined
             }
           >
-            {exploreLiveViewers.length} watching live
+            <div className="flex items-center gap-1">
+                <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
+                <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
+                  {exploreLiveViewers.length} online
+                </span>
+              </div>
           </span>
         </div>
 
