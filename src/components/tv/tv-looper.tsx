@@ -1311,8 +1311,8 @@ export const TvLooper = ({
               chromeHide.chromeOpacityClass,
               "absolute z-[20] truncate bg-black text-sm font-medium text-white",
               isFullView && isMobileTv && "hidden",
-              !isFullView && isMobileTv ? "right-2 bottom-12 left-10" : null,
-              !isFullView && !isMobileTv ? "right-2 -bottom-6 left-10" : null
+              !isFullView && isMobileTv ? "right-2 bottom-12 left-6" : null,
+              !isFullView && !isMobileTv ? "right-2 -bottom-6 left-6" : null
             )}
           >
             {currentTitle}
@@ -1324,8 +1324,8 @@ export const TvLooper = ({
               chromeHide.chromeOpacityClass,
               "absolute z-10",
               isFullView && isMobileTv && "hidden",
-              !isFullView && isMobileTv ? "right-2 bottom-7 left-4" : null,
-              !isFullView && !isMobileTv ? "right-2 -bottom-12 left-10" : null
+              !isFullView && isMobileTv ? "right-2 bottom-7 left-6" : null,
+              !isFullView && !isMobileTv ? "right-2 -bottom-12 left-6" : null
             )}
           >
             <input
@@ -1357,8 +1357,8 @@ export const TvLooper = ({
               chromeHide.chromeOpacityClass,
               "absolute",
               isFullView && isMobileTv && "hidden",
-              !isFullView && isMobileTv ? "right-2 bottom-3 left-10" : null,
-              !isFullView && !isMobileTv ? "right-2 -bottom-16 left-10" : null
+              !isFullView && isMobileTv ? "right-2 bottom-3 left-6" : null,
+              !isFullView && !isMobileTv ? "right-2 -bottom-16 left-6" : null
             )}
           >
             <div className="flex items-center justify-between text-xs text-white">
