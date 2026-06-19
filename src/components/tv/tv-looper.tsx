@@ -1324,7 +1324,7 @@ export const TvLooper = ({
               chromeHide.chromeOpacityClass,
               "absolute z-10",
               isFullView && isMobileTv && "hidden",
-              !isFullView && isMobileTv ? "right-2 bottom-7 left-10" : null,
+              !isFullView && isMobileTv ? "right-2 bottom-7 left-4" : null,
               !isFullView && !isMobileTv ? "right-2 -bottom-12 left-10" : null
             )}
           >

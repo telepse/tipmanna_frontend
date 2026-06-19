@@ -131,7 +131,7 @@ export function ProgramLanding({
               globalEnforcementId={communityId ? undefined : program.id}
               communityId={communityId}
             />
-            {watchNowHref ? (
+            {/* {watchNowHref ? (
               <Button
                 asChild
                 variant="outline"
@@ -141,7 +141,7 @@ export function ProgramLanding({
                   Watch now
                 </Link>
               </Button>
-            ) : null}
+            ) : null} */}
             <Button
               type="button"
               variant="outline"

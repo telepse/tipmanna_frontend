@@ -49,6 +49,9 @@ export function GuestReminderPushOffer({
         mergeRes.message ??
           "Reminder saved, but we could not link it to your account for push."
       );
+      onComplete?.();
+      setOtpOpen(false);
+      return;
     }
 
     const pushOk = await subscribe();
