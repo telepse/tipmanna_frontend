@@ -10,6 +10,7 @@ import { useMediaQuery } from "react-responsive";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { persistAuthSession } from "@/lib/session-client";
+import { parseAuthResponse } from "@/lib/auth-response";
 
 import {
   Dialog,
@@ -39,21 +40,13 @@ type Step = "signIn" | "verifyCode";
 export type TipperEmailOtpSignInDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Heading on the email step (event room uses “Enter email to view profile”). */
   signInTitle?: string;
-  /** Prefill email and optionally skip straight to OTP. */
   initialEmail?: string;
-  /** When true with initialEmail, sends OTP on open and jumps to verify step. */
   autoSendCode?: boolean;
-  /** Called after OTP verification succeeds, before optional redirect. */
   onVerified?: () => void | Promise<void>;
-  /** If this returns a path, navigates there after success; otherwise dialog just closes. */
   getRedirectPathAfterVerify?: () => string | undefined;
 };
 
-/**
- * Tipper-only sign-in: email → OTP, same flow as the event room inline dialog.
- */
 export function TipperEmailOtpSignInDialog({
   open,
   onOpenChange,
@@ -70,6 +63,7 @@ export function TipperEmailOtpSignInDialog({
   const [step, setStep] = useState<Step>("signIn");
   const [code, setCode] = useState("");
   const [accountTag, setAccountTag] = useState<string | null>(null);
+  const [pendingSignup, setPendingSignup] = useState(false);
 
   const form = useForm<{
     fullName: string;
@@ -96,23 +90,26 @@ export function TipperEmailOtpSignInDialog({
     setStep(autoSendCode && initialEmail?.trim() ? "verifyCode" : "signIn");
     setCode("");
     setAccountTag(null);
+    setPendingSignup(false);
     form.reset({
       fullName: "",
       email: initialEmail ?? "",
       acceptedTerms: Boolean(autoSendCode),
     });
-    // form.reset is stable from react-hook-form for a given form instance
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialEmail, autoSendCode]);
 
-  const handleLogin = async (values: { email: string }) => {
+  const handleLogin = async (values: {
+    email: string;
+    acceptedTerms?: boolean;
+  }) => {
     try {
       setIsLoading(true);
 
       const res = await loginOrRegisterTipperAction({
         fullName: "",
         email: values.email,
-        acceptedTerms: true,
+        acceptedTerms: values.acceptedTerms ?? true,
       });
 
       if (!res.success) {
@@ -120,48 +117,22 @@ export function TipperEmailOtpSignInDialog({
         return;
       }
 
-      const payload = res.data as {
-        user?: {
-          id: string;
-          fullName: string;
-          email: string;
-          username: string;
-        };
-        token?: string;
-        tag?: string;
-      };
-      const user = payload.user;
-      const newToken = payload.token;
-      if (!user || !newToken) {
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
         toast.error("Could not start sign-in");
         return;
       }
 
-      setAccountTag(payload.tag ?? null);
+      setAccountTag(parsed.tag ?? null);
+      setPendingSignup(parsed.tag === "NEW_TIPPER");
 
       dispatch(
         setCredentials({
-          user: {
-            id: user.id,
-            fullName: user.fullName,
-            email: user.email,
-            username: user.username,
-            role: "TIPPER",
-          },
-          token: newToken,
+          user: { ...parsed.user, role: parsed.role },
+          token: parsed.token,
+          requiresVerification: true,
+          tag: parsed.tag ?? null,
         })
-      );
-
-      await persistAuthSession(
-        newToken,
-        {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-          username: user.username,
-          role: "TIPPER",
-        },
-        { expiresDays: 7 }
       );
 
       setStep("verifyCode");
@@ -186,7 +157,11 @@ export function TipperEmailOtpSignInDialog({
       const { user: u, token: tok } = store.getState().auth;
       if (!u?.email) return;
 
-      await verifyCodeAction(u.email, code);
+      const verifyRes = await verifyCodeAction(u.email, code);
+      if (!verifyRes.success) {
+        toast.error(verifyRes.message ?? "Verification failed");
+        return;
+      }
 
       dispatch(
         setCredentials({
@@ -194,6 +169,18 @@ export function TipperEmailOtpSignInDialog({
           token: tok!,
           requiresVerification: false,
         })
+      );
+
+      await persistAuthSession(
+        tok!,
+        {
+          id: u.id,
+          fullName: u.fullName,
+          email: u.email,
+          username: u.username,
+          role: u.role,
+        },
+        { expiresDays: u.role === "HOST" ? 7 : 60 }
       );
 
       toast.success("Email verified successfully!");
@@ -221,17 +208,23 @@ export function TipperEmailOtpSignInDialog({
 
   useEffect(() => {
     if (!open || !autoSendCode || !initialEmail?.trim()) return;
-    void handleLogin({ email: initialEmail.trim() });
-    // Only auto-send when dialog opens with a prefilled email
+    void handleLogin({ email: initialEmail.trim(), acceptedTerms: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, autoSendCode, initialEmail]);
 
   const verifyHint =
-    accountTag === "NEW_TIPPER"
+    accountTag === "NEW_TIPPER" || pendingSignup
       ? "We created a Tipmanna tipper account for this email. Enter the code to verify and enable push reminders."
       : accountTag === "EXISTING_HOST"
         ? "This email belongs to a host account. Verify to continue with your linked tipper profile."
-        : "Enter the code we sent to verify your Tipmanna account and enable push reminders.";
+        : accountTag === "EXISTING_TIPPER"
+          ? "Enter the code to sign in and enable push reminders for this program."
+          : "Enter the code we sent to verify your Tipmanna account and enable push reminders.";
+
+  const signInHint =
+    accountTag === "NEW_TIPPER"
+      ? "No Tipmanna account found — we'll create a free tipper account with this email after you verify."
+      : null;
 
   return (
     <Dialog
@@ -248,7 +241,12 @@ export function TipperEmailOtpSignInDialog({
 
               <Form {...form}>
                 <form
-                  onSubmit={form.handleSubmit(handleLogin)}
+                  onSubmit={form.handleSubmit(values =>
+                    handleLogin({
+                      email: values.email,
+                      acceptedTerms: values.acceptedTerms,
+                    })
+                  )}
                   className="mt-6 space-y-6"
                 >
                   <FormField
@@ -261,6 +259,7 @@ export function TipperEmailOtpSignInDialog({
                           <Input
                             placeholder="Enter email address"
                             autoComplete="off"
+                            readOnly={Boolean(initialEmail?.trim())}
                             {...field}
                           />
                         </FormControl>
@@ -291,13 +290,22 @@ export function TipperEmailOtpSignInDialog({
                     )}
                   />
 
+                  <Paragraph
+                    align="center"
+                    size="sm"
+                    color="muted"
+                  >
+                    No account yet? Enter your email and continue — we will
+                    create a free tipper account when you verify.
+                  </Paragraph>
+
                   <Button
                     type="submit"
                     size="lg"
                     className="w-full bg-black"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Sending code..." : "Sign in"}
+                    {isLoading ? "Sending code..." : "Continue"}
                   </Button>
                 </form>
               </Form>
@@ -321,12 +329,9 @@ export function TipperEmailOtpSignInDialog({
                   size="sm"
                   color="muted"
                 >
-                  We&apos;ve sent a 6-digit code to <strong>{email}</strong>.
-                  {autoSendCode ? (
-                    <> {verifyHint}</>
-                  ) : (
-                    <> Enter it below to verify your account.</>
-                  )}
+                  We&apos;ve sent a 6-digit code to <strong>{email}</strong>.{" "}
+                  {verifyHint}
+                  {signInHint ? <> {signInHint}</> : null}
                 </Paragraph>
               )}
 
@@ -351,14 +356,16 @@ export function TipperEmailOtpSignInDialog({
                 {isLoading ? "Verifying email..." : "Verify email"}
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="hover:bg-gray absolute top-0 left-0 border-none outline-none hover:text-black"
-                onClick={() => setStep("signIn")}
-              >
-                <MoveLeft /> Back
-              </Button>
+              {!autoSendCode ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="hover:bg-gray absolute top-0 left-0 border-none outline-none hover:text-black"
+                  onClick={() => setStep("signIn")}
+                >
+                  <MoveLeft /> Back
+                </Button>
+              ) : null}
             </div>
           )}
         </DialogHeader>

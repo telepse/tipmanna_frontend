@@ -17,6 +17,7 @@ import { Analytics } from "@/components/analytics";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import { VideoNativeMobileGuard } from "@/components/video-native-mobile-guard";
 import { TextTipDraftModalLayer } from "@/components/events/text-tip-draft-modal-layer";
+import HashScroll from "@/components/home/hash-scroll";
 
 const racingSansOne = Racing_Sans_One({
   variable: "--font-racing",
@@ -147,6 +148,8 @@ export default function RootLayout({
           <ServiceWorkerRegistrar />
           <Analytics />
           <TextTipDraftModalLayer />
+
+          <HashScroll />
 
           {children}
         </Providers>

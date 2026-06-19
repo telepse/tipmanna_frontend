@@ -7,8 +7,20 @@ import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { setProgramReminderAction } from "@/actions/program-actions";
 import { GuestReminderPushOffer } from "@/components/program/guest-reminder-push-offer";
+import { usePushPermission } from "@/hooks/use-push-permission";
+import {
+  ensurePushForSignedInTipper,
+  hasBackendPushSubscription,
+} from "@/lib/program-push-setup";
 import type { RootState } from "@/redux/store";
 
 const OFFSET_LABELS: Record<number, string> = {
@@ -37,6 +49,11 @@ export function SetReminderButton({
   communityId?: string;
 }) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
+  const requiresVerification = useSelector(
+    (s: RootState) => s.auth.requiresVerification
+  );
+  const authToken = useSelector((s: RootState) => s.auth.token);
+  const { subscribe, state: pushState } = usePushPermission();
 
   const [open, setOpen] = useState(false);
   const [offset, setOffset] = useState(defaultOffset);
@@ -44,12 +61,30 @@ export function SetReminderButton({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [pushOfferOpen, setPushOfferOpen] = useState(false);
+  const [authPushPromptOpen, setAuthPushPromptOpen] = useState(false);
   const [guestEmailUsed, setGuestEmailUsed] = useState("");
+  const [guestPushFlowActive, setGuestPushFlowActive] = useState(false);
 
   const apiBase = () =>
     (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(/\/$/, "");
 
   const postId = globalEnforcementId ?? enforcementId ?? "program";
+
+  const handleAuthenticatedPushPrompt = async () => {
+    const result = await ensurePushForSignedInTipper({
+      pushState,
+      subscribe,
+      token: authToken,
+    });
+    setAuthPushPromptOpen(false);
+    if (result === "already_subscribed" || result === "push_enabled") {
+      toast.success("Push reminder set for this program.");
+    } else {
+      toast.info(
+        "Reminder saved. Enable push from your profile alerts tab when ready."
+      );
+    }
+  };
 
   const setReminder = async () => {
     setBusy(true);
@@ -68,6 +103,15 @@ export function SetReminderButton({
         const res = await setProgramReminderAction(postId, body);
         if (!res.success) {
           throw new Error(res.message ?? "Failed to set reminder");
+        }
+
+        const alreadyPush =
+          pushState === "subscribed" &&
+          (await hasBackendPushSubscription(authToken));
+        if (alreadyPush) {
+          toast.success("Reminder set with push alerts.");
+        } else {
+          setAuthPushPromptOpen(true);
         }
       } else {
         if (!email.trim()) {
@@ -89,11 +133,14 @@ export function SetReminderButton({
           );
         }
         setGuestEmailUsed(email.trim());
+        setGuestPushFlowActive(true);
         setPushOfferOpen(true);
       }
 
       setDone(true);
-      toast.success("Reminder set");
+      if (!isAuthenticated) {
+        toast.success("Reminder set");
+      }
       setOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not set reminder");
@@ -101,6 +148,11 @@ export function SetReminderButton({
       setBusy(false);
     }
   };
+
+  const showGuestPushOffer =
+    guestEmailUsed &&
+    guestPushFlowActive &&
+    (!isAuthenticated || requiresVerification);
 
   if (done) {
     return (
@@ -114,23 +166,62 @@ export function SetReminderButton({
           <Check className="mr-1 size-4" />
           Reminder set
         </Button>
-        {!isAuthenticated && guestEmailUsed ? (
+
+        {showGuestPushOffer ? (
           <GuestReminderPushOffer
             email={guestEmailUsed}
             open={pushOfferOpen}
-            onOpenChange={setPushOfferOpen}
+            onOpenChange={open => {
+              setPushOfferOpen(open);
+              if (!open) setGuestPushFlowActive(false);
+            }}
+            onComplete={() => setGuestPushFlowActive(false)}
           />
         ) : null}
+
+        <Dialog
+          open={authPushPromptOpen}
+          onOpenChange={setAuthPushPromptOpen}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Bell className="size-5" />
+                Enable push for this program?
+              </DialogTitle>
+              <DialogDescription>
+                Your reminder is saved. Turn on push alerts on this device to
+                get notified before the program starts.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                className="bg-black"
+                onClick={() => void handleAuthenticatedPushPrompt()}
+              >
+                Enable push alerts
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setAuthPushPromptOpen(false)}
+              >
+                Email & in-app only
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </>
     );
   }
 
   return (
-    <div className="relative rounded-lg border w-full sm:w-fit">
+    <div className="relative w-full rounded-lg border sm:w-fit">
       <Button
         type="button"
         variant="outline"
-        className="bg-primary text-white w-full sm:w-fit"
+        className="bg-primary w-full text-white sm:w-fit"
         size="sm"
         onClick={() => setOpen(v => !v)}
       >
