@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 
 // Third-party imports
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(customParseFormat);
 
 import { ProgramLanding } from "@/components/program/program-landing";
 import { fetchGlobalProgramBootstrap } from "@/lib/program-api";
@@ -25,11 +28,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     metadataBase: new URL(getPublicFrontendOrigin()),
-    title: `${program.title} | Tipmanna TV`,
-    description: `Watch ${program.title} on Tipmanna TV.`,
+    title: `${program.title} is live on ${program.community?.name} TV ${dayjs(program.scheduledAt).format("MMM D, YYYY, h:mm:ss A")}`,
+    description: `Watch ${program.title} on ${program.community?.name} TV.`,
     openGraph: {
-      title: program.title,
-      description: `Scheduled ${new Date(program.scheduledAt).toLocaleString()}`,
+      title: `${program.title} is live on ${program.community?.name} TV ${dayjs(program.scheduledAt).format("MMM D, YYYY, h:mm:ss A")}`,
+      description: `Set a reminder and join viewers around the world for this scheduled community broadcast and realtime shared experience.`,
       url,
       type: "website",
       ...(thumb ? { images: [{ url: thumb, width: 1200, height: 630 }] } : {}),

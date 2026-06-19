@@ -109,33 +109,35 @@ async function resolvePushPermissionState(
   userId: string | undefined,
   authToken: string | null | undefined,
   opts?: { syncToBackend?: boolean }
-): Promise<PushPermissionState> {
-  if (typeof window === "undefined") return "default";
+): Promise<{ state: PushPermissionState; syncError?: string }> {
+  if (typeof window === "undefined") return { state: "default" };
   if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-    return "unsupported";
+    return { state: "unsupported" };
   }
 
   const perm = Notification.permission;
-  if (perm === "denied") return "denied";
-  if (perm === "default") return "default";
+  if (perm === "denied") return { state: "denied" };
+  if (perm === "default") return { state: "default" };
 
   const localSub = await getLocalPushSubscription();
-  if (!localSub) return "granted";
+  if (!localSub) return { state: "granted" };
 
+  let syncError: string | undefined;
   if (opts?.syncToBackend && userId && authToken) {
     try {
       await setPushAuthToken(authToken);
       await persistPushSubscription(localSub, authToken);
-    } catch {
-      // Fall through — only report subscribed if backend confirms a row.
+    } catch (e) {
+      syncError =
+        e instanceof Error ? e.message : "Could not sync push to server";
     }
   }
 
   if (authToken && (await hasBackendPushSubscription(authToken))) {
-    return "subscribed";
+    return { state: "subscribed" };
   }
 
-  return "granted";
+  return { state: "granted", syncError };
 }
 
 export type PushPermissionState =
@@ -204,13 +206,18 @@ async function runPushPermissionDetect(
   const runId = ++detectRunId;
   setSnapshot({ detecting: true });
 
-  const next = await resolvePushPermissionState(userId, authToken, {
-    syncToBackend: true,
-  });
+  const { state: next, syncError } = await resolvePushPermissionState(
+    userId,
+    authToken,
+    { syncToBackend: true }
+  );
 
   if (runId !== detectRunId) return;
   applySharedState(next);
-  setSnapshot({ detecting: false });
+  setSnapshot({
+    detecting: false,
+    error: next === "granted" && syncError ? syncError : null,
+  });
 }
 
 function schedulePushPermissionDetect(
