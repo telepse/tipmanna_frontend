@@ -148,6 +148,7 @@ export function ProgramLanding({
               variant="outline"
               size="sm"
               onClick={() => void copyLink()}
+              className="flex-1 sm:flex-none"
             >
               {copied ? (
                 <Check className="mr-1 size-4" />
@@ -160,6 +161,7 @@ export function ProgramLanding({
               type="button"
               variant="outline"
               size="sm"
+              className="flex-1 sm:flex-none"
               onClick={() => {
                 if (typeof navigator !== "undefined" && navigator.share) {
                   void navigator.share({ title: program.title, url: shareUrl });

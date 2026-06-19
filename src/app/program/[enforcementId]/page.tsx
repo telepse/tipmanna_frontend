@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
+// Third-party imports
+import dayjs from "dayjs";
+
 import { ProgramLanding } from "@/components/program/program-landing";
 import { fetchGlobalProgramBootstrap } from "@/lib/program-api";
 import {
