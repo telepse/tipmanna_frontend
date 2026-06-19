@@ -19,7 +19,6 @@ import { Channel } from "@/types/channel.types";
 
 import {
   getAllTopTippers,
-  getEventByIdAction,
   getTippedEventsForTipper,
   getTotalAmountTippedByTipper,
 } from "@/actions/events";
@@ -65,6 +64,14 @@ import {
   type TvTipFeedMessage,
 } from "@/lib/tv-tip-feed-utils";
 import { getCommunityTipFeedAction } from "@/actions/communities";
+import {
+  collectTvScheduleEventIds,
+  getCachedTvEventCatalog,
+  loadTvEventCatalog,
+  prefetchTvEventCatalogs,
+  type TvEventCatalog,
+} from "@/lib/tv-event-catalog-cache";
+import { useTvEnforcementDeepLink } from "@/hooks/use-tv-enforcement-deep-link";
 
 interface Character {
   id: string;
@@ -119,11 +126,7 @@ const coalesceNumber = (value: unknown): number => {
   return 0;
 };
 
-export default function TVPageClientWrapper({
-  channels,
-  characters,
-  characterSets,
-}: Props) {
+export default function TVPageClientWrapper({ channels, characters }: Props) {
   const userId = useSelector((s: RootState) => s.auth.user?.id);
   const {
     items,
@@ -143,6 +146,7 @@ export default function TVPageClientWrapper({
     playingItemOverride,
     selectedTag,
     scheduleSourceCommunityId,
+    playEnforcementProgram,
   } = useTV();
 
   const {
@@ -162,6 +166,13 @@ export default function TVPageClientWrapper({
   }, []);
 
   const isMobile = useMediaQuery({ maxWidth: "500px" });
+
+  useTvEnforcementDeepLink({
+    tvReady,
+    itemsLength: items.length,
+    scheduleSourceCommunityId,
+    playEnforcementProgram,
+  });
 
   useEffect(() => {
     if (!isMobile) return;
@@ -183,13 +194,6 @@ export default function TVPageClientWrapper({
 
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [isTVDrawerOpen, setIsTvDrawerOpen] = useState(false);
-
-  const [drawerCharacters, setDrawerCharacters] = useState<Character[] | null>(
-    null
-  );
-  const [drawerCharacterSets, setDrawerCharacterSets] = useState<
-    CharacterSet[] | null
-  >(null);
 
   const prevTipDrawerOpen = useRef(false);
   const prevTipCountRef = useRef(0);
@@ -223,9 +227,19 @@ export default function TVPageClientWrapper({
   );
 
   const tipDrawerEventId =
-    currentScheduleItem?.defaultChannelEventId ??
     currentScheduleItem?.channel?.eventId ??
+    currentScheduleItem?.defaultChannelEventId ??
     "";
+
+  const playingVideoKey = useMemo(() => {
+    if (!tipDrawerEventId || items.length === 0) return "";
+    return `${currentScheduleItem?.id ?? ""}:${currentScheduleItem?.channel?.id ?? ""}:${tipDrawerEventId}`;
+  }, [
+    tipDrawerEventId,
+    items.length,
+    currentScheduleItem?.id,
+    currentScheduleItem?.channel?.id,
+  ]);
 
   const { openWalletModalNonce } = useWalletTopupTipResume(
     tipDrawerEventId || undefined,
@@ -237,100 +251,50 @@ export default function TVPageClientWrapper({
     scheduleCommTvRef.current = scheduleSourceCommunityId;
   }, [scheduleSourceCommunityId, tipDrawerEventId]);
 
+  const [videoTipCatalog, setVideoTipCatalog] = useState<TvEventCatalog | null>(
+    null
+  );
+
   useEffect(() => {
-    let cancelled = false;
-    if (!tipDrawerEventId) {
-      setDrawerCharacters(null);
-      setDrawerCharacterSets(null);
+    if (!playingVideoKey || !tipDrawerEventId) {
+      setVideoTipCatalog(null);
       return;
     }
 
-    void (async () => {
-      const res = await getEventByIdAction(tipDrawerEventId);
+    setVideoTipCatalog(getCachedTvEventCatalog(tipDrawerEventId));
 
-      if (cancelled) return;
-      if (!res.success || !res.data) {
-        setDrawerCharacters(null);
-        setDrawerCharacterSets(null);
-        return;
-      }
+    let cancelled = false;
+    void loadTvEventCatalog(tipDrawerEventId).then(catalog => {
+      if (!cancelled) setVideoTipCatalog(catalog);
+    });
 
-      const rawSets = (res.data as { characterSets: CharacterSet[] })
-        .characterSets;
-      const sets: CharacterSet[] = Array.isArray(rawSets)
-        ? rawSets.filter(
-            (s: any) =>
-              s && Array.isArray(s.characters) && s.characters.length > 0
-          )
-        : [];
-      const flat: Character[] = sets.flatMap((set: any) =>
-        set.characters.map((char: Character) => ({
-          id: char.id,
-          name: char.name,
-          iconUrl: char.iconUrl,
-          price: char.price,
-          styleName: char.styleName,
-        }))
-      );
-      setDrawerCharacterSets(sets.length ? sets : null);
-      setDrawerCharacters(flat.length ? flat : null);
-    })();
     return () => {
       cancelled = true;
     };
-  }, [tipDrawerEventId]);
+  }, [playingVideoKey, tipDrawerEventId]);
 
-  const tippingCharactersForDrawer = drawerCharacters ?? characters;
-  const characterSetsForDrawer = drawerCharacterSets ?? characterSets;
+  useEffect(() => {
+    if (!items.length) return;
+    prefetchTvEventCatalogs(collectTvScheduleEventIds(items, 24));
+  }, [items]);
 
-  const videoTipKey = useMemo(
-    () =>
-      items.length > 0 && (currentScheduleItem?.id || tipDrawerEventId)
-        ? `${currentIndex}:${currentScheduleItem?.id ?? ""}:${tipDrawerEventId}`
-        : "",
-    [items.length, currentIndex, currentScheduleItem?.id, tipDrawerEventId]
+  const characterSetsForDrawer = (videoTipCatalog?.characterSets ?? []).filter(
+    set => Array.isArray(set.characters) && set.characters.length > 0
   );
 
-  const prevVideoTipKeyRef = useRef("");
+  const tippingCharactersForDrawer = (videoTipCatalog?.characters ??
+    []) as RoomCharacter[];
+
+  const prevPlayingVideoKeyRef = useRef("");
 
   useEffect(() => {
-    if (!videoTipKey) return;
-    if (prevVideoTipKeyRef.current === videoTipKey) return;
-    const prev = prevVideoTipKeyRef.current;
-    prevVideoTipKeyRef.current = videoTipKey;
+    if (!playingVideoKey) return;
+    if (prevPlayingVideoKeyRef.current === playingVideoKey) return;
+    const prev = prevPlayingVideoKeyRef.current;
+    prevPlayingVideoKeyRef.current = playingVideoKey;
     if (prev === "") return;
     dispatch(setSelectedTips([]));
-  }, [videoTipKey, dispatch]);
-
-  const nextTipEventId = useMemo(() => {
-    if (items.length < 2) return "";
-    const nextIdx = (currentIndex + 1) % items.length;
-    const next = items[nextIdx];
-    return next?.defaultChannelEventId ?? next?.channel?.eventId ?? "";
-  }, [items, currentIndex]);
-
-  const lastPreloadKeyRef = useRef("");
-
-  useEffect(() => {
-    if (!nextTipEventId || nextTipEventId === tipDrawerEventId) return;
-    const key = `${currentIndex}:${nextTipEventId}`;
-    if (lastPreloadKeyRef.current === key) return;
-    lastPreloadKeyRef.current = key;
-
-    const run = () => {
-      void getEventByIdAction(nextTipEventId);
-    };
-
-    let cancel: () => void;
-    if (typeof requestIdleCallback !== "undefined") {
-      const id = requestIdleCallback(run, { timeout: 2_000 });
-      cancel = () => cancelIdleCallback(id);
-    } else {
-      const id = window.setTimeout(run, 0);
-      cancel = () => clearTimeout(id);
-    }
-    return cancel;
-  }, [nextTipEventId, tipDrawerEventId, currentIndex]);
+  }, [playingVideoKey, dispatch]);
 
   useEffect(() => {
     window.dispatchEvent(new Event("tv-page-open"));
@@ -553,6 +517,7 @@ export default function TVPageClientWrapper({
     tipDrawerEventId,
     tippingCharactersForDrawer,
     characterSetsForDrawer,
+    videoTipKey: playingVideoKey,
     openWalletModalNonce,
     onSnapshotPaymentRedirect: snapshotPlaybackForPaymentRedirect,
   };

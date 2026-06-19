@@ -1028,9 +1028,7 @@ export function HostCommunityClient() {
   }
 
   if (communityApiError) {
-    return (
-      <p className="text-destructive text-sm">{communityApiError}</p>
-    );
+    return <p className="text-destructive text-sm">{communityApiError}</p>;
   }
 
   const tvUnpaused =

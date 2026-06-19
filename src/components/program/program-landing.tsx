@@ -106,7 +106,7 @@ export function ProgramLanding({
           </div>
         ) : null}
 
-        <div className="space-y-4 p-6">
+        <div className="space-y-4 px-3 py-6">
           <div>
             <h1 className="text-2xl font-semibold">{program.title}</h1>
             <ProgramCountdown
@@ -121,15 +121,7 @@ export function ProgramLanding({
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {watchNowHref ? (
-              <Button asChild>
-                <Link href={watchNowHref}>
-                  <Play className="mr-1 size-4" />
-                  Watch now
-                </Link>
-              </Button>
-            ) : null}
+          <div className="flex flex-wrap gap-1">
             <SetReminderButton
               programTitle={program.title}
               scheduledAt={program.scheduledAt}
@@ -137,7 +129,19 @@ export function ProgramLanding({
               defaultOffset={program.reminderConfig.defaultOffset}
               enforcementId={communityId ? program.id : undefined}
               globalEnforcementId={communityId ? undefined : program.id}
+              communityId={communityId}
             />
+            {watchNowHref ? (
+              <Button
+                asChild
+                variant="outline"
+              >
+                <Link href={watchNowHref}>
+                  <Play className="mr-1 size-4" />
+                  Watch now
+                </Link>
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"

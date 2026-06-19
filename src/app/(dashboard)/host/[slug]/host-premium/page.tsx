@@ -1,3 +1,10 @@
+import { HostPremiumClient } from "@/components/dashboard/host-premium-client";
+import { ProtectedRoute } from "@/components/protected-route";
+
 export default function HostPremiumPage() {
-  return <>host premium page</>;
+  return (
+    <ProtectedRoute>
+      <HostPremiumClient />
+    </ProtectedRoute>
+  );
 }

@@ -12,7 +12,7 @@ interface Character {
 interface Props {
   eventId: string;
   tippingCharacters: Character[];
-   
+
   characterSets: any;
   performers: any[];
   textTipUnitPrice?: number;

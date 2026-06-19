@@ -256,6 +256,42 @@ export type EventByIdData = {
   };
 };
 
+export type EventCharacterCatalogData = {
+  eventId: string;
+  characterSets: unknown[];
+};
+
+// -------- Get event character catalog (lightweight) -------- //
+export async function getEventCharacterCatalogAction(eventId: string) {
+  if (!eventId || typeof eventId !== "string" || !eventId.trim()) {
+    return actionFail<EventCharacterCatalogData>(
+      "Event ID is required",
+      "getEventCharacterCatalogAction"
+    );
+  }
+  return runServerFetch<EventCharacterCatalogData>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId.trim()}/character-catalog`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    },
+    "getEventCharacterCatalogAction",
+    raw => {
+      const data = raw as Record<string, unknown>;
+      return {
+        eventId:
+          typeof data.eventId === "string" ? data.eventId : eventId.trim(),
+        characterSets: Array.isArray(data.characterSets)
+          ? data.characterSets
+          : [],
+      } as EventCharacterCatalogData;
+    }
+  );
+}
+
 // -------- Get event by ID -------- //
 export async function getEventByIdAction(eventId: string) {
   if (!eventId || typeof eventId !== "string" || !eventId.trim()) {

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
@@ -37,16 +37,17 @@ import {
   Volume2,
   VolumeX,
   X,
-  XIcon,
 } from "lucide-react";
 import { useMediaQuery } from "react-responsive";
 import { useSelector } from "react-redux";
 
 // Local imports
 import VideoPlayer, { VideoPlayerRef } from "./video-player";
-import { CommunityCBadge } from "@/components/community/community-c-badge";
+import {
+  VideoSurfaceBadges,
+  pickVideoSurfaceBadgeProps,
+} from "@/components/video/video-surface-badges";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
-import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
 const TipDrawer = dynamic(
   () =>
     import("./tip-drawer").then(m => ({
@@ -111,9 +112,11 @@ import { cn } from "@/lib/utils";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import {
   ImmersiveMediaTopBar,
+  MobileLandscapeCloseButton,
   immersiveControlRailClassName,
   immersiveFullViewViewportClassName,
   immersiveMainRowClassName,
@@ -130,7 +133,9 @@ import { TipsDrawer } from "./tips-drawer";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { mergeTipPriceCatalog } from "@/lib/tip-text-selection";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
+import { NotificationBadge } from "../notifications/notification-badge";
 
 interface Props {
   contents: any[];
@@ -181,7 +186,17 @@ export const ChannelClient = ({
     paymentSurface: "channel_client",
   });
   const tipStrip = tipPres.strip;
-  const tipSets = tipPres.drawerSets ?? baseTipSets;
+  const tipSets = baseTipSets;
+  const tipPriceCatalog = useMemo(
+    () =>
+      mergeTipPriceCatalog(
+        tipPres.catalog as RoomCharacter[],
+        ...baseTipSets.map((set: { characters?: RoomCharacter[] }) =>
+          Array.isArray(set.characters) ? set.characters : []
+        )
+      ),
+    [tipPres.catalog, baseTipSets]
+  );
 
   const videoRef = useRef<VideoPlayerRef>(null);
   const baseList = Array.isArray(initialContents) ? initialContents : [];
@@ -688,6 +703,12 @@ export const ChannelClient = ({
     useMediaQuery({ query: "(orientation: landscape)" }) &&
     window.innerWidth <= 768;
 
+  const userRole = useSelector((s: RootState) => s.auth.user?.role);
+  const authToken = useSelector((s: RootState) => s.auth.token);
+  const isSignedIn =
+    useSelector((s: RootState) => s.auth.isAuthenticated) &&
+    (userRole === "HOST" || userRole === "TIPPER");
+
   return (
     <div
       className={cn(
@@ -782,9 +803,14 @@ export const ChannelClient = ({
           )}
         </>
       ) : (
-        <div className="bg-black">
-          <XIcon className="absolute top-4 right-4 z-50 text-white" />
-        </div>
+        <MobileLandscapeCloseButton
+          onClose={() =>
+            runPortraitAlignedMobileLandscapeClose(router, {
+              isFullView,
+              exitFull,
+            })
+          }
+        />
       )}
 
       <div
@@ -908,23 +934,10 @@ export const ChannelClient = ({
           )}
         >
           <div className="relative h-full w-full">
-            {currentContent?.community?.id &&
-            currentContent?.community?.name ? (
-              <CommunityCBadge
-                community={currentContent.community}
-                position="top-right"
-              />
-            ) : null}
-            {currentContent?.coOwnerApproved ? (
-              <CoOwnerApprovedBadge
-                stackBelowCommunity={
-                  !!(
-                    currentContent?.community?.id &&
-                    currentContent?.community?.name
-                  )
-                }
-              />
-            ) : null}
+            <VideoSurfaceBadges
+              {...pickVideoSurfaceBadgeProps(currentContent, eventId)}
+              position="top-right"
+            />
             {paymentChannelIdForTip &&
             process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
               <div className="pointer-events-none absolute bottom-28 left-2 z-[62] max-w-[min(360px,calc(100%-1rem))]">
@@ -1137,7 +1150,7 @@ export const ChannelClient = ({
           )}
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-8 z-[90] mt-2 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-8 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] flex -translate-y-1/2 flex-col items-center gap-2 -mt-1" : `absolute right-7 -mt-1 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
@@ -1241,7 +1254,7 @@ export const ChannelClient = ({
               }
               numOfTips={liveNumOfTips}
               amountRaised={showRaisedAmount ? Number(liveAmountRaised) : null}
-              tippingCharacters={tipStrip as RoomCharacter[]}
+              tippingCharacters={tipPriceCatalog}
               onContinueToTip={() => setIsTipDrawerOpen(true)}
               hostName={currentContent?.event?.hostName}
             />
@@ -1261,12 +1274,12 @@ export const ChannelClient = ({
           </div>
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] mt-2 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] flex -translate-y-1/2 flex-col items-center gap-2 " : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
           >
             <button
               type="button"
               title="View tips"
-              className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
+              className="absolute -top-6 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
               onClick={() => setTipsListOpen(true)}
             >
               {liveNumOfTips} tips
@@ -1278,13 +1291,6 @@ export const ChannelClient = ({
                 eventId={eventId}
               />
             ) : null}
-            <Image
-              src="/icons/black-diamond.png"
-              alt="Black Diamond"
-              width={40}
-              height={40}
-              className="-mt-4 size-[14px]"
-            />
           </div>
         </div>
       </div>
@@ -1386,7 +1392,7 @@ export const ChannelClient = ({
                 href="/tv"
                 className="group"
               >
-                <Tv className="group-hover:text-primary group-hover:stroke-3" />
+                <Tv className="group-hover:text-primary size-5 group-hover:stroke-3" />
               </Link>
 
               <Link
@@ -1506,14 +1512,15 @@ export const ChannelClient = ({
         <div className="flex items-center justify-between gap-4">
           <Link
             href="/tv"
-            className="group"
+            className="group flex flex-col items-center justify-center gap-1"
           >
-            <Tv className="group-hover:text-primary group-hover:stroke-3" />
+            <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />{" "}
+            <span className="text-[8px]">Watch TV</span>
           </Link>
 
           <Link
             href="/explore"
-            className="cursor-pointer"
+            className="flex cursor-pointer flex-col items-center justify-center gap-1"
             onPointerEnter={prefetchExploreFeedInitial}
             onClick={() => {
               setIsCreatePopupOpen(false);
@@ -1521,37 +1528,53 @@ export const ChannelClient = ({
             }}
           >
             <Search
-              className="size-7"
+              className="size-5"
               strokeWidth={2}
-            />
+            />{" "}
+            <span className="text-[8px]">Explore</span>
           </Link>
 
-          <button
-            type="button"
-            className="cursor-pointer rounded-full bg-black/20 p-1"
-            onClick={() => {
-              setIsCreatePopupOpen(true);
-              setIsProfileDrawerOpen(false);
-            }}
-          >
-            <Plus
-              className={`size-7 ${isCreatePopupOpen ? "text-primary" : ""}`}
-              strokeWidth={isCreatePopupOpen ? 3.75 : 2}
-            />
-          </button>
+          <div className="flex flex-col items-center justify-center">
+            <button
+              type="button"
+              className="cursor-pointer rounded-full bg-black/20 p-[3px]"
+              onClick={() => {
+                setIsCreatePopupOpen(true);
+                setIsProfileDrawerOpen(false);
+              }}
+            >
+              <Plus
+                className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
+                strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+              />
+            </button>
+
+            <span className="text-[8px]">Create</span>
+          </div>
 
           <button
             type="button"
-            className="cursor-pointer"
+            className="mt-[5px] flex cursor-pointer flex-col items-center"
             onClick={() => {
               setIsCreatePopupOpen(false);
               setIsProfileDrawerOpen(true);
             }}
           >
             <UserRound
-              className={`size-7 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+              className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
               strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
             />
+            <NotificationBadge
+              variant="dot"
+              className="-top-0.5 right-6"
+            />
+            <span className="max-w-[4.5rem] truncate text-[8px] text-black">
+              {isSignedIn
+                ? "Signed in"
+                : userRole === "VISITOR"
+                  ? "Guest"
+                  : "Not signed in"}
+            </span>
           </button>
         </div>
       </div>
@@ -1582,7 +1605,7 @@ export const ChannelClient = ({
       {/* Scrubber - MOBILE */}
       <div
         className={cn(
-          "sm:hidden",
+          "flex flex-col gap-2 sm:hidden",
           !isFullView && mobileInlineScrubberDockClass,
           isFullView &&
             isMobile &&
@@ -1632,7 +1655,7 @@ export const ChannelClient = ({
               setIsSeeking(false);
             }}
             className={cn(
-              "accent-primary h-2 min-w-0 flex-1 rounded-full",
+              "accent-primary h-1 min-w-0 flex-1 rounded-full",
               isFullView && isMobile ? "bg-white/20" : "bg-black"
             )}
           />
@@ -1649,7 +1672,7 @@ export const ChannelClient = ({
         </div>
         <div
           className={cn(
-            "flex justify-between px-1 text-xs",
+            "flex justify-between px-1 text-xs -mt-0.5",
             isFullView && isMobile && "text-white"
           )}
         >

@@ -153,7 +153,7 @@ import { reconcileCommunitySubscribeAction } from "@/actions/communities";
 import { COMMUNITY_SUBSCRIBE_CTX_KEY } from "@/components/community/community-subscribe-section";
 
 import { Gem } from "lucide-react";
-import { PwaPostPaymentPrompt } from "@/components/pwa/pwa-post-payment-prompt";
+import { markPendingPaymentPrompt } from "@/lib/pwa-install-trigger";
 
 const override: CSSProperties = {
   display: "block",
@@ -285,6 +285,7 @@ export default function PaymentSuccessPage() {
 
       if (!isWalletTopupFlow) {
         dispatch(markPaymentCompleted(true));
+        markPendingPaymentPrompt();
         // Keep `amount` / `textTipValue` in localStorage until the surface runs
         // useAutoDropTip or DropTip → POST /messages (createMessage + tip-animation).
         // Clearing here broke TV and any surface that returns via payment_origin.
@@ -335,7 +336,6 @@ export default function PaymentSuccessPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
-      <PwaPostPaymentPrompt />
       <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center gap-6 p-6">
         <h2 className="flex items-center gap-1 text-center text-3xl font-semibold">
           Tippii <Gem className="text-primary" />

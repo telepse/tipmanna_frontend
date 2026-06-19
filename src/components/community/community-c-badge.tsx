@@ -3,16 +3,31 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import {
+  VIDEO_SURFACE_BADGE_CHIP,
+  VIDEO_SURFACE_BADGE_LABEL,
+  videoSurfaceBadgeLabelPos,
+} from "@/components/video/video-surface-badge-styles";
 
 export type CommunityBadgeInfo = {
   id: string;
   name: string;
+  visibility?: string;
 };
+
+function formatCommunityVisibility(visibility?: string): string {
+  const v = (visibility ?? "public").trim().toLowerCase();
+  if (v === "private") return "Private";
+  if (v === "public") return "Public";
+  return visibility?.trim() || "Public";
+}
 
 type Props = {
   community: CommunityBadgeInfo;
   className?: string;
   position?: "top-left" | "top-right";
+  /** Flow inside a parent badge stack (no absolute corner placement). */
+  inline?: boolean;
 };
 
 /**
@@ -22,20 +37,20 @@ export function CommunityCBadge({
   community,
   className,
   position = "top-left",
+  inline = false,
 }: Props) {
   const pos =
-    position === "top-right" ? "right-3 left-auto" : "left-3 right-auto";
-  const labelPos =
-    position === "top-right" ? "right-full mr-2" : "left-full ml-2";
+    position === "top-right" ? "right-2 left-auto" : "left-2 right-auto";
+  const labelPos = videoSurfaceBadgeLabelPos(position);
   const [showCommunityName, setShowCommunityName] = useState(false);
 
   return (
     <div
       title={community.name}
       className={cn(
-        "absolute top-12 z-[55] flex size-7 items-center justify-center",
+        "z-[55] flex items-center justify-center",
         "pointer-events-auto overflow-visible",
-        pos,
+        inline ? "relative" : cn("absolute top-12", pos),
         className
       )}
       aria-label={`Community: ${community.name}`}
@@ -43,9 +58,8 @@ export function CommunityCBadge({
       <button
         type="button"
         className={cn(
-          "flex size-7 items-center justify-center rounded-full",
-          "from-moonstone-blue bg-gradient-to-br to-white/90 text-sm font-black text-white shadow-lg",
-          "ring-2 ring-white/25 transition hover:scale-105 hover:ring-white/50"
+          VIDEO_SURFACE_BADGE_CHIP,
+          "bg-gradient-to-br from-white to-white/90 text-xs font-black text-black"
         )}
         aria-expanded={showCommunityName}
         onClick={e => {
@@ -60,7 +74,7 @@ export function CommunityCBadge({
       <Link
         href={`/explore?tab=join&joinCommunity=${encodeURIComponent(community.id)}`}
         className={cn(
-          "absolute top-1/2 -translate-y-1/2 rounded-full bg-white px-2 py-1 text-xs font-medium whitespace-nowrap text-black shadow-lg ring-1 ring-black/10 transition",
+          VIDEO_SURFACE_BADGE_LABEL,
           labelPos,
           showCommunityName
             ? "pointer-events-auto opacity-100"
@@ -70,6 +84,7 @@ export function CommunityCBadge({
           e.stopPropagation();
         }}
       >
+        This video ({formatCommunityVisibility(community.visibility)}) is by{" "}
         {community.name}
       </Link>
     </div>

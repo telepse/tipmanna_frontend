@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Heart, Wallet, X } from "lucide-react";
@@ -10,9 +10,11 @@ import type { RootState } from "@/redux/store";
 import type { RoomCharacter } from "@/types";
 import {
   ensureSingleTextInCart,
-  isTextCharacterId,
   notifyTextTipDraftSync,
+  resolveCommentPreviewCharacter,
   clearTextTipDraftStorage,
+  resolveTextTipUnitPrice,
+  sumSelectedTipCartTotal,
 } from "@/lib/tip-text-selection";
 import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
 import {
@@ -22,9 +24,8 @@ import {
   type CommentDrawerData,
 } from "@/actions/messages";
 import { Input } from "@/components/ui/input";
-import { startPreview, stopPreview } from "@/lib/previewController";
-import { createAnimationFromStyle } from "@/lib/factory-to-style";
-import { computeTipRewardEligibility } from "@/lib/tip-reward-eligibility";
+import { stopPreview } from "@/lib/previewController";
+import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
 import SignInDialog from "@/components/auth/sign-in-dialog";
 import {
   DRAWER_Z_INDEX,
@@ -93,6 +94,37 @@ export const CommentDrawer = ({
   const [reportReason, setReportReason] = useState("deceptive");
   const [reportOther, setReportOther] = useState("");
   const [likeBusyId, setLikeBusyId] = useState<string | null>(null);
+  const cancelTextPreviewRef = useRef<(() => void) | null>(null);
+  const drawerShellRef = useRef<HTMLDivElement | null>(null);
+
+  const tipPriceCatalog = useMemo(
+    () => tippingCharacters ?? [],
+    [tippingCharacters]
+  );
+
+  const textTipUnitPrice = useMemo(
+    () => resolveTextTipUnitPrice(tipPriceCatalog),
+    [tipPriceCatalog]
+  );
+
+  const commentPreviewTotal = useMemo(() => {
+    const cartForTotal =
+      pendingDraft.trim() && !tipsForTotals.includes("Comment")
+        ? ensureSingleTextInCart([...tipsForTotals, "Comment"])
+        : tipsForTotals;
+
+    return sumSelectedTipCartTotal(
+      cartForTotal,
+      tipPriceCatalog,
+      textTipUnitPrice
+    );
+  }, [tipsForTotals, tipPriceCatalog, textTipUnitPrice, pendingDraft]);
+
+  useEffect(() => {
+    if (commentPreviewTotal > 0) {
+      localStorage.setItem("amount", String(commentPreviewTotal));
+    }
+  }, [commentPreviewTotal]);
 
   const items = drawerData?.comments ?? [];
   const metrics = drawerData?.metrics;
@@ -102,6 +134,18 @@ export const CommentDrawer = ({
   useEffect(() => {
     setPendingDraft("");
   }, [channelId]);
+
+  useEffect(() => {
+    if (!isCommentDrawerOpen) return;
+    try {
+      const fromStorage = localStorage.getItem("textTipValue") ?? "";
+      if (fromStorage.trim()) {
+        setPendingDraft(prev => (prev.trim() ? prev : fromStorage));
+      }
+    } catch {
+      /* quota / private mode */
+    }
+  }, [isCommentDrawerOpen]);
 
   useEffect(() => {
     if (!isCommentDrawerOpen || !eventId?.trim() || !channelId?.trim()) {
@@ -242,43 +286,57 @@ export const CommentDrawer = ({
     setReportOpen(false);
   };
 
-  const openDraftModal = () => {
+  const openDraftModalOnly = () => {
+    cancelTextPreviewRef.current?.();
+    cancelTextPreviewRef.current = null;
+    stopPreview();
     setModalDraft(pendingDraft);
-
-    const isFirstAdd = !pendingDraft.trim();
-    const chars = tippingCharacters;
-    if (isFirstAdd && chars?.length) {
-      const character = chars.find(c => isTextCharacterId(c.id));
-      if (character?.styleName) {
-        requestAnimationFrame(() => {
-          const next = computeTipRewardEligibility(
-            [...tipsForTotals, "Comment"],
-            chars
-          );
-          startPreview(
-            () =>
-              createAnimationFromStyle(
-                {
-                  name: character.name,
-                  iconUrl: character.iconUrl,
-                  styleName: character.styleName || "",
-                },
-                "preview"
-              ),
-            {
-              rewardTurbo: next.rewardTurbo,
-              rewardGalaxy: next.rewardGalaxy,
-            }
-          );
-        });
-      }
-    }
-
     setDraftModalOpen(true);
   };
 
+  const openDraftModal = () => {
+    if (pendingDraft.trim()) {
+      openDraftModalOnly();
+      return;
+    }
+
+    const character = resolveCommentPreviewCharacter(tippingCharacters);
+    if (!character) {
+      openDraftModalOnly();
+      return;
+    }
+
+    cancelTextPreviewRef.current?.();
+    cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
+      character,
+      tippingCharacters: tippingCharacters ?? [],
+      tipsForTotals,
+      openDraftModal: openDraftModalOnly,
+      drawerTintRoot: drawerShellRef.current,
+    });
+  };
+
+  useEffect(
+    () => () => {
+      cancelTextPreviewRef.current?.();
+    },
+    []
+  );
+
   const saveDraftModal = () => {
-    setPendingDraft(modalDraft);
+    const text = modalDraft.trim();
+    if (!text) return;
+
+    setPendingDraft(text);
+    try {
+      localStorage.setItem("textTipValue", text);
+    } catch {
+      /* quota / private mode */
+    }
+    notifyTextTipDraftSync();
+    dispatch(
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
+    );
     setDraftModalOpen(false);
   };
 
@@ -296,12 +354,18 @@ export const CommentDrawer = ({
       localStorage.setItem("textTipValue", text);
       notifyTextTipDraftSync();
     }
-    dispatch(setSelectedTips(ensureSingleTextInCart(["Comment"])));
+    dispatch(
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
+    );
     setIsCommentDrawerOpen(false);
     onContinueToTip?.();
   };
 
   const draftActionLabel = pendingDraft.trim() ? "Edit Comment" : "Add Comment";
+
+  const sendCommentLabel = pendingDraft.trim()
+    ? `Send comment £${commentPreviewTotal}`
+    : "Add a comment to send";
 
   const amountRaisedLabel =
     typeof amountRaised === "number" && Number.isFinite(amountRaised)
@@ -330,6 +394,7 @@ export const CommentDrawer = ({
         onOpenChange={setIsCommentDrawerOpen}
       >
         <DrawerContent
+          ref={drawerShellRef}
           className={`${DRAWER_Z_INDEX} flex h-[72vh] flex-col overflow-hidden rounded-t-[32px] bg-white p-0`}
         >
           {/* Top Bar */}
@@ -344,9 +409,6 @@ export const CommentDrawer = ({
                 </div>
                 <span className="text-sm font-medium text-gray-400">
                   Likes {metrics?.commentLikeCount ?? 0}
-                </span>
-                <span className="text-sm font-medium text-gray-400">
-                  Views {resolvedViewCount.toLocaleString()}
                 </span>
               </div>
 
@@ -400,8 +462,6 @@ export const CommentDrawer = ({
               </p>
             ) : null}
             <p className="flex flex-wrap items-center gap-2 text-xs text-black">
-              <span>Views {resolvedViewCount.toLocaleString()}</span>
-              <span>·</span>
               <span>
                 Channel tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
               </span>
@@ -422,14 +482,18 @@ export const CommentDrawer = ({
                   : ""}
               </p>
             ) : null}
-            <p className="text-xs text-black">
+          </div>
+
+          <div className="ml-4 flex w-fit items-center gap-2 rounded-sm border p-2 text-xs">
+            <span>Views {resolvedViewCount.toLocaleString()}</span> &middot;
+            <span>
               {amountRaisedLabel ? (
                 <>
                   <span>{amountRaisedLabel} raised</span>
                   <span>·</span>
                 </>
               ) : null}
-            </p>
+            </span>
           </div>
 
           {reportOpen ? (
@@ -509,13 +573,15 @@ export const CommentDrawer = ({
                 type="button"
                 className="h-9 w-full bg-black pr-10 text-white hover:bg-black/90"
                 onClick={handlePay}
+                disabled={!pendingDraft.trim()}
               >
-                £ {tipsForTotals} {tipsForTotals ? "Send comment" : ""}
+                {sendCommentLabel}
               </Button>
 
               <button
                 type="button"
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white p-1.5 shadow"
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white p-1.5 shadow disabled:opacity-50"
+                disabled={!pendingDraft.trim()}
                 onClick={e => {
                   e.stopPropagation();
                   handlePay();

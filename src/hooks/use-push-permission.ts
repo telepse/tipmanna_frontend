@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useSelector } from "react-redux";
 import { setPushAuthToken } from "@/lib/push-auth-cache";
 import { subscribePushAction } from "@/actions/notifications";
@@ -19,6 +25,102 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return out;
 }
 
+async function fetchVapidPublicKey(): Promise<string> {
+  const vapidRes = await fetch(
+    `${apiBase()}/notifications/push/vapid-public-key`
+  );
+  if (!vapidRes.ok) {
+    throw new Error("Could not load push configuration");
+  }
+  const { publicKey } = (await vapidRes.json()) as { publicKey?: string };
+  if (!publicKey) {
+    throw new Error("Push is not configured on the server");
+  }
+  return publicKey;
+}
+
+async function persistPushSubscription(
+  sub: PushSubscription,
+  authToken?: string | null
+): Promise<void> {
+  const json = sub.toJSON();
+  const subscribeRes = await subscribePushAction(
+    {
+      endpoint: json.endpoint,
+      keys: json.keys,
+      userAgent: navigator.userAgent,
+    },
+    authToken
+  );
+  if (!subscribeRes.success) {
+    throw new Error(
+      subscribeRes.message || "Failed to register push subscription"
+    );
+  }
+}
+
+async function getLocalPushSubscription(): Promise<PushSubscription | null> {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+    return null;
+  }
+  const registration = await navigator.serviceWorker.ready;
+  return registration.pushManager.getSubscription();
+}
+
+async function getOrCreatePushSubscription(
+  publicKey: string
+): Promise<PushSubscription> {
+  const existing = await getLocalPushSubscription();
+  if (existing) return existing;
+  const registration = await navigator.serviceWorker.ready;
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as
+      | string
+      | BufferSource
+      | null
+      | undefined,
+  });
+}
+
+/** Never downgrade from subscribed — stale async sync must not re-show the prompt. */
+function mergePushState(
+  prev: PushPermissionState,
+  next: PushPermissionState
+): PushPermissionState {
+  if (prev === "subscribed" && next === "granted") return prev;
+  return next;
+}
+
+async function resolvePushPermissionState(
+  userId: string | undefined,
+  authToken: string | null | undefined,
+  opts?: { syncToBackend?: boolean }
+): Promise<PushPermissionState> {
+  if (typeof window === "undefined") return "default";
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+    return "unsupported";
+  }
+
+  const perm = Notification.permission;
+  if (perm === "denied") return "denied";
+  if (perm === "default") return "default";
+
+  const localSub = await getLocalPushSubscription();
+  if (!localSub) return "granted";
+
+  if (opts?.syncToBackend && userId && authToken) {
+    try {
+      await setPushAuthToken(authToken);
+      await persistPushSubscription(localSub, authToken);
+    } catch {
+      // Browser is subscribed; keep prompt hidden even if backend sync fails.
+    }
+  }
+
+  return "subscribed";
+}
+
 export type PushPermissionState =
   | "unsupported"
   | "default"
@@ -26,97 +128,152 @@ export type PushPermissionState =
   | "denied"
   | "subscribed";
 
+type PushPermissionSnapshot = {
+  state: PushPermissionState;
+  detecting: boolean;
+  loading: boolean;
+  error: string | null;
+};
+
+const listeners = new Set<() => void>();
+
+let snapshot: PushPermissionSnapshot = {
+  state: "default",
+  detecting: true,
+  loading: false,
+  error: null,
+};
+
+let detectRunId = 0;
+let detectPromise: Promise<void> | null = null;
+
+function emitPushPermissionChange() {
+  for (const listener of listeners) listener();
+}
+
+function setSnapshot(patch: Partial<PushPermissionSnapshot>) {
+  snapshot = { ...snapshot, ...patch };
+  emitPushPermissionChange();
+}
+
+function applySharedState(next: PushPermissionState) {
+  setSnapshot({ state: mergePushState(snapshot.state, next) });
+}
+
+function subscribePushPermissionStore(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+const SERVER_SNAPSHOT: PushPermissionSnapshot = {
+  state: "default",
+  detecting: true,
+  loading: false,
+  error: null,
+};
+
+function getPushPermissionServerSnapshot() {
+  return SERVER_SNAPSHOT;
+}
+
+function getPushPermissionSnapshot() {
+  return snapshot;
+}
+
+async function runPushPermissionDetect(
+  userId: string | undefined,
+  authToken: string | null | undefined
+) {
+  const runId = ++detectRunId;
+  setSnapshot({ detecting: true });
+
+  const next = await resolvePushPermissionState(userId, authToken, {
+    syncToBackend: true,
+  });
+
+  if (runId !== detectRunId) return;
+  applySharedState(next);
+  setSnapshot({ detecting: false });
+}
+
+function schedulePushPermissionDetect(
+  userId: string | undefined,
+  authToken: string | null | undefined
+) {
+  detectPromise = runPushPermissionDetect(userId, authToken).finally(() => {
+    detectPromise = null;
+  });
+  return detectPromise;
+}
+
 export function usePushPermission() {
   const userId = useSelector((s: RootState) => s.auth.user?.id);
   const authToken = useSelector((s: RootState) => s.auth.token);
-  const [state, setState] = useState<PushPermissionState>("default");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { state, detecting, loading, error } = useSyncExternalStore(
+    subscribePushPermissionStore,
+    getPushPermissionSnapshot,
+    getPushPermissionServerSnapshot
+  );
+  const subscribeRunRef = useRef(0);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-      setState("unsupported");
-      return;
-    }
-    const perm = Notification.permission;
-    if (perm === "granted") setState("granted");
-    else if (perm === "denied") setState("denied");
-    else setState("default");
-  }, []);
+    setSnapshot({ detecting: true, error: null });
+    void schedulePushPermissionDetect(userId, authToken);
+  }, [userId, authToken]);
 
   const subscribe = useCallback(async () => {
-    setError(null);
+    const runId = ++subscribeRunRef.current;
+    detectRunId += 1;
+    setSnapshot({ error: null });
+
     if (typeof window === "undefined") return false;
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-      setState("unsupported");
-      setError("Push notifications are not supported on this device.");
+      applySharedState("unsupported");
+      setSnapshot({
+        error: "Push notifications are not supported on this device.",
+      });
       return false;
     }
 
     if (!userId) {
-      setError("Sign in to enable push notifications.");
+      setSnapshot({ error: "Sign in to enable push notifications." });
       return false;
     }
 
-    setLoading(true);
+    setSnapshot({ loading: true });
     try {
       if (authToken) await setPushAuthToken(authToken);
 
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        setState(permission === "denied" ? "denied" : "default");
-        setError("Notification permission was not granted.");
+        applySharedState(permission === "denied" ? "denied" : "default");
+        setSnapshot({ error: "Notification permission was not granted." });
         return false;
       }
 
-      const vapidRes = await fetch(
-        `${apiBase()}/notifications/push/vapid-public-key`
-      );
-      if (!vapidRes.ok) {
-        throw new Error("Could not load push configuration");
-      }
-      const { publicKey } = (await vapidRes.json()) as { publicKey?: string };
-      if (!publicKey) {
-        throw new Error("Push is not configured on the server");
-      }
-
-      const registration = await navigator.serviceWorker.ready;
-      const existing = await registration.pushManager.getSubscription();
-      const sub =
-        existing ??
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as
-            | string
-            | BufferSource
-            | null
-            | undefined,
-        }));
-
-      const json = sub.toJSON();
-      const subscribeRes = await subscribePushAction({
-        endpoint: json.endpoint,
-        keys: json.keys,
-        userAgent: navigator.userAgent,
-      });
-
-      if (!subscribeRes.success) {
-        throw new Error(
-          subscribeRes.message || "Failed to register push subscription"
-        );
-      }
-
-      setState("subscribed");
+      const publicKey = await fetchVapidPublicKey();
+      const sub = await getOrCreatePushSubscription(publicKey);
+      await persistPushSubscription(sub, authToken);
+      if (runId !== subscribeRunRef.current) return true;
+      applySharedState("subscribed");
+      setSnapshot({ detecting: false });
       return true;
     } catch (e) {
+      const localSub = await getLocalPushSubscription();
+      if (localSub) {
+        applySharedState("subscribed");
+        setSnapshot({ detecting: false });
+        return true;
+      }
       const msg = e instanceof Error ? e.message : "Push subscription failed";
-      setError(msg);
+      setSnapshot({ error: msg });
       return false;
     } finally {
-      setLoading(false);
+      if (runId === subscribeRunRef.current) {
+        setSnapshot({ loading: false });
+      }
     }
   }, [authToken, userId]);
 
-  return { state, loading, error, subscribe };
+  return { state, detecting, loading, error, subscribe };
 }

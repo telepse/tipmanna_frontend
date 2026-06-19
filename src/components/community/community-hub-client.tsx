@@ -186,9 +186,11 @@ function communityHistoryReason(m: HubMembership): string {
 
 export default function CommunityHubClient() {
   const router = useRouter();
-  const { user, isAuthenticated, token: authToken } = useSelector(
-    (s: RootState) => s.auth
-  );
+  const {
+    user,
+    isAuthenticated,
+    token: authToken,
+  } = useSelector((s: RootState) => s.auth);
   const userId = user?.id;
 
   const [memberships, setMemberships] = useState<HubMembership[]>([]);
@@ -592,6 +594,8 @@ export default function CommunityHubClient() {
     ? "…"
     : String(catalog?.total ?? 0);
 
+  const canCreateCommunity = owned.length === 0 && coCreated.length === 0;
+
   return (
     <div className="bg-background min-h-0 pb-10">
       <SignInDialog
@@ -993,17 +997,21 @@ export default function CommunityHubClient() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-medium">Communities you own</h2>
             <div className="flex flex-wrap items-center gap-2">
-              {isAuthenticated ? (
+              {canCreateCommunity && (
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => setStartCommunityModalOpen(true)}
+                  onClick={() => {
+                    setSignInModalTitle("Sign in to start a community");
+                    setSignInReturnTo(EXPLORE_COMMUNITY_HUB_HREF);
+                    setSignInOpen(true);
+                  }}
                 >
                   Start community
                 </Button>
-              ) : null}
-              {user?.role === "HOST" && eventSlug ? (
+              )}
+              {/* {user?.role === "HOST" && eventSlug ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -1018,7 +1026,7 @@ export default function CommunityHubClient() {
                     Manage host community
                   </a>
                 </Button>
-              ) : null}
+              ) : null} */}
             </div>
           </div>
 

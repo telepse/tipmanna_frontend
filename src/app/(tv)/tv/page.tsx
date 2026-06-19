@@ -39,14 +39,14 @@ export async function generateMetadata({
 
   const imageUrl = currentChannel.event.eventBackground;
 
-  const description = `Join me on Tipmanna TV ${currentChannel.title}.`;
+  const description = `Tune into ${currentChannel.title}'s always-on TV channel featuring scheduled programs, community engagement, and realtime supporter participation.`;
 
   return {
     metadataBase: new URL(getPublicFrontendOrigin()),
-    title: "Tipmanna TV",
+    title: `Watch ${currentChannel.title} TV — Streaming 24/7 📺`,
     description: description,
     openGraph: {
-      title: "Tipmanna TV",
+      title: `Watch ${currentChannel.title} TV — Streaming 24/7 📺`,
       description: description,
       url: `/tv`,
       siteName: "TipManna",
@@ -62,7 +62,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: "summary_large_image",
-      title: "Tipmanna TV",
+      title: `Watch ${currentChannel.title} TV — Streaming 24/7 📺`,
       description: description,
       images: [imageUrl],
     },

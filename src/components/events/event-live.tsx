@@ -29,8 +29,10 @@ import {
   trackTvWatchDuration,
 } from "@/lib/tvAnalytics";
 import VideoPlayer, { VideoPlayerRef } from "@/components/events/video-player";
-import { CommunityCBadge } from "@/components/community/community-c-badge";
-import { CoOwnerApprovedBadge } from "@/components/co-owner/co-owner-approved-badge";
+import {
+  VideoSurfaceBadges,
+  pickVideoSurfaceBadgeProps,
+} from "@/components/video/video-surface-badges";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 import Image from "next/image";
 import { EventProgressBar } from "./event-progress-bar";
@@ -689,17 +691,10 @@ export const EventLive = ({
                 });
               }}
             />
-            {currentChannel?.community?.id &&
-            currentChannel?.community?.name ? (
-              <CommunityCBadge
-                community={{
-                  id: currentChannel.community.id,
-                  name: currentChannel.community.name,
-                }}
-                position="top-right"
-              />
-            ) : null}
-            {currentChannel?.coOwnerApproved ? <CoOwnerApprovedBadge /> : null}
+            <VideoSurfaceBadges
+              {...pickVideoSurfaceBadgeProps(currentChannel, eventId)}
+              position="top-right"
+            />
           </div>
         )}
 

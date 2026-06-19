@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTipsDrawerAction } from "@/actions/messages";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatUtcTime } from "@/lib/utils";
 
 export type TipFeedRow = {
   id: string;
@@ -27,6 +27,21 @@ type Props = {
   showTipCount?: boolean;
   onClose?: () => void;
 };
+
+export function formatPurchasedAt(dateString: string): string {
+  const date = new Date(dateString);
+
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = date.toLocaleString("en-GB", {
+    month: "long",
+    timeZone: "UTC",
+  });
+  const year = date.getUTCFullYear();
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+
+  return `${day} ${month}, ${year} ${hours}:${minutes}`;
+}
 
 export function TipsFeedPanel({
   eventId,
@@ -123,24 +138,26 @@ export function TipsFeedPanel({
       No tips yet for this {scope === "video" ? "video" : "event room"}.
     </p>
   ) : (
-    <ul className="space-y-3 overflow-y-auto">
+    <ul className="space-y-1 overflow-y-auto">
       {items.map(row => (
         <li
           key={row.id}
-          className="rounded-lg border px-3 py-2"
+          className="rounded-lg border px-2 py-0.5"
         >
-          <p className="text-sm font-semibold">{row.username}</p>
-          <p className="text-sm text-gray-700">{row.characterName}</p>
-          {typeof row.amount === "number" && row.amount > 0 ? (
-            <p className="text-primary mt-0.5 text-sm font-medium">
-              {row.amount.toLocaleString(undefined, {
-                style: "currency",
-                currency: "GBP",
-              })}
+          <div className="flex items-center gap-2">
+            <p className="text-xs">
+              {row.amount && (
+                <div className="bg-secondary inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold">
+                  {formatCurrency(row.amount)}
+                </div>
+              )}{" "}
+              <span className="font-semibold">{row.username}</span> just sent{" "}
+              {row.characterName}
             </p>
-          ) : null}
-          <p className="text-muted-foreground mt-1 text-xs">
-            {new Date(row.purchasedAt).toLocaleString()}
+          </div>
+
+          <p className="text-muted-foreground text-right text-[10px]">
+            {formatPurchasedAt(row.purchasedAt)}
           </p>
         </li>
       ))}
@@ -167,7 +184,7 @@ export function TipsFeedPanel({
           </div>
           <div className="mt-3">{scopeToggle}</div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2">
           {listBody}
         </div>
       </>
@@ -182,7 +199,7 @@ export function TipsFeedPanel({
         </div>
       )}
       {scopeToggle}
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto">{listBody}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto">{listBody}</div>
     </div>
   );
 }

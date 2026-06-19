@@ -24,7 +24,9 @@ export function parseHostEventsPickList(raw: unknown): HostEventPick[] {
 }
 
 /** Events the host can still attach a new community to (no communityId yet). */
-export function parseHostEventsEligibleForCommunity(raw: unknown): HostEventPick[] {
+export function parseHostEventsEligibleForCommunity(
+  raw: unknown
+): HostEventPick[] {
   const rows: {
     id: string;
     eventName: string;
@@ -49,7 +51,8 @@ export function parseHostEventsEligibleForCommunity(raw: unknown): HostEventPick
     }
   } else if (raw != null && typeof raw === "object") {
     const o = raw as Record<string, unknown>;
-    if (Array.isArray(o.data)) return parseHostEventsEligibleForCommunity(o.data);
+    if (Array.isArray(o.data))
+      return parseHostEventsEligibleForCommunity(o.data);
     if (Array.isArray(o.events)) {
       return parseHostEventsEligibleForCommunity(o.events);
     }

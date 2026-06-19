@@ -158,7 +158,6 @@ export const EventRoomClient = ({
 
   const {
     strip: tipStripCharacters,
-    drawerSets: tipDrawerSets,
     quoteCtx: tipQuoteCtx,
     textUnitPrice: tipTextUnitPrice,
     sectionCtaLabel: tipSectionCtaLabel,

@@ -86,6 +86,10 @@ export const SigninForm = ({
   const { push } = useAppRouter();
   const dispatch = useDispatch();
 
+  const signupHref = returnTo
+    ? `/create-account?redirect=${encodeURIComponent(returnTo)}`
+    : "/create-account";
+
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
   };
@@ -402,7 +406,7 @@ export const SigninForm = ({
               >
                 Don&apos;t have an account?{" "}
                 <Link
-                  href="/create-account"
+                  href={signupHref}
                   className="text-primary hover:underline"
                 >
                   Sign up
@@ -462,7 +466,7 @@ export const SigninForm = ({
               >
                 Don&apos;t have an account?{" "}
                 <Link
-                  href="/create-account"
+                  href={signupHref}
                   className="text-primary hover:underline"
                 >
                   Sign up

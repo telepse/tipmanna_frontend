@@ -1,9 +1,11 @@
 "use client";
 
 import { Bell } from "lucide-react";
+import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
 import { usePushPermission } from "@/hooks/use-push-permission";
+import { isIosSafariNonStandalone } from "@/lib/pwa-utils";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -11,11 +13,24 @@ interface Props {
 }
 
 export function PushPermissionPrompt({ className }: Props) {
-  const { state, loading, error, subscribe } = usePushPermission();
+  const { state, detecting, loading, error, subscribe } = usePushPermission();
+  const iosInstallHint = isIosSafariNonStandalone();
 
-  if (state === "unsupported" || state === "denied" || state === "subscribed") {
+  if (
+    detecting ||
+    state === "unsupported" ||
+    state === "denied" ||
+    state === "subscribed"
+  ) {
     return null;
   }
+
+  const handleEnable = async () => {
+    const ok = await subscribe();
+    if (ok) {
+      toast.success("Push notifications enabled");
+    }
+  };
 
   return (
     <div
@@ -30,6 +45,12 @@ export function PushPermissionPrompt({ className }: Props) {
         <p className="text-muted-foreground mt-1 text-xs">
           Get reminders and updates when hosts you follow go live.
         </p>
+        {iosInstallHint ? (
+          <p className="text-muted-foreground mt-2 text-xs">
+            On iPhone: tap Share, then &quot;Add to Home Screen&quot;, open
+            Tipmanna from your home screen, then turn on notifications here.
+          </p>
+        ) : null}
         {error ? (
           <p className="text-destructive mt-1 text-xs">{error}</p>
         ) : null}
@@ -38,7 +59,7 @@ export function PushPermissionPrompt({ className }: Props) {
           size="sm"
           className="mt-2 bg-black"
           disabled={loading}
-          onClick={() => void subscribe()}
+          onClick={() => void handleEnable()}
         >
           {loading ? "Enabling…" : "Turn on notifications"}
         </Button>

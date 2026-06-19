@@ -13,6 +13,7 @@ import ExplorePageClient from "@/components/explore/explore-page-client";
 import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import { Metadata } from "next";
 
 const EXPLORE_SEO_FEED_COUNT = 6;
 
@@ -72,6 +73,14 @@ function buildExploreItemListJsonLd(items: ExploreFeedSeoItem[]) {
         },
       };
     }),
+  };
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "Tipmanna TV — Community-powered realtime media 📺",
+    description:
+      "Discover creators, communities, and live TV experiences where audiences participate, support, and engage together in realtime.",
   };
 }
 

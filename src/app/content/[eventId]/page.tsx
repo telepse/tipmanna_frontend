@@ -4,15 +4,49 @@ import {
   getCharactersForTipping,
 } from "@/actions/characters";
 import { getContentChannelAction } from "@/actions/contents";
+import { getEventByIdAction } from "@/actions/events";
 import { ContentClient } from "@/components/events/content-client";
+import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { resolveProgramWatchAllPlaylist } from "@/actions/program-actions";
 import { getToken } from "@/lib/getToken";
 import { parseChannelSearchParam } from "@/lib/public-video-url";
 import { notFound, redirect } from "next/navigation";
+import { ActionResult } from "@/lib/action-fetch";
+import { Metadata } from "next";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+interface ContentData {
+  title: string;
+  event: {
+    hostName: string;
+  };
+}
+
+/**
+ * GENERATE METADATA
+ * Handles SEO and Social Media tags for LinkedIn, Twitter, etc.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ eventId: string }>;
+}): Promise<Metadata> {
+  const { eventId } = await params;
+
+  // fetch creator data
+  const res = (await getContentChannelAction(eventId)) as ActionResult<
+    ContentData[]
+  >;
+  const videoRes = res.data?.[0];
+
+  return {
+    title: `Watch "${videoRes?.title}" by ${videoRes?.event.hostName} 🎬 💎`,
+    description: `Watch this video on Tipmanna and join the experience through comments, reactions, and realtime supporter engagement.`,
+  };
 }
 
 export default async function ContentPage({ params, searchParams }: Props) {
@@ -63,12 +97,33 @@ export default async function ContentPage({ params, searchParams }: Props) {
     }
   }
 
-  const [{ data: contents }, { data: characters }, { data: characterSets }] =
-    await Promise.all([
-      getContentChannelAction(eventId, token ?? undefined),
-      getCharactersForTipping(),
-      getAllCharacterSets(),
-    ]);
+  const [
+    { data: contents },
+    { data: characters },
+    { data: globalCharacterSets },
+    eventRes,
+  ] = await Promise.all([
+    getContentChannelAction(eventId, token ?? undefined),
+    getCharactersForTipping(),
+    getAllCharacterSets(),
+    getEventByIdAction(eventId),
+  ]);
+
+  const eventCatalog = parseEventCharacterCatalog(
+    eventRes.success ? eventRes.data?.characterSets : []
+  );
+  const characterSets =
+    eventCatalog.characterSets.length > 0
+      ? eventCatalog.characterSets
+      : Array.isArray(globalCharacterSets)
+        ? globalCharacterSets
+        : [];
+  const tippingCharacters =
+    eventCatalog.tippingCharacters.length > 0
+      ? eventCatalog.tippingCharacters
+      : Array.isArray(characters)
+        ? characters
+        : [];
 
   if (!eventId) return <div>Content not found</div>;
 
@@ -102,7 +157,7 @@ export default async function ContentPage({ params, searchParams }: Props) {
     <div className="flex h-screen flex-col items-center justify-center">
       <ContentClient
         contents={playable.length ? playable : list}
-        characters={characters as any[]}
+        characters={tippingCharacters as any[]}
         characterSets={characterSets as any[]}
         eventId={eventId}
         initialChannelId={initialChannelId}

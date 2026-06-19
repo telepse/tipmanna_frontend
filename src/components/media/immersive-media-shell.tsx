@@ -1,10 +1,43 @@
 "use client";
 
 import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { cn } from "@/lib/utils";
 import type { ImmersiveLayoutMode } from "@/lib/youtube-immersive-meta";
+
+type MobileLandscapeCloseButtonProps = {
+  onClose?: () => void;
+  className?: string;
+};
+
+/** Fixed close control for phone landscape — exits via router.back() by default. */
+export function MobileLandscapeCloseButton({
+  onClose,
+  className,
+}: MobileLandscapeCloseButtonProps) {
+  const router = useRouter();
+
+  return (
+    <button
+      type="button"
+      onClick={
+        onClose ?? (() => runPortraitAlignedMobileLandscapeClose(router))
+      }
+      aria-label="Close"
+      className={cn(
+        "pointer-events-auto fixed z-[2000] touch-manipulation rounded-md p-2 text-white hover:bg-white/10",
+        "top-[max(0.5rem,env(safe-area-inset-top,0px))]",
+        "right-[max(0.5rem,env(safe-area-inset-right,0px))]",
+        className
+      )}
+    >
+      <X className="size-6" />
+    </button>
+  );
+}
 
 type TopBarProps = {
   onClose: () => void;
@@ -182,10 +215,10 @@ export const mobileInlinePlayerBoundsClass =
   "absolute top-[calc(env(safe-area-inset-top,0px)+2.5rem)] right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+17.5rem)]";
 
 export const mobileInlineScrubberDockClass =
-  "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+12.5rem)] w-auto px-2 py-0.5";
+  "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+13.7rem)] w-auto px-2 py-0.5";
 
 export const mobileInlineTipSectionClass =
-  "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)] mx-0 h-[min(8.5rem,32dvh)] w-auto overflow-hidden rounded-t-xl bg-white/95 px-2 py-1";
+  "absolute right-2 left-2 bottom-[calc(env(safe-area-inset-bottom,0px)+3.2rem)] mx-0 w-auto overflow-visible rounded-t-xl bg-white/95 px-2 py-1";
 
 export const mobileInlineActionRailBottomClass = "bottom-20";
 export const mobileInlineActionRailBottomSmClass = "bottom-4";

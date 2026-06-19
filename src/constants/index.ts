@@ -40,13 +40,23 @@ export const FEATURES = [
   },
 ];
 
-export const PRICING = [
+export type PricingTier = "free" | "premium" | "community";
+
+export const PRICING: {
+  name: string;
+  price: string;
+  desc: string;
+  btnText: string;
+  tier: PricingTier;
+  discountPrice?: string;
+  features: string[];
+}[] = [
   {
     name: "Free",
     price: "£0",
     desc: "Perfect for getting started.",
     btnText: "Create free",
-    btnLink: "/create",
+    tier: "free",
     features: [
       "Upload videos",
       "Create channels",
@@ -62,7 +72,7 @@ export const PRICING = [
     desc: "For serious creators and organisers.",
     discountPrice: "£49.99",
     btnText: "Upgrade to Premium",
-    btnLink: "/create",
+    tier: "premium",
     features: [
       "Everything in Free",
       "Advanced analytics",
@@ -80,7 +90,7 @@ export const PRICING = [
     desc: "Operate your own media network.",
     discountPrice: "",
     btnText: "Launch Community TV",
-    btnLink: "/create",
+    tier: "community",
     features: [
       "Everything in Premium",
       "Community TV",
@@ -224,7 +234,7 @@ export const EVENT_STATS = [
 
 export const EVENT_PROFILE_STATS = [
   {
-    title: "Total Events Created",
+    title: "Total Channels Created",
     value: 12,
     icon: Calendar,
   },
@@ -277,8 +287,8 @@ export const RECENT_EVENTS = [
 export const ACHIEVEMENTS = [
   {
     icon: Trophy,
-    title: "First Event",
-    subtitle: "Hosted your first event",
+    title: "First Channel",
+    subtitle: "Hosted your first channel",
     iconColor: "#f57d11",
   },
   {
@@ -298,13 +308,13 @@ export const ACHIEVEMENTS = [
 export const PAYOUT_SUMMARY = [
   {
     label: "Pending Payouts",
-    value: 1267,
+    value: 0,
     bgColor: "#FFF3E7",
     txtColor: "#CB6305",
   },
   {
     label: "Total Received",
-    value: 12750,
+    value: 0,
     bgColor: "#E5FFE3",
     txtColor: "#04802E",
   },

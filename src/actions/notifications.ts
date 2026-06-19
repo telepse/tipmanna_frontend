@@ -198,19 +198,34 @@ export async function updateNotificationPreferencesAction(
   );
 }
 
-export async function subscribePushAction(body: {
-  endpoint?: string;
-  keys?: { p256dh?: string; auth?: string };
-  userAgent?: string;
-}) {
+export async function subscribePushAction(
+  body: {
+    endpoint?: string;
+    keys?: { p256dh?: string; auth?: string };
+    userAgent?: string;
+  },
+  token?: string | null
+) {
   return runServerFetch(
     `${base()}/notifications/push/subscribe`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(),
+      headers: await serverAuthHeaders(token),
       body: JSON.stringify(body),
       cache: "no-store",
     },
     "subscribePushAction"
+  );
+}
+
+export async function listPushSubscriptionsAction(token?: string | null) {
+  return runServerFetch<{ subscriptions: unknown[] }>(
+    `${base()}/notifications/push/me`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "listPushSubscriptionsAction"
   );
 }

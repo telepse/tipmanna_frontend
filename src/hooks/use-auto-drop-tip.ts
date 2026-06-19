@@ -12,6 +12,7 @@ import {
 import { sendTipMessageClient } from "@/lib/send-tip-message-client";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
 import { notifyTextTipDraftSync } from "@/lib/tip-text-selection";
+import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
 
 const DROP_DELAY_MS = 1500;
 
@@ -154,6 +155,9 @@ export function useAutoDropTip(eventId: string, enabled = true): void {
         dispatch(setSelectedTips([]));
         dispatch(markPaymentCompleted(false));
         droppedRef.current = true;
+        schedulePwaPromptAfterPaymentAnimation(
+          Math.max(1, [...new Set(tips)].length)
+        );
       })();
     }, DROP_DELAY_MS);
 

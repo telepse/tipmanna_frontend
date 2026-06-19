@@ -510,7 +510,7 @@ export function HostVideoRequestsClient() {
             </div>
           </section>
 
-          <section className="rounded-lg border p-4">
+          {/* <section className="rounded-lg border p-4">
             <h3 className="font-semibold">Global announcement card</h3>
             <p className="text-muted-foreground mt-1 text-xs">
               Request platform-wide spotlight; ops approves wording and timing.
@@ -566,7 +566,7 @@ export function HostVideoRequestsClient() {
                 Submit global request
               </Button>
             </div>
-          </section>
+          </section> */}
         </TabsContent>
 
         <TabsContent

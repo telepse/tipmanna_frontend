@@ -55,6 +55,7 @@ export function TvPlaylistPreview({
     previewPinIndex,
     ongoingCollection,
     activeBatch,
+    schedulePlayingSlot,
   } = useTV();
 
   const effectivePinIndex =
@@ -116,10 +117,14 @@ export function TvPlaylistPreview({
             ? playingItemOverride
             : items[originalIndex];
         if (!item) return null;
+        // const isPlaying =
+        //   mode === "GLOBAL"
+        //     ? originalIndex === liveBroadcastIndex
+        //     : !playingItemOverride && originalIndex === currentIndex;
         const isPlaying =
           mode === "GLOBAL"
             ? originalIndex === liveBroadcastIndex
-            : !playingItemOverride && originalIndex === currentIndex;
+            : schedulePlayingSlot?.rowIndex === originalIndex;
         const startLabel = pickTimeLabel(originalIndex);
 
         const contentCountryCode = countryToCode[item.channel.contentCountry];
@@ -183,7 +188,7 @@ export function TvPlaylistPreview({
             </div>
 
             <div className="flex shrink-0 flex-col items-end justify-end gap-1">
-              <span className="flex items-center gap-1 text-[10px] font-semibold">
+              <span className="flex items-center gap-1 text-[8px] font-semibold">
                 <UsersRound className="size-3" />
                 <span className="whitespace-nowrap">
                   {item.channel.numOfTips || 0} tips
@@ -202,7 +207,7 @@ export function TvPlaylistPreview({
                   {item.channel.contentLanguage}
                 </span>
 
-                <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[10px] text-black lg:text-[8px]">
+                <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[8px]">
                   {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
                 </p>
               </div>

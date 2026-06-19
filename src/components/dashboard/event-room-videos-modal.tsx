@@ -140,8 +140,7 @@ export function EventRoomVideosModal({
       setRows(
         initial.map(ch => {
           const raw = metricsMap[ch.id];
-          const metrics =
-            raw && !("restricted" in raw) ? raw : null;
+          const metrics = raw && !("restricted" in raw) ? raw : null;
           return {
             ...ch,
             metricsLoading: false,

@@ -10,6 +10,9 @@ export type ScheduleItem = {
   /** YouTube seek at start of this virtual row (trimmed regular segments). */
   seekBaseSeconds?: number;
   segmentKind?: "regular" | "notice" | "enforcement";
+  noticePhase?: "pre" | "post";
+  enforcementId?: string;
+  blockTitle?: string;
   channel: {
     url: string;
     title?: string;

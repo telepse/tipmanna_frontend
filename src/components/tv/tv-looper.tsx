@@ -77,7 +77,10 @@ import { cn } from "@/lib/utils";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import { useVideoChromeAutoHide } from "@/hooks/use-video-chrome-auto-hide";
-import { CommunityCBadge } from "@/components/community/community-c-badge";
+import {
+  VideoSurfaceBadges,
+  pickVideoSurfaceBadgeProps,
+} from "@/components/video/video-surface-badges";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { buildContentShareUrl } from "@/lib/public-video-url";
@@ -104,6 +107,7 @@ export const TvLooper = ({
   onFullViewChange,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
+  showSideRails = true,
 }: {
   characters: RoomCharacter[];
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
@@ -118,6 +122,7 @@ export const TvLooper = ({
   onFullViewChange?: (isFullView: boolean) => void;
   commentDrawerVideoTitle?: string;
   commentDrawerVideoDescription?: string;
+  showSideRails?: boolean;
 }) => {
   const {
     items,
@@ -655,22 +660,41 @@ export const TvLooper = ({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [mode]);
 
+  // useEffect(() => {
+  //   const player = playerRef.current;
+  //   if (!player || !player.isReady()) return;
+  //   if (mode === "GLOBAL") {
+  //     if (isMuted) player.mute();
+  //     else player.unmute();
+  //     return;
+  //   }
+  //   if (miniPlayerActive) {
+  //     player.pause();
+  //     player.mute();
+  //   } else {
+  //     if (!isMuted) player.unmute();
+  //     if (isPlaying) player.play();
+  //   }
+  // }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
+
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
-    if (mode === "GLOBAL") {
-      if (isMuted) player.mute();
-      else player.unmute();
-      return;
-    }
+
+    if (isMuted) player.mute();
+    else player.unmute();
+  }, [isMuted, playerRef]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !player.isReady()) return;
+
     if (miniPlayerActive) {
       player.pause();
-      player.mute();
-    } else {
-      if (!isMuted) player.unmute();
-      if (isPlaying) player.play();
+    } else if (isPlaying) {
+      player.play();
     }
-  }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
+  }, [miniPlayerActive, isPlaying, playerRef]);
 
   // ---- Local controls (cosmetic -- do not affect broadcast state) ----
   const togglePlayPause = () => {
@@ -803,9 +827,10 @@ export const TvLooper = ({
   if (!current) return null;
 
   const currentTitle = current.channel?.title || "";
-  const channelCommunity = (
-    current.channel as { community?: { id: string; name: string } } | undefined
-  )?.community;
+  const channelBadgeProps = pickVideoSurfaceBadgeProps(
+    current.channel as Parameters<typeof pickVideoSurfaceBadgeProps>[0],
+    currentEventId || undefined
+  );
   const fillViewport = isFullView || isFullscreen;
   const widePlayer = playerLayout === "wide" && !isMobileTv && !fillViewport;
 
@@ -842,7 +867,7 @@ export const TvLooper = ({
         className={cn(
           isFullView
             ? immersiveMainRowClassName(isFullView, isMobileTv, immersiveLayout)
-            : "-ml-2 flex size-full gap-2"
+            : "-ml-2 flex size-full gap-2 mt-2"
         )}
       >
         {/* Left control rail */}
@@ -968,129 +993,131 @@ export const TvLooper = ({
             </button>
           )}
 
-          <div
-            className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-12 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
-          >
-            <button
-              type="button"
-              title={
-                isCurrentChannelSaved
-                  ? "Remove video from saves"
-                  : "Add video to saves"
-              }
-              onClick={() => {
-                if (!isSaving) void handleSaveToggle();
-              }}
-              disabled={isSaving}
-              className={`pointer-events-auto rounded bg-black/50 p-1 text-white ${isSaving ? "opacity-50" : ""}`}
-            >
-              {isCurrentChannelSaved ? (
-                <Bookmark className="fill-moonstone-blue size-5" />
-              ) : (
-                <Bookmark className="size-5" />
-              )}
-            </button>
-
-            <span className="rounded bg-black/50 p-1">
-              <Share2
-                className="size-5 text-white"
-                onClick={() => {
-                  let willOpen = false;
-                  setShowShare(prev => {
-                    willOpen = !prev;
-                    return willOpen;
-                  });
-                  if (willOpen && channelId) {
-                    trackTvShareClick(channelId);
-                    setCommentMetricsRefreshKey(k => k + 1);
-                  }
-                }}
-              />
-              {showShare && (
-                <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
-                  <ShareCopyLinkControl url={shareUrl} />
-                  <WhatsappShareButton
-                    url={shareUrl}
-                    title={shareTitle}
-                  >
-                    <WhatsappIcon
-                      size={32}
-                      round
-                    />
-                  </WhatsappShareButton>
-
-                  <FacebookShareButton
-                    url={shareUrl}
-                    quote={shareTitle}
-                  >
-                    <FacebookIcon
-                      size={32}
-                      round
-                    />
-                  </FacebookShareButton>
-
-                  <TwitterShareButton
-                    url={shareUrl}
-                    title={shareTitle}
-                  >
-                    <TwitterIcon
-                      size={32}
-                      round
-                    />
-                  </TwitterShareButton>
-                </div>
-              )}
-            </span>
-
-            {/* Comment button */}
-            <button
-              type="button"
-              className="cursor-pointer rounded bg-black/50 p-1"
-              onClick={() => setShowCommentDrawer(true)}
-            >
-              <MessageCircleMore className="size-5 text-white" />
-            </button>
-
-            <CommentDrawer
-              isCommentDrawerOpen={showCommentDrawer}
-              setIsCommentDrawerOpen={setShowCommentDrawer}
-              metricsRefreshKey={commentMetricsRefreshKey}
-              eventId={currentEventId}
-              channelId={
-                currentChannelId != null ? String(currentChannelId) : null
-              }
-              videoTitle={
-                commentDrawerVideoTitle ??
-                (typeof current?.channel?.title === "string"
-                  ? current.channel.title
-                  : "")
-              }
-              videoDescription={
-                commentDrawerVideoDescription ??
-                (typeof (
-                  current?.channel as { description?: string } | undefined
-                )?.description === "string"
-                  ? (current?.channel as { description: string }).description
-                  : "")
-              }
-              numOfTips={liveNumOfTips}
-              tippingCharacters={characters}
-              onContinueToTip={onContinueCommentToTip}
-            />
-
-            <TipsDrawer
-              open={tipsListOpen}
-              onOpenChange={setTipsListOpen}
-              eventId={currentEventId}
-              channelId={currentChannelId ? String(currentChannelId) : null}
-              eventRoomTipCount={eventRoomTipCount}
-              videoTipCount={videoTipCount}
-            />
-          </div>
-
-          {!isNotice && (
+          {showSideRails && (
             <div
-              className={`${isFullView ? "absolute top-1/2 right-4 z-40 mt-2 -translate-y-1/2" : "absolute right-4 bottom-12 z-40"}`}
+              className={`${isFullView ? `absolute top-1/2 right-7 items-center ${TV_RAIL_Z_INDEX} flex -translate-y-1/2 flex-col gap-2` : `absolute right-7 bottom-12 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
+            >
+              <button
+                type="button"
+                title={
+                  isCurrentChannelSaved
+                    ? "Remove video from saves"
+                    : "Add video to saves"
+                }
+                onClick={() => {
+                  if (!isSaving) void handleSaveToggle();
+                }}
+                disabled={isSaving}
+                className={`pointer-events-auto rounded bg-black/50 p-1 text-white ${isSaving ? "opacity-50" : ""}`}
+              >
+                {isCurrentChannelSaved ? (
+                  <Bookmark className="fill-moonstone-blue size-5" />
+                ) : (
+                  <Bookmark className="size-5" />
+                )}
+              </button>
+
+              <span className="rounded bg-black/50 p-1">
+                <Share2
+                  className="size-5 text-white"
+                  onClick={() => {
+                    let willOpen = false;
+                    setShowShare(prev => {
+                      willOpen = !prev;
+                      return willOpen;
+                    });
+                    if (willOpen && channelId) {
+                      trackTvShareClick(channelId);
+                      setCommentMetricsRefreshKey(k => k + 1);
+                    }
+                  }}
+                />
+                {showShare && (
+                  <div className="absolute top-1/2 right-full z-[100] flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
+                    <ShareCopyLinkControl url={shareUrl} />
+                    <WhatsappShareButton
+                      url={shareUrl}
+                      title={shareTitle}
+                    >
+                      <WhatsappIcon
+                        size={32}
+                        round
+                      />
+                    </WhatsappShareButton>
+
+                    <FacebookShareButton
+                      url={shareUrl}
+                      quote={shareTitle}
+                    >
+                      <FacebookIcon
+                        size={32}
+                        round
+                      />
+                    </FacebookShareButton>
+
+                    <TwitterShareButton
+                      url={shareUrl}
+                      title={shareTitle}
+                    >
+                      <TwitterIcon
+                        size={32}
+                        round
+                      />
+                    </TwitterShareButton>
+                  </div>
+                )}
+              </span>
+
+              {/* Comment button */}
+              <button
+                type="button"
+                className="cursor-pointer rounded bg-black/50 p-1"
+                onClick={() => setShowCommentDrawer(true)}
+              >
+                <MessageCircleMore className="size-5 text-white" />
+              </button>
+
+              <CommentDrawer
+                isCommentDrawerOpen={showCommentDrawer}
+                setIsCommentDrawerOpen={setShowCommentDrawer}
+                metricsRefreshKey={commentMetricsRefreshKey}
+                eventId={currentEventId}
+                channelId={
+                  currentChannelId != null ? String(currentChannelId) : null
+                }
+                videoTitle={
+                  commentDrawerVideoTitle ??
+                  (typeof current?.channel?.title === "string"
+                    ? current.channel.title
+                    : "")
+                }
+                videoDescription={
+                  commentDrawerVideoDescription ??
+                  (typeof (
+                    current?.channel as { description?: string } | undefined
+                  )?.description === "string"
+                    ? (current?.channel as { description: string }).description
+                    : "")
+                }
+                numOfTips={liveNumOfTips}
+                tippingCharacters={characters}
+                onContinueToTip={onContinueCommentToTip}
+              />
+
+              <TipsDrawer
+                open={tipsListOpen}
+                onOpenChange={setTipsListOpen}
+                eventId={currentEventId}
+                channelId={currentChannelId ? String(currentChannelId) : null}
+                eventRoomTipCount={eventRoomTipCount}
+                videoTipCount={videoTipCount}
+              />
+            </div>
+          )}
+
+          {!isNotice && showSideRails && (
+            <div
+              className={`${isFullView ? "absolute top-1/2 right-2 z-40 -translate-y-1/2" : "absolute right-2 bottom-12 z-40"}`}
             >
               {/* <button
                 type="button"
@@ -1203,11 +1230,31 @@ export const TvLooper = ({
               autoplay
               onReady={() => {
                 setIsPlayerLoading(false);
+
+                const player = playerRef.current;
+                if (player?.isReady()) {
+                  if (isMuted) {
+                    player.mute();
+                  } else {
+                    player.unmute();
+                  }
+                }
+
                 setPlayerVisible(true);
                 emitEncounterWhenVideoLoads();
               }}
               onPlaybackReady={() => {
                 setIsPlayerLoading(false);
+
+                const player = playerRef.current;
+                if (player?.isReady()) {
+                  if (isMuted) {
+                    player.mute();
+                  } else {
+                    player.unmute();
+                  }
+                }
+
                 applyPendingPlaybackRestore();
                 emitEncounterWhenVideoLoads();
                 const dur = playerRef.current?.getDuration() ?? 0;
@@ -1251,15 +1298,12 @@ export const TvLooper = ({
             />
           ) : null}
 
-          {!isNotice && channelCommunity?.id && channelCommunity?.name && (
-            <CommunityCBadge
-              community={{
-                id: channelCommunity.id,
-                name: channelCommunity.name,
-              }}
+          {!isNotice ? (
+            <VideoSurfaceBadges
+              {...channelBadgeProps}
               position="top-right"
             />
-          )}
+          ) : null}
 
           <div
             className={cn(

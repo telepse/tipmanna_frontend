@@ -24,6 +24,8 @@ export function useTipPresentation(
   opts?: { quoteLock?: boolean; paymentSurface?: string }
 ): {
   strip: RoomCharacter[] | EnrichedRoomCharacter[];
+  /** Full catalog (strip + drawer) for cart totals and price lookup. */
+  catalog: RoomCharacter[] | EnrichedRoomCharacter[];
   drawerSets: TipPresentation["drawerSets"] | null;
   quoteCtx: TipQuoteContext | null;
   textUnitPrice: number;
@@ -44,6 +46,7 @@ export function useTipPresentation(
     ) {
       return {
         strip: legacyStrip,
+        catalog: legacyStrip,
         drawerSets: null,
         quoteCtx: null,
         textUnitPrice: 5,
@@ -70,6 +73,7 @@ export function useTipPresentation(
 
     return {
       strip: p.sectionStrip,
+      catalog: p.allEnriched,
       drawerSets: p.drawerSets,
       quoteCtx,
       textUnitPrice: p.textUnitPrice,

@@ -380,10 +380,26 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         setPlayerMuteState(true);
         persistReelSoundPref(false);
       },
+      // unmute: () => {
+      //   playerRef.current?.unMute();
+      //   setPlayerMuteState(false);
+      //   persistReelSoundPref(true);
+      // },
       unmute: () => {
-        playerRef.current?.unMute();
+        const p = playerRef.current;
+        if (!p) return;
+
+        const wasPlaying =
+          p.getPlayerState?.() === window.YT.PlayerState.PLAYING;
+
+        p.unMute();
         setPlayerMuteState(false);
         persistReelSoundPref(true);
+
+        // 🔥 IMPORTANT: restore playback if YouTube paused internally
+        if (!wasPlaying) {
+          p.playVideo();
+        }
       },
       isMuted: () => playerRef.current?.isMuted?.() ?? isMuted,
 

@@ -3,6 +3,7 @@
 
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -26,7 +27,6 @@ import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
 import { useTV } from "../tv-provider";
-import { BeatLoader } from "react-spinners";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
 import { WebTvLooper } from "./web-tv-looper";
@@ -41,7 +41,11 @@ import { Button } from "../ui/button";
 import Image from "next/image";
 import { UpcomingProgramsPanel } from "./upcoming-programs-panel";
 import { cn } from "@/lib/utils";
+import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
+import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
+import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-shell";
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -68,6 +72,7 @@ export type TvInteractiveShellProps = {
   tipDrawerEventId: string;
   tippingCharactersForDrawer: any[];
   characterSetsForDrawer: any[];
+  videoTipKey?: string;
   openWalletModalNonce?: number;
   onSnapshotPaymentRedirect?: () => void;
 };
@@ -99,6 +104,7 @@ export function TvInteractiveShell({
   tipDrawerEventId,
   tippingCharactersForDrawer,
   characterSetsForDrawer,
+  videoTipKey = "",
   openWalletModalNonce = 0,
   onSnapshotPaymentRedirect,
 }: TvInteractiveShellProps) {
@@ -188,6 +194,13 @@ export function TvInteractiveShell({
     useMediaQuery({ query: "(orientation: landscape)" }) &&
     window.innerWidth <= 768;
 
+  const router = useRouter();
+
+  const handleMobileLandscapeClose = () => {
+    setIsMobileFullView(false);
+    runPortraitAlignedMobileLandscapeClose(router);
+  };
+
   return (
     <>
       {/* {scheduleStale && tvReady && (
@@ -224,7 +237,7 @@ export function TvInteractiveShell({
       {isDesktop && (
         <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">
           <div className="col-span-9 object-cover">
-            {tvReady && !isMobileLandscape && (
+            {tvReady && !isMobileLandscape ? (
               <WebTvLooper
                 characters={characters}
                 playerLayout="wide"
@@ -246,217 +259,228 @@ export function TvInteractiveShell({
                     : ""
                 }
               />
-            )}
+            ) : null}
+            {!tvReady && !isMobileLandscape ? (
+              <TvLooperSkeleton layout="wide" />
+            ) : null}
           </div>
 
           <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
-            {/* Existing content */}
-            <div className="flex items-center justify-between gap-4 border-b-2 border-gray-300">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={goLive}
-                  className={`text-xs whitespace-nowrap ${
-                    mode === "GLOBAL" ? "text-destructive underline" : ""
-                  }`}
-                >
-                  Live TV
-                </button>
+            {!tvReady ? (
+              <TvRightPanelSkeleton layout="desktop" />
+            ) : (
+              <>
+                {/* Existing content */}
+                <div className="flex items-center justify-between gap-4 border-b-2 border-gray-300">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={goLive}
+                      className={`text-xs whitespace-nowrap ${
+                        mode === "GLOBAL" ? "text-destructive underline" : ""
+                      }`}
+                    >
+                      Live TV
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={switchToLocal}
-                  className={`text-xs whitespace-nowrap ${
-                    mode === "LOCAL" ? "text-success underline" : ""
-                  }`}
-                >
-                  Your TV
-                </button>
-              </div>
+                    <button
+                      type="button"
+                      onClick={switchToLocal}
+                      className={`text-xs whitespace-nowrap ${
+                        mode === "LOCAL" ? "text-success underline" : ""
+                      }`}
+                    >
+                      Your TV
+                    </button>
+                  </div>
 
-              <button
-                type="button"
-                data-testid="tv-nav-tips"
-                onClick={() => setActiveTab("tips")}
-                className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
-                  activeTab === "tips"
-                    ? "bg-black text-white"
-                    : "bg-white text-black outline-black"
-                }`}
-              >
-                {initialTipCount} tips
-              </button>
-            </div>
-            {/* TV Categories */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <div className="relative z-20">
-                  {showSearchOptions ? (
-                    <X
-                      className="size-4 cursor-pointer"
-                      role="button"
-                      onClick={handleSearchOptions}
-                    />
-                  ) : (
-                    <Search
-                      className="size-4 cursor-pointer text-black"
-                      role="button"
-                      onClick={handleSearchOptions}
-                    />
-                  )}
-
-                  {showSearchOptions && (
-                    <div className="absolute top-6 left-0 flex w-52 flex-col gap-2 rounded-2xl border-2 border-gray-300 bg-white/80 p-2">
-                      {DISCOVER_SECTIONS.map(section => (
-                        <button
-                          key={section.id}
-                          onClick={() => {
-                            setRightPanelView(
-                              section.id as typeof rightPanelView
-                            );
-                            setShowSearchOptions(false);
-                          }}
-                          className="flex cursor-pointer items-center gap-1"
-                        >
-                          <ChevronRight className="text-moonstone-blue size-4" />
-
-                          <span
-                            className={`rounded-md px-2 py-1 text-xs whitespace-nowrap ${section.id === rightPanelView ? "bg-moonstone-blue text-black" : "bg-white text-black"}`}
-                          >
-                            {section.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    data-testid="tv-nav-tips"
+                    onClick={() => setActiveTab("tips")}
+                    className={`flex items-center gap-1 rounded-md px-1 text-xs whitespace-nowrap outline ${
+                      activeTab === "tips"
+                        ? "bg-black text-white"
+                        : "bg-white text-black outline-black"
+                    }`}
+                  >
+                    {initialTipCount} tips
+                  </button>
                 </div>
+                {/* TV Categories */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="relative z-20">
+                      {showSearchOptions ? (
+                        <X
+                          className="size-4 cursor-pointer"
+                          role="button"
+                          onClick={handleSearchOptions}
+                        />
+                      ) : (
+                        <Search
+                          className="size-4 cursor-pointer text-black"
+                          role="button"
+                          onClick={handleSearchOptions}
+                        />
+                      )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedVideoType(null);
-                    setRightPanelView("playlist");
-                    setActiveTab("playlist");
-                  }}
-                  className={`rounded-md p-1 text-xs ${
-                    rightPanelView === "playlist"
-                      ? "bg-black text-white"
-                      : "bg-gray-200 text-black"
-                  }`}
-                >
-                  TV
-                </button>
+                      {showSearchOptions && (
+                        <div className="absolute top-6 left-0 flex w-52 flex-col gap-2 rounded-2xl border-2 border-gray-300 bg-white/80 p-2">
+                          {DISCOVER_SECTIONS.map(section => (
+                            <button
+                              key={section.id}
+                              onClick={() => {
+                                setRightPanelView(
+                                  section.id as typeof rightPanelView
+                                );
+                                setShowSearchOptions(false);
+                              }}
+                              className="flex cursor-pointer items-center gap-1"
+                            >
+                              <ChevronRight className="text-moonstone-blue size-4" />
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedVideoType(null);
-                    setRightPanelView("saved");
-                    setActiveTab("playlist");
-                  }}
-                  className={`rounded-md px-2 py-1 text-xs whitespace-nowrap ${
-                    rightPanelView === "saved"
-                      ? "bg-black text-white"
-                      : "text-black underline"
-                  }`}
-                >
-                  Saved
-                </button>
+                              <span
+                                className={`rounded-md px-2 py-1 text-xs whitespace-nowrap ${section.id === rightPanelView ? "bg-moonstone-blue text-black" : "bg-white text-black"}`}
+                              >
+                                {section.label}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                {rightPanelView !== "playlist" && (
-                  <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-                    {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
-                      <button
-                        key={tag.value}
-                        type="button"
-                        onClick={() => {
-                          setSelectedVideoType(tag.value);
-                          setRightPanelView("video-type");
-                          setActiveTab("playlist");
-                        }}
-                        className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${
-                          rightPanelView === "video-type" &&
-                          selectedVideoType === tag.value
-                            ? "bg-black text-white"
-                            : "bg-gray-200 text-black"
-                        }`}
-                      >
-                        {tag.label}
-                      </button>
-                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedVideoType(null);
+                        setRightPanelView("playlist");
+                        setActiveTab("playlist");
+                      }}
+                      className={`rounded-md p-1 text-xs ${
+                        rightPanelView === "playlist"
+                          ? "bg-black text-white"
+                          : "bg-gray-200 text-black"
+                      }`}
+                    >
+                      TV
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedVideoType(null);
+                        setRightPanelView("saved");
+                        setActiveTab("playlist");
+                      }}
+                      className={`rounded-md px-2 py-1 text-xs whitespace-nowrap ${
+                        rightPanelView === "saved"
+                          ? "bg-black text-white"
+                          : "text-black underline"
+                      }`}
+                    >
+                      Saved
+                    </button>
+
+                    {rightPanelView !== "playlist" && (
+                      <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+                        {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
+                          <button
+                            key={tag.value}
+                            type="button"
+                            onClick={() => {
+                              setSelectedVideoType(tag.value);
+                              setRightPanelView("video-type");
+                              setActiveTab("playlist");
+                            }}
+                            className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${
+                              rightPanelView === "video-type" &&
+                              selectedVideoType === tag.value
+                                ? "bg-black text-white"
+                                : "bg-gray-200 text-black"
+                            }`}
+                          >
+                            {tag.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Dynamic Content */}
+                {activeTab === "playlist" && (
+                  <div className="animate-in fade-in relative -mt-2 -ml-2 flex max-h-[45vh] w-full flex-col items-start gap-1 overflow-y-auto p-2">
+                    {rightPanelView === "playlist" && (
+                      <>
+                        <div
+                          className="hide__scrollbar relative h-full max-h-[45vh] w-full space-y-4 overflow-y-auto p-2"
+                          ref={scrollRef}
+                          onScroll={handleScroll}
+                        >
+                          <TvPlaylistPreview
+                            layout={playlistLayout}
+                            onSelectChannel={handleSelectChannel}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => setIsTvDrawerOpen(true)}
+                            className="mt-2 flex items-center gap-2 text-sm"
+                          >
+                            See full schedule
+                            <ArrowUp className="size-4" />
+                          </button>
+                        </div>
+
+                        <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
+                          <div className="relative h-full w-[2px] bg-gray-200">
+                            <div
+                              className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
+                              style={{
+                                top: `${scrollProgress}%`,
+                                transform: "translate(-50%, -50%)",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {rightPanelView === "top-contents" && <TopContentsPanel />}
+
+                    {rightPanelView === "latest-contents" && (
+                      <LatestContentsPanel />
+                    )}
+
+                    {rightPanelView === "spotlight" && <SpotlightPanel />}
+
+                    {rightPanelView === "most-tipped" && (
+                      <MostTippedContentsPanel />
+                    )}
+
+                    {rightPanelView === "saved" && <SavedContentsPanel />}
+
+                    {rightPanelView === "upcoming-programs" && (
+                      <UpcomingProgramsPanel />
+                    )}
+
+                    {rightPanelView === "video-type" && selectedVideoType && (
+                      <EventVideoTypeContentsPanel
+                        videoType={selectedVideoType}
+                      />
+                    )}
                   </div>
                 )}
-              </div>
-            </div>
-            {/* Dynamic Content */}
-            {activeTab === "playlist" && (
-              <div className="animate-in fade-in relative -mt-2 -ml-2 flex max-h-[45vh] w-full flex-col items-start gap-1 overflow-y-auto p-2">
-                {rightPanelView === "playlist" && (
-                  <>
-                    <div
-                      className="hide__scrollbar relative h-full max-h-[45vh] w-full space-y-4 overflow-y-auto p-2"
-                      ref={scrollRef}
-                      onScroll={handleScroll}
-                    >
-                      <TvPlaylistPreview
-                        layout={playlistLayout}
-                        onSelectChannel={handleSelectChannel}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setIsTvDrawerOpen(true)}
-                        className="mt-2 flex items-center gap-2 text-sm"
-                      >
-                        See full schedule
-                        <ArrowUp className="size-4" />
-                      </button>
-                    </div>
-
-                    <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
-                      <div className="relative h-full w-[2px] bg-gray-200">
-                        <div
-                          className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
-                          style={{
-                            top: `${scrollProgress}%`,
-                            transform: "translate(-50%, -50%)",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </>
+                {activeTab === "tips" && (
+                  <div
+                    data-testid="tv-tips-feed"
+                    className="-mt-3 max-h-[35vh] w-full overflow-y-auto p-3"
+                  >
+                    {tipsFeedPanelEl}
+                  </div>
                 )}
-
-                {rightPanelView === "top-contents" && <TopContentsPanel />}
-
-                {rightPanelView === "latest-contents" && (
-                  <LatestContentsPanel />
-                )}
-
-                {rightPanelView === "spotlight" && <SpotlightPanel />}
-
-                {rightPanelView === "most-tipped" && (
-                  <MostTippedContentsPanel />
-                )}
-
-                {rightPanelView === "saved" && <SavedContentsPanel />}
-
-                {rightPanelView === "upcoming-programs" && (
-                  <UpcomingProgramsPanel />
-                )}
-
-                {rightPanelView === "video-type" && selectedVideoType && (
-                  <EventVideoTypeContentsPanel videoType={selectedVideoType} />
-                )}
-              </div>
-            )}
-            {activeTab === "tips" && (
-              <div
-                data-testid="tv-tips-feed"
-                className="-mt-3 max-h-[35vh] w-full overflow-y-auto p-3"
-              >
-                {tipsFeedPanelEl}
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -467,10 +491,18 @@ export function TvInteractiveShell({
           className={cn(
             isMobileFullView
               ? "fixed inset-0 z-[1100] flex min-h-0 w-full flex-col overflow-hidden bg-black"
-              : "fixed top-[88px] right-0 bottom-0 left-0 flex max-h-[calc(100dvh-88px)] min-h-0 w-full flex-col overflow-hidden p-2"
+              : "fixed right-0 bottom-0 left-0 flex min-h-0 w-full flex-col overflow-hidden px-2 pt-0 pb-2"
           )}
+          style={
+            isMobileFullView
+              ? undefined
+              : {
+                  top: TV_MOBILE_SHELL_TOP,
+                  maxHeight: `calc(100dvh - ${TV_MOBILE_SHELL_TOP})`,
+                }
+          }
         >
-          {tvReady && (
+          {tvReady ? (
             <div
               className={cn(
                 "flex min-h-0 w-full flex-col",
@@ -507,6 +539,7 @@ export function TvInteractiveShell({
                         )
                       : ""
                   }
+                  showSideRails={true}
                 />
               </div>
 
@@ -519,7 +552,7 @@ export function TvInteractiveShell({
                       className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
                         activeTab === "playlist"
                           ? "bg-black text-white"
-                          : "bg-white text-black outline-black"
+                          : "border border-black bg-white text-black"
                       }`}
                     >
                       TV Playlist <ChevronDown className="size-4" />
@@ -561,7 +594,7 @@ export function TvInteractiveShell({
                   </div>
 
                   {activeTab === "playlist" && (
-                    <div className="relative flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2">
+                    <div className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2">
                       <div
                         className="custom-scrollbar hide__scrollbar relative h-full min-h-0 w-full space-y-3 overflow-y-auto p-2"
                         ref={scrollRef}
@@ -598,7 +631,7 @@ export function TvInteractiveShell({
                   {activeTab === "tips" && (
                     <div
                       data-testid="tv-tips-feed"
-                      className="relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2"
+                      className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2"
                     >
                       {tipsFeedPanelEl}
                     </div>
@@ -606,47 +639,44 @@ export function TvInteractiveShell({
                 </>
               ) : null}
             </div>
-          )}
-
-          {!tvReady && (
-            <div
-              className="flex h-full min-h-0 items-center justify-center"
-              aria-busy="true"
-              aria-label="Loading"
-            >
-              <BeatLoader
-                color="#f57d11"
-                size={20}
-              />
+          ) : (
+            <div className="flex min-h-0 w-full flex-1 flex-col gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]">
+              <div className="min-h-[220px] shrink-0 basis-[min(52dvh,420px)]">
+                <TvLooperSkeleton layout="compact" />
+              </div>
+              <TvRightPanelSkeleton layout="mobile" />
             </div>
           )}
         </div>
       )}
 
       {isMobileLandscape && (
-        <div className="relative z-[999] h-full w-full bg-black text-white">
-          <WebTvLooper
-            characters={characters}
-            playerLayout="wide"
-            analyticsSurface={tvAnalyticsSurface}
-            onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
-            onEngage={() => setIsTipDrawerOpen(true)}
-            commentDrawerVideoTitle={
-              typeof currentPlaying?.channel?.title === "string"
-                ? currentPlaying.channel.title
-                : ""
-            }
-            commentDrawerVideoDescription={
-              typeof (currentPlaying?.channel as { description?: string })
-                ?.description === "string"
-                ? String(
-                    (currentPlaying?.channel as { description: string })
-                      .description
-                  )
-                : ""
-            }
-          />
-        </div>
+        <>
+          <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
+          <div className="relative z-[999] h-full w-full bg-black text-white">
+            <WebTvLooper
+              characters={characters}
+              playerLayout="wide"
+              analyticsSurface={tvAnalyticsSurface}
+              onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+              onEngage={() => setIsTipDrawerOpen(true)}
+              commentDrawerVideoTitle={
+                typeof currentPlaying?.channel?.title === "string"
+                  ? currentPlaying.channel.title
+                  : ""
+              }
+              commentDrawerVideoDescription={
+                typeof (currentPlaying?.channel as { description?: string })
+                  ?.description === "string"
+                  ? String(
+                      (currentPlaying?.channel as { description: string })
+                        .description
+                    )
+                  : ""
+              }
+            />
+          </div>
+        </>
       )}
 
       <TVScheduleDrawer
@@ -709,6 +739,7 @@ export function TvInteractiveShell({
             {!isMobileLandscape && (
               <div className="absolute -bottom-12 hidden h-[220px] w-full bg-white/80 px-4 py-1 sm:block">
                 <TipSection
+                  key={videoTipKey || tipDrawerEventId}
                   eventId={tipDrawerEventId}
                   tippingCharacters={
                     tippingCharactersForDrawer as RoomCharacter[]
@@ -734,6 +765,7 @@ export function TvInteractiveShell({
           enabled
         >
           <TipDrawer
+            key={videoTipKey || tipDrawerEventId}
             open={isTipDrawerOpen}
             onOpenChange={setIsTipDrawerOpen}
             eventId={tipDrawerEventId}

@@ -76,14 +76,15 @@ import { cn } from "@/lib/utils";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import { useVideoChromeAutoHide } from "@/hooks/use-video-chrome-auto-hide";
-import { CommunityCBadge } from "@/components/community/community-c-badge";
+import {
+  VideoSurfaceBadges,
+  pickVideoSurfaceBadgeProps,
+} from "@/components/video/video-surface-badges";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import {
   ImmersiveMediaTopBar,
-  immersiveControlRailClassName,
-  immersiveFullViewViewportClassName,
   immersiveMainRowClassName,
   immersivePlayerStageClassName,
 } from "@/components/media/immersive-media-shell";
@@ -645,22 +646,41 @@ export const WebTvLooper = ({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [mode]);
 
+  // useEffect(() => {
+  //   const player = playerRef.current;
+  //   if (!player || !player.isReady()) return;
+  //   if (mode === "GLOBAL") {
+  //     if (isMuted) player.mute();
+  //     else player.unmute();
+  //     return;
+  //   }
+  //   if (miniPlayerActive) {
+  //     player.pause();
+  //     player.mute();
+  //   } else {
+  //     if (!isMuted) player.unmute();
+  //     if (isPlaying) player.play();
+  //   }
+  // }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
+
   useEffect(() => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
-    if (mode === "GLOBAL") {
-      if (isMuted) player.mute();
-      else player.unmute();
-      return;
-    }
+
+    if (isMuted) player.mute();
+    else player.unmute();
+  }, [isMuted, playerRef]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !player.isReady()) return;
+
     if (miniPlayerActive) {
       player.pause();
-      player.mute();
-    } else {
-      if (!isMuted) player.unmute();
-      if (isPlaying) player.play();
+    } else if (isPlaying) {
+      player.play();
     }
-  }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
+  }, [miniPlayerActive, isPlaying, playerRef]);
 
   // ---- Local controls (cosmetic -- do not affect broadcast state) ----
   const togglePlayPause = () => {
@@ -793,9 +813,10 @@ export const WebTvLooper = ({
   if (!current) return null;
 
   const currentTitle = current.channel?.title || "";
-  const channelCommunity = (
-    current.channel as { community?: { id: string; name: string } } | undefined
-  )?.community;
+  const channelBadgeProps = pickVideoSurfaceBadgeProps(
+    current.channel as Parameters<typeof pickVideoSurfaceBadgeProps>[0],
+    currentEventId || undefined
+  );
   const fillViewport = isFullView || isFullscreen;
   const widePlayer = playerLayout === "wide" && !isMobileTv && !fillViewport;
 
@@ -1282,11 +1303,33 @@ export const WebTvLooper = ({
               autoplay
               onReady={() => {
                 setIsPlayerLoading(false);
+
+                const player = playerRef.current;
+
+                if (player?.isReady()) {
+                  if (isMuted) {
+                    player.mute();
+                  } else {
+                    player.unmute();
+                  }
+                }
+
                 setPlayerVisible(true);
                 emitEncounterWhenVideoLoads();
               }}
               onPlaybackReady={() => {
                 setIsPlayerLoading(false);
+
+                const player = playerRef.current;
+
+                if (player?.isReady()) {
+                  if (isMuted) {
+                    player.mute();
+                  } else {
+                    player.unmute();
+                  }
+                }
+
                 applyPendingPlaybackRestore();
                 emitEncounterWhenVideoLoads();
                 const dur = playerRef.current?.getDuration() ?? 0;
@@ -1330,15 +1373,12 @@ export const WebTvLooper = ({
             />
           ) : null}
 
-          {!isNotice && channelCommunity?.id && channelCommunity?.name && (
-            <CommunityCBadge
-              community={{
-                id: channelCommunity.id,
-                name: channelCommunity.name,
-              }}
+          {!isNotice ? (
+            <VideoSurfaceBadges
+              {...channelBadgeProps}
               position="top-right"
             />
-          )}
+          ) : null}
 
           <div
             className={`absolute left-8 z-[20] truncate text-sm font-medium text-white ${isMobileLandscape ? "-bottom-4" : "bottom-24"}`}
@@ -1406,7 +1446,9 @@ export const WebTvLooper = ({
 
               <button onClick={toggleMute}>
                 {isMuted ? (
-                  <VolumeX className="size-5 text-white" />
+                  <VolumeX
+                    className={`size-5 ${isMuted ? "text-destructive" : ""}`}
+                  />
                 ) : (
                   <Volume2 className="size-5 text-white" />
                 )}

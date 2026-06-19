@@ -16,6 +16,7 @@ import { ToastContainer } from "react-toastify";
 import { Analytics } from "@/components/analytics";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import { VideoNativeMobileGuard } from "@/components/video-native-mobile-guard";
+import { TextTipDraftModalLayer } from "@/components/events/text-tip-draft-modal-layer";
 
 const racingSansOne = Racing_Sans_One({
   variable: "--font-racing",
@@ -49,6 +50,11 @@ export const metadata = {
     apple: "/icons/icon-192.png",
   },
   manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Tipmanna",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
@@ -96,6 +102,22 @@ export default function RootLayout({
           name="theme-color"
           content="#000000"
         />
+        <meta
+          name="apple-mobile-web-app-capable"
+          content="yes"
+        />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <meta
+          name="apple-mobile-web-app-title"
+          content="Tipmanna"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/icons/icon-512.png"
+        />
       </head>
       <body
         className={`${racingSansOne.variable} ${openSans.variable} ${montserrat.variable} ${bricolage.className} antialiased`}
@@ -124,6 +146,7 @@ export default function RootLayout({
           <VideoNativeMobileGuard />
           <ServiceWorkerRegistrar />
           <Analytics />
+          <TextTipDraftModalLayer />
 
           {children}
         </Providers>

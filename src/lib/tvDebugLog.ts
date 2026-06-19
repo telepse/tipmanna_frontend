@@ -23,7 +23,7 @@ export function isTvDebugEnabled(): boolean {
 
 export function logTV(event: string, payload: Record<string, unknown>): void {
   if (!isTvDebugEnabled()) return;
-   
+
   console.info(`[TV] ${event}`, {
     timestamp: Date.now(),
     ...payload,

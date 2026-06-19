@@ -39,7 +39,7 @@ export type PreviewRewardOptions = {
 export function startPreview(
   factory: () => AnimationHandle,
   reward?: PreviewRewardOptions
-) {
+): AnimationHandle | null {
   stopActivePreview();
 
   activePreview = factory();
@@ -60,6 +60,8 @@ export function startPreview(
   killTimer = window.setTimeout(() => {
     stopActivePreview();
   }, MAX_PREVIEW);
+
+  return activePreview;
 }
 
 /**

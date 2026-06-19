@@ -48,6 +48,7 @@ import {
   type TipResumeWalletLineV1,
 } from "@/lib/payment-origin";
 import { setPaymentPendingReturn } from "@/lib/tv-payment-snapshot";
+import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
 import type { PaymentSurface } from "@/lib/analytics-types";
 import {
   getAnalyticsSessionId,
@@ -61,13 +62,15 @@ import {
 import { useTipperWalletStatus } from "@/hooks/use-tipper-wallet-status";
 import {
   ensureSingleTextInCart,
+  buildTipSectionPreviewCharacters,
   isTextCharacterId,
-  notifyTextTipDraftSync,
   clearTextTipDraftStorage,
+  resolveCommentPreviewCharacter,
   textCharacterIdFromEnv,
+  tipCartNameForCharacter,
 } from "@/lib/tip-text-selection";
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
-import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
+import { presentTextTipDraftModal } from "@/components/events/text-tip-draft-modal-layer";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import type { TipQuoteContext } from "@/hooks/use-tip-presentation";
 import {
@@ -142,8 +145,6 @@ export const TipDrawer = ({
   const payCta = payLabel?.trim() || "Pay";
   const [textTipActive, setTextTipActive] = useState(false);
   const [textTipValue, setTextTipValue] = useState("");
-  const [textDraftModalOpen, setTextDraftModalOpen] = useState(false);
-  const [textDraftInput, setTextDraftInput] = useState("");
   const [draftSyncEpoch, setDraftSyncEpoch] = useState(0);
   const cancelTextPreviewRef = useRef<(() => void) | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -166,20 +167,22 @@ export const TipDrawer = ({
       return 0;
     });
 
-    const sortTextFirst = (chars: Character[]) =>
-      [...chars].sort((a, b) => {
-        const aText = isTextCharacterId(a.id);
-        const bText = isTextCharacterId(b.id);
-        if (aText && !bText) return -1;
-        if (!aText && bText) return 1;
-        return 0;
-      });
-
     return filtered.map(set => ({
       ...set,
-      characters: sortTextFirst(set.characters),
+      characters: buildTipSectionPreviewCharacters(set.characters),
     }));
   }, [characterSets]);
+
+  const characterSetsKey = useMemo(
+    () =>
+      (characterSets ?? [])
+        .map(
+          set =>
+            `${set?.id ?? ""}:${Array.isArray(set?.characters) ? set.characters.map((c: Character) => c.id).join(",") : ""}`
+        )
+        .join("|"),
+    [characterSets]
+  );
 
   const router = useRouter();
   const { activeVideoFeatureCardId, setActiveVideoFeatureCardId } =
@@ -241,6 +244,7 @@ export const TipDrawer = ({
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
   const boundEventIdRef = useRef<string | undefined>(undefined);
+  const prevCharacterSetsKeyRef = useRef<string | undefined>(undefined);
   const drawerShellRef = useRef<HTMLDivElement>(null);
   const appliedResumeKeyRef = useRef<string | null>(null);
 
@@ -291,6 +295,21 @@ export const TipDrawer = ({
     appliedResumeKeyRef.current = null;
     clearTipResumeCtx();
   }, [eventId, isProcessing, isRedirecting, dispatch]);
+
+  useEffect(() => {
+    const previous = prevCharacterSetsKeyRef.current;
+    prevCharacterSetsKeyRef.current = characterSetsKey;
+    if (previous === undefined) return;
+    if (previous === characterSetsKey) return;
+    setSelectedTabIndex(0);
+    if (isProcessing || isRedirecting) return;
+    dispatch(setSelectedTips([]));
+    setTextTipActive(false);
+    setTextTipValue("");
+    setCardModalOpen(false);
+    setShowDefaultPayButton(true);
+    setWalletDebitSnapshot(null);
+  }, [characterSetsKey, dispatch, isProcessing, isRedirecting]);
 
   useEffect(() => {
     if (!open) {
@@ -368,34 +387,42 @@ export const TipDrawer = ({
     }
   }, [open, selectedTips]);
 
-  const openTextDraftModal = () => {
+  const openTextDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
-    try {
-      const draft =
-        typeof window !== "undefined"
-          ? (localStorage.getItem("textTipValue") ?? "")
-          : "";
-      setTextDraftInput(draft);
-    } catch {
-      setTextDraftInput("");
-    }
-    setTextDraftModalOpen(true);
+    stopPreview();
+    presentTextTipDraftModal();
   };
 
-  const saveTextDraftModal = () => {
+  const openTextDraftModal = () => {
+    let existingDraft = "";
     try {
-      localStorage.setItem("textTipValue", textDraftInput);
+      existingDraft = (localStorage.getItem("textTipValue") ?? "").trim();
     } catch {
-      /* quota / private mode */
+      /* ignore */
     }
-    notifyTextTipDraftSync();
-    setTextTipValue(textDraftInput);
-    setTextTipActive(true);
-    dispatch(
-      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, "Comment"]))
-    );
-    setTextDraftModalOpen(false);
+    if (existingDraft || tipsForTotals.includes("Comment")) {
+      openTextDraftModalOnly();
+      return;
+    }
+
+    const character = resolveCommentPreviewCharacter(tippingCharacters);
+    if (!character) {
+      openTextDraftModalOnly();
+      return;
+    }
+
+    cancelTextPreviewRef.current?.();
+    cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
+      character,
+      tippingCharacters,
+      tipsForTotals,
+      openDraftModal: () => {
+        cancelTextPreviewRef.current = null;
+        presentTextTipDraftModal();
+      },
+      drawerTintRoot: drawerShellRef.current,
+    });
   };
 
   const makeTipSelection = (characterId: string) => {
@@ -403,23 +430,7 @@ export const TipDrawer = ({
     // Text Tip — preview animation, then modal (edit skips preview).
     // ─────────────────────────────
     if (isTextCharacterId(characterId)) {
-      if (tipsForTotals.includes("Comment")) {
-        openTextDraftModal();
-        return;
-      }
-      const character = tippingCharacters.find(c => isTextCharacterId(c.id));
-      if (!character) {
-        openTextDraftModal();
-        return;
-      }
-      cancelTextPreviewRef.current?.();
-      cancelTextPreviewRef.current = runTextTipPreviewThenOpenDraftModal({
-        character,
-        tippingCharacters,
-        tipsForTotals,
-        openDraftModal: openTextDraftModal,
-        drawerTintRoot: drawerShellRef.current,
-      });
+      openTextDraftModal();
       return;
     }
 
@@ -431,14 +442,17 @@ export const TipDrawer = ({
       return;
     }
 
-    dispatch(setSelectedTips([...tipsForTotals, character.name]));
+    const cartName = tipCartNameForCharacter(character);
+    dispatch(
+      setSelectedTips(ensureSingleTextInCart([...tipsForTotals, cartName]))
+    );
 
     // ─────────────────────────────
     // Start Preview (auto-cancels previous)
     // ─────────────────────────────
     requestAnimationFrame(() => {
       const next = computeTipRewardEligibility(
-        [...tipsForTotals, character.name],
+        ensureSingleTextInCart([...tipsForTotals, cartName]),
         tippingCharacters
       );
       startPreview(
@@ -921,7 +935,7 @@ export const TipDrawer = ({
               >
                 <div className="flex flex-1 flex-row-reverse gap-2">
                   <div className="scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent ml-auto flex flex-row-reverse items-center gap-1 overflow-x-auto scroll-smooth px-1 py-2 text-sm whitespace-nowrap">
-                    {(selectedTips.includes("Comment") || textTipActive) && (
+                    {(tipsForTotals.includes("Comment") || textTipActive) && (
                       <span
                         key="Comment"
                         className="relative mr-1 flex items-center gap-1 rounded-full bg-black px-2 py-1 whitespace-nowrap text-white"
@@ -930,16 +944,27 @@ export const TipDrawer = ({
                         <button
                           type="button"
                           className="text-md ml-1 rounded-full px-1 text-xs text-white focus:outline-none"
-                          onClick={() => removeAllOfTip("Text")}
+                          onClick={() => removeAllOfTip("Comment")}
                           aria-label="Remove all Comment"
                         >
                           x
                         </button>
                       </span>
                     )}
-                    {selectedTips.length > 0 &&
-                      Array.from(new Set(selectedTips))
-                        .filter(characterName => characterName !== "Text")
+                    {tipsForTotals.length > 0 &&
+                      Array.from(new Set(tipsForTotals))
+                        .filter(characterName => {
+                          if (
+                            characterName === "Text" ||
+                            characterName === "Comment"
+                          ) {
+                            return false;
+                          }
+                          const match = tippingCharacters.find(
+                            c => c.name === characterName
+                          );
+                          return !(match && isTextCharacterId(match.id));
+                        })
                         .map(characterName => (
                           <span
                             key={characterName}
@@ -956,7 +981,7 @@ export const TipDrawer = ({
                             </button>
                           </span>
                         ))}
-                    {selectedTips.length === 0 && !textTipActive && (
+                    {tipsForTotals.length === 0 && !textTipActive && (
                       <span className="text-muted-foreground text-xs"></span>
                     )}
                   </div>
@@ -1049,11 +1074,13 @@ export const TipDrawer = ({
                             className="size-12 object-contain"
                           />
 
-                          <h5 className="mt-0.5 text-center text-xs font-medium whitespace-nowrap">
+                          <h5 className="mt-0.5 text-center text-[8px] font-medium whitespace-nowrap sm:text-xs">
                             {label.substring(0, 7)}
                           </h5>
-                          <p className="text-muted-foreground absolute -bottom-5 left-1/2 -translate-x-1/2 overflow-visible rounded-full border border-black border-t-transparent border-r-transparent border-l-transparent bg-white p-0.5 text-xs">
-                            £{character.price}
+                          <p className="text-muted-foreground text-xs">
+                            <span className="border-primary inline-block border-b pb-px">
+                              £{character.price}
+                            </span>
                           </p>
                         </div>
                       );
@@ -1175,14 +1202,6 @@ export const TipDrawer = ({
         </DrawerContent>
       </Drawer>
 
-      <TextTipDraftModal
-        open={textDraftModalOpen}
-        onOpenChange={setTextDraftModalOpen}
-        value={textDraftInput}
-        onChange={setTextDraftInput}
-        onSave={saveTextDraftModal}
-      />
-
       <TipperWalletDialog
         open={walletDialogOpen}
         onOpenChange={setWalletDialogOpen}
@@ -1217,8 +1236,10 @@ export const TipDrawer = ({
           setWalletDebitSnapshot(null);
           clearTipResumeCtx();
           savePaymentOrigin();
+          const tipCount = Math.max(1, selectedTips.length);
           dispatch(setSelectedTips([]));
           dispatch(markPaymentCompleted(false));
+          schedulePwaPromptAfterPaymentAnimation(tipCount);
           void refreshWallet();
           window.setTimeout(() => onOpenChange(false), 400);
         }}

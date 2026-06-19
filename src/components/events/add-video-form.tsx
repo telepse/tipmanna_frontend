@@ -1,4 +1,3 @@
- 
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -51,6 +50,7 @@ export const MODAL_INHERIT_VIDEO_TYPE = "__inherit__";
 
 export type AddVideoFormValues = {
   title: string;
+  description: string;
   url: string;
   isLive: boolean;
   setReminder: boolean;
@@ -96,6 +96,7 @@ export function buildCreateChannelPayload(values: AddVideoFormValues) {
 
   return {
     title: values.title,
+    description: values.description,
     url: values.url,
     isLive: values.isLive,
     reminders: reminderNums,
@@ -167,6 +168,7 @@ export function AddVideoForm({
   const form = useForm<AddVideoFormValues>({
     defaultValues: {
       title: "",
+      description: "",
       url: "",
       isLive: false,
       setReminder: false,
@@ -312,6 +314,24 @@ export function AddVideoForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel className={labelClass}>Video Title</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="My awesome event"
+                  className={inputClass}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={labelClass}>Video Description</FormLabel>
               <FormControl>
                 <Input
                   placeholder="My awesome event"
