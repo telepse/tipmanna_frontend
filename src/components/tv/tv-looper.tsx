@@ -1230,11 +1230,31 @@ export const TvLooper = ({
               autoplay
               onReady={() => {
                 setIsPlayerLoading(false);
+
+                const player = playerRef.current;
+                if (player?.isReady()) {
+                  if (isMuted) {
+                    player.mute();
+                  } else {
+                    player.unmute();
+                  }
+                }
+
                 setPlayerVisible(true);
                 emitEncounterWhenVideoLoads();
               }}
               onPlaybackReady={() => {
                 setIsPlayerLoading(false);
+
+                const player = playerRef.current;
+                if (player?.isReady()) {
+                  if (isMuted) {
+                    player.mute();
+                  } else {
+                    player.unmute();
+                  }
+                }
+
                 applyPendingPlaybackRestore();
                 emitEncounterWhenVideoLoads();
                 const dur = playerRef.current?.getDuration() ?? 0;
