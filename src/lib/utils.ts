@@ -343,15 +343,34 @@ export function combineDateAndTime(dateStr: string, timeStr: string) {
   return new Date(`${dateStr}T${timeStr}:00`);
 }
 
+export const PROGRAM_DISPLAY_TIMEZONE = "Europe/London";
+
 export function formatDateUK(date: string | Date) {
   const d = typeof date === "string" ? new Date(date) : date;
 
   return d.toLocaleDateString("en-GB", {
-    timeZone: "Europe/London",
+    timeZone: PROGRAM_DISPLAY_TIMEZONE,
     weekday: "short",
     day: "2-digit",
     month: "short",
     year: "numeric",
+  });
+}
+
+/** Program start time for metadata and share copy (matches backend notifications). */
+export function formatProgramScheduleDisplay(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleString("en-US", {
+    timeZone: PROGRAM_DISPLAY_TIMEZONE,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
   });
 }
 
