@@ -121,7 +121,7 @@ export function ProgramLanding({
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-col sm:flex-row gap-1">
             <SetReminderButton
               programTitle={program.title}
               scheduledAt={program.scheduledAt}
@@ -142,6 +142,7 @@ export function ProgramLanding({
                 </Link>
               </Button>
             ) : null} */}
+            <div className="flex gap-1">
             <Button
               type="button"
               variant="outline"
@@ -169,7 +170,7 @@ export function ProgramLanding({
             >
               <Share2 className="mr-1 size-4" />
               Share
-            </Button>
+            </Button></div>
           </div>
         </div>
       </div>

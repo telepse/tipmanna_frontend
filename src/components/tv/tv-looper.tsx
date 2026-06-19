@@ -1371,7 +1371,6 @@ export const TvLooper = ({
 
       {isFullView && isMobileTv ? (
         <div className={immersiveMobileScrubberDockClassName(immersiveLayout)}>
-          <p className="truncate text-xs text-white">{currentTitle}</p>
           <div className="flex items-center gap-2 px-1">
             <div className="flex flex-col gap-1 flex-1">
             <input
@@ -1393,7 +1392,7 @@ export const TvLooper = ({
                 seekTo(time);
                 setIsSeeking(false);
               }}
-              className="accent-primary h-2 min-w-0 flex-1 rounded-full bg-white/20"
+              className="accent-primary h-1 min-w-0 flex-1 rounded-full bg-white/20"
             />
             <div className="-mt-1 flex justify-between px-1 text-xs text-white">
             <span>{formatTime(seekBarValue)}</span>

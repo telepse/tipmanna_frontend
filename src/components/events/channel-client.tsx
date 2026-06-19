@@ -1656,7 +1656,7 @@ export const ChannelClient = ({
               setIsSeeking(false);
             }}
             className={cn(
-              "accent-primary h-1 min-w-0 flex-1 rounded-full",
+              "accent-primary h-2 min-w-0 flex-1 rounded-full",
               isFullView && isMobile ? "bg-white/20" : "bg-black"
             )}
           />
