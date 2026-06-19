@@ -431,9 +431,15 @@ export const TipSection = ({
                   <h5 className="mt-0.5 text-center text-[8px] font-medium whitespace-nowrap sm:text-xs">
                     {label.substring(0, 7)}
                   </h5>
-                    <p className="text-muted-foreground absolute -bottom-5 left-1/2 -translate-x-1/2 overflow-visible rounded-full bg-white text-xs"> <span className="border-primary inline-block border-b pb-px">
-                      £{character.price}
-                    </span> </p>
+                    <p className="text-muted-foreground absolute -bottom-5 left-1/2 -translate-x-1/2 overflow-visible rounded-full bg-white text-xs">
+                      <span className="relative inline-block">
+                        £{character.price}
+                        <span
+                          aria-hidden
+                          className="bg-primary absolute right-0 bottom-0 left-0 h-px"
+                        />
+                      </span>
+                    </p>
                 </div>
               );
             })}
