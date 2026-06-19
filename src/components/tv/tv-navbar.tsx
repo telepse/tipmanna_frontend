@@ -96,7 +96,7 @@ export const TVNavbar = ({ active_users }: Props) => {
           >
             TV Explore
           </Link>
-          <span className="text-sm">Create</span>
+          <span className="text-sm cursor-pointer" onClick={() => setOpenPopup(true)}>Create</span>
           <Bell className="size-5" />
           <CircleUserRound className="size-5" />
         </div>
