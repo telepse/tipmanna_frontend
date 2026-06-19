@@ -1632,7 +1632,7 @@ export const ChannelClient = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex flex-col px-1">
+          <div className="flex flex-col px-1 w-full">
             <input
               type="range"
               min={0}
