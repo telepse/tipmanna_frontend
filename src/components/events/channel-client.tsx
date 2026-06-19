@@ -1632,6 +1632,7 @@ export const ChannelClient = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="flex flex-col px-1">
           <input
             type="range"
             min={0}
@@ -1655,10 +1656,22 @@ export const ChannelClient = ({
               setIsSeeking(false);
             }}
             className={cn(
-              "accent-primary h-1 min-w-0 flex-1 rounded-full",
+              "accent-primary h-2 min-w-0 flex-1 rounded-full",
               isFullView && isMobile ? "bg-white/20" : "bg-black"
             )}
           />
+
+          <div
+          className={cn(
+            "flex justify-between px-1 text-xs -mt-0.5",
+            isFullView && isMobile && "text-white"
+          )}
+        >
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+          </div>
+          
           {isFullView && isMobile ? (
             <button
               type="button"
@@ -1670,15 +1683,7 @@ export const ChannelClient = ({
             </button>
           ) : null}
         </div>
-        <div
-          className={cn(
-            "flex justify-between px-1 text-xs -mt-0.5",
-            isFullView && isMobile && "text-white"
-          )}
-        >
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
+        
       </div>
 
       {/* Tip section - MOBILE */}

@@ -9,7 +9,10 @@ import {
 } from "react";
 import { useSelector } from "react-redux";
 import { setPushAuthToken } from "@/lib/push-auth-cache";
-import { subscribePushAction } from "@/actions/notifications";
+import {
+  listPushSubscriptionsAction,
+  subscribePushAction,
+} from "@/actions/notifications";
 import type { RootState } from "@/redux/store";
 
 function apiBase(): string {
@@ -59,6 +62,16 @@ async function persistPushSubscription(
   }
 }
 
+async function hasBackendPushSubscription(
+  authToken?: string | null
+): Promise<boolean> {
+  if (!authToken) return false;
+  const res = await listPushSubscriptionsAction(authToken);
+  if (!res.success) return false;
+  const subs = res.data?.subscriptions;
+  return Array.isArray(subs) && subs.length > 0;
+}
+
 async function getLocalPushSubscription(): Promise<PushSubscription | null> {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
     return null;
@@ -96,29 +109,35 @@ async function resolvePushPermissionState(
   userId: string | undefined,
   authToken: string | null | undefined,
   opts?: { syncToBackend?: boolean }
-): Promise<PushPermissionState> {
-  if (typeof window === "undefined") return "default";
+): Promise<{ state: PushPermissionState; syncError?: string }> {
+  if (typeof window === "undefined") return { state: "default" };
   if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-    return "unsupported";
+    return { state: "unsupported" };
   }
 
   const perm = Notification.permission;
-  if (perm === "denied") return "denied";
-  if (perm === "default") return "default";
+  if (perm === "denied") return { state: "denied" };
+  if (perm === "default") return { state: "default" };
 
   const localSub = await getLocalPushSubscription();
-  if (!localSub) return "granted";
+  if (!localSub) return { state: "granted" };
 
+  let syncError: string | undefined;
   if (opts?.syncToBackend && userId && authToken) {
     try {
       await setPushAuthToken(authToken);
       await persistPushSubscription(localSub, authToken);
-    } catch {
-      // Browser is subscribed; keep prompt hidden even if backend sync fails.
+    } catch (e) {
+      syncError =
+        e instanceof Error ? e.message : "Could not sync push to server";
     }
   }
 
-  return "subscribed";
+  if (authToken && (await hasBackendPushSubscription(authToken))) {
+    return { state: "subscribed" };
+  }
+
+  return { state: "granted", syncError };
 }
 
 export type PushPermissionState =
@@ -187,13 +206,18 @@ async function runPushPermissionDetect(
   const runId = ++detectRunId;
   setSnapshot({ detecting: true });
 
-  const next = await resolvePushPermissionState(userId, authToken, {
-    syncToBackend: true,
-  });
+  const { state: next, syncError } = await resolvePushPermissionState(
+    userId,
+    authToken,
+    { syncToBackend: true }
+  );
 
   if (runId !== detectRunId) return;
   applySharedState(next);
-  setSnapshot({ detecting: false });
+  setSnapshot({
+    detecting: false,
+    error: next === "granted" && syncError ? syncError : null,
+  });
 }
 
 function schedulePushPermissionDetect(
@@ -254,17 +278,15 @@ export function usePushPermission() {
       const publicKey = await fetchVapidPublicKey();
       const sub = await getOrCreatePushSubscription(publicKey);
       await persistPushSubscription(sub, authToken);
+      const confirmed = await hasBackendPushSubscription(authToken);
+      if (!confirmed) {
+        throw new Error("Push subscription was not saved on the server");
+      }
       if (runId !== subscribeRunRef.current) return true;
       applySharedState("subscribed");
       setSnapshot({ detecting: false });
       return true;
     } catch (e) {
-      const localSub = await getLocalPushSubscription();
-      if (localSub) {
-        applySharedState("subscribed");
-        setSnapshot({ detecting: false });
-        return true;
-      }
       const msg = e instanceof Error ? e.message : "Push subscription failed";
       setSnapshot({ error: msg });
       return false;

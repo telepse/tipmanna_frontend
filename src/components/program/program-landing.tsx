@@ -121,7 +121,7 @@ export function ProgramLanding({
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-col sm:flex-row gap-1">
             <SetReminderButton
               programTitle={program.title}
               scheduledAt={program.scheduledAt}
@@ -131,7 +131,7 @@ export function ProgramLanding({
               globalEnforcementId={communityId ? undefined : program.id}
               communityId={communityId}
             />
-            {watchNowHref ? (
+            {/* {watchNowHref ? (
               <Button
                 asChild
                 variant="outline"
@@ -141,12 +141,14 @@ export function ProgramLanding({
                   Watch now
                 </Link>
               </Button>
-            ) : null}
+            ) : null} */}
+            <div className="flex gap-1">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => void copyLink()}
+              className="flex-1 sm:flex-none"
             >
               {copied ? (
                 <Check className="mr-1 size-4" />
@@ -159,6 +161,7 @@ export function ProgramLanding({
               type="button"
               variant="outline"
               size="sm"
+              className="flex-1 sm:flex-none"
               onClick={() => {
                 if (typeof navigator !== "undefined" && navigator.share) {
                   void navigator.share({ title: program.title, url: shareUrl });
@@ -169,7 +172,7 @@ export function ProgramLanding({
             >
               <Share2 className="mr-1 size-4" />
               Share
-            </Button>
+            </Button></div>
           </div>
         </div>
       </div>

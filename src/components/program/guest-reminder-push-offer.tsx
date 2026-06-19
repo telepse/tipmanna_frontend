@@ -47,8 +47,9 @@ export function GuestReminderPushOffer({
     if (!mergeRes.success) {
       toast.warn(
         mergeRes.message ??
-          "Reminder saved, but we could not link it to your account for push."
+          "Reminder saved, but we could not link it to your account for push. Try again or use email only."
       );
+      return;
     }
 
     const pushOk = await subscribe();

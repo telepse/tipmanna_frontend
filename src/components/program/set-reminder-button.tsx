@@ -126,11 +126,11 @@ export function SetReminderButton({
   }
 
   return (
-    <div className="relative rounded-lg border">
+    <div className="relative rounded-lg border w-full sm:w-fit">
       <Button
         type="button"
         variant="outline"
-        className="bg-primary text-white"
+        className="bg-primary text-white w-full sm:w-fit"
         size="sm"
         onClick={() => setOpen(v => !v)}
       >
