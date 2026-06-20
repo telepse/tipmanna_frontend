@@ -1638,7 +1638,7 @@ export const ContentClient = ({
           {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
           {playlist[currentContentIndex]?.title.length > 25 ? (
             <span
-              className="cursor-pointer px-1 border flex flex-col items-center justify-center h-[2px] -ml-1"
+              className="cursor-pointer px-1 border flex flex-col items-center justify-center h-[4px] -ml-1"
               onClick={() => setShowCommentDrawer(true)}
             >
               ...
