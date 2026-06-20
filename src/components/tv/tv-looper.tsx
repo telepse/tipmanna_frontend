@@ -1315,7 +1315,17 @@ export const TvLooper = ({
               !isFullView && !isMobileTv ? "right-2 -bottom-6 left-10" : null
             )}
           >
-            {currentTitle}
+            {currentTitle?.substring(0, 25)}{" "}
+            {currentTitle?.length > 25 ? (
+              <span
+                className="cursor-pointer"
+                onClick={() => setShowCommentDrawer(true)}
+              >
+                ...
+              </span>
+            ) : (
+              ""
+            )}
           </div>
 
           <div
