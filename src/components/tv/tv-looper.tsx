@@ -1319,7 +1319,7 @@ export const TvLooper = ({
             {currentTitle?.substring(0, 25)}{" "}
             {currentTitle?.length > 25 ? (
               <span
-                className="cursor-pointer px-1 border flex flex-col items-center justify-center h-[8px]"
+                className="cursor-pointer px-1 border border-black flex flex-col items-center justify-center h-[8px]"
                 onClick={() => setShowCommentDrawer(true)}
               >
                 <span className="-mt-1.5">...</span>
