@@ -1315,7 +1315,7 @@ export const TvLooper = ({
               !isFullView && !isMobileTv ? "right-2 -bottom-6 left-10" : null
             )}
           >
-            <div className="flex items-center">
+            <div className="flex items-center gap-1">
             {currentTitle?.substring(0, 25)}{" "}
             {currentTitle?.length > 25 ? (
               <span
