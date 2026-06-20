@@ -864,9 +864,12 @@ export default function ExplorePageClient({
             />
             <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
           </div>
-          <span className={cn("truncate text-xs")}>
-            {exploreLiveViewers.length} watching live
-          </span>
+          <div className="flex items-center gap-1">
+                <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
+                <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
+                  {exploreLiveViewers.length} watching live
+                </span>
+              </div>
         </div>
 
         <span className="w-8 shrink-0" />
