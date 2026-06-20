@@ -7,6 +7,7 @@ import {
   getPublicAbsoluteUrl,
   getPublicFrontendOrigin,
 } from "@/lib/site-config";
+import { formatProgramScheduleDisplay } from "@/lib/utils";
 
 type Props = {
   params: Promise<{ communityId: string; enforcementId: string }>;
@@ -25,13 +26,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     `/c/${communityId}/program/${enforcementId}`
   );
   const thumb = program.items.find(i => i.thumbnailUrl)?.thumbnailUrl;
+  const broadcasterName = program.community?.name ?? "Tipmanna";
+  const scheduledLabel = formatProgramScheduleDisplay(program.scheduledAt);
+  const title = `${program.title} is live on ${broadcasterName} TV ${scheduledLabel}`;
 
   return {
     metadataBase: new URL(getPublicFrontendOrigin()),
     title: `${program.title} | ${program.community?.name ?? "Community"}`,
     description: `Watch ${program.title} on Tipmanna.`,
     openGraph: {
-      title: `${program.title} is live on ${program.community?.name} TV 📅`,
+      title,
       description:
         "Set a reminder and join viewers around the world for this scheduled community broadcast and realtime shared experience.",
       url,
