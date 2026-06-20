@@ -1309,12 +1309,13 @@ export const TvLooper = ({
             className={cn(
               chromeHide.chromeTransitionClass,
               chromeHide.chromeOpacityClass,
-              "absolute z-[20] truncate bg-black text-sm font-medium text-white flex items-center justify-center",
+              "absolute z-[20] truncate bg-black text-sm font-medium text-white",
               isFullView && isMobileTv && "hidden",
               !isFullView && isMobileTv ? "right-2 bottom-12 left-2" : null,
               !isFullView && !isMobileTv ? "right-2 -bottom-6 left-10" : null
             )}
           >
+            <div className="flex items-center">
             {currentTitle?.substring(0, 25)}{" "}
             {currentTitle?.length > 25 ? (
               <span
@@ -1325,7 +1326,7 @@ export const TvLooper = ({
               </span>
             ) : (
               ""
-            )}
+            )}</div>
           </div>
 
           <div
