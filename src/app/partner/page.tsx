@@ -16,6 +16,10 @@ import KeyStatsLazy from "@/components/home/key-stats-lazy";
 import FAQs from "@/components/home/faqs";
 import TvHomePreviewSectionLazy from "@/components/home/tv-home-preview-section-lazy";
 import PricingGrid from "@/components/home/pricing-grid";
+import {
+  getPublicAbsoluteUrl,
+  getPublicFrontendOrigin,
+} from "@/lib/site-config";
 import { Metadata } from "next";
 
 function DataSection({ children }: { children: ReactNode }) {
@@ -26,13 +30,38 @@ const BACKGROUND_IMAGES = {
   pattern: "/patterns/bg_pattern.webp",
 } as const;
 
-export const dynamic = "force-static";
+type Props = {
+  searchParams: Promise<{ section?: string }>;
+};
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const pricingPageLink = "/partner#pricing";
+  const { section } = await searchParams;
+  const isPricingSection = section === "pricing";
+
+  const title = isPricingSection
+    ? "Launch your own community TV network ⚡"
+    : "Welcome to Tipmanna 💎⚡ — Participatory Community Media";
+  const description = isPricingSection
+    ? "Build your own monetised media ecosystem with TV channels, memberships, livestreams, realtime engagement, and community infrastructure."
+    : "Tipmanna helps creators and communities turn audiences into active participants through TV, realtime engagement, memberships, and supporter experiences.";
+  const pageUrl = isPricingSection
+    ? getPublicAbsoluteUrl(pricingPageLink)
+    : getPublicAbsoluteUrl("/partner");
+
   return {
-    title: "Welcome to Tipmanna — Participatory Community Media",
-    description:
-      "Tipmanna helps creators and communities turn audiences into active participants through TV, realtime engagement, memberships, and supporter experiences.",
+    metadataBase: new URL(getPublicFrontendOrigin()),
+    title,
+    description,
+    alternates: {
+      canonical: pageUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      url: pageUrl,
+      type: "website",
+    },
   };
 }
 

@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const thumb = program.items.find(i => i.thumbnailUrl)?.thumbnailUrl;
   const broadcasterName = program.community?.name ?? "Tipmanna";
   const scheduledLabel = formatProgramScheduleDisplay(program.scheduledAt);
-  const title = `${program.title} is live on ${broadcasterName} TV ${scheduledLabel}`;
+  const title = `${program.title} is live on ${broadcasterName} TV ${scheduledLabel} 📅⚡`;
 
   return {
     metadataBase: new URL(getPublicFrontendOrigin()),

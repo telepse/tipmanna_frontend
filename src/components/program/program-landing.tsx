@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, Copy, Play, Share2, Tv } from "lucide-react";
+import { Share2, Tv } from "lucide-react";
 
 import { ProgramCountdown } from "@/components/program/program-countdown";
 import { SetReminderButton } from "@/components/program/set-reminder-button";

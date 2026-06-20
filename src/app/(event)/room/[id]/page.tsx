@@ -56,21 +56,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? `${baseUrl}${cleanBackground}`
     : `${baseUrl}/events/together.png`;
 
-  // Fix: Ensure description is > 100 characters for LinkedIn
-  const orgName = event.organizationName ?? "the host";
-  let description = `Join ${event.eventName} hosted by ${orgName}. Support the event, watch live, and tip your favorite characters.`;
+  const title = `Join ${event.eventName} hosted by ${event.hostName?.split(" ")[0]} on Tipmanna 💎⚡`;
 
-  if (description.length < 100) {
-    description += ` Experience a live interactive event where you can engage with the community and make an impact in real-time.`;
-  }
+  const description = `Support the event, watch live, and send paid engagements. Experience live interation and make an impact in real-time.`;
 
   return {
     metadataBase: new URL(baseUrl),
-    title: event.eventName,
-    description: description,
+    title,
+    description,
     openGraph: {
-      title: event.eventName,
-      description: description,
+      title,
+      description,
       url: `/room/${trimmedId}`,
       siteName: "TipManna",
       images: [
@@ -85,8 +81,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: event.eventName,
-      description: description,
+      title,
+      description,
       images: [imageUrl],
     },
   };
