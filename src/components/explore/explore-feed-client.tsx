@@ -1442,7 +1442,7 @@ export const ExploreFeedClient = forwardRef<
               className="cursor-pointer px-1 border flex flex-col items-center justify-center h-[8px] -ml-1"
               onClick={() => setExploreCommentOpen(true)}
             >
-              ...
+              <span className="-mt-1">...</span>
             </span>
           ) : (
             ""

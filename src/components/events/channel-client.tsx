@@ -1633,7 +1633,7 @@ export const ChannelClient = ({
               className="cursor-pointer px-1 border flex flex-col items-center justify-center h-[8px] -ml-1"
               onClick={() => setShowCommentDrawer(true)}
             >
-              ...
+              <span className="-mt-1">...</span>
             </span>
           ) : (
             ""
