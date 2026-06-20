@@ -5,7 +5,7 @@ import Link from "next/link";
 
 // THird-party imports
 import { Input } from "@/components/ui/input";
-import { Bell, CircleUserRound, Menu, Search, UserRound } from "lucide-react";
+import { Bell, Menu, Search, UserRound } from "lucide-react";
 
 // Local imports
 import { useEffect, useState } from "react";
@@ -142,11 +142,11 @@ export const TVNavbar = ({ active_users }: Props) => {
             TV Explore
           </Link>
           <span className="text-sm cursor-pointer" onClick={() => setOpenPopup(true)}>Create</span>
-          <Bell className="size-5" />
+          {/* <Bell className="size-5" /> */}
 
           <button
           type="button"
-          className="relative flex flex-col items-center justify-center border border-black/20"
+          className="relative flex flex-col items-center justify-center "
           onClick={() => {
             setOpenPopup(false);
             setIsProfileDrawerOpen(true);
@@ -158,7 +158,7 @@ export const TVNavbar = ({ active_users }: Props) => {
           />
           <NotificationBadge
             variant="dot"
-            className="-top-0.5 right-6"
+            className="-top-0.5 left-6"
           />
           <span className="max-w-[4.5rem] truncate text-[8px] text-black">
             {isSignedIn
