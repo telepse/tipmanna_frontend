@@ -1,18 +1,25 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import Link from "next/link";
 
 // THird-party imports
 import { Input } from "@/components/ui/input";
-import { Bell, CircleUserRound, Menu, Search } from "lucide-react";
+import { Bell, CircleUserRound, Menu, Search, UserRound } from "lucide-react";
 
 // Local imports
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CreateDialog } from "../home/create-dialog";
 import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { TvSourceDropdown } from "./tv-source-dropdown";
 import { useRouter } from "next/navigation";
 import { useMediaQuery } from "react-responsive";
+import { NotificationBadge } from "../notifications/notification-badge";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
+import { ProfileDrawer } from "./profile-drawer";
+import { getTippedEventsForTipper, getTotalAmountTippedByTipper } from "@/actions/events";
+import { getAllCausesAction } from "@/actions/home";
 
 interface Props {
   active_users: number;
@@ -48,6 +55,44 @@ export const TVNavbar = ({ active_users }: Props) => {
   const isMobileLandscape =
     useMediaQuery({ query: "(orientation: landscape)" }) &&
     window.innerWidth <= 768;
+
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const userRole = useSelector((s: RootState) => s.auth.user?.role);
+  const isSignedIn =
+    useSelector((s: RootState) => s.auth.isAuthenticated) &&
+    (userRole === "HOST" || userRole === "TIPPER");
+
+  const userId = useSelector((s: RootState) => s.auth.user?.id);
+
+    const [tipperEvents, setTipperEvents] = useState<any[]>([]);
+    const [iTipped, setITipped] = useState(0);
+    const [causes, setCauses] = useState<any[]>([]);
+
+    useEffect(() => {
+      const fetchData = async () => {
+        const [tipperEventsRes, iTippedRes, causesRes] = await Promise.all([
+          userId
+            ? getTippedEventsForTipper()
+            : Promise.resolve({ success: true, data: [] as any[] }),
+          userId
+            ? getTotalAmountTippedByTipper()
+            : Promise.resolve({ success: true, data: 0 }),
+          getAllCausesAction(),
+        ]);
+  
+        setTipperEvents(
+          tipperEventsRes.success && Array.isArray(tipperEventsRes.data)
+            ? tipperEventsRes.data
+            : []
+        );
+        setITipped(typeof iTippedRes.data === "number" ? iTippedRes.data : 0);
+        setCauses(
+          causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : []
+        );
+      };
+  
+      void fetchData();
+    }, [userId]);
 
   if (isMobileLandscape) return null;
 
@@ -98,7 +143,31 @@ export const TVNavbar = ({ active_users }: Props) => {
           </Link>
           <span className="text-sm cursor-pointer" onClick={() => setOpenPopup(true)}>Create</span>
           <Bell className="size-5" />
-          <CircleUserRound className="size-5" />
+
+          <button
+          type="button"
+          className="relative flex flex-col items-center justify-center border border-black/20"
+          onClick={() => {
+            setOpenPopup(false);
+            setIsProfileDrawerOpen(true);
+          }}
+        >
+          <UserRound
+            className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+            strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
+          />
+          <NotificationBadge
+            variant="dot"
+            className="-top-0.5 right-6"
+          />
+          <span className="max-w-[4.5rem] truncate text-[8px] text-black">
+            {isSignedIn
+              ? "Signed in"
+              : userRole === "VISITOR"
+                ? "Guest"
+                : "Not signed in"}
+          </span>
+        </button>
         </div>
 
         <div className="inline-block lg:hidden">
@@ -116,6 +185,14 @@ export const TVNavbar = ({ active_users }: Props) => {
           openPopup={openPopup}
           setOpenPopup={setOpenPopup}
         />
+
+<ProfileDrawer
+        isProfileDrawerOpen={isProfileDrawerOpen}
+        setIsProfileDrawerOpen={setIsProfileDrawerOpen}
+        tipperEvents={tipperEvents}
+        iTipped={iTipped}
+        causes={causes}
+      />
       </div>
     </div>
   );

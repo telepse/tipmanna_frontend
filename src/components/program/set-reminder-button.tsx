@@ -22,6 +22,7 @@ import {
   hasBackendPushSubscription,
 } from "@/lib/program-push-setup";
 import type { RootState } from "@/redux/store";
+import { cn } from "@/lib/utils";
 
 const OFFSET_LABELS: Record<number, string> = {
   5: "5 minutes before",
@@ -85,6 +86,8 @@ export function SetReminderButton({
       );
     }
   };
+
+  const isProgramOver = new Date() > new Date(scheduledAt);
 
   const setReminder = async () => {
     setBusy(true);
@@ -221,8 +224,10 @@ export function SetReminderButton({
       <Button
         type="button"
         variant="outline"
-        className="bg-primary w-full text-white sm:w-fit"
+        // className="bg-primary w-full text-white sm:w-fit"
+        className={cn(isProgramOver ? "bg-gray-300 text-gray-500" : "bg-primary text-white", "w-full sm:w-fit")}
         size="sm"
+        disabled={isProgramOver}
         onClick={() => setOpen(v => !v)}
       >
         <Bell className="mr-1 size-4" />

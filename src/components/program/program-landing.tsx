@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, Copy, Play, Share2 } from "lucide-react";
+import { Check, Copy, Play, Share2, Tv } from "lucide-react";
 
 import { ProgramCountdown } from "@/components/program/program-countdown";
 import { SetReminderButton } from "@/components/program/set-reminder-button";
@@ -143,7 +143,7 @@ export function ProgramLanding({
               </Button>
             ) : null} */}
             <div className="flex gap-1">
-              <Button
+              {/* <Button
                 type="button"
                 variant="outline"
                 size="sm"
@@ -156,6 +156,15 @@ export function ProgramLanding({
                   <Copy className="mr-1 size-4" />
                 )}
                 {copied ? "Copied" : "Copy link"}
+              </Button> */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/tv?id=${program.community?.id ?? ''}`, "_blank")}
+                className="flex-1 sm:flex-none"
+              >
+                <Tv /> Watch TV
               </Button>
               <Button
                 type="button"
