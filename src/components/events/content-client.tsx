@@ -22,6 +22,7 @@ import {
   ChevronRight,
   ChevronsUp,
   CircleStop,
+  Dot,
   FastForward,
   Maximize2,
   MessageCircleMore,
@@ -1637,12 +1638,7 @@ export const ContentClient = ({
           <span className="font-semibold">Now playing:</span>{" "}
           {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
           {playlist[currentContentIndex]?.title.length > 25 ? (
-            <span
-              className="cursor-pointer px-1 border border-black flex flex-col items-center justify-center h-[8px] -ml-1"
-              onClick={() => setShowCommentDrawer(true)}
-            >
-              <span className="-mt-1">...</span>
-            </span>
+            <Dot className="bg-black fill-white" />
           ) : (
             ""
           )}
