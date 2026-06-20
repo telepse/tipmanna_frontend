@@ -1322,7 +1322,7 @@ export const TvLooper = ({
                 className="cursor-pointer px-1 border flex flex-col items-center justify-center h-[8px]"
                 onClick={() => setShowCommentDrawer(true)}
               >
-                <span className="-mt-1">...</span>
+                <span className="-mt-1.5">...</span>
               </span>
             ) : (
               ""
