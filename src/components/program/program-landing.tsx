@@ -162,7 +162,10 @@ export function ProgramLanding({
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  window.open(`/tv?community=${program.community?.id ?? ""}`, "_blank")
+                  window.open(
+                    `/tv?community=${program.community?.id ?? ""}`,
+                    "_blank"
+                  )
                 }
                 className="flex-1 sm:flex-none"
               >

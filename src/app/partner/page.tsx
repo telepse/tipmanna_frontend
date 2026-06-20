@@ -34,7 +34,9 @@ type Props = {
   searchParams: Promise<{ section?: string }>;
 };
 
-export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+export async function generateMetadata({
+  searchParams,
+}: Props): Promise<Metadata> {
   const pricingPageLink = "/partner#pricing";
   const { section } = await searchParams;
   const isPricingSection = section === "pricing";

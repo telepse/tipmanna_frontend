@@ -1628,7 +1628,16 @@ export const ChannelClient = ({
           </span>
           <span className="font-semibold">Now playing:</span>{" "}
           {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
-          {playlist[currentContentIndex]?.title.length > 25 ? "..." : ""}
+          {playlist[currentContentIndex]?.title.length > 25 ? (
+            <span
+              className="cursor-pointer"
+              onClick={() => setShowCommentDrawer(true)}
+            >
+              ...
+            </span>
+          ) : (
+            ""
+          )}
         </div>
 
         <div className="flex items-center gap-2">
