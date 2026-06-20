@@ -1435,7 +1435,18 @@ export const ExploreFeedClient = forwardRef<
               </div>
             ) : (
               <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
-                {item.title}
+                
+                {item?.title.substring(0, 25)}{" "}
+          {item?.title.length > 25 ? (
+            <span
+              className="cursor-pointer"
+              onClick={() => setExploreCommentOpen(true)}
+            >
+              ...
+            </span>
+          ) : (
+            ""
+          )}
               </div>
             )}
 
