@@ -225,7 +225,10 @@ export function SetReminderButton({
         type="button"
         variant="outline"
         // className="bg-primary w-full text-white sm:w-fit"
-        className={cn(isProgramOver ? "bg-gray-300 text-gray-500" : "bg-primary text-white", "w-full sm:w-fit")}
+        className={cn(
+          isProgramOver ? "bg-gray-300 text-gray-500" : "bg-primary text-white",
+          "w-full sm:w-fit"
+        )}
         size="sm"
         disabled={isProgramOver}
         onClick={() => setOpen(v => !v)}

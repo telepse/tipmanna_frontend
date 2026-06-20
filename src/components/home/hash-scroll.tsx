@@ -17,10 +17,7 @@ function scrollToElement(id: string): boolean {
   return true;
 }
 
-function scheduleScrollToHash(
-  hash: string,
-  startDelayMs: number
-): () => void {
+function scheduleScrollToHash(hash: string, startDelayMs: number): () => void {
   const id = hash.replace(/^#/, "");
   if (!id) return () => {};
 

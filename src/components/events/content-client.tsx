@@ -1457,7 +1457,7 @@ export const ContentClient = ({
             </span>
 
             <div className="flex items-center gap-2">
-              <div className="flex-1 space-y-2 w-full">
+              <div className="w-full flex-1 space-y-2">
                 <input
                   type="range"
                   min={0}
