@@ -1436,10 +1436,10 @@ export const ExploreFeedClient = forwardRef<
             ) : (
               <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
                 
-                {item?.title.substring(0, 25)}{" "}
-          {item?.title.length > 25 ? (
+                {item?.title.substring(0, 15)}{" "}
+          {item?.title.length > 15 ? (
             <span
-              className="cursor-pointer px-1 border flex flex-col items-center justify-center"
+              className="cursor-pointer px-1 border flex flex-col items-center justify-center h-[8px] -ml-1"
               onClick={() => setExploreCommentOpen(true)}
             >
               ...
