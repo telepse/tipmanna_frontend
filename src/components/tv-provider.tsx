@@ -341,6 +341,10 @@ export default function GlobalTVProvider({
   >(async () => {});
   const scheduleEtagRef = useRef<string | null>(null);
   const syncMissRef = useRef(0);
+  const isReadyRef = useRef(false);
+  const broadcastEpochRef = useRef<number | null>(null);
+  const totalDurationRef = useRef(0);
+  const itemsLenRef = useRef(0);
 
   const pathname = usePathname();
   const scheduleSourceCommunityIdRef = useRef<string | null>(null);
@@ -429,6 +433,22 @@ export default function GlobalTVProvider({
   useEffect(() => {
     preloadVideos(items, currentIndex);
   }, [items, currentIndex]);
+
+  useEffect(() => {
+    isReadyRef.current = isReady;
+  }, [isReady]);
+
+  useEffect(() => {
+    broadcastEpochRef.current = broadcastEpoch;
+  }, [broadcastEpoch]);
+
+  useEffect(() => {
+    totalDurationRef.current = totalDuration;
+  }, [totalDuration]);
+
+  useEffect(() => {
+    itemsLenRef.current = items.length;
+  }, [items.length]);
 
   const getNow = useCallback(() => Date.now() + driftRef.current, []);
   const getSyncedNow = getNow;
@@ -545,6 +565,29 @@ export default function GlobalTVProvider({
     }
   }, [broadcastEpoch, items, totalDuration, getNow]);
 
+  const maybeSyncToLive = useCallback(
+    (source: string) => {
+      if (modeRef.current !== "GLOBAL") return;
+      if (
+        !isReadyRef.current ||
+        itemsLenRef.current < 1 ||
+        broadcastEpochRef.current == null ||
+        totalDurationRef.current <= 0
+      ) {
+        tvTrace("playback", "syncToLive_deferred", {
+          source,
+          isReady: isReadyRef.current,
+          itemsLen: itemsLenRef.current,
+          broadcastEpoch: broadcastEpochRef.current != null,
+          totalDuration: totalDurationRef.current,
+        });
+        return;
+      }
+      syncToLive();
+    },
+    [syncToLive]
+  );
+
   const selectedIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -558,10 +601,10 @@ export default function GlobalTVProvider({
         mode: modeRef.current,
       });
       if (visible && modeRef.current === "GLOBAL") {
-        queueMicrotask(() => syncToLive());
+        queueMicrotask(() => maybeSyncToLive("setPlayerVisible"));
       }
     },
-    [syncToLive]
+    [maybeSyncToLive]
   );
 
   const applySchedulePayloadCore = useCallback((data: any) => {
@@ -1393,13 +1436,13 @@ export default function GlobalTVProvider({
       tvTrace("navigation", "tv_page_open", { mode: modeRef.current });
       lastSyncedIndex.current = -1;
       if (modeRef.current === "GLOBAL") {
-        queueMicrotask(() => syncToLive());
+        queueMicrotask(() => maybeSyncToLive("tv_page_open"));
       }
     };
 
     window.addEventListener("tv-page-open", handler);
     return () => window.removeEventListener("tv-page-open", handler);
-  }, [syncToLive]);
+  }, [maybeSyncToLive]);
 
   /** Restore TV state after full-page return from `/success` (Stripe); same-session uses `resumeAfterPayment`. */
   useEffect(() => {

@@ -52,6 +52,22 @@ export function ytStateName(state: number): string {
   return YT_STATE_NAMES[state] ?? `UNKNOWN_${state}`;
 }
 
+let cachedTraceContext: Record<string, string> | null = null;
+
+/** Coarse device context for staging trace review (zero cost when debug off). */
+function getTvTraceContext(): Record<string, string> {
+  if (cachedTraceContext) return cachedTraceContext;
+  if (typeof navigator === "undefined") {
+    cachedTraceContext = { platform: "ssr", ua: "" };
+    return cachedTraceContext;
+  }
+  cachedTraceContext = {
+    platform: navigator.platform ?? "unknown",
+    ua: (navigator.userAgent ?? "").slice(0, 160),
+  };
+  return cachedTraceContext;
+}
+
 /** Zero-cost when debug disabled; use for Phase 0 instrumentation only. */
 export function tvTrace(
   category: TvTraceCategory,
@@ -61,6 +77,7 @@ export function tvTrace(
   if (!isTvDebugEnabled()) return;
   console.info(`[TV:${category}] ${event}`, {
     timestamp: Date.now(),
+    ...getTvTraceContext(),
     ...payload,
   });
 }

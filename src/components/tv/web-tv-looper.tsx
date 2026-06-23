@@ -90,6 +90,7 @@ import {
 } from "@/components/media/immersive-media-shell";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { tvTrace } from "@/lib/tvDebugLog";
+import { unmuteWithUserGesture } from "@/lib/tv-autoplay";
 import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
 
 /**
@@ -153,16 +154,9 @@ export const WebTvLooper = ({
   const segmentStartMsRef = useRef(0);
   const videoErrorReloadsRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  /** Match iframe default (mute:1) so autoplay works on cold load; user can unmute */
+  /** Mute-first on cold load for autoplay policy; unmute only via user gesture. */
   const TV_MUTE_PREF_KEY = "tipmanna_tv_mute_pref";
-  const [isMuted, setIsMuted] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return window.sessionStorage.getItem(TV_MUTE_PREF_KEY) !== "0";
-    } catch {
-      return true;
-    }
-  });
+  const [isMuted, setIsMuted] = useState(true);
   const [miniPlayerActive, setMiniPlayerActive] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -693,7 +687,7 @@ export const WebTvLooper = ({
     if (!player || !player.isReady()) return;
 
     if (isMuted) player.mute();
-    else player.unmute();
+    // Never programmatically unmute — audio unlock requires toggleMute user gesture.
   }, [isMuted, playerRef]);
 
   useEffect(() => {
@@ -724,8 +718,9 @@ export const WebTvLooper = ({
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
     if (isMuted) {
-      player.unmute();
+      unmuteWithUserGesture(player, "TvLooper.toggleMute");
       setIsMuted(false);
+      setIsPlaying(true);
       try {
         window.sessionStorage.setItem(TV_MUTE_PREF_KEY, "0");
       } catch {
@@ -1331,12 +1326,8 @@ export const WebTvLooper = ({
 
                 const player = playerRef.current;
 
-                if (player?.isReady()) {
-                  if (isMuted) {
-                    player.mute();
-                  } else {
-                    player.unmute();
-                  }
+                if (player?.isReady() && isMuted) {
+                  player.mute();
                 }
 
                 setPlayerVisible(true);
@@ -1347,12 +1338,8 @@ export const WebTvLooper = ({
 
                 const player = playerRef.current;
 
-                if (player?.isReady()) {
-                  if (isMuted) {
-                    player.mute();
-                  } else {
-                    player.unmute();
-                  }
+                if (player?.isReady() && isMuted) {
+                  player.mute();
                 }
 
                 applyPendingPlaybackRestore();

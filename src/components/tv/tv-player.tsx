@@ -180,6 +180,12 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
           beginProgrammaticPlayback();
           if (readyRef.current && playerRef.current) {
             playerRef.current.loadVideoById(videoId, start);
+            if (playerRef.current.isMuted()) {
+              tracePlayVideoResult(
+                "TvPlayer.load.muted_play",
+                playerRef.current.playVideo()
+              );
+            }
           } else {
             pendingLoadRef.current = { videoId, start };
           }
@@ -297,6 +303,15 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               tvTrace("playback", "onPlaybackReady", {
                 videoId: extractYoutubeID(videoUrlRef.current),
               });
+              if (
+                event.target.isMuted() &&
+                event.target.getPlayerState() !== 1
+              ) {
+                tracePlayVideoResult(
+                  "TvPlayer.cued_muted_play",
+                  event.target.playVideo()
+                );
+              }
               onPlaybackReady?.();
             }
             if (event.data === 0) onEnd?.();
