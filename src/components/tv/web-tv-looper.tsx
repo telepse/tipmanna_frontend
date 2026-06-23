@@ -103,6 +103,7 @@ export const WebTvLooper = ({
   analyticsSurface = "tv_looper",
   onContinueCommentToTip,
   onEngage,
+  onRegisterExitFull,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
 }: {
@@ -112,7 +113,8 @@ export const WebTvLooper = ({
   /** Defaults to tv_looper; use homepage_preview on the marketing homepage embed */
   analyticsSurface?: PaymentSurface;
   onEngage?: () => void;
-  /** Notifies parent when mobile full-view mode toggles (shell hides chrome). */
+  /** Registers mobile exitFull for landscape close button in tv-interactive-shell. */
+  onRegisterExitFull?: (exitFull: (() => void) | null) => void;
   /** Optional: parent opens Stripe tip drawer after comment draft handoff from CommentDrawer. */
   onContinueCommentToTip?: () => void;
   commentDrawerVideoTitle?: string;
@@ -254,6 +256,16 @@ export const WebTvLooper = ({
     isMobile: isMobileTv,
     resetAnchor: current?.id,
   });
+
+  useEffect(() => {
+    if (!isMobileTv) {
+      onRegisterExitFull?.(null);
+      return;
+    }
+    onRegisterExitFull?.(exitFull);
+    return () => onRegisterExitFull?.(null);
+  }, [exitFull, isMobileTv, onRegisterExitFull]);
+
   const currentEventId = String(
     current?.defaultChannelEventId ?? current?.channel?.eventId ?? ""
   ).trim();

@@ -3,7 +3,8 @@
 
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ArrowUp,
@@ -43,6 +44,7 @@ import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
 import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-shell";
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { tvTrace } from "@/lib/tvDebugLog";
 import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
 
@@ -188,6 +190,9 @@ export function TvInteractiveShell({
 
   const [showSearchOptions, setShowSearchOptions] = useState(false);
   const [isMobileFullView, setIsMobileFullView] = useState(false);
+  const [landscapeLayoutDismissed, setLandscapeLayoutDismissed] = useState(false);
+  const exitFullRef = useRef<(() => void) | null>(null);
+  const router = useRouter();
 
   const handleSearchOptions = () => {
     setShowSearchOptions(prev => !prev);
@@ -198,24 +203,47 @@ export function TvInteractiveShell({
     useMediaQuery({ query: "(orientation: landscape)" }) &&
     viewportWidth > 0 &&
     viewportWidth <= 768;
+  const showMobileLandscapeLayout =
+    isMobileLandscape && !landscapeLayoutDismissed;
+
+  const registerExitFull = useCallback((exitFull: (() => void) | null) => {
+    exitFullRef.current = exitFull;
+  }, []);
 
   const handleMobileLandscapeClose = () => {
     tvTrace("navigation", "landscape_close_click", {
       isMobileFullView,
-      action: "stay_on_tv",
+      landscapeLayoutDismissed,
+      action: isMobileFullView ? "exit_full_view" : "dismiss_landscape_layout",
     });
-    setIsMobileFullView(false);
+
+    if (isMobileFullView) {
+      runPortraitAlignedMobileLandscapeClose(router, {
+        isFullView: true,
+        exitFull: () => {
+          exitFullRef.current?.();
+          setIsMobileFullView(false);
+        },
+        explorePath: "/tv",
+      });
+      return;
+    }
+
+    setLandscapeLayoutDismissed(true);
   };
 
   useEffect(() => {
     const onOrientation = () => {
+      const landscape =
+        typeof window !== "undefined" &&
+        window.matchMedia("(orientation: landscape)").matches;
       tvTrace("navigation", "orientation_change", {
-        orientation:
-          typeof window !== "undefined" && window.matchMedia("(orientation: landscape)").matches
-            ? "landscape"
-            : "portrait",
+        orientation: landscape ? "landscape" : "portrait",
         innerWidth: typeof window !== "undefined" ? window.innerWidth : null,
       });
+      if (!landscape) {
+        setLandscapeLayoutDismissed(false);
+      }
     };
     window.addEventListener("orientationchange", onOrientation);
     return () => window.removeEventListener("orientationchange", onOrientation);
@@ -506,7 +534,7 @@ export function TvInteractiveShell({
         </div>
       )}
 
-      {isMobile && !isMobileLandscape && (
+      {isMobile && !showMobileLandscapeLayout && (
         <div
           className={cn(
             isMobileFullView
@@ -545,6 +573,7 @@ export function TvInteractiveShell({
                   onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
                   onEngage={() => setIsTipDrawerOpen(true)}
                   onFullViewChange={setIsMobileFullView}
+                  onRegisterExitFull={registerExitFull}
                   commentDrawerVideoTitle={
                     typeof currentPlaying?.channel?.title === "string"
                       ? currentPlaying.channel.title
@@ -670,7 +699,7 @@ export function TvInteractiveShell({
         </div>
       )}
 
-      {isMobileLandscape && (
+      {isMobile && showMobileLandscapeLayout && (
         <>
           <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
           <div className="relative z-[999] h-full w-full bg-black text-white">
@@ -680,6 +709,7 @@ export function TvInteractiveShell({
               analyticsSurface={tvAnalyticsSurface}
               onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
               onEngage={() => setIsTipDrawerOpen(true)}
+              onRegisterExitFull={registerExitFull}
               commentDrawerVideoTitle={
                 typeof currentPlaying?.channel?.title === "string"
                   ? currentPlaying.channel.title
@@ -704,7 +734,7 @@ export function TvInteractiveShell({
         setIsTvDrawerOpen={setIsTvDrawerOpen}
       />
 
-      {isMobileLandscape ? null : (
+      {isMobile && showMobileLandscapeLayout ? null : (
         <div
           className={cn(
             isDesktop

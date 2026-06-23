@@ -108,6 +108,7 @@ export const TvLooper = ({
   onContinueCommentToTip,
   onEngage,
   onFullViewChange,
+  onRegisterExitFull,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
   showSideRails = true,
@@ -123,6 +124,8 @@ export const TvLooper = ({
   onEngage?: () => void;
   /** Notifies parent when mobile full-view mode toggles (shell hides chrome). */
   onFullViewChange?: (isFullView: boolean) => void;
+  /** Registers mobile exitFull for landscape close button in tv-interactive-shell. */
+  onRegisterExitFull?: (exitFull: (() => void) | null) => void;
   commentDrawerVideoTitle?: string;
   commentDrawerVideoDescription?: string;
   showSideRails?: boolean;
@@ -269,10 +272,13 @@ export const TvLooper = ({
   useEffect(() => {
     if (!isMobileTv) {
       onFullViewChange?.(false);
+      onRegisterExitFull?.(null);
       return;
     }
     onFullViewChange?.(isFullView);
-  }, [isFullView, isMobileTv, onFullViewChange]);
+    onRegisterExitFull?.(exitFull);
+    return () => onRegisterExitFull?.(null);
+  }, [isFullView, isMobileTv, onFullViewChange, onRegisterExitFull, exitFull]);
 
   const currentEventId = String(
     current?.defaultChannelEventId ?? current?.channel?.eventId ?? ""
