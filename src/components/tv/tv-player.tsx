@@ -71,6 +71,10 @@ type Props = {
    * After player ready or when a new video is cued (state 5). Dimensions from oEmbed (cached).
    */
   onVideoAspectInfo?: (info: YoutubeAspectInfo) => void;
+  /**
+   * When true, react-youtube videoId is fixed at mount; provider drives loads via ref.load() only.
+   */
+  externallyControlled?: boolean;
 };
 
 const TvPlayer = forwardRef<TvPlayerRef, Props>(
@@ -91,6 +95,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       cover,
       containFill,
       onVideoAspectInfo,
+      externallyControlled = false,
     },
     ref
   ) => {
@@ -100,6 +105,9 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       null
     );
     const suppressUserIntentUntilRef = useRef(0);
+    const mountedVideoIdRef = useRef<string | undefined>(
+      extractYoutubeID(videoUrl) ?? undefined
+    );
 
     const beginProgrammaticPlayback = useCallback(() => {
       suppressUserIntentUntilRef.current =
@@ -115,6 +123,9 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     );
 
     const videoId = extractYoutubeID(videoUrl);
+    const youtubeVideoId = externallyControlled
+      ? mountedVideoIdRef.current
+      : (videoId ?? undefined);
 
     const videoUrlRef = useRef(videoUrl);
     videoUrlRef.current = videoUrl;
@@ -219,7 +230,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       } else {
         clearYoutubeIframePresentation(iframe);
       }
-    }, [cover, containFill, videoId]);
+    }, [cover, containFill, youtubeVideoId]);
 
     return (
       <div
@@ -230,7 +241,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         }
       >
         <YouTube
-          videoId={videoId ?? undefined}
+          videoId={youtubeVideoId}
           opts={youtubeOpts}
           onReady={event => {
             playerRef.current = event.target;
@@ -251,7 +262,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               beginProgrammaticPlayback();
               tvTrace("playback", "player_load_pending", { videoId: vid, start });
               event.target.loadVideoById(vid, start);
-            } else if (autoplay) {
+            } else if (autoplay && !externallyControlled) {
               tracePlayVideoResult(
                 "TvPlayer.onReady.autoplay",
                 event.target.playVideo()
@@ -260,6 +271,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
 
             tvTrace("playback", "onReady", {
               videoId: extractYoutubeID(videoUrlRef.current),
+              externallyControlled,
             });
 
             notifyVideoAspect();

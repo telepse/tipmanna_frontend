@@ -17,6 +17,10 @@ import {
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { logTV, tvTrace } from "@/lib/tvDebugLog";
 import {
+  isSameOrchestratedPlayback,
+  type TvPlaybackRequest,
+} from "@/lib/tv-playback-request";
+import {
   initTvAnalyticsRuntime,
   shutdownTvAnalyticsRuntime,
   trackTvModeChange,
@@ -233,6 +237,9 @@ type TVContextType = {
   /** After payment + GLOBAL `syncToLive` / new video cue, restores mute/play from snapshot */
   applyPendingPlaybackRestore: () => void;
 
+  /** Reload the current orchestrated video at a time (error recovery from looper). */
+  reloadCurrentPlaybackAt: (startSeconds: number) => void;
+
   /** Community TV: load `/communities/:id/tv/schedule`; null = Tipmanna global. */
   scheduleSourceCommunityId: string | null;
   setScheduleSourceCommunityId: (id: string | null) => void;
@@ -345,6 +352,11 @@ export default function GlobalTVProvider({
   const broadcastEpochRef = useRef<number | null>(null);
   const totalDurationRef = useRef(0);
   const itemsLenRef = useRef(0);
+  const orchestratedPlaybackRef = useRef<{
+    videoId: string;
+    startSeconds: number;
+  } | null>(null);
+  const pendingPlaybackRequestRef = useRef<TvPlaybackRequest | null>(null);
 
   const pathname = usePathname();
   const scheduleSourceCommunityIdRef = useRef<string | null>(null);
@@ -389,6 +401,8 @@ export default function GlobalTVProvider({
     setIsReady(false);
     setScheduleError(false);
     setScheduleStale(false);
+    orchestratedPlaybackRef.current = null;
+    pendingPlaybackRequestRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -456,6 +470,62 @@ export default function GlobalTVProvider({
   const setPlayerPlayingState = useCallback((playing: boolean) => {
     isPlayingRef.current = playing;
   }, []);
+
+  const requestPlayback = useCallback((req: TvPlaybackRequest): boolean => {
+    tvTrace("playback", "requestPlayback", {
+      reason: req.reason,
+      videoId: req.videoId,
+      startSeconds: req.startSeconds,
+      scheduleIndex: req.scheduleIndex,
+    });
+
+    if (isSameOrchestratedPlayback(orchestratedPlaybackRef.current, req)) {
+      tvTrace("playback", "requestPlayback_skipped", {
+        reason: "unchanged",
+        videoId: req.videoId,
+        startSeconds: req.startSeconds,
+      });
+      return false;
+    }
+
+    const player = playerRef.current;
+    if (!player?.isReady()) {
+      pendingPlaybackRequestRef.current = req;
+      tvTrace("playback", "requestPlayback_deferred", {
+        reason: "player_not_ready",
+        videoId: req.videoId,
+      });
+      return false;
+    }
+
+    pendingPlaybackRequestRef.current = null;
+    orchestratedPlaybackRef.current = {
+      videoId: req.videoId,
+      startSeconds: req.startSeconds,
+    };
+    player.load(req.videoId, req.startSeconds);
+    return true;
+  }, []);
+
+  const flushPendingPlaybackRequest = useCallback(() => {
+    const pending = pendingPlaybackRequestRef.current;
+    if (!pending) return;
+    requestPlayback(pending);
+  }, [requestPlayback]);
+
+  const reloadCurrentPlaybackAt = useCallback(
+    (startSeconds: number) => {
+      const vid = orchestratedPlaybackRef.current?.videoId;
+      if (!vid) return;
+      orchestratedPlaybackRef.current = null;
+      requestPlayback({
+        reason: "error_reload",
+        videoId: vid,
+        startSeconds,
+      });
+    },
+    [requestPlayback]
+  );
 
   const syncToLive = useCallback(() => {
     if (paymentActiveRef.current) {
@@ -540,12 +610,28 @@ export default function GlobalTVProvider({
       if (!isNotice) {
         const videoId = extractYoutubeID(pos.item.channel.url);
         if (videoId) {
-          tvTrace("playback", "syncToLive_load", {
-            videoId,
-            offsetSeconds: pos.offsetSeconds,
-            scheduleIndex: pos.scheduleIndex,
-          });
-          player.load(videoId, pos.offsetSeconds);
+          const sameVideo =
+            orchestratedPlaybackRef.current?.videoId === videoId &&
+            player.isReady();
+          if (sameVideo) {
+            tvTrace("playback", "syncToLive_coalesced_seek", {
+              videoId,
+              offsetSeconds: pos.offsetSeconds,
+              scheduleIndex: pos.scheduleIndex,
+            });
+            orchestratedPlaybackRef.current = {
+              videoId,
+              startSeconds: pos.offsetSeconds,
+            };
+            player.seekTo(pos.offsetSeconds, false);
+          } else {
+            requestPlayback({
+              reason: "syncToLive",
+              videoId,
+              startSeconds: pos.offsetSeconds,
+              scheduleIndex: pos.scheduleIndex,
+            });
+          }
         }
       } else {
         tvTrace("playback", "syncToLive_notice_pause", {
@@ -560,10 +646,16 @@ export default function GlobalTVProvider({
           actual,
           target: pos.offsetSeconds,
         });
+        orchestratedPlaybackRef.current = orchestratedPlaybackRef.current
+          ? {
+              ...orchestratedPlaybackRef.current,
+              startSeconds: pos.offsetSeconds,
+            }
+          : null;
         player.seekTo(pos.offsetSeconds, false);
       }
     }
-  }, [broadcastEpoch, items, totalDuration, getNow]);
+  }, [broadcastEpoch, items, totalDuration, getNow, requestPlayback]);
 
   const maybeSyncToLive = useCallback(
     (source: string) => {
@@ -601,10 +693,15 @@ export default function GlobalTVProvider({
         mode: modeRef.current,
       });
       if (visible && modeRef.current === "GLOBAL") {
-        queueMicrotask(() => maybeSyncToLive("setPlayerVisible"));
+        queueMicrotask(() => {
+          flushPendingPlaybackRequest();
+          maybeSyncToLive("setPlayerVisible");
+        });
+      } else if (visible) {
+        flushPendingPlaybackRequest();
       }
     },
-    [maybeSyncToLive]
+    [maybeSyncToLive, flushPendingPlaybackRequest]
   );
 
   const applySchedulePayloadCore = useCallback((data: any) => {
@@ -617,6 +714,8 @@ export default function GlobalTVProvider({
     if (activeScheduleIdRef.current !== sid) {
       lastSyncedIndex.current = -1;
       activeScheduleIdRef.current = sid;
+      orchestratedPlaybackRef.current = null;
+      pendingPlaybackRequestRef.current = null;
     }
 
     setItems(data.items ?? []);
@@ -1050,13 +1149,17 @@ export default function GlobalTVProvider({
       const item = items[index];
       if (!item) return;
 
-      const player = playerRef.current;
-      if (!player || !player.isReady()) return;
-
       const videoId = extractYoutubeID(item.channel.url);
-      if (videoId) player.load(videoId, 0);
+      if (videoId) {
+        requestPlayback({
+          reason: "loadLocal",
+          videoId,
+          startSeconds: 0,
+          scheduleIndex: index,
+        });
+      }
     },
-    [items, enterLocalMode]
+    [items, enterLocalMode, requestPlayback]
   );
 
   const playLocal = useCallback(
@@ -1101,12 +1204,16 @@ export default function GlobalTVProvider({
       if (typeof window !== "undefined") {
         sessionStorage.setItem(SESSION_LOCAL_INDEX_KEY, String(anchor));
       }
-      const player = playerRef.current;
-      if (!player || !player.isReady()) return;
       const videoId = extractYoutubeID(item.channel.url);
-      if (videoId) player.load(videoId, 0);
+      if (videoId) {
+        requestPlayback({
+          reason: "loadLocal",
+          videoId,
+          startSeconds: 0,
+        });
+      }
     },
-    [items, alternateBatchItems, enterLocalMode, playLocalFromSchedule]
+    [items, alternateBatchItems, enterLocalMode, playLocalFromSchedule, requestPlayback]
   );
 
   const loadEnforcementPlayerItem = useCallback(
@@ -1120,10 +1227,13 @@ export default function GlobalTVProvider({
       pendingEnforcementPlaybackRef.current = null;
       const videoId = extractYoutubeID(item.channel.url);
       if (!videoId) return false;
-      player.load(videoId, offsetSeconds);
-      return true;
+      return requestPlayback({
+        reason: "enforcement",
+        videoId,
+        startSeconds: offsetSeconds,
+      });
     },
-    []
+    [requestPlayback]
   );
 
   const playEnforcementProgram = useCallback(
@@ -1572,6 +1682,7 @@ export default function GlobalTVProvider({
         snapshotPlaybackForPaymentRedirect,
         resumeAfterPayment,
         applyPendingPlaybackRestore,
+        reloadCurrentPlaybackAt,
 
         ongoingCollection,
         upcomingCollection,

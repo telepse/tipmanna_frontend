@@ -134,6 +134,7 @@ export const WebTvLooper = ({
     setPlayerVisible,
     playingItemOverride,
     applyPendingPlaybackRestore,
+    reloadCurrentPlaybackAt,
     scheduleSourceCommunityId,
   } = useTV();
 
@@ -538,7 +539,6 @@ export const WebTvLooper = ({
       return;
     }
     if (!effectivePlayerUrl) return;
-    setIsPlayerLoading(true);
     videoErrorReloadsRef.current = 0;
   }, [isNotice, effectivePlayerUrl]);
 
@@ -575,8 +575,7 @@ export const WebTvLooper = ({
       goLive();
       return;
     }
-    const vid = extractYoutubeID(effectivePlayerUrl);
-    if (vid) p.load(vid, Math.max(0, p.getCurrentTime()));
+    reloadCurrentPlaybackAt(Math.max(0, p.getCurrentTime()));
   };
 
   useEffect(() => {
@@ -1332,6 +1331,7 @@ export const WebTvLooper = ({
               ref={playerRef as React.Ref<import("./tv-player").TvPlayerRef>}
               key="tv-player"
               videoUrl={playbackUrl}
+              externallyControlled
               autoplay
               onReady={() => {
                 setIsPlayerLoading(false);
