@@ -18,11 +18,18 @@ import {
 } from "@/lib/tip-text-selection";
 import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
 import {
-  getChannelCommentDrawerAction,
   reportChannelContentAction,
   toggleCommentLikeAction,
   type CommentDrawerData,
 } from "@/actions/messages";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useCommentDrawerData } from "@/hooks/use-comment-drawer-data";
+import { flushTvAnalytics } from "@/lib/tvAnalytics";
 import { Input } from "@/components/ui/input";
 import { stopPreview } from "@/lib/previewController";
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
@@ -42,7 +49,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SaveHostToggleButton } from "./save-host-toggle-button";
-import { flushTvAnalytics } from "@/lib/tvAnalytics";
 
 interface Props {
   isCommentDrawerOpen: boolean;
@@ -85,7 +91,14 @@ export const CommentDrawer = ({
   );
 
   const [drawerData, setDrawerData] = useState<CommentDrawerData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
+  const { drawerData: fetchedDrawerData, loading, revalidate } =
+    useCommentDrawerData(
+      eventId,
+      channelId,
+      isCommentDrawerOpen,
+      metricsRefreshKey
+    );
   const [pendingDraft, setPendingDraft] = useState("");
   const [draftModalOpen, setDraftModalOpen] = useState(false);
   const [modalDraft, setModalDraft] = useState("");
@@ -148,42 +161,22 @@ export const CommentDrawer = ({
   }, [isCommentDrawerOpen]);
 
   useEffect(() => {
-    if (!isCommentDrawerOpen || !eventId?.trim() || !channelId?.trim()) {
-      setDrawerData(null);
-      return;
-    }
+    if (fetchedDrawerData) setDrawerData(fetchedDrawerData);
+  }, [fetchedDrawerData]);
 
-    let cancelled = false;
+  useEffect(() => {
+    if (!isCommentDrawerOpen) return;
+    void flushTvAnalytics();
+  }, [isCommentDrawerOpen, metricsRefreshKey]);
 
-    const loadDrawer = () => {
-      setLoading(true);
-      void flushTvAnalytics().finally(() =>
-        getChannelCommentDrawerAction(eventId.trim(), channelId.trim()).then(
-          res => {
-            if (cancelled) return;
-            setLoading(false);
-            if (res.success && res.data) {
-              setDrawerData(res.data);
-            } else {
-              setDrawerData(null);
-            }
-          }
-        )
-      );
-    };
-
-    loadDrawer();
-
+  useEffect(() => {
+    if (!isCommentDrawerOpen) return;
     const onFocus = () => {
-      if (document.visibilityState === "visible") loadDrawer();
+      if (document.visibilityState === "visible") void revalidate();
     };
     window.addEventListener("focus", onFocus);
-
-    return () => {
-      cancelled = true;
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [isCommentDrawerOpen, eventId, channelId, metricsRefreshKey]);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [isCommentDrawerOpen, revalidate]);
 
   const handleLiveComment = useCallback(
     (comment: {
@@ -379,6 +372,13 @@ export const CommentDrawer = ({
   const resolvedDescription =
     videoDescription?.trim() || channelMeta?.description?.trim() || "";
   const resolvedViewCount = metrics?.viewCount ?? 0;
+  const showMetricsSkeleton = loading && !metrics;
+  const commentCountLabel = showMetricsSkeleton
+    ? "—"
+    : String(metrics?.commentCount ?? items.length);
+  const likeCountLabel = showMetricsSkeleton
+    ? "—"
+    : String(metrics?.commentLikeCount ?? 0);
   const coOwnerNames = useMemo(() => {
     const fromApi = channelMeta?.coOwnerNames?.filter(Boolean) ?? [];
     if (fromApi.length) return fromApi;
@@ -404,11 +404,11 @@ export const CommentDrawer = ({
               <div className="flex items-end gap-4">
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-black">
-                    Comments {metrics?.commentCount ?? items.length}
+                    Comments {commentCountLabel}
                   </span>
                 </div>
                 <span className="text-sm font-medium text-gray-400">
-                  Likes {metrics?.commentLikeCount ?? 0}
+                  Likes {likeCountLabel}
                 </span>
               </div>
 
@@ -457,20 +457,41 @@ export const CommentDrawer = ({
               </p>
             )}
             {resolvedDescription ? (
-              <p className="text-muted-foreground text-xs whitespace-pre-wrap">
-                {resolvedDescription}
-              </p>
+              <div>
+                <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
+                  {resolvedDescription}
+                </p>
+                {resolvedDescription.length > 120 ? (
+                  <button
+                    type="button"
+                    className="text-primary mt-1 text-xs font-medium"
+                    onClick={() => setDescOpen(true)}
+                  >
+                    See more
+                  </button>
+                ) : null}
+              </div>
             ) : null}
             <p className="flex flex-wrap items-center gap-2 text-xs text-black">
               <span>
-                Channel tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
+                Channel tips:{" "}
+                {showMetricsSkeleton
+                  ? "—"
+                  : (metrics?.eventRoomTipCount ?? numOfTips ?? 0)}
               </span>
               <span>·</span>
-              <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
+              <span>
+                Video tips:{" "}
+                {showMetricsSkeleton ? "—" : (metrics?.videoTipCount ?? 0)}
+              </span>
               <span>·</span>
-              <span>Saves {metrics?.saveCount ?? 0}</span>
+              <span>
+                Saves {showMetricsSkeleton ? "—" : (metrics?.saveCount ?? 0)}
+              </span>
               <span>·</span>
-              <span>Shares {metrics?.shareCount ?? 0}</span>
+              <span>
+                Shares {showMetricsSkeleton ? "—" : (metrics?.shareCount ?? 0)}
+              </span>
             </p>
             {channelMeta ? (
               <p className="text-muted-foreground text-[11px]">
@@ -598,10 +619,15 @@ export const CommentDrawer = ({
               <p className="text-muted-foreground text-center text-sm">
                 Select a video to see comments.
               </p>
-            ) : loading ? (
-              <p className="text-muted-foreground text-center text-sm">
-                Loading...
-              </p>
+            ) : loading && items.length === 0 ? (
+              <ul className="space-y-3" aria-busy="true">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <li
+                    key={i}
+                    className="animate-pulse rounded-lg border px-4 py-6 bg-gray-50"
+                  />
+                ))}
+              </ul>
             ) : items.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
                 <p className="text-lg text-gray-600">
@@ -649,6 +675,15 @@ export const CommentDrawer = ({
           </div>
         </DrawerContent>
       </Drawer>
+
+      <Dialog open={descOpen} onOpenChange={setDescOpen}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{resolvedTitle || "Video description"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm whitespace-pre-wrap">{resolvedDescription}</p>
+        </DialogContent>
+      </Dialog>
 
       <TextTipDraftModal
         open={draftModalOpen}

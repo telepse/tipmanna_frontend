@@ -3,14 +3,12 @@
 
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ArrowUp,
   ChevronRight,
   ChevronsUp,
-  ChevronsRight,
   Search,
   X,
 } from "lucide-react";
@@ -45,7 +43,8 @@ import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
 import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-shell";
-import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
+import { tvTrace } from "@/lib/tvDebugLog";
+import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -91,6 +90,9 @@ export function TvInteractiveShell({
   mode,
   goLive,
   switchToLocal,
+  scheduleStale,
+  scheduleError,
+  retryScheduleLoad,
   activeTab,
   setActiveTab,
   handleSelectChannel,
@@ -144,6 +146,7 @@ export function TvInteractiveShell({
   const isDesktop = variant === "desktop";
   const isMobile = variant === "mobile";
   const playlistLayout = isDesktop ? "desktop" : "mobile";
+  const bannerW = isDesktop ? "mx-auto max-w-6xl" : "w-full";
 
   const [rightPanelView, setRightPanelView] = useState<
     | "playlist"
@@ -190,20 +193,37 @@ export function TvInteractiveShell({
     setShowSearchOptions(prev => !prev);
   };
 
+  const viewportWidth = useClientViewportWidth();
   const isMobileLandscape =
     useMediaQuery({ query: "(orientation: landscape)" }) &&
-    window.innerWidth <= 768;
-
-  const router = useRouter();
+    viewportWidth > 0 &&
+    viewportWidth <= 768;
 
   const handleMobileLandscapeClose = () => {
+    tvTrace("navigation", "landscape_close_click", {
+      isMobileFullView,
+      action: "stay_on_tv",
+    });
     setIsMobileFullView(false);
-    runPortraitAlignedMobileLandscapeClose(router);
   };
+
+  useEffect(() => {
+    const onOrientation = () => {
+      tvTrace("navigation", "orientation_change", {
+        orientation:
+          typeof window !== "undefined" && window.matchMedia("(orientation: landscape)").matches
+            ? "landscape"
+            : "portrait",
+        innerWidth: typeof window !== "undefined" ? window.innerWidth : null,
+      });
+    };
+    window.addEventListener("orientationchange", onOrientation);
+    return () => window.removeEventListener("orientationchange", onOrientation);
+  }, []);
 
   return (
     <>
-      {/* {scheduleStale && tvReady && (
+      {scheduleStale && tvReady && (
         <div
           className={`mt-4 rounded-md border border-amber-600 bg-amber-50 p-4 text-sm text-black ${bannerW}`}
         >
@@ -218,8 +238,8 @@ export function TvInteractiveShell({
             Retry fresh load
           </button>
         </div>
-      )} */}
-      {/* {scheduleError && !tvReady && (
+      )}
+      {scheduleError && !tvReady && (
         <div
           className={`border-destructive mt-4 rounded-md border bg-white p-4 text-sm text-black ${bannerW}`}
         >
@@ -232,7 +252,7 @@ export function TvInteractiveShell({
             Retry
           </button>
         </div>
-      )} */}
+      )}
 
       {isDesktop && (
         <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">

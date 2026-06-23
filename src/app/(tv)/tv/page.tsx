@@ -5,6 +5,7 @@ import {
 import { getEventChannelByYoutubeVideoId } from "@/actions/events";
 import TVFullscreen from "@/components/tv/tv-fullscreen";
 import TVPageShell from "@/components/tv/tv-page-shell";
+import { TvPageSuspenseFallback } from "@/components/tv/tv-page-suspense-fallback";
 import { Metadata } from "next";
 import { Suspense } from "react";
 import { getPublicFrontendOrigin } from "@/lib/site-config";
@@ -97,11 +98,7 @@ export default async function TVPage({
   return (
     <>
       <section className="w-full p-2">
-        <Suspense
-          fallback={
-            <div className="text-muted-foreground p-4 text-sm">Loading TV…</div>
-          }
-        >
+        <Suspense fallback={<TvPageSuspenseFallback />}>
           <TVPageShell
             characters={characters ?? []}
             characterSets={characterSets ?? []}

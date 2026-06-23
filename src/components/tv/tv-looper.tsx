@@ -30,6 +30,7 @@ import {
   CircleAlert,
   MessageCircleMore,
   ChevronsUp,
+  ArrowRight,
 } from "lucide-react";
 
 import TvPlayer from "./tv-player";
@@ -93,6 +94,7 @@ import {
   immersivePlayerStageClassName,
 } from "@/components/media/immersive-media-shell";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
+import { tvTrace } from "@/lib/tvDebugLog";
 
 /**
  * TvLooper renders the TvPlayer, local playback controls (play/pause, mute, seek),
@@ -233,6 +235,25 @@ export const TvLooper = ({
     (isNotice ? lastPlayableUrlRef.current || bootstrapPlayableUrl : "");
 
   const playbackUrl = candidate && extractYoutubeID(candidate) ? candidate : "";
+
+  useEffect(() => {
+    tvTrace("playback", "playbackUrl_change", {
+      surface: "tv-looper",
+      playbackUrl: playbackUrl || null,
+      videoId: playbackUrl ? extractYoutubeID(playbackUrl) : null,
+      currentId: current?.id,
+      mode,
+      currentIndex,
+    });
+  }, [playbackUrl, current?.id, mode, currentIndex]);
+
+  useEffect(() => {
+    tvTrace("playback", "isPlayerLoading_change", {
+      surface: "tv-looper",
+      isPlayerLoading,
+      currentId: current?.id,
+    });
+  }, [isPlayerLoading, current?.id]);
 
   const showPlaybackError =
     !isNotice && Boolean(current?.channel) && !playbackUrl.trim();
@@ -1261,6 +1282,7 @@ export const TvLooper = ({
                 if (dur > 0) setDuration(dur);
               }}
               onPlay={() => {
+                setIsPlayerLoading(false);
                 setIsPlaying(true);
                 const dur = playerRef.current?.getDuration() ?? 0;
                 if (dur > 0) setDuration(dur);
@@ -1316,14 +1338,11 @@ export const TvLooper = ({
             )}
           >
             <div className="flex items-center gap-1">
-            {currentTitle?.substring(0, 25)}{" "}
-            {currentTitle?.length > 25 ? (
-              <span
-                className="cursor-pointer px-1 border border-black flex flex-col items-center justify-center h-[8px]"
-                onClick={() => setShowCommentDrawer(true)}
-              >
-                <span className="-mt-1.5">...</span>
-              </span>
+            {currentTitle?.substring(0, 30)}{" "}
+            {currentTitle?.length > 30 ? ".." : ""}{" "}
+            {currentTitle?.length > 30 ? (
+              <div className="flex items-center -ml-1 border border-gray-400" onClick={() => setShowCommentDrawer(true)}>
+            <ArrowRight className="size-4 cursor-pointer"  /></div>
             ) : (
               ""
             )}</div>

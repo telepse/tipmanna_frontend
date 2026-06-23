@@ -23,7 +23,7 @@ interface Props {
   // contents: any[];
 }
 
-export default function TopEvents({ events }: Props) {
+export default function TopEvents({ events = [] }: Props) {
   const topContentsRef = useRef<HTMLDivElement>(null);
 
   const [showPrompt, setShowPrompt] = useState(false);

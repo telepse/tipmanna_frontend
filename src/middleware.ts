@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isDiscoveryHost } from "@/lib/site-config";
 
 function normalizeHostname(host: string | null): string {
   return (host ?? "").split(":")[0].toLowerCase();
@@ -19,13 +20,19 @@ export function middleware(request: NextRequest) {
   const rawHost = request.headers.get("host");
   const hostname = normalizeHostname(rawHost);
 
-  // Redirect mixed-case host to canonical lowercase (308 preserves method)
   if (rawHost && hostname !== rawHost.split(":")[0]) {
     const dest = url.clone();
     const port = rawHost.includes(":") ? rawHost.split(":")[1] : "";
     dest.hostname = port ? `${hostname}:${port}` : hostname;
     dest.protocol = url.protocol;
     return NextResponse.redirect(dest, 308);
+  }
+
+  if (isDiscoveryHost(hostname)) {
+    if (url.pathname === "/") {
+      url.pathname = "/discover";
+      return NextResponse.redirect(url);
+    }
   }
 
   const tvHost = canonicalTvHost(hostname);

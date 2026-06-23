@@ -78,7 +78,7 @@ function buildExploreItemListJsonLd(items: ExploreFeedSeoItem[]) {
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Tipmanna TV — Community-powered realtime media 📺",
+    title: "Tipmanna TV — Community-powered realtime media",
     description:
       "Discover creators, communities, and live TV experiences where audiences participate, support, and engage together in realtime.",
   };

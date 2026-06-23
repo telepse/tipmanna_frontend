@@ -105,6 +105,61 @@ export async function getAllFeaturedContentsAction() {
   );
 }
 
+export async function getSpotlightContents() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/spotlight`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "force-cache",
+      next: { revalidate: 30 },
+    },
+    "getSpotlightContents"
+  );
+}
+
+export async function getLiveStreamContents() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/live-streams`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "force-cache",
+      next: { revalidate: 30 },
+    },
+    "getLiveStreamContents"
+  );
+}
+
+export async function searchContentsAction(q: string, limit = 30) {
+  const query = q.trim();
+  if (!query) {
+    return { success: true, data: [] as unknown[] };
+  }
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    },
+    "searchContentsAction"
+  );
+}
+
+export async function getDiscoveryProgramsAction() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "force-cache",
+      next: { revalidate: 60 },
+    },
+    "getDiscoveryProgramsAction"
+  );
+}
+
 export async function getContentChannelAction(
   eventId: string,
   authToken?: string | null

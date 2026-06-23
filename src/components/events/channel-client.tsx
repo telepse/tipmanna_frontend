@@ -16,6 +16,7 @@ import Image from "next/image";
 
 // Third-party imports
 import {
+  ArrowRight,
   AudioLines,
   Bookmark,
   ChevronLeft,
@@ -82,7 +83,7 @@ import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { ChannelProgressBar } from "./channel-progress-bar";
 import { SaveEventId } from "./save-event-id";
 import {
-  buildChannelShareUrl,
+  buildContentShareUrl,
   pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { getCurrentUser } from "./event-room-client";
@@ -112,6 +113,7 @@ import { cn } from "@/lib/utils";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import { prefetchChannelDrawers } from "@/lib/drawer-prefetch-cache";
 import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import {
@@ -142,7 +144,7 @@ interface Props {
   characters: any[];
   eventId: string;
   characterSets: any[];
-  /** Deep link from `/channel/{eventId}?channel=` — selects initial video. */
+  /** Deep link from `/channel/{eventId}?v=` — selects initial video. */
   initialChannelId?: string | null;
   /** When the active video changes (e.g. event room lightbox URL sync). */
   onActiveChannelChange?: (channelId: string) => void;
@@ -444,6 +446,15 @@ export const ChannelClient = ({
   }, [currentContent?.id]);
 
   useEffect(() => {
+    if (!eventId || !currentContent?.id) return;
+    prefetchChannelDrawers({
+      eventId,
+      channelId: String(currentContent.id),
+      authenticated: Boolean(user?.id),
+    });
+  }, [eventId, currentContent?.id, user?.id]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       const player = videoRef.current;
       if (!player || !player.isReady()) return;
@@ -521,7 +532,7 @@ export const ChannelClient = ({
     };
   }, [eventId, currentContent?.id, isPlaying]);
 
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [, setAudioUnlocked] = useState(false);
   const [openPlaylist, setOpenPlaylist] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
@@ -627,7 +638,7 @@ export const ChannelClient = ({
 
   const shareUrl =
     eventId && channelIdForShare
-      ? buildChannelShareUrl({ eventId, channelId: channelIdForShare })
+      ? buildContentShareUrl({ eventId, channelId: channelIdForShare })
       : "";
 
   const shareTitle =
@@ -1627,14 +1638,10 @@ export const ChannelClient = ({
             />
           </span>
           <span className="font-semibold">Now playing:</span>{" "}
-          {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
+          {playlist[currentContentIndex]?.title.substring(0, 25)}{playlist[currentContentIndex]?.title.length > 25 ? ".." : ""}{" "}
           {playlist[currentContentIndex]?.title.length > 25 ? (
-            <span
-              className="cursor-pointer px-1 border border-black flex flex-col items-center justify-center h-[8px] -ml-1"
-              onClick={() => setShowCommentDrawer(true)}
-            >
-              <span className="-mt-1">...</span>
-            </span>
+            <div className="flex items-center -ml-2 border border-gray-400" onClick={() => setShowCommentDrawer(true)}>
+            <ArrowRight className="size-4 cursor-pointer"  /></div>
           ) : (
             ""
           )}

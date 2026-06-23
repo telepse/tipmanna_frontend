@@ -24,7 +24,7 @@ import {
   type AddVideoFormValues,
 } from "@/components/events/add-video-form";
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
-import { buildChannelShareUrl } from "@/lib/public-video-url";
+import { buildContentShareUrl } from "@/lib/public-video-url";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 
 interface ChannelModalProps {
@@ -132,7 +132,7 @@ export const EventChannelModal = ({
   const handleCopy = async (channelId: string) => {
     try {
       await navigator.clipboard.writeText(
-        buildChannelShareUrl({ eventId, channelId })
+        buildContentShareUrl({ eventId, channelId })
       );
       setCopiedId(channelId);
       setTimeout(() => setCopiedId(null), 2000);

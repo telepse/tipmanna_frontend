@@ -439,7 +439,9 @@ export const ProfileDrawer = ({
               {isAuthenticated && !requiresVerification ? (
                 <SavedTab
                   savedContents={savedContents}
-                  fetchOnMount={false}
+                  savedHosts={drawerData.savedHosts}
+                  loadingSaved={drawerData.loading}
+                  fetchOnMount={true}
                 />
               ) : (
                 <ProfileDrawerLoginGate

@@ -34,7 +34,27 @@ export default function TvHomePreviewSection() {
   }, []);
 
   if (characters && characters.length === 0) {
-    return null;
+    return (
+      <section
+        className="border-border/60 bg-background w-full border-t py-10 md:py-14"
+        aria-labelledby="tv-home-heading"
+      >
+        <div className="mx-auto max-w-6xl px-4 md:px-6">
+          <h2 id="tv-home-heading" className="text-xl font-semibold md:text-2xl">
+            Tipmanna TV
+          </h2>
+          <p className="text-muted-foreground mt-2 text-sm">
+            Live TV is between shows. Open the full experience to browse the schedule.
+          </p>
+          <Link
+            href="/tv"
+            className="text-primary mt-3 inline-block text-sm font-medium underline-offset-4 hover:underline"
+          >
+            Open full TV experience
+          </Link>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -65,9 +85,17 @@ export default function TvHomePreviewSection() {
           </div>
 
           {characters === null ? (
-            <div className="bg-muted/50 min-h-[200px] w-full animate-pulse rounded-lg md:min-h-[280px]" />
+            <div
+              className="bg-muted/50 flex min-h-[200px] w-full flex-col items-center justify-center gap-2 rounded-lg md:min-h-[280px]"
+              aria-busy="true"
+              aria-label="Loading live TV preview"
+            >
+              <span className="text-muted-foreground animate-pulse text-sm">
+                Loading live TV…
+              </span>
+            </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border bg-black/5 p-2 md:p-4">
+            <div className="relative overflow-hidden rounded-xl border bg-black/5 p-2 md:p-4">
               <TvLooper
                 characters={characters}
                 playerLayout={isNarrow ? "compact" : "wide"}

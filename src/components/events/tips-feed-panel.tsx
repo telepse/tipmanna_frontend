@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getTipsDrawerAction } from "@/actions/messages";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
+import { useTipsDrawerData } from "@/hooks/use-tips-drawer-data";
 import { cn, formatCurrency, formatUtcTime } from "@/lib/utils";
 
 export type TipFeedRow = {
@@ -55,10 +55,14 @@ export function TipsFeedPanel({
   onClose,
 }: Props) {
   const [scope, setScope] = useState<"event" | "video">("event");
-  const [items, setItems] = useState<TipFeedRow[]>([]);
-  const [loading, setLoading] = useState(false);
 
   const trimmedEventId = eventId?.trim() ?? "";
+  const { items, loading } = useTipsDrawerData(
+    trimmedEventId,
+    channelId,
+    scope,
+    enabled && Boolean(trimmedEventId)
+  );
   const { numOfTips: liveNumOfTips } = useEventRoomRealtime({
     eventId: trimmedEventId,
     initialAmountRaised: 0,
@@ -68,28 +72,6 @@ export function TipsFeedPanel({
 
   const resolvedEventRoomCount = eventRoomTipCount ?? liveNumOfTips;
   const resolvedVideoCount = videoTipCount ?? liveNumOfTips;
-
-  useEffect(() => {
-    if (!enabled || !trimmedEventId) {
-      setItems([]);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    void getTipsDrawerAction(trimmedEventId, channelId, scope).then(res => {
-      if (cancelled) return;
-      setLoading(false);
-      if (res.success && res.data && typeof res.data === "object") {
-        const data = res.data as { items?: TipFeedRow[] };
-        setItems(Array.isArray(data.items) ? data.items : []);
-      } else {
-        setItems([]);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, trimmedEventId, channelId, scope]);
 
   const headerTotal =
     scope === "video"
@@ -131,8 +113,12 @@ export function TipsFeedPanel({
     </div>
   );
 
-  const listBody = loading ? (
-    <p className="text-muted-foreground text-center text-sm">Loading tips…</p>
+  const listBody = loading && items.length === 0 ? (
+    <ul className="space-y-2" aria-busy="true">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <li key={i} className="animate-pulse rounded-lg border px-2 py-4 bg-gray-50" />
+      ))}
+    </ul>
   ) : items.length === 0 ? (
     <p className="text-muted-foreground text-center text-sm">
       No tips yet for this {scope === "video" ? "video" : "event room"}.

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { buildChannelShareUrl } from "@/lib/public-video-url";
+import { buildContentShareUrl } from "@/lib/public-video-url";
 
 type ChannelRow = {
   id: string;
@@ -123,7 +123,7 @@ export function EventRoomVideosModal({
       const initial: ChannelWithMetrics[] = channels.map(ch => ({
         ...ch,
         title: ch.title || "Untitled video",
-        shareUrl: buildChannelShareUrl({ eventId, channelId: ch.id }),
+        shareUrl: buildContentShareUrl({ eventId, channelId: ch.id }),
         metrics: null,
         metricsLoading: true,
       }));

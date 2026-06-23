@@ -45,12 +45,16 @@ type SavedVideoItem = {
 
 interface Props {
   savedContents?: SavedVideoItem[];
+  savedHosts?: SavedHostRow[];
+  loadingSaved?: boolean;
   /** When false, skip initial fetch (parent handles cache). */
   fetchOnMount?: boolean;
 }
 
 export function SavedTab({
   savedContents: savedContentsProp,
+  savedHosts: savedHostsProp,
+  loadingSaved = false,
   fetchOnMount = true,
 }: Props) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
@@ -59,7 +63,9 @@ export function SavedTab({
   );
   const [hosts, setHosts] = useState<SavedHostRow[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
-  const [loadingHosts, setLoadingHosts] = useState(true);
+  const [loadingHosts, setLoadingHosts] = useState(
+    () => !savedHostsProp && fetchOnMount
+  );
   const loadedRef = useRef(false);
 
   const loadVideos = useCallback(async () => {
@@ -89,6 +95,13 @@ export function SavedTab({
     setHosts(rows);
     setLoadingHosts(false);
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (savedHostsProp !== undefined) {
+      setHosts(savedHostsProp);
+      setLoadingHosts(false);
+    }
+  }, [savedHostsProp]);
 
   useEffect(() => {
     if (savedContentsProp !== undefined) {
@@ -140,7 +153,7 @@ export function SavedTab({
         forceMount
         className="mt-3 space-y-2 data-[state=inactive]:hidden"
       >
-        {loadingVideos ? (
+        {loadingVideos || loadingSaved ? (
           <p className="text-muted-foreground text-sm">Loading videos…</p>
         ) : displayVideos.length === 0 ? (
           <p className="text-muted-foreground text-sm">No saved videos yet.</p>

@@ -82,6 +82,19 @@ export function TvRightPanelSkeleton({
   );
 }
 
+export function ContentCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn("min-w-[270px] rounded-md border bg-black/5 p-1", className)}
+      aria-hidden
+    >
+      <PulseBlock className="aspect-video w-full rounded-md" />
+      <PulseBlock className="mt-2 h-4 w-4/5" />
+      <PulseBlock className="mt-2 h-3 w-2/3" />
+    </div>
+  );
+}
+
 export function TvTipSectionSkeleton() {
   return (
     <div

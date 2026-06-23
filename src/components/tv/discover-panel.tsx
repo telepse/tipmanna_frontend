@@ -2,13 +2,13 @@
 
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Third-party imports
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
-import { Bookmark, ChevronRight, Sparkles, UsersRound } from "lucide-react";
+import { Bookmark, ChevronRight, Radio, Sparkles, Tv, UsersRound } from "lucide-react";
 
 // Local imports
 import { ThumbnailPlayer } from "./thumbnail-player";
@@ -18,6 +18,8 @@ import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import { Button } from "../ui/button";
 import { useMediaQuery } from "react-responsive";
 import Link from "next/link";
+import { searchContentsAction } from "@/actions/contents";
+import { ContentCardSkeleton } from "./tv-loading-skeletons";
 
 interface Content {
   event: any;
@@ -30,7 +32,23 @@ export interface DiscoverPanelProps {
   contents: any[];
   tippers: any[];
   latestContents: any[];
+  spotlightContents?: any[];
   mostTippedContents: any[];
+  programs?: Array<{
+    id: string;
+    title: string;
+    scheduledAt: string;
+    status: string;
+    imageUrl?: string | null;
+    landingUrl?: string | null;
+    communityId?: string | null;
+  }>;
+  liveStreams?: {
+    upcoming: any[];
+    live: any[];
+    recentlyEnded: any[];
+  };
+  catalogLoading?: boolean;
   /** Bookmark control: e.g. open profile / saved list */
   onOpenBookmarks?: () => void;
   className?: string;
@@ -62,7 +80,11 @@ export function DiscoverPanel({
   contents,
   tippers,
   latestContents,
+  spotlightContents = [],
   mostTippedContents,
+  programs = [],
+  liveStreams = { upcoming: [], live: [], recentlyEnded: [] },
+  catalogLoading = false,
   onOpenBookmarks,
   className,
   showHeading = true,
@@ -81,6 +103,27 @@ export function DiscoverPanel({
 
   const searchTerm = form.watch("searchTerm");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<Content[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  useEffect(() => {
+    const q = searchTerm.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const t = window.setTimeout(() => {
+      void searchContentsAction(q, 30).then(res => {
+        setSearchResults(
+          res.success && Array.isArray(res.data) ? (res.data as Content[]) : []
+        );
+        setSearchLoading(false);
+      });
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [searchTerm]);
 
   const { push, prefetch } = useAppRouter();
 
@@ -108,13 +151,12 @@ export function DiscoverPanel({
     [onPlayInExplore, goToChannel]
   );
 
-  const filteredContents = useMemo(
-    () =>
-      contents.filter(content =>
-        content.title.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    [contents, searchTerm]
-  );
+  const filteredContents = useMemo(() => {
+    if (searchTerm.trim()) return searchResults;
+    return contents.filter(content =>
+      content.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [contents, searchResults, searchTerm]);
 
   const tagFilteredContents = useMemo(
     () =>
@@ -132,6 +174,64 @@ export function DiscoverPanel({
   const latestContentsRef = useRef<HTMLDivElement>(null);
   const spotlightContentsRef = useRef<HTMLDivElement>(null);
   const mostTippedContentsRef = useRef<HTMLDivElement>(null);
+  const programsRef = useRef<HTMLDivElement>(null);
+  const liveStreamsRef = useRef<HTMLDivElement>(null);
+
+  const resolvedSpotlight =
+    spotlightContents.length > 0 ? spotlightContents : latestContents;
+
+  const liveStreamItems = useMemo(
+    () => [
+      ...liveStreams.live.map(c => ({ ...c, liveLabel: "Live now" })),
+      ...liveStreams.upcoming.map(c => ({ ...c, liveLabel: "Starting soon" })),
+      ...liveStreams.recentlyEnded.map(c => ({
+        ...c,
+        liveLabel: "Recently ended",
+      })),
+    ],
+    [liveStreams]
+  );
+
+  const renderContentCard = (content: Content, minWidth = "min-w-[270px]") => (
+    <div
+      key={content.id}
+      onClick={() => openDiscoverContent(content)}
+      className={cn(
+        "relative flex cursor-pointer gap-1 border-2 bg-black/10",
+        minWidth
+      )}
+    >
+      <div className="space-y-1">
+        <ThumbnailPlayer
+          videoUrl={content.url}
+          contentId={content.id}
+          suppressInlinePlaybackContentId={suppressInlinePlaybackContentId}
+          className="aspect-video w-full rounded-md"
+        />
+        <div className="p-1">
+          <h5 className="text-sm">{content.title}</h5>
+          <div className="text-muted-foreground flex items-center gap-4 text-sm">
+            <span className="flex items-center gap-1">
+              <UsersRound className="size-4" />
+              {content.event?.numOfTips ?? 0} Tips
+            </span>
+            <span className="flex items-center gap-2">
+              <Sparkles className="size-4" /> &pound;
+              {content.event?.amountRaised ?? 0} raised
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const carouselSkeleton = (
+    <div className="flex gap-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <ContentCardSkeleton key={i} className="min-w-[270px]" />
+      ))}
+    </div>
+  );
 
   const scrollNext = (ref: React.RefObject<HTMLDivElement | null>) => {
     if (ref.current) {
@@ -316,45 +416,11 @@ export function DiscoverPanel({
               className="scrollbar-none overflow-x-auto"
             >
               <div className="flex gap-6">
-                {latestContents.map((content: Content) => (
-                  <div
-                    key={content.id}
-                    onClick={() => openDiscoverContent(content)}
-                    className="relative flex min-w-[270px] cursor-pointer gap-1 border-2 bg-black/10"
-                  >
-                    <div className="space-y-1">
-                      <ThumbnailPlayer
-                        videoUrl={content.url}
-                        contentId={content.id}
-                        suppressInlinePlaybackContentId={
-                          suppressInlinePlaybackContentId
-                        }
-                        className="aspect-video w-full rounded-md"
-                      />
-
-                      <div className="p-1">
-                        <h5 className="text-sm">{content.title}</h5>
-
-                        <div className="text-muted-foreground flex items-center gap-4 text-sm">
-                          <span className="flex items-center gap-1">
-                            <UsersRound className="size-4" />
-                            {content.event.numOfTips
-                              ? content.event.numOfTips
-                              : 0}{" "}
-                            Tips
-                          </span>{" "}
-                          <span className="flex items-center gap-2">
-                            <Sparkles className="size-4" /> &pound;
-                            {content.event.amountRaised
-                              ? content.event.amountRaised
-                              : 0}{" "}
-                            raised
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                {catalogLoading && contents.length === 0
+                  ? carouselSkeleton
+                  : contents.map((content: Content) =>
+                      renderContentCard(content)
+                    )}
               </div>
             </div>
 
@@ -378,37 +444,11 @@ export function DiscoverPanel({
               className="scrollbar-none overflow-x-auto"
             >
               <div className="flex gap-4">
-                {latestContents.map((content: Content) => (
-                  <div
-                    key={content.id}
-                    onClick={() => openDiscoverContent(content)}
-                    className="min-w-[270px] flex-shrink-0 cursor-pointer bg-black/10"
-                  >
-                    <ThumbnailPlayer
-                      videoUrl={content.url}
-                      contentId={content.id}
-                      suppressInlinePlaybackContentId={
-                        suppressInlinePlaybackContentId
-                      }
-                      className="aspect-video w-full rounded-md"
-                    />
-
-                    <div className="p-1">
-                      <h5 className="text-sm">{content.title}</h5>
-
-                      <div className="text-muted-foreground flex items-center gap-4 text-sm">
-                        <span className="flex items-center gap-1">
-                          <UsersRound className="size-4" />
-                          {content.event.numOfTips} Tips
-                        </span>{" "}
-                        <span className="flex items-center gap-2">
-                          <Sparkles className="size-4" /> &pound;
-                          {content.event.amountRaised} raised
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                {catalogLoading && latestContents.length === 0
+                  ? carouselSkeleton
+                  : latestContents.map((content: Content) =>
+                      renderContentCard(content, "min-w-[270px] flex-shrink-0")
+                    )}
               </div>
             </div>
 
@@ -432,37 +472,11 @@ export function DiscoverPanel({
               className="scrollbar-none overflow-x-auto"
             >
               <div className="flex gap-4">
-                {latestContents.map((content: Content) => (
-                  <div
-                    key={content.id}
-                    onClick={() => openDiscoverContent(content)}
-                    className="min-w-[270px] flex-shrink-0 cursor-pointer bg-black/10"
-                  >
-                    <ThumbnailPlayer
-                      videoUrl={content.url}
-                      contentId={content.id}
-                      suppressInlinePlaybackContentId={
-                        suppressInlinePlaybackContentId
-                      }
-                      className="aspect-video w-full rounded-md"
-                    />
-
-                    <div className="p-1">
-                      <h5 className="text-sm">{content.title}</h5>
-
-                      <div className="text-muted-foreground flex items-center gap-4 text-sm">
-                        <span className="flex items-center gap-1">
-                          <UsersRound className="size-4" />
-                          {content.event.numOfTips} Tips
-                        </span>{" "}
-                        <span className="flex items-center gap-2">
-                          <Sparkles className="size-4" /> &pound;
-                          {content.event.amountRaised} raised
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                {catalogLoading && resolvedSpotlight.length === 0
+                  ? carouselSkeleton
+                  : resolvedSpotlight.map((content: Content) =>
+                      renderContentCard(content, "min-w-[270px] flex-shrink-0")
+                    )}
               </div>
             </div>
 
@@ -473,6 +487,107 @@ export function DiscoverPanel({
             >
               <ChevronRight size={24} />
             </button>
+          </div>
+        </div>
+
+        {/* PROGRAMS */}
+        <div className="space-y-4">
+          <h5 className="font-semibold">Programs</h5>
+          <div className="relative">
+            <div
+              ref={programsRef}
+              className="scrollbar-none overflow-x-auto"
+            >
+              <div className="flex gap-4">
+                {catalogLoading && programs.length === 0 ? (
+                  carouselSkeleton
+                ) : programs.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No active programs right now.
+                  </p>
+                ) : (
+                  programs.map(program => (
+                    <Link
+                      key={program.id}
+                      href={program.landingUrl ?? `/program/${program.id}`}
+                      className="min-w-[220px] flex-shrink-0 rounded-md border bg-black/10 p-2"
+                    >
+                      {program.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={program.imageUrl}
+                          alt=""
+                          className="aspect-video w-full rounded-md object-cover"
+                        />
+                      ) : (
+                        <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                          <Tv className="size-8 text-neutral-500" />
+                        </div>
+                      )}
+                      <p className="mt-2 text-sm font-medium">{program.title}</p>
+                      <p className="text-muted-foreground text-xs capitalize">
+                        {program.status.toLowerCase()} ·{" "}
+                        {new Date(program.scheduledAt).toLocaleString()}
+                      </p>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+            {programs.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => scrollNext(programsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* LIVE STREAMS */}
+        <div className="space-y-4">
+          <h5 className="font-semibold">Live streams</h5>
+          <div className="relative">
+            <div
+              ref={liveStreamsRef}
+              className="scrollbar-none overflow-x-auto"
+            >
+              <div className="flex gap-4">
+                {catalogLoading && liveStreamItems.length === 0 ? (
+                  carouselSkeleton
+                ) : liveStreamItems.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No live streams detected right now.
+                  </p>
+                ) : (
+                  liveStreamItems.map((content: Content & { liveLabel?: string }) => (
+                    <div
+                      key={content.id}
+                      className="relative min-w-[270px] flex-shrink-0"
+                    >
+                      {content.liveLabel ? (
+                        <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white uppercase">
+                          <Radio className="size-3" />
+                          {content.liveLabel}
+                        </span>
+                      ) : null}
+                      {renderContentCard(content, "min-w-[270px] flex-shrink-0")}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            {liveStreamItems.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => scrollNext(liveStreamsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            ) : null}
           </div>
         </div>
 

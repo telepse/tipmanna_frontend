@@ -23,10 +23,7 @@ import { ShareCopyLinkControl } from "@/components/shared/share-copy-link-contro
 import type { RoomCharacter } from "@/types";
 import type { VideoPlayerRef } from "@/components/events/video-player";
 import { trackTvShareClick } from "@/lib/tvAnalytics";
-import {
-  buildChannelShareUrl,
-  buildContentShareUrl,
-} from "@/lib/public-video-url";
+import { buildContentShareUrl } from "@/lib/public-video-url";
 
 type Props = {
   eventId: string;
@@ -100,7 +97,7 @@ export function ImmersiveChannelActionsRail({
     const trimmed = shareUrlProp?.trim();
     if (trimmed) return trimmed;
     if (channelId?.trim()) {
-      return buildChannelShareUrl({ eventId, channelId });
+      return buildContentShareUrl({ eventId, channelId });
     }
     return buildContentShareUrl({ eventId });
   }, [shareUrlProp, eventId, channelId]);

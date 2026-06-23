@@ -9,6 +9,7 @@ import { TvAnalyticsAuthBridge } from "@/components/tv-analytics-auth-bridge";
 import { SideChickProvider } from "@/components/community/side-chick-provider";
 import { FeatureCardTipProvider } from "@/components/video-feature/feature-card-tip-context";
 import { PwaInstallController } from "@/components/pwa/pwa-install-controller";
+import { ChunkLoadRecovery } from "@/components/chunk-load-recovery";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +19,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         persistor={persistor}
       >
         <NavigationProgressProvider>
+          <ChunkLoadRecovery />
           <TvAnalyticsAuthBridge />
           <SideChickProvider>
             <FeatureCardTipProvider>

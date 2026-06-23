@@ -17,7 +17,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { MessageCircle, Plus, Volume2, VolumeX } from "lucide-react";
+import { ArrowRight, MessageCircle, Plus, Volume2, VolumeX } from "lucide-react";
 import SignInDialog from "@/components/auth/sign-in-dialog";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
@@ -88,7 +88,7 @@ import {
 import { toast } from "react-toastify";
 import type { RootState } from "@/redux/store";
 import { trackTvSaveClick } from "@/lib/tvAnalytics";
-import { buildChannelShareUrl } from "@/lib/public-video-url";
+import { buildContentShareUrl } from "@/lib/public-video-url";
 import {
   collectExploreFeedEventIds,
   getCachedTvEventCatalog,
@@ -347,7 +347,7 @@ function ExploreFeedSlideVideo({
             </div>
           ) : null}
           <div
-            className="absolute inset-0 z-30"
+            className="absolute inset-x-0 top-0 bottom-28 z-30"
             onPointerDownCapture={e => {
               e.preventDefault();
               e.stopPropagation();
@@ -356,7 +356,7 @@ function ExploreFeedSlideVideo({
             aria-hidden
           />
           {pauseFlash ? (
-            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
+            <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center">
               <span className="rounded-full bg-black/50 p-4 text-white">
                 {pauseFlash === "pause" ? "❚❚" : "▶"}
               </span>
@@ -1435,18 +1435,27 @@ export const ExploreFeedClient = forwardRef<
               </div>
             ) : (
               <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
-                
-                {item?.title.substring(0, 15)}{" "}
-          {item?.title.length > 15 ? (
-            <span
-              className="cursor-pointer px-1 border flex flex-col items-center justify-center h-[8px] -ml-1 border-black"
-              onClick={() => setExploreCommentOpen(true)}
-            >
-              <span className="-mt-1">...</span>
-            </span>
-          ) : (
-            ""
-          )}
+                <span className="inline-flex items-center gap-1">
+                  {item?.title.substring(0, 15)}
+                  {item?.title.length > 15 ? ".." : ""}
+                  {item?.title.length > 15 ? (
+                    <button
+                      type="button"
+                      aria-label="Open comments"
+                      className="pointer-events-auto inline-flex items-center rounded p-1 -ml-2"
+                      onPointerDown={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setExploreCommentOpen(true);
+                      }}
+                    >
+                      <ArrowRight className="size-4" />
+                    </button>
+                  ) : null}
+                </span>
               </div>
             )}
 
@@ -1454,7 +1463,7 @@ export const ExploreFeedClient = forwardRef<
               <>
                 {activeChannelId != null &&
                 process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
-                  <div className="pointer-events-auto absolute top-14 left-3 z-[13100] max-w-[min(360px,calc(100vw-3rem))]">
+                  <div className="pointer-events-none absolute top-14 left-3 z-[13100] max-w-[min(360px,calc(100vw-3rem))]">
                     <VideoFeatureCardBanner
                       surfaceChannelId={String(activeChannelId)}
                       hostSurfaceChannelId={String(activeChannelId)}
@@ -1466,19 +1475,23 @@ export const ExploreFeedClient = forwardRef<
                     />
                   </div>
                 ) : null}
-                <div className="pointer-events-none absolute right-3 bottom-28 left-3 space-y-1 text-white">
+                <div className="pointer-events-auto absolute right-3 bottom-28 left-3 z-[100] space-y-1 text-white">
                   <div className="flex items-center gap-2 text-sm font-semibold drop-shadow-md">
                     <button
                       type="button"
                       title={reelMuted ? "Unmute" : "Mute"}
                       className="cursor-pointer rounded bg-black/50 p-1"
+                      onPointerDown={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
                       onClick={e => {
                         e.stopPropagation();
                         const p = videoRef.current;
                         if (!p?.isReady()) return;
                         if (reelMuted) p.unmute();
                         else p.mute();
-                        setReelMuted(!reelMuted);
+                        setReelMuted(p.isMuted());
                       }}
                     >
                       {reelMuted ? (
@@ -1486,8 +1499,28 @@ export const ExploreFeedClient = forwardRef<
                       ) : (
                         <Volume2 className="size-4 text-white" />
                       )}
-                    </button>{" "}
-                    {item.title ?? item.event?.eventName}
+                    </button>
+                    <span className="min-w-0 truncate">
+                      {item.title.substring(0, 30)}
+                    </span>
+                    {item.title.length > 30 ? "..": ""}
+                    {item.title.length > 30 ? (
+                      <button
+                        type="button"
+                        aria-label="Open comments"
+                        className="inline-flex shrink-0 cursor-pointer items-center rounded border border-gray-400 p-1 -ml-2"
+                        onPointerDown={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          setExploreCommentOpen(true);
+                        }}
+                      >
+                        <ArrowRight className="size-4" />
+                      </button>
+                    ) : null}
                   </div>
                   {/* <div className="pointer-events-auto flex items-center gap-2">
                     <SaveHostToggleButton
@@ -1576,7 +1609,7 @@ export const ExploreFeedClient = forwardRef<
                     }
                     hideHostAndAudio
                     className="pointer-events-auto absolute top-1/2 right-8 z-[90] -translate-y-1/2"
-                    shareUrl={buildChannelShareUrl({
+                    shareUrl={buildContentShareUrl({
                       eventId: activeEventId,
                       channelId:
                         activeChannelId != null

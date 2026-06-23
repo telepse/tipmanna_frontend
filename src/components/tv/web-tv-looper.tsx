@@ -89,6 +89,8 @@ import {
   immersivePlayerStageClassName,
 } from "@/components/media/immersive-media-shell";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
+import { tvTrace } from "@/lib/tvDebugLog";
+import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
 
 /**
  * WebTvLooper renders the TvPlayer, local playback controls (play/pause, mute, seek),
@@ -225,6 +227,23 @@ export const WebTvLooper = ({
 
   const playbackUrl = candidate && extractYoutubeID(candidate) ? candidate : "";
 
+  useEffect(() => {
+    tvTrace("playback", "playbackUrl_change", {
+      playbackUrl: playbackUrl || null,
+      videoId: playbackUrl ? extractYoutubeID(playbackUrl) : null,
+      currentId: current?.id,
+      mode,
+      currentIndex,
+    });
+  }, [playbackUrl, current?.id, mode, currentIndex]);
+
+  useEffect(() => {
+    tvTrace("playback", "isPlayerLoading_change", {
+      isPlayerLoading,
+      currentId: current?.id,
+    });
+  }, [isPlayerLoading, current?.id]);
+
   const showPlaybackError =
     !isNotice && Boolean(current?.channel) && !playbackUrl.trim();
 
@@ -291,9 +310,11 @@ export const WebTvLooper = ({
     ? communityFundraisingEventId || currentEventId
     : currentEventId;
 
+  const viewportWidth = useClientViewportWidth();
   const isMobileLandscape =
     useMediaQuery({ query: "(orientation: landscape)" }) &&
-    window.innerWidth <= 768;
+    viewportWidth > 0 &&
+    viewportWidth <= 768;
 
   useEffect(() => {
     if (!fundraisingEventId) {
@@ -575,7 +596,11 @@ export const WebTvLooper = ({
 
   // ---- Fullscreen detection ----
   useEffect(() => {
-    const handleChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleChange = () => {
+      const active = !!document.fullscreenElement;
+      setIsFullscreen(active);
+      tvTrace("fullscreen", "native_fullscreen_change", { active });
+    };
     document.addEventListener("fullscreenchange", handleChange);
     return () => document.removeEventListener("fullscreenchange", handleChange);
   }, []);
@@ -1336,6 +1361,7 @@ export const WebTvLooper = ({
                 if (dur > 0) setDuration(dur);
               }}
               onPlay={() => {
+                setIsPlayerLoading(false);
                 setIsPlaying(true);
                 const dur = playerRef.current?.getDuration() ?? 0;
                 if (dur > 0) setDuration(dur);

@@ -29,6 +29,7 @@ import {
 } from "@/lib/youtube-iframe-presentation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { YoutubeChromeMask } from "@/components/youtube-chrome-mask";
 import { onYoutubeIframeApiReady } from "@/lib/youtube-iframe-api-loader";
 
 const REEL_SOUND_SESSION_KEY = "tipmanna_yt_explore_sound_on";
@@ -159,7 +160,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
     const pendingPlayAfterReadyRef = useRef(false);
 
     const [loading, setLoading] = useState(true);
-    const [isMuted, setIsMuted] = useState(false);
+    const [isMuted, setIsMuted] = useState(true);
     const [playerError, setPlayerError] = useState<number | null>(null);
 
     const videoId = extractYoutubeID(videoUrl);
@@ -212,6 +213,17 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       } else {
         styleYoutubeIframePresentation(iframe, fit);
       }
+    };
+
+    const onMuteStateChangeRef = useRef(onMuteStateChange);
+    onMuteStateChangeRef.current = onMuteStateChange;
+
+    const syncMuteFromPlayer = (target?: YT.Player | null) => {
+      const p = target ?? playerRef.current;
+      if (!p || typeof p.isMuted !== "function") return;
+      const muted = p.isMuted();
+      setIsMuted(muted);
+      onMuteStateChangeRef.current?.(muted);
     };
 
     const notifyVideoAspect = () => {
@@ -282,10 +294,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         playerVars: baseVars as YT.PlayerOptions["playerVars"],
         events: {
           onReady: (event: YT.PlayerEvent) => {
-            if (!loading) return;
             setLoading(false);
-            setIsMuted(true);
-            onMuteStateChange?.(true);
 
             applyIframePresentation(event.target);
             notifyVideoAspect();
@@ -305,13 +314,12 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
               if (preferSound) {
                 event.target.unMute();
                 event.target.setVolume(100);
-                setIsMuted(false);
-                onMuteStateChange?.(false);
               }
             } else {
               event.target.pauseVideo();
               event.target.mute();
             }
+            syncMuteFromPlayer(event.target);
           },
           onError: (ev: { data?: number }) => {
             const code = ev?.data;
@@ -328,6 +336,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
             if (event.data === window.YT.PlayerState.CUED) {
               applyIframePresentation(event.target);
               notifyVideoAspect();
+              syncMuteFromPlayer(event.target);
             }
             if (event.data === window.YT.PlayerState.PLAYING) {
               if (!playbackActiveRef.current) {
@@ -335,14 +344,13 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
                 return;
               }
               setLoading(false);
-              const muted = playerRef.current?.isMuted() ?? true;
-              setIsMuted(muted);
-              onMuteStateChange?.(muted);
+              syncMuteFromPlayer(event.target);
               onPlayStateChange?.(true);
             } else if (event.data === window.YT.PlayerState.ENDED) {
               onPlayStateChange?.(false);
               onPlaybackEnded?.();
             } else if (event.data === window.YT.PlayerState.PAUSED) {
+              syncMuteFromPlayer(event.target);
               onPlayStateChange?.(false);
             }
           },
@@ -472,6 +480,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
             p.unMute();
             p.setVolume(100);
           }
+          syncMuteFromPlayer(p);
         });
         return () => cancelAnimationFrame(rafPlay);
       }
@@ -649,6 +658,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
             </Button>
           </div>
         ) : null}
+        {embedMode === "chromeless" ? <YoutubeChromeMask /> : null}
         {fullPresentationFit != null ? (
           <div
             className="pointer-events-auto absolute right-0 bottom-0 z-[60] h-14 w-14 bg-transparent"

@@ -8,7 +8,10 @@ import { getEventByIdAction } from "@/actions/events";
 import { ChannelClient } from "@/components/events/channel-client";
 import { ActionResult } from "@/lib/action-fetch";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
-import { parseChannelSearchParam } from "@/lib/public-video-url";
+import {
+  applyVideoDeepLinkQuery,
+  parseChannelSearchParam,
+} from "@/lib/public-video-url";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -87,7 +90,7 @@ export default async function ChannelPage({ params, searchParams }: Props) {
     ?.event?.id;
   if (canonicalEventId && canonicalEventId !== eventId) {
     const q = new URLSearchParams();
-    if (initialChannelId) q.set("channel", initialChannelId);
+    applyVideoDeepLinkQuery(q, initialChannelId);
     redirect(
       `/channel/${canonicalEventId}${q.toString() ? `?${q.toString()}` : ""}`
     );

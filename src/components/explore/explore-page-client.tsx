@@ -15,8 +15,11 @@ import dynamic from "next/dynamic";
 
 import {
   getAllFeaturedContentsAction,
+  getDiscoveryProgramsAction,
   getLatestContents,
+  getLiveStreamContents,
   getMostTippedContents,
+  getSpotlightContents,
 } from "@/actions/contents";
 import {
   getAllTopTippers,
@@ -274,7 +277,15 @@ export default function ExplorePageClient({
 
   const [contents, setContents] = useState<any[]>([]);
   const [latestContents, setLatestContents] = useState<any[]>([]);
+  const [spotlightContents, setSpotlightContents] = useState<any[]>([]);
   const [mostTippedContents, setMostTippedContents] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [liveStreams, setLiveStreams] = useState<{
+    upcoming: any[];
+    live: any[];
+    recentlyEnded: any[];
+  }>({ upcoming: [], live: [], recentlyEnded: [] });
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [tippers, setTippers] = useState<any[]>([]);
   const [tipperEvents, setTipperEvents] = useState<any[]>([]);
   const [iTipped, setITipped] = useState(0);
@@ -614,12 +625,16 @@ export default function ExplorePageClient({
   }, [tab, exploreOpenNonce]);
 
   const loadExploreCatalog = useCallback(async () => {
+    setCatalogLoading(true);
     const signedIn = isSignedInExplore && Boolean(exploreUserId?.trim());
-    const [feat, lat, most, tipRes, tipEv, iTip, causesRes] = await Promise.all(
-      [
+    const [feat, lat, spot, most, liveRes, progRes, tipRes, tipEv, iTip, causesRes] =
+      await Promise.all([
         getAllFeaturedContentsAction(),
         getLatestContents(),
+        getSpotlightContents(),
         getMostTippedContents(),
+        getLiveStreamContents(),
+        getDiscoveryProgramsAction(),
         getAllTopTippers(),
         signedIn
           ? getTippedEventsForTipper()
@@ -628,8 +643,7 @@ export default function ExplorePageClient({
           ? getTotalAmountTippedByTipper()
           : Promise.resolve({ success: true, data: 0 }),
         getAllCausesAction(),
-      ]
-    );
+      ]);
 
     const featuredRaw = feat.data as unknown;
     const featuredList = Array.isArray(featuredRaw)
@@ -643,8 +657,26 @@ export default function ExplorePageClient({
 
     setContents(featuredList);
     setLatestContents(lat.success && Array.isArray(lat.data) ? lat.data : []);
+    setSpotlightContents(
+      spot.success && Array.isArray(spot.data) ? spot.data : []
+    );
     setMostTippedContents(
       most.success && Array.isArray(most.data) ? most.data : []
+    );
+    if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {
+      const ls = liveRes.data as {
+        upcoming?: any[];
+        live?: any[];
+        recentlyEnded?: any[];
+      };
+      setLiveStreams({
+        upcoming: Array.isArray(ls.upcoming) ? ls.upcoming : [],
+        live: Array.isArray(ls.live) ? ls.live : [],
+        recentlyEnded: Array.isArray(ls.recentlyEnded) ? ls.recentlyEnded : [],
+      });
+    }
+    setPrograms(
+      progRes.success && Array.isArray(progRes.data) ? progRes.data : []
     );
     setTippers(tipRes.success && Array.isArray(tipRes.data) ? tipRes.data : []);
     setTipperEvents(
@@ -656,11 +688,8 @@ export default function ExplorePageClient({
     setCauses(
       causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : []
     );
+    setCatalogLoading(false);
   }, [isSignedInExplore, exploreUserId]);
-
-  useEffect(() => {
-    void loadExploreCatalog();
-  }, [loadExploreCatalog]);
 
   useEffect(() => {
     if (tab !== "discover") return;
@@ -1275,7 +1304,11 @@ export default function ExplorePageClient({
           contents={contents}
           tippers={tippers}
           latestContents={latestContents}
+          spotlightContents={spotlightContents}
           mostTippedContents={mostTippedContents}
+          programs={programs}
+          liveStreams={liveStreams}
+          catalogLoading={catalogLoading}
           onOpenBookmarks={() => {
             setProfileDrawerTab("saved");
             setIsProfileDrawerOpen(true);

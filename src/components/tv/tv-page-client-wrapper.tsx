@@ -72,6 +72,8 @@ import {
   type TvEventCatalog,
 } from "@/lib/tv-event-catalog-cache";
 import { useTvEnforcementDeepLink } from "@/hooks/use-tv-enforcement-deep-link";
+import { tvTrace } from "@/lib/tvDebugLog";
+import { prefetchTvScheduleTips } from "@/lib/drawer-prefetch-cache";
 
 interface Character {
   id: string;
@@ -278,6 +280,11 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
     prefetchTvEventCatalogs(collectTvScheduleEventIds(items, 24));
   }, [items]);
 
+  useEffect(() => {
+    if (!items.length || !tipDrawerEventId) return;
+    prefetchTvScheduleTips(items, currentIndex, 3);
+  }, [items, currentIndex, tipDrawerEventId, playingVideoKey]);
+
   const characterSetsForDrawer = (videoTipCatalog?.characterSets ?? []).filter(
     set => Array.isArray(set.characters) && set.characters.length > 0
   );
@@ -297,6 +304,7 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
   }, [playingVideoKey, dispatch]);
 
   useEffect(() => {
+    tvTrace("navigation", "tv_page_open_dispatch", {});
     window.dispatchEvent(new Event("tv-page-open"));
   }, []);
 

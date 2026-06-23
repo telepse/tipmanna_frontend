@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
+import { Metadata } from "next";
 import Image from "next/image";
+
+// Local imports
 import { NavbarShell } from "@/components/shared/navbar-shell";
 import { HeroServer } from "@/components/home/hero-server";
+import { LazySlider } from "@/components/home/lazy-slider";
 import Footer from "@/components/shared/footer";
 import Features from "@/components/home/features";
 import TippingBanner from "@/components/home/tipping-banner";
 import TrustBadges from "@/components/home/trust-badges";
-import { LazySlider } from "@/components/home/lazy-slider";
 import TopEventsSection from "@/components/home/top-events-section";
 import TopContentsSection from "@/components/home/top-contents-section";
 import CharitiesSection from "@/components/home/charities-section";
@@ -16,11 +19,12 @@ import KeyStatsLazy from "@/components/home/key-stats-lazy";
 import FAQs from "@/components/home/faqs";
 import TvHomePreviewSectionLazy from "@/components/home/tv-home-preview-section-lazy";
 import PricingGrid from "@/components/home/pricing-grid";
+
+// Lib imports
 import {
   getPublicAbsoluteUrl,
   getPublicFrontendOrigin,
 } from "@/lib/site-config";
-import { Metadata } from "next";
 
 function DataSection({ children }: { children: ReactNode }) {
   return <section className="contents">{children}</section>;

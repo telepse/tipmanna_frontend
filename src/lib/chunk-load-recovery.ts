@@ -1,0 +1,58 @@
+"use client";
+
+const SESSION_KEY = "tipmanna_chunk_reload";
+
+function isChunkLoadError(reason: unknown): boolean {
+  if (!reason) return false;
+  const msg =
+    typeof reason === "string"
+      ? reason
+      : reason instanceof Error
+        ? reason.message
+        : typeof (reason as { message?: string }).message === "string"
+          ? (reason as { message: string }).message
+          : "";
+  const name =
+    reason instanceof Error
+      ? reason.name
+      : typeof (reason as { name?: string }).name === "string"
+        ? (reason as { name: string }).name
+        : "";
+  return (
+    name === "ChunkLoadError" ||
+    /Loading chunk [\d]+ failed/i.test(msg) ||
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg)
+  );
+}
+
+/**
+ * After PWA deploys, stale chunks can fail to load. Reload once per session.
+ */
+export function installChunkLoadRecovery(): void {
+  if (typeof window === "undefined") return;
+
+  const reloadOnce = () => {
+    try {
+      if (sessionStorage.getItem(SESSION_KEY) === "1") return;
+      sessionStorage.setItem(SESSION_KEY, "1");
+    } catch {
+      /* noop */
+    }
+    window.location.reload();
+  };
+
+  window.addEventListener("unhandledrejection", event => {
+    if (isChunkLoadError(event.reason)) {
+      event.preventDefault();
+      reloadOnce();
+    }
+  });
+
+  window.addEventListener("error", event => {
+    if (isChunkLoadError(event.error ?? event.message)) {
+      event.preventDefault();
+      reloadOnce();
+    }
+  });
+}

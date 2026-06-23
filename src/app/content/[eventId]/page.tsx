@@ -9,7 +9,10 @@ import { ContentClient } from "@/components/events/content-client";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { resolveProgramWatchAllPlaylist } from "@/actions/program-actions";
 import { getToken } from "@/lib/getToken";
-import { parseChannelSearchParam } from "@/lib/public-video-url";
+import {
+  applyVideoDeepLinkQuery,
+  parseChannelSearchParam,
+} from "@/lib/public-video-url";
 import { notFound, redirect } from "next/navigation";
 import { ActionResult } from "@/lib/action-fetch";
 import { Metadata } from "next";
@@ -132,7 +135,7 @@ export default async function ContentPage({ params, searchParams }: Props) {
     ?.event?.id;
   if (canonicalEventId && canonicalEventId !== eventId) {
     const q = new URLSearchParams();
-    if (initialChannelId) q.set("channel", initialChannelId);
+    applyVideoDeepLinkQuery(q, initialChannelId);
     if (programWatch) {
       q.set("programWatch", "all");
       if (enforcement) q.set("enforcement", enforcement);
