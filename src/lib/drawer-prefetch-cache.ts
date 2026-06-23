@@ -24,8 +24,8 @@ const commentCache = new Map<string, CommentDrawerData>();
 const tipsCache = new Map<string, TipsDrawerSnapshot>();
 const profileCache = new Map<string, unknown>();
 
-let commentInflight: Map<string, Promise<CommentDrawerData | null>> = new Map();
-let tipsInflight: Map<string, Promise<TipsDrawerSnapshot | null>> = new Map();
+const commentInflight: Map<string, Promise<CommentDrawerData | null>> = new Map();
+const tipsInflight: Map<string, Promise<TipsDrawerSnapshot | null>> = new Map();
 
 export function commentDrawerKey(eventId: string, channelId: string) {
   return `comment:${eventId.trim()}:${channelId.trim()}`;
