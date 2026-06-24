@@ -24,7 +24,7 @@ import {
   type AddVideoFormValues,
 } from "@/components/events/add-video-form";
 import {
-  getHostEventsAction,
+  getHostEventsSummaryAction,
   createEventChannelAction,
 } from "@/actions/events";
 import {
@@ -115,7 +115,6 @@ export const CreateDialog = ({
   const [resumeVideoSubmit, setResumeVideoSubmit] = useState(false);
 
   const [hostSessionActive, setHostSessionActive] = useState(false);
-  const [hostSessionProbed, setHostSessionProbed] = useState(false);
   const isHostFromRedux = isHostRole(user?.role);
   const showHostCreateFlow =
     communityFeatureOn &&
@@ -127,43 +126,46 @@ export const CreateDialog = ({
       setIsProceeding(false);
       setShowNewEventRoomPicker(false);
       setHostSessionActive(false);
-      setHostSessionProbed(false);
     }
   }, [openPopup]);
 
   useEffect(() => {
     if (!openPopup || forceTypePicker || !communityFeatureOn) return;
 
-    if (isHostFromRedux) {
-      setHostSessionActive(true);
-      setHostSessionProbed(true);
-    } else {
+    if (!user?.id) {
       setHostSessionActive(false);
-      setHostSessionProbed(false);
+      setEvents([]);
+      setOwned([]);
+      setCoCreated([]);
+      return;
     }
 
+    let cancelled = false;
     setPickerLoading(true);
+
     (async () => {
       const [evRes, commRes] = await Promise.all([
-        getHostEventsAction(),
+        getHostEventsSummaryAction(),
         getMyCommunitiesAction(),
       ]);
 
-      if (evRes.success) {
-        setHostSessionActive(true);
-      } else if (!isHostFromRedux) {
-        setHostSessionActive(false);
-      }
+      if (cancelled) return;
 
       if (evRes.success && evRes.data) {
-        const raw = evRes.data as HostEventRow[] | { data?: HostEventRow[] };
+        setHostSessionActive(true);
+        const raw = evRes.data as
+          | HostEventRow[]
+          | { events?: HostEventRow[]; data?: HostEventRow[] };
         const list = Array.isArray(raw)
           ? raw
-          : Array.isArray(raw?.data)
-            ? raw.data
-            : [];
+          : Array.isArray(raw?.events)
+            ? raw.events
+            : Array.isArray(raw?.data)
+              ? raw.data
+              : [];
         setEvents(list);
       } else {
+        setHostSessionActive(false);
         setEvents([]);
       }
 
@@ -179,10 +181,13 @@ export const CreateDialog = ({
         setCoCreated([]);
       }
 
-      setHostSessionProbed(true);
       setPickerLoading(false);
     })();
-  }, [openPopup, forceTypePicker, isHostFromRedux, user?.id]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openPopup, forceTypePicker, user?.id]);
 
   useEffect(() => {
     if (!showHostCreateFlow) return;
@@ -351,6 +356,7 @@ export const CreateDialog = ({
       onOpenChange={setSignInOpen}
       title="Sign in to continue"
       defaultUserType="host"
+      allowInlineSignUp
       onSuccess={handleModalSignInSuccess}
       overlayClassName={signInOverlayZIndex}
       contentClassName={signInContentZIndex}
@@ -361,8 +367,8 @@ export const CreateDialog = ({
     openPopup &&
     communityFeatureOn &&
     !forceTypePicker &&
-    !isHostFromRedux &&
-    !hostSessionProbed;
+    Boolean(user?.id) &&
+    pickerLoading;
 
   if (awaitingHostSessionProbe) {
     return (

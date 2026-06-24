@@ -96,13 +96,13 @@ export default function Home() {
 
           <Features />
 
+          <TvHomePreviewSectionLazy />
+
           <PricingGrid />
 
           <TrustBadges />
 
           <TippingBanner />
-
-          <TvHomePreviewSectionLazy />
 
           <TopContentsSection />
           <TopEventsSection />

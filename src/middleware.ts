@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isDiscoveryHost } from "@/lib/site-config";
+import { isDiscoveryHost, shouldRedirectExploreToDiscover } from "@/lib/site-config";
 
 function normalizeHostname(host: string | null): string {
   return (host ?? "").split(":")[0].toLowerCase();
@@ -32,6 +32,15 @@ export function middleware(request: NextRequest) {
     if (url.pathname === "/") {
       url.pathname = "/discover";
       return NextResponse.redirect(url);
+    }
+    if (
+      shouldRedirectExploreToDiscover() &&
+      url.pathname === "/explore" &&
+      url.searchParams.get("tab") !== "discover"
+    ) {
+      url.pathname = "/discover";
+      url.search = "";
+      return NextResponse.redirect(url, 301);
     }
   }
 

@@ -16,6 +16,10 @@ import {
   markPwaInstalled,
 } from "@/lib/pwa-preference-client";
 import type { PwaPreferenceSnapshot } from "@/lib/pwa-install-trigger";
+import {
+  PWA_INSTALL_SHEET_OVERLAY_Z_INDEX,
+  PWA_INSTALL_SHEET_Z_INDEX,
+} from "@/lib/drawer-z-index";
 
 interface Props {
   open: boolean;
@@ -33,9 +37,7 @@ export function InstallPromptSheet({
   onOpenChange,
   onPreferenceChange,
 }: Props) {
-  const { canInstall, installed, promptInstall } = useInstallPrompt();
-
-  if (installed) return null;
+  const { canInstall, promptInstall } = useInstallPrompt();
 
   const handleDismiss = async () => {
     const pref = await markPwaDismissed().catch(() => null);
@@ -63,7 +65,8 @@ export function InstallPromptSheet({
     >
       <SheetContent
         side="bottom"
-        className="rounded-t-2xl"
+        overlayClassName={`!z-[100023] ${PWA_INSTALL_SHEET_OVERLAY_Z_INDEX}`}
+        className={`!z-[100024] rounded-t-2xl ${PWA_INSTALL_SHEET_Z_INDEX}`}
       >
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">

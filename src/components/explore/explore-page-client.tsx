@@ -20,6 +20,7 @@ import {
   getLiveStreamContents,
   getMostTippedContents,
   getSpotlightContents,
+  getRecommendedContents,
 } from "@/actions/contents";
 import {
   getAllTopTippers,
@@ -37,10 +38,7 @@ import {
   type TvCommunityBrief,
 } from "@/lib/tv-community-picker";
 
-import {
-  ExploreFeedClient,
-  type ExploreFeedClientHandle,
-} from "./explore-feed-client";
+import type { ExploreFeedClientHandle } from "./explore-feed-client";
 import { ExploreTvScheduleFeed } from "./explore-tv-schedule-feed";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import { exploreOpenTargetFromUrl } from "@/lib/explore-video-navigation";
@@ -74,6 +72,17 @@ import { ListFilterPlus, Lock, Plus, Search, UserRound } from "lucide-react";
 import { NotificationBadge } from "@/components/notifications/notification-badge";
 import { ExploreInstallPrompt } from "@/components/pwa/explore-install-prompt";
 
+const ExploreFeedClient = dynamic(
+  () => import("./explore-feed-client").then(m => m.ExploreFeedClient),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex min-h-[50dvh] items-center justify-center text-sm text-muted-foreground">
+        Loading feed…
+      </div>
+    ),
+  }
+);
 const ProfileDrawer = dynamic(() =>
   import("@/components/tv/profile-drawer").then(m => ({
     default: m.ProfileDrawer,
@@ -278,6 +287,7 @@ export default function ExplorePageClient({
   const [contents, setContents] = useState<any[]>([]);
   const [latestContents, setLatestContents] = useState<any[]>([]);
   const [spotlightContents, setSpotlightContents] = useState<any[]>([]);
+  const [recommendedContents, setRecommendedContents] = useState<any[]>([]);
   const [mostTippedContents, setMostTippedContents] = useState<any[]>([]);
   const [programs, setPrograms] = useState<any[]>([]);
   const [liveStreams, setLiveStreams] = useState<{
@@ -627,11 +637,12 @@ export default function ExplorePageClient({
   const loadExploreCatalog = useCallback(async () => {
     setCatalogLoading(true);
     const signedIn = isSignedInExplore && Boolean(exploreUserId?.trim());
-    const [feat, lat, spot, most, liveRes, progRes, tipRes, tipEv, iTip, causesRes] =
+    const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, tipEv, iTip, causesRes] =
       await Promise.all([
         getAllFeaturedContentsAction(),
         getLatestContents(),
         getSpotlightContents(),
+        getRecommendedContents(),
         getMostTippedContents(),
         getLiveStreamContents(),
         getDiscoveryProgramsAction(),
@@ -659,6 +670,9 @@ export default function ExplorePageClient({
     setLatestContents(lat.success && Array.isArray(lat.data) ? lat.data : []);
     setSpotlightContents(
       spot.success && Array.isArray(spot.data) ? spot.data : []
+    );
+    setRecommendedContents(
+      rec.success && Array.isArray(rec.data) ? rec.data : []
     );
     setMostTippedContents(
       most.success && Array.isArray(most.data) ? most.data : []
@@ -779,9 +793,10 @@ export default function ExplorePageClient({
           // headerTint ? "" : "bg-white"
         )}
       >
+        <h1 className="sr-only">Tipmanna TV — Explore and discover community media</h1>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Link
-            href="/partner"
+            href="/explore"
             className="racing_sans_one text-sm sm:text-2xl"
           >
             <span className={"text-primary"}>tip</span>
@@ -1305,6 +1320,7 @@ export default function ExplorePageClient({
           tippers={tippers}
           latestContents={latestContents}
           spotlightContents={spotlightContents}
+          recommendedContents={recommendedContents}
           mostTippedContents={mostTippedContents}
           programs={programs}
           liveStreams={liveStreams}

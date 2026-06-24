@@ -285,7 +285,7 @@ export function TvInteractiveShell({
       {isDesktop && (
         <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">
           <div className="col-span-9 object-cover">
-            {tvReady && !isMobileLandscape ? (
+            {tvReady ? (
               <WebTvLooper
                 characters={characters}
                 playerLayout="wide"
@@ -308,7 +308,7 @@ export function TvInteractiveShell({
                 }
               />
             ) : null}
-            {!tvReady && !isMobileLandscape ? (
+            {!tvReady ? (
               <TvLooperSkeleton layout="wide" />
             ) : null}
           </div>
@@ -534,197 +534,184 @@ export function TvInteractiveShell({
         </div>
       )}
 
-      {isMobile && !showMobileLandscapeLayout && (
-        <div
-          className={cn(
-            isMobileFullView
-              ? "fixed inset-0 z-[1100] flex min-h-0 w-full flex-col overflow-hidden bg-black"
-              : "fixed right-0 bottom-0 left-0 flex min-h-0 w-full flex-col overflow-hidden px-2 pt-0 pb-2"
+      {isMobile && (
+        <>
+          {showMobileLandscapeLayout && (
+            <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
           )}
-          style={
-            isMobileFullView
-              ? undefined
-              : {
-                  top: TV_MOBILE_SHELL_TOP,
-                  maxHeight: `calc(100dvh - ${TV_MOBILE_SHELL_TOP})`,
-                }
-          }
-        >
-          {tvReady ? (
-            <div
-              className={cn(
-                "flex min-h-0 w-full flex-col",
-                isMobileFullView
-                  ? "h-full flex-1"
-                  : "flex-1 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]"
-              )}
-            >
+          <div
+            className={cn(
+              showMobileLandscapeLayout
+                ? "relative z-[999] h-full w-full bg-black text-white"
+                : isMobileFullView
+                  ? "fixed inset-0 z-[1100] flex min-h-0 w-full flex-col overflow-hidden bg-black"
+                  : "fixed right-0 bottom-0 left-0 flex min-h-0 w-full flex-col overflow-hidden px-2 pt-0 pb-2"
+            )}
+            style={
+              showMobileLandscapeLayout || isMobileFullView
+                ? undefined
+                : {
+                    top: TV_MOBILE_SHELL_TOP,
+                    maxHeight: `calc(100dvh - ${TV_MOBILE_SHELL_TOP})`,
+                  }
+            }
+          >
+            {tvReady ? (
               <div
                 className={cn(
-                  isMobileFullView
-                    ? "min-h-0 flex-1 overflow-hidden"
-                    : "min-h-[220px] shrink-0 basis-[min(52dvh,420px)] overflow-hidden"
+                  "flex min-h-0 w-full flex-col",
+                  showMobileLandscapeLayout || isMobileFullView
+                    ? "h-full flex-1"
+                    : "flex-1 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]"
                 )}
               >
-                <TvLooper
-                  characters={characters}
-                  playerLayout="compact"
-                  analyticsSurface={tvAnalyticsSurface}
-                  onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
-                  onEngage={() => setIsTipDrawerOpen(true)}
-                  onFullViewChange={setIsMobileFullView}
-                  onRegisterExitFull={registerExitFull}
-                  commentDrawerVideoTitle={
-                    typeof currentPlaying?.channel?.title === "string"
-                      ? currentPlaying.channel.title
-                      : ""
-                  }
-                  commentDrawerVideoDescription={
-                    typeof (currentPlaying?.channel as { description?: string })
-                      ?.description === "string"
-                      ? String(
-                          (currentPlaying?.channel as { description: string })
-                            .description
-                        )
-                      : ""
-                  }
-                  showSideRails={true}
-                />
-              </div>
+                <div
+                  className={cn(
+                    showMobileLandscapeLayout || isMobileFullView
+                      ? "min-h-0 flex-1 overflow-hidden"
+                      : "min-h-[220px] shrink-0 basis-[min(52dvh,420px)] overflow-hidden"
+                  )}
+                >
+                  <TvLooper
+                    key="mobile-tv-looper"
+                    characters={characters}
+                    playerLayout={
+                      showMobileLandscapeLayout ? "wide" : "compact"
+                    }
+                    mobileLandscape={showMobileLandscapeLayout}
+                    analyticsSurface={tvAnalyticsSurface}
+                    onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+                    onEngage={() => setIsTipDrawerOpen(true)}
+                    onFullViewChange={
+                      showMobileLandscapeLayout ? undefined : setIsMobileFullView
+                    }
+                    onRegisterExitFull={registerExitFull}
+                    commentDrawerVideoTitle={
+                      typeof currentPlaying?.channel?.title === "string"
+                        ? currentPlaying.channel.title
+                        : ""
+                    }
+                    commentDrawerVideoDescription={
+                      typeof (
+                        currentPlaying?.channel as { description?: string }
+                      )?.description === "string"
+                        ? String(
+                            (
+                              currentPlaying?.channel as {
+                                description: string;
+                              }
+                            ).description
+                          )
+                        : ""
+                    }
+                    showSideRails={!showMobileLandscapeLayout}
+                  />
+                </div>
 
-              {!isMobileFullView ? (
-                <>
-                  <div className="hide__scrollbar flex w-full shrink-0 items-center gap-2 overflow-x-auto px-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("playlist")}
-                      className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
-                        activeTab === "playlist"
-                          ? "bg-black text-white"
-                          : "border border-black bg-white text-black"
-                      }`}
-                    >
-                      TV Playlist <ChevronDown className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="tv-nav-tips"
-                      onClick={() => setActiveTab("tips")}
-                      className={`flex shrink-0 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap outline ${
-                        activeTab === "tips"
-                          ? "bg-black text-white"
-                          : "bg-white text-black outline-black"
-                      }`}
-                    >
-                      <div
-                        className={`${initialTipCount > 999 ? "tip-feed-marquee" : ""}`}
+                {!showMobileLandscapeLayout && !isMobileFullView ? (
+                  <>
+                    <div className="hide__scrollbar flex w-full shrink-0 items-center gap-2 overflow-x-auto px-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("playlist")}
+                        className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
+                          activeTab === "playlist"
+                            ? "bg-black text-white"
+                            : "border border-black bg-white text-black"
+                        }`}
+                      >
+                        TV Playlist <ChevronDown className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="tv-nav-tips"
+                        onClick={() => setActiveTab("tips")}
+                        className={`flex shrink-0 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap outline ${
+                          activeTab === "tips"
+                            ? "bg-black text-white"
+                            : "bg-white text-black outline-black"
+                        }`}
                       >
                         <div
-                          className={`${initialTipCount > 999 ? "tip-feed-marquee-track" : ""}`}
+                          className={`${initialTipCount > 999 ? "tip-feed-marquee" : ""}`}
                         >
-                          {initialTipCount} Tips
-                        </div>
-                      </div>{" "}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={goLive}
-                      className={`shrink-0 text-xs whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
-                    >
-                      Live TV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={switchToLocal}
-                      className={`shrink-0 text-xs whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
-                    >
-                      Your TV
-                    </button>
-                  </div>
-
-                  {activeTab === "playlist" && (
-                    <div className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2">
-                      <div
-                        className="custom-scrollbar hide__scrollbar relative h-full min-h-0 w-full space-y-3 overflow-y-auto p-2"
-                        ref={scrollRef}
-                        onScroll={handleScroll}
-                      >
-                        <TvPlaylistPreview
-                          layout={playlistLayout}
-                          onSelectChannel={handleSelectChannel}
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => setIsTvDrawerOpen(true)}
-                          className="mt-2 flex items-center gap-2 text-sm"
-                        >
-                          See full schedule <ArrowUp className="size-4" />
-                        </button>
-                      </div>
-
-                      <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
-                        <div className="relative h-full w-[2px] bg-gray-200">
                           <div
-                            className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
-                            style={{
-                              top: `${scrollProgress}%`,
-                              transform: `translate(-50%, -50%)`,
-                            }}
+                            className={`${initialTipCount > 999 ? "tip-feed-marquee-track" : ""}`}
+                          >
+                            {initialTipCount} Tips
+                          </div>
+                        </div>{" "}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={goLive}
+                        className={`shrink-0 text-xs whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
+                      >
+                        Live TV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={switchToLocal}
+                        className={`shrink-0 text-xs whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
+                      >
+                        Your TV
+                      </button>
+                    </div>
+
+                    {activeTab === "playlist" && (
+                      <div className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2">
+                        <div
+                          className="custom-scrollbar hide__scrollbar relative h-full min-h-0 w-full space-y-3 overflow-y-auto p-2"
+                          ref={scrollRef}
+                          onScroll={handleScroll}
+                        >
+                          <TvPlaylistPreview
+                            layout={playlistLayout}
+                            onSelectChannel={handleSelectChannel}
                           />
+
+                          <button
+                            type="button"
+                            onClick={() => setIsTvDrawerOpen(true)}
+                            className="mt-2 flex items-center gap-2 text-sm"
+                          >
+                            See full schedule <ArrowUp className="size-4" />
+                          </button>
+                        </div>
+
+                        <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
+                          <div className="relative h-full w-[2px] bg-gray-200">
+                            <div
+                              className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
+                              style={{
+                                top: `${scrollProgress}%`,
+                                transform: `translate(-50%, -50%)`,
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {activeTab === "tips" && (
-                    <div
-                      data-testid="tv-tips-feed"
-                      className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2"
-                    >
-                      {tipsFeedPanelEl}
-                    </div>
-                  )}
-                </>
-              ) : null}
-            </div>
-          ) : (
-            <div className="flex min-h-0 w-full flex-1 flex-col gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]">
-              <div className="min-h-[220px] shrink-0 basis-[min(52dvh,420px)]">
-                <TvLooperSkeleton layout="compact" />
+                    {activeTab === "tips" && (
+                      <div
+                        data-testid="tv-tips-feed"
+                        className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2"
+                      >
+                        {tipsFeedPanelEl}
+                      </div>
+                    )}
+                  </>
+                ) : null}
               </div>
-              <TvRightPanelSkeleton layout="mobile" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {isMobile && showMobileLandscapeLayout && (
-        <>
-          <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
-          <div className="relative z-[999] h-full w-full bg-black text-white">
-            <WebTvLooper
-              characters={characters}
-              playerLayout="wide"
-              analyticsSurface={tvAnalyticsSurface}
-              onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
-              onEngage={() => setIsTipDrawerOpen(true)}
-              onRegisterExitFull={registerExitFull}
-              commentDrawerVideoTitle={
-                typeof currentPlaying?.channel?.title === "string"
-                  ? currentPlaying.channel.title
-                  : ""
-              }
-              commentDrawerVideoDescription={
-                typeof (currentPlaying?.channel as { description?: string })
-                  ?.description === "string"
-                  ? String(
-                      (currentPlaying?.channel as { description: string })
-                        .description
-                    )
-                  : ""
-              }
-            />
+            ) : (
+              <div className="flex min-h-0 w-full flex-1 flex-col gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]">
+                <div className="min-h-[220px] shrink-0 basis-[min(52dvh,420px)]">
+                  <TvLooperSkeleton layout="compact" />
+                </div>
+                <TvRightPanelSkeleton layout="mobile" />
+              </div>
+            )}
           </div>
         </>
       )}

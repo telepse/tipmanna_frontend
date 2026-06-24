@@ -33,6 +33,7 @@ export interface DiscoverPanelProps {
   tippers: any[];
   latestContents: any[];
   spotlightContents?: any[];
+  recommendedContents?: any[];
   mostTippedContents: any[];
   programs?: Array<{
     id: string;
@@ -81,6 +82,7 @@ export function DiscoverPanel({
   tippers,
   latestContents,
   spotlightContents = [],
+  recommendedContents = [],
   mostTippedContents,
   programs = [],
   liveStreams = { upcoming: [], live: [], recentlyEnded: [] },
@@ -173,12 +175,16 @@ export function DiscoverPanel({
   const topContentsRef = useRef<HTMLDivElement>(null);
   const latestContentsRef = useRef<HTMLDivElement>(null);
   const spotlightContentsRef = useRef<HTMLDivElement>(null);
+  const recommendedContentsRef = useRef<HTMLDivElement>(null);
   const mostTippedContentsRef = useRef<HTMLDivElement>(null);
   const programsRef = useRef<HTMLDivElement>(null);
   const liveStreamsRef = useRef<HTMLDivElement>(null);
 
   const resolvedSpotlight =
     spotlightContents.length > 0 ? spotlightContents : latestContents;
+
+  const resolvedRecommended =
+    recommendedContents.length > 0 ? recommendedContents : resolvedSpotlight;
 
   const liveStreamItems = useMemo(
     () => [
@@ -483,6 +489,34 @@ export function DiscoverPanel({
             <button
               type="button"
               onClick={() => scrollNext(spotlightContentsRef)}
+              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+            >
+              <ChevronRight size={24} />
+            </button>
+          </div>
+        </div>
+
+        {/* RECOMMENDED FOR YOU */}
+        <div className="space-y-4">
+          <h5 className="font-semibold">Recommended for you</h5>
+
+          <div className="relative">
+            <div
+              ref={recommendedContentsRef}
+              className="scrollbar-none overflow-x-auto"
+            >
+              <div className="flex gap-4">
+                {catalogLoading && resolvedRecommended.length === 0
+                  ? carouselSkeleton
+                  : resolvedRecommended.map((content: Content) =>
+                      renderContentCard(content, "min-w-[270px] flex-shrink-0")
+                    )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollNext(recommendedContentsRef)}
               className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
             >
               <ChevronRight size={24} />

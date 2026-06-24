@@ -18,7 +18,14 @@ import { getAuthToken } from "@/lib/getAuthToken";
 import { normalizeSavedVideosList } from "@/lib/save-video-client";
 import type { TipFeedRow } from "@/components/events/tips-feed-panel";
 
-type TipsDrawerSnapshot = { items: TipFeedRow[] };
+export type TipsDrawerSnapshot = {
+  items: TipFeedRow[];
+  nextCursor?: string | null;
+  hasMore?: boolean;
+};
+
+const SESSION_PREFIX = "tipmanna_drawer_v1:";
+const SESSION_TTL_MS = 30 * 60 * 1000;
 
 const commentCache = new Map<string, CommentDrawerData>();
 const tipsCache = new Map<string, TipsDrawerSnapshot>();
@@ -26,6 +33,34 @@ const profileCache = new Map<string, unknown>();
 
 const commentInflight: Map<string, Promise<CommentDrawerData | null>> = new Map();
 const tipsInflight: Map<string, Promise<TipsDrawerSnapshot | null>> = new Map();
+
+function readSession<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(`${SESSION_PREFIX}${key}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at: number; data: T };
+    if (Date.now() - parsed.at > SESSION_TTL_MS) {
+      sessionStorage.removeItem(`${SESSION_PREFIX}${key}`);
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeSession<T>(key: string, data: T) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      `${SESSION_PREFIX}${key}`,
+      JSON.stringify({ at: Date.now(), data })
+    );
+  } catch {
+    /* quota */
+  }
+}
 
 export function commentDrawerKey(eventId: string, channelId: string) {
   return `comment:${eventId.trim()}:${channelId.trim()}`;
@@ -58,7 +93,8 @@ export function getCachedCommentDrawer(
   eventId: string,
   channelId: string
 ): CommentDrawerData | null {
-  return commentCache.get(commentDrawerKey(eventId, channelId)) ?? null;
+  const key = commentDrawerKey(eventId, channelId);
+  return commentCache.get(key) ?? readSession<CommentDrawerData>(key);
 }
 
 export function getCachedTipsDrawer(
@@ -66,7 +102,8 @@ export function getCachedTipsDrawer(
   channelId: string | null,
   scope: "event" | "video"
 ): TipsDrawerSnapshot | null {
-  return tipsCache.get(tipsDrawerKey(eventId, channelId, scope)) ?? null;
+  const key = tipsDrawerKey(eventId, channelId, scope);
+  return tipsCache.get(key) ?? readSession<TipsDrawerSnapshot>(key);
 }
 
 export async function fetchCommentDrawerCached(
@@ -76,7 +113,7 @@ export async function fetchCommentDrawerCached(
 ): Promise<CommentDrawerData | null> {
   const key = commentDrawerKey(eventId, channelId);
   if (!opts?.force) {
-    const hit = commentCache.get(key);
+    const hit = getCachedCommentDrawer(eventId, channelId);
     if (hit) return hit;
   }
   let inflight = commentInflight.get(key);
@@ -84,6 +121,7 @@ export async function fetchCommentDrawerCached(
     inflight = getChannelCommentDrawerAction(eventId, channelId).then(res => {
       if (res.success && res.data) {
         commentCache.set(key, res.data);
+        writeSession(key, res.data);
         return res.data;
       }
       return null;
@@ -98,34 +136,55 @@ export async function fetchTipsDrawerCached(
   eventId: string,
   channelId: string | null,
   scope: "event" | "video",
-  opts?: { force?: boolean }
+  opts?: { force?: boolean; cursor?: string | null; limit?: number; append?: boolean }
 ): Promise<TipsDrawerSnapshot | null> {
   const key = tipsDrawerKey(eventId, channelId, scope);
-  if (!opts?.force) {
-    const hit = tipsCache.get(key);
+  const pageKey = opts?.cursor ? `${key}:${opts.cursor}` : key;
+
+  if (!opts?.force && !opts?.cursor) {
+    const hit = getCachedTipsDrawer(eventId, channelId, scope);
     if (hit) return hit;
   }
-  let inflight = tipsInflight.get(key);
+
+  let inflight = tipsInflight.get(pageKey);
   if (!inflight) {
-    inflight = getTipsDrawerAction(eventId, channelId, scope).then(res => {
+    inflight = getTipsDrawerAction(eventId, channelId, scope, undefined, {
+      cursor: opts?.cursor ?? null,
+      limit: opts?.limit ?? 30,
+    }).then(res => {
       if (res.success && res.data && typeof res.data === "object") {
-        const data = res.data as { items?: TipFeedRow[] };
-        const snap = {
-          items: Array.isArray(data.items) ? data.items : [],
+        const data = res.data as {
+          items?: TipFeedRow[];
+          nextCursor?: string | null;
+          hasMore?: boolean;
+        };
+        const pageItems = Array.isArray(data.items) ? data.items : [];
+        const prev = opts?.append ? getCachedTipsDrawer(eventId, channelId, scope) : null;
+        const snap: TipsDrawerSnapshot = {
+          items: prev ? [...prev.items, ...pageItems] : pageItems,
+          nextCursor: data.nextCursor ?? null,
+          hasMore: Boolean(data.hasMore),
         };
         tipsCache.set(key, snap);
+        writeSession(key, snap);
         return snap;
       }
       return null;
     });
-    tipsInflight.set(key, inflight);
-    void inflight.finally(() => tipsInflight.delete(key));
+    tipsInflight.set(pageKey, inflight);
+    void inflight.finally(() => tipsInflight.delete(pageKey));
   }
   return inflight;
 }
 
 export function invalidateCommentDrawer(eventId: string, channelId: string) {
-  commentCache.delete(commentDrawerKey(eventId, channelId));
+  const key = commentDrawerKey(eventId, channelId);
+  commentCache.delete(key);
+  try {
+    sessionStorage.removeItem(`${SESSION_PREFIX}${key}`);
+  } catch {
+    /* noop */
+  }
 }
 
 export function invalidateTipsDrawer(
@@ -133,12 +192,39 @@ export function invalidateTipsDrawer(
   channelId: string | null,
   scope?: "event" | "video"
 ) {
-  if (scope) {
-    tipsCache.delete(tipsDrawerKey(eventId, channelId, scope));
-    return;
+  const keys = scope
+    ? [tipsDrawerKey(eventId, channelId, scope)]
+    : [
+        tipsDrawerKey(eventId, channelId, "event"),
+        tipsDrawerKey(eventId, channelId, "video"),
+      ];
+  for (const key of keys) {
+    tipsCache.delete(key);
+    try {
+      sessionStorage.removeItem(`${SESSION_PREFIX}${key}`);
+    } catch {
+      /* noop */
+    }
   }
-  tipsCache.delete(tipsDrawerKey(eventId, channelId, "event"));
-  tipsCache.delete(tipsDrawerKey(eventId, channelId, "video"));
+}
+
+export async function awaitCommentDrawerPrefetch(
+  eventId: string,
+  channelId: string
+) {
+  return fetchCommentDrawerCached(eventId, channelId);
+}
+
+export async function awaitTipsDrawerPrefetch(
+  eventId: string,
+  channelId: string | null,
+  scope: "event" | "video" = "event"
+) {
+  return fetchTipsDrawerCached(eventId, channelId, scope);
+}
+
+export async function awaitProfileDrawerPrefetch() {
+  return prefetchProfileDrawerData();
 }
 
 /** Warm tips payloads for TV schedule rows (current + upcoming). */
@@ -161,9 +247,6 @@ export function prefetchTvScheduleTips(
         row?.channel?.id != null ? String(row.channel.id) : null;
       if (!eventId) continue;
       void fetchTipsDrawerCached(eventId, channelId, "event");
-      if (channelId) {
-        void fetchTipsDrawerCached(eventId, channelId, "video");
-      }
     }
   });
 }
@@ -179,7 +262,6 @@ export function prefetchChannelDrawers(input: {
   scheduleIdle(() => {
     void fetchCommentDrawerCached(eventId, channelId);
     void fetchTipsDrawerCached(eventId, channelId, "event");
-    void fetchTipsDrawerCached(eventId, channelId, "video");
     if (authenticated) {
       void prefetchProfileDrawerData();
     }
@@ -212,12 +294,26 @@ export async function prefetchProfileDrawerData(): Promise<void> {
       videosRes.success && Array.isArray(videosRes.data) ? videosRes.data : [],
     savedHosts: hosts,
   });
+  writeSession(key, profileCache.get(key));
 }
 
 export function getCachedProfileDrawerData(): Record<string, any> | null {
-  return (profileCache.get("profile-drawer") as Record<string, any>) ?? null;
+  return (
+    (profileCache.get("profile-drawer") as Record<string, any>) ??
+    readSession<Record<string, any>>("profile-drawer")
+  );
 }
 
 export function invalidateProfileDrawerCache() {
   profileCache.delete("profile-drawer");
+  try {
+    sessionStorage.removeItem(`${SESSION_PREFIX}profile-drawer`);
+  } catch {
+    /* noop */
+  }
+}
+
+export function hydrateSavedContentsFromProfileCache(): any[] {
+  const cached = getCachedProfileDrawerData();
+  return Array.isArray(cached?.savedContents) ? cached.savedContents : [];
 }

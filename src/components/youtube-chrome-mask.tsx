@@ -2,7 +2,8 @@
 
 import { cn } from "@/lib/utils";
 
-/** Masks YouTube title-card chrome at the top of chromeless embeds. */
+/** Masks YouTube title-card chrome at the top of chromeless embeds.
+ * Full removal of YouTube metadata is not possible via playerVars alone; this gradient is best-effort. */
 export function YoutubeChromeMask({ className }: { className?: string }) {
   return (
     <div

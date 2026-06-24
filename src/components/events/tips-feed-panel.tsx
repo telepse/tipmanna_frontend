@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
@@ -57,12 +57,26 @@ export function TipsFeedPanel({
   const [scope, setScope] = useState<"event" | "video">("event");
 
   const trimmedEventId = eventId?.trim() ?? "";
-  const { items, loading } = useTipsDrawerData(
+  const { items, loading, loadingMore, hasMore, loadMore } = useTipsDrawerData(
     trimmedEventId,
     channelId,
     scope,
     enabled && Boolean(trimmedEventId)
   );
+  const loadMoreRef = useRef<HTMLLIElement | null>(null);
+
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || !hasMore || loading || loadingMore) return;
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting) void loadMore();
+      },
+      { rootMargin: "120px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore, loading, loadingMore]);
   const { numOfTips: liveNumOfTips } = useEventRoomRealtime({
     eventId: trimmedEventId,
     initialAmountRaised: 0,
@@ -124,7 +138,7 @@ export function TipsFeedPanel({
       No tips yet for this {scope === "video" ? "video" : "event room"}.
     </p>
   ) : (
-    <ul className="space-y-1 overflow-y-auto">
+    <ul className="space-y-1">
       {items.map(row => (
         <li
           key={row.id}
@@ -147,6 +161,11 @@ export function TipsFeedPanel({
           </p>
         </li>
       ))}
+      {hasMore ? (
+        <li ref={loadMoreRef} className="py-3 text-center text-xs text-gray-500">
+          {loadingMore ? "Loading more tips…" : "Scroll for more"}
+        </li>
+      ) : null}
     </ul>
   );
 

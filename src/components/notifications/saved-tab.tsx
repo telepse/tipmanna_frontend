@@ -154,7 +154,14 @@ export function SavedTab({
         className="mt-3 space-y-2 data-[state=inactive]:hidden"
       >
         {loadingVideos || loadingSaved ? (
-          <p className="text-muted-foreground text-sm">Loading videos…</p>
+          <div className="space-y-3" aria-busy="true">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded-lg border bg-gray-50 h-24"
+              />
+            ))}
+          </div>
         ) : displayVideos.length === 0 ? (
           <p className="text-muted-foreground text-sm">No saved videos yet.</p>
         ) : (
@@ -207,7 +214,14 @@ export function SavedTab({
         className="mt-3 space-y-2 data-[state=inactive]:hidden"
       >
         {loadingHosts ? (
-          <p className="text-muted-foreground text-sm">Loading hosts…</p>
+          <div className="space-y-2" aria-busy="true">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded-lg border bg-gray-50 h-14"
+              />
+            ))}
+          </div>
         ) : hosts.length === 0 ? (
           <p className="text-muted-foreground text-sm">No saved hosts yet.</p>
         ) : (

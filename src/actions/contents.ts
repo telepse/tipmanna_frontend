@@ -118,6 +118,19 @@ export async function getSpotlightContents() {
   );
 }
 
+export async function getRecommendedContents() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/recommended`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "force-cache",
+      next: { revalidate: 30 },
+    },
+    "getRecommendedContents"
+  );
+}
+
 export async function getLiveStreamContents() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/live-streams`,

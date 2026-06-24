@@ -50,4 +50,15 @@ test.describe("explore", () => {
       timeout: 15_000,
     });
   });
+
+  test("discover tab shows distinct category headings", async ({ page }) => {
+    await page.goto("/explore?tab=discover");
+    await expect(page.getByRole("heading", { name: "Spotlight" })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(
+      page.getByRole("heading", { name: "Recommended for you" })
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Programs" })).toBeVisible();
+  });
 });

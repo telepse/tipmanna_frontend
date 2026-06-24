@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "react-toastify";
+
 const SESSION_KEY = "tipmanna_chunk_reload";
 
 function isChunkLoadError(reason: unknown): boolean {
@@ -39,7 +41,8 @@ export function installChunkLoadRecovery(): void {
     } catch {
       /* noop */
     }
-    window.location.reload();
+    toast.info("New version available — refreshing.", { autoClose: 2000 });
+    window.setTimeout(() => window.location.reload(), 500);
   };
 
   window.addEventListener("unhandledrejection", event => {

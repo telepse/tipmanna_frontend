@@ -397,6 +397,7 @@ export const CommentDrawer = ({
           ref={drawerShellRef}
           className={`${DRAWER_Z_INDEX} flex h-[72vh] flex-col overflow-hidden rounded-t-[32px] bg-white p-0`}
         >
+          <div className="sticky top-0 z-10 shrink-0 bg-white">
           {/* Top Bar */}
           <div className="relative border-b">
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -473,25 +474,26 @@ export const CommentDrawer = ({
               </div>
             ) : null}
             <p className="flex flex-wrap items-center gap-2 text-xs text-black">
-              <span>
-                Channel tips:{" "}
-                {showMetricsSkeleton
-                  ? "—"
-                  : (metrics?.eventRoomTipCount ?? numOfTips ?? 0)}
-              </span>
-              <span>·</span>
-              <span>
-                Video tips:{" "}
-                {showMetricsSkeleton ? "—" : (metrics?.videoTipCount ?? 0)}
-              </span>
-              <span>·</span>
-              <span>
-                Saves {showMetricsSkeleton ? "—" : (metrics?.saveCount ?? 0)}
-              </span>
-              <span>·</span>
-              <span>
-                Shares {showMetricsSkeleton ? "—" : (metrics?.shareCount ?? 0)}
-              </span>
+              {showMetricsSkeleton ? (
+                <span className="flex flex-wrap gap-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className="inline-block h-3 w-16 animate-pulse rounded bg-gray-100"
+                    />
+                  ))}
+                </span>
+              ) : (
+                <>
+                  <span>Channel tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}</span>
+                  <span>·</span>
+                  <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
+                  <span>·</span>
+                  <span>Saves {metrics?.saveCount ?? 0}</span>
+                  <span>·</span>
+                  <span>Shares {metrics?.shareCount ?? 0}</span>
+                </>
+              )}
             </p>
             {channelMeta ? (
               <p className="text-muted-foreground text-[11px]">
@@ -612,9 +614,10 @@ export const CommentDrawer = ({
               </button>
             </div>
           </div>
+          </div>
 
           {/* Comments List */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-8">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-5 pb-8">
             {!channelId?.trim() ? (
               <p className="text-muted-foreground text-center text-sm">
                 Select a video to see comments.

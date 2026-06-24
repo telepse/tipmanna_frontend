@@ -24,6 +24,8 @@ import { VideoLinkContentLanguageCombobox } from "@/components/events/video-link
 import { EventVideoTypeTagPicker } from "@/components/events/event-video-type-tag-picker";
 import { EVENT_VIDEO_TYPE_OPTIONS } from "@/lib/event-video-type-options";
 import { AddVideoPolicyFields } from "@/components/events/add-video-policy-fields";
+import type { CoOwnerInviteStatusValue } from "@/hooks/use-coowner-invite-status";
+import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
 import {
   CREATE_FORM_INPUT_CLASS,
   CREATE_FORM_LABEL_CLASS,
@@ -41,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFormDraftAutosave } from "@/hooks/use-form-draft-autosave";
+import { DraftSaveIndicator } from "@/components/events/draft-save-indicator";
 import { useModalFormDraftRestore } from "@/hooks/use-modal-form-draft-restore";
 import type { FormDraftKind } from "@/actions/form-drafts";
 import { modalDraftStorageKey } from "@/lib/form-draft-utils";
@@ -158,6 +161,8 @@ export function AddVideoForm({
   const [verifyState, setVerifyState] = useState<
     "idle" | "checking" | "verified" | "failed"
   >("idle");
+  const [coOwnerInviteStatus, setCoOwnerInviteStatus] =
+    useState<CoOwnerInviteStatusValue>(null);
   const [modalDraftId, setModalDraftId] = useState<string | null>(() => {
     if (typeof window === "undefined" || !draftAutosave?.targetId) return null;
     return sessionStorage.getItem(
@@ -223,7 +228,7 @@ export function AddVideoForm({
     setVerifyState("idle");
   }, [watchedUrl, watchedSlot]);
 
-  useFormDraftAutosave(form.watch(), {
+  const draftSave = useFormDraftAutosave(form.watch(), {
     kind: draftAutosave?.kind ?? "room_add_video",
     step: 1,
     title: form.watch("title") || "Add video draft",
@@ -255,6 +260,11 @@ export function AddVideoForm({
   });
 
   const setReminder = form.watch("setReminder");
+  const ownershipAnswer = form.watch("ownershipAnswer");
+  const coOwnerSubmitBlocked =
+    requirePolicyFields &&
+    ownershipAnswer === "no" &&
+    coOwnerInviteStatus !== "approved";
 
   const inheritEventTypeLabel =
     eventEventType &&
@@ -271,6 +281,14 @@ export function AddVideoForm({
 
   return (
     <Form {...form}>
+      {draftAutosave?.enabled ? (
+        <DraftSaveIndicator
+          className="mb-3 px-1"
+          saving={draftSave.saving}
+          lastSavedAt={draftSave.lastSavedAt}
+          onSaveNow={() => void draftSave.saveNow()}
+        />
+      ) : null}
       <form
         onSubmit={form.handleSubmit(async values => {
           const slot = values.hostYoutubeSlot;
@@ -301,6 +319,16 @@ export function AddVideoForm({
           if (requirePolicyFields && values.ownershipAnswer === "no") {
             if (!values.coOwnerDraftKey?.trim()) {
               toast.error("Co-owner draft id missing — refresh and try again");
+              return;
+            }
+            const coOwnerErr = await validateCoOwnerDraftsForSubmit([
+              {
+                ownershipAnswer: values.ownershipAnswer,
+                coOwnerDraftKey: values.coOwnerDraftKey,
+              },
+            ]);
+            if (coOwnerErr) {
+              toast.error(coOwnerErr);
               return;
             }
           }
@@ -617,6 +645,7 @@ export function AddVideoForm({
             form={form}
             variant={variant}
             videoTitle={form.watch("title") || "Video"}
+            onCoOwnerInviteStatusChange={setCoOwnerInviteStatus}
           />
         ) : null}
 
@@ -709,10 +738,20 @@ export function AddVideoForm({
           variant="default"
           size="lg"
           className="w-full"
-          disabled={loading}
+          disabled={loading || coOwnerSubmitBlocked}
         >
-          {loading ? "Saving video..." : "Save video"}
+          {loading
+            ? "Saving video..."
+            : coOwnerSubmitBlocked
+              ? "Awaiting co-owner approval"
+              : "Save video"}
         </Button>
+        {coOwnerSubmitBlocked ? (
+          <p className="text-muted-foreground text-center text-xs">
+            Submit unlocks after the co-owner approves the email invite. You can
+            save to draft while waiting.
+          </p>
+        ) : null}
 
         {belowSubmit}
       </form>

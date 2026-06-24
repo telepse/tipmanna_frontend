@@ -28,6 +28,11 @@ import { verifyYoutubeOwnershipAction } from "@/actions/policy";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
+import {
+  coOwnerStatusIndicatorClass,
+  useCoOwnerInviteStatus,
+} from "@/hooks/use-coowner-invite-status";
+import { mapCoOwnerInviteErrors } from "@/lib/coowner-invite-error.util";
 import { toast } from "react-toastify";
 import {
   CREATE_FORM_INPUT_CLASS,
@@ -462,10 +467,15 @@ function CoOwnerInviteBlock({
   const [email, setEmail] = useState("");
   const [pct, setPct] = useState(25);
   const [pending, setPending] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    name?: string;
+  }>({});
   const [coOwnerInviteChannel, setCoOwnerInviteChannel] = useState<
     string | null
   >(null);
   const draftKey = watch(`videoLinks.${index}.coOwnerDraftKey`);
+  const inviteStatus = useCoOwnerInviteStatus(draftKey, email);
 
   useEffect(() => {
     if (!coOwnerInviteChannel) return;
@@ -507,6 +517,7 @@ function CoOwnerInviteBlock({
       return;
     }
     setPending(true);
+    setFieldErrors({});
     const res = await createVideoCoOwnerInviteAction({
       draftKey: dk,
       coOwnerName: name.trim(),
@@ -515,7 +526,15 @@ function CoOwnerInviteBlock({
     });
     setPending(false);
     if (!res.success) {
-      toast.error(res.message ?? "Invite failed");
+      const mapped = mapCoOwnerInviteErrors(
+        res.validationBody,
+        res.message ?? undefined
+      );
+      if (Object.keys(mapped).length > 0) {
+        setFieldErrors(mapped);
+      } else {
+        toast.error(res.message ?? "Invite failed");
+      }
       return;
     }
     const inv = (res.data as { invite?: { id?: string } })?.invite;
@@ -541,17 +560,46 @@ function CoOwnerInviteBlock({
       </p>
       <Input
         placeholder="Co-owner legal name"
-        className={CREATE_FORM_INPUT_CLASS}
+        className={`${CREATE_FORM_INPUT_CLASS} ${fieldErrors.name ? "border-destructive" : ""}`}
         value={name}
-        onChange={e => setName(e.target.value)}
+        onChange={e => {
+          setName(e.target.value);
+          if (fieldErrors.name) {
+            setFieldErrors(prev => ({ ...prev, name: undefined }));
+          }
+        }}
       />
+      {fieldErrors.name ? (
+        <p className="text-destructive text-xs">{fieldErrors.name}</p>
+      ) : null}
       <Input
         placeholder="Co-owner email"
         type="email"
-        className={CREATE_FORM_INPUT_CLASS}
+        className={`${CREATE_FORM_INPUT_CLASS} ${coOwnerStatusIndicatorClass(inviteStatus)} ${fieldErrors.email ? "border-destructive" : ""}`}
         value={email}
-        onChange={e => setEmail(e.target.value)}
+        onChange={e => {
+          setEmail(e.target.value);
+          if (fieldErrors.email) {
+            setFieldErrors(prev => ({ ...prev, email: undefined }));
+          }
+        }}
       />
+      {fieldErrors.email ? (
+        <p className="text-destructive text-xs">{fieldErrors.email}</p>
+      ) : null}
+      {inviteStatus ? (
+        <p
+          className={`text-xs ${
+            inviteStatus === "approved"
+              ? "text-green-400"
+              : inviteStatus === "pending"
+                ? "text-amber-400"
+                : "text-red-400"
+          }`}
+        >
+          Co-owner status: {inviteStatus}
+        </p>
+      ) : null}
       <div className="flex items-center gap-2">
         <FormLabel className={`shrink-0 ${CREATE_FORM_LABEL_CLASS}`}>
           Share % (of 100%)

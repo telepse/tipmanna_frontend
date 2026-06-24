@@ -22,6 +22,14 @@ export function getDiscoveryHosts(): string[] {
   ]);
 }
 
+/** When true, `.com` `/explore` without `tab=discover` redirects to `/discover`. */
+export function shouldRedirectExploreToDiscover(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_DISCOVERY_REDIRECT_EXPLORE === "true" ||
+    process.env.NEXT_PUBLIC_DISCOVERY_REDIRECT_EXPLORE === "1"
+  );
+}
+
 export function isDiscoveryHost(hostname: string): boolean {
   const h = hostname.split(":")[0].toLowerCase();
   return getDiscoveryHosts().some(

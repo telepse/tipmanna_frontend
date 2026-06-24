@@ -14,6 +14,7 @@ type Props = {
   initialContents: any[];
   initialLatest: any[];
   initialSpotlight: any[];
+  initialRecommended: any[];
   initialMostTipped: any[];
   initialPrograms: any[];
   initialLiveStreams: LiveStreams;
@@ -24,6 +25,7 @@ export function DiscoverPageClient({
   initialContents,
   initialLatest,
   initialSpotlight,
+  initialRecommended,
   initialMostTipped,
   initialPrograms,
   initialLiveStreams,
@@ -53,6 +55,7 @@ export function DiscoverPageClient({
           contents={initialContents}
           latestContents={initialLatest}
           spotlightContents={initialSpotlight}
+          recommendedContents={initialRecommended}
           mostTippedContents={initialMostTipped}
           programs={initialPrograms}
           liveStreams={initialLiveStreams}

@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -75,6 +74,8 @@ import { useMediaQuery } from "react-responsive";
 import { cn } from "@/lib/utils";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
+import { useTvPaymentAnimationLayer } from "@/hooks/use-tv-payment-animation-layer";
+import { tvPaymentAnimationLayerStyle } from "@/components/tv/tv-payment-animation-layer";
 import { useVideoChromeAutoHide } from "@/hooks/use-video-chrome-auto-hide";
 import {
   VideoSurfaceBadges,
@@ -134,6 +135,8 @@ export const WebTvLooper = ({
     setPlayerVisible,
     playingItemOverride,
     applyPendingPlaybackRestore,
+    applyPendingAudioRestore,
+    unregisterTvPlayer,
     reloadCurrentPlaybackAt,
     scheduleSourceCommunityId,
   } = useTV();
@@ -170,14 +173,8 @@ export const WebTvLooper = ({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerAreaRef = useRef<HTMLDivElement | null>(null);
-  const animationMountRef = useRef<HTMLDivElement | null>(null);
   /** Full-page payment overlays on mobile; confined to player on desktop web (match tv-page-client-wrapper). */
   const isMobileTv = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
-  const [paymentAnimScale, setPaymentAnimScale] = useState(1);
-  const [paymentViewport, setPaymentViewport] = useState({
-    w: 1920,
-    h: 1080,
-  });
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [showShare, setShowShare] = useState(false);
@@ -256,6 +253,17 @@ export const WebTvLooper = ({
     videoUrl: effectivePlayerUrl || current?.channel?.url,
     isMobile: isMobileTv,
     resetAnchor: current?.id,
+  });
+
+  const {
+    animationMountRef,
+    paymentLayerMetrics,
+    usePlayerBoundsLayer,
+  } = useTvPaymentAnimationLayer({
+    playerAreaRef,
+    isMobileTv,
+    isFullView,
+    layoutKey: `${current?.id ?? ""}:${currentIndex}:${isFullView}`,
   });
 
   useEffect(() => {
@@ -591,13 +599,13 @@ export const WebTvLooper = ({
     setPlayerPlayingState(isPlaying);
   }, [isPlaying, setPlayerPlayingState]);
 
-  useLayoutEffect(() => {
-    setPlayerVisible(true);
-  }, [setPlayerVisible]);
-
   useEffect(() => {
-    return () => setPlayerVisible(false);
-  }, [setPlayerVisible]);
+    setPlayerVisible(true);
+    return () => {
+      setPlayerVisible(false);
+      unregisterTvPlayer();
+    };
+  }, [setPlayerVisible, unregisterTvPlayer]);
 
   // ---- Fullscreen detection ----
   useEffect(() => {
@@ -609,32 +617,6 @@ export const WebTvLooper = ({
     document.addEventListener("fullscreenchange", handleChange);
     return () => document.removeEventListener("fullscreenchange", handleChange);
   }, []);
-
-  // ---- Payment animation: scale virtual viewport to player column (desktop + mobile immersive) ----
-  useEffect(() => {
-    if (isMobileTv && !isFullView) return;
-    const el = playerAreaRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      setPaymentViewport({ w: vw, h: vh });
-      setPaymentAnimScale(
-        Math.min(rect.width / vw, rect.height / vh, 1) || 0.001
-      );
-    };
-
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener("resize", update);
-    update();
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [currentEventId, currentIndex, isMobileTv, isFullView]);
 
   useEffect(() => {
     setCurrentTime(0);
@@ -892,13 +874,10 @@ export const WebTvLooper = ({
               <div
                 id="global-animation-layer"
                 ref={animationMountRef}
-                style={{
-                  width: paymentViewport.w,
-                  height: paymentViewport.h,
-                  transformOrigin: "top left",
-                  transform: `scale(${paymentAnimScale})`,
-                  position: "relative",
-                }}
+                style={tvPaymentAnimationLayerStyle(
+                  paymentLayerMetrics,
+                  usePlayerBoundsLayer
+                )}
               />
             </div>
           )}
@@ -1337,7 +1316,7 @@ export const WebTvLooper = ({
                 setIsPlayerLoading(false);
 
                 const player = playerRef.current;
-
+                player?.syncMuteFromPlayer?.();
                 if (player?.isReady() && isMuted) {
                   player.mute();
                 }
@@ -1349,12 +1328,13 @@ export const WebTvLooper = ({
                 setIsPlayerLoading(false);
 
                 const player = playerRef.current;
-
+                player?.syncMuteFromPlayer?.();
                 if (player?.isReady() && isMuted) {
                   player.mute();
                 }
 
                 applyPendingPlaybackRestore();
+                applyPendingAudioRestore();
                 emitEncounterWhenVideoLoads();
                 const dur = playerRef.current?.getDuration() ?? 0;
                 if (dur > 0) setDuration(dur);
@@ -1362,6 +1342,8 @@ export const WebTvLooper = ({
               onPlay={() => {
                 setIsPlayerLoading(false);
                 setIsPlaying(true);
+                applyPendingPlaybackRestore();
+                applyPendingAudioRestore();
                 const dur = playerRef.current?.getDuration() ?? 0;
                 if (dur > 0) setDuration(dur);
                 const id = current?.id as string | undefined;

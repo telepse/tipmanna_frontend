@@ -16,6 +16,7 @@ import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import {
   getYoutubePlayerVarsChromeless,
   getYoutubePlayerVarsMinimal,
+  YOUTUBE_NO_COOKIE_HOST,
 } from "@/lib/youtubePlayerConfig";
 import type {
   YoutubeIframeObjectFitMode,
@@ -291,6 +292,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
 
       playerRef.current = new window.YT.Player(playerIdRef.current, {
         videoId,
+        host: YOUTUBE_NO_COOKIE_HOST,
         playerVars: baseVars as YT.PlayerOptions["playerVars"],
         events: {
           onReady: (event: YT.PlayerEvent) => {
@@ -399,13 +401,17 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
 
         const wasPlaying =
           p.getPlayerState?.() === window.YT.PlayerState.PLAYING;
+        const state = p.getPlayerState?.();
 
         p.unMute();
         setPlayerMuteState(false);
         persistReelSoundPref(true);
 
-        // 🔥 IMPORTANT: restore playback if YouTube paused internally
-        if (!wasPlaying) {
+        if (
+          !wasPlaying &&
+          (state === window.YT.PlayerState.PAUSED ||
+            state === window.YT.PlayerState.CUED)
+        ) {
           p.playVideo();
         }
       },

@@ -39,6 +39,19 @@ export async function newCreateEventAction(
   );
 }
 
+// -------- Get host events (lightweight summary for create dialog) -------- //
+export async function getHostEventsSummaryAction(token?: string | null) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/me/summary`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostEventsSummaryAction"
+  );
+}
+
 // -------- Get host events -------- //
 export async function getHostEventsAction(token?: string | null) {
   return runServerFetch(
@@ -109,6 +122,22 @@ export async function upsertYoutubeChannelAction(
       cache: "no-store",
     },
     "upsertYoutubeChannelAction"
+  );
+}
+
+export async function getVideoCoOwnerInviteStatusAction(
+  draftKey: string,
+  token?: string | null
+) {
+  const q = new URLSearchParams({ draftKey });
+  return runServerFetch(
+    `${COOWNER_API}/host/video-co-owner-invites/status?${q}`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getVideoCoOwnerInviteStatusAction"
   );
 }
 

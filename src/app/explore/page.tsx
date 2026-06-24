@@ -13,6 +13,7 @@ import ExplorePageClient from "@/components/explore/explore-page-client";
 import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import Link from "next/link";
 import { Metadata } from "next";
 
 const EXPLORE_SEO_FEED_COUNT = 6;
@@ -99,11 +100,6 @@ export default async function ExplorePage() {
     url: getPublicAbsoluteUrl("/explore"),
     description:
       "Discover and tip on community clips, live events, and trending videos on Tipmanna.",
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `${getPublicAbsoluteUrl("/explore")}?q={search_term_string}`,
-      "query-input": "required name=search_term_string",
-    },
   };
 
   const exploreJsonLd = {
@@ -139,6 +135,49 @@ export default async function ExplorePage() {
             __html: JSON.stringify(feedItemListJsonLd),
           }}
         />
+      ) : null}
+      {feedSeoItems.length > 0 ? (
+        <section
+          aria-label="Featured explore videos"
+          className="mx-auto max-w-6xl px-4 py-6"
+        >
+          <h1 className="mb-4 text-xl font-semibold">
+            Tipmanna TV — Explore community media
+          </h1>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {feedSeoItems.map(item => {
+              const eventId =
+                typeof item.event?.id === "string" ? item.event.id.trim() : "";
+              const href =
+                eventId && item.id
+                  ? buildContentShareUrl({ eventId, channelId: item.id })
+                  : getPublicAbsoluteUrl("/explore");
+              const thumb = getYoutubeThumbnail(item.url);
+              return (
+                <li key={item.id}>
+                  <Link
+                    href={href}
+                    className="flex gap-3 rounded-lg border p-2 hover:bg-neutral-50"
+                  >
+                    {thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={thumb}
+                        alt=""
+                        width={120}
+                        height={68}
+                        className="h-[68px] w-[120px] shrink-0 rounded object-cover"
+                      />
+                    ) : null}
+                    <span className="line-clamp-2 text-sm font-medium">
+                      {item.title}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : null}
       <Suspense
         fallback={

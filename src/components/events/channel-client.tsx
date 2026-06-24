@@ -113,7 +113,15 @@ import { cn } from "@/lib/utils";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
-import { prefetchChannelDrawers } from "@/lib/drawer-prefetch-cache";
+import {
+  awaitCommentDrawerPrefetch,
+  awaitProfileDrawerPrefetch,
+  awaitTipsDrawerPrefetch,
+  getCachedProfileDrawerData,
+  hydrateSavedContentsFromProfileCache,
+  prefetchChannelDrawers,
+  prefetchProfileDrawerData,
+} from "@/lib/drawer-prefetch-cache";
 import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import {
@@ -340,34 +348,45 @@ export const ChannelClient = ({
   }, [currentContent?.id, showViewCount]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadProfileData = async () => {
       if (!user?.id) {
         setSavedContents([]);
         setTipperEvents([]);
         setITipped(0);
+        setCauses([]);
         return;
       }
-      const [
-        { data: _tipperEvents },
-        { data: _iTipped },
-        { data: _causes },
-        savedRes,
-      ] = await Promise.all([
-        getTippedEventsForTipper(),
-        getTotalAmountTippedByTipper(),
-        getAllCausesAction(),
-        getSavedVideosForTipper(),
-      ]);
 
-      setTipperEvents(Array.isArray(_tipperEvents) ? _tipperEvents : []);
-      setITipped(coalesceNumber(_iTipped));
-      setCauses(Array.isArray(_causes) ? _causes : []);
-      setSavedContents(
-        normalizeSavedVideosList(savedRes.success ? savedRes.data : [])
+      const cachedSaved = hydrateSavedContentsFromProfileCache();
+      if (cachedSaved.length) setSavedContents(cachedSaved);
+
+      const cached = getCachedProfileDrawerData();
+      if (cached) {
+        setTipperEvents(
+          Array.isArray(cached.tipperEvents) ? cached.tipperEvents : []
+        );
+        setITipped(typeof cached.iTipped === "number" ? cached.iTipped : 0);
+        setCauses(Array.isArray(cached.causes) ? cached.causes : []);
+        if (Array.isArray(cached.savedContents)) {
+          setSavedContents(cached.savedContents);
+        }
+        return;
+      }
+
+      await prefetchProfileDrawerData();
+      const fresh = getCachedProfileDrawerData();
+      if (!fresh) return;
+      setTipperEvents(
+        Array.isArray(fresh.tipperEvents) ? fresh.tipperEvents : []
       );
+      setITipped(typeof fresh.iTipped === "number" ? fresh.iTipped : 0);
+      setCauses(Array.isArray(fresh.causes) ? fresh.causes : []);
+      if (Array.isArray(fresh.savedContents)) {
+        setSavedContents(fresh.savedContents);
+      }
     };
 
-    void fetchData();
+    void loadProfileData();
   }, [user?.id]);
 
   const [currentTime, setCurrentTime] = useState(0);
@@ -533,6 +552,10 @@ export const ChannelClient = ({
   }, [eventId, currentContent?.id, isPlaying]);
 
   const [isMuted, setIsMuted] = useState(true);
+
+  useEffect(() => {
+    setIsMuted(true);
+  }, [currentContent?.id]);
   const [, setAudioUnlocked] = useState(false);
   const [openPlaylist, setOpenPlaylist] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
@@ -1239,6 +1262,11 @@ export const ChannelClient = ({
             <button
               type="button"
               className="cursor-pointer rounded bg-black/50 p-1"
+              onPointerDown={() => {
+                if (eventId && paymentChannelIdForTip) {
+                  void awaitCommentDrawerPrefetch(eventId, paymentChannelIdForTip);
+                }
+              }}
               onClick={() => setShowCommentDrawer(true)}
             >
               <MessageCircleMore className="size-5 text-white" />
@@ -1291,6 +1319,15 @@ export const ChannelClient = ({
               type="button"
               title="View tips"
               className="absolute -top-6 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
+              onPointerDown={() => {
+                if (eventId && currentContent?.id) {
+                  void awaitTipsDrawerPrefetch(
+                    eventId,
+                    String(currentContent.id),
+                    "event"
+                  );
+                }
+              }}
               onClick={() => setTipsListOpen(true)}
             >
               {liveNumOfTips} tips
@@ -1438,6 +1475,9 @@ export const ChannelClient = ({
               <button
                 type="button"
                 className="hidden cursor-pointer sm:inline-block"
+                onPointerDown={() => {
+                  void awaitProfileDrawerPrefetch();
+                }}
                 onClick={() => {
                   setIsCreatePopupOpen(false);
                   setIsProfileDrawerOpen(true);
@@ -1566,6 +1606,9 @@ export const ChannelClient = ({
           <button
             type="button"
             className="mt-[5px] flex cursor-pointer flex-col items-center"
+            onPointerDown={() => {
+              void awaitProfileDrawerPrefetch();
+            }}
             onClick={() => {
               setIsCreatePopupOpen(false);
               setIsProfileDrawerOpen(true);

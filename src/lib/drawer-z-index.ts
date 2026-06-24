@@ -19,4 +19,7 @@ export const EXPLORE_MODAL_Z_INDEX = "z-[100020]";
  * Keep above EXPLORE_MODAL (100020) and AUTH_MODAL (99999), below SIGN_IN_EXPLORE (100022).
  */
 export const MODAL_DROPDOWN_Z_INDEX = "z-[100021]";
+/** PWA install prompt — above immersive video chrome, below tip drawer. */
+export const PWA_INSTALL_SHEET_OVERLAY_Z_INDEX = "z-[100023]";
+export const PWA_INSTALL_SHEET_Z_INDEX = "z-[100024]";
 export const OVERLAY_Z_INDEX = "z-[1000000]";

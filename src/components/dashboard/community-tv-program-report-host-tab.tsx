@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { ChevronDown, FileDown, Loader2 } from "lucide-react";
+import { ChevronDown, FileDown, Loader2, Mail } from "lucide-react";
 import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { RootState } from "@/redux/store";
 import {
   Collapsible,
@@ -41,6 +42,7 @@ type VideoRow = {
     shareClick: number;
     save: number;
     videoComplete: number;
+    videoEncounter: number;
     totalInteractions: number;
     messages: { sender: string; text: string; createdAt: string }[];
   } | null;
@@ -54,6 +56,15 @@ function fmtRange(start: string | null, end: string | null) {
     return `${start} – ${end}`;
   }
 }
+
+type ProgramTotals = {
+  tipCount: number;
+  tipAmountGbp: number;
+  totalInteractions: number;
+  messageCount: number;
+  videoEncounter: number;
+  purchasedCommentLineCount: number;
+};
 
 function ProgramDetail({
   communityId,
@@ -71,8 +82,12 @@ function ProgramDetail({
     title: string;
     videos: VideoRow[];
     applicationId: string | null;
+    programTotals: ProgramTotals | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
 
   const base = apiBase.replace(/\/$/, "");
   const prefix = `${base}/communities/${encodeURIComponent(communityId)}/tv/program-report`;
@@ -94,6 +109,7 @@ function ProgramDetail({
         title: data.title,
         videos: data.videos ?? [],
         applicationId: data.applicationId ?? null,
+        programTotals: data.programTotals ?? null,
       });
     } catch {
       toast.error("Could not load program detail");
@@ -135,6 +151,69 @@ function ProgramDetail({
     }
   };
 
+  const exportCombined = async () => {
+    const token = authToken;
+    if (!token) {
+      toast.error("Sign in required");
+      return;
+    }
+    const q =
+      detail?.applicationId != null && detail.applicationId !== ""
+        ? `?applicationId=${encodeURIComponent(detail.applicationId)}`
+        : applicationId != null && applicationId !== ""
+          ? `?applicationId=${encodeURIComponent(applicationId)}`
+          : "";
+    try {
+      const res = await fetch(`${prefix}/${programId}/export${q}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `community-program-combined.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Combined report downloaded");
+    } catch {
+      toast.error("Export failed");
+    }
+  };
+
+  const emailReport = async () => {
+    const token = authToken;
+    if (!token || !emailTo.trim()) {
+      toast.error("Enter recipient email");
+      return;
+    }
+    const q =
+      detail?.applicationId != null && detail.applicationId !== ""
+        ? `?applicationId=${encodeURIComponent(detail.applicationId)}`
+        : applicationId != null && applicationId !== ""
+          ? `?applicationId=${encodeURIComponent(applicationId)}`
+          : "";
+    setEmailSending(true);
+    try {
+      const res = await fetch(`${prefix}/${programId}/email${q}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ to: emailTo.trim() }),
+      });
+      if (!res.ok) throw new Error("Email failed");
+      toast.success("Report emailed");
+      setEmailOpen(false);
+      setEmailTo("");
+    } catch {
+      toast.error("Email failed");
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <p className="text-muted-foreground flex items-center gap-2 py-4 text-sm">
@@ -144,8 +223,55 @@ function ProgramDetail({
   }
   if (!detail) return null;
 
+  const totals = detail.programTotals;
+
   return (
-    <div className="mt-2 overflow-x-auto rounded-md border text-sm">
+    <div className="mt-2 space-y-2">
+      {totals ? (
+        <p className="text-muted-foreground text-xs">
+          Program totals: {totals.tipCount} tips (£
+          {totals.tipAmountGbp.toFixed(2)}), {totals.messageCount} msgs,{" "}
+          {totals.videoEncounter} encounters, {totals.totalInteractions}{" "}
+          interactions
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void exportCombined()}
+        >
+          <FileDown className="mr-1 h-4 w-4" />
+          Export program CSV
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setEmailOpen(v => !v)}
+        >
+          <Mail className="mr-1 h-4 w-4" />
+          Email report
+        </Button>
+        {emailOpen ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="email"
+              className="h-8 w-52"
+              placeholder="recipient@email.com"
+              value={emailTo}
+              onChange={e => setEmailTo(e.target.value)}
+            />
+            <Button
+              size="sm"
+              disabled={emailSending}
+              onClick={() => void emailReport()}
+            >
+              Send
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      <div className="overflow-x-auto rounded-md border text-sm">
       <table className="w-full">
         <thead>
           <tr className="bg-muted/50 border-b">
@@ -153,6 +279,7 @@ function ProgramDetail({
             <th className="p-2 text-left">Video</th>
             <th className="p-2 text-left">Air window</th>
             <th className="p-2 text-right">Tips</th>
+            <th className="p-2 text-right">Encounter</th>
             <th className="p-2 text-right">Interact</th>
             <th />
           </tr>
@@ -177,6 +304,9 @@ function ProgramDetail({
                 {v.metrics?.tipAmountGbp?.toFixed(2) ?? "0"})
               </td>
               <td className="p-2 text-right">
+                {v.metrics?.videoEncounter ?? 0}
+              </td>
+              <td className="p-2 text-right">
                 {v.metrics?.totalInteractions ?? 0}
               </td>
               <td className="p-2">
@@ -196,6 +326,7 @@ function ProgramDetail({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -248,8 +379,9 @@ export function CommunityTvProgramReportHostTab({
   return (
     <div className="space-y-4">
       <p className="text-muted-foreground text-sm">
-        Metrics for PROGRAM enforcements on your community TV
-        (community_tv_looper surface).
+        Metrics for PROGRAM enforcements on your community TV (
+        <code>community_tv_looper</code> surface only — pre/post notice slates
+        excluded).
       </p>
       {rows.length === 0 ? (
         <p className="text-sm">No program enforcements yet.</p>

@@ -48,7 +48,7 @@ export const metadata = {
     "Tipmanna is a platform for tippers to tip their favorite hosts.",
   icons: {
     icon: "/favicon.ico",
-    apple: "/icons/icon-192.png",
+    apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -114,6 +114,20 @@ export default function RootLayout({
         <meta
           name="apple-mobile-web-app-title"
           content="Tipmanna"
+        />
+        <link
+          rel="apple-touch-icon"
+          href="/apple-touch-icon.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href="/apple-touch-icon.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="192x192"
+          href="/icons/icon-192.png"
         />
         <link
           rel="apple-touch-startup-image"

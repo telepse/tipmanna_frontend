@@ -6,6 +6,7 @@ import {
   getLiveStreamContents,
   getMostTippedContents,
   getSpotlightContents,
+  getRecommendedContents,
 } from "@/actions/contents";
 import { getAllTopTippers } from "@/actions/events";
 import { getDiscoveryAbsoluteUrl } from "@/lib/site-config";
@@ -18,10 +19,11 @@ export const metadata: Metadata = {
 };
 
 export default async function DiscoverPage() {
-  const [feat, lat, spot, most, liveRes, progRes, tipRes] = await Promise.all([
+  const [feat, lat, spot, rec, most, liveRes, progRes, tipRes] = await Promise.all([
     getAllFeaturedContentsAction(),
     getLatestContents(),
     getSpotlightContents(),
+    getRecommendedContents(),
     getMostTippedContents(),
     getLiveStreamContents(),
     getDiscoveryProgramsAction(),
@@ -76,6 +78,9 @@ export default async function DiscoverPage() {
         }
         initialSpotlight={
           spot.success && Array.isArray(spot.data) ? (spot.data as never[]) : []
+        }
+        initialRecommended={
+          rec.success && Array.isArray(rec.data) ? (rec.data as never[]) : []
         }
         initialMostTipped={
           most.success && Array.isArray(most.data) ? (most.data as never[]) : []

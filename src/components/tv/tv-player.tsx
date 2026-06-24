@@ -14,7 +14,7 @@ import YouTube from "react-youtube";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
-import { getYoutubePlayerVarsChromeless } from "@/lib/youtubePlayerConfig";
+import { getYoutubePlayerVarsChromeless, YOUTUBE_NO_COOKIE_HOST } from "@/lib/youtubePlayerConfig";
 import {
   clearYoutubeIframePresentation,
   styleYoutubeIframePresentation,
@@ -36,6 +36,7 @@ export interface TvPlayerRef {
   mute: () => void;
   unmute: () => void;
   isMuted: () => boolean;
+  syncMuteFromPlayer: () => void;
   setVolume: (volume: number) => void;
   getCurrentTime: () => number;
   getDuration: () => number;
@@ -173,6 +174,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
           onMuteChange?.(false);
         },
         isMuted: () => !!playerRef.current?.isMuted(),
+        syncMuteFromPlayer: () => syncMuteFromPlayer(),
 
         setVolume: (vol: number) => playerRef.current?.setVolume(vol),
         getCurrentTime: () => playerRef.current?.getCurrentTime() ?? 0,
@@ -207,6 +209,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
 
     const youtubeOpts = useMemo(
       () => ({
+        host: YOUTUBE_NO_COOKIE_HOST,
         width: "100%",
         height:
           cover || containFill ? "100%" : miniPlayerActive ? "100%" : "375px",
@@ -262,6 +265,12 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               beginProgrammaticPlayback();
               tvTrace("playback", "player_load_pending", { videoId: vid, start });
               event.target.loadVideoById(vid, start);
+              if (event.target.isMuted()) {
+                tracePlayVideoResult(
+                  "TvPlayer.onReady.pending_muted_play",
+                  event.target.playVideo()
+                );
+              }
             } else if (autoplay && !externallyControlled) {
               tracePlayVideoResult(
                 "TvPlayer.onReady.autoplay",
