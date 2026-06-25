@@ -18,6 +18,7 @@ export default function robots(): MetadataRoute.Robots {
     ],
     sitemap: [
       `${tvOrigin}/sitemap.xml`,
+      `${tvOrigin}/video-sitemap.xml`,
       `${discoveryOrigin}/sitemap.xml`,
       getDiscoveryAbsoluteUrl("/sitemap.xml"),
     ],

@@ -3,6 +3,7 @@
 
 import { DiscoverPanel } from "@/components/tv/discover-panel";
 import Link from "next/link";
+import { getPublicAbsoluteUrl } from "@/lib/site-config";
 
 type LiveStreams = {
   upcoming: any[];
@@ -36,22 +37,28 @@ export function DiscoverPageClient({
       id="main-content"
       className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col"
     >
-      <header className="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <h1 className="text-lg font-semibold">Discover Tipmanna</h1>
-          <p className="text-muted-foreground text-xs">
-            Browse programs, live streams, and community content.
-          </p>
+      <header className="border-b px-4 py-5 sm:px-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold sm:text-2xl">
+              Discover creators, programs &amp; live streams
+            </h1>
+            <p className="text-muted-foreground max-w-2xl text-sm">
+              Browse curated rails, search by category, and jump into creator
+              event rooms — then continue watching on Tipmanna TV.
+            </p>
+          </div>
+          <Link
+            href={getPublicAbsoluteUrl("/explore")}
+            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white"
+          >
+            Watch on Tipmanna TV
+          </Link>
         </div>
-        <Link
-          href="/explore"
-          className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white"
-        >
-          Open Tipmanna TV
-        </Link>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
         <DiscoverPanel
+          surface="discovery"
           contents={initialContents}
           latestContents={initialLatest}
           spotlightContents={initialSpotlight}
@@ -61,6 +68,7 @@ export function DiscoverPageClient({
           liveStreams={initialLiveStreams}
           tippers={initialTippers}
           catalogLoading={false}
+          className="space-y-6"
         />
       </div>
     </main>

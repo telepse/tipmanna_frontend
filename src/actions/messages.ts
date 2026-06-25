@@ -95,6 +95,7 @@ export type CommentDrawerData = {
     videoTipCount: number;
     eventRoomTipCount: number;
     viewCount: number;
+    encounterCount?: number;
   };
   comments: Array<{
     id: string;

@@ -395,10 +395,20 @@ export const TvLooper = ({
         r.success &&
         r.data &&
         typeof r.data === "object" &&
+        "views" in r.data
+      ) {
+        const views = (r.data as { views?: number }).views;
+        setChannelViewCount(typeof views === "number" ? views : null);
+      } else if (
+        r.success &&
+        r.data &&
+        typeof r.data === "object" &&
         "encounters" in r.data
       ) {
-        const encounters = (r.data as { encounters?: number }).encounters;
-        setChannelViewCount(typeof encounters === "number" ? encounters : null);
+        const data = r.data as { views?: number; encounters?: number };
+        const views =
+          typeof data.views === "number" ? data.views : data.encounters;
+        setChannelViewCount(typeof views === "number" ? views : null);
       } else {
         setChannelViewCount(null);
       }

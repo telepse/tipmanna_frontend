@@ -68,6 +68,17 @@ import {
 } from "@/actions/community-activation-requests";
 import { normalizeEmail } from "@/lib/normalize-email";
 import { parseHostEventsEligibleForCommunity } from "@/lib/parse-host-events";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
+
+function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative">
+      <div className="pointer-events-none opacity-60 select-none">{children}</div>
+      <div className="bg-background/40 absolute inset-0 z-10" aria-hidden />
+    </div>
+  );
+}
 
 type CommunityBrief = {
   id: string;
@@ -417,6 +428,14 @@ export function HostCommunityClient() {
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
+  const {
+    status: planStatus,
+    capabilities: planCapabilities,
+    info: planInfo,
+    isLoading: planLoading,
+  } = useHostPlanCapabilities();
+  const communityActive =
+    planInfo?.tier === "HOST_COMMUNITY" && planStatus === "active";
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState("bank");
@@ -1023,6 +1042,45 @@ export function HostCommunityClient() {
     );
   }
 
+  if (planLoading) {
+    return <p className="text-muted-foreground text-sm">Loading plan…</p>;
+  }
+
+  const readOnlyCommunity =
+    planStatus === "lapsed" &&
+    !communityActive &&
+    planCapabilities.viewPremiumFeatureUi;
+
+  if (!communityActive && planStatus === "none") {
+    return (
+      <section className="space-y-6">
+        <DashboardHeading
+          title="Host Community"
+          subtitle="Subscribe to manage communities, content bank, TV, sends, and subscription payouts."
+        />
+        <HostSubscriptionPricingPanel
+          focusTier="community"
+          renewLabel="Renew Community"
+        />
+      </section>
+    );
+  }
+
+  if (!communityActive && !readOnlyCommunity) {
+    return (
+      <section className="space-y-6">
+        <DashboardHeading
+          title="Host Community"
+          subtitle="Subscribe to manage communities, content bank, TV, sends, and subscription payouts."
+        />
+        <HostSubscriptionPricingPanel
+          focusTier="community"
+          renewLabel="Renew Community"
+        />
+      </section>
+    );
+  }
+
   if (loadingMeta) {
     return <p className="text-muted-foreground text-sm">Loading…</p>;
   }
@@ -1034,7 +1092,7 @@ export function HostCommunityClient() {
   const tvUnpaused =
     Boolean(selected?.tvActivatedAt) && !selected?.tvHostPaused;
 
-  return (
+  const communityBody = (
     <>
       {memberships.length === 0 ? (
         <>
@@ -1895,4 +1953,26 @@ export function HostCommunityClient() {
       ) : null}
     </>
   );
+
+  if (readOnlyCommunity) {
+    return (
+      <section className="space-y-6">
+        <DashboardHeading
+          title="Host Community"
+          subtitle="Renew to manage communities, content bank, TV, sends, and subscription payouts."
+        />
+        <HostSubscriptionPricingPanel
+          focusTier="community"
+          renewLabel="Renew Community"
+        />
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          Your community plan has expired. The management UI below is read-only
+          until you renew. Premium features remain included with Community.
+        </p>
+        <ReadOnlyOverlay>{communityBody}</ReadOnlyOverlay>
+      </section>
+    );
+  }
+
+  return communityBody;
 }

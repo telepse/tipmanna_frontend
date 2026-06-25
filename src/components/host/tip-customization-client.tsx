@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RootState } from "@/redux/store";
 import type { TipConfigPayload } from "@/lib/tip-config-types";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
 
 const api = () =>
   (process.env.NEXT_PUBLIC_BACKEND_API_URL || "").replace(/\/$/, "");
@@ -26,6 +28,7 @@ export default function TipCustomizationClient({
   const userId = useSelector((s: RootState) => s.auth.user?.id);
   const authToken = useSelector((s: RootState) => s.auth.token);
   const token = authToken;
+  const { capabilities, isLoading: planLoading } = useHostPlanCapabilities();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -219,11 +222,24 @@ export default function TipCustomizationClient({
     });
   };
 
-  if (loading) {
+  if (loading || planLoading) {
     return (
       <p className="text-muted-foreground text-sm">
         Loading tip customization…
       </p>
+    );
+  }
+
+  if (!capabilities.accessTipLayout) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 py-6">
+        <h1 className="text-2xl font-semibold">Tip layout</h1>
+        <p className="text-muted-foreground text-sm">
+          Active Host Premium or Community subscription required to customize
+          tip layout for this event.
+        </p>
+        <HostSubscriptionPricingPanel focusTier="premium" />
+      </div>
     );
   }
 

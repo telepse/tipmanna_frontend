@@ -2,6 +2,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
+import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import { serverAuthHeaders } from "@/lib/server-auth";
 
 // -------- Get latest contents -------- //
@@ -16,7 +17,8 @@ export async function getLatestContents() {
       cache: "force-cache",
       next: { revalidate: 30 },
     },
-    "getLatestContents"
+    "getLatestContents",
+    raw => normalizeListPayload(raw)
   );
 }
 
@@ -101,7 +103,8 @@ export async function getAllFeaturedContentsAction() {
       cache: "force-cache",
       next: { revalidate: 30 },
     },
-    "getAllFeaturedContentsAction"
+    "getAllFeaturedContentsAction",
+    raw => normalizeListPayload(raw)
   );
 }
 
@@ -144,19 +147,29 @@ export async function getLiveStreamContents() {
   );
 }
 
-export async function searchContentsAction(q: string, limit = 30) {
+export async function searchContentsAction(
+  q: string,
+  limit = 30,
+  eventType?: string | null
+) {
   const query = q.trim();
-  if (!query) {
+  const type = eventType?.trim() ?? "";
+  if (!query && !type) {
     return { success: true, data: [] as unknown[] };
   }
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  params.set("limit", String(limit));
+  if (type) params.set("eventType", type);
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/search?${params.toString()}`,
     {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
     },
-    "searchContentsAction"
+    "searchContentsAction",
+    raw => normalizeListPayload(raw)
   );
 }
 
@@ -288,6 +301,7 @@ export async function postExploreFeedBatchAction(
 }
 
 export type ExploreChannelMetrics = {
+  views: number;
   encounters: number;
   completes: number;
   saves: number;

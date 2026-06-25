@@ -2,36 +2,37 @@ import type { Metadata } from "next";
 
 import { getPublicFrontendOrigin } from "@/lib/site-config";
 
+const title = "Watch & tip live — Tipmanna TV";
 const description =
-  "Discover creators, communities, and live TV experiences where audiences participate, support, and engage together in realtime.";
+  "Tipmanna TV is the flagship feed for community clips, live events, and realtime tipping.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getPublicFrontendOrigin()),
-  title: "Tipmanna TV — Community-powered realtime media",
+  title,
   description,
   alternates: {
     canonical: "/explore",
   },
   openGraph: {
-    title: "Tipmanna TV — Community-powered realtime media",
+    title,
     description,
     url: "/explore",
     type: "website",
-    siteName: "Tipmanna",
+    siteName: "Tipmanna TV",
     images: [
       {
-        url: "/icons/icon-512.png",
-        width: 512,
-        height: 512,
-        alt: "Tipmanna",
+        url: "/og/explore.svg",
+        width: 1200,
+        height: 630,
+        alt: "Watch and tip live on Tipmanna TV",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Tipmanna TV — Community-powered realtime media",
+    title,
     description,
-    images: ["/icons/icon-512.png"],
+    images: ["/og/explore.svg"],
   },
 };
 

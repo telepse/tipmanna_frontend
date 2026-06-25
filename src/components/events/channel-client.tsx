@@ -275,8 +275,13 @@ export const ChannelClient = ({
     currentContent?.event?.showViewCountOnVideos ??
     playlist[0]?.event?.showViewCountOnVideos ??
     initialEvent?.showViewCountOnVideos;
+  const showEncounterOnVideos =
+    currentContent?.event?.showEncounterOnVideos ??
+    playlist[0]?.event?.showEncounterOnVideos ??
+    initialEvent?.showEncounterOnVideos;
   const showRaisedAmount = showAmountRaisedOnVideos !== false;
   const showViewCount = showViewCountOnVideos === true;
+  const showEncounterCount = showEncounterOnVideos === true;
 
   const { amountRaised: liveAmountRaised, numOfTips: liveNumOfTips } =
     useEventRoomRealtime({
@@ -331,6 +336,14 @@ export const ChannelClient = ({
       const r = await getExploreChannelMetricsAction(channelId);
       if (cancelled) return;
       if (
+        r.success &&
+        r.data &&
+        typeof r.data === "object" &&
+        "views" in r.data
+      ) {
+        const views = (r.data as { views?: number }).views;
+        setChannelViewCount(typeof views === "number" ? views : null);
+      } else if (
         r.success &&
         r.data &&
         typeof r.data === "object" &&
@@ -1293,6 +1306,8 @@ export const ChannelClient = ({
               }
               numOfTips={liveNumOfTips}
               amountRaised={showRaisedAmount ? Number(liveAmountRaised) : null}
+              showViewCount={showViewCount}
+              showEncounterCount={showEncounterCount}
               tippingCharacters={tipPriceCatalog}
               onContinueToTip={() => setIsTipDrawerOpen(true)}
               hostName={currentContent?.event?.hostName}

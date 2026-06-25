@@ -23,6 +23,8 @@ import {
   Bell,
   Handshake,
   Sparkles,
+  Wallet,
+  Banknote,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,6 +46,7 @@ import { Logo } from "@/components/shared/logo";
 import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel";
 import { getNotificationsUnreadCountAction } from "@/actions/notifications";
 import { cn } from "@/lib/utils";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 
 interface Props {
   numOfEvents: number;
@@ -55,6 +58,7 @@ export function AppSidebar({ numOfEvents }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [notifUnread, setNotifUnread] = useState(0);
+  const { hasActivePremium } = useHostPlanCapabilities();
 
   const role = user?.role;
   const hostSubscriptionTier =
@@ -151,25 +155,39 @@ export function AppSidebar({ numOfEvents }: Props) {
       icon: Sparkles,
       // freezed: isFreezed,
       plan: videoRequestsUiOn,
+      premiumHint: true,
     },
     {
       title: "Host Premium",
       url: `/host/${eventSlug}/host-premium`,
       icon: Crown,
-      // freezed: isFreezed,
-      plan: hasPremiumPlan || hasCommunityPlan,
+      disabled: false,
+      premiumHint: true,
     },
     {
       title: "Host Community",
       url: `/host/${eventSlug}/host-community`,
       icon: Users,
-      // freezed: isFreezed,
-      plan: hasCommunityPlan && communityFeatureOn,
+      disabled: false,
+      premiumHint: true,
     },
     {
       title: "Community Sends",
       url: `/host/${eventSlug}/community-sends`,
       icon: Send,
+      // freezed: isFreezed,
+      plan: hasCommunityPlan && communityFeatureOn,
+    },
+    {
+      title: "Revenue & Payouts",
+      url: `/host/${eventSlug}/revenue`,
+      icon: Banknote,
+      disabled: false,
+    },
+    {
+      title: "Community payouts",
+      url: `/host/${eventSlug}/community-payouts`,
+      icon: Wallet,
       // freezed: isFreezed,
       plan: hasCommunityPlan && communityFeatureOn,
     },
@@ -204,6 +222,7 @@ export function AppSidebar({ numOfEvents }: Props) {
       icon: Handshake,
       // freezed: isFreezed,
       plan: showCoOwnerNav,
+      premiumHint: true,
     },
   ];
 
@@ -235,6 +254,16 @@ export function AppSidebar({ numOfEvents }: Props) {
                     >
                       <item.icon />
                       <span className="flex-1">{item.title}</span>
+                      {"premiumHint" in item &&
+                      item.premiumHint &&
+                      !hasActivePremium &&
+                      !item.freezed &&
+                      item.plan !== false ? (
+                        <Crown
+                          className="text-amber-600 size-3.5 shrink-0"
+                          aria-label="Premium feature"
+                        />
+                      ) : null}
                       {item.title === "Notifications" &&
                       notifUnread > 0 &&
                       !item.freezed &&

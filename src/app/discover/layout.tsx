@@ -1,22 +1,26 @@
 import type { Metadata } from "next";
-import { getDiscoveryFrontendOrigin } from "@/lib/site-config";
+import {
+  getDiscoveryFrontendOrigin,
+  getPublicAbsoluteUrl,
+} from "@/lib/site-config";
 
+const title = "Discover creators, programs & live streams";
 const description =
-  "Search and discover community clips, live streams, programs, and trending videos on Tipmanna.";
+  "Search Tipmanna for community clips, scheduled TV programs, live streams, and trending creator content.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getDiscoveryFrontendOrigin()),
-  title: "Discover — Tipmanna",
+  title,
   description,
   alternates: {
-    canonical: "/discover",
+    canonical: getPublicAbsoluteUrl("/explore"),
   },
   openGraph: {
-    title: "Discover — Tipmanna",
+    title,
     description,
     url: "/discover",
     type: "website",
-    siteName: "Tipmanna",
+    siteName: "Tipmanna Discover",
     images: [
       {
         url: "/og/discover.svg",
@@ -28,7 +32,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Discover — Tipmanna",
+    title,
     description,
     images: ["/og/discover.svg"],
   },

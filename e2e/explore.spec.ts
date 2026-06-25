@@ -1,6 +1,20 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("explore", () => {
+  test("loads feed first on default explore URL", async ({ page }) => {
+    await page.goto("/explore");
+    await expect(page.locator("body")).toBeVisible();
+
+    const scroll = page.getByTestId("explore-feed-scroll");
+    const emptyCopy = page.getByText(/no clips available|sign in to browse/i);
+    const discoverHeading = page.getByRole("heading", {
+      name: "Discover contents",
+    });
+
+    await expect(scroll.or(emptyCopy).first()).toBeVisible({ timeout: 30_000 });
+    await expect(discoverHeading).not.toBeVisible();
+  });
+
   test("feed scrolls and shows video shell or empty state", async ({
     page,
   }) => {

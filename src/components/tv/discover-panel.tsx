@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
-import { Bookmark, ChevronRight, Radio, Sparkles, Tv, UsersRound } from "lucide-react";
+import { Bookmark, ChevronRight, CircleHelp, Radio, Sparkles, Tv, UsersRound } from "lucide-react";
 
 // Local imports
 import { ThumbnailPlayer } from "./thumbnail-player";
@@ -20,12 +20,32 @@ import { useMediaQuery } from "react-responsive";
 import Link from "next/link";
 import { searchContentsAction } from "@/actions/contents";
 import { ContentCardSkeleton } from "./tv-loading-skeletons";
+import {
+  DISCOVER_RAIL_SUBTITLES,
+  DISCOVER_RAIL_UPDATE_HINTS,
+  EXPLORE_EVENT_TYPE_OPTIONS,
+  eventTypeLabel,
+  type DiscoverRailKey,
+} from "@/lib/event-type-options";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  isLiveStreamContent,
+  resolveDiscoverContentTarget,
+} from "@/lib/discover-content-routing";
+
+const CONTENT_CARD_MIN = "min-w-[220px] sm:min-w-[270px] flex-shrink-0";
+const PROGRAM_CARD_MIN = "min-w-[160px] sm:min-w-[220px] flex-shrink-0";
 
 interface Content {
   event: any;
   id: string;
   title: string;
   url: string;
+  liveStatus?: string | null;
 }
 
 export interface DiscoverPanelProps {
@@ -61,21 +81,48 @@ export interface DiscoverPanelProps {
   onPlayInExplore?: (target: ExploreFeedOpenTarget) => void;
   /** Inline Discover preview for this content id is hidden while Explore plays it from Discover. */
   suppressInlinePlaybackContentId?: string | null;
+  /**
+   * Routing surface:
+   * - `discovery` (.com): live → `/channel/:eventId`; clips → `/content/:eventId`
+   * - `exploreTab` (.tv sheet/tab): live → `/channel/:eventId` (never reel); clips → reel when `onPlayInExplore` is set
+   */
+  surface?: "discovery" | "exploreTab";
 }
 
-const EVENT_TYPES = [
-  "Christian",
-  "Comedy",
-  "Concert",
-  "Drama",
-  "Fashion",
-  "Festival",
-  "Food",
-  "Game",
-  "Hangout",
-  "Islamic",
-  "Other",
-];
+function DiscoverRailHeading({
+  title,
+  railKey,
+}: {
+  title: string;
+  railKey: DiscoverRailKey;
+}) {
+  const subtitle = DISCOVER_RAIL_SUBTITLES[railKey];
+  const updateHint = DISCOVER_RAIL_UPDATE_HINTS[railKey];
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        <h5 className="font-semibold">{title}</h5>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground inline-flex shrink-0 rounded-full p-0.5 sm:hidden"
+              aria-label={`How ${title} updates`}
+            >
+              <CircleHelp className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[220px]">
+            {subtitle}. {updateHint}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      <p className="text-muted-foreground text-xs">{subtitle}</p>
+    </div>
+  );
+}
+
+export { isLiveStreamContent } from "@/lib/discover-content-routing";
 
 export function DiscoverPanel({
   contents,
@@ -92,6 +139,7 @@ export function DiscoverPanel({
   showHeading = true,
   onPlayInExplore,
   suppressInlinePlaybackContentId = null,
+  surface = "exploreTab",
 }: DiscoverPanelProps) {
   const form = useForm<{
     searchTerm: string;
@@ -106,7 +154,15 @@ export function DiscoverPanel({
   const searchTerm = form.watch("searchTerm");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Content[]>([]);
+  const [tagResults, setTagResults] = useState<Content[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [tagLoading, setTagLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      setSelectedTag(null);
+    }
+  }, [searchTerm]);
 
   useEffect(() => {
     const q = searchTerm.trim();
@@ -127,6 +183,21 @@ export function DiscoverPanel({
     return () => window.clearTimeout(t);
   }, [searchTerm]);
 
+  useEffect(() => {
+    if (!selectedTag) {
+      setTagResults([]);
+      setTagLoading(false);
+      return;
+    }
+    setTagLoading(true);
+    void searchContentsAction("", 30, selectedTag).then(res => {
+      setTagResults(
+        res.success && Array.isArray(res.data) ? (res.data as Content[]) : []
+      );
+      setTagLoading(false);
+    });
+  }, [selectedTag]);
+
   const { push, prefetch } = useAppRouter();
 
   const goToChannel = useCallback(
@@ -138,9 +209,29 @@ export function DiscoverPanel({
     [push, prefetch]
   );
 
+  const openLiveStreamContent = useCallback(
+    (content: Content) => {
+      const eventId = content.event?.id;
+      if (!eventId) return;
+      const href = `/channel/${eventId}`;
+      prefetch(href);
+      push(href);
+    },
+    [push, prefetch]
+  );
+
   const openDiscoverContent = useCallback(
     (content: Content) => {
-      if (onPlayInExplore) {
+      const target = resolveDiscoverContentTarget(
+        content,
+        surface,
+        Boolean(onPlayInExplore)
+      );
+      if (target === "channel") {
+        openLiveStreamContent(content);
+        return;
+      }
+      if (target === "explore-reel" && onPlayInExplore) {
         onPlayInExplore({
           videoId: content.id,
           eventId: content.event.id,
@@ -150,7 +241,14 @@ export function DiscoverPanel({
       }
       goToChannel(content.event.id);
     },
-    [onPlayInExplore, goToChannel]
+    [surface, onPlayInExplore, goToChannel, openLiveStreamContent]
+  );
+
+  const resolveContentClick = useCallback(
+    (content: Content) => {
+      openDiscoverContent(content);
+    },
+    [openDiscoverContent]
   );
 
   const filteredContents = useMemo(() => {
@@ -160,16 +258,9 @@ export function DiscoverPanel({
     );
   }, [contents, searchResults, searchTerm]);
 
-  const tagFilteredContents = useMemo(
-    () =>
-      selectedTag
-        ? contents.filter(
-            content =>
-              content.event.eventType?.toLowerCase() ===
-              selectedTag.toLowerCase()
-          )
-        : [],
-    [contents, selectedTag]
+  const selectedTagLabel = useMemo(
+    () => eventTypeLabel(selectedTag),
+    [selectedTag]
   );
 
   const topContentsRef = useRef<HTMLDivElement>(null);
@@ -198,10 +289,29 @@ export function DiscoverPanel({
     [liveStreams]
   );
 
-  const renderContentCard = (content: Content, minWidth = "min-w-[270px]") => (
+  const renderLiveRoomCue = (content: Content) => {
+    if (!isLiveStreamContent(content)) return null;
+    const status = content.liveStatus;
+    const copy =
+      status === "LIVE"
+        ? "Live room · Opens in creator's event room"
+        : status === "UPCOMING"
+          ? "Starting soon · Opens in creator's event room"
+          : status === "ENDED"
+            ? "Recently ended · Opens in creator's event room"
+            : DISCOVER_RAIL_SUBTITLES.live;
+    return (
+      <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-[10px]">
+        <Radio className="size-3" aria-hidden />
+        {copy}
+      </span>
+    );
+  };
+
+  const renderContentCard = (content: Content, minWidth = CONTENT_CARD_MIN) => (
     <div
       key={content.id}
-      onClick={() => openDiscoverContent(content)}
+      onClick={() => resolveContentClick(content)}
       className={cn(
         "relative flex cursor-pointer gap-1 border-2 bg-black/10",
         minWidth
@@ -216,6 +326,7 @@ export function DiscoverPanel({
         />
         <div className="p-1">
           <h5 className="text-sm">{content.title}</h5>
+          {renderLiveRoomCue(content)}
           <div className="text-muted-foreground flex items-center gap-4 text-sm">
             <span className="flex items-center gap-1">
               <UsersRound className="size-4" />
@@ -234,7 +345,7 @@ export function DiscoverPanel({
   const carouselSkeleton = (
     <div className="flex gap-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <ContentCardSkeleton key={i} className="min-w-[270px]" />
+        <ContentCardSkeleton key={i} className={CONTENT_CARD_MIN} />
       ))}
     </div>
   );
@@ -299,21 +410,44 @@ export function DiscoverPanel({
       {/* CONTENT TAGS */}
       <div className="flex flex-wrap gap-1 pb-4">
         <div className="flex gap-1 overflow-x-scroll pb-4">
-          {EVENT_TYPES.map((theme, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => {
-                setSelectedTag(theme);
-                form.setValue("searchTerm", "");
-              }}
-              className={`rounded px-2 py-1 text-xs ${
-                selectedTag === theme ? "bg-black text-white" : "bg-gray-200"
-              }`}
-            >
-              {theme}
-            </button>
-          ))}
+          {EXPLORE_EVENT_TYPE_OPTIONS.map(opt => {
+            const isSelected = selectedTag === opt.value;
+            const tagClassName = cn(
+              "rounded px-2 py-1 text-xs",
+              isSelected ? "bg-black text-white" : "bg-gray-200"
+            );
+            const onTagClick = () => {
+              setSelectedTag(prev => (prev === opt.value ? null : opt.value));
+              if (!isSelected) form.setValue("searchTerm", "");
+            };
+            if (surface === "discovery") {
+              return (
+                <Link
+                  key={opt.value}
+                  href={`/discover/${opt.slug}`}
+                  className={tagClassName}
+                  onClick={e => {
+                    if (isSelected) {
+                      e.preventDefault();
+                      onTagClick();
+                    }
+                  }}
+                >
+                  {opt.label}
+                </Link>
+              );
+            }
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={onTagClick}
+                className={tagClassName}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -324,7 +458,9 @@ export function DiscoverPanel({
               Search results for &apos;{searchTerm}&apos;
             </h5>
 
-            {filteredContents.length === 0 ? (
+            {searchLoading ? (
+              <p className="text-muted-foreground text-sm">Searching…</p>
+            ) : filteredContents.length === 0 ? (
               <p className="text-muted-foreground text-sm">No results found.</p>
             ) : (
               <div className="scrollbar-none overflow-x-auto">
@@ -332,8 +468,11 @@ export function DiscoverPanel({
                   {filteredContents.map(content => (
                     <div
                       key={content.id}
-                      onClick={() => openDiscoverContent(content)}
-                      className="min-w-[270px] flex-shrink-0 cursor-pointer bg-black/10"
+                      onClick={() => resolveContentClick(content)}
+                      className={cn(
+                        "cursor-pointer bg-black/10",
+                        CONTENT_CARD_MIN
+                      )}
                     >
                       <ThumbnailPlayer
                         videoUrl={content.url}
@@ -346,6 +485,7 @@ export function DiscoverPanel({
 
                       <div className="p-1">
                         <h5 className="text-sm">{content.title}</h5>
+                        {renderLiveRoomCue(content)}
 
                         <div className="text-muted-foreground flex items-center gap-4 text-sm">
                           <span className="flex items-center gap-1">
@@ -369,19 +509,24 @@ export function DiscoverPanel({
         {selectedTag && (
           <div className="space-y-4">
             <h5 className="font-semibold">
-              Search results for &apos;{selectedTag}&apos;
+              Results for &apos;{selectedTagLabel}&apos;
             </h5>
 
-            {tagFilteredContents.length === 0 ? (
+            {tagLoading ? (
+              <p className="text-muted-foreground text-sm">Loading…</p>
+            ) : tagResults.length === 0 ? (
               <p className="text-muted-foreground text-sm">No results found.</p>
             ) : (
               <div className="scrollbar-none overflow-x-auto">
                 <div className="flex gap-4">
-                  {tagFilteredContents.map(content => (
+                  {tagResults.map(content => (
                     <div
                       key={content.id}
-                      onClick={() => openDiscoverContent(content)}
-                      className="min-w-[270px] flex-shrink-0 cursor-pointer bg-black/10"
+                      onClick={() => resolveContentClick(content)}
+                      className={cn(
+                        "cursor-pointer bg-black/10",
+                        CONTENT_CARD_MIN
+                      )}
                     >
                       <ThumbnailPlayer
                         videoUrl={content.url}
@@ -394,6 +539,7 @@ export function DiscoverPanel({
 
                       <div className="p-1">
                         <h5 className="text-sm">{content.title}</h5>
+                        {renderLiveRoomCue(content)}
 
                         <div className="text-muted-foreground flex items-center gap-4 text-sm">
                           <span className="flex items-center gap-1">
@@ -414,7 +560,7 @@ export function DiscoverPanel({
 
         {/* TOP CONTENTS */}
         <div className="space-y-4">
-          <h5 className="font-semibold">Top contents</h5>
+          <DiscoverRailHeading title="Top contents" railKey="top" />
 
           <div className="relative">
             <div
@@ -442,7 +588,7 @@ export function DiscoverPanel({
 
         {/* LATEST CONTENTS */}
         <div className="space-y-4">
-          <h5 className="font-semibold">Latest contents</h5>
+          <DiscoverRailHeading title="Latest contents" railKey="latest" />
 
           <div className="relative">
             <div
@@ -453,7 +599,7 @@ export function DiscoverPanel({
                 {catalogLoading && latestContents.length === 0
                   ? carouselSkeleton
                   : latestContents.map((content: Content) =>
-                      renderContentCard(content, "min-w-[270px] flex-shrink-0")
+                      renderContentCard(content)
                     )}
               </div>
             </div>
@@ -470,7 +616,7 @@ export function DiscoverPanel({
 
         {/* SPOTLIGHT  */}
         <div className="space-y-4">
-          <h5 className="font-semibold">Spotlight</h5>
+          <DiscoverRailHeading title="Spotlight" railKey="spotlight" />
 
           <div className="relative">
             <div
@@ -481,7 +627,7 @@ export function DiscoverPanel({
                 {catalogLoading && resolvedSpotlight.length === 0
                   ? carouselSkeleton
                   : resolvedSpotlight.map((content: Content) =>
-                      renderContentCard(content, "min-w-[270px] flex-shrink-0")
+                      renderContentCard(content)
                     )}
               </div>
             </div>
@@ -498,7 +644,7 @@ export function DiscoverPanel({
 
         {/* RECOMMENDED FOR YOU */}
         <div className="space-y-4">
-          <h5 className="font-semibold">Recommended for you</h5>
+          <DiscoverRailHeading title="Recommended for you" railKey="recommended" />
 
           <div className="relative">
             <div
@@ -509,7 +655,7 @@ export function DiscoverPanel({
                 {catalogLoading && resolvedRecommended.length === 0
                   ? carouselSkeleton
                   : resolvedRecommended.map((content: Content) =>
-                      renderContentCard(content, "min-w-[270px] flex-shrink-0")
+                      renderContentCard(content)
                     )}
               </div>
             </div>
@@ -526,7 +672,7 @@ export function DiscoverPanel({
 
         {/* PROGRAMS */}
         <div className="space-y-4">
-          <h5 className="font-semibold">Programs</h5>
+          <DiscoverRailHeading title="Programs" railKey="programs" />
           <div className="relative">
             <div
               ref={programsRef}
@@ -544,7 +690,10 @@ export function DiscoverPanel({
                     <Link
                       key={program.id}
                       href={program.landingUrl ?? `/program/${program.id}`}
-                      className="min-w-[220px] flex-shrink-0 rounded-md border bg-black/10 p-2"
+                      className={cn(
+                        "rounded-md border bg-black/10 p-2",
+                        PROGRAM_CARD_MIN
+                      )}
                     >
                       {program.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -582,7 +731,7 @@ export function DiscoverPanel({
 
         {/* LIVE STREAMS */}
         <div className="space-y-4">
-          <h5 className="font-semibold">Live streams</h5>
+          <DiscoverRailHeading title="Live streams" railKey="live" />
           <div className="relative">
             <div
               ref={liveStreamsRef}
@@ -599,7 +748,9 @@ export function DiscoverPanel({
                   liveStreamItems.map((content: Content & { liveLabel?: string }) => (
                     <div
                       key={content.id}
-                      className="relative min-w-[270px] flex-shrink-0"
+                      data-testid="discover-live-stream-card"
+                      className={cn("relative", CONTENT_CARD_MIN)}
+                      onClick={() => openLiveStreamContent(content)}
                     >
                       {content.liveLabel ? (
                         <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white uppercase">
@@ -607,7 +758,26 @@ export function DiscoverPanel({
                           {content.liveLabel}
                         </span>
                       ) : null}
-                      {renderContentCard(content, "min-w-[270px] flex-shrink-0")}
+                      <div className="cursor-pointer bg-black/10">
+                        <ThumbnailPlayer
+                          videoUrl={content.url}
+                          contentId={content.id}
+                          suppressInlinePlaybackContentId={
+                            suppressInlinePlaybackContentId
+                          }
+                          className="aspect-video w-full rounded-md"
+                        />
+                        <div className="p-1">
+                          <h5 className="text-sm">{content.title}</h5>
+                          {renderLiveRoomCue(content)}
+                          <div className="text-muted-foreground flex items-center gap-4 text-sm">
+                            <span className="flex items-center gap-1">
+                              <UsersRound className="size-4" />
+                              {content.event?.numOfTips ?? 0} Tips
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -627,7 +797,7 @@ export function DiscoverPanel({
 
         {/* MOST TIPPED CONTENTS */}
         <div className="space-y-4">
-          <h5 className="font-semibold">Most tipped contents</h5>
+          <DiscoverRailHeading title="Most tipped contents" railKey="mostTipped" />
 
           <div className="relative">
             <div
@@ -638,8 +808,8 @@ export function DiscoverPanel({
                 {mostTippedContents.map((content: Content) => (
                   <div
                     key={content.id}
-                    onClick={() => openDiscoverContent(content)}
-                    className="min-w-[200px] flex-shrink-0 cursor-pointer bg-black/10"
+                    onClick={() => resolveContentClick(content)}
+                    className={cn("cursor-pointer bg-black/10", CONTENT_CARD_MIN)}
                   >
                     <ThumbnailPlayer
                       videoUrl={content.url}
@@ -652,6 +822,7 @@ export function DiscoverPanel({
 
                     <div className="space-y-1 p-1">
                       <h5 className="text-sm">{content.title}</h5>
+                      {renderLiveRoomCue(content)}
 
                       <div className="text-muted-foreground flex items-center gap-4 text-sm">
                         <span className="flex items-center gap-1">

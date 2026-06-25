@@ -46,6 +46,7 @@ import {
   VideoSurfaceBadges,
   pickVideoSurfaceBadgeProps,
 } from "@/components/video/video-surface-badges";
+import { LiveStreamFeedBadge } from "@/components/video/live-stream-feed-badge";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
@@ -338,6 +339,10 @@ function ExploreFeedSlideVideo({
           item.event?.id != null ? String(item.event.id) : undefined
         )}
         position="top-right"
+      />
+      <LiveStreamFeedBadge
+        liveStatus={(item as { liveStatus?: string | null }).liveStatus ?? null}
+        className="pointer-events-none absolute top-3 left-3 z-[56]"
       />
       {showPlayerMount ? (
         <>
@@ -993,6 +998,17 @@ export const ExploreFeedClient = forwardRef<
   const executeOpenInExplore = useCallback(
     async (target: ExploreFeedOpenTarget) => {
       const { videoId, eventId, channelSnapshot } = target;
+      const snapshotLiveStatus =
+        channelSnapshot &&
+        typeof channelSnapshot === "object" &&
+        typeof (channelSnapshot as { liveStatus?: unknown }).liveStatus ===
+          "string"
+          ? String((channelSnapshot as { liveStatus: string }).liveStatus)
+          : null;
+      if (snapshotLiveStatus === "UPCOMING") {
+        openingVideoIdRef.current = null;
+        return;
+      }
       const myGen = ++openGenerationRef.current;
       scrollLayoutRetryRef.current = 0;
       openingVideoIdRef.current = videoId;
@@ -1012,6 +1028,10 @@ export const ExploreFeedClient = forwardRef<
 
       if (snap) {
         const row = channelSnapshot as any;
+        if (row.liveStatus === "UPCOMING") {
+          openingVideoIdRef.current = null;
+          return;
+        }
         setItems(prev => {
           if (myGen !== openGenerationRef.current) return prev;
           if (openingVideoIdRef.current !== videoId) return prev;
@@ -1039,7 +1059,8 @@ export const ExploreFeedClient = forwardRef<
         !row ||
         (typeof row.restricted === "boolean" && row.restricted) ||
         typeof row.url !== "string" ||
-        !row.url.trim()
+        !row.url.trim() ||
+        row.liveStatus === "UPCOMING"
       ) {
         openingVideoIdRef.current = null;
         return;

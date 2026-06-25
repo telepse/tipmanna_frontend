@@ -657,6 +657,7 @@ export async function changeEventVideoDisplaySettingsAction(
   values: {
     showAmountRaisedOnVideos: boolean;
     showViewCountOnVideos: boolean;
+    showEncounterOnVideos: boolean;
   },
   eventId: string,
   token?: string | null

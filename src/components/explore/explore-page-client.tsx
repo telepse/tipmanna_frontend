@@ -43,6 +43,12 @@ import { ExploreTvScheduleFeed } from "./explore-tv-schedule-feed";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import { exploreOpenTargetFromUrl } from "@/lib/explore-video-navigation";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import { normalizeListPayload } from "@/lib/list-response-normalizer";
+import {
+  getAllCharacterSets,
+  getCharactersForTipping,
+} from "@/actions/characters";
+import { EXPLORE_EVENT_TYPE_OPTIONS } from "@/lib/event-type-options";
 import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
 import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
 import { useSideChick } from "@/components/community/side-chick-provider";
@@ -93,6 +99,11 @@ const DiscoverPanel = dynamic(() =>
     default: m.DiscoverPanel,
   }))
 );
+const DiscoverSheet = dynamic(() =>
+  import("./discover-sheet").then(m => ({
+    default: m.DiscoverSheet,
+  }))
+);
 const CommunityHubClient = dynamic(
   () => import("../community/community-hub-client")
 );
@@ -110,23 +121,6 @@ const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
 function exploreJoinHref(communityId: string) {
   return `/explore?tab=join&joinCommunity=${encodeURIComponent(communityId)}`;
 }
-
-const EXPLORE_EVENT_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: "CONCERT_MUSIC", label: "Concert" },
-  { value: "DRAMA_ART", label: "Drama" },
-  { value: "FESTIVAL", label: "Festival" },
-  { value: "FOOD", label: "Food" },
-  { value: "HANG_OUT", label: "Hangout" },
-  { value: "ISLAMIC", label: "Islamic" },
-  { value: "CHRISTIAN", label: "Christian" },
-  { value: "CORPORATE", label: "Corporate" },
-  { value: "COMEDY", label: "Comedy" },
-  { value: "FASHION", label: "Fashion" },
-  { value: "GAME_SPORT", label: "Game & sport" },
-  { value: "CHILDREN", label: "Children" },
-  { value: "EDUCATION", label: "Education" },
-  { value: "OTHER", label: "Other" },
-];
 
 type JoinedMembershipRow = {
   communityId: string;
@@ -188,13 +182,13 @@ type ExploreMainTab =
   | "join";
 
 export interface ExplorePageClientProps {
-  characters: any[];
-  characterSets: any[];
+  characters?: any[];
+  characterSets?: any[];
 }
 
 export default function ExplorePageClient({
-  characters,
-  characterSets,
+  characters: initialCharacters = [],
+  characterSets: initialCharacterSets = [],
 }: ExplorePageClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -281,8 +275,42 @@ export default function ExplorePageClient({
   }, [tabParam]);
 
   useEffect(() => {
-    if (tab === "discover") prefetchExploreFeedInitial();
+    if (tab === "feed") prefetchExploreFeedInitial();
   }, [tab]);
+
+  const [characters, setCharacters] = useState<any[]>(initialCharacters);
+  const [characterSets, setCharacterSets] =
+    useState<any[]>(initialCharacterSets);
+  const charactersLoadStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (charactersLoadStartedRef.current) return;
+    charactersLoadStartedRef.current = true;
+    let cancelled = false;
+    const loadCharacters = async () => {
+      const [{ data: chars }, { data: sets }] = await Promise.all([
+        getCharactersForTipping(),
+        getAllCharacterSets(),
+      ]);
+      if (cancelled) return;
+      setCharacters((chars as any[]) ?? []);
+      setCharacterSets((sets as any[]) ?? []);
+    };
+    const schedule =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback(() => void loadCharacters())
+        : window.setTimeout(() => void loadCharacters(), 0);
+    return () => {
+      cancelled = true;
+      if (typeof schedule === "number") {
+        window.clearTimeout(schedule);
+      } else if (typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(schedule);
+      }
+    };
+  }, []);
+
+  const headerPullRef = useRef<{ startY: number } | null>(null);
 
   const [contents, setContents] = useState<any[]>([]);
   const [latestContents, setLatestContents] = useState<any[]>([]);
@@ -296,6 +324,8 @@ export default function ExplorePageClient({
     recentlyEnded: any[];
   }>({ upcoming: [], live: [], recentlyEnded: [] });
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [discoverSheetOpen, setDiscoverSheetOpen] = useState(false);
+  const catalogLoadedRef = useRef(false);
   const [tippers, setTippers] = useState<any[]>([]);
   const [tipperEvents, setTipperEvents] = useState<any[]>([]);
   const [iTipped, setITipped] = useState(0);
@@ -656,26 +686,18 @@ export default function ExplorePageClient({
         getAllCausesAction(),
       ]);
 
-    const featuredRaw = feat.data as unknown;
-    const featuredList = Array.isArray(featuredRaw)
-      ? featuredRaw
-      : featuredRaw &&
-          typeof featuredRaw === "object" &&
-          "data" in featuredRaw &&
-          Array.isArray((featuredRaw as { data: unknown }).data)
-        ? (featuredRaw as { data: any[] }).data
-        : [];
-
-    setContents(featuredList);
-    setLatestContents(lat.success && Array.isArray(lat.data) ? lat.data : []);
+    setContents(feat.success ? normalizeListPayload<any>(feat.data) : []);
+    setLatestContents(
+      lat.success ? normalizeListPayload<any>(lat.data) : []
+    );
     setSpotlightContents(
-      spot.success && Array.isArray(spot.data) ? spot.data : []
+      spot.success ? normalizeListPayload<any>(spot.data) : []
     );
     setRecommendedContents(
-      rec.success && Array.isArray(rec.data) ? rec.data : []
+      rec.success ? normalizeListPayload<any>(rec.data) : []
     );
     setMostTippedContents(
-      most.success && Array.isArray(most.data) ? most.data : []
+      most.success ? normalizeListPayload<any>(most.data) : []
     );
     if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {
       const ls = liveRes.data as {
@@ -690,9 +712,11 @@ export default function ExplorePageClient({
       });
     }
     setPrograms(
-      progRes.success && Array.isArray(progRes.data) ? progRes.data : []
+      progRes.success ? normalizeListPayload<any>(progRes.data) : []
     );
-    setTippers(tipRes.success && Array.isArray(tipRes.data) ? tipRes.data : []);
+    setTippers(
+      tipRes.success ? normalizeListPayload<any>(tipRes.data) : []
+    );
     setTipperEvents(
       tipEv.success && Array.isArray(tipEv.data) ? tipEv.data : []
     );
@@ -705,10 +729,20 @@ export default function ExplorePageClient({
     setCatalogLoading(false);
   }, [isSignedInExplore, exploreUserId]);
 
+  const openDiscoverSheet = useCallback(() => {
+    setDiscoverSheetOpen(true);
+    if (!catalogLoadedRef.current) {
+      catalogLoadedRef.current = true;
+      void loadExploreCatalog();
+    }
+  }, [loadExploreCatalog]);
+
   useEffect(() => {
-    if (tab !== "discover") return;
+    if (tab !== "discover" && !discoverSheetOpen) return;
+    if (catalogLoadedRef.current) return;
+    catalogLoadedRef.current = true;
     void loadExploreCatalog();
-  }, [tab, loadExploreCatalog]);
+  }, [tab, discoverSheetOpen, loadExploreCatalog]);
 
   const eligibleCommunityPickerRows = useMemo(
     () =>
@@ -792,6 +826,21 @@ export default function ExplorePageClient({
           "flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2"
           // headerTint ? "" : "bg-white"
         )}
+        onTouchStart={e => {
+          headerPullRef.current = { startY: e.touches[0]?.clientY ?? 0 };
+        }}
+        onTouchMove={e => {
+          if (!headerPullRef.current) return;
+          const delta =
+            (e.touches[0]?.clientY ?? 0) - headerPullRef.current.startY;
+          if (delta > 40) {
+            headerPullRef.current = null;
+            openDiscoverSheet();
+          }
+        }}
+        onTouchEnd={() => {
+          headerPullRef.current = null;
+        }}
       >
         <h1 className="sr-only">Tipmanna TV — Explore and discover community media</h1>
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -827,7 +876,13 @@ export default function ExplorePageClient({
 
             <div
               className="relative p-1 sm:hidden"
-              onClick={() => setTab("discover")}
+              onClick={openDiscoverSheet}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") openDiscoverSheet();
+              }}
+              aria-label="Open discover search"
             >
               <Input
                 type="text"
@@ -899,7 +954,13 @@ export default function ExplorePageClient({
         <div className="-mr-10 flex items-center gap-1">
           <div
             className="relative hidden p-1 sm:block"
-            onClick={() => setTab("discover")}
+            onClick={openDiscoverSheet}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => {
+              if (e.key === "Enter" || e.key === " ") openDiscoverSheet();
+            }}
+            aria-label="Open discover search"
           >
             <Input
               type="text"
@@ -1315,6 +1376,22 @@ export default function ExplorePageClient({
           tab !== "discover" && "hidden"
         )}
       >
+        {tab === "discover" ? (
+          <div className="bg-muted/40 mb-4 flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted-foreground text-xs">
+              Discover is also available as a quick panel while you watch the
+              feed.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={openDiscoverSheet}
+            >
+              Open discover panel
+            </Button>
+          </div>
+        ) : null}
         <DiscoverPanel
           contents={contents}
           tippers={tippers}
@@ -1331,8 +1408,29 @@ export default function ExplorePageClient({
           }}
           onPlayInExplore={handlePlayInExplore}
           suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
+          surface="exploreTab"
         />
       </div>
+
+      <DiscoverSheet
+        open={discoverSheetOpen}
+        onClose={() => setDiscoverSheetOpen(false)}
+        contents={contents}
+        tippers={tippers}
+        latestContents={latestContents}
+        spotlightContents={spotlightContents}
+        recommendedContents={recommendedContents}
+        mostTippedContents={mostTippedContents}
+        programs={programs}
+        liveStreams={liveStreams}
+        catalogLoading={catalogLoading}
+        onOpenBookmarks={() => {
+          setProfileDrawerTab("saved");
+          setIsProfileDrawerOpen(true);
+        }}
+        onPlayInExplore={handlePlayInExplore}
+        suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
+      />
 
       {showFilterOptions && tab === "feed" && feedSubTab !== "community" ? (
         <>

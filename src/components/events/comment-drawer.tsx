@@ -59,6 +59,8 @@ interface Props {
   videoDescription?: string;
   numOfTips?: number;
   amountRaised?: number | null;
+  showViewCount?: boolean;
+  showEncounterCount?: boolean;
   /** Characters from the room (used to run comment preview when adding a draft). */
   tippingCharacters?: RoomCharacter[];
   /** After saving draft locally: close comment drawer and open tip UI (parent owns drawer open state). */
@@ -77,6 +79,8 @@ export const CommentDrawer = ({
   videoDescription,
   numOfTips,
   amountRaised,
+  showViewCount = false,
+  showEncounterCount = false,
   tippingCharacters,
   onContinueToTip,
   hostName,
@@ -507,17 +511,32 @@ export const CommentDrawer = ({
             ) : null}
           </div>
 
-          <div className="ml-4 flex w-fit items-center gap-2 rounded-sm border p-2 text-xs">
-            <span>Views {resolvedViewCount.toLocaleString()}</span> &middot;
-            <span>
-              {amountRaisedLabel ? (
+          {(showViewCount || showEncounterCount || amountRaisedLabel) && (
+            <div className="ml-4 flex w-fit flex-wrap items-center gap-2 rounded-sm border p-2 text-xs">
+              {showViewCount ? (
                 <>
-                  <span>{amountRaisedLabel} raised</span>
-                  <span>·</span>
+                  <span>
+                    Views {resolvedViewCount.toLocaleString()} (10s+)
+                  </span>
+                  {(showEncounterCount || amountRaisedLabel) && (
+                    <span>&middot;</span>
+                  )}
                 </>
               ) : null}
-            </span>
-          </div>
+              {showEncounterCount ? (
+                <>
+                  <span>
+                    Encounters{" "}
+                    {(metrics?.encounterCount ?? 0).toLocaleString()}
+                  </span>
+                  {amountRaisedLabel ? <span>&middot;</span> : null}
+                </>
+              ) : null}
+              {amountRaisedLabel ? (
+                <span>{amountRaisedLabel} raised</span>
+              ) : null}
+            </div>
+          )}
 
           {reportOpen ? (
             <div className="space-y-2 border-b px-4 pb-3">

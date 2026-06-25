@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 // Third-party imports
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,7 +30,9 @@ import { eventColumns } from "./event-columns";
 import { transactionColumns } from "./transaction-columns";
 import { DashboardHeading } from "./dashboard-heading";
 import { useReportsAndAnalytics } from "@/hooks/useReportsAndAnalytics";
+import { useHostPayoutSummary } from "@/hooks/useHostPayoutSummary";
 import { VideoAnalyticsPanel } from "@/components/dashboard/video-analytics-panel";
+import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 
 function formatDate(isoString: string) {
   const date = new Date(isoString);
@@ -44,11 +48,14 @@ function formatDate(isoString: string) {
 }
 
 export const ReportsClient = () => {
+  const params = useParams();
+  const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const [tabType, setTabType] = useState<
     "events" | "transactions" | "reports" | "video"
   >("events");
 
   const { events, transactions } = useReportsAndAnalytics();
+  const { summary: payoutSummary } = useHostPayoutSummary();
 
   const {
     totalEarnings,
@@ -143,9 +150,9 @@ export const ReportsClient = () => {
         />
         <StatCard
           label="Pending payouts"
-          value={0}
+          value={(payoutSummary?.pendingMinor ?? 0) / 100}
           icon={Wallet}
-          subLabel="0 events pending payouts"
+          subLabel={`Event tips ${formatGbpMinor(payoutSummary?.pendingByBranch.eventTipsMinor ?? 0)} · Community ${formatGbpMinor(payoutSummary?.pendingByBranch.communitySubscriptionMinor ?? 0)}`}
           isMoney
           hasColor
         />
@@ -158,6 +165,20 @@ export const ReportsClient = () => {
           hasColor
         />
       </div>
+
+      {hostSlug ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm">
+          <span className="text-muted-foreground">
+            Confirm payouts and view obligation history on Revenue &amp; Payouts.
+          </span>
+          <Link
+            href={`/host/${hostSlug}/revenue`}
+            className="text-primary font-medium underline"
+          >
+            Open Revenue &amp; Payouts
+          </Link>
+        </div>
+      ) : null}
 
       <Tabs
         value={tabType}

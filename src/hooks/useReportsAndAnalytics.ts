@@ -10,6 +10,7 @@ import {
 } from "@/actions/host";
 import { useHostID } from "./useHostID";
 import type { RootState } from "@/redux/store";
+import { unwrapPaginatedList } from "@/lib/unwrap-paginated-list";
 
 interface ReportsData {
   events: any[];
@@ -29,8 +30,8 @@ export function useReportsAndAnalytics() {
     ]);
 
     return {
-      events: (eventsRes.data as any[]) || [],
-      transactions: (transactionsRes.data as any[]) || [],
+      events: unwrapPaginatedList(eventsRes.data),
+      transactions: unwrapPaginatedList(transactionsRes.data),
     };
   };
 

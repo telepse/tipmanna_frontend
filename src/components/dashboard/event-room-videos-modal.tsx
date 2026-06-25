@@ -59,20 +59,23 @@ function ChannelMetricsRow({ item }: { item: ChannelWithMetrics }) {
     <div className="bg-muted/40 rounded-lg border p-4">
       <p className="font-medium">{item.title || "Untitled video"}</p>
       <p className="text-muted-foreground mt-1 truncate text-xs">{item.url}</p>
-      <div className="text-muted-foreground mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+      <div className="text-muted-foreground mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
         <span>Tips: {item.numOfTips ?? 0}</span>
         {item.metricsLoading ? (
-          <span className="col-span-3 inline-flex items-center gap-1">
+          <span className="col-span-2 inline-flex items-center gap-1 sm:col-span-3">
             <Loader2 className="size-3 animate-spin" /> Loading metrics…
           </span>
         ) : item.metrics ? (
           <>
-            <span>Views: {item.metrics.encounters}</span>
-            <span>Completes: {item.metrics.completes}</span>
-            <span>Saves: {item.metrics.saves}</span>
+            <span>Views (10s+): {item.metrics.views ?? 0}</span>
+            <span>Encounters: {item.metrics.encounters ?? 0}</span>
+            <span>Completes: {item.metrics.completes ?? 0}</span>
+            <span>Saves: {item.metrics.saves ?? 0}</span>
+            <span>Shares: {item.metrics.shares ?? 0}</span>
+            <span>Comments: {item.metrics.comments ?? 0}</span>
           </>
         ) : (
-          <span className="col-span-3">Metrics unavailable</span>
+          <span className="col-span-2 sm:col-span-3">Metrics unavailable</span>
         )}
       </div>
       <Button
@@ -166,8 +169,8 @@ export function EventRoomVideosModal({
         <DialogHeader className="shrink-0 pr-6">
           <DialogTitle>Event videos</DialogTitle>
           <DialogDescription>
-            Videos for {eventName}. Copy a share link or review engagement
-            metrics per channel.
+            Your event room videos with full analytics (views 10s+, encounters,
+            completes). Toggle public visibility from Manage Event.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="min-h-0 flex-1 pr-4">

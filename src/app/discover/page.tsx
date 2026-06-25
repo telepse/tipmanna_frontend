@@ -1,14 +1,5 @@
 import { DiscoverPageClient } from "@/components/discover/discover-page-client";
-import {
-  getAllFeaturedContentsAction,
-  getDiscoveryProgramsAction,
-  getLatestContents,
-  getLiveStreamContents,
-  getMostTippedContents,
-  getSpotlightContents,
-  getRecommendedContents,
-} from "@/actions/contents";
-import { getAllTopTippers } from "@/actions/events";
+import { loadDiscoverCatalogServer } from "@/lib/discover-catalog-server";
 import { getDiscoveryAbsoluteUrl } from "@/lib/site-config";
 import type { Metadata } from "next";
 
@@ -19,35 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function DiscoverPage() {
-  const [feat, lat, spot, rec, most, liveRes, progRes, tipRes] = await Promise.all([
-    getAllFeaturedContentsAction(),
-    getLatestContents(),
-    getSpotlightContents(),
-    getRecommendedContents(),
-    getMostTippedContents(),
-    getLiveStreamContents(),
-    getDiscoveryProgramsAction(),
-    getAllTopTippers(),
-  ]);
-
-  const featuredRaw = feat.data as unknown;
-  const contents = Array.isArray(featuredRaw)
-    ? featuredRaw
-    : featuredRaw &&
-        typeof featuredRaw === "object" &&
-        "data" in featuredRaw &&
-        Array.isArray((featuredRaw as { data: unknown }).data)
-      ? (featuredRaw as { data: unknown[] }).data
-      : [];
-
-  const liveData =
-    liveRes.success && liveRes.data && typeof liveRes.data === "object"
-      ? (liveRes.data as {
-          upcoming?: unknown[];
-          live?: unknown[];
-          recentlyEnded?: unknown[];
-        })
-      : null;
+  const catalog = await loadDiscoverCatalogServer();
 
   const pageDescription =
     "Browse top content, latest videos, spotlight picks, programs, and live streams across Tipmanna.";
@@ -72,38 +35,14 @@ export default async function DiscoverPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
       />
       <DiscoverPageClient
-        initialContents={contents as never[]}
-        initialLatest={
-          lat.success && Array.isArray(lat.data) ? (lat.data as never[]) : []
-        }
-        initialSpotlight={
-          spot.success && Array.isArray(spot.data) ? (spot.data as never[]) : []
-        }
-        initialRecommended={
-          rec.success && Array.isArray(rec.data) ? (rec.data as never[]) : []
-        }
-        initialMostTipped={
-          most.success && Array.isArray(most.data) ? (most.data as never[]) : []
-        }
-        initialPrograms={
-          progRes.success && Array.isArray(progRes.data)
-            ? (progRes.data as never[])
-            : []
-        }
-        initialLiveStreams={{
-          upcoming: Array.isArray(liveData?.upcoming)
-            ? (liveData!.upcoming as never[])
-            : [],
-          live: Array.isArray(liveData?.live) ? (liveData!.live as never[]) : [],
-          recentlyEnded: Array.isArray(liveData?.recentlyEnded)
-            ? (liveData!.recentlyEnded as never[])
-            : [],
-        }}
-        initialTippers={
-          tipRes.success && Array.isArray(tipRes.data)
-            ? (tipRes.data as never[])
-            : []
-        }
+        initialContents={catalog.contents as never[]}
+        initialLatest={catalog.latest as never[]}
+        initialSpotlight={catalog.spotlight as never[]}
+        initialRecommended={catalog.recommended as never[]}
+        initialMostTipped={catalog.mostTipped as never[]}
+        initialPrograms={catalog.programs as never[]}
+        initialLiveStreams={catalog.liveStreams as never}
+        initialTippers={catalog.tippers as never[]}
       />
     </>
   );
