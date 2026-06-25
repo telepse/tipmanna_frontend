@@ -17,7 +17,9 @@ export function useCoOwnerDraftSubmitBlocked(links: LinkSlice[]): boolean {
   const watchKey = useMemo(
     () =>
       coOwned
-        .map(link => `${link.coOwnerDraftKey ?? ""}:${link.ownershipAnswer ?? ""}`)
+        .map(
+          link => `${link.coOwnerDraftKey ?? ""}:${link.ownershipAnswer ?? ""}`
+        )
         .join("|"),
     [coOwned]
   );
@@ -43,9 +45,8 @@ export function useCoOwnerDraftSubmitBlocked(links: LinkSlice[]): boolean {
         return;
       }
 
-      const invites = (
-        res.data as { invites?: { status: string }[] } | null
-      )?.invites;
+      const invites = (res.data as { invites?: { status: string }[] } | null)
+        ?.invites;
       const hasApproved = invites?.some(i => i.status === "approved") ?? false;
       if (!hasApproved) {
         setBlocked(true);

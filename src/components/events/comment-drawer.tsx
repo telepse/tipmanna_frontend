@@ -96,13 +96,16 @@ export const CommentDrawer = ({
 
   const [drawerData, setDrawerData] = useState<CommentDrawerData | null>(null);
   const [descOpen, setDescOpen] = useState(false);
-  const { drawerData: fetchedDrawerData, loading, revalidate } =
-    useCommentDrawerData(
-      eventId,
-      channelId,
-      isCommentDrawerOpen,
-      metricsRefreshKey
-    );
+  const {
+    drawerData: fetchedDrawerData,
+    loading,
+    revalidate,
+  } = useCommentDrawerData(
+    eventId,
+    channelId,
+    isCommentDrawerOpen,
+    metricsRefreshKey
+  );
   const [pendingDraft, setPendingDraft] = useState("");
   const [draftModalOpen, setDraftModalOpen] = useState(false);
   const [modalDraft, setModalDraft] = useState("");
@@ -402,237 +405,240 @@ export const CommentDrawer = ({
           className={`${DRAWER_Z_INDEX} flex h-[72vh] flex-col overflow-hidden rounded-t-[32px] bg-white p-0`}
         >
           <div className="sticky top-0 z-10 shrink-0 bg-white">
-          {/* Top Bar */}
-          <div className="relative border-b">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              {/* Left side metrics */}
-              <div className="flex items-end gap-4">
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-black">
-                    Comments {commentCountLabel}
+            {/* Top Bar */}
+            <div className="relative border-b">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                {/* Left side metrics */}
+                <div className="flex items-end gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-black">
+                      Comments {commentCountLabel}
+                    </span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-400">
+                    Likes {likeCountLabel}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-gray-400">
-                  Likes {likeCountLabel}
-                </span>
-              </div>
 
-              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setReportOpen(v => !v)}
+                  >
+                    Report
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCommentDrawerOpen(false)}
+                    className="rounded-full p-2 hover:bg-gray-100"
+                  >
+                    <X className="text-muted-foreground h-7 w-7" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 p-4">
+              <h4 className="text-sm font-semibold">
+                {hostMeta?.firstName ?? hostName} ·{" "}
+                {hostMeta?.username ? `@${hostMeta.username}` : null}{" "}
+                <span className="text-primary">Creator</span>
+                <SaveHostToggleButton
+                  channelId={channelId != null ? String(channelId) : null}
+                  className="rounded bg-black/50 p-1 text-white"
+                  iconClassName="size-4 text-white"
+                />
+              </h4>
+              {coOwnerNames.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                    Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
+                    {coOwnerNames.join(", ")}
+                  </span>
+                </div>
+              ) : null}
+              {(resolvedTitle || loading) && (
+                <p className="text-sm font-medium">
+                  {resolvedTitle || (loading ? "Loading…" : "")}
+                </p>
+              )}
+              {resolvedDescription ? (
+                <div>
+                  <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
+                    {resolvedDescription}
+                  </p>
+                  {resolvedDescription.length > 120 ? (
+                    <button
+                      type="button"
+                      className="text-primary mt-1 text-xs font-medium"
+                      onClick={() => setDescOpen(true)}
+                    >
+                      See more
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              <p className="flex flex-wrap items-center gap-2 text-xs text-black">
+                {showMetricsSkeleton ? (
+                  <span className="flex flex-wrap gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <span
+                        key={i}
+                        className="inline-block h-3 w-16 animate-pulse rounded bg-gray-100"
+                      />
+                    ))}
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      Channel tips:{" "}
+                      {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
+                    </span>
+                    <span>·</span>
+                    <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
+                    <span>·</span>
+                    <span>Saves {metrics?.saveCount ?? 0}</span>
+                    <span>·</span>
+                    <span>Shares {metrics?.shareCount ?? 0}</span>
+                  </>
+                )}
+              </p>
+              {channelMeta ? (
+                <p className="text-muted-foreground text-[11px]">
+                  {channelMeta.eventVideoType} · {channelMeta.contentLanguage} ·{" "}
+                  {channelMeta.contentCountry} · added{" "}
+                  {new Date(channelMeta.createdAt).toLocaleDateString()}
+                  {channelMeta.communityName
+                    ? ` · ${channelMeta.communityName}`
+                    : ""}
+                </p>
+              ) : null}
+            </div>
+
+            {(showViewCount || showEncounterCount || amountRaisedLabel) && (
+              <div className="ml-4 flex w-fit flex-wrap items-center gap-2 rounded-sm border p-2 text-xs">
+                {showViewCount ? (
+                  <>
+                    <span>
+                      Views {resolvedViewCount.toLocaleString()} (10s+)
+                    </span>
+                    {(showEncounterCount || amountRaisedLabel) && (
+                      <span>&middot;</span>
+                    )}
+                  </>
+                ) : null}
+                {showEncounterCount ? (
+                  <>
+                    <span>
+                      Encounters{" "}
+                      {(metrics?.encounterCount ?? 0).toLocaleString()}
+                    </span>
+                    {amountRaisedLabel ? <span>&middot;</span> : null}
+                  </>
+                ) : null}
+                {amountRaisedLabel ? (
+                  <span>{amountRaisedLabel} raised</span>
+                ) : null}
+              </div>
+            )}
+
+            {reportOpen ? (
+              <div className="space-y-2 border-b px-4 pb-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Report video</p>
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(false)}
+                    className="rounded-full p-1 hover:bg-gray-100"
+                    aria-label="Close report"
+                  >
+                    <X className="text-muted-foreground size-5" />
+                  </button>
+                </div>
+                <Select
+                  value={reportReason}
+                  onValueChange={setReportReason}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="verbally_abusive">
+                      Verbally abusive
+                    </SelectItem>
+                    <SelectItem value="sexual_harassment">
+                      Sexual harassment
+                    </SelectItem>
+                    <SelectItem value="promotes_violence">
+                      Promotes violence
+                    </SelectItem>
+                    <SelectItem value="deceptive">Deceptive</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {reportReason === "other" ? (
+                  <Input
+                    value={reportOther}
+                    onChange={e => setReportOther(e.target.value)}
+                    placeholder="Describe the issue"
+                  />
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void submitReport()}
+                >
+                  Submit report
+                </Button>
+              </div>
+            ) : null}
+
+            {/* Existing Draft + Pay Area */}
+            <div className="border-b px-4 pt-4 pb-3">
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  disabled
+                  value={pendingDraft}
+                  placeholder="Your comment draft appears here after you add it."
+                  className="text-muted-foreground h-9 min-h-[12px] resize-none border border-gray-200 sm:flex-1"
+                />
+
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={() => setReportOpen(v => !v)}
+                  onClick={openDraftModal}
+                  className="h-9 border-none bg-black text-white hover:bg-black/80"
                 >
-                  Report
+                  {draftActionLabel}
                 </Button>
+              </div>
+
+              <div className="relative mt-3 w-full">
+                <Button
+                  type="button"
+                  className="h-9 w-full bg-black pr-10 text-white hover:bg-black/90"
+                  onClick={handlePay}
+                  disabled={!pendingDraft.trim()}
+                >
+                  {sendCommentLabel}
+                </Button>
+
                 <button
                   type="button"
-                  onClick={() => setIsCommentDrawerOpen(false)}
-                  className="rounded-full p-2 hover:bg-gray-100"
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white p-1.5 shadow disabled:opacity-50"
+                  disabled={!pendingDraft.trim()}
+                  onClick={e => {
+                    e.stopPropagation();
+                    handlePay();
+                  }}
                 >
-                  <X className="text-muted-foreground h-7 w-7" />
+                  <Wallet className="text-primary size-4" />
                 </button>
               </div>
             </div>
-          </div>
-
-          <div className="space-y-2 p-4">
-            <h4 className="text-sm font-semibold">
-              {hostMeta?.firstName ?? hostName} ·{" "}
-              {hostMeta?.username ? `@${hostMeta.username}` : null}{" "}
-              <span className="text-primary">Creator</span>
-              <SaveHostToggleButton
-                channelId={channelId != null ? String(channelId) : null}
-                className="rounded bg-black/50 p-1 text-white"
-                iconClassName="size-4 text-white"
-              />
-            </h4>
-            {coOwnerNames.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                  Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
-                  {coOwnerNames.join(", ")}
-                </span>
-              </div>
-            ) : null}
-            {(resolvedTitle || loading) && (
-              <p className="text-sm font-medium">
-                {resolvedTitle || (loading ? "Loading…" : "")}
-              </p>
-            )}
-            {resolvedDescription ? (
-              <div>
-                <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
-                  {resolvedDescription}
-                </p>
-                {resolvedDescription.length > 120 ? (
-                  <button
-                    type="button"
-                    className="text-primary mt-1 text-xs font-medium"
-                    onClick={() => setDescOpen(true)}
-                  >
-                    See more
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-            <p className="flex flex-wrap items-center gap-2 text-xs text-black">
-              {showMetricsSkeleton ? (
-                <span className="flex flex-wrap gap-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="inline-block h-3 w-16 animate-pulse rounded bg-gray-100"
-                    />
-                  ))}
-                </span>
-              ) : (
-                <>
-                  <span>Channel tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}</span>
-                  <span>·</span>
-                  <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
-                  <span>·</span>
-                  <span>Saves {metrics?.saveCount ?? 0}</span>
-                  <span>·</span>
-                  <span>Shares {metrics?.shareCount ?? 0}</span>
-                </>
-              )}
-            </p>
-            {channelMeta ? (
-              <p className="text-muted-foreground text-[11px]">
-                {channelMeta.eventVideoType} · {channelMeta.contentLanguage} ·{" "}
-                {channelMeta.contentCountry} · added{" "}
-                {new Date(channelMeta.createdAt).toLocaleDateString()}
-                {channelMeta.communityName
-                  ? ` · ${channelMeta.communityName}`
-                  : ""}
-              </p>
-            ) : null}
-          </div>
-
-          {(showViewCount || showEncounterCount || amountRaisedLabel) && (
-            <div className="ml-4 flex w-fit flex-wrap items-center gap-2 rounded-sm border p-2 text-xs">
-              {showViewCount ? (
-                <>
-                  <span>
-                    Views {resolvedViewCount.toLocaleString()} (10s+)
-                  </span>
-                  {(showEncounterCount || amountRaisedLabel) && (
-                    <span>&middot;</span>
-                  )}
-                </>
-              ) : null}
-              {showEncounterCount ? (
-                <>
-                  <span>
-                    Encounters{" "}
-                    {(metrics?.encounterCount ?? 0).toLocaleString()}
-                  </span>
-                  {amountRaisedLabel ? <span>&middot;</span> : null}
-                </>
-              ) : null}
-              {amountRaisedLabel ? (
-                <span>{amountRaisedLabel} raised</span>
-              ) : null}
-            </div>
-          )}
-
-          {reportOpen ? (
-            <div className="space-y-2 border-b px-4 pb-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Report video</p>
-                <button
-                  type="button"
-                  onClick={() => setReportOpen(false)}
-                  className="rounded-full p-1 hover:bg-gray-100"
-                  aria-label="Close report"
-                >
-                  <X className="text-muted-foreground size-5" />
-                </button>
-              </div>
-              <Select
-                value={reportReason}
-                onValueChange={setReportReason}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Reason" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="verbally_abusive">
-                    Verbally abusive
-                  </SelectItem>
-                  <SelectItem value="sexual_harassment">
-                    Sexual harassment
-                  </SelectItem>
-                  <SelectItem value="promotes_violence">
-                    Promotes violence
-                  </SelectItem>
-                  <SelectItem value="deceptive">Deceptive</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              {reportReason === "other" ? (
-                <Input
-                  value={reportOther}
-                  onChange={e => setReportOther(e.target.value)}
-                  placeholder="Describe the issue"
-                />
-              ) : null}
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void submitReport()}
-              >
-                Submit report
-              </Button>
-            </div>
-          ) : null}
-
-          {/* Existing Draft + Pay Area */}
-          <div className="border-b px-4 pt-4 pb-3">
-            <div className="flex gap-2">
-              <Input
-                readOnly
-                disabled
-                value={pendingDraft}
-                placeholder="Your comment draft appears here after you add it."
-                className="text-muted-foreground h-9 min-h-[12px] resize-none border border-gray-200 sm:flex-1"
-              />
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={openDraftModal}
-                className="h-9 border-none bg-black text-white hover:bg-black/80"
-              >
-                {draftActionLabel}
-              </Button>
-            </div>
-
-            <div className="relative mt-3 w-full">
-              <Button
-                type="button"
-                className="h-9 w-full bg-black pr-10 text-white hover:bg-black/90"
-                onClick={handlePay}
-                disabled={!pendingDraft.trim()}
-              >
-                {sendCommentLabel}
-              </Button>
-
-              <button
-                type="button"
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white p-1.5 shadow disabled:opacity-50"
-                disabled={!pendingDraft.trim()}
-                onClick={e => {
-                  e.stopPropagation();
-                  handlePay();
-                }}
-              >
-                <Wallet className="text-primary size-4" />
-              </button>
-            </div>
-          </div>
           </div>
 
           {/* Comments List */}
@@ -642,11 +648,14 @@ export const CommentDrawer = ({
                 Select a video to see comments.
               </p>
             ) : loading && items.length === 0 ? (
-              <ul className="space-y-3" aria-busy="true">
+              <ul
+                className="space-y-3"
+                aria-busy="true"
+              >
                 {Array.from({ length: 3 }).map((_, i) => (
                   <li
                     key={i}
-                    className="animate-pulse rounded-lg border px-4 py-6 bg-gray-50"
+                    className="animate-pulse rounded-lg border bg-gray-50 px-4 py-6"
                   />
                 ))}
               </ul>
@@ -698,7 +707,10 @@ export const CommentDrawer = ({
         </DrawerContent>
       </Drawer>
 
-      <Dialog open={descOpen} onOpenChange={setDescOpen}>
+      <Dialog
+        open={descOpen}
+        onOpenChange={setDescOpen}
+      >
         <DialogContent className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{resolvedTitle || "Video description"}</DialogTitle>

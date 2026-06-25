@@ -29,9 +29,7 @@ export function useCoOwnerInviteStatus(
     }
     const res = await getVideoCoOwnerInviteStatusAction(dk);
     if (!res.success || !res.data) return;
-    const invites = (
-      res.data as { invites?: InviteRow[] }
-    ).invites;
+    const invites = (res.data as { invites?: InviteRow[] }).invites;
     const match = invites?.find(
       i => i.coOwnerEmail.trim().toLowerCase() === em
     );

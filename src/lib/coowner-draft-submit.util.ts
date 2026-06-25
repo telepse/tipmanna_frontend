@@ -19,9 +19,8 @@ export async function validateCoOwnerDraftsForSubmit(
     if (!res.success) {
       return res.message ?? "Could not verify co-owner approval status";
     }
-    const invites = (
-      res.data as { invites?: { status: string }[] } | null
-    )?.invites;
+    const invites = (res.data as { invites?: { status: string }[] } | null)
+      ?.invites;
     const hasApproved = invites?.some(i => i.status === "approved") ?? false;
     if (!hasApproved) {
       return "Co-owner must approve the email invite before you can submit";

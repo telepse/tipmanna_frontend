@@ -15,12 +15,11 @@ export function HostSubscriptionQuickLinks({
 
   if (!eventSlug || isLoading) return null;
 
-  const subtitle =
-    hasActivePremium
-      ? "Premium features are active on your account."
-      : status === "lapsed"
-        ? "Your subscription has lapsed — renew to restore premium controls."
-        : "Subscribe to unlock video display toggles, tip layout, and more.";
+  const subtitle = hasActivePremium
+    ? "Premium features are active on your account."
+    : status === "lapsed"
+      ? "Your subscription has lapsed — renew to restore premium controls."
+      : "Subscribe to unlock video display toggles, tip layout, and more.";
 
   return (
     <div className="bg-card flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">

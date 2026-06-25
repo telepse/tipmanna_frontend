@@ -66,9 +66,7 @@ export type HostPayoutSummaryResponse = {
   pendingSettlements: HostPayoutSettlementRow[];
 };
 
-export async function getMyLegacyCommunityPayoutsAction(
-  token?: string | null
-) {
+export async function getMyLegacyCommunityPayoutsAction(token?: string | null) {
   return runServerFetch<{ items: LegacyCommunityPayoutRow[]; total: number }>(
     `${api()}/me/payouts/community-legacy`,
     {

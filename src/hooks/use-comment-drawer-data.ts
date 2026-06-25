@@ -19,7 +19,7 @@ export function useCommentDrawerData(
   const cid = channelId?.trim() ?? "";
   const swrKey =
     enabled && eid && cid
-      ? [commentDrawerKey(eid, cid), refreshKey] as const
+      ? ([commentDrawerKey(eid, cid), refreshKey] as const)
       : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(

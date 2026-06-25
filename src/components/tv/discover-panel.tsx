@@ -8,7 +8,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
-import { Bookmark, ChevronRight, CircleHelp, Radio, Sparkles, Tv, UsersRound } from "lucide-react";
+import {
+  Bookmark,
+  ChevronRight,
+  CircleHelp,
+  Radio,
+  Sparkles,
+  Tv,
+  UsersRound,
+} from "lucide-react";
 
 // Local imports
 import { ThumbnailPlayer } from "./thumbnail-player";
@@ -112,7 +120,10 @@ function DiscoverRailHeading({
               <CircleHelp className="size-3.5" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[220px]">
+          <TooltipContent
+            side="bottom"
+            className="max-w-[220px]"
+          >
             {subtitle}. {updateHint}
           </TooltipContent>
         </Tooltip>
@@ -302,7 +313,10 @@ export function DiscoverPanel({
             : DISCOVER_RAIL_SUBTITLES.live;
     return (
       <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-[10px]">
-        <Radio className="size-3" aria-hidden />
+        <Radio
+          className="size-3"
+          aria-hidden
+        />
         {copy}
       </span>
     );
@@ -345,7 +359,10 @@ export function DiscoverPanel({
   const carouselSkeleton = (
     <div className="flex gap-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <ContentCardSkeleton key={i} className={CONTENT_CARD_MIN} />
+        <ContentCardSkeleton
+          key={i}
+          className={CONTENT_CARD_MIN}
+        />
       ))}
     </div>
   );
@@ -560,7 +577,10 @@ export function DiscoverPanel({
 
         {/* TOP CONTENTS */}
         <div className="space-y-4">
-          <DiscoverRailHeading title="Top contents" railKey="top" />
+          <DiscoverRailHeading
+            title="Top contents"
+            railKey="top"
+          />
 
           <div className="relative">
             <div
@@ -588,7 +608,10 @@ export function DiscoverPanel({
 
         {/* LATEST CONTENTS */}
         <div className="space-y-4">
-          <DiscoverRailHeading title="Latest contents" railKey="latest" />
+          <DiscoverRailHeading
+            title="Latest contents"
+            railKey="latest"
+          />
 
           <div className="relative">
             <div
@@ -616,7 +639,10 @@ export function DiscoverPanel({
 
         {/* SPOTLIGHT  */}
         <div className="space-y-4">
-          <DiscoverRailHeading title="Spotlight" railKey="spotlight" />
+          <DiscoverRailHeading
+            title="Spotlight"
+            railKey="spotlight"
+          />
 
           <div className="relative">
             <div
@@ -644,7 +670,10 @@ export function DiscoverPanel({
 
         {/* RECOMMENDED FOR YOU */}
         <div className="space-y-4">
-          <DiscoverRailHeading title="Recommended for you" railKey="recommended" />
+          <DiscoverRailHeading
+            title="Recommended for you"
+            railKey="recommended"
+          />
 
           <div className="relative">
             <div
@@ -672,7 +701,10 @@ export function DiscoverPanel({
 
         {/* PROGRAMS */}
         <div className="space-y-4">
-          <DiscoverRailHeading title="Programs" railKey="programs" />
+          <DiscoverRailHeading
+            title="Programs"
+            railKey="programs"
+          />
           <div className="relative">
             <div
               ref={programsRef}
@@ -707,7 +739,9 @@ export function DiscoverPanel({
                           <Tv className="size-8 text-neutral-500" />
                         </div>
                       )}
-                      <p className="mt-2 text-sm font-medium">{program.title}</p>
+                      <p className="mt-2 text-sm font-medium">
+                        {program.title}
+                      </p>
                       <p className="text-muted-foreground text-xs capitalize">
                         {program.status.toLowerCase()} ·{" "}
                         {new Date(program.scheduledAt).toLocaleString()}
@@ -731,7 +765,10 @@ export function DiscoverPanel({
 
         {/* LIVE STREAMS */}
         <div className="space-y-4">
-          <DiscoverRailHeading title="Live streams" railKey="live" />
+          <DiscoverRailHeading
+            title="Live streams"
+            railKey="live"
+          />
           <div className="relative">
             <div
               ref={liveStreamsRef}
@@ -745,41 +782,43 @@ export function DiscoverPanel({
                     No live streams detected right now.
                   </p>
                 ) : (
-                  liveStreamItems.map((content: Content & { liveLabel?: string }) => (
-                    <div
-                      key={content.id}
-                      data-testid="discover-live-stream-card"
-                      className={cn("relative", CONTENT_CARD_MIN)}
-                      onClick={() => openLiveStreamContent(content)}
-                    >
-                      {content.liveLabel ? (
-                        <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white uppercase">
-                          <Radio className="size-3" />
-                          {content.liveLabel}
-                        </span>
-                      ) : null}
-                      <div className="cursor-pointer bg-black/10">
-                        <ThumbnailPlayer
-                          videoUrl={content.url}
-                          contentId={content.id}
-                          suppressInlinePlaybackContentId={
-                            suppressInlinePlaybackContentId
-                          }
-                          className="aspect-video w-full rounded-md"
-                        />
-                        <div className="p-1">
-                          <h5 className="text-sm">{content.title}</h5>
-                          {renderLiveRoomCue(content)}
-                          <div className="text-muted-foreground flex items-center gap-4 text-sm">
-                            <span className="flex items-center gap-1">
-                              <UsersRound className="size-4" />
-                              {content.event?.numOfTips ?? 0} Tips
-                            </span>
+                  liveStreamItems.map(
+                    (content: Content & { liveLabel?: string }) => (
+                      <div
+                        key={content.id}
+                        data-testid="discover-live-stream-card"
+                        className={cn("relative", CONTENT_CARD_MIN)}
+                        onClick={() => openLiveStreamContent(content)}
+                      >
+                        {content.liveLabel ? (
+                          <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white uppercase">
+                            <Radio className="size-3" />
+                            {content.liveLabel}
+                          </span>
+                        ) : null}
+                        <div className="cursor-pointer bg-black/10">
+                          <ThumbnailPlayer
+                            videoUrl={content.url}
+                            contentId={content.id}
+                            suppressInlinePlaybackContentId={
+                              suppressInlinePlaybackContentId
+                            }
+                            className="aspect-video w-full rounded-md"
+                          />
+                          <div className="p-1">
+                            <h5 className="text-sm">{content.title}</h5>
+                            {renderLiveRoomCue(content)}
+                            <div className="text-muted-foreground flex items-center gap-4 text-sm">
+                              <span className="flex items-center gap-1">
+                                <UsersRound className="size-4" />
+                                {content.event?.numOfTips ?? 0} Tips
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  )
                 )}
               </div>
             </div>
@@ -797,7 +836,10 @@ export function DiscoverPanel({
 
         {/* MOST TIPPED CONTENTS */}
         <div className="space-y-4">
-          <DiscoverRailHeading title="Most tipped contents" railKey="mostTipped" />
+          <DiscoverRailHeading
+            title="Most tipped contents"
+            railKey="mostTipped"
+          />
 
           <div className="relative">
             <div
@@ -809,7 +851,10 @@ export function DiscoverPanel({
                   <div
                     key={content.id}
                     onClick={() => resolveContentClick(content)}
-                    className={cn("cursor-pointer bg-black/10", CONTENT_CARD_MIN)}
+                    className={cn(
+                      "cursor-pointer bg-black/10",
+                      CONTENT_CARD_MIN
+                    )}
                   >
                     <ThumbnailPlayer
                       videoUrl={content.url}

@@ -2,7 +2,10 @@
 
 import { X } from "lucide-react";
 
-import { DiscoverPanel, type DiscoverPanelProps } from "@/components/tv/discover-panel";
+import {
+  DiscoverPanel,
+  type DiscoverPanelProps,
+} from "@/components/tv/discover-panel";
 import { cn } from "@/lib/utils";
 
 type Props = DiscoverPanelProps & {
@@ -10,7 +13,12 @@ type Props = DiscoverPanelProps & {
   onClose: () => void;
 };
 
-export function DiscoverSheet({ open, onClose, className, ...panelProps }: Props) {
+export function DiscoverSheet({
+  open,
+  onClose,
+  className,
+  ...panelProps
+}: Props) {
   if (!open) return null;
 
   return (

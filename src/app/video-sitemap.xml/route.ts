@@ -102,8 +102,7 @@ export async function GET() {
   const pushEntry = (pageUrl: string, row: VideoRow) => {
     if (!pageUrl || seen.has(pageUrl)) return;
     seen.add(pageUrl);
-    const title =
-      typeof row.title === "string" ? row.title : "Tipmanna video";
+    const title = typeof row.title === "string" ? row.title : "Tipmanna video";
     const playerUrl = typeof row.url === "string" ? row.url : undefined;
     entries.push(
       buildVideoSitemapEntry({

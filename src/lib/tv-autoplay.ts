@@ -7,7 +7,10 @@ export type PendingAudioRestore = {
   shouldPlay: boolean;
 };
 
-export function unmuteWithUserGesture(player: TvPlayerRef, source: string): void {
+export function unmuteWithUserGesture(
+  player: TvPlayerRef,
+  source: string
+): void {
   if (!player.isReady()) return;
   player.unmute();
   player.setVolume(100);

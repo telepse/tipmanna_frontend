@@ -85,7 +85,10 @@ export function TvRightPanelSkeleton({
 export function ContentCardSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("min-w-[270px] rounded-md border bg-black/5 p-1", className)}
+      className={cn(
+        "min-w-[270px] rounded-md border bg-black/5 p-1",
+        className
+      )}
       aria-hidden
     >
       <PulseBlock className="aspect-video w-full rounded-md" />

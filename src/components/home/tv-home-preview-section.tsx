@@ -77,11 +77,15 @@ export default function TvHomePreviewSection() {
         aria-labelledby="tv-home-heading"
       >
         <div className="mx-auto max-w-6xl px-4 md:px-6">
-          <h2 id="tv-home-heading" className="text-xl font-semibold md:text-2xl">
+          <h2
+            id="tv-home-heading"
+            className="text-xl font-semibold md:text-2xl"
+          >
             Tipmanna TV
           </h2>
           <p className="text-muted-foreground mt-2 text-sm">
-            Live TV is between shows. Open the full experience to browse the schedule.
+            Live TV is between shows. Open the full experience to browse the
+            schedule.
           </p>
           <Link
             href="/tv"
@@ -154,7 +158,10 @@ export default function TvHomePreviewSection() {
           </div>
         ) : (
           <TVProvider>
-            <TvPreviewPlayer characters={characters} isNarrow={isNarrow} />
+            <TvPreviewPlayer
+              characters={characters}
+              isNarrow={isNarrow}
+            />
           </TVProvider>
         )}
       </div>

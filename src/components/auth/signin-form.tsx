@@ -26,7 +26,12 @@ import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
 
 // Local imports
-import { HostSignInFormData, hostSignInSchema, hostSignUpSchema, type HostSignUpFormData } from "@/schemas/host.schema";
+import {
+  HostSignInFormData,
+  hostSignInSchema,
+  hostSignUpSchema,
+  type HostSignUpFormData,
+} from "@/schemas/host.schema";
 import {
   TipperSignInFormData,
   tipperSignInSchema,
@@ -452,7 +457,10 @@ export const SigninForm = ({
                     <FormItem>
                       <FormLabel>Full name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Your name" {...field} />
+                        <Input
+                          placeholder="Your name"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -520,7 +528,7 @@ export const SigninForm = ({
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormLabel className="font-normal leading-snug">
+                      <FormLabel className="leading-snug font-normal">
                         I agree to the terms and privacy policy
                       </FormLabel>
                     </FormItem>
@@ -550,126 +558,128 @@ export const SigninForm = ({
               </form>
             </Form>
           ) : (
-          <Form {...hostForm}>
-            <form
-              onSubmit={hostForm.handleSubmit(onSubmitHost)}
-              className="space-y-6"
-            >
-              <FormField
-                control={hostForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter email address"
-                        autoComplete="off"
-                        {...field}
-                        readOnly={!!emailParam}
-                        className={
-                          emailParam ? "bg-gray cursor-not-allowed" : ""
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={hostForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
+            <Form {...hostForm}>
+              <form
+                onSubmit={hostForm.handleSubmit(onSubmitHost)}
+                className="space-y-6"
+              >
+                <FormField
+                  control={hostForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
                         <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Enter password"
+                          placeholder="Enter email address"
                           autoComplete="off"
                           {...field}
+                          readOnly={!!emailParam}
+                          className={
+                            emailParam ? "bg-gray cursor-not-allowed" : ""
+                          }
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                        <button
-                          type="button"
-                          onClick={togglePasswordVisibility}
-                          className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
-                        >
-                          <Eye className="text-muted-foreground" />
-                        </button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={hostForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Enter password"
+                            autoComplete="off"
+                            {...field}
+                          />
 
-              <button
-                type="button"
-                data-testid="signin-request-login-code"
-                onClick={() =>
-                  handleRequestLoginCode({ email: hostForm.getValues("email") })
-                }
-                className="text-muted-foreground cursor-pointer text-sm underline"
-              >
-                Request login code instead?
-              </button>
+                          <button
+                            type="button"
+                            onClick={togglePasswordVisibility}
+                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
+                          >
+                            <Eye className="text-muted-foreground" />
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <Paragraph
-                align="right"
-                size="sm"
-                color="muted"
-              >
-                <Link
-                  href="/forgot-password"
-                  className="hover:underline"
+                <button
+                  type="button"
+                  data-testid="signin-request-login-code"
+                  onClick={() =>
+                    handleRequestLoginCode({
+                      email: hostForm.getValues("email"),
+                    })
+                  }
+                  className="text-muted-foreground cursor-pointer text-sm underline"
                 >
-                  Forgot password?
-                </Link>
-              </Paragraph>
+                  Request login code instead?
+                </button>
 
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-                data-testid="signin-host-submit"
-                disabled={isHostLoading}
-              >
-                {isHostLoading ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" /> Signing in...
-                  </span>
-                ) : (
-                  <span>Sign in</span>
-                )}
-              </Button>
-
-              <Paragraph
-                align="center"
-                size="sm"
-              >
-                Don&apos;t have an account?{" "}
-                {allowInlineSignUp ? (
-                  <button
-                    type="button"
-                    className="text-primary hover:underline"
-                    onClick={() => setHostStep("signUp")}
-                  >
-                    Sign up
-                  </button>
-                ) : (
+                <Paragraph
+                  align="right"
+                  size="sm"
+                  color="muted"
+                >
                   <Link
-                    href={signupHref}
-                    className="text-primary hover:underline"
+                    href="/forgot-password"
+                    className="hover:underline"
                   >
-                    Sign up
+                    Forgot password?
                   </Link>
-                )}
-              </Paragraph>
-            </form>
-          </Form>
+                </Paragraph>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  data-testid="signin-host-submit"
+                  disabled={isHostLoading}
+                >
+                  {isHostLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" /> Signing in...
+                    </span>
+                  ) : (
+                    <span>Sign in</span>
+                  )}
+                </Button>
+
+                <Paragraph
+                  align="center"
+                  size="sm"
+                >
+                  Don&apos;t have an account?{" "}
+                  {allowInlineSignUp ? (
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => setHostStep("signUp")}
+                    >
+                      Sign up
+                    </button>
+                  ) : (
+                    <Link
+                      href={signupHref}
+                      className="text-primary hover:underline"
+                    >
+                      Sign up
+                    </Link>
+                  )}
+                </Paragraph>
+              </form>
+            </Form>
           )}
         </TabsContent>
 

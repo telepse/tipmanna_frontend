@@ -9,7 +9,8 @@ import type { RootState } from "@/redux/store";
 export function useHostPayoutSummary() {
   const authToken = useSelector((s: RootState) => s.auth.token);
   const isHost = useSelector(
-    (s: RootState) => s.auth.user && "role" in s.auth.user && s.auth.user.role === "HOST"
+    (s: RootState) =>
+      s.auth.user && "role" in s.auth.user && s.auth.user.role === "HOST"
   );
 
   const { data, error, isLoading, mutate } = useSWR(

@@ -154,11 +154,14 @@ export function SavedTab({
         className="mt-3 space-y-2 data-[state=inactive]:hidden"
       >
         {loadingVideos || loadingSaved ? (
-          <div className="space-y-3" aria-busy="true">
+          <div
+            className="space-y-3"
+            aria-busy="true"
+          >
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="animate-pulse rounded-lg border bg-gray-50 h-24"
+                className="h-24 animate-pulse rounded-lg border bg-gray-50"
               />
             ))}
           </div>
@@ -214,11 +217,14 @@ export function SavedTab({
         className="mt-3 space-y-2 data-[state=inactive]:hidden"
       >
         {loadingHosts ? (
-          <div className="space-y-2" aria-busy="true">
+          <div
+            className="space-y-2"
+            aria-busy="true"
+          >
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="animate-pulse rounded-lg border bg-gray-50 h-14"
+                className="h-14 animate-pulse rounded-lg border bg-gray-50"
               />
             ))}
           </div>

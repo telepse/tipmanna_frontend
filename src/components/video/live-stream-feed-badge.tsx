@@ -15,7 +15,9 @@ export function liveStreamFeedBadgeVisible(liveStatus: LiveStatus): boolean {
   return liveStatus === "LIVE" || liveStatus === "ENDED";
 }
 
-export function liveStreamFeedBadgeLabel(liveStatus: LiveStatus): string | null {
+export function liveStreamFeedBadgeLabel(
+  liveStatus: LiveStatus
+): string | null {
   if (liveStatus === "LIVE") return "Live stream";
   if (liveStatus === "ENDED") return "Live stream · Completed";
   return null;
@@ -35,7 +37,10 @@ export function LiveStreamFeedBadge({ liveStatus, className }: Props) {
         className
       )}
     >
-      <Radio className="size-3" aria-hidden />
+      <Radio
+        className="size-3"
+        aria-hidden
+      />
       {label}
     </span>
   );

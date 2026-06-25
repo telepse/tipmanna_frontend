@@ -127,47 +127,57 @@ export function TipsFeedPanel({
     </div>
   );
 
-  const listBody = loading && items.length === 0 ? (
-    <ul className="space-y-2" aria-busy="true">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <li key={i} className="animate-pulse rounded-lg border px-2 py-4 bg-gray-50" />
-      ))}
-    </ul>
-  ) : items.length === 0 ? (
-    <p className="text-muted-foreground text-center text-sm">
-      No tips yet for this {scope === "video" ? "video" : "event room"}.
-    </p>
-  ) : (
-    <ul className="space-y-1">
-      {items.map(row => (
-        <li
-          key={row.id}
-          className="rounded-lg border px-2 py-0.5"
-        >
-          <div className="flex items-center gap-2">
-            <p className="text-xs">
-              {row.amount && (
-                <div className="bg-secondary inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold">
-                  {formatCurrency(row.amount)}
-                </div>
-              )}{" "}
-              <span className="font-semibold">{row.username}</span> just sent{" "}
-              {row.characterName}
-            </p>
-          </div>
+  const listBody =
+    loading && items.length === 0 ? (
+      <ul
+        className="space-y-2"
+        aria-busy="true"
+      >
+        {Array.from({ length: 4 }).map((_, i) => (
+          <li
+            key={i}
+            className="animate-pulse rounded-lg border bg-gray-50 px-2 py-4"
+          />
+        ))}
+      </ul>
+    ) : items.length === 0 ? (
+      <p className="text-muted-foreground text-center text-sm">
+        No tips yet for this {scope === "video" ? "video" : "event room"}.
+      </p>
+    ) : (
+      <ul className="space-y-1">
+        {items.map(row => (
+          <li
+            key={row.id}
+            className="rounded-lg border px-2 py-0.5"
+          >
+            <div className="flex items-center gap-2">
+              <p className="text-xs">
+                {row.amount && (
+                  <div className="bg-secondary inline-block rounded-full px-1.5 py-0.5 text-xs font-semibold">
+                    {formatCurrency(row.amount)}
+                  </div>
+                )}{" "}
+                <span className="font-semibold">{row.username}</span> just sent{" "}
+                {row.characterName}
+              </p>
+            </div>
 
-          <p className="text-muted-foreground text-right text-[10px]">
-            {formatPurchasedAt(row.purchasedAt)}
-          </p>
-        </li>
-      ))}
-      {hasMore ? (
-        <li ref={loadMoreRef} className="py-3 text-center text-xs text-gray-500">
-          {loadingMore ? "Loading more tips…" : "Scroll for more"}
-        </li>
-      ) : null}
-    </ul>
-  );
+            <p className="text-muted-foreground text-right text-[10px]">
+              {formatPurchasedAt(row.purchasedAt)}
+            </p>
+          </li>
+        ))}
+        {hasMore ? (
+          <li
+            ref={loadMoreRef}
+            className="py-3 text-center text-xs text-gray-500"
+          >
+            {loadingMore ? "Loading more tips…" : "Scroll for more"}
+          </li>
+        ) : null}
+      </ul>
+    );
 
   if (variant === "drawer") {
     return (

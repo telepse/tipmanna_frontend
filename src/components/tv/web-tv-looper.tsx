@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
@@ -255,16 +249,13 @@ export const WebTvLooper = ({
     resetAnchor: current?.id,
   });
 
-  const {
-    animationMountRef,
-    paymentLayerMetrics,
-    usePlayerBoundsLayer,
-  } = useTvPaymentAnimationLayer({
-    playerAreaRef,
-    isMobileTv,
-    isFullView,
-    layoutKey: `${current?.id ?? ""}:${currentIndex}:${isFullView}`,
-  });
+  const { animationMountRef, paymentLayerMetrics, usePlayerBoundsLayer } =
+    useTvPaymentAnimationLayer({
+      playerAreaRef,
+      isMobileTv,
+      isFullView,
+      layoutKey: `${current?.id ?? ""}:${currentIndex}:${isFullView}`,
+    });
 
   useEffect(() => {
     if (!isMobileTv) {
@@ -1193,7 +1184,7 @@ export const WebTvLooper = ({
                 />
               ) : null}
               {showViewCount && typeof channelViewCount === "number" ? (
-                <p className="mt-1 text-center text-[10px] font-medium text-white drop-shadow-md z-[20000]">
+                <p className="z-[20000] mt-1 text-center text-[10px] font-medium text-white drop-shadow-md">
                   {channelViewCount} views
                 </p>
               ) : null}

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
@@ -272,16 +266,13 @@ export const TvLooper = ({
 
   const shellEmbedsFullView = Boolean(onFullViewChange);
   const landscapeChrome = mobileLandscape && isMobileTv;
-  const {
-    animationMountRef,
-    paymentLayerMetrics,
-    usePlayerBoundsLayer,
-  } = useTvPaymentAnimationLayer({
-    playerAreaRef,
-    isMobileTv,
-    isFullView,
-    layoutKey: `${current?.id ?? ""}:${currentIndex}:${isFullView}`,
-  });
+  const { animationMountRef, paymentLayerMetrics, usePlayerBoundsLayer } =
+    useTvPaymentAnimationLayer({
+      playerAreaRef,
+      isMobileTv,
+      isFullView,
+      layoutKey: `${current?.id ?? ""}:${currentIndex}:${isFullView}`,
+    });
 
   useEffect(() => {
     if (!isMobileTv) {
@@ -850,8 +841,7 @@ export const TvLooper = ({
     currentEventId || undefined
   );
   const fillViewport = isFullView || isFullscreen || landscapeChrome;
-  const widePlayer =
-    playerLayout === "wide" && !isMobileTv && !fillViewport;
+  const widePlayer = playerLayout === "wide" && !isMobileTv && !fillViewport;
   const useFixedFullViewChrome = isFullView && !shellEmbedsFullView;
 
   return (
@@ -1337,14 +1327,19 @@ export const TvLooper = ({
             )}
           >
             <div className="flex items-center gap-1">
-            {currentTitle?.substring(0, 30)}{" "}
-            {currentTitle?.length > 30 ? ".." : ""}{" "}
-            {currentTitle?.length > 30 ? (
-              <div className="flex items-center -ml-1 border border-gray-400" onClick={() => setShowCommentDrawer(true)}>
-            <ArrowRight className="size-4 cursor-pointer"  /></div>
-            ) : (
-              ""
-            )}</div>
+              {currentTitle?.substring(0, 30)}{" "}
+              {currentTitle?.length > 30 ? ".." : ""}{" "}
+              {currentTitle?.length > 30 ? (
+                <div
+                  className="-ml-1 flex items-center border border-gray-400"
+                  onClick={() => setShowCommentDrawer(true)}
+                >
+                  <ArrowRight className="size-4 cursor-pointer" />
+                </div>
+              ) : (
+                ""
+              )}
+            </div>
           </div>
 
           <div

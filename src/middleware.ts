@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isDiscoveryHost, shouldRedirectExploreToDiscover } from "@/lib/site-config";
+import {
+  isDiscoveryHost,
+  shouldRedirectExploreToDiscover,
+} from "@/lib/site-config";
 
 function normalizeHostname(host: string | null): string {
   return (host ?? "").split(":")[0].toLowerCase();

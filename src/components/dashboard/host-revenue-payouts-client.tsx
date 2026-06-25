@@ -27,14 +27,8 @@ export function HostRevenuePayoutsClient() {
   const slug = typeof params?.slug === "string" ? params.slug : "";
   const userId = useSelector((s: RootState) => s.auth.user?.id);
   const authToken = useSelector((s: RootState) => s.auth.token);
-  const {
-    summary,
-    pendingSettlements,
-    host,
-    communities,
-    isLoading,
-    refresh,
-  } = useHostPayoutSummary();
+  const { summary, pendingSettlements, host, communities, isLoading, refresh } =
+    useHostPayoutSummary();
 
   const load = useCallback(async () => {
     await refresh();

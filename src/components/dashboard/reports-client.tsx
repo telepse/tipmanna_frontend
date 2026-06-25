@@ -169,7 +169,8 @@ export const ReportsClient = () => {
       {hostSlug ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm">
           <span className="text-muted-foreground">
-            Confirm payouts and view obligation history on Revenue &amp; Payouts.
+            Confirm payouts and view obligation history on Revenue &amp;
+            Payouts.
           </span>
           <Link
             href={`/host/${hostSlug}/revenue`}

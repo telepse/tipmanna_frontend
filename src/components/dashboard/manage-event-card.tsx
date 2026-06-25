@@ -63,11 +63,7 @@ export function ManageEventCard({
     setShowAmountRaised(showAmountRaisedOnVideos);
     setShowViewCount(showViewCountOnVideos);
     setShowEncounter(showEncounterOnVideos);
-  }, [
-    showAmountRaisedOnVideos,
-    showViewCountOnVideos,
-    showEncounterOnVideos,
-  ]);
+  }, [showAmountRaisedOnVideos, showViewCountOnVideos, showEncounterOnVideos]);
 
   let eventCode;
   if (user?.role === "HOST") {

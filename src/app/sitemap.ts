@@ -1,11 +1,6 @@
 import type { MetadataRoute } from "next";
-import {
-  EXPLORE_EVENT_TYPE_OPTIONS,
-} from "@/lib/event-type-options";
-import {
-  getDiscoveryAbsoluteUrl,
-  SITE_URL,
-} from "@/lib/site-config";
+import { EXPLORE_EVENT_TYPE_OPTIONS } from "@/lib/event-type-options";
+import { getDiscoveryAbsoluteUrl, SITE_URL } from "@/lib/site-config";
 
 async function fetchDiscoveryProgramUrls(): Promise<string[]> {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "");
@@ -19,7 +14,9 @@ async function fetchDiscoveryProgramUrls(): Promise<string[]> {
     if (!Array.isArray(rows)) return [];
     return rows
       .map(row => row.landingUrl)
-      .filter((url): url is string => typeof url === "string" && url.startsWith("/"))
+      .filter(
+        (url): url is string => typeof url === "string" && url.startsWith("/")
+      )
       .map(path => getDiscoveryAbsoluteUrl(path));
   } catch {
     return [];

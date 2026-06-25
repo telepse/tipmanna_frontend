@@ -14,15 +14,15 @@ const OTHER_VIDEO_ID = "33333333-3333-4333-8333-333333333333";
 
 describe("public-video-url", () => {
   it("buildContentSharePath emits ?v= video selector", () => {
-    expect(buildContentSharePath({ eventId: EVENT_ID, channelId: VIDEO_ID })).toBe(
-      `/content/${EVENT_ID}?v=${VIDEO_ID}`
-    );
+    expect(
+      buildContentSharePath({ eventId: EVENT_ID, channelId: VIDEO_ID })
+    ).toBe(`/content/${EVENT_ID}?v=${VIDEO_ID}`);
   });
 
   it("buildChannelSharePath emits ?v= on channel path", () => {
-    expect(buildChannelSharePath({ eventId: EVENT_ID, channelId: VIDEO_ID })).toBe(
-      `/channel/${EVENT_ID}?v=${VIDEO_ID}`
-    );
+    expect(
+      buildChannelSharePath({ eventId: EVENT_ID, channelId: VIDEO_ID })
+    ).toBe(`/channel/${EVENT_ID}?v=${VIDEO_ID}`);
   });
 
   it("buildContentSharePath omits query when no video id", () => {

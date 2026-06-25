@@ -31,7 +31,10 @@ const commentCache = new Map<string, CommentDrawerData>();
 const tipsCache = new Map<string, TipsDrawerSnapshot>();
 const profileCache = new Map<string, unknown>();
 
-const commentInflight: Map<string, Promise<CommentDrawerData | null>> = new Map();
+const commentInflight: Map<
+  string,
+  Promise<CommentDrawerData | null>
+> = new Map();
 const tipsInflight: Map<string, Promise<TipsDrawerSnapshot | null>> = new Map();
 
 function readSession<T>(key: string): T | null {
@@ -136,7 +139,12 @@ export async function fetchTipsDrawerCached(
   eventId: string,
   channelId: string | null,
   scope: "event" | "video",
-  opts?: { force?: boolean; cursor?: string | null; limit?: number; append?: boolean }
+  opts?: {
+    force?: boolean;
+    cursor?: string | null;
+    limit?: number;
+    append?: boolean;
+  }
 ): Promise<TipsDrawerSnapshot | null> {
   const key = tipsDrawerKey(eventId, channelId, scope);
   const pageKey = opts?.cursor ? `${key}:${opts.cursor}` : key;
@@ -159,7 +167,9 @@ export async function fetchTipsDrawerCached(
           hasMore?: boolean;
         };
         const pageItems = Array.isArray(data.items) ? data.items : [];
-        const prev = opts?.append ? getCachedTipsDrawer(eventId, channelId, scope) : null;
+        const prev = opts?.append
+          ? getCachedTipsDrawer(eventId, channelId, scope)
+          : null;
         const snap: TipsDrawerSnapshot = {
           items: prev ? [...prev.items, ...pageItems] : pageItems,
           nextCursor: data.nextCursor ?? null,
@@ -238,7 +248,11 @@ export function prefetchTvScheduleTips(
 ) {
   if (typeof window === "undefined") return;
   scheduleIdle(() => {
-    for (let i = startIndex; i < Math.min(rows.length, startIndex + count); i++) {
+    for (
+      let i = startIndex;
+      i < Math.min(rows.length, startIndex + count);
+      i++
+    ) {
       const row = rows[i];
       const eventId = String(
         row?.defaultChannelEventId ?? row?.channel?.eventId ?? ""
@@ -283,7 +297,8 @@ export async function prefetchProfileDrawerData(): Promise<void> {
       fetchSavedHostsMe(),
     ]);
   profileCache.set(key, {
-    causes: causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : [],
+    causes:
+      causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : [],
     tipperEvents:
       eventsRes.success && Array.isArray(eventsRes.data) ? eventsRes.data : [],
     iTipped: typeof tippedRes.data === "number" ? tippedRes.data : 0,

@@ -260,7 +260,7 @@ export function AppSidebar({ numOfEvents }: Props) {
                       !item.freezed &&
                       item.plan !== false ? (
                         <Crown
-                          className="text-amber-600 size-3.5 shrink-0"
+                          className="size-3.5 shrink-0 text-amber-600"
                           aria-label="Premium feature"
                         />
                       ) : null}

@@ -74,8 +74,13 @@ import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscr
 function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative">
-      <div className="pointer-events-none opacity-60 select-none">{children}</div>
-      <div className="bg-background/40 absolute inset-0 z-10" aria-hidden />
+      <div className="pointer-events-none opacity-60 select-none">
+        {children}
+      </div>
+      <div
+        className="bg-background/40 absolute inset-0 z-10"
+        aria-hidden
+      />
     </div>
   );
 }

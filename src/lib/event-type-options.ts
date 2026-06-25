@@ -31,16 +31,20 @@ export const DISCOVER_RAIL_SUBTITLES: Record<string, string> = {
 export const DISCOVER_RAIL_UPDATE_HINTS: Record<string, string> = {
   top: "Manual curation — updates when admins change the featured list.",
   latest: "Real-time — sorted by newest upload (createdAt).",
-  spotlight: "Recalculated about every 5 minutes from views, tips, saves, and recency.",
+  spotlight:
+    "Recalculated about every 5 minutes from views, tips, saves, and recency.",
   recommended: "Recalculated about every 5 minutes from saves and recency.",
-  programs: "Updates when TV programs are scheduled or change enforcement status.",
+  programs:
+    "Updates when TV programs are scheduled or change enforcement status.",
   live: "Updates when live status changes (live, upcoming, or recently ended).",
   mostTipped: "Real-time — sorted by highest tip counts.",
 };
 
 export type DiscoverRailKey = keyof typeof DISCOVER_RAIL_SUBTITLES;
 
-export function eventTypeOptionBySlug(slug: string): EventTypeOption | undefined {
+export function eventTypeOptionBySlug(
+  slug: string
+): EventTypeOption | undefined {
   const normalized = slug.trim().toLowerCase();
   return EXPLORE_EVENT_TYPE_OPTIONS.find(
     opt => opt.slug === normalized || opt.value.toLowerCase() === normalized

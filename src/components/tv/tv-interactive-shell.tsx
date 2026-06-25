@@ -190,7 +190,8 @@ export function TvInteractiveShell({
 
   const [showSearchOptions, setShowSearchOptions] = useState(false);
   const [isMobileFullView, setIsMobileFullView] = useState(false);
-  const [landscapeLayoutDismissed, setLandscapeLayoutDismissed] = useState(false);
+  const [landscapeLayoutDismissed, setLandscapeLayoutDismissed] =
+    useState(false);
   const exitFullRef = useRef<(() => void) | null>(null);
   const router = useRouter();
 
@@ -308,9 +309,7 @@ export function TvInteractiveShell({
                 }
               />
             ) : null}
-            {!tvReady ? (
-              <TvLooperSkeleton layout="wide" />
-            ) : null}
+            {!tvReady ? <TvLooperSkeleton layout="wide" /> : null}
           </div>
 
           <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
@@ -583,7 +582,9 @@ export function TvInteractiveShell({
                     onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
                     onEngage={() => setIsTipDrawerOpen(true)}
                     onFullViewChange={
-                      showMobileLandscapeLayout ? undefined : setIsMobileFullView
+                      showMobileLandscapeLayout
+                        ? undefined
+                        : setIsMobileFullView
                     }
                     onRegisterExitFull={registerExitFull}
                     commentDrawerVideoTitle={

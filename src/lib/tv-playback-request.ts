@@ -17,5 +17,7 @@ export function isSameOrchestratedPlayback(
   b: { videoId: string; startSeconds: number }
 ): boolean {
   if (!a) return false;
-  return a.videoId === b.videoId && Math.abs(a.startSeconds - b.startSeconds) < 1;
+  return (
+    a.videoId === b.videoId && Math.abs(a.startSeconds - b.startSeconds) < 1
+  );
 }

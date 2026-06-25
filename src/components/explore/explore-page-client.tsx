@@ -83,7 +83,7 @@ const ExploreFeedClient = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex min-h-[50dvh] items-center justify-center text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex min-h-[50dvh] items-center justify-center text-sm">
         Loading feed…
       </div>
     ),
@@ -667,29 +667,38 @@ export default function ExplorePageClient({
   const loadExploreCatalog = useCallback(async () => {
     setCatalogLoading(true);
     const signedIn = isSignedInExplore && Boolean(exploreUserId?.trim());
-    const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, tipEv, iTip, causesRes] =
-      await Promise.all([
-        getAllFeaturedContentsAction(),
-        getLatestContents(),
-        getSpotlightContents(),
-        getRecommendedContents(),
-        getMostTippedContents(),
-        getLiveStreamContents(),
-        getDiscoveryProgramsAction(),
-        getAllTopTippers(),
-        signedIn
-          ? getTippedEventsForTipper()
-          : Promise.resolve({ success: true, data: [] as any[] }),
-        signedIn
-          ? getTotalAmountTippedByTipper()
-          : Promise.resolve({ success: true, data: 0 }),
-        getAllCausesAction(),
-      ]);
+    const [
+      feat,
+      lat,
+      spot,
+      rec,
+      most,
+      liveRes,
+      progRes,
+      tipRes,
+      tipEv,
+      iTip,
+      causesRes,
+    ] = await Promise.all([
+      getAllFeaturedContentsAction(),
+      getLatestContents(),
+      getSpotlightContents(),
+      getRecommendedContents(),
+      getMostTippedContents(),
+      getLiveStreamContents(),
+      getDiscoveryProgramsAction(),
+      getAllTopTippers(),
+      signedIn
+        ? getTippedEventsForTipper()
+        : Promise.resolve({ success: true, data: [] as any[] }),
+      signedIn
+        ? getTotalAmountTippedByTipper()
+        : Promise.resolve({ success: true, data: 0 }),
+      getAllCausesAction(),
+    ]);
 
     setContents(feat.success ? normalizeListPayload<any>(feat.data) : []);
-    setLatestContents(
-      lat.success ? normalizeListPayload<any>(lat.data) : []
-    );
+    setLatestContents(lat.success ? normalizeListPayload<any>(lat.data) : []);
     setSpotlightContents(
       spot.success ? normalizeListPayload<any>(spot.data) : []
     );
@@ -711,12 +720,8 @@ export default function ExplorePageClient({
         recentlyEnded: Array.isArray(ls.recentlyEnded) ? ls.recentlyEnded : [],
       });
     }
-    setPrograms(
-      progRes.success ? normalizeListPayload<any>(progRes.data) : []
-    );
-    setTippers(
-      tipRes.success ? normalizeListPayload<any>(tipRes.data) : []
-    );
+    setPrograms(progRes.success ? normalizeListPayload<any>(progRes.data) : []);
+    setTippers(tipRes.success ? normalizeListPayload<any>(tipRes.data) : []);
     setTipperEvents(
       tipEv.success && Array.isArray(tipEv.data) ? tipEv.data : []
     );
@@ -842,7 +847,9 @@ export default function ExplorePageClient({
           headerPullRef.current = null;
         }}
       >
-        <h1 className="sr-only">Tipmanna TV — Explore and discover community media</h1>
+        <h1 className="sr-only">
+          Tipmanna TV — Explore and discover community media
+        </h1>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Link
             href="/explore"
@@ -1155,7 +1162,7 @@ export default function ExplorePageClient({
 
       <div
         className={cn(
-          "flex min-h-0 flex-1 flex-col overflow-hidden",
+          "flex h-full min-h-0 flex-1 flex-col overflow-hidden",
           tab !== "feed" && "hidden"
         )}
         style={
@@ -1334,7 +1341,7 @@ export default function ExplorePageClient({
           ) : null}
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
           {feedSubTab === "tv" ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <ExploreTvScheduleFeed
@@ -1351,22 +1358,24 @@ export default function ExplorePageClient({
               />
             </div>
           ) : tab === "feed" ? (
-            <ExploreFeedClient
-              key={reelsKey}
-              ref={exploreFeedRef}
-              characters={characters}
-              characterSets={characterSets}
-              feedSurfaceActive={tab === "feed"}
-              feedMode={
-                feedSubTab === "community"
-                  ? "community"
-                  : feedSubTab === "saves"
-                    ? "saves"
-                    : "trends"
-              }
-              communityIds={scopedExploreCommunityIds}
-              trendsFilters={trendsFilters}
-            />
+            <div className="flex h-full min-h-0 flex-1 flex-col">
+              <ExploreFeedClient
+                key={reelsKey}
+                ref={exploreFeedRef}
+                characters={characters}
+                characterSets={characterSets}
+                feedSurfaceActive={tab === "feed"}
+                feedMode={
+                  feedSubTab === "community"
+                    ? "community"
+                    : feedSubTab === "saves"
+                      ? "saves"
+                      : "trends"
+                }
+                communityIds={scopedExploreCommunityIds}
+                trendsFilters={trendsFilters}
+              />
+            </div>
           ) : null}
         </div>
       </div>

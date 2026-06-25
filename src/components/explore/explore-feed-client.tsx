@@ -12,12 +12,20 @@ import {
   useState,
   type MutableRefObject,
   type RefObject,
+  type CSSProperties,
+  type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, MessageCircle, Plus, Volume2, VolumeX } from "lucide-react";
+import {
+  ArrowRight,
+  MessageCircle,
+  Plus,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import SignInDialog from "@/components/auth/sign-in-dialog";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
@@ -98,7 +106,24 @@ import {
   type TvEventCatalog,
 } from "@/lib/tv-event-catalog-cache";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
-import { isYoutubeShortsUrl } from "@/lib/youtube-immersive-meta";
+import { useExploreReelLayoutMode } from "@/hooks/use-explore-reel-layout-mode";
+import {
+  exploreReelDockActionsClassName,
+  exploreReelDockClassName,
+  exploreReelDockHeightCss,
+  exploreReelDockScrubberClassName,
+  exploreReelPresentationFit,
+  exploreReelStageClassName,
+  exploreReelTapCaptureClassName,
+  exploreReelTitleBelowBandClassName,
+  exploreReelTitleOnVideoClassName,
+  exploreReelTitlePlacement,
+  exploreReelVideoBandClassName,
+  exploreReelVideoPlayerClassName,
+  type ExploreReelLayoutMode,
+} from "@/lib/explore-reel-layout";
+import { useMediaQuery } from "react-responsive";
+import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 
 const TipDrawer = dynamic(
   () =>
@@ -107,26 +132,6 @@ const TipDrawer = dynamic(
     })),
   { ssr: false }
 );
-
-/**
- * Fixed slide height for snap scrolling. Explore stacks multiple chrome rows
- * (main header + tab strip + feed sub-toolbar); ~7.5rem keeps the stage aligned
- * with the visible flex region so the player stays visually centered.
- */
-const SLIDE_VIEWPORT_LANDSCAPE =
-  "h-[calc(100dvh-7.5rem)] min-h-[calc(100dvh-7.5rem)] max-md:h-[calc(100dvh-7rem)] max-md:min-h-[calc(100dvh-7rem)]";
-
-/** Full-bleed portrait / Shorts slides use nearly the full viewport. */
-const SLIDE_VIEWPORT_FULL_BLEED =
-  "h-[calc(100dvh-4rem)] min-h-[calc(100dvh-4rem)]";
-
-function exploreSlideViewportClass(
-  videoUrl: string | null | undefined
-): string {
-  return isYoutubeShortsUrl(videoUrl)
-    ? SLIDE_VIEWPORT_FULL_BLEED
-    : SLIDE_VIEWPORT_LANDSCAPE;
-}
 
 /** Append size when near end of queue. */
 const EXPLORE_FEED_PAGE_COUNT = 6;
@@ -204,6 +209,7 @@ type ExploreFeedSlideVideoProps = {
   activeIndexRef: MutableRefObject<number>;
   totalItems: number;
   feedSurfaceActive: boolean;
+  layoutMode: ExploreReelLayoutMode;
   videoRef: RefObject<VideoPlayerRef | null>;
   onActivePlaying: () => void;
   onActiveReelEnded?: () => void;
@@ -220,6 +226,7 @@ function ExploreFeedSlideVideo({
   activeIndexRef,
   totalItems,
   feedSurfaceActive,
+  layoutMode,
   videoRef,
   onActivePlaying,
   onActiveReelEnded,
@@ -237,14 +244,13 @@ function ExploreFeedSlideVideo({
     return { width: aspectInfo.width, height: aspectInfo.height };
   }, [aspectInfo]);
 
-  const isFullBleed =
-    aspectInfo?.classification === "portrait" ||
-    aspectInfo?.classification === "square";
-
-  const explorePresentationFit = useMemo<"contain" | "cover">(
-    () => (isFullBleed ? "cover" : "contain"),
-    [isFullBleed]
+  const explorePresentationFit = useMemo(
+    () => exploreReelPresentationFit(layoutMode),
+    [layoutMode]
   );
+
+  const posterObjectFitClass =
+    explorePresentationFit === "contain" ? "object-contain" : "object-cover";
 
   const playbackActive = feedSurfaceActive && slideIndex === activeIndex;
 
@@ -331,7 +337,10 @@ function ExploreFeedSlideVideo({
   return (
     <div
       data-testid="explore-video-shell"
-      className={`relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden ${isFullBleed ? "" : ""}`}
+      className={cn(
+        "relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden",
+        exploreReelVideoPlayerClassName(layoutMode)
+      )}
     >
       <VideoSurfaceBadges
         {...pickVideoSurfaceBadgeProps(
@@ -352,7 +361,7 @@ function ExploreFeedSlideVideo({
             </div>
           ) : null}
           <div
-            className="absolute inset-x-0 top-0 bottom-28 z-30"
+            className={exploreReelTapCaptureClassName()}
             onPointerDownCapture={e => {
               e.preventDefault();
               e.stopPropagation();
@@ -379,11 +388,7 @@ function ExploreFeedSlideVideo({
             transitionLoadingOverlay={false}
             fullPresentationFit={explorePresentationFit}
             presentationVideoSize={presentationVideoSize}
-            className={
-              isFullBleed
-                ? "min-h-0 min-w-0 flex-1"
-                : "mt-16 min-h-0 min-w-0 flex-1 sm:mt-20"
-            }
+            className={exploreReelVideoPlayerClassName(layoutMode)}
             onError={() => {
               if (slideIndex === activeIndex) onPlayerError?.();
             }}
@@ -409,7 +414,10 @@ function ExploreFeedSlideVideo({
         </>
       ) : inPreloadBand ? (
         <div
-          className={`relative flex min-h-[45vh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-black ${isFullBleed ? "" : "mt-16 sm:mt-20"}`}
+          className={cn(
+            "relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-black",
+            exploreReelVideoPlayerClassName(layoutMode)
+          )}
         >
           {/* Explore off-stage slides: YouTube poster (external CDN). */}
           {poster ? (
@@ -417,7 +425,10 @@ function ExploreFeedSlideVideo({
             <img
               alt=""
               src={poster}
-              className="h-full w-auto max-w-full object-contain opacity-90"
+              className={cn(
+                "h-full w-full max-w-full opacity-90",
+                posterObjectFitClass
+              )}
             />
           ) : (
             <p className="text-muted-foreground px-6 text-center text-sm">
@@ -425,6 +436,125 @@ function ExploreFeedSlideVideo({
             </p>
           )}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExploreFeedSlideStage({
+  item,
+  isMobile,
+  children,
+}: {
+  item: { url?: string | null };
+  isMobile: boolean;
+  children: (layoutMode: ExploreReelLayoutMode) => ReactNode;
+}) {
+  const videoUrl = typeof item.url === "string" ? item.url : null;
+  const layoutMode = useExploreReelLayoutMode(videoUrl, isMobile);
+  return <>{children(layoutMode)}</>;
+}
+
+type ExploreReelSlideMetrics = {
+  encounters: number;
+  completes: number;
+  saves: number;
+  shares: number;
+  comments: number;
+};
+
+type ExploreReelSlideTitleProps = {
+  item: any;
+  reelMuted: boolean;
+  setReelMuted: (muted: boolean) => void;
+  videoRef: RefObject<VideoPlayerRef | null>;
+  setExploreCommentOpen: (open: boolean) => void;
+  active: any;
+  metrics: ExploreReelSlideMetrics | null;
+  metricsRestrictedCommunity: { id: string; name: string } | null;
+  className?: string;
+};
+
+function ExploreReelSlideTitle({
+  item,
+  reelMuted,
+  setReelMuted,
+  videoRef,
+  setExploreCommentOpen,
+  active,
+  metrics,
+  metricsRestrictedCommunity,
+  className,
+}: ExploreReelSlideTitleProps) {
+  return (
+    <div className={className}>
+      <div className="flex items-center gap-2 text-sm font-semibold drop-shadow-md">
+        <button
+          type="button"
+          title={reelMuted ? "Unmute" : "Mute"}
+          className="cursor-pointer rounded bg-black/50 p-1"
+          onPointerDown={e => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={e => {
+            e.stopPropagation();
+            const p = videoRef.current;
+            if (!p?.isReady()) return;
+            if (reelMuted) p.unmute();
+            else p.mute();
+            setReelMuted(p.isMuted());
+          }}
+        >
+          {reelMuted ? (
+            <VolumeX className="size-4 text-white" />
+          ) : (
+            <Volume2 className="size-4 text-white" />
+          )}
+        </button>
+        <span className="min-w-0 truncate">{item.title.substring(0, 30)}</span>
+        {item.title.length > 30 ? ".." : ""}
+        {item.title.length > 30 ? (
+          <button
+            type="button"
+            aria-label="Open comments"
+            className="-ml-2 inline-flex shrink-0 cursor-pointer items-center rounded border border-gray-400 p-1"
+            onPointerDown={e => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={e => {
+              e.stopPropagation();
+              setExploreCommentOpen(true);
+            }}
+          >
+            <ArrowRight className="size-4" />
+          </button>
+        ) : null}
+      </div>
+      {active?.event?.showViewCountOnVideos === true &&
+      metrics &&
+      !metricsRestrictedCommunity ? (
+        <p className="text-[11px] opacity-80 drop-shadow-md">
+          {metrics.encounters} views
+        </p>
+      ) : null}
+      {metricsRestrictedCommunity ? (
+        <p className="text-[11px] opacity-80 drop-shadow-md">
+          Insights hidden —{" "}
+          <Link
+            href={`/explore?tab=join&joinCommunity=${encodeURIComponent(metricsRestrictedCommunity.id)}`}
+            className="pointer-events-auto underline"
+          >
+            Join {metricsRestrictedCommunity.name}
+          </Link>{" "}
+          for full metrics.
+        </p>
+      ) : metrics ? (
+        <p className="text-[11px] opacity-80 drop-shadow-md">
+          {metrics.saves} saves · {metrics.shares} shares · {metrics.comments}{" "}
+          comments
+        </p>
       ) : null}
     </div>
   );
@@ -575,6 +705,8 @@ export const ExploreFeedClient = forwardRef<
   const active = items[activeIndex];
   const activeEventId = active?.event?.id ?? "";
   const activeChannelId = active?.id;
+
+  const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
 
   const playingVideoKey = useMemo(() => {
     if (!activeEventId || activeChannelId == null) return "";
@@ -1411,325 +1543,308 @@ export const ExploreFeedClient = forwardRef<
   }
 
   return (
-    <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-black">
+    <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-black">
       <div
         data-testid="explore-feed-scroll"
         ref={scrollRef}
         className={cn(
-          "min-h-0 w-full max-w-[100vw] min-w-0 flex-1 touch-pan-y snap-y snap-mandatory overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]",
+          "h-full min-h-0 w-full max-w-[100vw] min-w-0 flex-1 touch-pan-y snap-y snap-mandatory overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]",
           isTipDrawerOpen && "pointer-events-none select-none"
         )}
       >
         {items.map((item, i) => (
-          <div
+          <ExploreFeedSlideStage
             key={item.id}
-            data-explore-slide
-            data-index={i}
-            className={cn(
-              "relative flex min-h-0 w-full max-w-[100vw] min-w-0 shrink-0 snap-start snap-always flex-col bg-black",
-              exploreSlideViewportClass(
-                typeof item.url === "string" ? item.url : null
-              )
-            )}
+            item={item}
+            isMobile={isMobile}
           >
-            {isInExplorePreloadWindow(i, activeIndex, items.length) ? (
-              <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden">
-                <ExploreFeedSlideVideo
-                  item={item}
-                  slideIndex={i}
-                  activeIndex={activeIndex}
-                  activeIndexRef={activeIndexRef}
-                  totalItems={items.length}
-                  feedSurfaceActive={feedSurfaceActive}
-                  videoRef={videoRef}
-                  onActivePlaying={handleExploreClipPlaying}
-                  onActiveReelEnded={advanceReelAfterEnd}
-                  onActiveReelMuteChange={setReelMuted}
-                  onPlayerError={handleExplorePlayerError}
-                  playerRetryKey={playerRetryKey}
-                  onEngageUnlocked={
-                    i === activeIndex
-                      ? () => setReelEngageUnlocked(true)
-                      : undefined
+            {slideLayoutMode => {
+              const slideTitlePlacement =
+                exploreReelTitlePlacement(slideLayoutMode);
+              const dockHeightCss = exploreReelDockHeightCss(
+                i === activeIndex && reelEngageUnlocked
+              );
+
+              return (
+                <div
+                  data-explore-slide
+                  data-index={i}
+                  data-explore-layout-mode={slideLayoutMode}
+                  className="relative flex h-full min-h-0 w-full max-w-[100vw] min-w-0 shrink-0 snap-start snap-always flex-col bg-black"
+                  style={
+                    {
+                      "--explore-reel-dock-h": dockHeightCss,
+                    } as CSSProperties
                   }
-                />
-              </div>
-            ) : (
-              <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
-                <span className="inline-flex items-center gap-1">
-                  {item?.title.substring(0, 15)}
-                  {item?.title.length > 15 ? ".." : ""}
-                  {item?.title.length > 15 ? (
-                    <button
-                      type="button"
-                      aria-label="Open comments"
-                      className="pointer-events-auto inline-flex items-center rounded p-1 -ml-2"
-                      onPointerDown={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onClick={e => {
-                        e.stopPropagation();
-                        setExploreCommentOpen(true);
-                      }}
-                    >
-                      <ArrowRight className="size-4" />
-                    </button>
-                  ) : null}
-                </span>
-              </div>
-            )}
-
-            {i === activeIndex ? (
-              <>
-                {activeChannelId != null &&
-                process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
-                  <div className="pointer-events-none absolute top-14 left-3 z-[13100] max-w-[min(360px,calc(100vw-3rem))]">
-                    <VideoFeatureCardBanner
-                      surfaceChannelId={String(activeChannelId)}
-                      hostSurfaceChannelId={String(activeChannelId)}
-                      compact
-                      onTipFeatured={id => {
-                        setActiveVideoFeatureCardId(id);
-                        setIsTipDrawerOpen(true);
-                      }}
-                    />
-                  </div>
-                ) : null}
-                <div className="pointer-events-auto absolute right-3 bottom-28 left-3 z-[100] space-y-1 text-white">
-                  <div className="flex items-center gap-2 text-sm font-semibold drop-shadow-md">
-                    <button
-                      type="button"
-                      title={reelMuted ? "Unmute" : "Mute"}
-                      className="cursor-pointer rounded bg-black/50 p-1"
-                      onPointerDown={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onClick={e => {
-                        e.stopPropagation();
-                        const p = videoRef.current;
-                        if (!p?.isReady()) return;
-                        if (reelMuted) p.unmute();
-                        else p.mute();
-                        setReelMuted(p.isMuted());
-                      }}
-                    >
-                      {reelMuted ? (
-                        <VolumeX className="size-4 text-white" />
-                      ) : (
-                        <Volume2 className="size-4 text-white" />
+                >
+                  {isInExplorePreloadWindow(i, activeIndex, items.length) ? (
+                    <div
+                      className={cn(
+                        exploreReelStageClassName(slideLayoutMode),
+                        "min-h-0 flex-1"
                       )}
-                    </button>
-                    <span className="min-w-0 truncate">
-                      {item.title.substring(0, 30)}
-                    </span>
-                    {item.title.length > 30 ? "..": ""}
-                    {item.title.length > 30 ? (
-                      <button
-                        type="button"
-                        aria-label="Open comments"
-                        className="inline-flex shrink-0 cursor-pointer items-center rounded border border-gray-400 p-1 -ml-2"
-                        onPointerDown={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onClick={e => {
-                          e.stopPropagation();
-                          setExploreCommentOpen(true);
-                        }}
-                      >
-                        <ArrowRight className="size-4" />
-                      </button>
-                    ) : null}
-                  </div>
-                  {/* <div className="pointer-events-auto flex items-center gap-2">
-                    <SaveHostToggleButton
-                      channelId={
-                        activeChannelId != null ? String(activeChannelId) : null
-                      }
-                      className="rounded bg-black/50 p-1 text-white"
-                      iconClassName="size-4 text-white"
-                    />
-                    
-                  </div> */}
-                  {/* {active?.event?.showAmountRaisedOnVideos !== false ? (
-                    <p className="text-xs opacity-90 drop-shadow-md">
-                      £{liveAmountRaised} raised
-                    </p>
-                  ) : null} */}
-                  {active?.event?.showViewCountOnVideos === true &&
-                  metrics &&
-                  !metricsRestrictedCommunity ? (
-                    <p className="text-[11px] opacity-80 drop-shadow-md">
-                      {metrics.encounters} views
-                    </p>
-                  ) : null}
-                  {metricsRestrictedCommunity ? (
-                    <p className="text-[11px] opacity-80 drop-shadow-md">
-                      Insights hidden —{" "}
-                      <Link
-                        href={`/explore?tab=join&joinCommunity=${encodeURIComponent(metricsRestrictedCommunity.id)}`}
-                        className="pointer-events-auto underline"
-                      >
-                        Join {metricsRestrictedCommunity.name}
-                      </Link>{" "}
-                      for full metrics.
-                    </p>
-                  ) : metrics ? (
-                    <p className="text-[11px] opacity-80 drop-shadow-md">
-                      {metrics.saves} saves · {metrics.shares} shares ·{" "}
-                      {metrics.comments} comments
-                    </p>
-                  ) : null}
-                </div>
-                {reelEngageUnlocked ? (
-                  <div className="pointer-events-auto absolute right-3 bottom-20 left-3 z-[88] [@media(min-width:640px)]:right-14">
-                    <ExploreReelScrubber
-                      videoRef={videoRef}
-                      active={
-                        Boolean(feedSurfaceActive) && Boolean(activeEventId)
-                      }
-                    />
-                  </div>
-                ) : null}
-                {activeEventId ? (
-                  <ImmersiveChannelActionsRail
-                    eventId={activeEventId}
-                    channelId={
-                      activeChannelId != null ? String(activeChannelId) : null
-                    }
-                    videoTitle={
-                      typeof active?.title === "string" ? active.title : ""
-                    }
-                    videoDescription={
-                      typeof (active as { description?: string } | undefined)
-                        ?.description === "string"
-                        ? String(
-                            (active as { description: string }).description
-                          )
-                        : ""
-                    }
-                    numOfTips={liveNumOfTips}
-                    characters={characters as RoomCharacter[]}
-                    onContinueToTip={() => setIsTipDrawerOpen(true)}
-                    hostName={active?.event?.hostName ?? null}
-                    isSaved={isExploreChannelSaved}
-                    saveBusy={saveBusy}
-                    onSaveClick={() => void handleExploreSaveToggle()}
-                    commentOpen={exploreCommentOpen}
-                    onCommentOpenChange={setExploreCommentOpen}
-                    metricsRefreshKey={exploreCommentMetricsRefreshKey}
-                    onShareOpen={() =>
-                      setExploreCommentMetricsRefreshKey(k => k + 1)
-                    }
-                    hideTipsChip={
-                      typeof active?.event?.amountToRaise === "number" &&
-                      active.event.amountToRaise > 0 &&
-                      !isTipDrawerOpen
-                    }
-                    hideHostAndAudio
-                    className="pointer-events-auto absolute top-1/2 right-8 z-[90] -translate-y-1/2"
-                    shareUrl={buildContentShareUrl({
-                      eventId: activeEventId,
-                      channelId:
-                        activeChannelId != null
-                          ? String(activeChannelId)
-                          : undefined,
-                    })}
-                    shareTitle={
-                      typeof active?.title === "string" && active.title.trim()
-                        ? active.title
-                        : typeof active?.event?.eventName === "string"
-                          ? active.event.eventName
-                          : "Watch on Tipmanna"
-                    }
-                    videoTipCount={
-                      typeof active?.numOfTips === "number"
-                        ? active.numOfTips
-                        : undefined
-                    }
-                    eventRoomTipCount={liveNumOfTips}
-                  />
-                ) : null}
-                {typeof active?.event?.amountToRaise === "number" &&
-                active.event.amountToRaise > 0 &&
-                !isTipDrawerOpen ? (
-                  <div className="pointer-events-auto absolute top-1/2 right-4 z-[90] -translate-y-1/2">
-                    <button
-                      type="button"
-                      title="View tips"
-                      className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
-                      onClick={e => {
-                        e.stopPropagation();
-                        setTipsListOpen(true);
-                      }}
                     >
-                      {liveNumOfTips} tips
-                    </button>
-                    <ChannelProgressBar
-                      eventId={activeEventId}
-                      amountToRaise={active.event.amountToRaise}
-                      amountRaised={Number(liveAmountRaised)}
-                    />
-                  </div>
-                ) : null}
-              </>
-            ) : null}
+                      <div
+                        className={exploreReelVideoBandClassName(
+                          slideLayoutMode
+                        )}
+                      >
+                        <ExploreFeedSlideVideo
+                          item={item}
+                          slideIndex={i}
+                          activeIndex={activeIndex}
+                          activeIndexRef={activeIndexRef}
+                          totalItems={items.length}
+                          feedSurfaceActive={feedSurfaceActive}
+                          layoutMode={slideLayoutMode}
+                          videoRef={videoRef}
+                          onActivePlaying={handleExploreClipPlaying}
+                          onActiveReelEnded={advanceReelAfterEnd}
+                          onActiveReelMuteChange={setReelMuted}
+                          onPlayerError={handleExplorePlayerError}
+                          playerRetryKey={playerRetryKey}
+                          onEngageUnlocked={
+                            i === activeIndex
+                              ? () => setReelEngageUnlocked(true)
+                              : undefined
+                          }
+                        />
+                      </div>
+                      {i === activeIndex &&
+                      slideTitlePlacement === "belowVideoBand" ? (
+                        <ExploreReelSlideTitle
+                          item={item}
+                          reelMuted={reelMuted}
+                          setReelMuted={setReelMuted}
+                          videoRef={videoRef}
+                          setExploreCommentOpen={setExploreCommentOpen}
+                          active={active}
+                          metrics={metrics}
+                          metricsRestrictedCommunity={
+                            metricsRestrictedCommunity
+                          }
+                          className={exploreReelTitleBelowBandClassName()}
+                        />
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
+                      <span className="inline-flex items-center gap-1">
+                        {item?.title.substring(0, 15)}
+                        {item?.title.length > 15 ? ".." : ""}
+                        {item?.title.length > 15 ? (
+                          <button
+                            type="button"
+                            aria-label="Open comments"
+                            className="pointer-events-auto -ml-2 inline-flex items-center rounded p-1"
+                            onPointerDown={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setExploreCommentOpen(true);
+                            }}
+                          >
+                            <ArrowRight className="size-4" />
+                          </button>
+                        ) : null}
+                      </span>
+                    </div>
+                  )}
 
-            {i === activeIndex && !isTipDrawerOpen ? (
-              <div
-                data-testid="explore-slide-actions"
-                className="pointer-events-auto flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-white/10 bg-black/80 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-              >
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="gap-1 rounded-full px-5 shadow-lg"
-                  aria-label="Create video"
-                  title="Create"
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setCreateDialogOpen(true);
-                  }}
-                >
-                  <Plus className="size-4" />
-                </Button>
-                <div className="flex items-center">
-                  <Button
-                    type="button"
-                    className="h-9 gap-1 rounded-full rounded-r-none bg-white px-3 text-sm text-black shadow-lg"
-                    onClick={() => router.push("/tv")}
-                  >
-                    Watch TV
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="default"
-                    className="h-9 gap-1 rounded-full rounded-l-none px-4 text-sm shadow-lg"
-                    onClick={() => setIsTipDrawerOpen(true)}
-                  >
-                    Engage
-                  </Button>
+                  {i === activeIndex ? (
+                    <>
+                      {activeChannelId != null &&
+                      process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !==
+                        "false" ? (
+                        <div className="pointer-events-none absolute top-14 left-3 z-[13100] max-w-[min(360px,calc(100vw-3rem))]">
+                          <VideoFeatureCardBanner
+                            surfaceChannelId={String(activeChannelId)}
+                            hostSurfaceChannelId={String(activeChannelId)}
+                            compact
+                            onTipFeatured={id => {
+                              setActiveVideoFeatureCardId(id);
+                              setIsTipDrawerOpen(true);
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      {slideTitlePlacement === "onVideo" ? (
+                        <ExploreReelSlideTitle
+                          item={item}
+                          reelMuted={reelMuted}
+                          setReelMuted={setReelMuted}
+                          videoRef={videoRef}
+                          setExploreCommentOpen={setExploreCommentOpen}
+                          active={active}
+                          metrics={metrics}
+                          metricsRestrictedCommunity={
+                            metricsRestrictedCommunity
+                          }
+                          className={exploreReelTitleOnVideoClassName()}
+                        />
+                      ) : null}
+                      {activeEventId ? (
+                        <ImmersiveChannelActionsRail
+                          eventId={activeEventId}
+                          channelId={
+                            activeChannelId != null
+                              ? String(activeChannelId)
+                              : null
+                          }
+                          videoTitle={
+                            typeof active?.title === "string"
+                              ? active.title
+                              : ""
+                          }
+                          videoDescription={
+                            typeof (
+                              active as { description?: string } | undefined
+                            )?.description === "string"
+                              ? String(
+                                  (active as { description: string })
+                                    .description
+                                )
+                              : ""
+                          }
+                          numOfTips={liveNumOfTips}
+                          characters={characters as RoomCharacter[]}
+                          onContinueToTip={() => setIsTipDrawerOpen(true)}
+                          hostName={active?.event?.hostName ?? null}
+                          isSaved={isExploreChannelSaved}
+                          saveBusy={saveBusy}
+                          onSaveClick={() => void handleExploreSaveToggle()}
+                          commentOpen={exploreCommentOpen}
+                          onCommentOpenChange={setExploreCommentOpen}
+                          metricsRefreshKey={exploreCommentMetricsRefreshKey}
+                          onShareOpen={() =>
+                            setExploreCommentMetricsRefreshKey(k => k + 1)
+                          }
+                          hideTipsChip={
+                            typeof active?.event?.amountToRaise === "number" &&
+                            active.event.amountToRaise > 0 &&
+                            !isTipDrawerOpen
+                          }
+                          hideHostAndAudio
+                          className="pointer-events-auto absolute top-1/2 right-8 z-[90] -translate-y-1/2"
+                          shareUrl={buildContentShareUrl({
+                            eventId: activeEventId,
+                            channelId:
+                              activeChannelId != null
+                                ? String(activeChannelId)
+                                : undefined,
+                          })}
+                          shareTitle={
+                            typeof active?.title === "string" &&
+                            active.title.trim()
+                              ? active.title
+                              : typeof active?.event?.eventName === "string"
+                                ? active.event.eventName
+                                : "Watch on Tipmanna"
+                          }
+                          videoTipCount={
+                            typeof active?.numOfTips === "number"
+                              ? active.numOfTips
+                              : undefined
+                          }
+                          eventRoomTipCount={liveNumOfTips}
+                        />
+                      ) : null}
+                      {typeof active?.event?.amountToRaise === "number" &&
+                      active.event.amountToRaise > 0 &&
+                      !isTipDrawerOpen ? (
+                        <div className="pointer-events-auto absolute top-1/2 right-4 z-[90] -translate-y-1/2">
+                          <button
+                            type="button"
+                            title="View tips"
+                            className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setTipsListOpen(true);
+                            }}
+                          >
+                            {liveNumOfTips} tips
+                          </button>
+                          <ChannelProgressBar
+                            eventId={activeEventId}
+                            amountToRaise={active.event.amountToRaise}
+                            amountRaised={Number(liveAmountRaised)}
+                          />
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  {i === activeIndex && !isTipDrawerOpen ? (
+                    <div
+                      data-testid="explore-slide-actions"
+                      className={exploreReelDockClassName()}
+                    >
+                      {reelEngageUnlocked ? (
+                        <div className={exploreReelDockScrubberClassName()}>
+                          <ExploreReelScrubber
+                            videoRef={videoRef}
+                            active={
+                              Boolean(feedSurfaceActive) &&
+                              Boolean(activeEventId)
+                            }
+                          />
+                        </div>
+                      ) : null}
+                      <div className={exploreReelDockActionsClassName()}>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="gap-1 rounded-full px-5 shadow-lg"
+                          aria-label="Create video"
+                          title="Create"
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setCreateDialogOpen(true);
+                          }}
+                        >
+                          <Plus className="size-4" />
+                        </Button>
+                        <div className="flex items-center">
+                          <Button
+                            type="button"
+                            className="h-9 gap-1 rounded-full rounded-r-none bg-white px-3 text-sm text-black shadow-lg"
+                            onClick={() => router.push("/tv")}
+                          >
+                            Watch TV
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="default"
+                            className="h-9 gap-1 rounded-full rounded-l-none px-4 text-sm shadow-lg"
+                            onClick={() => setIsTipDrawerOpen(true)}
+                          >
+                            Engage
+                          </Button>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="gap-1 rounded-full px-5 shadow-lg"
+                          aria-label="Comments"
+                          title="Comments"
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setExploreCommentOpen(true);
+                          }}
+                        >
+                          <MessageCircle className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="gap-1 rounded-full px-5 shadow-lg"
-                  aria-label="Comments"
-                  title="Comments"
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setExploreCommentOpen(true);
-                  }}
-                >
-                  <MessageCircle className="size-4" />
-                </Button>
-              </div>
-            ) : null}
-          </div>
+              );
+            }}
+          </ExploreFeedSlideStage>
         ))}
       </div>
 

@@ -60,7 +60,10 @@ describe("pwa-install-trigger gating", () => {
 
   it("suppresses after second dismiss sets do_not_show", () => {
     expect(
-      isPwaAutoPromptSuppressed({ status: "do_not_show", dismissCount: 2 }, false)
+      isPwaAutoPromptSuppressed(
+        { status: "do_not_show", dismissCount: 2 },
+        false
+      )
     ).toBe(true);
   });
 });

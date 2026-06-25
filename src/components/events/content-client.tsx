@@ -1282,7 +1282,10 @@ export const ContentClient = ({
               className="cursor-pointer rounded bg-black/50 p-1"
               onPointerDown={() => {
                 if (eventId && paymentChannelIdForTip) {
-                  void awaitCommentDrawerPrefetch(eventId, paymentChannelIdForTip);
+                  void awaitCommentDrawerPrefetch(
+                    eventId,
+                    paymentChannelIdForTip
+                  );
                 }
               }}
               onClick={() => setShowCommentDrawer(true)}
@@ -1697,8 +1700,12 @@ export const ContentClient = ({
           <span className="font-semibold">Now playing:</span>{" "}
           {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
           {playlist[currentContentIndex]?.title.length > 25 ? (
-            <div className="flex items-center border border-gray-400" onClick={() => setShowCommentDrawer(true)}>
-            <ArrowRight className="size-4 cursor-pointer"  /></div>
+            <div
+              className="flex items-center border border-gray-400"
+              onClick={() => setShowCommentDrawer(true)}
+            >
+              <ArrowRight className="size-4 cursor-pointer" />
+            </div>
           ) : (
             ""
           )}

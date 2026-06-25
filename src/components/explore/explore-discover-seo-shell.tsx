@@ -85,11 +85,13 @@ export async function ExploreDiscoverSeoShell() {
           <h2>Programs</h2>
           <p>{DISCOVER_RAIL_SUBTITLES.programs}</p>
           <ul>
-            {(catalog.programs as Array<{
-              id: string;
-              title: string;
-              landingUrl?: string | null;
-            }>)
+            {(
+              catalog.programs as Array<{
+                id: string;
+                title: string;
+                landingUrl?: string | null;
+              }>
+            )
               .slice(0, 12)
               .map(program => {
                 const href =

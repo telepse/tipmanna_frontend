@@ -18,10 +18,7 @@ type Props = {
   renewLabel?: string;
 };
 
-export function HostSubscriptionPricingPanel({
-  focusTier,
-  renewLabel,
-}: Props) {
+export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
   const dispatch = useDispatch();
   const user = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
@@ -183,15 +180,17 @@ export function HostSubscriptionPricingPanel({
           <div className="flex flex-col rounded-lg border p-4">
             <h3 className="font-semibold">Host Premium</h3>
             <p className="text-muted-foreground mt-1 text-sm">
-              Video display controls, tip layout, co-owners, and video
-              requests.
+              Video display controls, tip layout, co-owners, and video requests.
             </p>
             <p className="mt-3 text-2xl font-bold">£19.99</p>
             <p className="text-muted-foreground text-xs">per 30 days</p>
             <Button
               className="mt-4 w-full bg-black text-white"
               disabled={
-                premiumActive || busy !== null || !info?.capabilities.subscribeNew && !info?.capabilities.renewSubscription
+                premiumActive ||
+                busy !== null ||
+                (!info?.capabilities.subscribeNew &&
+                  !info?.capabilities.renewSubscription)
               }
               onClick={() =>
                 void checkout(
@@ -204,7 +203,7 @@ export function HostSubscriptionPricingPanel({
               {busy === "premium" ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : status === "lapsed" ? (
-                renewLabel ?? "Renew Premium"
+                (renewLabel ?? "Renew Premium")
               ) : (
                 "Subscribe"
               )}
@@ -246,7 +245,7 @@ export function HostSubscriptionPricingPanel({
               ) : tier === "HOST_PREMIUM" && status === "active" ? (
                 "Upgrade to Community"
               ) : status === "lapsed" ? (
-                renewLabel ?? "Renew Community"
+                (renewLabel ?? "Renew Community")
               ) : (
                 "Subscribe"
               )}

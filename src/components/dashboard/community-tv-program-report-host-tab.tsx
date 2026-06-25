@@ -272,60 +272,63 @@ function ProgramDetail({
         ) : null}
       </div>
       <div className="overflow-x-auto rounded-md border text-sm">
-      <table className="w-full">
-        <thead>
-          <tr className="bg-muted/50 border-b">
-            <th className="p-2 text-left">#</th>
-            <th className="p-2 text-left">Video</th>
-            <th className="p-2 text-left">Air window</th>
-            <th className="p-2 text-right">Tips</th>
-            <th className="p-2 text-right">Encounter</th>
-            <th className="p-2 text-right">Interact</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {detail.videos.map(v => (
-            <tr
-              key={v.enforcementItemId}
-              className="border-b"
-            >
-              <td className="p-2">{v.position + 1}</td>
-              <td className="max-w-[180px] truncate p-2">
-                {v.channelTitle ?? v.channelId}
-              </td>
-              <td className="p-2 text-xs">
-                {v.aired
-                  ? fmtRange(v.windowStartUtc, v.windowEndUtcExclusive)
-                  : "Not aired"}
-              </td>
-              <td className="p-2 text-right">
-                {v.metrics?.tipCount ?? 0} (£
-                {v.metrics?.tipAmountGbp?.toFixed(2) ?? "0"})
-              </td>
-              <td className="p-2 text-right">
-                {v.metrics?.videoEncounter ?? 0}
-              </td>
-              <td className="p-2 text-right">
-                {v.metrics?.totalInteractions ?? 0}
-              </td>
-              <td className="p-2">
-                {v.aired ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      void exportCsv(v.enforcementItemId, detail.applicationId)
-                    }
-                  >
-                    <FileDown className="h-4 w-4" />
-                  </Button>
-                ) : null}
-              </td>
+        <table className="w-full">
+          <thead>
+            <tr className="bg-muted/50 border-b">
+              <th className="p-2 text-left">#</th>
+              <th className="p-2 text-left">Video</th>
+              <th className="p-2 text-left">Air window</th>
+              <th className="p-2 text-right">Tips</th>
+              <th className="p-2 text-right">Encounter</th>
+              <th className="p-2 text-right">Interact</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {detail.videos.map(v => (
+              <tr
+                key={v.enforcementItemId}
+                className="border-b"
+              >
+                <td className="p-2">{v.position + 1}</td>
+                <td className="max-w-[180px] truncate p-2">
+                  {v.channelTitle ?? v.channelId}
+                </td>
+                <td className="p-2 text-xs">
+                  {v.aired
+                    ? fmtRange(v.windowStartUtc, v.windowEndUtcExclusive)
+                    : "Not aired"}
+                </td>
+                <td className="p-2 text-right">
+                  {v.metrics?.tipCount ?? 0} (£
+                  {v.metrics?.tipAmountGbp?.toFixed(2) ?? "0"})
+                </td>
+                <td className="p-2 text-right">
+                  {v.metrics?.videoEncounter ?? 0}
+                </td>
+                <td className="p-2 text-right">
+                  {v.metrics?.totalInteractions ?? 0}
+                </td>
+                <td className="p-2">
+                  {v.aired ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void exportCsv(
+                          v.enforcementItemId,
+                          detail.applicationId
+                        )
+                      }
+                    >
+                      <FileDown className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

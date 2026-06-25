@@ -102,10 +102,7 @@ export function pickInitialChannelContent<
     if (match) return match;
   }
   if (fallback) return fallback;
-  return (
-    playlist.find(row => row.isDefault === true) ??
-    playlist[0]
-  );
+  return playlist.find(row => row.isDefault === true) ?? playlist[0];
 }
 
 export function parseChannelSearchParam(

@@ -91,9 +91,7 @@ export function HostCommunityPayoutsClient() {
   const loadPayoutSummary = useCallback(async () => {
     const res = await getHostPayoutSummaryAction(authToken);
     if (res.success && res.data) {
-      setPayoutSummary(
-        res.data as NonNullable<typeof payoutSummary>
-      );
+      setPayoutSummary(res.data as NonNullable<typeof payoutSummary>);
     }
   }, [authToken]);
 
@@ -133,7 +131,8 @@ export function HostCommunityPayoutsClient() {
       toast.info("Community payout updated");
       void load();
     };
-    if (hostChannel) hostChannel.bind("community-payout-settled", onPayoutSettled);
+    if (hostChannel)
+      hostChannel.bind("community-payout-settled", onPayoutSettled);
     return () => {
       if (hostChannel)
         hostChannel.unbind("community-payout-settled", onPayoutSettled);

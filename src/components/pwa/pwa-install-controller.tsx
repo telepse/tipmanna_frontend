@@ -147,7 +147,10 @@ export function PwaInstallController() {
   }, [installed]);
 
   const handleOpenChange = (next: boolean) => {
-    if (next && isPwaAutoPromptSuppressed(prefRef.current, installedRef.current)) {
+    if (
+      next &&
+      isPwaAutoPromptSuppressed(prefRef.current, installedRef.current)
+    ) {
       return;
     }
     setOpen(next);

@@ -663,7 +663,9 @@ export default function GlobalTVProvider({
     );
 
     if (!pos.item) {
-      tvTrace("playback", "syncToLive_no_item", { loopPosition: pos.loopPosition });
+      tvTrace("playback", "syncToLive_no_item", {
+        loopPosition: pos.loopPosition,
+      });
       return;
     }
 
@@ -854,10 +856,7 @@ export default function GlobalTVProvider({
         totalDuration: live.totalDuration ?? data.totalDuration ?? 0,
       });
       setLiveBroadcastIndex(live.scheduleIndex);
-      if (
-        modeRef.current === "GLOBAL" &&
-        !paymentActiveRef.current
-      ) {
+      if (modeRef.current === "GLOBAL" && !paymentActiveRef.current) {
         setCurrentIndex(live.scheduleIndex);
         currentIndexRef.current = live.scheduleIndex;
         lastSyncedIndex.current = live.scheduleIndex;
@@ -1308,7 +1307,11 @@ export default function GlobalTVProvider({
   const playLocal = useCallback(
     (
       index: number,
-      opts?: { userGesture?: boolean; updatePreviewPin?: boolean; trackClick?: boolean }
+      opts?: {
+        userGesture?: boolean;
+        updatePreviewPin?: boolean;
+        trackClick?: boolean;
+      }
     ) => {
       if (opts?.trackClick !== false) {
         trackTvUserInteraction("click", "playlist");
@@ -1330,7 +1333,11 @@ export default function GlobalTVProvider({
       setSelectedIndex(index);
       setPreviewPinIndex(index);
 
-      loadLocalAtIndex(index, { source: "schedule", updatePreviewPin: false, userGesture: true });
+      loadLocalAtIndex(index, {
+        source: "schedule",
+        updatePreviewPin: false,
+        userGesture: true,
+      });
     },
     [loadLocalAtIndex]
   );
@@ -1374,7 +1381,13 @@ export default function GlobalTVProvider({
         }
       }
     },
-    [items, alternateBatchItems, enterLocalMode, playLocalFromSchedule, requestPlayback]
+    [
+      items,
+      alternateBatchItems,
+      enterLocalMode,
+      playLocalFromSchedule,
+      requestPlayback,
+    ]
   );
 
   const loadEnforcementPlayerItem = useCallback(

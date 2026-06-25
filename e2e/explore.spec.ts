@@ -54,6 +54,8 @@ test.describe("explore", () => {
     await expect(
       slide.locator('[data-testid="explore-slide-actions"]')
     ).toBeVisible();
+    await expect(actions).toHaveClass(/bg-gradient-to-t/);
+    await expect(actions).not.toHaveClass(/bg-black\/80/);
   });
 
   test("profile shows Guest or Not signed in for anonymous visitors", async ({

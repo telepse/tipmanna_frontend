@@ -16,30 +16,30 @@ describe("discover content routing", () => {
 
   it("routes live items to channel on discovery and explore surfaces", () => {
     const live = { liveStatus: "LIVE" as const };
-    expect(
-      resolveDiscoverContentTarget(live, "discovery", false)
-    ).toBe("channel");
-    expect(
-      resolveDiscoverContentTarget(live, "exploreTab", true)
-    ).toBe("channel");
+    expect(resolveDiscoverContentTarget(live, "discovery", false)).toBe(
+      "channel"
+    );
+    expect(resolveDiscoverContentTarget(live, "exploreTab", true)).toBe(
+      "channel"
+    );
   });
 
   it("routes clips to explore reel only on explore tab with handler", () => {
     const clip = { liveStatus: null };
-    expect(
-      resolveDiscoverContentTarget(clip, "exploreTab", true)
-    ).toBe("explore-reel");
-    expect(
-      resolveDiscoverContentTarget(clip, "exploreTab", false)
-    ).toBe("content");
-    expect(
-      resolveDiscoverContentTarget(clip, "discovery", true)
-    ).toBe("content");
+    expect(resolveDiscoverContentTarget(clip, "exploreTab", true)).toBe(
+      "explore-reel"
+    );
+    expect(resolveDiscoverContentTarget(clip, "exploreTab", false)).toBe(
+      "content"
+    );
+    expect(resolveDiscoverContentTarget(clip, "discovery", true)).toBe(
+      "content"
+    );
   });
 
   it("does not treat missing liveStatus as live stream", () => {
-    expect(
-      resolveDiscoverContentTarget({}, "discovery", false)
-    ).toBe("content");
+    expect(resolveDiscoverContentTarget({}, "discovery", false)).toBe(
+      "content"
+    );
   });
 });

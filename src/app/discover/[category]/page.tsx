@@ -98,9 +98,9 @@ export default async function DiscoverCategoryPage({ params }: PageProps) {
         </p>
       </header>
       <DiscoverPageClient
-        initialContents={(categoryItems.length
-          ? categoryItems
-          : catalog.contents) as never[]}
+        initialContents={
+          (categoryItems.length ? categoryItems : catalog.contents) as never[]
+        }
         initialLatest={catalog.latest as never[]}
         initialSpotlight={catalog.spotlight as never[]}
         initialRecommended={catalog.recommended as never[]}

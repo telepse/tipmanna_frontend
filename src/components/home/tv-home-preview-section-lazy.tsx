@@ -16,7 +16,9 @@ function TvHomePreviewSkeleton() {
           <div className="bg-muted/50 h-4 max-w-xl animate-pulse rounded" />
         </div>
         <div className="bg-muted/50 flex min-h-[200px] w-full items-center justify-center rounded-lg md:min-h-[280px]">
-          <span className="text-muted-foreground text-sm">Loading live TV…</span>
+          <span className="text-muted-foreground text-sm">
+            Loading live TV…
+          </span>
         </div>
       </div>
     </section>

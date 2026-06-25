@@ -14,17 +14,16 @@ import YouTube from "react-youtube";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
-import { getYoutubePlayerVarsChromeless, YOUTUBE_NO_COOKIE_HOST } from "@/lib/youtubePlayerConfig";
+import {
+  getYoutubePlayerVarsChromeless,
+  YOUTUBE_NO_COOKIE_HOST,
+} from "@/lib/youtubePlayerConfig";
 import {
   clearYoutubeIframePresentation,
   styleYoutubeIframePresentation,
 } from "@/lib/youtube-iframe-presentation";
 import { YoutubeChromeMask } from "@/components/youtube-chrome-mask";
-import {
-  tracePlayVideoResult,
-  tvTrace,
-  ytStateName,
-} from "@/lib/tvDebugLog";
+import { tracePlayVideoResult, tvTrace, ytStateName } from "@/lib/tvDebugLog";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
 
@@ -263,7 +262,10 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               const { videoId: vid, start } = pendingLoadRef.current;
               pendingLoadRef.current = null;
               beginProgrammaticPlayback();
-              tvTrace("playback", "player_load_pending", { videoId: vid, start });
+              tvTrace("playback", "player_load_pending", {
+                videoId: vid,
+                start,
+              });
               event.target.loadVideoById(vid, start);
               if (event.target.isMuted()) {
                 tracePlayVideoResult(

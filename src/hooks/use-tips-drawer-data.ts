@@ -16,8 +16,7 @@ export function useTipsDrawerData(
   enabled: boolean
 ) {
   const eid = eventId?.trim() ?? "";
-  const swrKey =
-    enabled && eid ? tipsDrawerKey(eid, channelId, scope) : null;
+  const swrKey = enabled && eid ? tipsDrawerKey(eid, channelId, scope) : null;
 
   const { data, isLoading, isValidating, mutate } = useSWR(
     swrKey,

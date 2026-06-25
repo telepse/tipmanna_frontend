@@ -83,10 +83,7 @@ export function tvTrace(
 }
 
 /** Log playVideo() promise outcome without changing playback behavior. */
-export function tracePlayVideoResult(
-  source: string,
-  result: unknown
-): void {
+export function tracePlayVideoResult(source: string, result: unknown): void {
   if (!isTvDebugEnabled()) return;
   const maybePromise = result as Promise<void> | undefined;
   if (
