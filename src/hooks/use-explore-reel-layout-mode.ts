@@ -1,25 +1,48 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   resolveExploreReelLayoutMode,
   resolveExploreReelLayoutModeWhileLoading,
+  shouldUpdateExploreReelLayoutMode,
   type ExploreReelLayoutMode,
 } from "@/lib/explore-reel-layout";
-import { isYoutubeShortsUrl } from "@/lib/youtube-immersive-meta";
+import {
+  isYoutubeShortsUrl,
+  mergeYoutubeAspectSources,
+  type YoutubeAspectInfo,
+} from "@/lib/youtube-immersive-meta";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 
-/** Per-slide layout from oEmbed classification + mobile breakpoint. */
+export type UseExploreReelLayoutModeResult = {
+  layoutMode: ExploreReelLayoutMode;
+  onPlayerAspectInfo: (info: YoutubeAspectInfo) => void;
+};
+
+/** Per-slide layout from oEmbed + thumbnail probe + player-ready metadata. */
 export function useExploreReelLayoutMode(
   videoUrl: string | null | undefined,
   isMobile: boolean
-): ExploreReelLayoutMode {
+): UseExploreReelLayoutModeResult {
   const { aspectInfo, isLoading } = useYoutubeVideoAspect(videoUrl);
   const isShortsUrl = isYoutubeShortsUrl(videoUrl);
+  const [playerAspect, setPlayerAspect] = useState<YoutubeAspectInfo | null>(
+    null
+  );
+  const [stableMode, setStableMode] = useState<ExploreReelLayoutMode | null>(
+    null
+  );
 
-  return useMemo(() => {
-    if (isLoading) {
+  const mergedAspect = useMemo(
+    () => mergeYoutubeAspectSources(aspectInfo, playerAspect),
+    [aspectInfo, playerAspect]
+  );
+
+  const metadataResolved = !isLoading || playerAspect != null;
+
+  const candidate = useMemo(() => {
+    if (!metadataResolved) {
       return resolveExploreReelLayoutModeWhileLoading({
         isMobile,
         isShortsUrl,
@@ -27,8 +50,38 @@ export function useExploreReelLayoutMode(
     }
     return resolveExploreReelLayoutMode({
       isMobile,
-      classification: aspectInfo?.classification ?? null,
-      isShortsUrl,
+      classification: mergedAspect?.classification ?? null,
     });
-  }, [isMobile, isLoading, isShortsUrl, aspectInfo?.classification]);
+  }, [isMobile, metadataResolved, isShortsUrl, mergedAspect?.classification]);
+
+  useEffect(() => {
+    setStableMode(null);
+    setPlayerAspect(null);
+  }, [videoUrl]);
+
+  useEffect(() => {
+    setStableMode(prev => {
+      if (prev == null) return candidate;
+      if (
+        shouldUpdateExploreReelLayoutMode(
+          prev,
+          candidate,
+          mergedAspect?.classification ?? null,
+          metadataResolved
+        )
+      ) {
+        return candidate;
+      }
+      return prev;
+    });
+  }, [candidate, mergedAspect?.classification, metadataResolved]);
+
+  const onPlayerAspectInfo = useCallback((info: YoutubeAspectInfo) => {
+    setPlayerAspect(prev => mergeYoutubeAspectSources(prev, info) ?? info);
+  }, []);
+
+  return {
+    layoutMode: stableMode ?? candidate,
+    onPlayerAspectInfo,
+  };
 }

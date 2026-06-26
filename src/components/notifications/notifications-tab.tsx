@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { NotificationDetailModal } from "@/components/notifications/notification-detail-modal";
 import {
   listNotificationsFeedAction,
@@ -70,6 +70,7 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<FeedNotificationRow | null>(null);
+  const [signInOpen, setSignInOpen] = useState(false);
   const authUser = useSelector((s: RootState) => s.auth.user);
 
   const load = useCallback(
@@ -189,14 +190,22 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
           </Button>
         ) : (
           <Button
-            asChild
+            type="button"
             size="sm"
             variant="outline"
+            onClick={() => setSignInOpen(true)}
           >
-            <Link href="/sign-in">Sign in for personal alerts</Link>
+            Sign in for personal alerts
           </Button>
         )}
       </div>
+
+      <TipperEmailOtpSignInDialog
+        open={signInOpen}
+        onOpenChange={setSignInOpen}
+        signInTitle="Sign in for personal alerts"
+        onVerified={() => void load()}
+      />
 
       {loading ? (
         <p className="text-muted-foreground text-sm">Loading…</p>

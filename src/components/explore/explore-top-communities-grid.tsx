@@ -6,7 +6,7 @@ import { useCallback, useState } from "react";
 import { useSelector } from "react-redux";
 
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
-import SignInDialog from "@/components/auth/sign-in-dialog";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { Button } from "@/components/ui/button";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import type { RootState } from "@/redux/store";
@@ -46,19 +46,18 @@ export function ExploreTopCommunitiesGrid({ communities, className }: Props) {
 
   return (
     <>
-      <SignInDialog
+      <TipperEmailOtpSignInDialog
         open={signInOpen}
         onOpenChange={open => {
           setSignInOpen(open);
         }}
-        returnTo={signInReturnTo}
-        defaultUserType="tipper"
+        signInTitle="Sign in to join this community"
+        getRedirectPathAfterVerify={() => signInReturnTo}
+        onVerified={() => router.push(signInReturnTo)}
       />
 
       <div className={className ?? "grid gap-3 sm:grid-cols-3"}>
-        {communities
-          .filter(c => c.name === "Tipmanna Public")
-          .map((c, i) => (
+        {communities.map((c, i) => (
             <div
               key={c.id}
               className="border-border bg-card flex flex-col rounded-lg border p-3 shadow-sm"

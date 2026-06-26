@@ -26,7 +26,8 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import SignInDialog from "@/components/auth/sign-in-dialog";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
 
@@ -38,6 +39,7 @@ import {
 } from "@/actions/contents";
 import {
   EXPLORE_FEED_BOOT_COUNT,
+  prefetchExploreSavesFeed,
   takeExploreFeedBoot,
   waitExploreFeedPrefetch,
 } from "@/lib/explore-feed-prefetch-cache";
@@ -108,20 +110,40 @@ import {
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import { useExploreReelLayoutMode } from "@/hooks/use-explore-reel-layout-mode";
 import {
+  exploreReelActionsRailClassName,
+  exploreReelDockActionIconClassName,
   exploreReelDockActionsClassName,
   exploreReelDockClassName,
   exploreReelDockHeightCss,
+  exploreReelDockIconButtonClassName,
+  exploreReelDockPrimaryButtonClassName,
   exploreReelDockScrubberClassName,
+  exploreReelDockSecondaryButtonClassName,
+  exploreReelFeatureCardBannerClassName,
+  exploreReelMetricsClassName,
+  exploreReelMuteButtonClassName,
+  exploreReelMuteIconClassName,
   exploreReelPresentationFit,
+  exploreReelRailIconButtonClassName,
+  exploreReelRailIconClassName,
+  exploreReelRailStackGapClassName,
+  exploreReelRailTipsChipClassName,
+  exploreReelScrubberTrackClassName,
   exploreReelStageClassName,
   exploreReelTapCaptureClassName,
-  exploreReelTitleBelowBandClassName,
+  exploreReelTipsChipClassName,
+  exploreReelTipsProgressWrapperClassName,
+  exploreReelTitleAboveDockClassName,
+  exploreReelTitleCommentButtonClassName,
+  exploreReelTitleCommentIconClassName,
   exploreReelTitleOnVideoClassName,
   exploreReelTitlePlacement,
+  exploreReelTitleRowClassName,
   exploreReelVideoBandClassName,
   exploreReelVideoPlayerClassName,
   type ExploreReelLayoutMode,
 } from "@/lib/explore-reel-layout";
+import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import { useMediaQuery } from "react-responsive";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 
@@ -149,9 +171,11 @@ function youtubePosterUrl(videoUrl: string): string | null {
 function ExploreReelScrubber({
   videoRef,
   active,
+  layoutMode,
 }: {
   videoRef: RefObject<VideoPlayerRef | null>;
   active: boolean;
+  layoutMode: ExploreReelLayoutMode;
 }) {
   const [t, setT] = useState(0);
   const [dur, setDur] = useState(0);
@@ -186,7 +210,7 @@ function ExploreReelScrubber({
           p.seekTo(next);
           setT(next);
         }}
-        className="accent-primary h-0.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+        className={exploreReelScrubberTrackClassName(layoutMode)}
       />
     </div>
   );
@@ -210,6 +234,7 @@ type ExploreFeedSlideVideoProps = {
   totalItems: number;
   feedSurfaceActive: boolean;
   layoutMode: ExploreReelLayoutMode;
+  onPlayerAspectInfo?: (info: YoutubeAspectInfo) => void;
   videoRef: RefObject<VideoPlayerRef | null>;
   onActivePlaying: () => void;
   onActiveReelEnded?: () => void;
@@ -227,6 +252,7 @@ function ExploreFeedSlideVideo({
   totalItems,
   feedSurfaceActive,
   layoutMode,
+  onPlayerAspectInfo,
   videoRef,
   onActivePlaying,
   onActiveReelEnded,
@@ -410,6 +436,7 @@ function ExploreFeedSlideVideo({
               });
               onActiveReelEnded?.();
             }}
+            onVideoAspectInfo={onPlayerAspectInfo}
           />
         </>
       ) : inPreloadBand ? (
@@ -448,11 +475,17 @@ function ExploreFeedSlideStage({
 }: {
   item: { url?: string | null };
   isMobile: boolean;
-  children: (layoutMode: ExploreReelLayoutMode) => ReactNode;
+  children: (ctx: {
+    layoutMode: ExploreReelLayoutMode;
+    onPlayerAspectInfo: (info: YoutubeAspectInfo) => void;
+  }) => ReactNode;
 }) {
   const videoUrl = typeof item.url === "string" ? item.url : null;
-  const layoutMode = useExploreReelLayoutMode(videoUrl, isMobile);
-  return <>{children(layoutMode)}</>;
+  const { layoutMode, onPlayerAspectInfo } = useExploreReelLayoutMode(
+    videoUrl,
+    isMobile
+  );
+  return <>{children({ layoutMode, onPlayerAspectInfo })}</>;
 }
 
 type ExploreReelSlideMetrics = {
@@ -465,6 +498,7 @@ type ExploreReelSlideMetrics = {
 
 type ExploreReelSlideTitleProps = {
   item: any;
+  layoutMode: ExploreReelLayoutMode;
   reelMuted: boolean;
   setReelMuted: (muted: boolean) => void;
   videoRef: RefObject<VideoPlayerRef | null>;
@@ -477,6 +511,7 @@ type ExploreReelSlideTitleProps = {
 
 function ExploreReelSlideTitle({
   item,
+  layoutMode,
   reelMuted,
   setReelMuted,
   videoRef,
@@ -488,11 +523,11 @@ function ExploreReelSlideTitle({
 }: ExploreReelSlideTitleProps) {
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 text-sm font-semibold drop-shadow-md">
+      <div className={exploreReelTitleRowClassName(layoutMode)}>
         <button
           type="button"
           title={reelMuted ? "Unmute" : "Mute"}
-          className="cursor-pointer rounded bg-black/50 p-1"
+          className={exploreReelMuteButtonClassName(layoutMode)}
           onPointerDown={e => {
             e.preventDefault();
             e.stopPropagation();
@@ -507,9 +542,9 @@ function ExploreReelSlideTitle({
           }}
         >
           {reelMuted ? (
-            <VolumeX className="size-4 text-white" />
+            <VolumeX className={exploreReelMuteIconClassName(layoutMode)} />
           ) : (
-            <Volume2 className="size-4 text-white" />
+            <Volume2 className={exploreReelMuteIconClassName(layoutMode)} />
           )}
         </button>
         <span className="min-w-0 truncate">{item.title.substring(0, 30)}</span>
@@ -518,7 +553,7 @@ function ExploreReelSlideTitle({
           <button
             type="button"
             aria-label="Open comments"
-            className="-ml-2 inline-flex shrink-0 cursor-pointer items-center rounded border border-gray-400 p-1"
+            className={exploreReelTitleCommentButtonClassName(layoutMode)}
             onPointerDown={e => {
               e.preventDefault();
               e.stopPropagation();
@@ -528,19 +563,19 @@ function ExploreReelSlideTitle({
               setExploreCommentOpen(true);
             }}
           >
-            <ArrowRight className="size-4" />
+            <ArrowRight className={exploreReelTitleCommentIconClassName(layoutMode)} />
           </button>
         ) : null}
       </div>
       {active?.event?.showViewCountOnVideos === true &&
       metrics &&
       !metricsRestrictedCommunity ? (
-        <p className="text-[11px] opacity-80 drop-shadow-md">
+        <p className={exploreReelMetricsClassName(layoutMode)}>
           {metrics.encounters} views
         </p>
       ) : null}
       {metricsRestrictedCommunity ? (
-        <p className="text-[11px] opacity-80 drop-shadow-md">
+        <p className={exploreReelMetricsClassName(layoutMode)}>
           Insights hidden —{" "}
           <Link
             href={`/explore?tab=join&joinCommunity=${encodeURIComponent(metricsRestrictedCommunity.id)}`}
@@ -551,7 +586,7 @@ function ExploreReelSlideTitle({
           for full metrics.
         </p>
       ) : metrics ? (
-        <p className="text-[11px] opacity-80 drop-shadow-md">
+        <p className={exploreReelMetricsClassName(layoutMode)}>
           {metrics.saves} saves · {metrics.shares} shares · {metrics.comments}{" "}
           comments
         </p>
@@ -573,6 +608,7 @@ export interface ExploreFeedClientProps {
     language: string;
     country: string;
   };
+  ssrBoot?: { items: any[]; seed: string; bucketId: number } | null;
 }
 
 export type ExploreFeedClientHandle = {
@@ -595,6 +631,7 @@ export const ExploreFeedClient = forwardRef<
     feedMode = "trends",
     communityIds,
     trendsFilters = { eventTypes: [] as string[], language: "", country: "" },
+    ssrBoot = null,
   },
   ref
 ) {
@@ -649,8 +686,13 @@ export const ExploreFeedClient = forwardRef<
         : feedMode === "saves"
           ? takeExploreFeedBoot({ feedMode: "saves" })
           : feedMode === "community"
-            ? takeExploreFeedBoot({ feedMode: "community" })
-            : { items: [], seed: undefined };
+            ? takeExploreFeedBoot({
+                feedMode: "community",
+                communityIds,
+              })
+            : ssrBoot?.items?.length
+              ? { items: ssrBoot.items, seed: ssrBoot.seed }
+              : { items: [], seed: undefined };
     }
   }
   const seedRef = useRef<string | undefined>(exploreBootRef.current.seed);
@@ -1063,6 +1105,13 @@ export const ExploreFeedClient = forwardRef<
   );
 
   useEffect(() => {
+    if (feedMode !== "saves" && feedMode !== "community") return;
+    const onAuthChanged = () => setSavesRefreshEpoch(e => e + 1);
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [feedMode]);
+
+  useEffect(() => {
     if (feedMode !== "saves") return;
     const maybeReload = () => {
       const blk = savesBlockedRef.current;
@@ -1072,26 +1121,31 @@ export const ExploreFeedClient = forwardRef<
       }
     };
     const onSavesChanged = () => maybeReload();
+    const onAuthChanged = () => maybeReload();
     const onVis = () => {
       if (document.visibilityState === "visible") maybeReload();
     };
     window.addEventListener("tipmanna:saves-changed", onSavesChanged);
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
     document.addEventListener("visibilitychange", onVis);
     return () => {
       window.removeEventListener("tipmanna:saves-changed", onSavesChanged);
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [feedMode]);
 
   useEffect(() => {
-    if (feedMode !== "saves" || savesRefreshEpoch === 0) return;
+    if (savesRefreshEpoch === 0) return;
+    if (feedMode !== "saves" && feedMode !== "community") return;
     let cancelled = false;
     void (async () => {
       endOfFeedRef.current = false;
-      setSavesBlocked(null);
+      if (feedMode === "saves") setSavesBlocked(null);
       const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
       if (cancelled) return;
       setItems(batch ?? []);
+      setInitialLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -1285,7 +1339,10 @@ export const ExploreFeedClient = forwardRef<
         setInitialLoading(false);
         return;
       }
-      const warmed = await waitExploreFeedPrefetch();
+      const warmed = await waitExploreFeedPrefetch({
+        feedMode,
+        communityIds,
+      });
       if (cancelled) return;
       if (
         feedMode === "trends" &&
@@ -1295,6 +1352,18 @@ export const ExploreFeedClient = forwardRef<
         !trendsFilters.country?.trim() &&
         warmed?.items?.length
       ) {
+        seedRef.current = warmed.seed;
+        setItems(warmed.items);
+        setInitialLoading(false);
+        return;
+      }
+      if (feedMode === "saves" && warmed?.items?.length) {
+        seedRef.current = warmed.seed;
+        setItems(warmed.items);
+        setInitialLoading(false);
+        return;
+      }
+      if (feedMode === "community" && warmed?.items?.length) {
         seedRef.current = warmed.seed;
         setItems(warmed.items);
         setInitialLoading(false);
@@ -1466,10 +1535,14 @@ export const ExploreFeedClient = forwardRef<
               Sign in
             </Button>
           </div>
-          <SignInDialog
+          <TipperEmailOtpSignInDialog
             open={signInOpen}
             onOpenChange={setSignInOpen}
-            returnTo={exploreReturnTo}
+            signInTitle="Sign in to view your saves feed"
+            onVerified={() => {
+              setSavesBlocked(null);
+              setSavesRefreshEpoch(e => e + 1);
+            }}
           />
         </>
       );
@@ -1489,10 +1562,11 @@ export const ExploreFeedClient = forwardRef<
               Sign in
             </Button>
           </div>
-          <SignInDialog
+          <TipperEmailOtpSignInDialog
             open={signInOpen}
             onOpenChange={setSignInOpen}
-            returnTo={exploreReturnTo}
+            signInTitle="Sign in to browse community clips"
+            onVerified={() => setSavesRefreshEpoch(e => e + 1)}
           />
         </>
       );
@@ -1558,10 +1632,11 @@ export const ExploreFeedClient = forwardRef<
             item={item}
             isMobile={isMobile}
           >
-            {slideLayoutMode => {
+            {({ layoutMode: slideLayoutMode, onPlayerAspectInfo }) => {
               const slideTitlePlacement =
                 exploreReelTitlePlacement(slideLayoutMode);
               const dockHeightCss = exploreReelDockHeightCss(
+                slideLayoutMode,
                 i === activeIndex && reelEngageUnlocked
               );
 
@@ -1597,6 +1672,7 @@ export const ExploreFeedClient = forwardRef<
                           totalItems={items.length}
                           feedSurfaceActive={feedSurfaceActive}
                           layoutMode={slideLayoutMode}
+                          onPlayerAspectInfo={onPlayerAspectInfo}
                           videoRef={videoRef}
                           onActivePlaying={handleExploreClipPlaying}
                           onActiveReelEnded={advanceReelAfterEnd}
@@ -1610,22 +1686,6 @@ export const ExploreFeedClient = forwardRef<
                           }
                         />
                       </div>
-                      {i === activeIndex &&
-                      slideTitlePlacement === "belowVideoBand" ? (
-                        <ExploreReelSlideTitle
-                          item={item}
-                          reelMuted={reelMuted}
-                          setReelMuted={setReelMuted}
-                          videoRef={videoRef}
-                          setExploreCommentOpen={setExploreCommentOpen}
-                          active={active}
-                          metrics={metrics}
-                          metricsRestrictedCommunity={
-                            metricsRestrictedCommunity
-                          }
-                          className={exploreReelTitleBelowBandClassName()}
-                        />
-                      ) : null}
                     </div>
                   ) : (
                     <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
@@ -1658,7 +1718,11 @@ export const ExploreFeedClient = forwardRef<
                       {activeChannelId != null &&
                       process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !==
                         "false" ? (
-                        <div className="pointer-events-none absolute top-14 left-3 z-[13100] max-w-[min(360px,calc(100vw-3rem))]">
+                        <div
+                          className={exploreReelFeatureCardBannerClassName(
+                            slideLayoutMode
+                          )}
+                        >
                           <VideoFeatureCardBanner
                             surfaceChannelId={String(activeChannelId)}
                             hostSurfaceChannelId={String(activeChannelId)}
@@ -1673,6 +1737,7 @@ export const ExploreFeedClient = forwardRef<
                       {slideTitlePlacement === "onVideo" ? (
                         <ExploreReelSlideTitle
                           item={item}
+                          layoutMode={slideLayoutMode}
                           reelMuted={reelMuted}
                           setReelMuted={setReelMuted}
                           videoRef={videoRef}
@@ -1682,7 +1747,27 @@ export const ExploreFeedClient = forwardRef<
                           metricsRestrictedCommunity={
                             metricsRestrictedCommunity
                           }
-                          className={exploreReelTitleOnVideoClassName()}
+                          className={exploreReelTitleOnVideoClassName(
+                            slideLayoutMode
+                          )}
+                        />
+                      ) : null}
+                      {slideTitlePlacement === "aboveDock" ? (
+                        <ExploreReelSlideTitle
+                          item={item}
+                          layoutMode={slideLayoutMode}
+                          reelMuted={reelMuted}
+                          setReelMuted={setReelMuted}
+                          videoRef={videoRef}
+                          setExploreCommentOpen={setExploreCommentOpen}
+                          active={active}
+                          metrics={metrics}
+                          metricsRestrictedCommunity={
+                            metricsRestrictedCommunity
+                          }
+                          className={exploreReelTitleAboveDockClassName(
+                            slideLayoutMode
+                          )}
                         />
                       ) : null}
                       {activeEventId ? (
@@ -1727,7 +1812,21 @@ export const ExploreFeedClient = forwardRef<
                             !isTipDrawerOpen
                           }
                           hideHostAndAudio
-                          className="pointer-events-auto absolute top-1/2 right-8 z-[90] -translate-y-1/2"
+                          className={exploreReelActionsRailClassName(
+                            slideLayoutMode
+                          )}
+                          iconButtonClassName={exploreReelRailIconButtonClassName(
+                            slideLayoutMode
+                          )}
+                          iconClassName={exploreReelRailIconClassName(
+                            slideLayoutMode
+                          )}
+                          stackClassName={exploreReelRailStackGapClassName(
+                            slideLayoutMode
+                          )}
+                          tipsChipClassName={exploreReelRailTipsChipClassName(
+                            slideLayoutMode
+                          )}
                           shareUrl={buildContentShareUrl({
                             eventId: activeEventId,
                             channelId:
@@ -1754,11 +1853,15 @@ export const ExploreFeedClient = forwardRef<
                       {typeof active?.event?.amountToRaise === "number" &&
                       active.event.amountToRaise > 0 &&
                       !isTipDrawerOpen ? (
-                        <div className="pointer-events-auto absolute top-1/2 right-4 z-[90] -translate-y-1/2">
+                        <div
+                          className={exploreReelTipsProgressWrapperClassName(
+                            slideLayoutMode
+                          )}
+                        >
                           <button
                             type="button"
                             title="View tips"
-                            className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
+                            className={exploreReelTipsChipClassName(slideLayoutMode)}
                             onClick={e => {
                               e.stopPropagation();
                               setTipsListOpen(true);
@@ -1779,12 +1882,17 @@ export const ExploreFeedClient = forwardRef<
                   {i === activeIndex && !isTipDrawerOpen ? (
                     <div
                       data-testid="explore-slide-actions"
-                      className={exploreReelDockClassName()}
+                      className={exploreReelDockClassName(slideLayoutMode)}
                     >
                       {reelEngageUnlocked ? (
-                        <div className={exploreReelDockScrubberClassName()}>
+                        <div
+                          className={exploreReelDockScrubberClassName(
+                            slideLayoutMode
+                          )}
+                        >
                           <ExploreReelScrubber
                             videoRef={videoRef}
+                            layoutMode={slideLayoutMode}
                             active={
                               Boolean(feedSurfaceActive) &&
                               Boolean(activeEventId)
@@ -1792,11 +1900,17 @@ export const ExploreFeedClient = forwardRef<
                           />
                         </div>
                       ) : null}
-                      <div className={exploreReelDockActionsClassName()}>
+                      <div
+                        className={exploreReelDockActionsClassName(
+                          slideLayoutMode
+                        )}
+                      >
                         <Button
                           type="button"
                           variant="secondary"
-                          className="gap-1 rounded-full px-5 shadow-lg"
+                          className={exploreReelDockIconButtonClassName(
+                            slideLayoutMode
+                          )}
                           aria-label="Create video"
                           title="Create"
                           onClick={e => {
@@ -1805,12 +1919,18 @@ export const ExploreFeedClient = forwardRef<
                             setCreateDialogOpen(true);
                           }}
                         >
-                          <Plus className="size-4" />
+                          <Plus
+                            className={exploreReelDockActionIconClassName(
+                              slideLayoutMode
+                            )}
+                          />
                         </Button>
                         <div className="flex items-center">
                           <Button
                             type="button"
-                            className="h-9 gap-1 rounded-full rounded-r-none bg-white px-3 text-sm text-black shadow-lg"
+                            className={exploreReelDockPrimaryButtonClassName(
+                              slideLayoutMode
+                            )}
                             onClick={() => router.push("/tv")}
                           >
                             Watch TV
@@ -1818,7 +1938,9 @@ export const ExploreFeedClient = forwardRef<
                           <Button
                             type="button"
                             variant="default"
-                            className="h-9 gap-1 rounded-full rounded-l-none px-4 text-sm shadow-lg"
+                            className={exploreReelDockSecondaryButtonClassName(
+                              slideLayoutMode
+                            )}
                             onClick={() => setIsTipDrawerOpen(true)}
                           >
                             Engage
@@ -1827,7 +1949,9 @@ export const ExploreFeedClient = forwardRef<
                         <Button
                           type="button"
                           variant="secondary"
-                          className="gap-1 rounded-full px-5 shadow-lg"
+                          className={exploreReelDockIconButtonClassName(
+                            slideLayoutMode
+                          )}
                           aria-label="Comments"
                           title="Comments"
                           onClick={e => {
@@ -1836,7 +1960,11 @@ export const ExploreFeedClient = forwardRef<
                             setExploreCommentOpen(true);
                           }}
                         >
-                          <MessageCircle className="size-4" />
+                          <MessageCircle
+                            className={exploreReelDockActionIconClassName(
+                              slideLayoutMode
+                            )}
+                          />
                         </Button>
                       </div>
                     </div>

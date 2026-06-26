@@ -42,7 +42,16 @@ import type { ExploreFeedClientHandle } from "./explore-feed-client";
 import { ExploreTvScheduleFeed } from "./explore-tv-schedule-feed";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import { exploreOpenTargetFromUrl } from "@/lib/explore-video-navigation";
-import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import {
+  prefetchExploreCommunityFeed,
+  prefetchExploreFeedInitial,
+  prefetchExploreSavesFeed,
+  scheduleExploreFeedPrefetchIdle,
+  seedExploreFeedBootFromSsr,
+} from "@/lib/explore-feed-prefetch-cache";
+import { prefetchExploreTvSchedule } from "@/lib/explore-tv-prefetch-cache";
+import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
+import type { ExploreSsrBootPayload } from "@/lib/explore-ssr-boot";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import {
   getAllCharacterSets,
@@ -184,11 +193,13 @@ type ExploreMainTab =
 export interface ExplorePageClientProps {
   characters?: any[];
   characterSets?: any[];
+  ssrBoot?: ExploreSsrBootPayload | null;
 }
 
 export default function ExplorePageClient({
   characters: initialCharacters = [],
   characterSets: initialCharacterSets = [],
+  ssrBoot = null,
 }: ExplorePageClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -273,6 +284,12 @@ export default function ExplorePageClient({
       return fromUrl;
     });
   }, [tabParam]);
+
+  useLayoutEffect(() => {
+    if (ssrBoot?.items?.length) {
+      seedExploreFeedBootFromSsr(ssrBoot);
+    }
+  }, [ssrBoot]);
 
   useEffect(() => {
     if (tab === "feed") prefetchExploreFeedInitial();
@@ -359,10 +376,7 @@ export default function ExplorePageClient({
     let cancelled = false;
     void (async () => {
       const joinedPromise = getMeJoinedCommunitiesAction(exploreAuthToken);
-      const hostPromise =
-        exploreUserRole === "HOST"
-          ? getMyCommunitiesAction(exploreAuthToken)
-          : Promise.resolve(null);
+      const hostPromise = getMyCommunitiesAction(exploreAuthToken);
       const [joinedRes, hostRes] = await Promise.all([
         joinedPromise,
         hostPromise,
@@ -380,10 +394,15 @@ export default function ExplorePageClient({
           owned?: TvCommunityBrief[];
           coCreator?: TvCommunityBrief[];
         };
-        setHostTvCommunities({
-          owned: raw.owned ?? [],
-          coCreator: raw.coCreator ?? [],
-        });
+        const owned = raw.owned ?? [];
+        const coCreator = raw.coCreator ?? [];
+        const showOwned =
+          exploreUserRole === "HOST" ||
+          owned.length > 0 ||
+          coCreator.length > 0;
+        setHostTvCommunities(
+          showOwned ? { owned, coCreator } : { owned: [], coCreator: [] }
+        );
       } else {
         setHostTvCommunities({ owned: [], coCreator: [] });
       }
@@ -392,6 +411,14 @@ export default function ExplorePageClient({
       cancelled = true;
     };
   }, [exploreAuthToken, exploreUserRole, isSignedInExplore, exploreUserId]);
+
+  const eligibleCommunityIdsForPrefetch = useMemo(
+    () =>
+      joinedMemberships
+        .filter(isEligibleForCommunityFeedDropdown)
+        .map(m => m.communityId),
+    [joinedMemberships]
+  );
 
   const [feedSubTab, setFeedSubTab] = useState<
     "trends" | "saves" | "tv" | "community"
@@ -409,6 +436,47 @@ export default function ExplorePageClient({
   const [trendLanguage, setTrendLanguage] = useState("");
   const [trendCountry, setTrendCountry] = useState("");
 
+  useEffect(() => {
+    if (tab !== "feed") return;
+    scheduleExploreFeedPrefetchIdle({
+      communityIds: eligibleCommunityIdsForPrefetch,
+      tvSource: tvExploreSource,
+      tvFilters: {
+        eventVideoTypes: trendEventTypes,
+        language: trendLanguage,
+        country: trendCountry,
+      },
+    });
+  }, [
+    tab,
+    eligibleCommunityIdsForPrefetch,
+    tvExploreSource,
+    trendEventTypes,
+    trendLanguage,
+    trendCountry,
+  ]);
+
+  useEffect(() => {
+    const onAuthChanged = () => {
+      prefetchExploreSavesFeed();
+      if (eligibleCommunityIdsForPrefetch.length) {
+        prefetchExploreCommunityFeed(eligibleCommunityIdsForPrefetch);
+      }
+    };
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [eligibleCommunityIdsForPrefetch]);
+
+  const prefetchTvSchedule = useCallback(() => {
+    prefetchExploreTvSchedule({
+      tvSource: tvExploreSource,
+      eventVideoTypes: trendEventTypes,
+      language: trendLanguage,
+      country: trendCountry,
+    });
+  }, [tvExploreSource, trendEventTypes, trendLanguage, trendCountry]);
+
+  const communityPickerMultiRef = useRef(false);
   const didHydrateExploreQs = useRef(false);
   const didHydrateExploreVideo = useRef(false);
   useLayoutEffect(() => {
@@ -767,11 +835,29 @@ export default function ExplorePageClient({
     [hostTvCommunities.coCreator, hostTvCommunities.owned, joinedMemberships]
   );
 
-  const toggleCommunityFeedId = useCallback((id: string) => {
-    setCommunityFeedSelIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  }, []);
+  const onCommunityFeedPick = useCallback(
+    (id: string, checked: boolean, multi: boolean) => {
+      setMainTab("feed");
+      setFeedSubTab("community");
+      setCommunityFeedSelIds(prev => {
+        let next: string[];
+        if (multi) {
+          next = checked
+            ? prev.includes(id)
+              ? prev
+              : [...prev, id]
+            : prev.filter(x => x !== id);
+        } else if (checked) {
+          next = [id];
+        } else {
+          next = prev.filter(x => x !== id);
+        }
+        if (next.length) prefetchExploreCommunityFeed(next);
+        return next;
+      });
+    },
+    [setMainTab]
+  );
 
   useEffect(() => {
     if (sideChickLocked) return;
@@ -1213,6 +1299,10 @@ export default function ExplorePageClient({
                     "shrink-0 rounded-full px-2.5 transition sm:px-3",
                     feedSubTab === "saves" && "bg-white/40 text-white shadow-sm"
                   )}
+                  onPointerEnter={() => {
+                    prefetchExploreFeedInitial();
+                    prefetchExploreSavesFeed();
+                  }}
                   onClick={() => {
                     setMainTab("feed");
                     setFeedSubTab("saves");
@@ -1226,12 +1316,34 @@ export default function ExplorePageClient({
                     "shrink-0 rounded-full px-2.5 transition sm:px-3",
                     feedSubTab === "tv" && "bg-white/40 text-white shadow-sm"
                   )}
+                  onPointerEnter={prefetchTvSchedule}
                   onClick={() => {
                     setMainTab("feed");
                     setFeedSubTab("tv");
                   }}
                 >
                   TV
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "hidden shrink-0 rounded-full px-2.5 transition sm:inline-block sm:px-3",
+                    feedSubTab === "community" &&
+                      "bg-white/40 text-white shadow-sm"
+                  )}
+                  onPointerEnter={() => {
+                    if (eligibleCommunityIdsForPrefetch.length) {
+                      prefetchExploreCommunityFeed(
+                        eligibleCommunityIdsForPrefetch
+                      );
+                    }
+                  }}
+                  onClick={() => {
+                    setMainTab("feed");
+                    setFeedSubTab("community");
+                  }}
+                >
+                  Community
                 </button>
               </div>
 
@@ -1254,6 +1366,13 @@ export default function ExplorePageClient({
                         variant="outline"
                         size="sm"
                         className="h-8 max-w-full justify-between border-none bg-transparent px-2 text-xs font-normal shadow-none outline-none sm:max-w-md"
+                        onPointerEnter={() => {
+                          if (eligibleCommunityIdsForPrefetch.length) {
+                            prefetchExploreCommunityFeed(
+                              eligibleCommunityIdsForPrefetch
+                            );
+                          }
+                        }}
                       >
                         <span>
                           {eligibleCommunityPickerRows.length === 0
@@ -1267,6 +1386,11 @@ export default function ExplorePageClient({
                     <DropdownMenuContent
                       className="z-[12550] w-[min(100vw-2rem,22rem)]"
                       align="start"
+                      onPointerDownCapture={e => {
+                        communityPickerMultiRef.current = Boolean(
+                          e.shiftKey || e.metaKey || e.ctrlKey
+                        );
+                      }}
                     >
                       <DropdownMenuLabel className="text-xs">
                         Communities in Explore feed
@@ -1276,12 +1400,13 @@ export default function ExplorePageClient({
                         <div className="text-muted-foreground px-2 py-3 text-xs">
                           Join a community with an active membership .<br />{" "}
                           Explore new communities on the{" "}
-                          <Link
-                            href="/community"
+                          <button
+                            type="button"
                             className="text-primary underline"
+                            onClick={() => setMainTab("my-communities")}
                           >
                             Communities
-                          </Link>{" "}
+                          </button>{" "}
                           page.
                         </div>
                       ) : (
@@ -1291,9 +1416,13 @@ export default function ExplorePageClient({
                             checked={communityFeedSelIds.includes(
                               m.communityId
                             )}
-                            onCheckedChange={() =>
-                              toggleCommunityFeedId(m.communityId)
-                            }
+                            onCheckedChange={checked => {
+                              onCommunityFeedPick(
+                                m.communityId,
+                                checked,
+                                communityPickerMultiRef.current
+                              );
+                            }}
                             className="text-xs"
                           >
                             {m.community?.name ?? m.communityId}
@@ -1374,6 +1503,7 @@ export default function ExplorePageClient({
                 }
                 communityIds={scopedExploreCommunityIds}
                 trendsFilters={trendsFilters}
+                ssrBoot={ssrBoot}
               />
             </div>
           ) : null}

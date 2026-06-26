@@ -10,6 +10,7 @@ import { useSelector } from "react-redux";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +33,12 @@ const communityFeatureOn =
 type JoinFormPublic = {
   name: string;
   logoUrl: string | null;
+  description?: string | null;
+  createdAt?: string | null;
+  totalTips?: number;
+  memberCount?: number;
+  numVideos?: number;
+  joinMethod?: "request" | "subscription";
   customQuestion: string | null;
   officialEmailDomain: string | null;
   officialEmailDomainRequired: boolean;
@@ -70,6 +77,7 @@ export function CommunityJoinPanel({
   const [submitting, setSubmitting] = useState(false);
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
   const [paidSubExpiresAt, setPaidSubExpiresAt] = useState<string | null>(null);
+  const [signInOpen, setSignInOpen] = useState(false);
 
   useEffect(() => {
     setDoneMessage(null);
@@ -86,21 +94,11 @@ export function CommunityJoinPanel({
 
   useEffect(() => {
     if (!communityFeatureOn) return;
-    if (
-      !isAuthenticated ||
-      requiresVerification ||
-      (user?.role !== "TIPPER" && user?.role !== "HOST")
-    ) {
-      router.replace(
-        `/sign-in?redirect=${encodeURIComponent(signInRedirectPath)}`
-      );
-      return;
-    }
     setGateOk(true);
-  }, [isAuthenticated, requiresVerification, user, router, signInRedirectPath]);
+  }, []);
 
   const loadForm = useCallback(async () => {
-    if (!communityId || !gateOk) return;
+    if (!communityId) return;
     setLoadingForm(true);
     const res = await getCommunityAccessStateAction(communityId);
     if (!res.success || !res.data) {
@@ -114,6 +112,12 @@ export function CommunityJoinPanel({
       joinFormPublic: {
         name: string;
         logoUrl: string | null;
+        description?: string | null;
+        createdAt?: string | null;
+        totalTips?: number;
+        memberCount?: number;
+        numVideos?: number;
+        joinMethod?: "request" | "subscription";
         customQuestion: string | null;
         officialEmailDomain: string | null;
         officialEmailDomainRequired: boolean;
@@ -136,6 +140,12 @@ export function CommunityJoinPanel({
       setForm({
         name: jp.name,
         logoUrl: jp.logoUrl,
+        description: jp.description ?? null,
+        createdAt: jp.createdAt ?? null,
+        totalTips: jp.totalTips,
+        memberCount: jp.memberCount,
+        numVideos: jp.numVideos,
+        joinMethod: jp.joinMethod,
         customQuestion: jp.customQuestion,
         officialEmailDomain: jp.officialEmailDomain,
         officialEmailDomainRequired: jp.officialEmailDomainRequired,
@@ -152,6 +162,12 @@ export function CommunityJoinPanel({
     const nextForm: JoinFormPublic = {
       name: jp.name,
       logoUrl: jp.logoUrl,
+      description: jp.description ?? null,
+      createdAt: jp.createdAt ?? null,
+      totalTips: jp.totalTips,
+      memberCount: jp.memberCount,
+      numVideos: jp.numVideos,
+      joinMethod: jp.joinMethod,
       customQuestion: jp.customQuestion,
       officialEmailDomain: jp.officialEmailDomain,
       officialEmailDomainRequired: jp.officialEmailDomainRequired,
@@ -168,7 +184,7 @@ export function CommunityJoinPanel({
     }
 
     setLoadingForm(false);
-  }, [communityId, gateOk]);
+  }, [communityId]);
 
   useEffect(() => {
     void loadForm();
@@ -306,7 +322,63 @@ export function CommunityJoinPanel({
 
     joinBody = (
       <div className="mx-auto max-w-lg px-4 py-16">
-        <h1 className="text-xl font-semibold">Join {form.name}</h1>
+        <div className="mb-8 space-y-4">
+          {form.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={form.logoUrl}
+              alt=""
+              className="size-16 rounded-xl object-cover"
+            />
+          ) : null}
+          <h1 className="text-2xl font-semibold">{form.name}</h1>
+          {form.description ? (
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {form.description}
+            </p>
+          ) : null}
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt className="text-muted-foreground text-xs">Total tips</dt>
+              <dd className="font-medium">£{form.totalTips ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">Members</dt>
+              <dd className="font-medium">{form.memberCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">Videos</dt>
+              <dd className="font-medium">{form.numVideos ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">Created</dt>
+              <dd className="font-medium">
+                {form.createdAt
+                  ? new Date(form.createdAt).toLocaleDateString()
+                  : "—"}
+              </dd>
+            </div>
+          </dl>
+          <p className="text-muted-foreground text-xs">
+            How to join:{" "}
+            {form.joinMethod === "subscription"
+              ? "Paid subscription"
+              : "Submit a free request for approval"}
+          </p>
+        </div>
+
+        {!isAuthenticated || requiresVerification ? (
+          <div className="bg-muted/40 space-y-3 rounded-lg border p-4">
+            <p className="text-sm">
+              Sign in with your tipper email to submit a join request.
+            </p>
+            <Button type="button" onClick={() => setSignInOpen(true)}>
+              Continue with email
+            </Button>
+          </div>
+        ) : (
+          <>
+        <h2 className="text-lg font-semibold">Join {form.name}</h2>
         <p className="text-muted-foreground mt-2 text-sm">
           Signed in as {user?.email}. Default membership length when using
           domain or approval: {form.defaultMonths} month(s).
@@ -452,9 +524,21 @@ export function CommunityJoinPanel({
             <Link href={EXPLORE_COMMUNITY_HUB_HREF}>Cancel</Link>
           </Button>
         </div>
+          </>
+        )}
       </div>
     );
   }
 
-  return <>{joinBody}</>;
+  return (
+    <>
+      {joinBody}
+      <TipperEmailOtpSignInDialog
+        open={signInOpen}
+        onOpenChange={setSignInOpen}
+        signInTitle="Sign in to join this community"
+        onVerified={() => void loadForm()}
+      />
+    </>
+  );
 }

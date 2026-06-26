@@ -15,6 +15,18 @@ test.describe("explore", () => {
     await expect(discoverHeading).not.toBeVisible();
   });
 
+  test("first paint includes SSR default feed boot or visible slide", async ({
+    page,
+  }) => {
+    const response = await page.goto("/explore");
+    expect(response?.ok()).toBeTruthy();
+    const html = await page.content();
+    const hadInlineBoot =
+      html.includes("__EXPLORE_SSR_BOOT__") ||
+      html.includes("data-explore-slide");
+    expect(hadInlineBoot).toBeTruthy();
+  });
+
   test("feed scrolls and shows video shell or empty state", async ({
     page,
   }) => {

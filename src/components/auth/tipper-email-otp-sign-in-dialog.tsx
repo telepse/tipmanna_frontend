@@ -32,8 +32,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Paragraph } from "@/components/shared/paragraph";
 import { store } from "@/redux/store";
 import { setCredentials } from "@/features/auth-slice";
-import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
+import { verifyCodeAction, loginOrRegisterTipperAction } from "@/actions/auth";
 import { ApiError } from "@/types/api-error.types";
+import { dispatchAuthChanged } from "@/lib/auth-events";
+import {
+  SIGN_IN_NESTED_OVERLAY_Z_INDEX,
+  SIGN_IN_NESTED_Z_INDEX,
+} from "@/lib/drawer-z-index";
 
 type Step = "signIn" | "verifyCode";
 
@@ -45,6 +50,9 @@ export type TipperEmailOtpSignInDialogProps = {
   autoSendCode?: boolean;
   onVerified?: () => void | Promise<void>;
   getRedirectPathAfterVerify?: () => string | undefined;
+  overlayClassName?: string;
+  contentClassName?: string;
+  signupHint?: string;
 };
 
 export function TipperEmailOtpSignInDialog({
@@ -55,6 +63,9 @@ export function TipperEmailOtpSignInDialog({
   autoSendCode = false,
   onVerified,
   getRedirectPathAfterVerify,
+  overlayClassName = SIGN_IN_NESTED_OVERLAY_Z_INDEX,
+  contentClassName = SIGN_IN_NESTED_Z_INDEX,
+  signupHint = "No account yet? Continue and we will create a free tipper account when you verify.",
 }: TipperEmailOtpSignInDialogProps) {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -185,6 +196,8 @@ export function TipperEmailOtpSignInDialog({
 
       toast.success("Email verified successfully!");
 
+      dispatchAuthChanged();
+
       await onVerified?.();
 
       const path = getRedirectPathAfterVerify?.();
@@ -231,7 +244,10 @@ export function TipperEmailOtpSignInDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        overlayClassName={overlayClassName}
+        className={`sm:max-w-md ${contentClassName}`}
+      >
         <DialogHeader className="open_sans">
           {step === "signIn" ? (
             <>
@@ -295,8 +311,7 @@ export function TipperEmailOtpSignInDialog({
                     size="sm"
                     color="muted"
                   >
-                    No account yet? Enter your email and continue — we will
-                    create a free tipper account when you verify.
+                    {signupHint}
                   </Paragraph>
 
                   <Button

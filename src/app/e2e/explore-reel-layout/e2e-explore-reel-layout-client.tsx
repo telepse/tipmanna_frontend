@@ -7,7 +7,7 @@ import {
   exploreReelDockClassName,
   exploreReelDockHeightCss,
   exploreReelStageClassName,
-  exploreReelTitleBelowBandClassName,
+  exploreReelTitleAboveDockClassName,
   exploreReelTitleOnVideoClassName,
   exploreReelTitlePlacement,
   exploreReelVideoBandClassName,
@@ -32,7 +32,7 @@ export function E2eExploreReelLayoutClient() {
   const searchParams = useSearchParams();
   const layoutMode = parseLayoutMode(searchParams.get("mode"));
   const titlePlacement = exploreReelTitlePlacement(layoutMode);
-  const dockHeightCss = exploreReelDockHeightCss(false);
+  const dockHeightCss = exploreReelDockHeightCss(layoutMode, false);
 
   return (
     <main className="flex h-[100dvh] flex-col bg-black">
@@ -60,20 +60,12 @@ export function E2eExploreReelLayoutClient() {
                 </div>
               </div>
             </div>
-            {titlePlacement === "belowVideoBand" ? (
-              <div
-                data-testid="explore-reel-title-below-band"
-                className={exploreReelTitleBelowBandClassName()}
-              >
-                <p className="text-sm font-semibold">Title below video band</p>
-              </div>
-            ) : null}
           </div>
 
           {titlePlacement === "onVideo" ? (
             <div
               data-testid="explore-reel-title-on-video"
-              className={exploreReelTitleOnVideoClassName()}
+              className={exploreReelTitleOnVideoClassName(layoutMode)}
             >
               <p className="text-sm font-semibold drop-shadow-md">
                 Title on video
@@ -81,11 +73,22 @@ export function E2eExploreReelLayoutClient() {
             </div>
           ) : null}
 
+          {titlePlacement === "aboveDock" ? (
+            <div
+              data-testid="explore-reel-title-above-dock"
+              className={exploreReelTitleAboveDockClassName(layoutMode)}
+            >
+              <p className="text-sm font-semibold drop-shadow-md">
+                Title above dock
+              </p>
+            </div>
+          ) : null}
+
           <div
             data-testid="explore-slide-actions"
-            className={exploreReelDockClassName()}
+            className={exploreReelDockClassName(layoutMode)}
           >
-            <div className={exploreReelDockActionsClassName()}>
+            <div className={exploreReelDockActionsClassName(layoutMode)}>
               <button
                 type="button"
                 className="rounded-full bg-white px-4 py-2 text-sm text-black"

@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   EXPLORE_REEL_DOCK_HEIGHT,
+  EXPLORE_REEL_DOCK_HEIGHT_DESKTOP,
   EXPLORE_REEL_DOCK_HEIGHT_ENGAGED,
+  EXPLORE_REEL_DOCK_HEIGHT_ENGAGED_DESKTOP,
+  exploreReelActionsRailClassName,
   exploreReelDockHeightCss,
   exploreReelDockClassName,
   exploreReelPresentationFit,
@@ -11,6 +14,9 @@ import {
   exploreReelVideoBandClassName,
   resolveExploreReelLayoutMode,
   resolveExploreReelLayoutModeWhileLoading,
+  shouldCorrectExploreReelLayoutMode,
+  shouldUpdateExploreReelLayoutMode,
+  shouldUpgradeExploreReelLayoutMode,
 } from "../explore-reel-layout";
 
 describe("resolveExploreReelLayoutMode", () => {
@@ -19,7 +25,6 @@ describe("resolveExploreReelLayoutMode", () => {
       resolveExploreReelLayoutMode({
         isMobile: true,
         classification: "portrait",
-        isShortsUrl: false,
       })
     ).toBe("mobilePortrait");
   });
@@ -29,7 +34,6 @@ describe("resolveExploreReelLayoutMode", () => {
       resolveExploreReelLayoutMode({
         isMobile: true,
         classification: "square",
-        isShortsUrl: false,
       })
     ).toBe("mobilePortrait");
   });
@@ -39,7 +43,6 @@ describe("resolveExploreReelLayoutMode", () => {
       resolveExploreReelLayoutMode({
         isMobile: true,
         classification: "landscape",
-        isShortsUrl: false,
       })
     ).toBe("mobileLandscape");
   });
@@ -49,19 +52,17 @@ describe("resolveExploreReelLayoutMode", () => {
       resolveExploreReelLayoutMode({
         isMobile: false,
         classification: "portrait",
-        isShortsUrl: false,
       })
     ).toBe("desktopPortrait");
   });
 
-  it("maps desktop portrait and Shorts URL to desktopPortrait", () => {
+  it("does not use Shorts URL alone for desktop portrait when landscape classified", () => {
     expect(
       resolveExploreReelLayoutMode({
         isMobile: false,
         classification: "landscape",
-        isShortsUrl: true,
       })
-    ).toBe("desktopPortrait");
+    ).toBe("desktopLandscape");
   });
 
   it("maps desktop landscape to desktopLandscape", () => {
@@ -69,20 +70,22 @@ describe("resolveExploreReelLayoutMode", () => {
       resolveExploreReelLayoutMode({
         isMobile: false,
         classification: "landscape",
-        isShortsUrl: false,
       })
     ).toBe("desktopLandscape");
   });
 });
 
 describe("resolveExploreReelLayoutModeWhileLoading", () => {
-  it("defaults to landscape modes when classification unknown", () => {
+  it("defaults mobile unknown to portrait-ambiguous mobilePortrait", () => {
     expect(
       resolveExploreReelLayoutModeWhileLoading({
         isMobile: true,
         isShortsUrl: false,
       })
-    ).toBe("mobileLandscape");
+    ).toBe("mobilePortrait");
+  });
+
+  it("defaults desktop unknown to desktopLandscape", () => {
     expect(
       resolveExploreReelLayoutModeWhileLoading({
         isMobile: false,
@@ -101,6 +104,89 @@ describe("resolveExploreReelLayoutModeWhileLoading", () => {
   });
 });
 
+describe("shouldUpgradeExploreReelLayoutMode", () => {
+  it("allows one-way portrait upgrade on mobile and desktop", () => {
+    expect(
+      shouldUpgradeExploreReelLayoutMode("mobileLandscape", "mobilePortrait")
+    ).toBe(true);
+    expect(
+      shouldUpgradeExploreReelLayoutMode("desktopLandscape", "desktopPortrait")
+    ).toBe(true);
+    expect(
+      shouldUpgradeExploreReelLayoutMode("mobilePortrait", "mobileLandscape")
+    ).toBe(false);
+  });
+});
+
+describe("shouldCorrectExploreReelLayoutMode", () => {
+  it("corrects portrait-ambiguous loading default to landscape when metadata resolves", () => {
+    expect(
+      shouldCorrectExploreReelLayoutMode(
+        "mobilePortrait",
+        "mobileLandscape",
+        "landscape",
+        true
+      )
+    ).toBe(true);
+    expect(
+      shouldCorrectExploreReelLayoutMode(
+        "desktopPortrait",
+        "desktopLandscape",
+        "landscape",
+        true
+      )
+    ).toBe(true);
+    expect(
+      shouldCorrectExploreReelLayoutMode(
+        "mobilePortrait",
+        "mobileLandscape",
+        "landscape",
+        false
+      )
+    ).toBe(false);
+    expect(
+      shouldCorrectExploreReelLayoutMode(
+        "mobilePortrait",
+        "mobileLandscape",
+        "portrait",
+        true
+      )
+    ).toBe(false);
+  });
+});
+
+describe("shouldUpdateExploreReelLayoutMode", () => {
+  it("combines portrait upgrade and landscape correction", () => {
+    expect(
+      shouldUpdateExploreReelLayoutMode(
+        "mobileLandscape",
+        "mobilePortrait",
+        "portrait",
+        true
+      )
+    ).toBe(true);
+    expect(
+      shouldUpdateExploreReelLayoutMode(
+        "mobilePortrait",
+        "mobileLandscape",
+        "landscape",
+        true
+      )
+    ).toBe(true);
+  });
+});
+
+describe("exploreReelActionsRailClassName", () => {
+  it("uses wider desktop rail offset", () => {
+    expect(exploreReelActionsRailClassName("desktopLandscape")).toContain(
+      "right-10"
+    );
+    expect(exploreReelActionsRailClassName("mobilePortrait")).toContain(
+      "right-8"
+    );
+  });
+});
+
 describe("exploreReelPresentationFit", () => {
   it("uses contain only for mobile landscape", () => {
     expect(exploreReelPresentationFit("mobileLandscape")).toBe("contain");
@@ -111,8 +197,8 @@ describe("exploreReelPresentationFit", () => {
 });
 
 describe("exploreReelTitlePlacement", () => {
-  it("places title below video band on mobile landscape only", () => {
-    expect(exploreReelTitlePlacement("mobileLandscape")).toBe("belowVideoBand");
+  it("places title above dock on mobile landscape only", () => {
+    expect(exploreReelTitlePlacement("mobileLandscape")).toBe("aboveDock");
     expect(exploreReelTitlePlacement("mobilePortrait")).toBe("onVideo");
     expect(exploreReelTitlePlacement("desktopLandscape")).toBe("onVideo");
   });
@@ -121,30 +207,42 @@ describe("exploreReelTitlePlacement", () => {
 describe("exploreReelStageClassName", () => {
   it("centers desktop portrait in a max-width column", () => {
     expect(exploreReelStageClassName("desktopPortrait")).toContain(
-      "max-w-[min(420px,100%)]"
+      "max-w-[min(480px,100%)]"
     );
   });
 
-  it("centers mobile landscape video band", () => {
+  it("reserves dock space in mobile landscape video band", () => {
     expect(exploreReelVideoBandClassName("mobileLandscape")).toContain(
-      "justify-center"
+      "pb-[var(--explore-reel-dock-h"
     );
   });
 });
 
 describe("exploreReelDockHeightCss", () => {
   it("uses taller dock when engage scrubber is visible", () => {
-    expect(exploreReelDockHeightCss(false)).toBe(EXPLORE_REEL_DOCK_HEIGHT);
-    expect(exploreReelDockHeightCss(true)).toBe(
+    expect(exploreReelDockHeightCss("mobilePortrait", false)).toBe(
+      EXPLORE_REEL_DOCK_HEIGHT
+    );
+    expect(exploreReelDockHeightCss("mobilePortrait", true)).toBe(
       EXPLORE_REEL_DOCK_HEIGHT_ENGAGED
+    );
+    expect(exploreReelDockHeightCss("desktopLandscape", false)).toBe(
+      EXPLORE_REEL_DOCK_HEIGHT_DESKTOP
+    );
+    expect(exploreReelDockHeightCss("desktopLandscape", true)).toBe(
+      EXPLORE_REEL_DOCK_HEIGHT_ENGAGED_DESKTOP
     );
   });
 });
 
 describe("exploreReelDockClassName", () => {
   it("uses gradient overlay without solid footer bar", () => {
-    const cls = exploreReelDockClassName();
+    const cls = exploreReelDockClassName("mobilePortrait");
     expect(cls).toContain("bg-gradient-to-t");
     expect(cls).not.toContain("bg-black/80");
+  });
+
+  it("uses larger padding on desktop", () => {
+    expect(exploreReelDockClassName("desktopLandscape")).toContain("px-5");
   });
 });

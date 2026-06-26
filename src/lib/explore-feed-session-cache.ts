@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { getExploreDefaultBucketId } from "@/lib/explore-default-bucket";
+
 const STORAGE_PREFIX = "tipmanna:explore-feed:";
 
 export type ExploreFeedSessionKeyParams = {
@@ -18,6 +20,7 @@ export type ExploreFeedSessionSnapshot = {
   seed?: string;
   activeIndex: number;
   scrollTop?: number;
+  bucketId?: number;
 };
 
 function buildExploreFeedSessionKey(
@@ -25,6 +28,10 @@ function buildExploreFeedSessionKey(
 ): string {
   const { feedMode, communityIds, trendsFilters } = params;
   const parts: string[] = [feedMode];
+
+  if (feedMode === "trends") {
+    parts.push(`b:${getExploreDefaultBucketId()}`);
+  }
 
   if (feedMode === "community" && communityIds?.length) {
     parts.push([...communityIds].sort().join(","));
@@ -55,18 +62,23 @@ export function restoreExploreFeedSession(
     if (!parsed || !Array.isArray(parsed.items) || parsed.items.length === 0) {
       return null;
     }
+    if (
+      params.feedMode === "trends" &&
+      parsed.bucketId != null &&
+      parsed.bucketId !== getExploreDefaultBucketId()
+    ) {
+      return null;
+    }
     const activeIndex =
       typeof parsed.activeIndex === "number" && parsed.activeIndex >= 0
         ? parsed.activeIndex
         : 0;
     return {
       items: parsed.items,
-      seed: typeof parsed.seed === "string" ? parsed.seed : undefined,
-      activeIndex: Math.min(activeIndex, parsed.items.length - 1),
-      scrollTop:
-        typeof parsed.scrollTop === "number" && parsed.scrollTop >= 0
-          ? parsed.scrollTop
-          : undefined,
+      seed: parsed.seed,
+      activeIndex,
+      scrollTop: parsed.scrollTop,
+      bucketId: parsed.bucketId,
     };
   } catch {
     return null;
@@ -78,25 +90,20 @@ export function persistExploreFeedSession(
   snapshot: ExploreFeedSessionSnapshot
 ): void {
   if (typeof window === "undefined") return;
-  if (!snapshot.items.length) return;
+  if (!snapshot.items?.length) return;
   try {
+    const payload: ExploreFeedSessionSnapshot = {
+      ...snapshot,
+      ...(params.feedMode === "trends"
+        ? { bucketId: getExploreDefaultBucketId() }
+        : {}),
+    };
     window.sessionStorage.setItem(
       buildExploreFeedSessionKey(params),
-      JSON.stringify({
-        items: snapshot.items,
-        seed: snapshot.seed,
-        activeIndex: Math.max(
-          0,
-          Math.min(snapshot.activeIndex, snapshot.items.length - 1)
-        ),
-        scrollTop:
-          typeof snapshot.scrollTop === "number" && snapshot.scrollTop >= 0
-            ? snapshot.scrollTop
-            : undefined,
-      })
+      JSON.stringify(payload)
     );
   } catch {
-    /* quota / private mode */
+    /* quota */
   }
 }
 
@@ -107,6 +114,6 @@ export function clearExploreFeedSession(
   try {
     window.sessionStorage.removeItem(buildExploreFeedSessionKey(params));
   } catch {
-    /* noop */
+    /* ignore */
   }
 }

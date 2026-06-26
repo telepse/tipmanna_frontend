@@ -24,6 +24,7 @@ import type { RoomCharacter } from "@/types";
 import type { VideoPlayerRef } from "@/components/events/video-player";
 import { trackTvShareClick } from "@/lib/tvAnalytics";
 import { buildContentShareUrl } from "@/lib/public-video-url";
+import { cn } from "@/lib/utils";
 
 type Props = {
   eventId: string;
@@ -42,6 +43,11 @@ type Props = {
   onCommentOpenChange: (open: boolean) => void;
   /** Positioning wrapper — parent supplies placement (channel uses absolute right-8 bottom-4). */
   className?: string;
+  /** Optional density overrides for immersive reel desktop scaling. */
+  iconButtonClassName?: string;
+  iconClassName?: string;
+  stackClassName?: string;
+  tipsChipClassName?: string;
   /** When true, omit tips chip on the rail (tips sit above progress bar like channel-client). */
   hideTipsChip?: boolean;
   /** Override share link (defaults via `getPublicAbsoluteUrl` to `/content/{eventId}`). */
@@ -79,6 +85,10 @@ export function ImmersiveChannelActionsRail({
   commentOpen,
   onCommentOpenChange,
   className,
+  iconButtonClassName = "cursor-pointer rounded bg-black/50 p-1",
+  iconClassName = "size-5 text-white",
+  stackClassName = "gap-2",
+  tipsChipClassName = "cursor-pointer rounded-md bg-black/70 px-1.5 py-0.5 text-center text-[10px] font-medium whitespace-nowrap text-white sm:text-xs",
   hideTipsChip = false,
   shareUrl: shareUrlProp,
   shareTitle: shareTitleProp,
@@ -107,7 +117,7 @@ export function ImmersiveChannelActionsRail({
 
   return (
     <div className={className}>
-      <div className="flex flex-col items-center gap-2">
+      <div className={cn("flex flex-col items-center", stackClassName)}>
         <button
           type="button"
           disabled={saveBusy}
@@ -116,20 +126,20 @@ export function ImmersiveChannelActionsRail({
             e.stopPropagation();
             if (!saveBusy) onSaveClick();
           }}
-          className="cursor-pointer rounded bg-black/50 p-1"
+          className={iconButtonClassName}
         >
           {isSaved ? (
-            <Bookmark className="fill-moonstone-blue size-5" />
+            <Bookmark className={cn("fill-moonstone-blue", iconClassName)} />
           ) : (
-            <Bookmark className="size-5 text-white" />
+            <Bookmark className={iconClassName} />
           )}
         </button>
 
         {!hideHostAndAudio ? (
           <SaveHostToggleButton
             channelId={channelId}
-            className="cursor-pointer rounded bg-black/50 p-1 text-white"
-            iconClassName="size-5 text-white"
+            className={cn(iconButtonClassName, "text-white")}
+            iconClassName={iconClassName}
           />
         ) : null}
 
@@ -137,7 +147,7 @@ export function ImmersiveChannelActionsRail({
           <button
             type="button"
             title={reelMuted ? "Unmute" : "Mute"}
-            className="cursor-pointer rounded bg-black/50 p-1"
+            className={iconButtonClassName}
             onClick={e => {
               e.stopPropagation();
               const p = videoPlayerRef.current;
@@ -147,9 +157,9 @@ export function ImmersiveChannelActionsRail({
             }}
           >
             {reelMuted ? (
-              <VolumeX className="size-5 text-white" />
+              <VolumeX className={iconClassName} />
             ) : (
-              <Volume2 className="size-5 text-white" />
+              <Volume2 className={iconClassName} />
             )}
           </button>
         ) : null}
@@ -158,7 +168,7 @@ export function ImmersiveChannelActionsRail({
           <button
             type="button"
             title="Share"
-            className="cursor-pointer rounded bg-black/50 p-1"
+            className={iconButtonClassName}
             onClick={e => {
               e.stopPropagation();
               let willOpen = false;
@@ -171,7 +181,7 @@ export function ImmersiveChannelActionsRail({
               if (willOpen) onCommentOpenChange(false);
             }}
           >
-            <Share2 className="size-5 text-white" />
+            <Share2 className={iconClassName} />
           </button>
           {showShare ? (
             <div className="absolute top-1/2 right-full z-[100] mr-2 flex -translate-y-1/2 gap-2 rounded-md bg-white p-2 shadow-md">
@@ -209,21 +219,21 @@ export function ImmersiveChannelActionsRail({
 
         <button
           type="button"
-          className="cursor-pointer rounded bg-black/50 p-1"
+          className={iconButtonClassName}
           onClick={e => {
             e.stopPropagation();
             setShowShare(false);
             onCommentOpenChange(true);
           }}
         >
-          <MessageCircleMore className="size-5 text-white" />
+          <MessageCircleMore className={iconClassName} />
         </button>
 
         {!hideTipsChip ? (
           <button
             type="button"
             title="View tips"
-            className="cursor-pointer rounded-md bg-black/70 px-1.5 py-0.5 text-center text-[10px] font-medium whitespace-nowrap text-white sm:text-xs"
+            className={tipsChipClassName}
             onClick={e => {
               e.stopPropagation();
               setTipsOpen(true);

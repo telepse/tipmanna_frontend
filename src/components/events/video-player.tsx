@@ -11,7 +11,11 @@ import {
 
 // Local imports
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
+import {
+  buildAspectInfo,
+  fetchYoutubeAspectInfo,
+  isOembedEmbedPlayerDimensions,
+} from "@/lib/youtube-immersive-meta";
 import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import {
   getYoutubePlayerVarsChromeless,
@@ -229,6 +233,20 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
 
     const notifyVideoAspect = () => {
       const url = videoUrlRef.current;
+      const size = presentationVideoSizeRef.current;
+      const id = extractYoutubeID(url ?? "");
+      if (
+        id &&
+        size &&
+        size.width > 0 &&
+        size.height > 0 &&
+        !isOembedEmbedPlayerDimensions(size.width, size.height)
+      ) {
+        onVideoAspectInfoRef.current?.(
+          buildAspectInfo(id, size.width, size.height, "oembed")
+        );
+        return;
+      }
       void fetchYoutubeAspectInfo(url).then(info => {
         if (info) onVideoAspectInfoRef.current?.(info);
       });

@@ -11,6 +11,7 @@ import { RootState } from "@/redux/store";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 import { persistAuthSession } from "@/lib/session-client";
+import { dispatchAuthChanged } from "@/lib/auth-events";
 import OTPInput from "react-otp-input";
 import { useMediaQuery } from "react-responsive";
 import { Bookmark, Calendar, MoveLeft, UserRound, X } from "lucide-react";
@@ -207,6 +208,7 @@ export const ProfileDrawer = ({
       );
 
       toast.success("Email verified successfully!");
+      dispatchAuthChanged();
       setProfileStep("tipperProfile");
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -343,8 +345,12 @@ export const ProfileDrawer = ({
               className="w-full bg-black"
               disabled={isLoading}
             >
-              {isLoading ? "Sending code..." : "Sign in"}
+              {isLoading ? "Sending code..." : "Continue"}
             </Button>
+            <p className="text-muted-foreground text-center text-xs">
+              No account yet? Continue and we will create a free tipper account
+              when you verify.
+            </p>
           </form>
         </Form>
       </div>

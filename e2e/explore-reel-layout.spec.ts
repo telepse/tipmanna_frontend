@@ -66,19 +66,27 @@ for (const viewport of REEL_LAYOUT_VIEWPORTS) {
   });
 }
 
-test("mobile landscape fixture places title below video band", async ({
+test("mobile landscape fixture places title above dock, not below it", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 480, height: 320 });
   await page.goto("/e2e/explore-reel-layout?mode=mobileLandscape");
 
-  await expect(page.getByTestId("explore-reel-title-below-band")).toBeVisible();
-  await expect(
-    page.getByTestId("explore-reel-title-on-video")
-  ).not.toBeVisible();
+  const title = page.getByTestId("explore-reel-title-above-dock");
+  const actions = page.getByTestId("explore-slide-actions");
+  await expect(title).toBeVisible();
+  await expect(page.getByTestId("explore-reel-title-on-video")).not.toBeVisible();
+
+  const titleBox = await title.boundingBox();
+  const actionsBox = await actions.boundingBox();
+  expect(titleBox).not.toBeNull();
+  expect(actionsBox).not.toBeNull();
+  if (titleBox && actionsBox) {
+    expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(actionsBox.y + 2);
+  }
 });
 
-test("desktop portrait fixture uses on-video title placement", async ({
+test("desktop portrait fixture uses on-video title and wider column", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -86,9 +94,16 @@ test("desktop portrait fixture uses on-video title placement", async ({
 
   await expect(page.getByTestId("explore-reel-title-on-video")).toBeVisible();
   await expect(
-    page.getByTestId("explore-reel-title-below-band")
+    page.getByTestId("explore-reel-title-above-dock")
   ).not.toBeVisible();
-  await expect(
-    page.locator('[class*="max-w-[min(420px,100%)]"]').first()
-  ).toBeVisible();
+  await expect(page.locator('[class*="max-w-[min(480px,100%)]"]').first()).toBeVisible();
+
+  const dock = page.getByTestId("explore-slide-actions");
+  await expect(dock).toHaveClass(/px-5/);
+});
+
+test("desktop landscape dock uses desktop padding tokens", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/e2e/explore-reel-layout?mode=desktopLandscape");
+  await expect(page.getByTestId("explore-slide-actions")).toHaveClass(/px-5/);
 });
