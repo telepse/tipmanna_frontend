@@ -1,7 +1,5 @@
+import { ExploreFeedSkeleton } from "@/components/explore/explore-feed-skeleton";
+
 export default function ExploreLoading() {
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center">
-      <p className="text-muted-foreground text-sm">Loading explore…</p>
-    </div>
-  );
+  return <ExploreFeedSkeleton />;
 }

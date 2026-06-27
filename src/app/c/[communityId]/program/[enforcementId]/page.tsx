@@ -8,6 +8,7 @@ import {
   getPublicFrontendOrigin,
 } from "@/lib/site-config";
 import { formatProgramScheduleDisplay } from "@/lib/utils";
+import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
 
 type Props = {
   params: Promise<{ communityId: string; enforcementId: string }>;
@@ -42,6 +43,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "website",
       ...(thumb ? { images: [{ url: thumb, width: 1200, height: 630 }] } : {}),
     },
+    twitter: {
+      card: thumb ? "summary_large_image" : "summary",
+      title,
+      description:
+        "Set a reminder and join viewers around the world for this scheduled community broadcast and realtime shared experience.",
+      ...(thumb ? { images: [thumb] } : {}),
+    },
   };
 }
 
@@ -53,11 +61,27 @@ export default async function CommunityProgramPage({ params }: Props) {
   );
   if (!program) notFound();
 
+  const broadcastJsonLd = buildBroadcastEventJsonLd({
+    title: program.title,
+    startDate: program.scheduledAt,
+    url: getPublicAbsoluteUrl(
+      `/c/${communityId}/program/${enforcementId}`
+    ),
+    image: program.items.find(i => i.thumbnailUrl)?.thumbnailUrl ?? null,
+    organizerName: program.community?.name ?? "Community TV",
+  });
+
   return (
-    <ProgramLanding
-      program={program}
-      communityId={communityId}
-      enforcementId={enforcementId}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(broadcastJsonLd) }}
+      />
+      <ProgramLanding
+        program={program}
+        communityId={communityId}
+        enforcementId={enforcementId}
+      />
+    </>
   );
 }

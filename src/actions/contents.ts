@@ -173,6 +173,83 @@ export async function searchContentsAction(
   );
 }
 
+export type DiscoverySearchResult = {
+  videos: Array<{
+    id: string;
+    title: string;
+    url: string;
+    thumbnailUrl: string | null;
+    hostName: string;
+    communityName: string | null;
+    durationSeconds: number | null;
+    encounters: number;
+    numOfTips: number;
+    createdAt: string;
+    eventId: string;
+  }>;
+  programs: Array<{
+    id: string;
+    title: string;
+    imageUrl: string | null;
+    tvName: string;
+    scheduledAt: string;
+    status: string;
+    landingUrl: string;
+    communityId: string | null;
+  }>;
+  livestreams: Array<{
+    id: string;
+    title: string;
+    thumbnailUrl: string | null;
+    hostName: string;
+    scheduledAt: string | null;
+    liveStatus: string;
+    eventId: string;
+  }>;
+  communities: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    logoUrl: string | null;
+    memberCount: number;
+    numVideos: number;
+    totalTips: number;
+    verified: boolean;
+  }>;
+};
+
+export async function discoverySearchAction(
+  q: string,
+  limit = 12,
+  eventType?: string | null
+) {
+  const query = q.trim();
+  const type = eventType?.trim() ?? "";
+  if (!query && !type) {
+    return {
+      success: true,
+      data: {
+        videos: [],
+        programs: [],
+        livestreams: [],
+        communities: [],
+      } satisfies DiscoverySearchResult,
+    };
+  }
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (query) params.set("q", query);
+  if (type) params.set("eventType", type);
+  return runServerFetch<DiscoverySearchResult>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/discovery-search?${params.toString()}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    },
+    "discoverySearchAction"
+  );
+}
+
 export async function getDiscoveryProgramsAction() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery`,

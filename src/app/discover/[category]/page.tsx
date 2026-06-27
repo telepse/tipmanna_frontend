@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import { DiscoverPageClient } from "@/components/discover/discover-page-client";
-import { searchContentsAction } from "@/actions/contents";
+import { discoverySearchAction } from "@/actions/contents";
 import { loadDiscoverCatalogServer } from "@/lib/discover-catalog-server";
 import {
   eventTypeOptionBySlug,
@@ -53,12 +53,16 @@ export default async function DiscoverCategoryPage({ params }: PageProps) {
 
   const [catalog, categoryRes] = await Promise.all([
     loadDiscoverCatalogServer(),
-    searchContentsAction("", 40, opt.value),
+    discoverySearchAction("", 40, opt.value),
   ]);
 
   const categoryItems: DiscoverCategoryItem[] =
-    categoryRes.success && Array.isArray(categoryRes.data)
-      ? (categoryRes.data as DiscoverCategoryItem[])
+    categoryRes.success && categoryRes.data?.videos
+      ? categoryRes.data.videos.map(v => ({
+          id: v.id,
+          title: v.title,
+          event: { id: v.eventId },
+        }))
       : [];
 
   const collectionJsonLd = {
@@ -109,6 +113,37 @@ export default async function DiscoverCategoryPage({ params }: PageProps) {
         initialLiveStreams={catalog.liveStreams as never}
         initialTippers={catalog.tippers as never[]}
       />
+      {categoryItems.length > 0 ? (
+        <nav
+          aria-label={`${opt.label} video links`}
+          className="mx-auto max-w-6xl px-4 pb-8"
+        >
+          <h2 className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+            All {opt.label} videos
+          </h2>
+          <ul className="columns-1 gap-x-6 text-sm sm:columns-2 lg:columns-3">
+            {categoryItems.map(item => {
+              const eventId = item.event?.id;
+              const channelId = item.id;
+              if (!eventId || !channelId) return null;
+              const href = buildContentShareUrl({ eventId, channelId });
+              return (
+                <li
+                  key={channelId}
+                  className="mb-1 break-inside-avoid"
+                >
+                  <Link
+                    href={href}
+                    className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                  >
+                    {item.title ?? "Video"}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      ) : null}
     </>
   );
 }

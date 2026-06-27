@@ -16,6 +16,8 @@ import {
 import { notFound, redirect } from "next/navigation";
 import { ActionResult } from "@/lib/action-fetch";
 import { Metadata } from "next";
+import { buildVideoObjectJsonLd } from "@/lib/structured-data";
+import { getPublicAbsoluteUrl } from "@/lib/site-config";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
@@ -24,8 +26,12 @@ export interface Props {
 
 interface ContentData {
   title: string;
+  url?: string;
+  description?: string;
+  createdAt?: string;
   event: {
     hostName: string;
+    id?: string;
   };
 }
 
@@ -45,10 +51,24 @@ export async function generateMetadata({
     ContentData[]
   >;
   const videoRes = res.data?.[0];
+  const pageUrl = getPublicAbsoluteUrl(`/content/${eventId}`);
+  const title = `Watch "${videoRes?.title}" by ${videoRes?.event.hostName} 🎬 💎`;
+  const description = `Watch this video on Tipmanna and join the experience through comments, reactions, and realtime supporter engagement.`;
 
   return {
-    title: `Watch "${videoRes?.title}" by ${videoRes?.event.hostName} 🎬 💎`,
-    description: `Watch this video on Tipmanna and join the experience through comments, reactions, and realtime supporter engagement.`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: pageUrl,
+      type: "video.other",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
@@ -156,8 +176,37 @@ export default async function ContentPage({ params, searchParams }: Props) {
     }
   }
 
+  const primary = (playable.length ? playable : list)[0] as
+    | {
+        title?: string;
+        url?: string;
+        description?: string;
+        createdAt?: string;
+        event?: { hostName?: string };
+      }
+    | undefined;
+
+  const videoJsonLd =
+    primary?.title && primary.event?.hostName
+      ? buildVideoObjectJsonLd({
+          title: primary.title,
+          hostName: primary.event.hostName,
+          url: getPublicAbsoluteUrl(`/content/${eventId}`),
+          videoUrl: primary.url,
+          description: primary.description,
+          uploadDate: primary.createdAt,
+        })
+      : null;
+
   return (
-    <div className="flex h-screen flex-col items-center justify-center">
+    <>
+      {videoJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(videoJsonLd) }}
+        />
+      ) : null}
+      <div className="flex h-screen flex-col items-center justify-center">
       <ContentClient
         contents={playable.length ? playable : list}
         characters={tippingCharacters as any[]}
@@ -171,5 +220,6 @@ export default async function ContentPage({ params, searchParams }: Props) {
         }
       />
     </div>
+    </>
   );
 }

@@ -56,14 +56,15 @@ export function resolveExploreReelLayoutMode(params: {
 }
 
 /**
- * While metadata is loading: Shorts URL → portrait path.
+ * While metadata is loading: Shorts URL or likely Short duration → portrait path.
  * Mobile unknown → portrait-ambiguous (immersive) rather than landscape stage.
  */
 export function resolveExploreReelLayoutModeWhileLoading(params: {
   isMobile: boolean;
   isShortsUrl: boolean;
+  isLikelyShort?: boolean;
 }): ExploreReelLayoutMode {
-  if (params.isShortsUrl) {
+  if (params.isShortsUrl || params.isLikelyShort) {
     return params.isMobile ? "mobilePortrait" : "desktopPortrait";
   }
   if (params.isMobile) {
@@ -88,8 +89,10 @@ export function shouldCorrectExploreReelLayoutMode(
   prev: ExploreReelLayoutMode,
   next: ExploreReelLayoutMode,
   classification: YoutubeVideoClassification | null,
-  metadataResolved: boolean
+  metadataResolved: boolean,
+  options?: { isLikelyShort?: boolean }
 ): boolean {
+  if (options?.isLikelyShort) return false;
   if (!metadataResolved || prev === next || classification !== "landscape") {
     return false;
   }
@@ -102,7 +105,8 @@ export function shouldUpdateExploreReelLayoutMode(
   prev: ExploreReelLayoutMode,
   next: ExploreReelLayoutMode,
   classification: YoutubeVideoClassification | null,
-  metadataResolved: boolean
+  metadataResolved: boolean,
+  options?: { isLikelyShort?: boolean }
 ): boolean {
   if (prev === next) return false;
   if (shouldUpgradeExploreReelLayoutMode(prev, next)) return true;
@@ -110,7 +114,8 @@ export function shouldUpdateExploreReelLayoutMode(
     prev,
     next,
     classification,
-    metadataResolved
+    metadataResolved,
+    options
   );
 }
 

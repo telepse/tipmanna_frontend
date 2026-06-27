@@ -31,6 +31,8 @@ import { getAllCausesAction } from "@/actions/home";
 import {
   getMeJoinedCommunitiesAction,
   getMyCommunitiesAction,
+  getCommunityExploreCatalogAction,
+  type CommunityExploreCatalogRow,
 } from "@/actions/communities";
 import { cn } from "@/lib/utils";
 import {
@@ -49,6 +51,7 @@ import {
   scheduleExploreFeedPrefetchIdle,
   seedExploreFeedBootFromSsr,
 } from "@/lib/explore-feed-prefetch-cache";
+import { measureExploreBoot } from "@/lib/web-vitals";
 import { prefetchExploreTvSchedule } from "@/lib/explore-tv-prefetch-cache";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import type { ExploreSsrBootPayload } from "@/lib/explore-ssr-boot";
@@ -86,16 +89,13 @@ import {
 import { ListFilterPlus, Lock, Plus, Search, UserRound } from "lucide-react";
 import { NotificationBadge } from "@/components/notifications/notification-badge";
 import { ExploreInstallPrompt } from "@/components/pwa/explore-install-prompt";
+import { ExploreFeedSkeleton } from "@/components/explore/explore-feed-skeleton";
 
 const ExploreFeedClient = dynamic(
   () => import("./explore-feed-client").then(m => m.ExploreFeedClient),
   {
     ssr: false,
-    loading: () => (
-      <div className="text-muted-foreground flex min-h-[50dvh] items-center justify-center text-sm">
-        Loading feed…
-      </div>
-    ),
+    loading: () => <ExploreFeedSkeleton />,
   }
 );
 const ProfileDrawer = dynamic(() =>
@@ -289,6 +289,7 @@ export default function ExplorePageClient({
     if (ssrBoot?.items?.length) {
       seedExploreFeedBootFromSsr(ssrBoot);
     }
+    measureExploreBoot();
   }, [ssrBoot]);
 
   useEffect(() => {
@@ -342,7 +343,12 @@ export default function ExplorePageClient({
   }>({ upcoming: [], live: [], recentlyEnded: [] });
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [discoverSheetOpen, setDiscoverSheetOpen] = useState(false);
+  const [headerSearch, setHeaderSearch] = useState("");
+  const [discoverSearchTerm, setDiscoverSearchTerm] = useState("");
   const catalogLoadedRef = useRef(false);
+  const [topCommunities, setTopCommunities] = useState<
+    CommunityExploreCatalogRow[]
+  >([]);
   const [tippers, setTippers] = useState<any[]>([]);
   const [tipperEvents, setTipperEvents] = useState<any[]>([]);
   const [iTipped, setITipped] = useState(0);
@@ -747,6 +753,7 @@ export default function ExplorePageClient({
       tipEv,
       iTip,
       causesRes,
+      commRes,
     ] = await Promise.all([
       getAllFeaturedContentsAction(),
       getLatestContents(),
@@ -763,6 +770,7 @@ export default function ExplorePageClient({
         ? getTotalAmountTippedByTipper()
         : Promise.resolve({ success: true, data: 0 }),
       getAllCausesAction(),
+      getCommunityExploreCatalogAction(),
     ]);
 
     setContents(feat.success ? normalizeListPayload<any>(feat.data) : []);
@@ -799,8 +807,22 @@ export default function ExplorePageClient({
     setCauses(
       causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : []
     );
+    setTopCommunities(
+      commRes.success && Array.isArray(commRes.data?.topByTips)
+        ? commRes.data.topByTips
+        : []
+    );
     setCatalogLoading(false);
   }, [isSignedInExplore, exploreUserId]);
+
+  const openDiscoverWithSearch = useCallback(
+    (term?: string) => {
+      const q = (term ?? headerSearch).trim();
+      if (q) setDiscoverSearchTerm(q);
+      setMainTab("discover");
+    },
+    [headerSearch, setMainTab]
+  );
 
   const openDiscoverSheet = useCallback(() => {
     setDiscoverSheetOpen(true);
@@ -809,6 +831,11 @@ export default function ExplorePageClient({
       void loadExploreCatalog();
     }
   }, [loadExploreCatalog]);
+
+  const openDiscoverSheetWithSearch = useCallback(() => {
+    openDiscoverWithSearch(headerSearch);
+    openDiscoverSheet();
+  }, [headerSearch, openDiscoverSheet, openDiscoverWithSearch]);
 
   useEffect(() => {
     if (tab !== "discover" && !discoverSheetOpen) return;
@@ -969,11 +996,13 @@ export default function ExplorePageClient({
 
             <div
               className="relative p-1 sm:hidden"
-              onClick={openDiscoverSheet}
+              onClick={openDiscoverSheetWithSearch}
               role="button"
               tabIndex={0}
               onKeyDown={e => {
-                if (e.key === "Enter" || e.key === " ") openDiscoverSheet();
+                if (e.key === "Enter" || e.key === " ") {
+                  openDiscoverSheetWithSearch();
+                }
               }}
               aria-label="Open discover search"
             >
@@ -981,6 +1010,16 @@ export default function ExplorePageClient({
                 type="text"
                 placeholder="Search videos..."
                 className="h-4 w-32 text-xs"
+                value={headerSearch}
+                onChange={e => setHeaderSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                    openDiscoverWithSearch(e.currentTarget.value);
+                    openDiscoverSheet();
+                  }
+                }}
+                onClick={e => e.stopPropagation()}
               />
               <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
             </div>
@@ -1047,11 +1086,13 @@ export default function ExplorePageClient({
         <div className="-mr-10 flex items-center gap-1">
           <div
             className="relative hidden p-1 sm:block"
-            onClick={openDiscoverSheet}
+            onClick={openDiscoverSheetWithSearch}
             role="button"
             tabIndex={0}
             onKeyDown={e => {
-              if (e.key === "Enter" || e.key === " ") openDiscoverSheet();
+              if (e.key === "Enter" || e.key === " ") {
+                openDiscoverSheetWithSearch();
+              }
             }}
             aria-label="Open discover search"
           >
@@ -1059,6 +1100,16 @@ export default function ExplorePageClient({
               type="text"
               placeholder="Search videos..."
               className="h-4 w-52 p-2 text-xs"
+              value={headerSearch}
+              onChange={e => setHeaderSearch(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.stopPropagation();
+                  openDiscoverWithSearch(e.currentTarget.value);
+                  openDiscoverSheet();
+                }
+              }}
+              onClick={e => e.stopPropagation()}
             />
             <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
           </div>
@@ -1509,13 +1560,8 @@ export default function ExplorePageClient({
           ) : null}
         </div>
       </div>
-      <div
-        className={cn(
-          "min-h-0 flex-1 overflow-y-auto p-4",
-          tab !== "discover" && "hidden"
-        )}
-      >
-        {tab === "discover" ? (
+      {tab === "discover" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="bg-muted/40 mb-4 flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-muted-foreground text-xs">
               Discover is also available as a quick panel while you watch the
@@ -1530,26 +1576,28 @@ export default function ExplorePageClient({
               Open discover panel
             </Button>
           </div>
-        ) : null}
-        <DiscoverPanel
-          contents={contents}
-          tippers={tippers}
-          latestContents={latestContents}
-          spotlightContents={spotlightContents}
-          recommendedContents={recommendedContents}
-          mostTippedContents={mostTippedContents}
-          programs={programs}
-          liveStreams={liveStreams}
-          catalogLoading={catalogLoading}
-          onOpenBookmarks={() => {
-            setProfileDrawerTab("saved");
-            setIsProfileDrawerOpen(true);
-          }}
-          onPlayInExplore={handlePlayInExplore}
-          suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
-          surface="exploreTab"
-        />
-      </div>
+          <DiscoverPanel
+            contents={contents}
+            tippers={tippers}
+            latestContents={latestContents}
+            spotlightContents={spotlightContents}
+            recommendedContents={recommendedContents}
+            mostTippedContents={mostTippedContents}
+            programs={programs}
+            liveStreams={liveStreams}
+            topCommunities={topCommunities}
+            catalogLoading={catalogLoading}
+            initialSearchTerm={discoverSearchTerm}
+            onOpenBookmarks={() => {
+              setProfileDrawerTab("saved");
+              setIsProfileDrawerOpen(true);
+            }}
+            onPlayInExplore={handlePlayInExplore}
+            suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
+            surface="exploreTab"
+          />
+        </div>
+      ) : null}
 
       <DiscoverSheet
         open={discoverSheetOpen}
@@ -1562,7 +1610,9 @@ export default function ExplorePageClient({
         mostTippedContents={mostTippedContents}
         programs={programs}
         liveStreams={liveStreams}
+        topCommunities={topCommunities}
         catalogLoading={catalogLoading}
+        initialSearchTerm={discoverSearchTerm}
         onOpenBookmarks={() => {
           setProfileDrawerTab("saved");
           setIsProfileDrawerOpen(true);

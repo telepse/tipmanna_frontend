@@ -17,10 +17,11 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import Image from "next/image";
+import { ExploreFeedSkeleton } from "@/components/explore/explore-feed-skeleton";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
+  Eye,
   MessageCircle,
   Plus,
   Volume2,
@@ -66,7 +67,6 @@ import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
-import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 import type { RoomCharacter } from "@/types";
 import {
   flushTvAnalytics,
@@ -109,6 +109,9 @@ import {
 } from "@/lib/tv-event-catalog-cache";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import { useExploreReelLayoutMode } from "@/hooks/use-explore-reel-layout-mode";
+import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-realtime";
+import { getAuthToken } from "@/lib/getAuthToken";
+import { markExplorePerf } from "@/lib/web-vitals";
 import {
   exploreReelActionsRailClassName,
   exploreReelDockActionIconClassName,
@@ -123,7 +126,6 @@ import {
   exploreReelMetricsClassName,
   exploreReelMuteButtonClassName,
   exploreReelMuteIconClassName,
-  exploreReelPresentationFit,
   exploreReelRailIconButtonClassName,
   exploreReelRailIconClassName,
   exploreReelRailStackGapClassName,
@@ -162,6 +164,48 @@ const EXPLORE_NEAR_END_SLOTS = 3;
 /** Mount players for previous slide + next N so clips buffer before scroll. */
 const EXPLORE_PRELOAD_BEHIND = 0;
 const EXPLORE_PRELOAD_AHEAD = 1;
+const EXPLORE_REEL_VIRTUALIZE =
+  process.env.NEXT_PUBLIC_EXPLORE_REEL_VIRTUALIZE === "true";
+const EXPLORE_REEL_VIRTUAL_WINDOW = 2;
+
+function hasExploreSessionAuth(isAuthenticated: boolean): boolean {
+  if (isAuthenticated) return true;
+  if (getAuthToken()) return true;
+  if (typeof document !== "undefined") {
+    return /(?:^|;\s*)(?:token|visitorToken)=/.test(document.cookie);
+  }
+  return false;
+}
+
+function isInReelVirtualWindow(
+  slideIndex: number,
+  activeIndex: number,
+  itemCount: number
+) {
+  if (!EXPLORE_REEL_VIRTUALIZE) return true;
+  const lo = Math.max(0, activeIndex - EXPLORE_REEL_VIRTUAL_WINDOW);
+  const hi = Math.min(itemCount - 1, activeIndex + EXPLORE_REEL_VIRTUAL_WINDOW);
+  return slideIndex >= lo && slideIndex <= hi;
+}
+
+function metricsFromFeedItem(item: any): ExploreReelSlideMetrics | null {
+  const raw = item?.metrics;
+  if (!raw || typeof raw !== "object") return null;
+  const encounters = Number((raw as { encounters?: unknown }).encounters);
+  if (!Number.isFinite(encounters)) return null;
+  const num = (key: string) => {
+    const value = Number((raw as Record<string, unknown>)[key]);
+    return Number.isFinite(value) ? value : 0;
+  };
+  return {
+    views: num("views"),
+    encounters,
+    completes: num("completes"),
+    saves: num("saves"),
+    shares: num("shares"),
+    comments: num("comments"),
+  };
+}
 
 function youtubePosterUrl(videoUrl: string): string | null {
   const id = extractYoutubeID(videoUrl);
@@ -234,6 +278,9 @@ type ExploreFeedSlideVideoProps = {
   totalItems: number;
   feedSurfaceActive: boolean;
   layoutMode: ExploreReelLayoutMode;
+  presentationVideoSize: { width: number; height: number } | null;
+  fullPresentationFit: "cover" | "contain";
+  isMetadataLoading: boolean;
   onPlayerAspectInfo?: (info: YoutubeAspectInfo) => void;
   videoRef: RefObject<VideoPlayerRef | null>;
   onActivePlaying: () => void;
@@ -252,6 +299,9 @@ function ExploreFeedSlideVideo({
   totalItems,
   feedSurfaceActive,
   layoutMode,
+  presentationVideoSize,
+  fullPresentationFit,
+  isMetadataLoading,
   onPlayerAspectInfo,
   videoRef,
   onActivePlaying,
@@ -261,22 +311,8 @@ function ExploreFeedSlideVideo({
   playerRetryKey = 0,
   onEngageUnlocked,
 }: ExploreFeedSlideVideoProps) {
-  const { aspectInfo, isLoading: aspectLoading } = useYoutubeVideoAspect(
-    item.url
-  );
-  const presentationVideoSize = useMemo(() => {
-    if (!aspectInfo || aspectInfo.width <= 0 || aspectInfo.height <= 0)
-      return null;
-    return { width: aspectInfo.width, height: aspectInfo.height };
-  }, [aspectInfo]);
-
-  const explorePresentationFit = useMemo(
-    () => exploreReelPresentationFit(layoutMode),
-    [layoutMode]
-  );
-
   const posterObjectFitClass =
-    explorePresentationFit === "contain" ? "object-contain" : "object-cover";
+    fullPresentationFit === "contain" ? "object-contain" : "object-cover";
 
   const playbackActive = feedSurfaceActive && slideIndex === activeIndex;
 
@@ -381,7 +417,7 @@ function ExploreFeedSlideVideo({
       />
       {showPlayerMount ? (
         <>
-          {aspectLoading ? (
+          {isMetadataLoading ? (
             <div className="absolute inset-0 z-[25] flex items-center justify-center bg-black">
               <div className="aspect-video max-h-full w-full max-w-full animate-pulse bg-white/10 sm:max-w-[min(100%,520px)]" />
             </div>
@@ -412,7 +448,7 @@ function ExploreFeedSlideVideo({
             loadingBackdropClassName="bg-black"
             showLoadingLabel={false}
             transitionLoadingOverlay={false}
-            fullPresentationFit={explorePresentationFit}
+            fullPresentationFit={fullPresentationFit}
             presentationVideoSize={presentationVideoSize}
             className={exploreReelVideoPlayerClassName(layoutMode)}
             onError={() => {
@@ -473,22 +509,41 @@ function ExploreFeedSlideStage({
   isMobile,
   children,
 }: {
-  item: { url?: string | null };
+  item: { url?: string | null; durationSeconds?: number | null };
   isMobile: boolean;
   children: (ctx: {
     layoutMode: ExploreReelLayoutMode;
+    presentationVideoSize: { width: number; height: number } | null;
+    fullPresentationFit: "cover" | "contain";
+    isMetadataLoading: boolean;
     onPlayerAspectInfo: (info: YoutubeAspectInfo) => void;
   }) => ReactNode;
 }) {
   const videoUrl = typeof item.url === "string" ? item.url : null;
-  const { layoutMode, onPlayerAspectInfo } = useExploreReelLayoutMode(
-    videoUrl,
-    isMobile
+  const durationSeconds =
+    typeof item.durationSeconds === "number" ? item.durationSeconds : null;
+  const {
+    layoutMode,
+    presentationVideoSize,
+    fullPresentationFit,
+    isMetadataLoading,
+    onPlayerAspectInfo,
+  } = useExploreReelLayoutMode(videoUrl, isMobile, { durationSeconds });
+  return (
+    <>
+      {children({
+        layoutMode,
+        presentationVideoSize,
+        fullPresentationFit,
+        isMetadataLoading,
+        onPlayerAspectInfo,
+      })}
+    </>
   );
-  return <>{children({ layoutMode, onPlayerAspectInfo })}</>;
 }
 
 type ExploreReelSlideMetrics = {
+  views: number;
   encounters: number;
   completes: number;
   saves: number;
@@ -567,11 +622,18 @@ function ExploreReelSlideTitle({
           </button>
         ) : null}
       </div>
-      {active?.event?.showViewCountOnVideos === true &&
-      metrics &&
-      !metricsRestrictedCommunity ? (
+      {metrics && !metricsRestrictedCommunity ? (
         <p className={exploreReelMetricsClassName(layoutMode)}>
-          {metrics.encounters} views
+          <span className="inline-flex items-center gap-1">
+            <Eye
+              className="size-3"
+              aria-hidden
+            />
+            {metrics.encounters}
+          </span>
+          {active?.event?.showViewCountOnVideos === true ? (
+            <span> · {metrics.views} views</span>
+          ) : null}
         </p>
       ) : null}
       {metricsRestrictedCommunity ? (
@@ -726,7 +788,8 @@ export const ExploreFeedClient = forwardRef<
   const [scrollSyncEpoch, setScrollSyncEpoch] = useState(0);
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
 
-  const { user } = useSelector((s: RootState) => s.auth);
+  const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
+  const hasExploreSession = hasExploreSessionAuth(isAuthenticated);
 
   useEffect(() => {
     const muted = !loadReelSoundPref();
@@ -897,13 +960,9 @@ export const ExploreFeedClient = forwardRef<
     user?.role,
   ]);
 
-  const [metrics, setMetrics] = useState<{
-    encounters: number;
-    completes: number;
-    saves: number;
-    shares: number;
-    comments: number;
-  } | null>(null);
+  const [baseMetrics, setBaseMetrics] = useState<ExploreReelSlideMetrics | null>(
+    null
+  );
   const [metricsRestrictedCommunity, setMetricsRestrictedCommunity] = useState<{
     id: string;
     name: string;
@@ -911,13 +970,27 @@ export const ExploreFeedClient = forwardRef<
 
   useEffect(() => {
     if (!feedSurfaceActive) {
-      setMetrics(null);
+      setBaseMetrics(null);
       setMetricsRestrictedCommunity(null);
       return;
     }
     const rawId = activeChannelId != null ? String(activeChannelId) : "";
     if (!rawId) {
-      setMetrics(null);
+      setBaseMetrics(null);
+      setMetricsRestrictedCommunity(null);
+      return;
+    }
+
+    const fromPayload = metricsFromFeedItem(active);
+    if (fromPayload) {
+      setBaseMetrics(fromPayload);
+      setMetricsRestrictedCommunity(null);
+      return;
+    }
+
+    const mayBeRestricted = Boolean(active?.community?.id);
+    if (!mayBeRestricted) {
+      setBaseMetrics(null);
       setMetricsRestrictedCommunity(null);
       return;
     }
@@ -935,7 +1008,7 @@ export const ExploreFeedClient = forwardRef<
             "restricted" in d &&
             (d as { restricted?: boolean }).restricted === true
           ) {
-            setMetrics(null);
+            setBaseMetrics(null);
             const c = (d as { community?: { id: string; name: string } })
               .community;
             setMetricsRestrictedCommunity(
@@ -944,9 +1017,9 @@ export const ExploreFeedClient = forwardRef<
             return;
           }
           setMetricsRestrictedCommunity(null);
-          setMetrics(d as ExploreChannelMetrics);
+          setBaseMetrics(d as ExploreChannelMetrics);
         } else {
-          setMetrics(null);
+          setBaseMetrics(null);
           setMetricsRestrictedCommunity(null);
         }
       })();
@@ -956,7 +1029,16 @@ export const ExploreFeedClient = forwardRef<
       cancelled = true;
       window.clearTimeout(probeTimer);
     };
-  }, [activeChannelId, feedSurfaceActive]);
+  }, [active, activeChannelId, feedSurfaceActive]);
+
+  const metrics = useChannelEngagementRealtime({
+    channelId: activeChannelId != null ? String(activeChannelId) : null,
+    initial: baseMetrics,
+    enabled:
+      feedSurfaceActive &&
+      Boolean(activeChannelId) &&
+      !metricsRestrictedCommunity,
+  });
   const { openWalletModalNonce } = useWalletTopupTipResume(
     activeEventId || undefined,
     setIsTipDrawerOpen
@@ -971,10 +1053,16 @@ export const ExploreFeedClient = forwardRef<
     setReelEngageUnlocked(false);
   }, [activeIndex]);
 
+  const didMarkFirstPlayRef = useRef(false);
+
   const handleExploreClipPlaying = useCallback(() => {
     const idx = activeIndexRef.current;
     const cur = activeRef.current;
     if (!cur) return;
+    if (!didMarkFirstPlayRef.current) {
+      didMarkFirstPlayRef.current = true;
+      markExplorePerf("explore-first-playable");
+    }
     const scheduleItemId = `explore-${cur.id}`;
     if (lastTrackedItemIdRef.current !== scheduleItemId) {
       lastTrackedItemIdRef.current = scheduleItemId;
@@ -1334,7 +1422,7 @@ export const ExploreFeedClient = forwardRef<
     }
 
     void (async () => {
-      if (feedMode === "community" && (!(communityIds?.length ?? 0) || !user)) {
+      if (feedMode === "community" && (!(communityIds?.length ?? 0) || !hasExploreSession)) {
         setItems([]);
         setInitialLoading(false);
         return;
@@ -1386,6 +1474,7 @@ export const ExploreFeedClient = forwardRef<
     trendsFilters.language,
     trendsFilters.country,
     user,
+    hasExploreSession,
   ]);
 
   useEffect(() => {
@@ -1496,11 +1585,7 @@ export const ExploreFeedClient = forwardRef<
   }, [activeIndex, items, feedMode]);
 
   if (initialLoading) {
-    return (
-      <div className="flex h-[100dvh] items-center justify-center bg-black text-white">
-        Loading feed…
-      </div>
-    );
+    return <ExploreFeedSkeleton />;
   }
 
   if (items.length === 0) {
@@ -1547,7 +1632,7 @@ export const ExploreFeedClient = forwardRef<
         </>
       );
     }
-    if (feedMode === "community" && !user) {
+    if (feedMode === "community" && !hasExploreSession) {
       return (
         <>
           <div className="flex h-[100dvh] flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white">
@@ -1626,13 +1711,32 @@ export const ExploreFeedClient = forwardRef<
           isTipDrawerOpen && "pointer-events-none select-none"
         )}
       >
-        {items.map((item, i) => (
+        {items.map((item, i) => {
+          if (!isInReelVirtualWindow(i, activeIndex, items.length)) {
+            return (
+              <div
+                key={item.id}
+                data-explore-slide
+                data-index={i}
+                className="relative flex h-full min-h-0 w-full max-w-[100vw] min-w-0 shrink-0 snap-start snap-always flex-col bg-black"
+                aria-hidden
+              />
+            );
+          }
+
+          return (
           <ExploreFeedSlideStage
             key={item.id}
             item={item}
             isMobile={isMobile}
           >
-            {({ layoutMode: slideLayoutMode, onPlayerAspectInfo }) => {
+            {({
+              layoutMode: slideLayoutMode,
+              presentationVideoSize: slidePresentationVideoSize,
+              fullPresentationFit: slideFullPresentationFit,
+              isMetadataLoading: slideMetadataLoading,
+              onPlayerAspectInfo,
+            }) => {
               const slideTitlePlacement =
                 exploreReelTitlePlacement(slideLayoutMode);
               const dockHeightCss = exploreReelDockHeightCss(
@@ -1672,6 +1776,9 @@ export const ExploreFeedClient = forwardRef<
                           totalItems={items.length}
                           feedSurfaceActive={feedSurfaceActive}
                           layoutMode={slideLayoutMode}
+                          presentationVideoSize={slidePresentationVideoSize}
+                          fullPresentationFit={slideFullPresentationFit}
+                          isMetadataLoading={slideMetadataLoading}
                           onPlayerAspectInfo={onPlayerAspectInfo}
                           videoRef={videoRef}
                           onActivePlaying={handleExploreClipPlaying}
@@ -1973,7 +2080,8 @@ export const ExploreFeedClient = forwardRef<
               );
             }}
           </ExploreFeedSlideStage>
-        ))}
+          );
+        })}
       </div>
 
       <CreateDialog

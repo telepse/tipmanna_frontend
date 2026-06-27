@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { DiscoverPanel } from "@/components/tv/discover-panel";
 import Link from "next/link";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
@@ -20,6 +21,7 @@ type Props = {
   initialPrograms: any[];
   initialLiveStreams: LiveStreams;
   initialTippers: any[];
+  initialTopCommunities?: any[];
 };
 
 export function DiscoverPageClient({
@@ -31,7 +33,10 @@ export function DiscoverPageClient({
   initialPrograms,
   initialLiveStreams,
   initialTippers,
+  initialTopCommunities = [],
 }: Props) {
+  const searchParams = useSearchParams();
+  const initialSearchTerm = searchParams.get("q")?.trim() ?? "";
   return (
     <main
       id="main-content"
@@ -67,6 +72,8 @@ export function DiscoverPageClient({
           programs={initialPrograms}
           liveStreams={initialLiveStreams}
           tippers={initialTippers}
+          topCommunities={initialTopCommunities}
+          initialSearchTerm={initialSearchTerm}
           catalogLoading={false}
           className="space-y-6"
         />

@@ -23,11 +23,21 @@ import { ThumbnailPlayer } from "./thumbnail-player";
 import { cn } from "@/lib/utils";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import { Button } from "../ui/button";
-import { useMediaQuery } from "react-responsive";
 import Link from "next/link";
-import { searchContentsAction } from "@/actions/contents";
+import Image from "next/image";
+import {
+  discoverySearchAction,
+  type DiscoverySearchResult,
+} from "@/actions/contents";
+import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { ContentCardSkeleton } from "./tv-loading-skeletons";
+import { VirtualRail } from "./virtual-rail";
+import { exploreCommunityJoinHref } from "@/lib/community-links";
+import {
+  DISCOVERY_TRENDING_SEARCHES,
+  pushRecentDiscoverySearch,
+  readRecentDiscoverySearches,
+} from "@/lib/discovery-search-storage";
 import {
   DISCOVER_RAIL_SUBTITLES,
   DISCOVER_RAIL_UPDATE_HINTS,
@@ -47,6 +57,37 @@ import {
 
 const CONTENT_CARD_MIN = "min-w-[220px] sm:min-w-[270px] flex-shrink-0";
 const PROGRAM_CARD_MIN = "min-w-[160px] sm:min-w-[220px] flex-shrink-0";
+
+function RailCoverImage({
+  src,
+  alt,
+  aspectClassName,
+}: {
+  src: string;
+  alt: string;
+  aspectClassName: string;
+}) {
+  return (
+    <div className={cn("relative w-full overflow-hidden rounded-md", aspectClassName)}>
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className="object-cover"
+        sizes="(max-width: 640px) 220px, 270px"
+      />
+    </div>
+  );
+}
+
+type SearchResultItem =
+  | { kind: "video"; content: Content }
+  | { kind: "program"; program: DiscoverySearchResult["programs"][number] }
+  | { kind: "livestream"; stream: DiscoverySearchResult["livestreams"][number] }
+  | {
+      kind: "community";
+      community: DiscoverySearchResult["communities"][number];
+    };
 
 interface Content {
   event: any;
@@ -77,7 +118,10 @@ export interface DiscoverPanelProps {
     live: any[];
     recentlyEnded: any[];
   };
+  topCommunities?: CommunityExploreCatalogRow[];
   catalogLoading?: boolean;
+  /** Pre-fill search (e.g. from Explore header). */
+  initialSearchTerm?: string;
   /** Bookmark control: e.g. open profile / saved list */
   onOpenBookmarks?: () => void;
   className?: string;
@@ -144,7 +188,9 @@ export function DiscoverPanel({
   mostTippedContents,
   programs = [],
   liveStreams = { upcoming: [], live: [], recentlyEnded: [] },
+  topCommunities = [],
   catalogLoading = false,
+  initialSearchTerm = "",
   onOpenBookmarks,
   className,
   showHeading = true,
@@ -155,19 +201,29 @@ export function DiscoverPanel({
   const form = useForm<{
     searchTerm: string;
   }>({
-    defaultValues: { searchTerm: "" },
+    defaultValues: { searchTerm: initialSearchTerm },
   });
 
-  const isMobile = useMediaQuery({
-    maxWidth: "500px",
-  });
+  useEffect(() => {
+    if (initialSearchTerm.trim()) {
+      form.setValue("searchTerm", initialSearchTerm);
+    }
+  }, [initialSearchTerm, form]);
 
   const searchTerm = form.watch("searchTerm");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<Content[]>([]);
+  const [discoveryResults, setDiscoveryResults] =
+    useState<DiscoverySearchResult | null>(null);
   const [tagResults, setTagResults] = useState<Content[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [tagLoading, setTagLoading] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
+  const searchResultsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setRecentSearches(readRecentDiscoverySearches());
+  }, []);
 
   useEffect(() => {
     if (searchTerm.trim()) {
@@ -178,15 +234,19 @@ export function DiscoverPanel({
   useEffect(() => {
     const q = searchTerm.trim();
     if (!q) {
-      setSearchResults([]);
+      setDiscoveryResults(null);
       setSearchLoading(false);
       return;
     }
     setSearchLoading(true);
     const t = window.setTimeout(() => {
-      void searchContentsAction(q, 30).then(res => {
-        setSearchResults(
-          res.success && Array.isArray(res.data) ? (res.data as Content[]) : []
+      void discoverySearchAction(q, 30).then(res => {
+        if (res.success && res.data) {
+          pushRecentDiscoverySearch(q);
+          setRecentSearches(readRecentDiscoverySearches());
+        }
+        setDiscoveryResults(
+          res.success && res.data ? res.data : null
         );
         setSearchLoading(false);
       });
@@ -201,9 +261,20 @@ export function DiscoverPanel({
       return;
     }
     setTagLoading(true);
-    void searchContentsAction("", 30, selectedTag).then(res => {
+    void discoverySearchAction("", 30, selectedTag).then(res => {
+      const videos =
+        res.success && res.data?.videos ? res.data.videos : [];
       setTagResults(
-        res.success && Array.isArray(res.data) ? (res.data as Content[]) : []
+        videos.map(v => ({
+          id: v.id,
+          title: v.title,
+          url: v.url,
+          event: {
+            id: v.eventId,
+            numOfTips: v.numOfTips,
+            amountRaised: 0,
+          },
+        }))
       );
       setTagLoading(false);
     });
@@ -262,12 +333,79 @@ export function DiscoverPanel({
     [openDiscoverContent]
   );
 
-  const filteredContents = useMemo(() => {
-    if (searchTerm.trim()) return searchResults;
-    return contents.filter(content =>
-      content.title.toLowerCase().includes(searchTerm.toLowerCase())
+  const hasDiscoveryResults = useMemo(() => {
+    if (!discoveryResults) return false;
+    return (
+      discoveryResults.videos.length > 0 ||
+      discoveryResults.programs.length > 0 ||
+      discoveryResults.livestreams.length > 0 ||
+      discoveryResults.communities.length > 0
     );
-  }, [contents, searchResults, searchTerm]);
+  }, [discoveryResults]);
+
+  const flatSearchResults = useMemo((): SearchResultItem[] => {
+    if (!discoveryResults) return [];
+    const items: SearchResultItem[] = [];
+    for (const video of discoveryResults.videos) {
+      items.push({
+        kind: "video",
+        content: {
+          id: video.id,
+          title: video.title,
+          url: video.url,
+          event: { id: video.eventId },
+        },
+      });
+    }
+    for (const program of discoveryResults.programs) {
+      items.push({ kind: "program", program });
+    }
+    for (const stream of discoveryResults.livestreams) {
+      items.push({ kind: "livestream", stream });
+    }
+    for (const community of discoveryResults.communities) {
+      items.push({ kind: "community", community });
+    }
+    return items;
+  }, [discoveryResults]);
+
+  useEffect(() => {
+    setActiveSearchIndex(-1);
+  }, [searchTerm, discoveryResults]);
+
+  useEffect(() => {
+    if (activeSearchIndex < 0 || !searchResultsRef.current) return;
+    const el = searchResultsRef.current.querySelector(
+      `[data-search-index="${activeSearchIndex}"]`
+    );
+    el?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeSearchIndex]);
+
+  const activateSearchResult = useCallback(
+    (item: SearchResultItem) => {
+      if (item.kind === "video") {
+        resolveContentClick(item.content);
+        return;
+      }
+      if (item.kind === "program") {
+        const href = item.program.landingUrl ?? `/program/${item.program.id}`;
+        window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (item.kind === "livestream") {
+        window.open(
+          `/channel/${item.stream.eventId}`,
+          "_blank",
+          "noopener,noreferrer"
+        );
+        return;
+      }
+      const href = exploreCommunityJoinHref(item.community.id);
+      prefetch(href);
+      push(href);
+    },
+    [resolveContentClick, prefetch, push]
+  );
 
   const selectedTagLabel = useMemo(
     () => eventTypeLabel(selectedTag),
@@ -367,6 +505,19 @@ export function DiscoverPanel({
     </div>
   );
 
+  const topCommunitiesRef = useRef<HTMLDivElement>(null);
+
+  const tipperSkeleton = (
+    <div className="mt-4 mb-8 flex flex-wrap items-center gap-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <ContentCardSkeleton
+          key={i}
+          className="min-w-[140px]"
+        />
+      ))}
+    </div>
+  );
+
   const scrollNext = (ref: React.RefObject<HTMLDivElement | null>) => {
     if (ref.current) {
       ref.current.scrollBy({ left: 300, behavior: "smooth" });
@@ -386,37 +537,97 @@ export function DiscoverPanel({
             control={form.control}
             name="searchTerm"
             render={({ field }) => (
-              <FormItem className="flex justify-between">
-                <FormControl>
-                  <Input
-                    placeholder="Search..."
-                    autoComplete="off"
-                    {...field}
-                  />
-                </FormControl>
+              <FormItem className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <FormControl className="flex-1">
+                    <Input
+                      placeholder="Search..."
+                      autoComplete="off"
+                      aria-label="Search discovery catalogue"
+                      onKeyDown={e => {
+                        if (e.key === "Escape") {
+                          form.setValue("searchTerm", "");
+                          setDiscoveryResults(null);
+                          setActiveSearchIndex(-1);
+                          return;
+                        }
+                        if (!flatSearchResults.length) return;
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setActiveSearchIndex(i =>
+                            Math.min(i + 1, flatSearchResults.length - 1)
+                          );
+                          return;
+                        }
+                        if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setActiveSearchIndex(i => Math.max(i - 1, 0));
+                          return;
+                        }
+                        if (e.key === "Enter" && activeSearchIndex >= 0) {
+                          e.preventDefault();
+                          const item = flatSearchResults[activeSearchIndex];
+                          if (item) activateSearchResult(item);
+                        }
+                      }}
+                      {...field}
+                    />
+                  </FormControl>
 
-                <Link href="/join">
-                  <Button
-                    size={isMobile ? "sm" : "sm"}
-                    aria-label="Join an event to start tipping"
-                    aria-haspopup="dialog"
-                    className=""
+                  {onOpenBookmarks ? (
+                    <button
+                      type="button"
+                      onClick={onOpenBookmarks}
+                      aria-label="Open bookmarks"
+                    >
+                      <Bookmark />
+                    </button>
+                  ) : null}
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Looking for an event?{" "}
+                  <Link
+                    href="/join"
+                    className="text-muted-foreground underline-offset-2 hover:underline"
                   >
-                    Find event{" "}
-                    {/* <ArrowRight
-            className="-rotate-45"
-            aria-hidden="true"
-          /> */}
-                  </Button>
-                </Link>
-
-                {onOpenBookmarks ? (
-                  <button
-                    type="button"
-                    onClick={onOpenBookmarks}
-                  >
-                    <Bookmark />
-                  </button>
+                    Find Event here
+                  </Link>
+                </p>
+                {!searchTerm.trim() && !hasDiscoveryResults ? (
+                  <div className="space-y-2 pt-1">
+                    {recentSearches.length > 0 ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-muted-foreground text-[11px]">
+                          Recent
+                        </span>
+                        {recentSearches.map(term => (
+                          <button
+                            key={term}
+                            type="button"
+                            className="bg-muted hover:bg-muted/80 rounded-full px-2 py-0.5 text-[11px]"
+                            onClick={() => form.setValue("searchTerm", term)}
+                          >
+                            {term}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-muted-foreground text-[11px]">
+                        Trending
+                      </span>
+                      {DISCOVERY_TRENDING_SEARCHES.map(term => (
+                        <button
+                          key={term}
+                          type="button"
+                          className="bg-muted hover:bg-muted/80 rounded-full px-2 py-0.5 text-[11px]"
+                          onClick={() => form.setValue("searchTerm", term)}
+                        >
+                          {term}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ) : null}
               </FormItem>
             )}
@@ -476,48 +687,193 @@ export function DiscoverPanel({
             </h5>
 
             {searchLoading ? (
-              <p className="text-muted-foreground text-sm">Searching…</p>
-            ) : filteredContents.length === 0 ? (
+              carouselSkeleton
+            ) : !hasDiscoveryResults ? (
               <p className="text-muted-foreground text-sm">No results found.</p>
             ) : (
-              <div className="scrollbar-none overflow-x-auto">
-                <div className="flex gap-4">
-                  {filteredContents.map(content => (
-                    <div
-                      key={content.id}
-                      onClick={() => resolveContentClick(content)}
-                      className={cn(
-                        "cursor-pointer bg-black/10",
-                        CONTENT_CARD_MIN
-                      )}
-                    >
-                      <ThumbnailPlayer
-                        videoUrl={content.url}
-                        contentId={content.id}
-                        suppressInlinePlaybackContentId={
-                          suppressInlinePlaybackContentId
-                        }
-                        className="aspect-video w-full rounded-md"
-                      />
+              <div
+                ref={searchResultsRef}
+                className="space-y-4"
+              >
+                {(() => {
+                  let searchIdx = 0;
+                  return (
+                    <>
+                {discoveryResults!.videos.length > 0 ? (
+                  <div className="space-y-2">
+                    <h6 className="text-sm font-medium">Videos</h6>
+                    <VirtualRail
+                      items={discoveryResults!.videos}
+                      getItemKey={video => video.id}
+                      itemMinClassName={CONTENT_CARD_MIN}
+                      renderItem={video => {
+                        const idx = searchIdx++;
+                        const content: Content = {
+                          id: video.id,
+                          title: video.title,
+                          url: video.url,
+                          event: { id: video.eventId },
+                        };
+                        return (
+                          <div
+                            data-search-index={idx}
+                            className={cn(
+                              idx === activeSearchIndex &&
+                                "ring-primary rounded-md ring-2"
+                            )}
+                          >
+                            {renderContentCard(content)}
+                          </div>
+                        );
+                      }}
+                    />
+                  </div>
+                ) : null}
 
-                      <div className="p-1">
-                        <h5 className="text-sm">{content.title}</h5>
-                        {renderLiveRoomCue(content)}
+                {discoveryResults!.programs.length > 0 ? (
+                  <div className="space-y-2">
+                    <h6 className="text-sm font-medium">Programs</h6>
+                    <VirtualRail
+                      items={discoveryResults!.programs}
+                      getItemKey={program => program.id}
+                      itemMinClassName={PROGRAM_CARD_MIN}
+                      renderItem={program => {
+                        const idx = searchIdx++;
+                        return (
+                        <Link
+                          href={program.landingUrl ?? `/program/${program.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-search-index={idx}
+                          className={cn(
+                            "rounded-md border bg-black/10 p-2",
+                            PROGRAM_CARD_MIN,
+                            idx === activeSearchIndex &&
+                              "ring-primary ring-2"
+                          )}
+                        >
+                          {program.imageUrl ? (
+                            <RailCoverImage
+                              src={program.imageUrl}
+                              alt={program.title}
+                              aspectClassName="aspect-video"
+                            />
+                          ) : (
+                            <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                              <Tv className="size-8 text-neutral-500" />
+                            </div>
+                          )}
+                          <p className="mt-2 text-sm font-medium">
+                            {program.title}
+                          </p>
+                        </Link>
+                      );
+                      }}
+                    />
+                  </div>
+                ) : null}
 
-                        <div className="text-muted-foreground flex items-center gap-4 text-sm">
-                          <span className="flex items-center gap-1">
-                            <UsersRound className="size-4" />
-                            {content.event.numOfTips} Tips
-                          </span>
-                          <span className="flex items-center gap-2">
-                            <Sparkles className="size-4" /> &pound;
-                            {content.event.amountRaised} raised
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {discoveryResults!.livestreams.length > 0 ? (
+                  <div className="space-y-2">
+                    <h6 className="text-sm font-medium">Live streams</h6>
+                    <VirtualRail
+                      items={discoveryResults!.livestreams}
+                      getItemKey={stream => stream.id}
+                      itemMinClassName={CONTENT_CARD_MIN}
+                      renderItem={stream => {
+                        const idx = searchIdx++;
+                        return (
+                        <Link
+                          href={`/channel/${stream.eventId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="discover-live-stream-card"
+                          data-search-index={idx}
+                          className={cn(
+                            "relative block",
+                            CONTENT_CARD_MIN,
+                            idx === activeSearchIndex &&
+                              "ring-primary rounded-md ring-2"
+                          )}
+                        >
+                          <div className="bg-black/10">
+                            {stream.thumbnailUrl ? (
+                              <RailCoverImage
+                                src={stream.thumbnailUrl}
+                                alt={stream.title}
+                                aspectClassName="aspect-video"
+                              />
+                            ) : (
+                              <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                                <Radio className="size-8 text-neutral-500" />
+                              </div>
+                            )}
+                            <div className="p-1">
+                              <h5 className="text-sm">{stream.title}</h5>
+                              <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-[10px]">
+                                <Radio className="size-3" aria-hidden />
+                                {stream.liveStatus}
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                      }}
+                    />
+                  </div>
+                ) : null}
+
+                {discoveryResults!.communities.length > 0 ? (
+                  <div className="space-y-2">
+                    <h6 className="text-sm font-medium">Communities</h6>
+                    <VirtualRail
+                      items={discoveryResults!.communities}
+                      getItemKey={community => community.id}
+                      itemMinClassName={PROGRAM_CARD_MIN}
+                      renderItem={community => {
+                        const idx = searchIdx++;
+                        return (
+                        <Link
+                          href={exploreCommunityJoinHref(community.id)}
+                          data-search-index={idx}
+                          className={cn(
+                            "rounded-md border bg-black/10 p-2",
+                            PROGRAM_CARD_MIN,
+                            idx === activeSearchIndex &&
+                              "ring-primary ring-2"
+                          )}
+                        >
+                          {community.logoUrl ? (
+                            <div className="relative size-12 overflow-hidden rounded-md">
+                              <Image
+                                src={community.logoUrl}
+                                alt={community.name}
+                                fill
+                                className="object-cover"
+                                sizes="48px"
+                              />
+                            </div>
+                          ) : (
+                            <div className="bg-muted flex size-12 items-center justify-center rounded-md">
+                              <UsersRound className="size-6 text-neutral-500" />
+                            </div>
+                          )}
+                          <p className="mt-2 text-sm font-medium">
+                            {community.name}
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            {community.memberCount} members · £
+                            {community.totalTips} tips
+                          </p>
+                        </Link>
+                      );
+                      }}
+                    />
+                  </div>
+                ) : null}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -583,18 +939,18 @@ export function DiscoverPanel({
           />
 
           <div className="relative">
-            <div
-              ref={topContentsRef}
-              className="scrollbar-none overflow-x-auto"
-            >
-              <div className="flex gap-6">
-                {catalogLoading && contents.length === 0
-                  ? carouselSkeleton
-                  : contents.map((content: Content) =>
-                      renderContentCard(content)
-                    )}
-              </div>
-            </div>
+            {catalogLoading && contents.length === 0 ? (
+              carouselSkeleton
+            ) : (
+              <VirtualRail
+                containerRef={topContentsRef}
+                items={contents as Content[]}
+                getItemKey={content => content.id}
+                itemMinClassName={CONTENT_CARD_MIN}
+                gapClassName="gap-6"
+                renderItem={content => renderContentCard(content)}
+              />
+            )}
 
             <button
               type="button"
@@ -699,6 +1055,61 @@ export function DiscoverPanel({
           </div>
         </div>
 
+        {/* TOP COMMUNITIES */}
+        {topCommunities.length > 0 ? (
+          <div className="space-y-4">
+            <h5 className="font-semibold">Top communities</h5>
+            <p className="text-muted-foreground text-xs">
+              Ranked by total tips across approved bank videos.
+            </p>
+            <div className="relative">
+              <VirtualRail
+                containerRef={topCommunitiesRef}
+                items={topCommunities}
+                getItemKey={community => community.id}
+                itemMinClassName={PROGRAM_CARD_MIN}
+                renderItem={community => (
+                  <Link
+                    href={exploreCommunityJoinHref(community.id)}
+                    className={cn(
+                      "rounded-md border bg-black/10 p-2",
+                      PROGRAM_CARD_MIN
+                    )}
+                  >
+                    {community.logoUrl ? (
+                      <div className="relative size-12 overflow-hidden rounded-md">
+                        <Image
+                          src={community.logoUrl}
+                          alt={community.name}
+                          fill
+                          className="object-cover"
+                          sizes="48px"
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-muted flex size-12 items-center justify-center rounded-md">
+                        <UsersRound className="size-6 text-neutral-500" />
+                      </div>
+                    )}
+                    <p className="mt-2 text-sm font-medium">{community.name}</p>
+                    <p className="text-muted-foreground text-xs">
+                      £{community.totalTips} tips · {community.memberCount}{" "}
+                      members
+                    </p>
+                  </Link>
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => scrollNext(topCommunitiesRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {/* PROGRAMS */}
         <div className="space-y-4">
           <DiscoverRailHeading
@@ -722,17 +1133,18 @@ export function DiscoverPanel({
                     <Link
                       key={program.id}
                       href={program.landingUrl ?? `/program/${program.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className={cn(
                         "rounded-md border bg-black/10 p-2",
                         PROGRAM_CARD_MIN
                       )}
                     >
                       {program.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <RailCoverImage
                           src={program.imageUrl}
-                          alt=""
-                          className="aspect-video w-full rounded-md object-cover"
+                          alt={program.title}
+                          aspectClassName="aspect-video"
                         />
                       ) : (
                         <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
@@ -842,14 +1254,16 @@ export function DiscoverPanel({
           />
 
           <div className="relative">
-            <div
-              ref={mostTippedContentsRef}
-              className="scrollbar-none overflow-x-auto"
-            >
-              <div className="flex gap-4">
-                {mostTippedContents.map((content: Content) => (
+            {catalogLoading && mostTippedContents.length === 0 ? (
+              carouselSkeleton
+            ) : (
+              <VirtualRail
+                containerRef={mostTippedContentsRef}
+                items={mostTippedContents as Content[]}
+                getItemKey={content => content.id}
+                itemMinClassName={CONTENT_CARD_MIN}
+                renderItem={content => (
                   <div
-                    key={content.id}
                     onClick={() => resolveContentClick(content)}
                     className={cn(
                       "cursor-pointer bg-black/10",
@@ -881,9 +1295,9 @@ export function DiscoverPanel({
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                )}
+              />
+            )}
 
             <button
               type="button"
@@ -898,8 +1312,11 @@ export function DiscoverPanel({
         <div className="space-y-4">
           <h5 className="font-semibold">Top tippers</h5>
 
-          <div className="mt-4 mb-8 flex flex-wrap items-center gap-2">
-            {tippers.slice(0, 5).map((tipper, index) => (
+          {catalogLoading && tippers.length === 0 ? (
+            tipperSkeleton
+          ) : (
+            <div className="mt-4 mb-8 flex flex-wrap items-center gap-2">
+              {tippers.slice(0, 5).map((tipper, index) => (
               <div
                 key={tipper.id}
                 className="inline-flex items-center gap-2 rounded-md bg-black/10 px-4 py-2 text-[13px]"
@@ -917,7 +1334,8 @@ export function DiscoverPanel({
                 </span>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

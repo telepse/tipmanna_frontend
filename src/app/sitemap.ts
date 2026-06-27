@@ -49,14 +49,76 @@ async function fetchPublicVideoUrls(): Promise<string[]> {
   }
 }
 
+async function fetchLiveChannelUrls(): Promise<string[]> {
+  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "");
+  if (!base) return [];
+  try {
+    const res = await fetch(`${base}/contents/live-streams?limit=40`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as {
+      live?: Array<{ event?: { id?: string } }>;
+      upcoming?: Array<{ event?: { id?: string } }>;
+    };
+    const origin = SITE_URL.replace(/\/$/, "");
+    const ids = new Set<string>();
+    for (const bucket of [raw.live, raw.upcoming]) {
+      if (!Array.isArray(bucket)) continue;
+      for (const row of bucket) {
+        const id = row.event?.id?.trim();
+        if (id) ids.add(id);
+      }
+    }
+    return [...ids].map(id => `${origin}/channel/${id}`);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchCommunityUrls(): Promise<string[]> {
+  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "");
+  if (!base) return [];
+  try {
+    const res = await fetch(`${base}/communities/explore-catalog`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const raw = (await res.json()) as {
+      topByTips?: Array<{ id?: string }>;
+      alphabetical?: Array<{ id?: string }>;
+    };
+    const rows = [
+      ...(Array.isArray(raw.topByTips) ? raw.topByTips : []),
+      ...(Array.isArray(raw.alphabetical) ? raw.alphabetical : []),
+    ];
+    const origin = SITE_URL.replace(/\/$/, "");
+    const seen = new Set<string>();
+    return rows
+      .map(row => row.id?.trim())
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+      .filter(id => {
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      .map(id => `${origin}/community/${encodeURIComponent(id)}/join`);
+  } catch {
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const tvOrigin = SITE_URL.replace(/\/$/, "");
-  const [programUrls, contentUrls] = await Promise.all([
-    fetchDiscoveryProgramUrls(),
-    fetchPublicVideoUrls(),
-  ]);
+  const [programUrls, contentUrls, communityUrls, channelUrls] =
+    await Promise.all([
+      fetchDiscoveryProgramUrls(),
+      fetchPublicVideoUrls(),
+      fetchCommunityUrls(),
+      fetchLiveChannelUrls(),
+    ]);
 
-  const tvRoutes = ["/explore", "/tv", "/partner"].map(path => ({
+  const tvRoutes = ["/explore", "/tv", "/partner", "/join"].map(path => ({
     url: `${tvOrigin}${path}`,
     lastModified: new Date(),
     changeFrequency: "daily" as const,
@@ -93,5 +155,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...tvRoutes, ...discoveryRoutes, ...videoRoutes];
+  const communityRoutes = communityUrls.slice(0, 100).map(url => ({
+    url,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.55,
+  }));
+
+  const channelRoutes = channelUrls.slice(0, 50).map(url => ({
+    url,
+    lastModified: new Date(),
+    changeFrequency: "daily" as const,
+    priority: 0.65,
+  }));
+
+  return [
+    ...tvRoutes,
+    ...discoveryRoutes,
+    ...videoRoutes,
+    ...communityRoutes,
+    ...channelRoutes,
+  ];
 }

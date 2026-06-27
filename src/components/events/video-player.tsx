@@ -231,10 +231,15 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       onMuteStateChangeRef.current?.(muted);
     };
 
+    /** Updates canonical Explore reel aspect via onVideoAspectInfo → onPlayerAspectInfo. */
     const notifyVideoAspect = () => {
       const url = videoUrlRef.current;
       const size = presentationVideoSizeRef.current;
       const id = extractYoutubeID(url ?? "");
+      const reapplyPresentation = () => {
+        const p = playerRef.current;
+        if (p) applyIframePresentation(p);
+      };
       if (
         id &&
         size &&
@@ -245,10 +250,14 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         onVideoAspectInfoRef.current?.(
           buildAspectInfo(id, size.width, size.height, "oembed")
         );
+        reapplyPresentation();
         return;
       }
       void fetchYoutubeAspectInfo(url).then(info => {
-        if (info) onVideoAspectInfoRef.current?.(info);
+        if (info) {
+          onVideoAspectInfoRef.current?.(info);
+          reapplyPresentation();
+        }
       });
     };
 
@@ -316,8 +325,8 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
           onReady: (event: YT.PlayerEvent) => {
             setLoading(false);
 
-            applyIframePresentation(event.target);
             notifyVideoAspect();
+            applyIframePresentation(event.target);
             onVideoLoaded?.();
 
             const wantPlay =

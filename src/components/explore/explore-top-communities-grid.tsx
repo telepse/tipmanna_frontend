@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useSelector } from "react-redux";
@@ -41,7 +42,12 @@ export function ExploreTopCommunitiesGrid({ communities, className }: Props) {
   }, []);
 
   if (communities.length === 0) {
-    return null;
+    return (
+      <p className="text-muted-foreground text-sm">
+        No communities to show yet. Check back as creators launch new
+        communities.
+      </p>
+    );
   }
 
   return (
@@ -62,6 +68,19 @@ export function ExploreTopCommunitiesGrid({ communities, className }: Props) {
               key={c.id}
               className="border-border bg-card flex flex-col rounded-lg border p-3 shadow-sm"
             >
+              <div className="flex items-start gap-3">
+                {c.logoUrl ? (
+                  <div className="relative size-10 shrink-0 overflow-hidden rounded-md">
+                    <Image
+                      src={c.logoUrl}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="40px"
+                    />
+                  </div>
+                ) : null}
+                <div className="min-w-0 flex-1">
               <p className="text-muted-foreground text-[10px] font-medium uppercase">
                 #{i + 1}
               </p>
@@ -81,6 +100,8 @@ export function ExploreTopCommunitiesGrid({ communities, className }: Props) {
               <p className="text-muted-foreground text-[11px]">
                 Created {formatCommunityDate(c.createdAt)}
               </p>
+                </div>
+              </div>
               <div className="mt-3 flex gap-2">
                 {c.viewer?.joined ? (
                   <Button

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { loadDiscoverCatalogServer } from "@/lib/discover-catalog-server";
+import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import { DISCOVER_RAIL_SUBTITLES } from "@/lib/event-type-options";
 
@@ -8,12 +9,36 @@ type ContentRow = {
   id: string;
   title: string;
   event?: { id?: string };
+  url?: string;
+};
+
+type LiveStreamRow = {
+  id: string;
+  title: string;
+  eventId?: string;
+  event?: { id?: string };
+};
+
+type TipperRow = {
+  id: string;
+  username?: string;
+};
+
+type CommunityRow = {
+  id: string;
+  name: string;
 };
 
 function contentHref(row: ContentRow): string | null {
   const eventId = row.event?.id?.trim();
   if (!eventId || !row.id) return null;
   return buildContentShareUrl({ eventId, channelId: row.id });
+}
+
+function liveStreamHref(row: LiveStreamRow): string | null {
+  const eventId = row.eventId?.trim() ?? row.event?.id?.trim();
+  if (!eventId) return null;
+  return `/channel/${eventId}`;
 }
 
 function SeoRail({
@@ -52,6 +77,11 @@ function SeoRail({
 
 export async function ExploreDiscoverSeoShell() {
   const catalog = await loadDiscoverCatalogServer();
+  const liveStreamItems = [
+    ...(catalog.liveStreams.live as LiveStreamRow[]),
+    ...(catalog.liveStreams.upcoming as LiveStreamRow[]),
+    ...(catalog.liveStreams.recentlyEnded as LiveStreamRow[]),
+  ];
 
   return (
     <div className="sr-only">
@@ -106,6 +136,51 @@ export async function ExploreDiscoverSeoShell() {
                   </li>
                 );
               })}
+          </ul>
+        </section>
+      ) : null}
+      {liveStreamItems.length > 0 ? (
+        <section aria-label="Live streams">
+          <h2>Live streams</h2>
+          <p>{DISCOVER_RAIL_SUBTITLES.live}</p>
+          <ul>
+            {liveStreamItems
+              .map(row => {
+                const href = liveStreamHref(row);
+                return href ? { href, title: row.title, id: row.id } : null;
+              })
+              .filter(
+                (x): x is { href: string; title: string; id: string } =>
+                  Boolean(x)
+              )
+              .slice(0, 12)
+              .map(link => (
+                <li key={link.id}>
+                  <Link href={link.href}>{link.title}</Link>
+                </li>
+              ))}
+          </ul>
+        </section>
+      ) : null}
+      {(catalog.tippers as TipperRow[]).length > 0 ? (
+        <section aria-label="Top tippers">
+          <h2>Top tippers</h2>
+          <ul>
+            {(catalog.tippers as TipperRow[]).slice(0, 12).map(tipper => (
+              <li key={tipper.id}>{tipper.username ?? tipper.id}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {(catalog.topCommunities as CommunityRow[]).length > 0 ? (
+        <section aria-label="Top communities">
+          <h2>Top communities</h2>
+          <ul>
+            {(catalog.topCommunities as CommunityRow[]).slice(0, 12).map(c => (
+              <li key={c.id}>
+                <Link href={exploreCommunityJoinHref(c.id)}>{c.name}</Link>
+              </li>
+            ))}
           </ul>
         </section>
       ) : null}

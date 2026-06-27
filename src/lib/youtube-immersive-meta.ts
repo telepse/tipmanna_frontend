@@ -24,6 +24,17 @@ const DEFAULT_W = 16;
 const DEFAULT_H = 9;
 const OEMBED_FAILURE_TTL_MS = 60_000;
 
+/** Canonical 9:16 when oEmbed/thumbnail are inconclusive for vertical Shorts. */
+const SHORTS_PORTRAIT_W = 9;
+const SHORTS_PORTRAIT_H = 16;
+
+/** YouTube Shorts max duration — used when URL is watch?v= without /shorts/ path. */
+const YOUTUBE_SHORTS_MAX_DURATION_SEC = 60;
+
+export type YoutubeAspectFetchHints = {
+  durationSeconds?: number | null;
+};
+
 /** YouTube Shorts URLs — portrait hint while metadata is still loading only. */
 export function isYoutubeShortsUrl(
   videoUrl: string | null | undefined
@@ -79,6 +90,38 @@ export function isOembedEmbedPlayerDimensions(
     width <= 640 &&
     (Math.abs(ratio - 16 / 9) < 0.08 || Math.abs(ratio - 4 / 3) < 0.08)
   );
+}
+
+/** ytimg hqdefault/sddefault sizes — often letterboxed for vertical Shorts. */
+export function isGenericYoutubeLandscapeThumbnail(
+  width: number,
+  height: number
+): boolean {
+  if (width <= 0 || height <= 0) return false;
+  if (width === 480 && height === 360) return true;
+  if (width === 640 && height === 480) return true;
+  if (width === 1280 && height === 720) return true;
+  return (
+    width <= 1280 &&
+    height <= 720 &&
+    width >= height &&
+    isOembedEmbedPlayerDimensions(width, height)
+  );
+}
+
+/** True when metadata still looks like generic player/thumbnail chrome, not true video shape. */
+export function isInconclusiveYoutubeAspect(info: YoutubeAspectInfo): boolean {
+  if (info.classification === "portrait" || info.classification === "square") {
+    return false;
+  }
+  if (isOembedEmbedPlayerDimensions(info.width, info.height)) return true;
+  if (
+    info.source === "thumbnail" &&
+    isGenericYoutubeLandscapeThumbnail(info.width, info.height)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function mergeAspectWithThumbnailProbe(
@@ -185,6 +228,56 @@ export function mergeYoutubeAspectSources(
   });
 }
 
+/** Shorts URL or typical Shorts duration when oEmbed reports generic player chrome. */
+export function isLikelyYoutubeShort(params: {
+  videoUrl: string | null | undefined;
+  durationSeconds?: number | null;
+}): boolean {
+  if (isYoutubeShortsUrl(params.videoUrl)) return true;
+  const d = params.durationSeconds;
+  return typeof d === "number" && d > 0 && d <= YOUTUBE_SHORTS_MAX_DURATION_SEC;
+}
+
+/**
+ * When oEmbed/thumbnail leave generic landscape chrome but the clip is likely a
+ * vertical Short, apply a portrait 9:16 prior so layout and iframe agree.
+ */
+export function applyPortraitPriorForVerticalShort(
+  info: YoutubeAspectInfo,
+  videoUrl: string | null | undefined,
+  hints?: YoutubeAspectFetchHints
+): YoutubeAspectInfo {
+  if (info.classification === "portrait" || info.classification === "square") {
+    return info;
+  }
+  if (!isLikelyYoutubeShort({ videoUrl, durationSeconds: hints?.durationSeconds })) {
+    return info;
+  }
+  if (!isInconclusiveYoutubeAspect(info)) {
+    return info;
+  }
+  return buildAspectInfo(info.videoId, SHORTS_PORTRAIT_W, SHORTS_PORTRAIT_H, "fallback");
+}
+
+function finalizeYoutubeAspectInfo(
+  info: YoutubeAspectInfo,
+  videoUrl: string | null | undefined,
+  hints?: YoutubeAspectFetchHints
+): YoutubeAspectInfo {
+  return applyPortraitPriorForVerticalShort(info, videoUrl, hints);
+}
+
+function cacheAndFinalizeAspect(
+  id: string,
+  info: YoutubeAspectInfo,
+  videoUrl: string | null | undefined,
+  hints?: YoutubeAspectFetchHints
+): YoutubeAspectInfo {
+  const finalized = finalizeYoutubeAspectInfo(info, videoUrl, hints);
+  aspectInfoCache.set(id, finalized);
+  return finalized;
+}
+
 async function resolveAspectWithProbes(
   videoId: string,
   oembedWidth: number,
@@ -201,14 +294,25 @@ async function resolveAspectWithProbes(
  * Caches by video id. Does not use the iframe Player API for dimensions (not exposed cross-origin).
  */
 export async function fetchYoutubeAspectInfo(
-  videoUrl: string | null | undefined
+  videoUrl: string | null | undefined,
+  hints?: YoutubeAspectFetchHints
 ): Promise<YoutubeAspectInfo | null> {
   if (!videoUrl) return null;
   const id = extractYoutubeID(videoUrl);
   if (!id) return null;
 
   const cached = aspectInfoCache.get(id);
-  if (cached) return cached;
+  if (cached) {
+    const finalized = finalizeYoutubeAspectInfo(cached, videoUrl, hints);
+    if (
+      finalized.classification !== cached.classification ||
+      finalized.width !== cached.width ||
+      finalized.height !== cached.height
+    ) {
+      aspectInfoCache.set(id, finalized);
+    }
+    return finalized;
+  }
 
   const failUntil = aspectInfoFailureUntil.get(id);
   if (failUntil != null) {
@@ -216,10 +320,10 @@ export async function fetchYoutubeAspectInfo(
       const thumb = await probeYoutubeThumbnailDimensions(id);
       if (thumb) {
         const fromThumb = buildAspectInfo(id, thumb.width, thumb.height, "thumbnail");
-        aspectInfoCache.set(id, fromThumb);
-        return fromThumb;
+        return cacheAndFinalizeAspect(id, fromThumb, videoUrl, hints);
       }
-      return buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");
+      const fallback = buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");
+      return cacheAndFinalizeAspect(id, fallback, videoUrl, hints);
     }
     aspectInfoFailureUntil.delete(id);
   }
@@ -234,27 +338,26 @@ export async function fetchYoutubeAspectInfo(
       const thumb = await probeYoutubeThumbnailDimensions(id);
       if (thumb) {
         const fromThumb = buildAspectInfo(id, thumb.width, thumb.height, "thumbnail");
-        aspectInfoCache.set(id, fromThumb);
-        return fromThumb;
+        return cacheAndFinalizeAspect(id, fromThumb, videoUrl, hints);
       }
-      return buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");
+      const fallback = buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");
+      return cacheAndFinalizeAspect(id, fallback, videoUrl, hints);
     }
     const data = (await res.json()) as { width?: number; height?: number };
     const w = typeof data.width === "number" ? data.width : DEFAULT_W;
     const h = typeof data.height === "number" ? data.height : DEFAULT_H;
     const info = await resolveAspectWithProbes(id, w, h);
-    aspectInfoCache.set(id, info);
     aspectInfoFailureUntil.delete(id);
-    return info;
+    return cacheAndFinalizeAspect(id, info, videoUrl, hints);
   } catch {
     aspectInfoFailureUntil.set(id, Date.now() + OEMBED_FAILURE_TTL_MS);
     const thumb = await probeYoutubeThumbnailDimensions(id);
     if (thumb) {
       const fromThumb = buildAspectInfo(id, thumb.width, thumb.height, "thumbnail");
-      aspectInfoCache.set(id, fromThumb);
-      return fromThumb;
+      return cacheAndFinalizeAspect(id, fromThumb, videoUrl, hints);
     }
-    return buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");
+    const fallback = buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");
+    return cacheAndFinalizeAspect(id, fallback, videoUrl, hints);
   }
 }
 

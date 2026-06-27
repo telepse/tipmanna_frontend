@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
@@ -798,6 +799,18 @@ export default function CommunityHubClient() {
                   key={c.id}
                   className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
+                  <div className="flex min-w-0 items-start gap-3">
+                    {c.logoUrl ? (
+                      <div className="relative size-10 shrink-0 overflow-hidden rounded-md">
+                        <Image
+                          src={c.logoUrl}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="40px"
+                        />
+                      </div>
+                    ) : null}
                   <div className="min-w-0 space-y-1">
                     <p className="truncate text-sm font-medium">{c.name}</p>
                     {c.description ? (
@@ -833,6 +846,7 @@ export default function CommunityHubClient() {
                           : ""}
                       </p>
                     ) : null}
+                  </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     {c.viewer?.joined ? (
@@ -1232,10 +1246,23 @@ function MembershipRow({
   onLeave: (communityId: string, name: string) => void;
 }) {
   const name = m.community?.name ?? m.communityId;
+  const logoUrl = m.community?.logoUrl;
   const canToggle = membershipUsable(m);
   const defaultSystem = isDefaultSystemCommunity(m);
   return (
     <li className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        {logoUrl ? (
+          <div className="relative size-10 shrink-0 overflow-hidden rounded-md">
+            <Image
+              src={logoUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="40px"
+            />
+          </div>
+        ) : null}
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{name}</p>
         {!canToggle ? (
@@ -1249,6 +1276,7 @@ function MembershipRow({
             Default system community — public Explore hub.
           </p>
         ) : null}
+      </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">

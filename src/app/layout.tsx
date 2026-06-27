@@ -14,6 +14,7 @@ import { ToastContainer } from "react-toastify";
 
 // Local imports
 import { Analytics } from "@/components/analytics";
+import { WebVitalsReporter } from "@/components/analytics/web-vitals-reporter";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import { VideoNativeMobileGuard } from "@/components/video-native-mobile-guard";
 import { TextTipDraftModalLayer } from "@/components/events/text-tip-draft-modal-layer";
@@ -161,6 +162,7 @@ export default function RootLayout({
           <VideoNativeMobileGuard />
           <ServiceWorkerRegistrar />
           <Analytics />
+          <WebVitalsReporter />
           <TextTipDraftModalLayer />
 
           <HashScroll />

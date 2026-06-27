@@ -8,10 +8,14 @@ import { Title } from "@/components/shared/title";
 
 interface Props {
   communities: CommunityExploreCatalogRow[];
+  showWhenEmpty?: boolean;
 }
 
-export default function TopCommunities({ communities }: Props) {
-  if (communities.length === 0) {
+export default function TopCommunities({
+  communities,
+  showWhenEmpty = false,
+}: Props) {
+  if (communities.length === 0 && !showWhenEmpty) {
     return null;
   }
 
@@ -45,7 +49,17 @@ export default function TopCommunities({ communities }: Props) {
       </Paragraph>
 
       <div className="mt-6 w-full">
-        <ExploreTopCommunitiesGrid communities={communities} />
+        {communities.length === 0 ? (
+          <Paragraph
+            align="center"
+            color="muted"
+          >
+            No communities to highlight yet. New communities will appear here as
+            creators grow their banks.
+          </Paragraph>
+        ) : (
+          <ExploreTopCommunitiesGrid communities={communities} />
+        )}
       </div>
     </section>
   );

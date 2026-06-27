@@ -3,30 +3,103 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  exploreReelPresentationFit,
   resolveExploreReelLayoutMode,
   resolveExploreReelLayoutModeWhileLoading,
   shouldUpdateExploreReelLayoutMode,
   type ExploreReelLayoutMode,
 } from "@/lib/explore-reel-layout";
 import {
+  isLikelyYoutubeShort,
   isYoutubeShortsUrl,
   mergeYoutubeAspectSources,
   type YoutubeAspectInfo,
 } from "@/lib/youtube-immersive-meta";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 
+export type ExploreReelPresentationSize = {
+  width: number;
+  height: number;
+};
+
+export type UseExploreReelLayoutModeOptions = {
+  durationSeconds?: number | null;
+};
+
 export type UseExploreReelLayoutModeResult = {
   layoutMode: ExploreReelLayoutMode;
+  /** Canonical merged aspect (oEmbed + thumbnail + player). */
+  aspectInfo: YoutubeAspectInfo | null;
+  /** Derived from canonical aspectInfo — same source as layout classification. */
+  presentationVideoSize: ExploreReelPresentationSize | null;
+  /** Derived from layoutMode only. */
+  fullPresentationFit: "cover" | "contain";
+  isMetadataLoading: boolean;
   onPlayerAspectInfo: (info: YoutubeAspectInfo) => void;
 };
+
+/** Single source for iframe sizing dimensions from canonical aspect. */
+export function derivePresentationVideoSizeFromAspect(
+  aspect: YoutubeAspectInfo | null | undefined
+): ExploreReelPresentationSize | null {
+  if (!aspect || aspect.width <= 0 || aspect.height <= 0) return null;
+  return { width: aspect.width, height: aspect.height };
+}
+
+/** Mirrors onPlayerAspectInfo merge — used by tests and hook. */
+export function applyPlayerAspectToCanonical(
+  aspectInfo: YoutubeAspectInfo | null,
+  playerAspect: YoutubeAspectInfo | null,
+  playerUpdate: YoutubeAspectInfo
+): {
+  playerAspect: YoutubeAspectInfo;
+  mergedAspect: YoutubeAspectInfo | null;
+  presentationVideoSize: ExploreReelPresentationSize | null;
+} {
+  const nextPlayer =
+    mergeYoutubeAspectSources(playerAspect, playerUpdate) ?? playerUpdate;
+  const mergedAspect = mergeYoutubeAspectSources(aspectInfo, nextPlayer);
+  return {
+    playerAspect: nextPlayer,
+    mergedAspect,
+    presentationVideoSize: derivePresentationVideoSizeFromAspect(mergedAspect),
+  };
+}
+
+/** Mirrors onPlayerAspectInfo merge for unit tests (canonical pipeline). */
+export function applyExploreReelPlayerAspectUpdate(
+  aspectInfo: YoutubeAspectInfo | null,
+  playerAspect: YoutubeAspectInfo | null,
+  update: YoutubeAspectInfo
+): {
+  playerAspect: YoutubeAspectInfo;
+  mergedAspect: YoutubeAspectInfo | null;
+  presentationVideoSize: ExploreReelPresentationSize | null;
+} {
+  const nextPlayer = mergeYoutubeAspectSources(playerAspect, update) ?? update;
+  const merged = mergeYoutubeAspectSources(aspectInfo, nextPlayer);
+  return {
+    playerAspect: nextPlayer,
+    mergedAspect: merged,
+    presentationVideoSize: derivePresentationVideoSizeFromAspect(merged),
+  };
+}
 
 /** Per-slide layout from oEmbed + thumbnail probe + player-ready metadata. */
 export function useExploreReelLayoutMode(
   videoUrl: string | null | undefined,
-  isMobile: boolean
+  isMobile: boolean,
+  options: UseExploreReelLayoutModeOptions = {}
 ): UseExploreReelLayoutModeResult {
-  const { aspectInfo, isLoading } = useYoutubeVideoAspect(videoUrl);
+  const { durationSeconds = null } = options;
+  const { aspectInfo, isLoading } = useYoutubeVideoAspect(videoUrl, {
+    durationSeconds,
+  });
   const isShortsUrl = isYoutubeShortsUrl(videoUrl);
+  const isLikelyShort = isLikelyYoutubeShort({
+    videoUrl,
+    durationSeconds,
+  });
   const [playerAspect, setPlayerAspect] = useState<YoutubeAspectInfo | null>(
     null
   );
@@ -46,13 +119,20 @@ export function useExploreReelLayoutMode(
       return resolveExploreReelLayoutModeWhileLoading({
         isMobile,
         isShortsUrl,
+        isLikelyShort,
       });
     }
     return resolveExploreReelLayoutMode({
       isMobile,
       classification: mergedAspect?.classification ?? null,
     });
-  }, [isMobile, metadataResolved, isShortsUrl, mergedAspect?.classification]);
+  }, [
+    isMobile,
+    metadataResolved,
+    isShortsUrl,
+    isLikelyShort,
+    mergedAspect?.classification,
+  ]);
 
   useEffect(() => {
     setStableMode(null);
@@ -67,21 +147,33 @@ export function useExploreReelLayoutMode(
           prev,
           candidate,
           mergedAspect?.classification ?? null,
-          metadataResolved
+          metadataResolved,
+          { isLikelyShort }
         )
       ) {
         return candidate;
       }
       return prev;
     });
-  }, [candidate, mergedAspect?.classification, metadataResolved]);
+  }, [candidate, mergedAspect?.classification, metadataResolved, isLikelyShort]);
 
   const onPlayerAspectInfo = useCallback((info: YoutubeAspectInfo) => {
     setPlayerAspect(prev => mergeYoutubeAspectSources(prev, info) ?? info);
   }, []);
 
+  const layoutMode = stableMode ?? candidate;
+
+  const presentationVideoSize = useMemo(
+    () => derivePresentationVideoSizeFromAspect(mergedAspect),
+    [mergedAspect]
+  );
+
   return {
-    layoutMode: stableMode ?? candidate,
+    layoutMode,
+    aspectInfo: mergedAspect,
+    presentationVideoSize,
+    fullPresentationFit: exploreReelPresentationFit(layoutMode),
+    isMetadataLoading: isLoading && playerAspect == null,
     onPlayerAspectInfo,
   };
 }

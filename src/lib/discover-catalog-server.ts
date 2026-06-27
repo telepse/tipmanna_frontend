@@ -7,6 +7,7 @@ import {
   getRecommendedContents,
   getSpotlightContents,
 } from "@/actions/contents";
+import { getCommunityExploreCatalogAction } from "@/actions/communities";
 import { getAllTopTippers } from "@/actions/events";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 
@@ -23,10 +24,11 @@ export type DiscoverCatalog = {
     recentlyEnded: unknown[];
   };
   tippers: unknown[];
+  topCommunities: unknown[];
 };
 
 export async function loadDiscoverCatalogServer(): Promise<DiscoverCatalog> {
-  const [feat, lat, spot, rec, most, liveRes, progRes, tipRes] =
+  const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, commRes] =
     await Promise.all([
       getAllFeaturedContentsAction(),
       getLatestContents(),
@@ -36,6 +38,7 @@ export async function loadDiscoverCatalogServer(): Promise<DiscoverCatalog> {
       getLiveStreamContents(),
       getDiscoveryProgramsAction(),
       getAllTopTippers(),
+      getCommunityExploreCatalogAction(),
     ]);
 
   const liveData =
@@ -62,5 +65,9 @@ export async function loadDiscoverCatalogServer(): Promise<DiscoverCatalog> {
         : [],
     },
     tippers: normalizeListPayload(tipRes.data),
+    topCommunities:
+      commRes.success && Array.isArray(commRes.data?.topByTips)
+        ? commRes.data.topByTips
+        : [],
   };
 }

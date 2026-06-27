@@ -41,6 +41,7 @@ import {
 } from "@/lib/drawer-z-index";
 import { toast } from "react-toastify";
 import { useCommentDrawerRealtime } from "@/hooks/use-comment-drawer-realtime";
+import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-realtime";
 import {
   Select,
   SelectContent,
@@ -150,6 +151,25 @@ export const CommentDrawer = ({
   const metrics = drawerData?.metrics;
   const channelMeta = drawerData?.channel;
   const hostMeta = drawerData?.host;
+
+  const engagementInitial = useMemo(() => {
+    if (!metrics) return null;
+    return {
+      views: metrics.viewCount ?? 0,
+      encounters: metrics.encounterCount ?? 0,
+      completes: 0,
+      saves: metrics.saveCount ?? 0,
+      shares: metrics.shareCount ?? 0,
+      comments: metrics.commentCount ?? 0,
+    };
+  }, [metrics]);
+
+  const engagementLive = useChannelEngagementRealtime({
+    channelId:
+      isCommentDrawerOpen && channelId != null ? String(channelId) : null,
+    initial: engagementInitial,
+    enabled: isCommentDrawerOpen && Boolean(channelId),
+  });
 
   useEffect(() => {
     setPendingDraft("");
@@ -378,7 +398,13 @@ export const CommentDrawer = ({
   const resolvedTitle = videoTitle?.trim() || channelMeta?.title?.trim() || "";
   const resolvedDescription =
     videoDescription?.trim() || channelMeta?.description?.trim() || "";
-  const resolvedViewCount = metrics?.viewCount ?? 0;
+  const resolvedViewCount =
+    engagementLive?.views ?? metrics?.viewCount ?? 0;
+  const resolvedEncounterCount =
+    engagementLive?.encounters ?? metrics?.encounterCount ?? 0;
+  const resolvedSaveCount = engagementLive?.saves ?? metrics?.saveCount ?? 0;
+  const resolvedShareCount =
+    engagementLive?.shares ?? metrics?.shareCount ?? 0;
   const showMetricsSkeleton = loading && !metrics;
   const commentCountLabel = showMetricsSkeleton
     ? "—"
@@ -499,9 +525,9 @@ export const CommentDrawer = ({
                     <span>·</span>
                     <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
                     <span>·</span>
-                    <span>Saves {metrics?.saveCount ?? 0}</span>
+                    <span>Saves {resolvedSaveCount}</span>
                     <span>·</span>
-                    <span>Shares {metrics?.shareCount ?? 0}</span>
+                    <span>Shares {resolvedShareCount}</span>
                   </>
                 )}
               </p>
@@ -533,7 +559,7 @@ export const CommentDrawer = ({
                   <>
                     <span>
                       Encounters{" "}
-                      {(metrics?.encounterCount ?? 0).toLocaleString()}
+                      {resolvedEncounterCount.toLocaleString()}
                     </span>
                     {amountRaisedLabel ? <span>&middot;</span> : null}
                   </>

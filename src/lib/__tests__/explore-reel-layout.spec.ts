@@ -102,6 +102,16 @@ describe("resolveExploreReelLayoutModeWhileLoading", () => {
       })
     ).toBe("mobilePortrait");
   });
+
+  it("uses portrait path for likely Short duration while loading on desktop", () => {
+    expect(
+      resolveExploreReelLayoutModeWhileLoading({
+        isMobile: false,
+        isShortsUrl: false,
+        isLikelyShort: true,
+      })
+    ).toBe("desktopPortrait");
+  });
 });
 
 describe("shouldUpgradeExploreReelLayoutMode", () => {
@@ -150,6 +160,27 @@ describe("shouldCorrectExploreReelLayoutMode", () => {
         "mobileLandscape",
         "portrait",
         true
+      )
+    ).toBe(false);
+  });
+
+  it("does not correct portrait loading default when clip is likely a Short", () => {
+    expect(
+      shouldCorrectExploreReelLayoutMode(
+        "mobilePortrait",
+        "mobileLandscape",
+        "landscape",
+        true,
+        { isLikelyShort: true }
+      )
+    ).toBe(false);
+    expect(
+      shouldCorrectExploreReelLayoutMode(
+        "desktopPortrait",
+        "desktopLandscape",
+        "landscape",
+        true,
+        { isLikelyShort: true }
       )
     ).toBe(false);
   });

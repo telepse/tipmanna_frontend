@@ -2,6 +2,7 @@ import { DiscoverPageClient } from "@/components/discover/discover-page-client";
 import { loadDiscoverCatalogServer } from "@/lib/discover-catalog-server";
 import { getDiscoveryAbsoluteUrl } from "@/lib/site-config";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Discover creators, programs, and live streams on Tipmanna",
@@ -34,16 +35,19 @@ export default async function DiscoverPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
       />
-      <DiscoverPageClient
-        initialContents={catalog.contents as never[]}
-        initialLatest={catalog.latest as never[]}
-        initialSpotlight={catalog.spotlight as never[]}
-        initialRecommended={catalog.recommended as never[]}
-        initialMostTipped={catalog.mostTipped as never[]}
-        initialPrograms={catalog.programs as never[]}
-        initialLiveStreams={catalog.liveStreams as never}
-        initialTippers={catalog.tippers as never[]}
-      />
+      <Suspense fallback={null}>
+        <DiscoverPageClient
+          initialContents={catalog.contents as never[]}
+          initialLatest={catalog.latest as never[]}
+          initialSpotlight={catalog.spotlight as never[]}
+          initialRecommended={catalog.recommended as never[]}
+          initialMostTipped={catalog.mostTipped as never[]}
+          initialPrograms={catalog.programs as never[]}
+          initialLiveStreams={catalog.liveStreams as never}
+          initialTippers={catalog.tippers as never[]}
+          initialTopCommunities={catalog.topCommunities as never[]}
+        />
+      </Suspense>
     </>
   );
 }
