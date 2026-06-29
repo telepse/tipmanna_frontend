@@ -14,10 +14,12 @@ import {
   exploreReelVideoBandClassName,
   resolveExploreReelLayoutMode,
   resolveExploreReelLayoutModeWhileLoading,
+  resolveExploreReelPresentationVideoSize,
   shouldCorrectExploreReelLayoutMode,
   shouldUpdateExploreReelLayoutMode,
   shouldUpgradeExploreReelLayoutMode,
 } from "../explore-reel-layout";
+import { buildAspectInfo } from "../youtube-immersive-meta";
 
 describe("resolveExploreReelLayoutMode", () => {
   it("maps mobile portrait classification to mobilePortrait", () => {
@@ -72,6 +74,17 @@ describe("resolveExploreReelLayoutMode", () => {
         classification: "landscape",
       })
     ).toBe("desktopLandscape");
+  });
+
+  it("keeps mobile portrait path when landscape metadata is inconclusive oEmbed chrome", () => {
+    const inconclusive = buildAspectInfo("abc123", 480, 360, "oembed");
+    expect(
+      resolveExploreReelLayoutMode({
+        isMobile: true,
+        classification: "landscape",
+        aspect: inconclusive,
+      })
+    ).toBe("mobilePortrait");
   });
 });
 
@@ -184,6 +197,19 @@ describe("shouldCorrectExploreReelLayoutMode", () => {
       )
     ).toBe(false);
   });
+
+  it("does not correct when landscape classification comes from inconclusive metadata", () => {
+    const inconclusive = buildAspectInfo("abc123", 480, 360, "oembed");
+    expect(
+      shouldCorrectExploreReelLayoutMode(
+        "mobilePortrait",
+        "mobileLandscape",
+        "landscape",
+        true,
+        { aspect: inconclusive }
+      )
+    ).toBe(false);
+  });
 });
 
 describe("shouldUpdateExploreReelLayoutMode", () => {
@@ -275,5 +301,31 @@ describe("exploreReelDockClassName", () => {
 
   it("uses larger padding on desktop", () => {
     expect(exploreReelDockClassName("desktopLandscape")).toContain("px-5");
+  });
+});
+
+describe("resolveExploreReelPresentationVideoSize", () => {
+  it("uses 9:16 for portrait layout when aspect is missing or inconclusive", () => {
+    expect(
+      resolveExploreReelPresentationVideoSize(null, "mobilePortrait")
+    ).toEqual({ width: 9, height: 16 });
+    const inconclusive = buildAspectInfo("abc123", 480, 360, "oembed");
+    expect(
+      resolveExploreReelPresentationVideoSize(inconclusive, "desktopPortrait")
+    ).toEqual({ width: 9, height: 16 });
+  });
+
+  it("uses 16:9 for landscape layout when aspect is inconclusive", () => {
+    const inconclusive = buildAspectInfo("abc123", 480, 360, "oembed");
+    expect(
+      resolveExploreReelPresentationVideoSize(inconclusive, "mobileLandscape")
+    ).toEqual({ width: 16, height: 9 });
+  });
+
+  it("uses resolved dimensions when metadata is conclusive", () => {
+    const portrait = buildAspectInfo("abc123", 1080, 1920, "thumbnail");
+    expect(
+      resolveExploreReelPresentationVideoSize(portrait, "mobilePortrait")
+    ).toEqual({ width: 1080, height: 1920 });
   });
 });

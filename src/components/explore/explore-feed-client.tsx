@@ -419,7 +419,15 @@ function ExploreFeedSlideVideo({
         <>
           {isMetadataLoading ? (
             <div className="absolute inset-0 z-[25] flex items-center justify-center bg-black">
-              <div className="aspect-video max-h-full w-full max-w-full animate-pulse bg-white/10 sm:max-w-[min(100%,520px)]" />
+              <div
+                className={cn(
+                  "max-h-full w-full max-w-full animate-pulse bg-white/10",
+                  layoutMode === "mobileLandscape" ||
+                    layoutMode === "desktopLandscape"
+                    ? "aspect-video sm:max-w-[min(100%,520px)]"
+                    : "h-full max-w-[min(100%,480px)]"
+                )}
+              />
             </div>
           ) : null}
           <div

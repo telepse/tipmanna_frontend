@@ -6,6 +6,7 @@ import {
   exploreReelPresentationFit,
   resolveExploreReelLayoutMode,
   resolveExploreReelLayoutModeWhileLoading,
+  resolveExploreReelPresentationVideoSize,
   shouldUpdateExploreReelLayoutMode,
   type ExploreReelLayoutMode,
 } from "@/lib/explore-reel-layout";
@@ -38,10 +39,14 @@ export type UseExploreReelLayoutModeResult = {
   onPlayerAspectInfo: (info: YoutubeAspectInfo) => void;
 };
 
-/** Single source for iframe sizing dimensions from canonical aspect. */
+/** Single source for iframe sizing dimensions from canonical aspect + layout mode. */
 export function derivePresentationVideoSizeFromAspect(
-  aspect: YoutubeAspectInfo | null | undefined
+  aspect: YoutubeAspectInfo | null | undefined,
+  layoutMode?: ExploreReelLayoutMode
 ): ExploreReelPresentationSize | null {
+  if (layoutMode) {
+    return resolveExploreReelPresentationVideoSize(aspect ?? null, layoutMode);
+  }
   if (!aspect || aspect.width <= 0 || aspect.height <= 0) return null;
   return { width: aspect.width, height: aspect.height };
 }
@@ -125,6 +130,7 @@ export function useExploreReelLayoutMode(
     return resolveExploreReelLayoutMode({
       isMobile,
       classification: mergedAspect?.classification ?? null,
+      aspect: mergedAspect,
     });
   }, [
     isMobile,
@@ -132,6 +138,7 @@ export function useExploreReelLayoutMode(
     isShortsUrl,
     isLikelyShort,
     mergedAspect?.classification,
+    mergedAspect,
   ]);
 
   useEffect(() => {
@@ -148,14 +155,14 @@ export function useExploreReelLayoutMode(
           candidate,
           mergedAspect?.classification ?? null,
           metadataResolved,
-          { isLikelyShort }
+          { isLikelyShort, aspect: mergedAspect }
         )
       ) {
         return candidate;
       }
       return prev;
     });
-  }, [candidate, mergedAspect?.classification, metadataResolved, isLikelyShort]);
+  }, [candidate, mergedAspect, metadataResolved, isLikelyShort]);
 
   const onPlayerAspectInfo = useCallback((info: YoutubeAspectInfo) => {
     setPlayerAspect(prev => mergeYoutubeAspectSources(prev, info) ?? info);
@@ -164,8 +171,8 @@ export function useExploreReelLayoutMode(
   const layoutMode = stableMode ?? candidate;
 
   const presentationVideoSize = useMemo(
-    () => derivePresentationVideoSizeFromAspect(mergedAspect),
-    [mergedAspect]
+    () => resolveExploreReelPresentationVideoSize(mergedAspect, layoutMode),
+    [mergedAspect, layoutMode]
   );
 
   return {

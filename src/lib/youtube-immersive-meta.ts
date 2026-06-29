@@ -169,8 +169,13 @@ export function classifyImmersiveLayout(
   );
 }
 
+/** ytimg OAR filenames preserve true 9:16 for Shorts / vertical uploads (not letterboxed). */
 export function youtubeThumbnailUrls(videoId: string): string[] {
   return [
+    `https://i.ytimg.com/vi/${videoId}/oardefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/oar2.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/oar1.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/oar3.jpg`,
     `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
     `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`,
     `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,

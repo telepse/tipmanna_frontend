@@ -11,6 +11,7 @@ import {
   isYoutubeShortsUrl,
   mergeAspectWithThumbnailProbe,
   mergeYoutubeAspectSources,
+  youtubeThumbnailUrls,
 } from "../youtube-immersive-meta";
 
 describe("youtube-immersive-meta", () => {
@@ -27,6 +28,12 @@ describe("youtube-immersive-meta", () => {
       true
     );
     expect(isYoutubeShortsUrl("https://youtu.be/abc123")).toBe(false);
+  });
+
+  it("includes OAR thumbnail URLs for vertical aspect probing", () => {
+    const urls = youtubeThumbnailUrls("abc123");
+    expect(urls[0]).toContain("oardefault.jpg");
+    expect(urls.some(u => u.includes("oar2.jpg"))).toBe(true);
   });
 
   it("detects generic oEmbed player dimensions", () => {

@@ -1,4 +1,8 @@
-import type { YoutubeVideoClassification } from "./youtube-immersive-meta";
+import {
+  isInconclusiveYoutubeAspect,
+  type YoutubeAspectInfo,
+  type YoutubeVideoClassification,
+} from "./youtube-immersive-meta";
 
 export type ExploreReelLayoutMode =
   | "mobilePortrait"
@@ -18,6 +22,16 @@ export const EXPLORE_REEL_DOCK_HEIGHT_ENGAGED = "6.5rem";
 export const EXPLORE_REEL_DOCK_HEIGHT_DESKTOP = "5.75rem";
 
 export const EXPLORE_REEL_DOCK_HEIGHT_ENGAGED_DESKTOP = "8rem";
+
+/** Canonical ratios for iframe cover/contain when metadata is missing or inconclusive. */
+export const PORTRAIT_PRESENTATION_W = 9;
+export const PORTRAIT_PRESENTATION_H = 16;
+export const LANDSCAPE_PRESENTATION_W = 16;
+export const LANDSCAPE_PRESENTATION_H = 9;
+
+export function exploreReelIsPortraitMode(mode: ExploreReelLayoutMode): boolean {
+  return mode === "mobilePortrait" || mode === "desktopPortrait";
+}
 
 export function exploreReelIsDesktopMode(mode: ExploreReelLayoutMode): boolean {
   return mode === "desktopPortrait" || mode === "desktopLandscape";
@@ -47,8 +61,17 @@ function isPortraitLike(
 export function resolveExploreReelLayoutMode(params: {
   isMobile: boolean;
   classification: YoutubeVideoClassification | null;
+  aspect?: YoutubeAspectInfo | null;
 }): ExploreReelLayoutMode {
   const portrait = isPortraitLike(params.classification);
+  if (
+    !portrait &&
+    params.aspect &&
+    isInconclusiveYoutubeAspect(params.aspect)
+  ) {
+    if (params.isMobile) return "mobilePortrait";
+    return "desktopLandscape";
+  }
   if (params.isMobile) {
     return portrait ? "mobilePortrait" : "mobileLandscape";
   }
@@ -90,10 +113,13 @@ export function shouldCorrectExploreReelLayoutMode(
   next: ExploreReelLayoutMode,
   classification: YoutubeVideoClassification | null,
   metadataResolved: boolean,
-  options?: { isLikelyShort?: boolean }
+  options?: { isLikelyShort?: boolean; aspect?: YoutubeAspectInfo | null }
 ): boolean {
   if (options?.isLikelyShort) return false;
   if (!metadataResolved || prev === next || classification !== "landscape") {
+    return false;
+  }
+  if (options?.aspect && isInconclusiveYoutubeAspect(options.aspect)) {
     return false;
   }
   if (prev === "mobilePortrait" && next === "mobileLandscape") return true;
@@ -106,7 +132,7 @@ export function shouldUpdateExploreReelLayoutMode(
   next: ExploreReelLayoutMode,
   classification: YoutubeVideoClassification | null,
   metadataResolved: boolean,
-  options?: { isLikelyShort?: boolean }
+  options?: { isLikelyShort?: boolean; aspect?: YoutubeAspectInfo | null }
 ): boolean {
   if (prev === next) return false;
   if (shouldUpgradeExploreReelLayoutMode(prev, next)) return true;
@@ -117,6 +143,55 @@ export function shouldUpdateExploreReelLayoutMode(
     metadataResolved,
     options
   );
+}
+
+/** Iframe sizing dimensions — never feed generic oEmbed player chrome into cover/contain math. */
+export function resolveExploreReelPresentationVideoSize(
+  aspect: YoutubeAspectInfo | null,
+  layoutMode: ExploreReelLayoutMode
+): { width: number; height: number } | null {
+  const portraitLayout = exploreReelIsPortraitMode(layoutMode);
+
+  if (!aspect) {
+    if (portraitLayout) {
+      return {
+        width: PORTRAIT_PRESENTATION_W,
+        height: PORTRAIT_PRESENTATION_H,
+      };
+    }
+    if (layoutMode === "mobileLandscape") {
+      return {
+        width: LANDSCAPE_PRESENTATION_W,
+        height: LANDSCAPE_PRESENTATION_H,
+      };
+    }
+    return null;
+  }
+
+  if (isInconclusiveYoutubeAspect(aspect)) {
+    if (portraitLayout) {
+      return {
+        width: PORTRAIT_PRESENTATION_W,
+        height: PORTRAIT_PRESENTATION_H,
+      };
+    }
+    return {
+      width: LANDSCAPE_PRESENTATION_W,
+      height: LANDSCAPE_PRESENTATION_H,
+    };
+  }
+
+  if (aspect.width <= 0 || aspect.height <= 0) {
+    if (portraitLayout) {
+      return {
+        width: PORTRAIT_PRESENTATION_W,
+        height: PORTRAIT_PRESENTATION_H,
+      };
+    }
+    return null;
+  }
+
+  return { width: aspect.width, height: aspect.height };
 }
 
 export function exploreReelPresentationFit(
