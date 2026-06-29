@@ -64,9 +64,7 @@ export default async function CommunityProgramPage({ params }: Props) {
   const broadcastJsonLd = buildBroadcastEventJsonLd({
     title: program.title,
     startDate: program.scheduledAt,
-    url: getPublicAbsoluteUrl(
-      `/c/${communityId}/program/${enforcementId}`
-    ),
+    url: getPublicAbsoluteUrl(`/c/${communityId}/program/${enforcementId}`),
     image: program.items.find(i => i.thumbnailUrl)?.thumbnailUrl ?? null,
     organizerName: program.community?.name ?? "Community TV",
   });

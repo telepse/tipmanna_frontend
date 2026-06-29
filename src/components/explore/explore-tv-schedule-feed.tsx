@@ -208,7 +208,9 @@ export function ExploreTvScheduleFeed({
           : "Next 12 hours"
       );
       setBroadcastEpoch(
-        typeof data.broadcastEpoch === "number" ? data.broadcastEpoch : undefined
+        typeof data.broadcastEpoch === "number"
+          ? data.broadcastEpoch
+          : undefined
       );
       setOngoing(
         Array.isArray(data.items) ? (data.items as TvPlaylistLike[]) : []

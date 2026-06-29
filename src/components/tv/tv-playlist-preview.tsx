@@ -1,8 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AudioLines, UsersRound } from "lucide-react";
+import {
+  ArrowRight,
+  AudioLines,
+  EyeIcon,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 import { trimTitle } from "@/lib/utils";
 import { useTV } from "@/components/tv-provider";
 import {
@@ -95,6 +101,8 @@ export function TvPlaylistPreview({
 
   const isMobile = useMediaQuery({ maxWidth: "500px" });
 
+  const [showCommentDrawer, setShowCommentDrawer] = useState(false);
+
   return (
     <>
       {ongoingCollection?.collectionTitle && (
@@ -169,7 +177,7 @@ export function TvPlaylistPreview({
                     </span>
                   )}
                   <span className="truncate text-[10px] lg:text-[8px]">
-                    <span className="inline-block lg:hidden">Host:</span>{" "}
+                    {/* <span className="inline-block lg:hidden">Host:</span>{" "}
                     {item?.channel?.hostName
                       ? trimTitle(item.channel.hostName.split(" ")[0], hostTrim)
                       : "Loading..."}
@@ -181,17 +189,39 @@ export function TvPlaylistPreview({
                       >
                         @{item.channel.username?.substring(0, 8) || ""}
                       </Link>
-                    </span>
+                    </span> */}
+
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 text-[8px] font-semibold">
+                        <UsersRound className="size-3" />
+                        <span className="whitespace-nowrap">
+                          {item.channel.numOfTips || 0} tips
+                        </span>
+                      </span>
+
+                      <span className="flex items-center gap-1 text-[8px] font-semibold">
+                        <EyeIcon className="size-3" />
+                        <span className="whitespace-nowrap">
+                          {item.channel.encounters || 0} seen
+                        </span>
+                      </span>
+                    </div>
                   </span>
                 </p>
               </div>
             </div>
 
             <div className="flex shrink-0 flex-col items-end justify-end gap-1">
-              <span className="flex items-center gap-1 text-[8px] font-semibold">
-                <UsersRound className="size-3" />
+              <span className="flex items-center gap-1 text-[8px] font-semibold outline outline-black">
                 <span className="whitespace-nowrap">
-                  {item.channel.numOfTips || 0} tips
+                  {/* {item.channel.numOfTips || 0} tips */}
+                  Created by:{" "}
+                  <div
+                    className="-ml-2 flex items-center border border-gray-400"
+                    onClick={() => setShowCommentDrawer(true)}
+                  >
+                    <ArrowRight className="size-4 cursor-pointer" />
+                  </div>
                 </span>
               </span>
 

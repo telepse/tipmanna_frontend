@@ -118,7 +118,7 @@ export default async function DiscoverCategoryPage({ params }: PageProps) {
           aria-label={`${opt.label} video links`}
           className="mx-auto max-w-6xl px-4 pb-8"
         >
-          <h2 className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+          <h2 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
             All {opt.label} videos
           </h2>
           <ul className="columns-1 gap-x-6 text-sm sm:columns-2 lg:columns-3">

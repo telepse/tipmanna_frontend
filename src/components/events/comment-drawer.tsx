@@ -398,13 +398,11 @@ export const CommentDrawer = ({
   const resolvedTitle = videoTitle?.trim() || channelMeta?.title?.trim() || "";
   const resolvedDescription =
     videoDescription?.trim() || channelMeta?.description?.trim() || "";
-  const resolvedViewCount =
-    engagementLive?.views ?? metrics?.viewCount ?? 0;
+  const resolvedViewCount = engagementLive?.views ?? metrics?.viewCount ?? 0;
   const resolvedEncounterCount =
     engagementLive?.encounters ?? metrics?.encounterCount ?? 0;
   const resolvedSaveCount = engagementLive?.saves ?? metrics?.saveCount ?? 0;
-  const resolvedShareCount =
-    engagementLive?.shares ?? metrics?.shareCount ?? 0;
+  const resolvedShareCount = engagementLive?.shares ?? metrics?.shareCount ?? 0;
   const showMetricsSkeleton = loading && !metrics;
   const commentCountLabel = showMetricsSkeleton
     ? "—"
@@ -558,8 +556,7 @@ export const CommentDrawer = ({
                 {showEncounterCount ? (
                   <>
                     <span>
-                      Encounters{" "}
-                      {resolvedEncounterCount.toLocaleString()}
+                      Encounters {resolvedEncounterCount.toLocaleString()}
                     </span>
                     {amountRaisedLabel ? <span>&middot;</span> : null}
                   </>

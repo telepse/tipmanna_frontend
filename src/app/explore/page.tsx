@@ -29,8 +29,11 @@ export async function generateMetadata({
   const res = await getCommunityAccessStateAction(joinId);
   const jp =
     res.success && res.data && typeof res.data === "object"
-      ? (res.data as { joinFormPublic?: { name?: string; description?: string | null } })
-          .joinFormPublic
+      ? (
+          res.data as {
+            joinFormPublic?: { name?: string; description?: string | null };
+          }
+        ).joinFormPublic
       : null;
   const name = jp?.name?.trim() || "Community";
   const description =
@@ -84,9 +87,7 @@ export default async function ExplorePage() {
   return (
     <>
       {ssrBootScript ? (
-        <script
-          dangerouslySetInnerHTML={{ __html: ssrBootScript }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: ssrBootScript }} />
       ) : null}
       <script
         type="application/ld+json"

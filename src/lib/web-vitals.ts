@@ -46,9 +46,9 @@ export function reportWebVitals(metric: VitalMetric): void {
 export function measureExploreBoot(): void {
   if (typeof performance === "undefined") return;
   try {
-    const nav = performance.getEntriesByType(
-      "navigation"
-    )[0] as PerformanceNavigationTiming | undefined;
+    const nav = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
     if (nav) {
       markExplorePerf("explore-home-interactive");
     }

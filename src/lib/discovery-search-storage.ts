@@ -17,7 +17,9 @@ export function readRecentDiscoverySearches(): string[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x): x is string => typeof x === "string").slice(0, MAX_RECENT);
+    return parsed
+      .filter((x): x is string => typeof x === "string")
+      .slice(0, MAX_RECENT);
   } catch {
     return [];
   }

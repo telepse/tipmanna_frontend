@@ -10,9 +10,15 @@ export async function onRequestError(
   context: { routerKind?: string }
 ) {
   if (process.env.NODE_ENV !== "production") {
-    console.error("[instrumentation]", request.method, request.path, err.message, {
-      digest: err.digest,
-      routerKind: context.routerKind,
-    });
+    console.error(
+      "[instrumentation]",
+      request.method,
+      request.path,
+      err.message,
+      {
+        digest: err.digest,
+        routerKind: context.routerKind,
+      }
+    );
   }
 }

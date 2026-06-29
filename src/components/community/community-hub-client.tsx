@@ -320,7 +320,10 @@ export default function CommunityHubClient() {
               owned: CommunityBrief[];
               coCreator: CommunityBrief[];
             };
-            if ((raw.owned?.length ?? 0) > 0 || (raw.coCreator?.length ?? 0) > 0) {
+            if (
+              (raw.owned?.length ?? 0) > 0 ||
+              (raw.coCreator?.length ?? 0) > 0
+            ) {
               setOwned(raw.owned ?? []);
               setCoCreated(raw.coCreator ?? []);
               return;
@@ -811,42 +814,42 @@ export default function CommunityHubClient() {
                         />
                       </div>
                     ) : null}
-                  <div className="min-w-0 space-y-1">
-                    <p className="truncate text-sm font-medium">{c.name}</p>
-                    {c.description ? (
-                      <p className="text-muted-foreground line-clamp-2 text-xs">
-                        {c.description}
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate text-sm font-medium">{c.name}</p>
+                      {c.description ? (
+                        <p className="text-muted-foreground line-clamp-2 text-xs">
+                          {c.description}
+                        </p>
+                      ) : null}
+                      <p className="text-muted-foreground text-[11px]">
+                        {typeof c.totalTips === "number"
+                          ? `£${c.totalTips} tips`
+                          : null}
+                        {typeof c.totalTips === "number" &&
+                        typeof c.memberCount === "number"
+                          ? " · "
+                          : null}
+                        {typeof c.memberCount === "number"
+                          ? `${c.memberCount} members`
+                          : null}
+                        {(typeof c.totalTips === "number" ||
+                          typeof c.memberCount === "number") &&
+                        c.createdAt
+                          ? " · "
+                          : null}
+                        {c.createdAt
+                          ? `Created ${formatCommunityDate(c.createdAt)}`
+                          : null}
                       </p>
-                    ) : null}
-                    <p className="text-muted-foreground text-[11px]">
-                      {typeof c.totalTips === "number"
-                        ? `£${c.totalTips} tips`
-                        : null}
-                      {typeof c.totalTips === "number" &&
-                      typeof c.memberCount === "number"
-                        ? " · "
-                        : null}
-                      {typeof c.memberCount === "number"
-                        ? `${c.memberCount} members`
-                        : null}
-                      {(typeof c.totalTips === "number" ||
-                        typeof c.memberCount === "number") &&
-                      c.createdAt
-                        ? " · "
-                        : null}
-                      {c.createdAt
-                        ? `Created ${formatCommunityDate(c.createdAt)}`
-                        : null}
-                    </p>
-                    {c.viewer?.joined ? (
-                      <p className="text-muted-foreground text-xs">
-                        You&apos;re a member
-                        {c.viewer.feedActive === false
-                          ? " · Explore feed paused"
-                          : ""}
-                      </p>
-                    ) : null}
-                  </div>
+                      {c.viewer?.joined ? (
+                        <p className="text-muted-foreground text-xs">
+                          You&apos;re a member
+                          {c.viewer.feedActive === false
+                            ? " · Explore feed paused"
+                            : ""}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     {c.viewer?.joined ? (
@@ -1263,20 +1266,20 @@ function MembershipRow({
             />
           </div>
         ) : null}
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{name}</p>
-        {!canToggle ? (
-          <p className="text-muted-foreground text-xs">
-            Membership inactive or expired — renew or rejoin to use Explore
-            feeds.
-          </p>
-        ) : null}
-        {defaultSystem ? (
-          <p className="text-muted-foreground text-[11px]">
-            Default system community — public Explore hub.
-          </p>
-        ) : null}
-      </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{name}</p>
+          {!canToggle ? (
+            <p className="text-muted-foreground text-xs">
+              Membership inactive or expired — renew or rejoin to use Explore
+              feeds.
+            </p>
+          ) : null}
+          {defaultSystem ? (
+            <p className="text-muted-foreground text-[11px]">
+              Default system community — public Explore hub.
+            </p>
+          ) : null}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">

@@ -141,11 +141,21 @@ export function mergeAspectWithThumbnailProbe(
     oembedLooksLikePlayerChrome &&
     (thumbClass === "portrait" || thumbClass === "square")
   ) {
-    return buildAspectInfo(oembed.videoId, thumb.width, thumb.height, "thumbnail");
+    return buildAspectInfo(
+      oembed.videoId,
+      thumb.width,
+      thumb.height,
+      "thumbnail"
+    );
   }
 
   if (oembed.classification === "landscape" && thumbClass === "portrait") {
-    return buildAspectInfo(oembed.videoId, thumb.width, thumb.height, "thumbnail");
+    return buildAspectInfo(
+      oembed.videoId,
+      thumb.width,
+      thumb.height,
+      "thumbnail"
+    );
   }
 
   return oembed;
@@ -255,13 +265,20 @@ export function applyPortraitPriorForVerticalShort(
   if (info.classification === "portrait" || info.classification === "square") {
     return info;
   }
-  if (!isLikelyYoutubeShort({ videoUrl, durationSeconds: hints?.durationSeconds })) {
+  if (
+    !isLikelyYoutubeShort({ videoUrl, durationSeconds: hints?.durationSeconds })
+  ) {
     return info;
   }
   if (!isInconclusiveYoutubeAspect(info)) {
     return info;
   }
-  return buildAspectInfo(info.videoId, SHORTS_PORTRAIT_W, SHORTS_PORTRAIT_H, "fallback");
+  return buildAspectInfo(
+    info.videoId,
+    SHORTS_PORTRAIT_W,
+    SHORTS_PORTRAIT_H,
+    "fallback"
+  );
 }
 
 function finalizeYoutubeAspectInfo(
@@ -324,7 +341,12 @@ export async function fetchYoutubeAspectInfo(
     if (Date.now() < failUntil) {
       const thumb = await probeYoutubeThumbnailDimensions(id);
       if (thumb) {
-        const fromThumb = buildAspectInfo(id, thumb.width, thumb.height, "thumbnail");
+        const fromThumb = buildAspectInfo(
+          id,
+          thumb.width,
+          thumb.height,
+          "thumbnail"
+        );
         return cacheAndFinalizeAspect(id, fromThumb, videoUrl, hints);
       }
       const fallback = buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");
@@ -342,7 +364,12 @@ export async function fetchYoutubeAspectInfo(
       aspectInfoFailureUntil.set(id, Date.now() + OEMBED_FAILURE_TTL_MS);
       const thumb = await probeYoutubeThumbnailDimensions(id);
       if (thumb) {
-        const fromThumb = buildAspectInfo(id, thumb.width, thumb.height, "thumbnail");
+        const fromThumb = buildAspectInfo(
+          id,
+          thumb.width,
+          thumb.height,
+          "thumbnail"
+        );
         return cacheAndFinalizeAspect(id, fromThumb, videoUrl, hints);
       }
       const fallback = buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");
@@ -358,7 +385,12 @@ export async function fetchYoutubeAspectInfo(
     aspectInfoFailureUntil.set(id, Date.now() + OEMBED_FAILURE_TTL_MS);
     const thumb = await probeYoutubeThumbnailDimensions(id);
     if (thumb) {
-      const fromThumb = buildAspectInfo(id, thumb.width, thumb.height, "thumbnail");
+      const fromThumb = buildAspectInfo(
+        id,
+        thumb.width,
+        thumb.height,
+        "thumbnail"
+      );
       return cacheAndFinalizeAspect(id, fromThumb, videoUrl, hints);
     }
     const fallback = buildAspectInfo(id, DEFAULT_W, DEFAULT_H, "fallback");

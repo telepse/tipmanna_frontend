@@ -626,7 +626,9 @@ function ExploreReelSlideTitle({
               setExploreCommentOpen(true);
             }}
           >
-            <ArrowRight className={exploreReelTitleCommentIconClassName(layoutMode)} />
+            <ArrowRight
+              className={exploreReelTitleCommentIconClassName(layoutMode)}
+            />
           </button>
         ) : null}
       </div>
@@ -968,9 +970,8 @@ export const ExploreFeedClient = forwardRef<
     user?.role,
   ]);
 
-  const [baseMetrics, setBaseMetrics] = useState<ExploreReelSlideMetrics | null>(
-    null
-  );
+  const [baseMetrics, setBaseMetrics] =
+    useState<ExploreReelSlideMetrics | null>(null);
   const [metricsRestrictedCommunity, setMetricsRestrictedCommunity] = useState<{
     id: string;
     name: string;
@@ -1430,7 +1431,10 @@ export const ExploreFeedClient = forwardRef<
     }
 
     void (async () => {
-      if (feedMode === "community" && (!(communityIds?.length ?? 0) || !hasExploreSession)) {
+      if (
+        feedMode === "community" &&
+        (!(communityIds?.length ?? 0) || !hasExploreSession)
+      ) {
         setItems([]);
         setInitialLoading(false);
         return;
@@ -1733,361 +1737,364 @@ export const ExploreFeedClient = forwardRef<
           }
 
           return (
-          <ExploreFeedSlideStage
-            key={item.id}
-            item={item}
-            isMobile={isMobile}
-          >
-            {({
-              layoutMode: slideLayoutMode,
-              presentationVideoSize: slidePresentationVideoSize,
-              fullPresentationFit: slideFullPresentationFit,
-              isMetadataLoading: slideMetadataLoading,
-              onPlayerAspectInfo,
-            }) => {
-              const slideTitlePlacement =
-                exploreReelTitlePlacement(slideLayoutMode);
-              const dockHeightCss = exploreReelDockHeightCss(
-                slideLayoutMode,
-                i === activeIndex && reelEngageUnlocked
-              );
+            <ExploreFeedSlideStage
+              key={item.id}
+              item={item}
+              isMobile={isMobile}
+            >
+              {({
+                layoutMode: slideLayoutMode,
+                presentationVideoSize: slidePresentationVideoSize,
+                fullPresentationFit: slideFullPresentationFit,
+                isMetadataLoading: slideMetadataLoading,
+                onPlayerAspectInfo,
+              }) => {
+                const slideTitlePlacement =
+                  exploreReelTitlePlacement(slideLayoutMode);
+                const dockHeightCss = exploreReelDockHeightCss(
+                  slideLayoutMode,
+                  i === activeIndex && reelEngageUnlocked
+                );
 
-              return (
-                <div
-                  data-explore-slide
-                  data-index={i}
-                  data-explore-layout-mode={slideLayoutMode}
-                  className="relative flex h-full min-h-0 w-full max-w-[100vw] min-w-0 shrink-0 snap-start snap-always flex-col bg-black"
-                  style={
-                    {
-                      "--explore-reel-dock-h": dockHeightCss,
-                    } as CSSProperties
-                  }
-                >
-                  {isInExplorePreloadWindow(i, activeIndex, items.length) ? (
-                    <div
-                      className={cn(
-                        exploreReelStageClassName(slideLayoutMode),
-                        "min-h-0 flex-1"
-                      )}
-                    >
+                return (
+                  <div
+                    data-explore-slide
+                    data-index={i}
+                    data-explore-layout-mode={slideLayoutMode}
+                    className="relative flex h-full min-h-0 w-full max-w-[100vw] min-w-0 shrink-0 snap-start snap-always flex-col bg-black"
+                    style={
+                      {
+                        "--explore-reel-dock-h": dockHeightCss,
+                      } as CSSProperties
+                    }
+                  >
+                    {isInExplorePreloadWindow(i, activeIndex, items.length) ? (
                       <div
-                        className={exploreReelVideoBandClassName(
-                          slideLayoutMode
+                        className={cn(
+                          exploreReelStageClassName(slideLayoutMode),
+                          "min-h-0 flex-1"
                         )}
                       >
-                        <ExploreFeedSlideVideo
-                          item={item}
-                          slideIndex={i}
-                          activeIndex={activeIndex}
-                          activeIndexRef={activeIndexRef}
-                          totalItems={items.length}
-                          feedSurfaceActive={feedSurfaceActive}
-                          layoutMode={slideLayoutMode}
-                          presentationVideoSize={slidePresentationVideoSize}
-                          fullPresentationFit={slideFullPresentationFit}
-                          isMetadataLoading={slideMetadataLoading}
-                          onPlayerAspectInfo={onPlayerAspectInfo}
-                          videoRef={videoRef}
-                          onActivePlaying={handleExploreClipPlaying}
-                          onActiveReelEnded={advanceReelAfterEnd}
-                          onActiveReelMuteChange={setReelMuted}
-                          onPlayerError={handleExplorePlayerError}
-                          playerRetryKey={playerRetryKey}
-                          onEngageUnlocked={
-                            i === activeIndex
-                              ? () => setReelEngageUnlocked(true)
-                              : undefined
-                          }
-                        />
+                        <div
+                          className={exploreReelVideoBandClassName(
+                            slideLayoutMode
+                          )}
+                        >
+                          <ExploreFeedSlideVideo
+                            item={item}
+                            slideIndex={i}
+                            activeIndex={activeIndex}
+                            activeIndexRef={activeIndexRef}
+                            totalItems={items.length}
+                            feedSurfaceActive={feedSurfaceActive}
+                            layoutMode={slideLayoutMode}
+                            presentationVideoSize={slidePresentationVideoSize}
+                            fullPresentationFit={slideFullPresentationFit}
+                            isMetadataLoading={slideMetadataLoading}
+                            onPlayerAspectInfo={onPlayerAspectInfo}
+                            videoRef={videoRef}
+                            onActivePlaying={handleExploreClipPlaying}
+                            onActiveReelEnded={advanceReelAfterEnd}
+                            onActiveReelMuteChange={setReelMuted}
+                            onPlayerError={handleExplorePlayerError}
+                            playerRetryKey={playerRetryKey}
+                            onEngageUnlocked={
+                              i === activeIndex
+                                ? () => setReelEngageUnlocked(true)
+                                : undefined
+                            }
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
-                      <span className="inline-flex items-center gap-1">
-                        {item?.title.substring(0, 15)}
-                        {item?.title.length > 15 ? ".." : ""}
-                        {item?.title.length > 15 ? (
-                          <button
+                    ) : (
+                      <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
+                        <span className="inline-flex items-center gap-1">
+                          {item?.title.substring(0, 15)}
+                          {item?.title.length > 15 ? ".." : ""}
+                          {item?.title.length > 15 ? (
+                            <button
+                              type="button"
+                              aria-label="Open comments"
+                              className="pointer-events-auto -ml-2 inline-flex items-center rounded p-1"
+                              onPointerDown={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setExploreCommentOpen(true);
+                              }}
+                            >
+                              <ArrowRight className="size-4" />
+                            </button>
+                          ) : null}
+                        </span>
+                      </div>
+                    )}
+
+                    {i === activeIndex ? (
+                      <>
+                        {activeChannelId != null &&
+                        process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !==
+                          "false" ? (
+                          <div
+                            className={exploreReelFeatureCardBannerClassName(
+                              slideLayoutMode
+                            )}
+                          >
+                            <VideoFeatureCardBanner
+                              surfaceChannelId={String(activeChannelId)}
+                              hostSurfaceChannelId={String(activeChannelId)}
+                              compact
+                              onTipFeatured={id => {
+                                setActiveVideoFeatureCardId(id);
+                                setIsTipDrawerOpen(true);
+                              }}
+                            />
+                          </div>
+                        ) : null}
+                        {slideTitlePlacement === "onVideo" ? (
+                          <ExploreReelSlideTitle
+                            item={item}
+                            layoutMode={slideLayoutMode}
+                            reelMuted={reelMuted}
+                            setReelMuted={setReelMuted}
+                            videoRef={videoRef}
+                            setExploreCommentOpen={setExploreCommentOpen}
+                            active={active}
+                            metrics={metrics}
+                            metricsRestrictedCommunity={
+                              metricsRestrictedCommunity
+                            }
+                            className={exploreReelTitleOnVideoClassName(
+                              slideLayoutMode
+                            )}
+                          />
+                        ) : null}
+                        {slideTitlePlacement === "aboveDock" ? (
+                          <ExploreReelSlideTitle
+                            item={item}
+                            layoutMode={slideLayoutMode}
+                            reelMuted={reelMuted}
+                            setReelMuted={setReelMuted}
+                            videoRef={videoRef}
+                            setExploreCommentOpen={setExploreCommentOpen}
+                            active={active}
+                            metrics={metrics}
+                            metricsRestrictedCommunity={
+                              metricsRestrictedCommunity
+                            }
+                            className={exploreReelTitleAboveDockClassName(
+                              slideLayoutMode
+                            )}
+                          />
+                        ) : null}
+                        {activeEventId ? (
+                          <ImmersiveChannelActionsRail
+                            eventId={activeEventId}
+                            channelId={
+                              activeChannelId != null
+                                ? String(activeChannelId)
+                                : null
+                            }
+                            videoTitle={
+                              typeof active?.title === "string"
+                                ? active.title
+                                : ""
+                            }
+                            videoDescription={
+                              typeof (
+                                active as { description?: string } | undefined
+                              )?.description === "string"
+                                ? String(
+                                    (active as { description: string })
+                                      .description
+                                  )
+                                : ""
+                            }
+                            numOfTips={liveNumOfTips}
+                            characters={characters as RoomCharacter[]}
+                            onContinueToTip={() => setIsTipDrawerOpen(true)}
+                            hostName={active?.event?.hostName ?? null}
+                            isSaved={isExploreChannelSaved}
+                            saveBusy={saveBusy}
+                            onSaveClick={() => void handleExploreSaveToggle()}
+                            commentOpen={exploreCommentOpen}
+                            onCommentOpenChange={setExploreCommentOpen}
+                            metricsRefreshKey={exploreCommentMetricsRefreshKey}
+                            onShareOpen={() =>
+                              setExploreCommentMetricsRefreshKey(k => k + 1)
+                            }
+                            hideTipsChip={
+                              typeof active?.event?.amountToRaise ===
+                                "number" &&
+                              active.event.amountToRaise > 0 &&
+                              !isTipDrawerOpen
+                            }
+                            hideHostAndAudio
+                            className={exploreReelActionsRailClassName(
+                              slideLayoutMode
+                            )}
+                            iconButtonClassName={exploreReelRailIconButtonClassName(
+                              slideLayoutMode
+                            )}
+                            iconClassName={exploreReelRailIconClassName(
+                              slideLayoutMode
+                            )}
+                            stackClassName={exploreReelRailStackGapClassName(
+                              slideLayoutMode
+                            )}
+                            tipsChipClassName={exploreReelRailTipsChipClassName(
+                              slideLayoutMode
+                            )}
+                            shareUrl={buildContentShareUrl({
+                              eventId: activeEventId,
+                              channelId:
+                                activeChannelId != null
+                                  ? String(activeChannelId)
+                                  : undefined,
+                            })}
+                            shareTitle={
+                              typeof active?.title === "string" &&
+                              active.title.trim()
+                                ? active.title
+                                : typeof active?.event?.eventName === "string"
+                                  ? active.event.eventName
+                                  : "Watch on Tipmanna"
+                            }
+                            videoTipCount={
+                              typeof active?.numOfTips === "number"
+                                ? active.numOfTips
+                                : undefined
+                            }
+                            eventRoomTipCount={liveNumOfTips}
+                          />
+                        ) : null}
+                        {typeof active?.event?.amountToRaise === "number" &&
+                        active.event.amountToRaise > 0 &&
+                        !isTipDrawerOpen ? (
+                          <div
+                            className={exploreReelTipsProgressWrapperClassName(
+                              slideLayoutMode
+                            )}
+                          >
+                            <button
+                              type="button"
+                              title="View tips"
+                              className={exploreReelTipsChipClassName(
+                                slideLayoutMode
+                              )}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setTipsListOpen(true);
+                              }}
+                            >
+                              {liveNumOfTips} tips
+                            </button>
+                            <ChannelProgressBar
+                              eventId={activeEventId}
+                              amountToRaise={active.event.amountToRaise}
+                              amountRaised={Number(liveAmountRaised)}
+                            />
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {i === activeIndex && !isTipDrawerOpen ? (
+                      <div
+                        data-testid="explore-slide-actions"
+                        className={exploreReelDockClassName(slideLayoutMode)}
+                      >
+                        {reelEngageUnlocked ? (
+                          <div
+                            className={exploreReelDockScrubberClassName(
+                              slideLayoutMode
+                            )}
+                          >
+                            <ExploreReelScrubber
+                              videoRef={videoRef}
+                              layoutMode={slideLayoutMode}
+                              active={
+                                Boolean(feedSurfaceActive) &&
+                                Boolean(activeEventId)
+                              }
+                            />
+                          </div>
+                        ) : null}
+                        <div
+                          className={exploreReelDockActionsClassName(
+                            slideLayoutMode
+                          )}
+                        >
+                          <Button
                             type="button"
-                            aria-label="Open comments"
-                            className="pointer-events-auto -ml-2 inline-flex items-center rounded p-1"
-                            onPointerDown={e => {
+                            variant="secondary"
+                            className={exploreReelDockIconButtonClassName(
+                              slideLayoutMode
+                            )}
+                            aria-label="Create video"
+                            title="Create"
+                            onClick={e => {
                               e.preventDefault();
                               e.stopPropagation();
+                              setCreateDialogOpen(true);
                             }}
+                          >
+                            <Plus
+                              className={exploreReelDockActionIconClassName(
+                                slideLayoutMode
+                              )}
+                            />
+                          </Button>
+                          <div className="flex items-center">
+                            <Button
+                              type="button"
+                              className={exploreReelDockPrimaryButtonClassName(
+                                slideLayoutMode
+                              )}
+                              onClick={() => router.push("/tv")}
+                            >
+                              Watch TV
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="default"
+                              className={exploreReelDockSecondaryButtonClassName(
+                                slideLayoutMode
+                              )}
+                              onClick={() => setIsTipDrawerOpen(true)}
+                            >
+                              Engage
+                            </Button>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className={exploreReelDockIconButtonClassName(
+                              slideLayoutMode
+                            )}
+                            aria-label="Comments"
+                            title="Comments"
                             onClick={e => {
+                              e.preventDefault();
                               e.stopPropagation();
                               setExploreCommentOpen(true);
                             }}
                           >
-                            <ArrowRight className="size-4" />
-                          </button>
-                        ) : null}
-                      </span>
-                    </div>
-                  )}
-
-                  {i === activeIndex ? (
-                    <>
-                      {activeChannelId != null &&
-                      process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !==
-                        "false" ? (
-                        <div
-                          className={exploreReelFeatureCardBannerClassName(
-                            slideLayoutMode
-                          )}
-                        >
-                          <VideoFeatureCardBanner
-                            surfaceChannelId={String(activeChannelId)}
-                            hostSurfaceChannelId={String(activeChannelId)}
-                            compact
-                            onTipFeatured={id => {
-                              setActiveVideoFeatureCardId(id);
-                              setIsTipDrawerOpen(true);
-                            }}
-                          />
-                        </div>
-                      ) : null}
-                      {slideTitlePlacement === "onVideo" ? (
-                        <ExploreReelSlideTitle
-                          item={item}
-                          layoutMode={slideLayoutMode}
-                          reelMuted={reelMuted}
-                          setReelMuted={setReelMuted}
-                          videoRef={videoRef}
-                          setExploreCommentOpen={setExploreCommentOpen}
-                          active={active}
-                          metrics={metrics}
-                          metricsRestrictedCommunity={
-                            metricsRestrictedCommunity
-                          }
-                          className={exploreReelTitleOnVideoClassName(
-                            slideLayoutMode
-                          )}
-                        />
-                      ) : null}
-                      {slideTitlePlacement === "aboveDock" ? (
-                        <ExploreReelSlideTitle
-                          item={item}
-                          layoutMode={slideLayoutMode}
-                          reelMuted={reelMuted}
-                          setReelMuted={setReelMuted}
-                          videoRef={videoRef}
-                          setExploreCommentOpen={setExploreCommentOpen}
-                          active={active}
-                          metrics={metrics}
-                          metricsRestrictedCommunity={
-                            metricsRestrictedCommunity
-                          }
-                          className={exploreReelTitleAboveDockClassName(
-                            slideLayoutMode
-                          )}
-                        />
-                      ) : null}
-                      {activeEventId ? (
-                        <ImmersiveChannelActionsRail
-                          eventId={activeEventId}
-                          channelId={
-                            activeChannelId != null
-                              ? String(activeChannelId)
-                              : null
-                          }
-                          videoTitle={
-                            typeof active?.title === "string"
-                              ? active.title
-                              : ""
-                          }
-                          videoDescription={
-                            typeof (
-                              active as { description?: string } | undefined
-                            )?.description === "string"
-                              ? String(
-                                  (active as { description: string })
-                                    .description
-                                )
-                              : ""
-                          }
-                          numOfTips={liveNumOfTips}
-                          characters={characters as RoomCharacter[]}
-                          onContinueToTip={() => setIsTipDrawerOpen(true)}
-                          hostName={active?.event?.hostName ?? null}
-                          isSaved={isExploreChannelSaved}
-                          saveBusy={saveBusy}
-                          onSaveClick={() => void handleExploreSaveToggle()}
-                          commentOpen={exploreCommentOpen}
-                          onCommentOpenChange={setExploreCommentOpen}
-                          metricsRefreshKey={exploreCommentMetricsRefreshKey}
-                          onShareOpen={() =>
-                            setExploreCommentMetricsRefreshKey(k => k + 1)
-                          }
-                          hideTipsChip={
-                            typeof active?.event?.amountToRaise === "number" &&
-                            active.event.amountToRaise > 0 &&
-                            !isTipDrawerOpen
-                          }
-                          hideHostAndAudio
-                          className={exploreReelActionsRailClassName(
-                            slideLayoutMode
-                          )}
-                          iconButtonClassName={exploreReelRailIconButtonClassName(
-                            slideLayoutMode
-                          )}
-                          iconClassName={exploreReelRailIconClassName(
-                            slideLayoutMode
-                          )}
-                          stackClassName={exploreReelRailStackGapClassName(
-                            slideLayoutMode
-                          )}
-                          tipsChipClassName={exploreReelRailTipsChipClassName(
-                            slideLayoutMode
-                          )}
-                          shareUrl={buildContentShareUrl({
-                            eventId: activeEventId,
-                            channelId:
-                              activeChannelId != null
-                                ? String(activeChannelId)
-                                : undefined,
-                          })}
-                          shareTitle={
-                            typeof active?.title === "string" &&
-                            active.title.trim()
-                              ? active.title
-                              : typeof active?.event?.eventName === "string"
-                                ? active.event.eventName
-                                : "Watch on Tipmanna"
-                          }
-                          videoTipCount={
-                            typeof active?.numOfTips === "number"
-                              ? active.numOfTips
-                              : undefined
-                          }
-                          eventRoomTipCount={liveNumOfTips}
-                        />
-                      ) : null}
-                      {typeof active?.event?.amountToRaise === "number" &&
-                      active.event.amountToRaise > 0 &&
-                      !isTipDrawerOpen ? (
-                        <div
-                          className={exploreReelTipsProgressWrapperClassName(
-                            slideLayoutMode
-                          )}
-                        >
-                          <button
-                            type="button"
-                            title="View tips"
-                            className={exploreReelTipsChipClassName(slideLayoutMode)}
-                            onClick={e => {
-                              e.stopPropagation();
-                              setTipsListOpen(true);
-                            }}
-                          >
-                            {liveNumOfTips} tips
-                          </button>
-                          <ChannelProgressBar
-                            eventId={activeEventId}
-                            amountToRaise={active.event.amountToRaise}
-                            amountRaised={Number(liveAmountRaised)}
-                          />
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-
-                  {i === activeIndex && !isTipDrawerOpen ? (
-                    <div
-                      data-testid="explore-slide-actions"
-                      className={exploreReelDockClassName(slideLayoutMode)}
-                    >
-                      {reelEngageUnlocked ? (
-                        <div
-                          className={exploreReelDockScrubberClassName(
-                            slideLayoutMode
-                          )}
-                        >
-                          <ExploreReelScrubber
-                            videoRef={videoRef}
-                            layoutMode={slideLayoutMode}
-                            active={
-                              Boolean(feedSurfaceActive) &&
-                              Boolean(activeEventId)
-                            }
-                          />
-                        </div>
-                      ) : null}
-                      <div
-                        className={exploreReelDockActionsClassName(
-                          slideLayoutMode
-                        )}
-                      >
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className={exploreReelDockIconButtonClassName(
-                            slideLayoutMode
-                          )}
-                          aria-label="Create video"
-                          title="Create"
-                          onClick={e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setCreateDialogOpen(true);
-                          }}
-                        >
-                          <Plus
-                            className={exploreReelDockActionIconClassName(
-                              slideLayoutMode
-                            )}
-                          />
-                        </Button>
-                        <div className="flex items-center">
-                          <Button
-                            type="button"
-                            className={exploreReelDockPrimaryButtonClassName(
-                              slideLayoutMode
-                            )}
-                            onClick={() => router.push("/tv")}
-                          >
-                            Watch TV
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="default"
-                            className={exploreReelDockSecondaryButtonClassName(
-                              slideLayoutMode
-                            )}
-                            onClick={() => setIsTipDrawerOpen(true)}
-                          >
-                            Engage
+                            <MessageCircle
+                              className={exploreReelDockActionIconClassName(
+                                slideLayoutMode
+                              )}
+                            />
                           </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className={exploreReelDockIconButtonClassName(
-                            slideLayoutMode
-                          )}
-                          aria-label="Comments"
-                          title="Comments"
-                          onClick={e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setExploreCommentOpen(true);
-                          }}
-                        >
-                          <MessageCircle
-                            className={exploreReelDockActionIconClassName(
-                              slideLayoutMode
-                            )}
-                          />
-                        </Button>
                       </div>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            }}
-          </ExploreFeedSlideStage>
+                    ) : null}
+                  </div>
+                );
+              }}
+            </ExploreFeedSlideStage>
           );
         })}
       </div>

@@ -137,7 +137,9 @@ async function fetchCommunitySnapshot(
 }
 
 /** Seed from SSR inline script or server prop. */
-export function seedExploreFeedBootFromSsr(payload: ExploreSsrBootPayload): void {
+export function seedExploreFeedBootFromSsr(
+  payload: ExploreSsrBootPayload
+): void {
   if (typeof window === "undefined") return;
   if (!payload.items?.length) return;
   window.__EXPLORE_SSR_BOOT__ = payload;

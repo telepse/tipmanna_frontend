@@ -122,7 +122,9 @@ async function fetchWithRetry(
       return actionOk(data);
     } catch (e) {
       const msg =
-        e instanceof Error ? e.message : "Network error — check your connection";
+        e instanceof Error
+          ? e.message
+          : "Network error — check your connection";
       lastResult = actionFail(msg, context);
       if (attempt < maxAttempts - 1) {
         await sleep(400 * 2 ** attempt);
@@ -149,9 +151,12 @@ export async function runServerFetch<T = unknown>(
     return existing as Promise<ActionResult<T>>;
   }
 
-  const promise = fetchWithRetry(url, init, context, mapSuccess as
-    | ((raw: unknown) => unknown)
-    | undefined).finally(() => {
+  const promise = fetchWithRetry(
+    url,
+    init,
+    context,
+    mapSuccess as ((raw: unknown) => unknown) | undefined
+  ).finally(() => {
     inflightRequests.delete(key);
   });
 

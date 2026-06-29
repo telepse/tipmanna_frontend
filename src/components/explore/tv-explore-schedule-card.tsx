@@ -61,10 +61,7 @@ export function TvExploreScheduleCard({
   const airMs =
     broadcastEpoch != null
       ? broadcastEpoch +
-        (typeof item.axisStartSec === "number"
-          ? item.axisStartSec
-          : 0) *
-          1000
+        (typeof item.axisStartSec === "number" ? item.axisStartSec : 0) * 1000
       : null;
 
   useEffect(() => {
@@ -130,7 +127,9 @@ export function TvExploreScheduleCard({
         ) : null}
       </div>
       <div className="space-y-2 p-3">
-        <p className="line-clamp-2 text-sm leading-snug font-semibold">{title}</p>
+        <p className="line-clamp-2 text-sm leading-snug font-semibold">
+          {title}
+        </p>
         <p className="text-muted-foreground text-xs">
           {ch?.hostName ?? ch?.username ?? "Host"} · {ch?.numOfTips ?? 0} tips
           {metrics

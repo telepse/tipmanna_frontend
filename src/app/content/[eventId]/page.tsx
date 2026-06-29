@@ -207,19 +207,20 @@ export default async function ContentPage({ params, searchParams }: Props) {
         />
       ) : null}
       <div className="flex h-screen flex-col items-center justify-center">
-      <ContentClient
-        contents={playable.length ? playable : list}
-        characters={tippingCharacters as any[]}
-        characterSets={characterSets as any[]}
-        eventId={eventId}
-        initialChannelId={initialChannelId}
-        initialProgramPlaylist={
-          Array.isArray(initialProgramPlaylist) && initialProgramPlaylist.length
-            ? (initialProgramPlaylist as any[])
-            : null
-        }
-      />
-    </div>
+        <ContentClient
+          contents={playable.length ? playable : list}
+          characters={tippingCharacters as any[]}
+          characterSets={characterSets as any[]}
+          eventId={eventId}
+          initialChannelId={initialChannelId}
+          initialProgramPlaylist={
+            Array.isArray(initialProgramPlaylist) &&
+            initialProgramPlaylist.length
+              ? (initialProgramPlaylist as any[])
+              : null
+          }
+        />
+      </div>
     </>
   );
 }

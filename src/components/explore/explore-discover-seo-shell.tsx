@@ -149,9 +149,8 @@ export async function ExploreDiscoverSeoShell() {
                 const href = liveStreamHref(row);
                 return href ? { href, title: row.title, id: row.id } : null;
               })
-              .filter(
-                (x): x is { href: string; title: string; id: string } =>
-                  Boolean(x)
+              .filter((x): x is { href: string; title: string; id: string } =>
+                Boolean(x)
               )
               .slice(0, 12)
               .map(link => (

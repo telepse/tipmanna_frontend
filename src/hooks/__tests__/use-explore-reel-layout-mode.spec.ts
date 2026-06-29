@@ -4,7 +4,10 @@ import {
   applyExploreReelPlayerAspectUpdate,
   derivePresentationVideoSizeFromAspect,
 } from "../use-explore-reel-layout-mode";
-import { buildAspectInfo, mergeYoutubeAspectSources } from "@/lib/youtube-immersive-meta";
+import {
+  buildAspectInfo,
+  mergeYoutubeAspectSources,
+} from "@/lib/youtube-immersive-meta";
 
 describe("derivePresentationVideoSizeFromAspect", () => {
   it("returns null for missing or invalid aspect", () => {
@@ -71,8 +74,6 @@ describe("applyExploreReelPlayerAspectUpdate", () => {
     expect(result.presentationVideoSize).toEqual(
       derivePresentationVideoSizeFromAspect(result.mergedAspect)
     );
-    expect(result.presentationVideoSize?.width).toBeGreaterThan(
-      oembed.width
-    );
+    expect(result.presentationVideoSize?.width).toBeGreaterThan(oembed.width);
   });
 });

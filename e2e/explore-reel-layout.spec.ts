@@ -75,7 +75,9 @@ test("mobile landscape fixture places title above dock, not below it", async ({
   const title = page.getByTestId("explore-reel-title-above-dock");
   const actions = page.getByTestId("explore-slide-actions");
   await expect(title).toBeVisible();
-  await expect(page.getByTestId("explore-reel-title-on-video")).not.toBeVisible();
+  await expect(
+    page.getByTestId("explore-reel-title-on-video")
+  ).not.toBeVisible();
 
   const titleBox = await title.boundingBox();
   const actionsBox = await actions.boundingBox();
@@ -96,7 +98,9 @@ test("desktop portrait fixture uses on-video title and wider column", async ({
   await expect(
     page.getByTestId("explore-reel-title-above-dock")
   ).not.toBeVisible();
-  await expect(page.locator('[class*="max-w-[min(480px,100%)]"]').first()).toBeVisible();
+  await expect(
+    page.locator('[class*="max-w-[min(480px,100%)]"]').first()
+  ).toBeVisible();
 
   const dock = page.getByTestId("explore-slide-actions");
   await expect(dock).toHaveClass(/px-5/);

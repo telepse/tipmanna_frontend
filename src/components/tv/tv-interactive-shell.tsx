@@ -611,52 +611,57 @@ export function TvInteractiveShell({
 
                 {!showMobileLandscapeLayout && !isMobileFullView ? (
                   <>
-                    <div className="hide__scrollbar flex w-full shrink-0 items-center gap-2 overflow-x-auto px-2">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("playlist")}
-                        className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
-                          activeTab === "playlist"
-                            ? "bg-black text-white"
-                            : "border border-black bg-white text-black"
-                        }`}
-                      >
-                        TV Playlist <ChevronDown className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="tv-nav-tips"
-                        onClick={() => setActiveTab("tips")}
-                        className={`flex shrink-0 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap outline ${
-                          activeTab === "tips"
-                            ? "bg-black text-white"
-                            : "bg-white text-black outline-black"
-                        }`}
-                      >
-                        <div
-                          className={`${initialTipCount > 999 ? "tip-feed-marquee" : ""}`}
+                    <div className="hide__scrollbar flex w-full shrink-0 items-center justify-between gap-2 overflow-x-auto px-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("playlist")}
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
+                            activeTab === "playlist"
+                              ? "bg-black text-white"
+                              : "border border-black bg-white text-black"
+                          }`}
+                        >
+                          TV Playlist <ChevronDown className="size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="tv-nav-tips"
+                          onClick={() => setActiveTab("tips")}
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap outline ${
+                            activeTab === "tips"
+                              ? "bg-black text-white"
+                              : "bg-white text-black outline-black"
+                          }`}
                         >
                           <div
-                            className={`${initialTipCount > 999 ? "tip-feed-marquee-track" : ""}`}
+                            className={`${initialTipCount > 999 ? "tip-feed-marquee" : ""}`}
                           >
-                            {initialTipCount} Tips
-                          </div>
-                        </div>{" "}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={goLive}
-                        className={`shrink-0 text-xs whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
-                      >
-                        Live TV
-                      </button>
-                      <button
-                        type="button"
-                        onClick={switchToLocal}
-                        className={`shrink-0 text-xs whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
-                      >
-                        Your TV
-                      </button>
+                            <div
+                              className={`${initialTipCount > 999 ? "tip-feed-marquee-track" : ""}`}
+                            >
+                              {initialTipCount} Tips
+                            </div>
+                          </div>{" "}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={goLive}
+                          className={`shrink-0 text-xs whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
+                        >
+                          Live TV
+                        </button>
+                        <button
+                          type="button"
+                          onClick={switchToLocal}
+                          className={`shrink-0 text-xs whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
+                        >
+                          Your TV
+                        </button>
+                      </div>
                     </div>
 
                     {activeTab === "playlist" && (

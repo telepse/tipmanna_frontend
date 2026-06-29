@@ -86,7 +86,10 @@ export function prefetchExploreTvSchedule(opts?: {
   country?: string;
 }): void {
   if (typeof window === "undefined") return;
-  const filterKey = buildFilterKey({ ...opts, tvSource: opts?.tvSource ?? "tipmanna" });
+  const filterKey = buildFilterKey({
+    ...opts,
+    tvSource: opts?.tvSource ?? "tipmanna",
+  });
   if (ready?.filterKey === filterKey) return;
   if (inflight) return;
   inflight = (async () => {
@@ -100,7 +103,9 @@ export function prefetchExploreTvSchedule(opts?: {
   })();
 }
 
-export function takeExploreTvPrefetch(filterKey: string): ExploreTvPrefetchSnapshot | null {
+export function takeExploreTvPrefetch(
+  filterKey: string
+): ExploreTvPrefetchSnapshot | null {
   if (ready?.filterKey === filterKey) {
     const s = ready;
     ready = null;

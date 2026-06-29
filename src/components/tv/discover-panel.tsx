@@ -68,7 +68,12 @@ function RailCoverImage({
   aspectClassName: string;
 }) {
   return (
-    <div className={cn("relative w-full overflow-hidden rounded-md", aspectClassName)}>
+    <div
+      className={cn(
+        "relative w-full overflow-hidden rounded-md",
+        aspectClassName
+      )}
+    >
       <Image
         src={src}
         alt={alt}
@@ -245,9 +250,7 @@ export function DiscoverPanel({
           pushRecentDiscoverySearch(q);
           setRecentSearches(readRecentDiscoverySearches());
         }
-        setDiscoveryResults(
-          res.success && res.data ? res.data : null
-        );
+        setDiscoveryResults(res.success && res.data ? res.data : null);
         setSearchLoading(false);
       });
     }, 350);
@@ -262,8 +265,7 @@ export function DiscoverPanel({
     }
     setTagLoading(true);
     void discoverySearchAction("", 30, selectedTag).then(res => {
-      const videos =
-        res.success && res.data?.videos ? res.data.videos : [];
+      const videos = res.success && res.data?.videos ? res.data.videos : [];
       setTagResults(
         videos.map(v => ({
           id: v.id,
@@ -699,178 +701,186 @@ export function DiscoverPanel({
                   let searchIdx = 0;
                   return (
                     <>
-                {discoveryResults!.videos.length > 0 ? (
-                  <div className="space-y-2">
-                    <h6 className="text-sm font-medium">Videos</h6>
-                    <VirtualRail
-                      items={discoveryResults!.videos}
-                      getItemKey={video => video.id}
-                      itemMinClassName={CONTENT_CARD_MIN}
-                      renderItem={video => {
-                        const idx = searchIdx++;
-                        const content: Content = {
-                          id: video.id,
-                          title: video.title,
-                          url: video.url,
-                          event: { id: video.eventId },
-                        };
-                        return (
-                          <div
-                            data-search-index={idx}
-                            className={cn(
-                              idx === activeSearchIndex &&
-                                "ring-primary rounded-md ring-2"
-                            )}
-                          >
-                            {renderContentCard(content)}
-                          </div>
-                        );
-                      }}
-                    />
-                  </div>
-                ) : null}
+                      {discoveryResults!.videos.length > 0 ? (
+                        <div className="space-y-2">
+                          <h6 className="text-sm font-medium">Videos</h6>
+                          <VirtualRail
+                            items={discoveryResults!.videos}
+                            getItemKey={video => video.id}
+                            itemMinClassName={CONTENT_CARD_MIN}
+                            renderItem={video => {
+                              const idx = searchIdx++;
+                              const content: Content = {
+                                id: video.id,
+                                title: video.title,
+                                url: video.url,
+                                event: { id: video.eventId },
+                              };
+                              return (
+                                <div
+                                  data-search-index={idx}
+                                  className={cn(
+                                    idx === activeSearchIndex &&
+                                      "ring-primary rounded-md ring-2"
+                                  )}
+                                >
+                                  {renderContentCard(content)}
+                                </div>
+                              );
+                            }}
+                          />
+                        </div>
+                      ) : null}
 
-                {discoveryResults!.programs.length > 0 ? (
-                  <div className="space-y-2">
-                    <h6 className="text-sm font-medium">Programs</h6>
-                    <VirtualRail
-                      items={discoveryResults!.programs}
-                      getItemKey={program => program.id}
-                      itemMinClassName={PROGRAM_CARD_MIN}
-                      renderItem={program => {
-                        const idx = searchIdx++;
-                        return (
-                        <Link
-                          href={program.landingUrl ?? `/program/${program.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-search-index={idx}
-                          className={cn(
-                            "rounded-md border bg-black/10 p-2",
-                            PROGRAM_CARD_MIN,
-                            idx === activeSearchIndex &&
-                              "ring-primary ring-2"
-                          )}
-                        >
-                          {program.imageUrl ? (
-                            <RailCoverImage
-                              src={program.imageUrl}
-                              alt={program.title}
-                              aspectClassName="aspect-video"
-                            />
-                          ) : (
-                            <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
-                              <Tv className="size-8 text-neutral-500" />
-                            </div>
-                          )}
-                          <p className="mt-2 text-sm font-medium">
-                            {program.title}
-                          </p>
-                        </Link>
-                      );
-                      }}
-                    />
-                  </div>
-                ) : null}
+                      {discoveryResults!.programs.length > 0 ? (
+                        <div className="space-y-2">
+                          <h6 className="text-sm font-medium">Programs</h6>
+                          <VirtualRail
+                            items={discoveryResults!.programs}
+                            getItemKey={program => program.id}
+                            itemMinClassName={PROGRAM_CARD_MIN}
+                            renderItem={program => {
+                              const idx = searchIdx++;
+                              return (
+                                <Link
+                                  href={
+                                    program.landingUrl ??
+                                    `/program/${program.id}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  data-search-index={idx}
+                                  className={cn(
+                                    "rounded-md border bg-black/10 p-2",
+                                    PROGRAM_CARD_MIN,
+                                    idx === activeSearchIndex &&
+                                      "ring-primary ring-2"
+                                  )}
+                                >
+                                  {program.imageUrl ? (
+                                    <RailCoverImage
+                                      src={program.imageUrl}
+                                      alt={program.title}
+                                      aspectClassName="aspect-video"
+                                    />
+                                  ) : (
+                                    <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                                      <Tv className="size-8 text-neutral-500" />
+                                    </div>
+                                  )}
+                                  <p className="mt-2 text-sm font-medium">
+                                    {program.title}
+                                  </p>
+                                </Link>
+                              );
+                            }}
+                          />
+                        </div>
+                      ) : null}
 
-                {discoveryResults!.livestreams.length > 0 ? (
-                  <div className="space-y-2">
-                    <h6 className="text-sm font-medium">Live streams</h6>
-                    <VirtualRail
-                      items={discoveryResults!.livestreams}
-                      getItemKey={stream => stream.id}
-                      itemMinClassName={CONTENT_CARD_MIN}
-                      renderItem={stream => {
-                        const idx = searchIdx++;
-                        return (
-                        <Link
-                          href={`/channel/${stream.eventId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-testid="discover-live-stream-card"
-                          data-search-index={idx}
-                          className={cn(
-                            "relative block",
-                            CONTENT_CARD_MIN,
-                            idx === activeSearchIndex &&
-                              "ring-primary rounded-md ring-2"
-                          )}
-                        >
-                          <div className="bg-black/10">
-                            {stream.thumbnailUrl ? (
-                              <RailCoverImage
-                                src={stream.thumbnailUrl}
-                                alt={stream.title}
-                                aspectClassName="aspect-video"
-                              />
-                            ) : (
-                              <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
-                                <Radio className="size-8 text-neutral-500" />
-                              </div>
-                            )}
-                            <div className="p-1">
-                              <h5 className="text-sm">{stream.title}</h5>
-                              <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-[10px]">
-                                <Radio className="size-3" aria-hidden />
-                                {stream.liveStatus}
-                              </span>
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                      }}
-                    />
-                  </div>
-                ) : null}
+                      {discoveryResults!.livestreams.length > 0 ? (
+                        <div className="space-y-2">
+                          <h6 className="text-sm font-medium">Live streams</h6>
+                          <VirtualRail
+                            items={discoveryResults!.livestreams}
+                            getItemKey={stream => stream.id}
+                            itemMinClassName={CONTENT_CARD_MIN}
+                            renderItem={stream => {
+                              const idx = searchIdx++;
+                              return (
+                                <Link
+                                  href={`/channel/${stream.eventId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  data-testid="discover-live-stream-card"
+                                  data-search-index={idx}
+                                  className={cn(
+                                    "relative block",
+                                    CONTENT_CARD_MIN,
+                                    idx === activeSearchIndex &&
+                                      "ring-primary rounded-md ring-2"
+                                  )}
+                                >
+                                  <div className="bg-black/10">
+                                    {stream.thumbnailUrl ? (
+                                      <RailCoverImage
+                                        src={stream.thumbnailUrl}
+                                        alt={stream.title}
+                                        aspectClassName="aspect-video"
+                                      />
+                                    ) : (
+                                      <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                                        <Radio className="size-8 text-neutral-500" />
+                                      </div>
+                                    )}
+                                    <div className="p-1">
+                                      <h5 className="text-sm">
+                                        {stream.title}
+                                      </h5>
+                                      <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-[10px]">
+                                        <Radio
+                                          className="size-3"
+                                          aria-hidden
+                                        />
+                                        {stream.liveStatus}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              );
+                            }}
+                          />
+                        </div>
+                      ) : null}
 
-                {discoveryResults!.communities.length > 0 ? (
-                  <div className="space-y-2">
-                    <h6 className="text-sm font-medium">Communities</h6>
-                    <VirtualRail
-                      items={discoveryResults!.communities}
-                      getItemKey={community => community.id}
-                      itemMinClassName={PROGRAM_CARD_MIN}
-                      renderItem={community => {
-                        const idx = searchIdx++;
-                        return (
-                        <Link
-                          href={exploreCommunityJoinHref(community.id)}
-                          data-search-index={idx}
-                          className={cn(
-                            "rounded-md border bg-black/10 p-2",
-                            PROGRAM_CARD_MIN,
-                            idx === activeSearchIndex &&
-                              "ring-primary ring-2"
-                          )}
-                        >
-                          {community.logoUrl ? (
-                            <div className="relative size-12 overflow-hidden rounded-md">
-                              <Image
-                                src={community.logoUrl}
-                                alt={community.name}
-                                fill
-                                className="object-cover"
-                                sizes="48px"
-                              />
-                            </div>
-                          ) : (
-                            <div className="bg-muted flex size-12 items-center justify-center rounded-md">
-                              <UsersRound className="size-6 text-neutral-500" />
-                            </div>
-                          )}
-                          <p className="mt-2 text-sm font-medium">
-                            {community.name}
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            {community.memberCount} members · £
-                            {community.totalTips} tips
-                          </p>
-                        </Link>
-                      );
-                      }}
-                    />
-                  </div>
-                ) : null}
+                      {discoveryResults!.communities.length > 0 ? (
+                        <div className="space-y-2">
+                          <h6 className="text-sm font-medium">Communities</h6>
+                          <VirtualRail
+                            items={discoveryResults!.communities}
+                            getItemKey={community => community.id}
+                            itemMinClassName={PROGRAM_CARD_MIN}
+                            renderItem={community => {
+                              const idx = searchIdx++;
+                              return (
+                                <Link
+                                  href={exploreCommunityJoinHref(community.id)}
+                                  data-search-index={idx}
+                                  className={cn(
+                                    "rounded-md border bg-black/10 p-2",
+                                    PROGRAM_CARD_MIN,
+                                    idx === activeSearchIndex &&
+                                      "ring-primary ring-2"
+                                  )}
+                                >
+                                  {community.logoUrl ? (
+                                    <div className="relative size-12 overflow-hidden rounded-md">
+                                      <Image
+                                        src={community.logoUrl}
+                                        alt={community.name}
+                                        fill
+                                        className="object-cover"
+                                        sizes="48px"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="bg-muted flex size-12 items-center justify-center rounded-md">
+                                      <UsersRound className="size-6 text-neutral-500" />
+                                    </div>
+                                  )}
+                                  <p className="mt-2 text-sm font-medium">
+                                    {community.name}
+                                  </p>
+                                  <p className="text-muted-foreground text-xs">
+                                    {community.memberCount} members · £
+                                    {community.totalTips} tips
+                                  </p>
+                                </Link>
+                              );
+                            }}
+                          />
+                        </div>
+                      ) : null}
                     </>
                   );
                 })()}
@@ -1317,23 +1327,23 @@ export function DiscoverPanel({
           ) : (
             <div className="mt-4 mb-8 flex flex-wrap items-center gap-2">
               {tippers.slice(0, 5).map((tipper, index) => (
-              <div
-                key={tipper.id}
-                className="inline-flex items-center gap-2 rounded-md bg-black/10 px-4 py-2 text-[13px]"
-              >
-                <span className="flex size-5 items-center justify-center rounded-full bg-black text-white">
-                  {index + 1}
-                </span>
+                <div
+                  key={tipper.id}
+                  className="inline-flex items-center gap-2 rounded-md bg-black/10 px-4 py-2 text-[13px]"
+                >
+                  <span className="flex size-5 items-center justify-center rounded-full bg-black text-white">
+                    {index + 1}
+                  </span>
 
-                <span className="text-muted-foreground text-xs">
-                  {tipper.username}
-                </span>
+                  <span className="text-muted-foreground text-xs">
+                    {tipper.username}
+                  </span>
 
-                <span className="text-xs font-medium">
-                  &pound;{tipper.totalTipped}
-                </span>
-              </div>
-            ))}
+                  <span className="text-xs font-medium">
+                    &pound;{tipper.totalTipped}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>

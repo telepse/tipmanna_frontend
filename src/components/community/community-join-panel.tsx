@@ -372,158 +372,161 @@ export function CommunityJoinPanel({
             <p className="text-sm">
               Sign in with your tipper email to submit a join request.
             </p>
-            <Button type="button" onClick={() => setSignInOpen(true)}>
+            <Button
+              type="button"
+              onClick={() => setSignInOpen(true)}
+            >
               Continue with email
             </Button>
           </div>
         ) : (
           <>
-        <h2 className="text-lg font-semibold">Join {form.name}</h2>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Signed in as {user?.email}. Default membership length when using
-          domain or approval: {form.defaultMonths} month(s).
-        </p>
-
-        {showPaidSubscribe && (
-          <div className="mt-6">
-            <CommunitySubscribeSection
-              communityId={communityId}
-              feeGbp={Number(paidFee).toFixed(2)}
-              activeUntil={paidSubExpiresAt}
-              onSubscriptionChange={async () => {
-                if (!user?.id) return;
-                const subRes = await getMyCommunitySubscriptionAction(
-                  undefined,
-                  communityId
-                );
-                if (subRes.success && subRes.data) {
-                  const d = subRes.data as {
-                    subscription: { expiresAt: string | null } | null;
-                  };
-                  setPaidSubExpiresAt(d.subscription?.expiresAt ?? null);
-                }
-              }}
-            />
-            <p className="text-muted-foreground mt-4 text-xs">
-              Or use a join request, invite link, or access code below.
+            <h2 className="text-lg font-semibold">Join {form.name}</h2>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Signed in as {user?.email}. Default membership length when using
+              domain or approval: {form.defaultMonths} month(s).
             </p>
-          </div>
-        )}
 
-        {form.joinFormRequireAccessCode && (
-          <div className="mt-6 space-y-2">
-            <Label htmlFor="acc">Access code</Label>
-            <Input
-              id="acc"
-              value={accessCode}
-              onChange={e => setAccessCode(e.target.value)}
-              onBlur={() => void onBlurValidateCode()}
-            />
-            {codeHint && (
-              <p className="text-muted-foreground text-xs">{codeHint}</p>
-            )}
-          </div>
-        )}
-
-        {!form.joinFormRequireAccessCode && (
-          <div className="mt-6 space-y-2">
-            <Label htmlFor="acc-opt">Access code (optional)</Label>
-            <Input
-              id="acc-opt"
-              value={accessCode}
-              onChange={e => setAccessCode(e.target.value)}
-              onBlur={() => void onBlurValidateCode()}
-              placeholder="Skip if you are requesting access"
-            />
-            {codeHint && (
-              <p className="text-muted-foreground text-xs">{codeHint}</p>
-            )}
-          </div>
-        )}
-
-        {form.officialEmailDomain &&
-          form.officialEmailDomainRequired &&
-          domainNorm && (
-            <div className="mt-6 space-y-3 rounded-lg border p-4">
-              <p className="text-sm font-medium">Verify work email</p>
-              <div className="flex flex-wrap items-end gap-2">
-                <div className="min-w-[120px] flex-1">
-                  <Label htmlFor="prefix">Prefix</Label>
-                  <Input
-                    id="prefix"
-                    value={prefix}
-                    onChange={e => setPrefix(e.target.value)}
-                    placeholder="you"
-                  />
-                </div>
-                <p className="text-muted-foreground pb-2 text-sm">
-                  @{domainNorm}
+            {showPaidSubscribe && (
+              <div className="mt-6">
+                <CommunitySubscribeSection
+                  communityId={communityId}
+                  feeGbp={Number(paidFee).toFixed(2)}
+                  activeUntil={paidSubExpiresAt}
+                  onSubscriptionChange={async () => {
+                    if (!user?.id) return;
+                    const subRes = await getMyCommunitySubscriptionAction(
+                      undefined,
+                      communityId
+                    );
+                    if (subRes.success && subRes.data) {
+                      const d = subRes.data as {
+                        subscription: { expiresAt: string | null } | null;
+                      };
+                      setPaidSubExpiresAt(d.subscription?.expiresAt ?? null);
+                    }
+                  }}
+                />
+                <p className="text-muted-foreground mt-4 text-xs">
+                  Or use a join request, invite link, or access code below.
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void onSendOtp()}
-              >
-                Send verification code
-              </Button>
-              <div>
-                <Label htmlFor="otp">Code from email</Label>
+            )}
+
+            {form.joinFormRequireAccessCode && (
+              <div className="mt-6 space-y-2">
+                <Label htmlFor="acc">Access code</Label>
                 <Input
-                  id="otp"
-                  value={otpCode}
-                  onChange={e => setOtpCode(e.target.value)}
+                  id="acc"
+                  value={accessCode}
+                  onChange={e => setAccessCode(e.target.value)}
+                  onBlur={() => void onBlurValidateCode()}
+                />
+                {codeHint && (
+                  <p className="text-muted-foreground text-xs">{codeHint}</p>
+                )}
+              </div>
+            )}
+
+            {!form.joinFormRequireAccessCode && (
+              <div className="mt-6 space-y-2">
+                <Label htmlFor="acc-opt">Access code (optional)</Label>
+                <Input
+                  id="acc-opt"
+                  value={accessCode}
+                  onChange={e => setAccessCode(e.target.value)}
+                  onBlur={() => void onBlurValidateCode()}
+                  placeholder="Skip if you are requesting access"
+                />
+                {codeHint && (
+                  <p className="text-muted-foreground text-xs">{codeHint}</p>
+                )}
+              </div>
+            )}
+
+            {form.officialEmailDomain &&
+              form.officialEmailDomainRequired &&
+              domainNorm && (
+                <div className="mt-6 space-y-3 rounded-lg border p-4">
+                  <p className="text-sm font-medium">Verify work email</p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-[120px] flex-1">
+                      <Label htmlFor="prefix">Prefix</Label>
+                      <Input
+                        id="prefix"
+                        value={prefix}
+                        onChange={e => setPrefix(e.target.value)}
+                        placeholder="you"
+                      />
+                    </div>
+                    <p className="text-muted-foreground pb-2 text-sm">
+                      @{domainNorm}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void onSendOtp()}
+                  >
+                    Send verification code
+                  </Button>
+                  <div>
+                    <Label htmlFor="otp">Code from email</Label>
+                    <Input
+                      id="otp"
+                      value={otpCode}
+                      onChange={e => setOtpCode(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void onVerifyOtp()}
+                  >
+                    Verify
+                  </Button>
+                  {verifiedDomainEmail && (
+                    <p className="text-xs text-green-700">
+                      Verified: {verifiedDomainEmail}
+                    </p>
+                  )}
+                </div>
+              )}
+
+            {form.customQuestion && (
+              <div className="mt-6 space-y-2">
+                <Label>{form.customQuestion}</Label>
+                <Textarea
+                  value={customAnswer}
+                  onChange={e => setCustomAnswer(e.target.value)}
+                  rows={4}
                 />
               </div>
+            )}
+
+            <div className="mt-8 flex flex-col gap-2">
               <Button
                 type="button"
-                size="sm"
-                onClick={() => void onVerifyOtp()}
+                disabled={submitting}
+                onClick={() => void onSubmit()}
               >
-                Verify
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Submitting…
+                  </>
+                ) : (
+                  "Submit"
+                )}
               </Button>
-              {verifiedDomainEmail && (
-                <p className="text-xs text-green-700">
-                  Verified: {verifiedDomainEmail}
-                </p>
-              )}
+              <Button
+                asChild
+                variant="ghost"
+              >
+                <Link href={EXPLORE_COMMUNITY_HUB_HREF}>Cancel</Link>
+              </Button>
             </div>
-          )}
-
-        {form.customQuestion && (
-          <div className="mt-6 space-y-2">
-            <Label>{form.customQuestion}</Label>
-            <Textarea
-              value={customAnswer}
-              onChange={e => setCustomAnswer(e.target.value)}
-              rows={4}
-            />
-          </div>
-        )}
-
-        <div className="mt-8 flex flex-col gap-2">
-          <Button
-            type="button"
-            disabled={submitting}
-            onClick={() => void onSubmit()}
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Submitting…
-              </>
-            ) : (
-              "Submit"
-            )}
-          </Button>
-          <Button
-            asChild
-            variant="ghost"
-          >
-            <Link href={EXPLORE_COMMUNITY_HUB_HREF}>Cancel</Link>
-          </Button>
-        </div>
           </>
         )}
       </div>

@@ -29,7 +29,9 @@ export const PORTRAIT_PRESENTATION_H = 16;
 export const LANDSCAPE_PRESENTATION_W = 16;
 export const LANDSCAPE_PRESENTATION_H = 9;
 
-export function exploreReelIsPortraitMode(mode: ExploreReelLayoutMode): boolean {
+export function exploreReelIsPortraitMode(
+  mode: ExploreReelLayoutMode
+): boolean {
   return mode === "mobilePortrait" || mode === "desktopPortrait";
 }
 
@@ -288,26 +290,36 @@ export function exploreReelTitleAboveDockClassName(
   ].join(" ");
 }
 
-export function exploreReelTitleRowClassName(mode: ExploreReelLayoutMode): string {
+export function exploreReelTitleRowClassName(
+  mode: ExploreReelLayoutMode
+): string {
   return exploreReelIsDesktopMode(mode)
     ? "flex items-center gap-3 text-lg font-semibold drop-shadow-md"
     : "flex items-center gap-2 text-sm font-semibold drop-shadow-md";
 }
 
-export function exploreReelMetricsClassName(mode: ExploreReelLayoutMode): string {
+export function exploreReelMetricsClassName(
+  mode: ExploreReelLayoutMode
+): string {
   return exploreReelIsDesktopMode(mode)
     ? "text-sm opacity-85 drop-shadow-md"
     : "text-[11px] opacity-80 drop-shadow-md";
 }
 
-export function exploreReelMuteButtonClassName(mode: ExploreReelLayoutMode): string {
+export function exploreReelMuteButtonClassName(
+  mode: ExploreReelLayoutMode
+): string {
   return exploreReelIsDesktopMode(mode)
     ? "cursor-pointer rounded-md bg-black/50 p-2"
     : "cursor-pointer rounded bg-black/50 p-1";
 }
 
-export function exploreReelMuteIconClassName(mode: ExploreReelLayoutMode): string {
-  return exploreReelIsDesktopMode(mode) ? "size-5 text-white" : "size-4 text-white";
+export function exploreReelMuteIconClassName(
+  mode: ExploreReelLayoutMode
+): string {
+  return exploreReelIsDesktopMode(mode)
+    ? "size-5 text-white"
+    : "size-4 text-white";
 }
 
 export function exploreReelDockPrimaryButtonClassName(
@@ -358,8 +370,12 @@ export function exploreReelRailIconButtonClassName(
     : "cursor-pointer rounded bg-black/50 p-1";
 }
 
-export function exploreReelRailIconClassName(mode: ExploreReelLayoutMode): string {
-  return exploreReelIsDesktopMode(mode) ? "size-6 text-white" : "size-5 text-white";
+export function exploreReelRailIconClassName(
+  mode: ExploreReelLayoutMode
+): string {
+  return exploreReelIsDesktopMode(mode)
+    ? "size-6 text-white"
+    : "size-5 text-white";
 }
 
 export function exploreReelRailStackGapClassName(
@@ -384,7 +400,9 @@ export function exploreReelTipsProgressWrapperClassName(
     : "pointer-events-auto absolute top-1/2 right-4 z-[90] -translate-y-1/2";
 }
 
-export function exploreReelTipsChipClassName(mode: ExploreReelLayoutMode): string {
+export function exploreReelTipsChipClassName(
+  mode: ExploreReelLayoutMode
+): string {
   return exploreReelIsDesktopMode(mode)
     ? "absolute -top-10 right-0 cursor-pointer rounded-md bg-black/70 px-2 py-1 text-sm font-medium whitespace-nowrap text-white"
     : "absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm";

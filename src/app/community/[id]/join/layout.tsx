@@ -14,8 +14,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const res = await getCommunityAccessStateAction(id);
   const jp =
     res.success && res.data && typeof res.data === "object"
-      ? (res.data as { joinFormPublic?: { name?: string; description?: string | null } })
-          .joinFormPublic
+      ? (
+          res.data as {
+            joinFormPublic?: { name?: string; description?: string | null };
+          }
+        ).joinFormPublic
       : null;
   const name = jp?.name?.trim() || "Community";
   const description =
@@ -37,16 +40,20 @@ export default async function CommunityJoinLayout({ params, children }: Props) {
   const res = await getCommunityAccessStateAction(id);
   const jp =
     res.success && res.data && typeof res.data === "object"
-      ? (res.data as {
-          joinFormPublic?: {
-            name?: string;
-            description?: string | null;
-            logoUrl?: string | null;
-          };
-        }).joinFormPublic
+      ? (
+          res.data as {
+            joinFormPublic?: {
+              name?: string;
+              description?: string | null;
+              logoUrl?: string | null;
+            };
+          }
+        ).joinFormPublic
       : null;
   const name = jp?.name?.trim() || "Community";
-  const joinUrl = getPublicAbsoluteUrl(`/community/${encodeURIComponent(id)}/join`);
+  const joinUrl = getPublicAbsoluteUrl(
+    `/community/${encodeURIComponent(id)}/join`
+  );
   const orgJsonLd = buildOrganizationJsonLd({
     name,
     description: jp?.description,
