@@ -86,8 +86,8 @@ function msToNextHalfDayBoundary(epochMs: number, nowMs: number): number {
 }
 function tvScheduleStorageKey(communityId: string | null) {
   return communityId
-    ? `tipmanna-tv-schedule-v1-c/${communityId}`
-    : "tipmanna-tv-schedule-v1";
+    ? `tipmanna-tv-schedule-v2-c/${communityId}`
+    : "tipmanna-tv-schedule-v2";
 }
 
 function persistTvScheduleCache(

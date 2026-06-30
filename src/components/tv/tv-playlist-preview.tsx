@@ -1,22 +1,67 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   AudioLines,
   EyeIcon,
-  UserRound,
   UsersRound,
 } from "lucide-react";
 import { trimTitle } from "@/lib/utils";
 import { useTV } from "@/components/tv-provider";
+import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";
 import {
   buildPreviewRowIndices,
   formatPlaylistClock,
   wallClockStartMsForScheduleIndex,
 } from "@/lib/tv/playlistDisplay";
 import { useMediaQuery } from "react-responsive";
+import { CommentDrawer } from "@/components/events/comment-drawer";
+import { fetchTvChannelEncountersBatch } from "@/lib/tv/channelEncountersClient";
+import type { RoomCharacter } from "@/types";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type CommentDrawerTarget = {
+  eventId: string;
+  channelId: string | null;
+  videoTitle: string;
+  videoDescription: string;
+  numOfTips: number;
+};
+
+function resolveCommentDrawerTarget(item: {
+  defaultChannelEventId?: string;
+  channel?: {
+    id?: string | number;
+    eventId?: string;
+    title?: string;
+    description?: string | null;
+    numOfTips?: number;
+  };
+}): CommentDrawerTarget | null {
+  const eventId = String(
+    item.defaultChannelEventId ?? item.channel?.eventId ?? ""
+  ).trim();
+  if (!eventId || eventId === "notice") return null;
+
+  return {
+    eventId,
+    channelId:
+      item.channel?.id != null ? String(item.channel.id) : null,
+    videoTitle:
+      typeof item.channel?.title === "string" ? item.channel.title : "",
+    videoDescription:
+      typeof item.channel?.description === "string"
+        ? item.channel.description
+        : "",
+    numOfTips:
+      typeof item.channel?.numOfTips === "number"
+        ? item.channel.numOfTips
+        : 0,
+  };
+}
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   CONCERT_MUSIC: "Concert",
@@ -37,17 +82,16 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 
 type Layout = "mobile" | "desktop";
 
-const countryToCode: Record<string, string> = {
-  Nigeria: "ng",
-  England: "gb",
-};
-
 export function TvPlaylistPreview({
   layout,
   onSelectChannel,
+  onContinueCommentToTip,
+  tippingCharacters,
 }: {
   layout: Layout;
   onSelectChannel: (index: number) => void;
+  onContinueCommentToTip?: () => void;
+  tippingCharacters?: RoomCharacter[];
 }) {
   const {
     items,
@@ -101,7 +145,76 @@ export function TvPlaylistPreview({
 
   const isMobile = useMediaQuery({ maxWidth: "500px" });
 
-  const [showCommentDrawer, setShowCommentDrawer] = useState(false);
+  const [commentDrawerTarget, setCommentDrawerTarget] =
+    useState<CommentDrawerTarget | null>(null);
+
+  const previewChannelsMissingEncounters = useMemo(() => {
+    const missing = new Set<string>();
+    for (const originalIndex of previewIndices) {
+      const item =
+        originalIndex === currentIndex && playingItemOverride
+          ? playingItemOverride
+          : items[originalIndex];
+      const channelId = item?.channel?.id;
+      if (
+        typeof channelId !== "string" ||
+        !UUID_RE.test(channelId) ||
+        item.segmentKind === "notice"
+      ) {
+        continue;
+      }
+      if (typeof item.channel?.encounters !== "number") {
+        missing.add(channelId);
+      }
+    }
+    return [...missing];
+  }, [previewIndices, items, currentIndex, playingItemOverride]);
+
+  const [encountersByChannelId, setEncountersByChannelId] = useState<
+    Record<string, number>
+  >({});
+
+  useEffect(() => {
+    const seeded: Record<string, number> = {};
+    for (const originalIndex of previewIndices) {
+      const item =
+        originalIndex === currentIndex && playingItemOverride
+          ? playingItemOverride
+          : items[originalIndex];
+      const channelId = item?.channel?.id;
+      if (
+        typeof channelId === "string" &&
+        typeof item?.channel?.encounters === "number"
+      ) {
+        seeded[channelId] = item.channel.encounters;
+      }
+    }
+    setEncountersByChannelId(seeded);
+  }, [previewIndices, items, currentIndex, playingItemOverride]);
+
+  useEffect(() => {
+    if (previewChannelsMissingEncounters.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      const fetched = await fetchTvChannelEncountersBatch(
+        previewChannelsMissingEncounters
+      );
+      if (cancelled || Object.keys(fetched).length === 0) return;
+      setEncountersByChannelId(prev => ({ ...prev, ...fetched }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewChannelsMissingEncounters]);
+
+  const openCommentDrawer = (
+    item: Parameters<typeof resolveCommentDrawerTarget>[0]
+  ) => {
+    const target = resolveCommentDrawerTarget(item);
+    if (target) setCommentDrawerTarget(target);
+  };
 
   return (
     <>
@@ -135,7 +248,17 @@ export function TvPlaylistPreview({
             : schedulePlayingSlot?.rowIndex === originalIndex;
         const startLabel = pickTimeLabel(originalIndex);
 
-        const contentCountryCode = countryToCode[item.channel.contentCountry];
+        const { contentLanguage, flagUrl } = resolveContentLocaleDisplay(
+          item.channel.contentLanguage,
+          item.channel.contentCountry
+        );
+
+        const channelId =
+          typeof item.channel?.id === "string" ? item.channel.id : "";
+        const encounterCount =
+          (channelId ? encountersByChannelId[channelId] : undefined) ??
+          item.channel.encounters ??
+          0;
 
         return (
           <div
@@ -202,7 +325,7 @@ export function TvPlaylistPreview({
                       <span className="flex items-center gap-1 text-[8px] font-semibold">
                         <EyeIcon className="size-3" />
                         <span className="whitespace-nowrap">
-                          {item.channel.encounters || 0} seen
+                          {encounterCount} seen
                         </span>
                       </span>
                     </div>
@@ -212,29 +335,28 @@ export function TvPlaylistPreview({
             </div>
 
             <div className="flex shrink-0 flex-col items-end justify-end gap-1">
-              <span className="flex items-center gap-1 text-[8px] font-semibold outline outline-black">
-                <span className="whitespace-nowrap">
-                  {/* {item.channel.numOfTips || 0} tips */}
-                  Created by:{" "}
-                  <div
-                    className="-ml-2 flex items-center border border-gray-400"
-                    onClick={() => setShowCommentDrawer(true)}
-                  >
-                    <ArrowRight className="size-4 cursor-pointer" />
-                  </div>
+              <button
+                type="button"
+                className="flex items-center gap-1 text-[8px] font-semibold outline outline-black"
+                onClick={e => {
+                  e.stopPropagation();
+                  openCommentDrawer(item);
+                }}
+              >
+                <span className="flex items-center gap-1 whitespace-nowrap">
+                  Created by:
+                  <ArrowRight className="size-4 cursor-pointer" />
                 </span>
-              </span>
+              </button>
 
-              {/** Convert content language to flag. Content languag is in the format of en-GB, en-US, etc. */}
-              {/** Convert content country to flag. Content country is in the format England, Nigeria, */}
               <div className="flex w-fit items-center gap-1">
                 <span className="flex items-center gap-1 text-[9px]">
                   <img
-                    src={`https://flagcdn.com/w40/${contentCountryCode}.png`}
-                    alt={item.channel.contentLanguage}
+                    src={flagUrl}
+                    alt={contentLanguage}
                     className="size-4"
                   />{" "}
-                  {item.channel.contentLanguage}
+                  {contentLanguage}
                 </span>
 
                 <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[8px]">
@@ -254,6 +376,22 @@ export function TvPlaylistPreview({
           </div>
         );
       })}
+
+      {commentDrawerTarget ? (
+        <CommentDrawer
+          isCommentDrawerOpen={commentDrawerTarget != null}
+          setIsCommentDrawerOpen={open => {
+            if (!open) setCommentDrawerTarget(null);
+          }}
+          eventId={commentDrawerTarget.eventId}
+          channelId={commentDrawerTarget.channelId}
+          videoTitle={commentDrawerTarget.videoTitle}
+          videoDescription={commentDrawerTarget.videoDescription}
+          numOfTips={commentDrawerTarget.numOfTips}
+          tippingCharacters={tippingCharacters}
+          onContinueToTip={onContinueCommentToTip}
+        />
+      ) : null}
     </>
   );
 }

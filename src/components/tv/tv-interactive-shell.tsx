@@ -468,6 +468,8 @@ export function TvInteractiveShell({
                           <TvPlaylistPreview
                             layout={playlistLayout}
                             onSelectChannel={handleSelectChannel}
+                            onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+                            tippingCharacters={characters}
                           />
 
                           <button
@@ -674,6 +676,8 @@ export function TvInteractiveShell({
                           <TvPlaylistPreview
                             layout={playlistLayout}
                             onSelectChannel={handleSelectChannel}
+                            onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+                            tippingCharacters={characters}
                           />
 
                           <button
