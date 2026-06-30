@@ -15,7 +15,6 @@ import {
   formatPlaylistClock,
   wallClockStartMsForScheduleIndex,
 } from "@/lib/tv/playlistDisplay";
-import { useMediaQuery } from "react-responsive";
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import { fetchTvChannelEncountersBatch } from "@/lib/tv/channelEncountersClient";
 import type { RoomCharacter } from "@/types";
@@ -127,7 +126,12 @@ export function TvPlaylistPreview({
   const showTimes = mode === "GLOBAL" && broadcastEpoch != null;
 
   const titleTrim = layout === "mobile" ? 20 : 24;
-  const hostTrim = layout === "mobile" ? 10 : 20;
+
+  const airTimeBadgeClass =
+    "text-muted-foreground shrink-0 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]";
+  const metricRowClass =
+    "text-muted-foreground flex min-w-0 flex-nowrap items-center gap-2 text-[8px] font-semibold";
+  const metricItemClass = "flex shrink-0 items-center gap-1 whitespace-nowrap";
 
   const pickTimeLabel = (originalIndex: number) => {
     if (!showTimes || broadcastEpoch == null || !totalDuration) return "";
@@ -142,8 +146,6 @@ export function TvPlaylistPreview({
     );
     return formatPlaylistClock(ms);
   };
-
-  const isMobile = useMediaQuery({ maxWidth: "500px" });
 
   const [commentDrawerTarget, setCommentDrawerTarget] =
     useState<CommentDrawerTarget | null>(null);
@@ -275,63 +277,27 @@ export function TvPlaylistPreview({
             className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} `}
           >
             <div
-              className={`flex min-w-0 flex-1 items-center gap-1 ${isPlaying ? "sticky top-0" : ""}`}
+              className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
             >
-              {isPlaying && (
-                <div className="flex shrink-0 flex-col gap-1">
-                  {showTimes && (
-                    <span className="text-muted-foreground z-[9999] rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]">
-                      {startLabel}
-                    </span>
-                  )}
-                </div>
-              )}
-              <div className="min-w-0 space-y-1">
-                <h5 className={`w-full text-xs font-medium whitespace-nowrap`}>
-                  {item?.channel?.title
-                    ? trimTitle(item.channel.title, titleTrim)
-                    : "Loading..."}
-                </h5>
+              <h5 className="w-full text-xs font-medium whitespace-nowrap">
+                {item?.channel?.title
+                  ? trimTitle(item.channel.title, titleTrim)
+                  : "Loading..."}
+              </h5>
 
-                <p className="text-muted-foreground flex flex-wrap items-center gap-x-0.5 text-[10px] text-nowrap">
-                  {!isPlaying && showTimes && (
-                    <span className="text-muted-foreground z-50 mr-1 -ml-2 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]">
-                      {startLabel}
-                    </span>
-                  )}
-                  <span className="truncate text-[10px] lg:text-[8px]">
-                    {/* <span className="inline-block lg:hidden">Host:</span>{" "}
-                    {item?.channel?.hostName
-                      ? trimTitle(item.channel.hostName.split(" ")[0], hostTrim)
-                      : "Loading..."}
-                    <span className="text-primary text-[10px] opacity-50">
-                      <Link
-                        href={`/channel/${item?.channel?.eventId}`}
-                        onClick={e => e.stopPropagation()}
-                        className="truncate"
-                      >
-                        @{item.channel.username?.substring(0, 8) || ""}
-                      </Link>
-                    </span> */}
-
-                    <div className="flex items-center gap-2">
-                      <span className="flex items-center gap-1 text-[8px] font-semibold">
-                        <UsersRound className="size-3" />
-                        <span className="whitespace-nowrap">
-                          {item.channel.numOfTips || 0} tips
-                        </span>
-                      </span>
-
-                      <span className="flex items-center gap-1 text-[8px] font-semibold">
-                        <EyeIcon className="size-3" />
-                        <span className="whitespace-nowrap">
-                          {encounterCount} seen
-                        </span>
-                      </span>
-                    </div>
-                  </span>
-                </p>
-              </div>
+              <p className={metricRowClass}>
+                {showTimes && startLabel ? (
+                  <span className={airTimeBadgeClass}>{startLabel}</span>
+                ) : null}
+                <span className={metricItemClass}>
+                  <UsersRound className="size-3 shrink-0" />
+                  {item.channel.numOfTips || 0} tips
+                </span>
+                <span className={metricItemClass}>
+                  <EyeIcon className="size-3 shrink-0" />
+                  {encounterCount} seen
+                </span>
+              </p>
             </div>
 
             <div className="flex shrink-0 flex-col items-end justify-end gap-1">
