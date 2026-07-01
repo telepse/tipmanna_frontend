@@ -1327,9 +1327,9 @@ export const TvLooper = ({
             )}
           >
             <div className="flex items-center gap-1">
-              {currentTitle?.substring(0, 30)}{" "}
-              {currentTitle?.length > 30 ? ".." : ""}{" "}
-              {currentTitle?.length > 30 ? (
+              {currentTitle?.substring(0, 27)}{" "}
+              {currentTitle?.length > 27 ? ".." : ""}{" "}
+              {currentTitle?.length > 27 ? (
                 <div
                   className="-ml-1 flex items-center border border-gray-400"
                   onClick={() => setShowCommentDrawer(true)}

@@ -226,6 +226,7 @@ export function TvPlaylistPreview({
           ) : null}
         </p>
       )}
+      <div className="pt-1 space-y-2">
       {previewIndices.map(originalIndex => {
         const item =
           originalIndex === currentIndex && playingItemOverride
@@ -335,7 +336,7 @@ export function TvPlaylistPreview({
             )}
           </div>
         );
-      })}
+      })}</div>
 
       {commentDrawerTarget ? (
         <CommentDrawer

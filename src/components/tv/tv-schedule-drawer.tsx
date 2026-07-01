@@ -39,7 +39,7 @@ export const TVScheduleDrawer = ({
       onOpenChange={setIsTvDrawerOpen}
     >
       <DrawerContent
-        className={`${DRAWER_Z_INDEX} custom-scrollbar ml-auto h-screen w-full space-y-2 overflow-y-auto rounded-t-full p-4 sm:h-[95vh] sm:w-[420px]`}
+        className={`${DRAWER_Z_INDEX} custom-scrollbar ml-auto h-screen w-full space-y-2 rounded-t-full p-4 sm:h-[95vh] sm:w-[420px]`}
       >
         <DrawerHeader>
           <DrawerTitle className="text-2xl">TV schedule</DrawerTitle>
@@ -53,7 +53,7 @@ export const TVScheduleDrawer = ({
           <X size={24} />
         </button>
 
-        <div className="h-[calc(100vh-80px)] space-y-6 overflow-y-auto">
+        <div className="custom-scrollbar hide__scrollbar h-[calc(100vh-80px)] space-y-6 overflow-y-auto p-2">
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-black">{ongoingLabel}</h3>
             <PlaylistTable
