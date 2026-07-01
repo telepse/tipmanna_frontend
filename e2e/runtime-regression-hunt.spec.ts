@@ -31,7 +31,9 @@ test.describe("runtime regression hunt", () => {
     }) => {
       await page.goto("/e2e/discover-explore-handoff");
       await page.getByTestId("discover-content-card").click();
-      await expect(page).toHaveURL(/\/explore\?.*channel=/, { timeout: 15_000 });
+      await expect(page).toHaveURL(/\/explore\?.*channel=/, {
+        timeout: 15_000,
+      });
 
       const feed = page.getByTestId("explore-feed-scroll");
       await expect(
@@ -49,9 +51,9 @@ test.describe("runtime regression hunt", () => {
       page,
     }) => {
       await page.goto("/e2e/discover-explore-handoff");
-      await expect(
-        page.getByTestId("discover-content-card")
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId("discover-content-card")).toBeVisible({
+        timeout: 15_000,
+      });
       await expect(
         page.getByText("Discover ran into a problem")
       ).not.toBeVisible();
@@ -105,7 +107,9 @@ test.describe("runtime regression hunt", () => {
           .first()
       ).toBeVisible({ timeout: 45_000 });
 
-      const search = page.locator('input[placeholder="Search videos..."]:visible');
+      const search = page.locator(
+        'input[placeholder="Search videos..."]:visible'
+      );
       await expect(search).toBeVisible({ timeout: 30_000 });
       await search.click();
       await search.fill("music");
@@ -160,7 +164,10 @@ test.describe("runtime regression hunt", () => {
     }) => {
       let batchCount = 0;
       page.on("response", res => {
-        if (res.url().includes("/contents/feed/batch") && res.status() === 200) {
+        if (
+          res.url().includes("/contents/feed/batch") &&
+          res.status() === 200
+        ) {
           batchCount += 1;
         }
       });

@@ -16,7 +16,9 @@ test.describe("discover navigation", () => {
     ).toBeVisible({ timeout: 45_000 });
 
     // Desktop viewport: mobile search wrapper is `sm:hidden`; target visible input.
-    const search = page.locator('input[placeholder="Search videos..."]:visible');
+    const search = page.locator(
+      'input[placeholder="Search videos..."]:visible'
+    );
     await expect(search).toBeVisible({ timeout: 30_000 });
     await search.click();
     await search.fill("music");
@@ -65,7 +67,9 @@ test.describe("discover navigation", () => {
     // The Discover surface renders alongside a mounted-but-hidden feed so the
     // reel session (playback, caches, subscriptions) survives surface switches.
     await page.goto("/explore?tab=discover");
-    await expect(page.getByRole("heading", { name: "Spotlight" }).first()).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Spotlight" }).first()
+    ).toBeVisible({
       timeout: 30_000,
     });
 

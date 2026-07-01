@@ -1,13 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import type { RoomCharacter } from "@/types";
-import { CommentDrawer } from "../events/comment-drawer";
-import { TipsDrawer } from "../events/tips-drawer";
+
+const CommentDrawer = dynamic(
+  () =>
+    import("../events/comment-drawer").then(m => ({
+      default: m.CommentDrawer,
+    })),
+  { ssr: false }
+);
+const TipsDrawer = dynamic(
+  () =>
+    import("../events/tips-drawer").then(m => ({
+      default: m.TipsDrawer,
+    })),
+  { ssr: false }
+);
 
 import {
   Volume2,

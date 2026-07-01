@@ -82,6 +82,102 @@ export function tvTrace(
   });
 }
 
+/** Load timeline milestones for TTFV analysis (Phase 1+). */
+export type TvLoadMilestone =
+  | "T0"
+  | "T1"
+  | "T2"
+  | "T3"
+  | "T3_cache_hit"
+  | "T3_cache_miss"
+  | "T4"
+  | "T5"
+  | "T6";
+
+const TV_LOAD_STORAGE_KEY = "tipmanna-tv-load-metrics-v1";
+const recordedLoadMilestones = new Set<string>();
+
+function readStoredLoadMetrics(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(TV_LOAD_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredLoadMetrics(metrics: Record<string, number>): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(TV_LOAD_STORAGE_KEY, JSON.stringify(metrics));
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+/** Zero-cost when debug disabled except performance.mark (negligible). */
+export function tvLoadMark(
+  milestone: TvLoadMilestone,
+  payload: Record<string, unknown> = {}
+): number {
+  if (typeof window === "undefined") return 0;
+
+  if (!recordedLoadMilestones.has("T0")) {
+    recordedLoadMilestones.add("T0");
+    performance.mark("tv:T0");
+  }
+
+  const msSinceNav = performance.now();
+  if (!recordedLoadMilestones.has(milestone)) {
+    recordedLoadMilestones.add(milestone);
+    performance.mark(`tv:${milestone}`);
+    const stored = readStoredLoadMetrics();
+    stored[milestone] = msSinceNav;
+    if (milestone === "T6" && stored.T0 == null) {
+      stored.T0 = 0;
+    }
+    writeStoredLoadMetrics(stored);
+  }
+
+  if (isTvDebugEnabled()) {
+    const stored = readStoredLoadMetrics();
+    console.info(`[TV:load] ${milestone}`, {
+      msSinceNav,
+      ttfvMs: stored.T6,
+      ...getTvTraceContext(),
+      ...payload,
+    });
+    if (milestone === "T6" && stored.T6 != null) {
+      console.info("[TV:load] summary", {
+        ...stored,
+        ttfvMs: stored.T6,
+      });
+    }
+  }
+
+  return msSinceNav;
+}
+
+/** Read persisted load milestones for this navigation (debug / QA export). */
+export function getTvLoadMetrics(): Record<string, number> {
+  return readStoredLoadMetrics();
+}
+
+/** Clear stored metrics (e.g. before a cold-load test run). */
+export function resetTvLoadMetrics(): void {
+  recordedLoadMilestones.clear();
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.removeItem(TV_LOAD_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /** Log playVideo() promise outcome without changing playback behavior. */
 export function tracePlayVideoResult(source: string, result: unknown): void {
   if (!isTvDebugEnabled()) return;

@@ -401,7 +401,7 @@ export const CommentDrawer = ({
   const resolvedViewCount = engagementLive?.views ?? metrics?.viewCount ?? 0;
   const resolvedEncounterCount =
     engagementLive?.encounters ?? metrics?.encounterCount ?? 0;
-    
+
   const resolvedSaveCount = engagementLive?.saves ?? metrics?.saveCount ?? 0;
   const resolvedShareCount = engagementLive?.shares ?? metrics?.shareCount ?? 0;
   const showMetricsSkeleton = loading && !metrics;

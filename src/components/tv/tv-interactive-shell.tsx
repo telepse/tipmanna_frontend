@@ -20,6 +20,55 @@ const TipDrawer = dynamic(
     })),
   { ssr: false }
 );
+const TopContentsPanel = dynamic(
+  () =>
+    import("./top-contents-panel").then(m => ({
+      default: m.TopContentsPanel,
+    })),
+  { ssr: false }
+);
+const LatestContentsPanel = dynamic(
+  () =>
+    import("./latest-contents-panel").then(m => ({
+      default: m.LatestContentsPanel,
+    })),
+  { ssr: false }
+);
+const SpotlightPanel = dynamic(
+  () =>
+    import("./spotlight-panel").then(m => ({
+      default: m.SpotlightPanel,
+    })),
+  { ssr: false }
+);
+const MostTippedContentsPanel = dynamic(
+  () =>
+    import("./most-tipped-contents-panel").then(m => ({
+      default: m.MostTippedContentsPanel,
+    })),
+  { ssr: false }
+);
+const SavedContentsPanel = dynamic(
+  () =>
+    import("./saved-contents-panel").then(m => ({
+      default: m.SavedContentsPanel,
+    })),
+  { ssr: false }
+);
+const EventVideoTypeContentsPanel = dynamic(
+  () =>
+    import("./event-video-type-contents-panel").then(m => ({
+      default: m.EventVideoTypeContentsPanel,
+    })),
+  { ssr: false }
+);
+const UpcomingProgramsPanel = dynamic(
+  () =>
+    import("./upcoming-programs-panel").then(m => ({
+      default: m.UpcomingProgramsPanel,
+    })),
+  { ssr: false }
+);
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { TVScheduleDrawer } from "./tv-schedule-drawer";
 import { TvPlaylistPreview } from "./tv-playlist-preview";
@@ -29,16 +78,9 @@ import { useTV } from "../tv-provider";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
 import { WebTvLooper } from "./web-tv-looper";
-import { TopContentsPanel } from "./top-contents-panel";
-import { LatestContentsPanel } from "./latest-contents-panel";
-import { SpotlightPanel } from "./spotlight-panel";
-import { MostTippedContentsPanel } from "./most-tipped-contents-panel";
-import { SavedContentsPanel } from "./saved-contents-panel";
-import { EventVideoTypeContentsPanel } from "./event-video-type-contents-panel";
 import { TV_EVENT_VIDEO_TYPE_TAGS } from "./tv-event-video-type-tags";
 import { Button } from "../ui/button";
 import Image from "next/image";
-import { UpcomingProgramsPanel } from "./upcoming-programs-panel";
 import { cn } from "@/lib/utils";
 import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
@@ -252,7 +294,7 @@ export function TvInteractiveShell({
 
   return (
     <>
-      {scheduleStale && tvReady && (
+      {/* {scheduleStale && tvReady && (
         <div
           className={`mt-4 rounded-md border border-amber-600 bg-amber-50 p-4 text-sm text-black ${bannerW}`}
         >
@@ -267,8 +309,8 @@ export function TvInteractiveShell({
             Retry fresh load
           </button>
         </div>
-      )}
-      {scheduleError && !tvReady && (
+      )} */}
+      {/* {scheduleError && !tvReady && (
         <div
           className={`border-destructive mt-4 rounded-md border bg-white p-4 text-sm text-black ${bannerW}`}
         >
@@ -281,7 +323,7 @@ export function TvInteractiveShell({
             Retry
           </button>
         </div>
-      )}
+      )} */}
 
       {isDesktop && (
         <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">

@@ -1122,7 +1122,9 @@ export function DiscoverPanel({
                           fill
                           className="object-cover"
                           sizes="48px"
-                          unoptimized={!isOptimizableImageSrc(community.logoUrl)}
+                          unoptimized={
+                            !isOptimizableImageSrc(community.logoUrl)
+                          }
                         />
                       </div>
                     ) : (

@@ -10,24 +10,13 @@
  * tips, Stripe, schedule) with a full-width channel-style layout.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { useMediaQuery } from "react-responsive";
 
 import { Channel } from "@/types/channel.types";
 
-import {
-  getAllTopTippers,
-  getTippedEventsForTipper,
-  getTotalAmountTippedByTipper,
-} from "@/actions/events";
-import {
-  getLatestContents,
-  getMostTippedContents,
-  getTipFeed,
-} from "@/actions/contents";
-import { getAllCausesAction } from "@/actions/home";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +31,6 @@ import { RootState } from "@/redux/store";
 import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { setSelectedTips } from "@/features/tip-slice";
 import type { RoomCharacter } from "@/types";
-import { scheduleExploreFeedPrefetchIdle } from "@/lib/explore-feed-prefetch-cache";
 import { TVPageClient } from "@/components/tv/tv-page-client";
 import {
   TvInteractiveShell,
@@ -51,29 +39,15 @@ import {
 import { TvWebExperience } from "./tv-web-experience";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import {
-  acquireCommunityLiveTvChannel,
-  acquireGlobalLiveTvChannel,
-  releaseCommunityLiveTvChannel,
-  releaseGlobalLiveTvChannel,
-} from "@/hooks/use-global-tip-stream";
-import {
-  mergeTipFeedDeduped,
-  normalizeTipFeedList,
-  prependTipFeedDeduped,
-  rawToTipFeedMessage,
-  type TvTipFeedMessage,
-} from "@/lib/tv-tip-feed-utils";
-import { getCommunityTipFeedAction } from "@/actions/communities";
-import {
-  collectTvScheduleEventIds,
   getCachedTvEventCatalog,
   loadTvEventCatalog,
-  prefetchTvEventCatalogs,
   type TvEventCatalog,
 } from "@/lib/tv-event-catalog-cache";
 import { useTvEnforcementDeepLink } from "@/hooks/use-tv-enforcement-deep-link";
 import { tvTrace } from "@/lib/tvDebugLog";
+import { schedulePostTtfvIdle } from "@/lib/tv-post-ttfv-idle";
 import { prefetchTvScheduleTips } from "@/lib/drawer-prefetch-cache";
+import { useTvLazyCharacters } from "@/hooks/use-tv-lazy-characters";
 
 interface Character {
   id: string;
@@ -98,9 +72,9 @@ interface CharacterSet {
 }
 
 interface Props {
-  channels: Channel[];
+  channels?: Channel[];
   characters: Character[];
-  characterSets: CharacterSet[];
+  characterSets?: CharacterSet[];
 }
 
 export const getCurrentUser = () => {
@@ -118,18 +92,11 @@ export const getCurrentUser = () => {
   return newUser;
 };
 
-/** Coerce API JSON (number or numeric string) for server actions typed as unknown. */
-const coalesceNumber = (value: unknown): number => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const n = Number(value);
-    if (Number.isFinite(n)) return n;
-  }
-  return 0;
-};
-
-export default function TVPageClientWrapper({ channels, characters }: Props) {
-  const userId = useSelector((s: RootState) => s.auth.user?.id);
+export default function TVPageClientWrapper({
+  channels = [],
+  characters: ssrCharacters,
+}: Props) {
+  const { characters } = useTvLazyCharacters(ssrCharacters);
   const {
     items,
     totalDuration,
@@ -146,7 +113,6 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
     scheduleStale,
     retryScheduleLoad,
     playingItemOverride,
-    selectedTag,
     scheduleSourceCommunityId,
     playEnforcementProgram,
   } = useTV();
@@ -162,10 +128,6 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
 
   const dispatch = useDispatch();
   const selectedTips = useSelector((s: RootState) => s.tip.selectedTips);
-
-  useEffect(() => {
-    scheduleExploreFeedPrefetchIdle();
-  }, []);
 
   const isMobile = useMediaQuery({ maxWidth: "500px" });
 
@@ -248,11 +210,6 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
     setIsTipDrawerOpen
   );
 
-  const scheduleCommTvRef = useRef<string | null>(null);
-  useEffect(() => {
-    scheduleCommTvRef.current = scheduleSourceCommunityId;
-  }, [scheduleSourceCommunityId, tipDrawerEventId]);
-
   const [videoTipCatalog, setVideoTipCatalog] = useState<TvEventCatalog | null>(
     null
   );
@@ -276,13 +233,10 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
   }, [playingVideoKey, tipDrawerEventId]);
 
   useEffect(() => {
-    if (!items.length) return;
-    prefetchTvEventCatalogs(collectTvScheduleEventIds(items, 24));
-  }, [items]);
-
-  useEffect(() => {
     if (!items.length || !tipDrawerEventId) return;
-    prefetchTvScheduleTips(items, currentIndex, 3);
+    schedulePostTtfvIdle(() => {
+      prefetchTvScheduleTips(items, currentIndex, 3);
+    });
   }, [items, currentIndex, tipDrawerEventId, playingVideoKey]);
 
   const characterSetsForDrawer = (videoTipCatalog?.characterSets ?? []).filter(
@@ -306,181 +260,6 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
   useEffect(() => {
     tvTrace("navigation", "tv_page_open_dispatch", {});
     window.dispatchEvent(new Event("tv-page-open"));
-  }, []);
-
-  const [, setTipFeed] = useState<TvTipFeedMessage[]>([]);
-  const [tippers, setTippers] = useState<any[]>([]);
-  const [tipperEvents, setTipperEvents] = useState<any[]>([]);
-  const [iTipped, setITipped] = useState(0);
-  const [causes, setCauses] = useState<any[]>([]);
-  const [contents, setContents] = useState<any[]>([]);
-  const [latestContents, setLatestContents] = useState<any[]>([]);
-  const [mostTippedContents, setMostTippedContents] = useState<any[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchTipFeedFirst = async () => {
-      if (scheduleCommTvRef.current) return;
-      const res = await getTipFeed(tipDrawerEventId);
-      setTipFeed(normalizeTipFeedList(res.data));
-      if (cancelled) return;
-      const raw = res?.data;
-      if (Array.isArray(raw)) {
-        setTipFeed(normalizeTipFeedList(raw));
-      }
-    };
-
-    const fetchSecondaryData = async () => {
-      const [
-        { data: _tippers },
-        { data: _tipperEvents },
-        { data: _iTipped },
-        { data: _causes },
-        { data: _latestContents },
-        { data: _mostTippedContents },
-      ] = await Promise.all([
-        getAllTopTippers(),
-        userId ? getTippedEventsForTipper() : Promise.resolve({ data: [] }),
-        userId ? getTotalAmountTippedByTipper() : Promise.resolve({ data: 0 }),
-        getAllCausesAction(),
-        getLatestContents(),
-        getMostTippedContents(),
-      ]);
-
-      if (cancelled) return;
-
-      setTippers(Array.isArray(_tippers) ? _tippers : []);
-      setTipperEvents(Array.isArray(_tipperEvents) ? _tipperEvents : []);
-      setITipped(coalesceNumber(_iTipped));
-      setCauses(Array.isArray(_causes) ? _causes : []);
-      setContents([]);
-      setLatestContents(Array.isArray(_latestContents) ? _latestContents : []);
-      setMostTippedContents(
-        Array.isArray(_mostTippedContents) ? _mostTippedContents : []
-      );
-    };
-
-    void fetchTipFeedFirst();
-    void fetchSecondaryData();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [tipDrawerEventId, userId]);
-
-  /** Stable community-scoped tip feed — keyed on community id only, not current schedule item. */
-  useEffect(() => {
-    if (!scheduleSourceCommunityId) return;
-    let cancelled = false;
-    void (async () => {
-      const res = await getCommunityTipFeedAction(scheduleSourceCommunityId);
-      if (cancelled) return;
-      if (res.success && res.data) {
-        setTipFeed(normalizeTipFeedList(res.data));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [scheduleSourceCommunityId, tipDrawerEventId]);
-
-  useEffect(() => {
-    if (scheduleSourceCommunityId) return;
-    let cancelled = false;
-    void (async () => {
-      const res = await getTipFeed(tipDrawerEventId);
-      if (cancelled) return;
-      const raw = res?.data;
-      if (Array.isArray(raw)) {
-        setTipFeed(normalizeTipFeedList(raw));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [scheduleSourceCommunityId, tipDrawerEventId]);
-
-  const refetchCommunityTipFeed = useCallback(async () => {
-    const communityId = scheduleCommTvRef.current;
-    if (!communityId) return;
-    const res = await getCommunityTipFeedAction(communityId);
-    if (!res.success || !res.data) return;
-    const incoming = normalizeTipFeedList(res.data);
-    setTipFeed(prev => mergeTipFeedDeduped(prev, incoming));
-  }, []);
-
-  /** Community TV realtime — ref-counted channel shared with tv-provider schedule listener. */
-  useEffect(() => {
-    if (!scheduleSourceCommunityId) return;
-    const ch = acquireCommunityLiveTvChannel(scheduleSourceCommunityId);
-    if (!ch) return;
-
-    const onNewMessage = (message: unknown) => {
-      const msg = rawToTipFeedMessage(message);
-      if (!msg) return;
-      setTipFeed(prev => prependTipFeedDeduped(prev, msg));
-    };
-
-    const onLiveTip = (data: unknown) => {
-      const msg = rawToTipFeedMessage(data);
-      if (!msg) return;
-      setTipFeed(prev => prependTipFeedDeduped(prev, msg));
-    };
-
-    const onScheduleUpdated = () => {
-      void refetchCommunityTipFeed();
-    };
-
-    ch.bind("new-message", onNewMessage);
-    ch.bind("live-tip", onLiveTip);
-    ch.bind("tv-schedule-updated", onScheduleUpdated);
-
-    return () => {
-      ch.unbind("new-message", onNewMessage);
-      ch.unbind("live-tip", onLiveTip);
-      ch.unbind("tv-schedule-updated", onScheduleUpdated);
-      releaseCommunityLiveTvChannel(scheduleSourceCommunityId);
-    };
-  }, [scheduleSourceCommunityId, refetchCommunityTipFeed]);
-
-  const tagFilteredContents = selectedTag
-    ? contents.filter(
-        (content: any) =>
-          content?.event?.eventType?.toLowerCase() === selectedTag.toLowerCase()
-      )
-    : contents;
-
-  useEffect(() => {
-    const channel = acquireGlobalLiveTvChannel();
-    if (!channel) return;
-
-    const onSubscriptionSucceeded = () => undefined;
-    channel.bind("pusher:subscription_succeeded", onSubscriptionSucceeded);
-
-    const handleLiveTip = (data: any) => {
-      if (scheduleCommTvRef.current) return;
-      const msg = rawToTipFeedMessage(data);
-      if (!msg) return;
-      setTipFeed(prev => prependTipFeedDeduped(prev, msg));
-    };
-
-    const handleNewMessage = (message: any) => {
-      if (scheduleCommTvRef.current) return;
-      const msg = rawToTipFeedMessage(message);
-      if (!msg) return;
-      setTipFeed(prev => prependTipFeedDeduped(prev, msg));
-    };
-
-    channel.bind("live-tip", handleLiveTip);
-    channel.bind("new-message", handleNewMessage);
-
-    return () => {
-      channel.unbind("pusher:subscription_succeeded", onSubscriptionSucceeded);
-      channel.unbind("live-tip", handleLiveTip);
-      channel.unbind("new-message", handleNewMessage);
-      releaseGlobalLiveTvChannel();
-    };
   }, []);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -591,15 +370,15 @@ export default function TVPageClientWrapper({ channels, characters }: Props) {
           <TVPageClient
             channels={channels}
             currentPlayingIndex={currentIndex}
-            contents={contents}
-            tippers={tippers}
-            tipperEvents={tipperEvents}
-            iTipped={iTipped}
-            causes={causes}
-            latestContents={latestContents}
-            mostTippedContents={mostTippedContents}
-            selectedTag={selectedTag}
-            tagFilteredContents={tagFilteredContents}
+            contents={[]}
+            tippers={[]}
+            tipperEvents={[]}
+            iTipped={0}
+            causes={[]}
+            latestContents={[]}
+            mostTippedContents={[]}
+            selectedTag={null}
+            tagFilteredContents={[]}
           />
         </div>
       )}

@@ -9,6 +9,7 @@ import { TvDeviceSessionBootstrap } from "@/components/tv/tv-device-session-boot
 import TVProvider from "@/components/tv-provider";
 import { TVExpressButtons } from "@/components/tv/tv-express-buttons";
 import { TvSourcePickerProvider } from "@/components/tv/tv-source-picker-provider";
+import { TvYoutubePreconnect } from "@/components/tv/tv-youtube-preconnect";
 import { useState } from "react";
 
 export default function TVLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export default function TVLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <TVProvider>
+      <TvYoutubePreconnect />
       <TvSourcePickerProvider>
         <TVNavbar active_users={activeUsers.length} />
         <TVExpressButtons />

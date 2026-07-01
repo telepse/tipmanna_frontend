@@ -12,7 +12,8 @@
     "playwright:install": "playwright install chromium",
     "test:e2e": "npm run playwright:install && npm run build && playwright test",
     "format": "prettier --write .",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "tv:perf-audit": "node scripts/tv-performance-audit.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

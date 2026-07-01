@@ -15,7 +15,7 @@ import {
   type ScheduleItem,
 } from "@/lib/tv/broadcastEngine";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { logTV, tvTrace } from "@/lib/tvDebugLog";
+import { logTV, tvLoadMark, tvTrace } from "@/lib/tvDebugLog";
 import {
   isSameOrchestratedPlayback,
   type TvPlaybackRequest,
@@ -34,8 +34,14 @@ import {
   trackTvUserInteraction,
 } from "@/lib/tvAnalytics";
 import { preloadVideos } from "@/lib/preloadManager";
+import { schedulePostTtfvIdle } from "@/lib/tv-post-ttfv-idle";
 import { usePathname } from "next/navigation";
 import { fetchTvScheduleAction } from "@/actions/tv-schedule";
+import { fetchTvScheduleClient } from "@/lib/tv-schedule-client-fetch";
+import {
+  isTvDirectScheduleFetchEnabled,
+  isTvScheduleSwrEnabled,
+} from "@/lib/tv-feature-flags";
 import {
   clearPersistedPaymentSnapshot,
   isPaymentPendingReturn,
@@ -425,6 +431,7 @@ export default function GlobalTVProvider({
     (opts?: { manual?: boolean; resetRetry?: boolean }) => Promise<void>
   >(async () => {});
   const scheduleEtagRef = useRef<string | null>(null);
+  const scheduleSwrBootstrappedRef = useRef(false);
   const syncMissRef = useRef(0);
   const isReadyRef = useRef(false);
   const broadcastEpochRef = useRef<number | null>(null);
@@ -487,6 +494,7 @@ export default function GlobalTVProvider({
     orchestratedPlaybackRef.current = null;
     pendingPlaybackRequestRef.current = null;
     pendingAudioRestoreRef.current = null;
+    scheduleSwrBootstrappedRef.current = false;
     paymentPlaybackRestoreRef.current = null;
   }, []);
 
@@ -826,9 +834,11 @@ export default function GlobalTVProvider({
     }
 
     setItems(data.items ?? []);
-    prefetchTvEventCatalogs(
-      collectTvScheduleEventIds((data.items as any[]) ?? [], 24)
-    );
+    schedulePostTtfvIdle(() => {
+      prefetchTvEventCatalogs(
+        collectTvScheduleEventIds((data.items as any[]) ?? [], 24)
+      );
+    });
     setBroadcastEpoch(data.broadcastEpoch ?? null);
     setTotalDuration(data.totalDuration ?? 0);
     setActiveBatch(data.activeBatch ?? null);
@@ -939,7 +949,34 @@ export default function GlobalTVProvider({
           clearTimeout(scheduleRetryTimeoutRef.current);
           scheduleRetryTimeoutRef.current = null;
         }
+        if (isTvScheduleSwrEnabled() && !scheduleSwrBootstrappedRef.current) {
+          const cid = scheduleSourceCommunityIdRef.current;
+          const cached = readTvScheduleCache(cid);
+          if (cached) {
+            scheduleSwrBootstrappedRef.current = true;
+            scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
+            applySchedulePayload(cached.body);
+            setScheduleStale(true);
+            setScheduleError(false);
+            setIsReady(true);
+            tvLoadMark("T3_cache_hit", { communityId: cid });
+            tvLoadMark("T4", { source: "schedule_swr_cache" });
+            logTV("schedule_swr_bootstrap", {
+              mode: modeRef.current,
+              currentIndex: currentIndexRef.current,
+              offsetSeconds: null,
+            });
+            if (modeRef.current === "GLOBAL") {
+              queueMicrotask(() => syncToLive());
+            }
+          }
+        }
       }
+
+      tvLoadMark("T3_cache_miss", {
+        manual: opts?.manual ?? false,
+        communityId: scheduleSourceCommunityIdRef.current,
+      });
 
       const applySuccess = (data: any, etag: string | null) => {
         const cid = scheduleSourceCommunityIdRef.current;
@@ -949,6 +986,7 @@ export default function GlobalTVProvider({
         setScheduleError(false);
         setScheduleStale(false);
         setIsReady(true);
+        tvLoadMark("T4", { source: "loadSchedule_success" });
         scheduleRetryCountRef.current = 0;
 
         if (boundaryRefetchTimeoutRef.current) {
@@ -970,10 +1008,13 @@ export default function GlobalTVProvider({
 
       try {
         const cid = scheduleSourceCommunityIdRef.current;
-        const res = await fetchTvScheduleAction({
+        const scheduleOpts = {
           communityId: cid,
           ifNoneMatch: scheduleEtagRef.current,
-        });
+        };
+        const res = isTvDirectScheduleFetchEnabled()
+          ? await fetchTvScheduleClient(scheduleOpts)
+          : await fetchTvScheduleAction(scheduleOpts);
 
         if (res.success && res.data?.notModified) {
           tvTrace("schedule", "loadSchedule_not_modified", {
@@ -988,9 +1029,14 @@ export default function GlobalTVProvider({
         }
 
         if (!res.success || !res.data?.body) {
-          throw new Error(
-            res.error ?? res.message ?? "Failed to load TV schedule"
-          );
+          const failMsg =
+            !res.success && "error" in res && res.error
+              ? res.error
+              : "message" in res &&
+                  typeof (res as { message?: string }).message === "string"
+                ? (res as { message: string }).message
+                : "Failed to load TV schedule";
+          throw new Error(failMsg);
         }
 
         const data = res.data.body;
@@ -1031,6 +1077,7 @@ export default function GlobalTVProvider({
           setScheduleStale(true);
           setScheduleError(false);
           setIsReady(true);
+          tvLoadMark("T4", { source: "schedule_fallback_cache" });
           logTV("schedule_fallback_cache", {
             mode: modeRef.current,
             currentIndex: currentIndexRef.current,
@@ -1123,6 +1170,10 @@ export default function GlobalTVProvider({
   const retryScheduleLoad = useCallback(() => {
     void loadSchedule({ manual: true, resetRetry: true });
   }, [loadSchedule]);
+
+  useEffect(() => {
+    tvLoadMark("T2", { source: "TVProvider_mount" });
+  }, []);
 
   useEffect(() => {
     initTvAnalyticsRuntime();

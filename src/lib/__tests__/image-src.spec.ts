@@ -8,9 +8,9 @@ describe("isOptimizableImageSrc", () => {
   });
 
   it("allows configured remote hosts", () => {
-    expect(
-      isOptimizableImageSrc("https://res.cloudinary.com/demo/a.jpg")
-    ).toBe(true);
+    expect(isOptimizableImageSrc("https://res.cloudinary.com/demo/a.jpg")).toBe(
+      true
+    );
     expect(isOptimizableImageSrc("https://img.youtube.com/vi/x/0.jpg")).toBe(
       true
     );
@@ -20,9 +20,7 @@ describe("isOptimizableImageSrc", () => {
   it("rejects unconfigured hosts (would throw in next/image default loader)", () => {
     // The regression: an arbitrary content-supplied host crashed the surface.
     expect(
-      isOptimizableImageSrc(
-        "https://drive.google.com/file/d/1abc/view?pli=1"
-      )
+      isOptimizableImageSrc("https://drive.google.com/file/d/1abc/view?pli=1")
     ).toBe(false);
     expect(isOptimizableImageSrc("https://example.com/a.png")).toBe(false);
   });

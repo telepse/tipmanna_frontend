@@ -9,6 +9,7 @@ import { TvPageSuspenseFallback } from "@/components/tv/tv-page-suspense-fallbac
 import { Metadata } from "next";
 import { Suspense } from "react";
 import { getPrimaryOrigin } from "@/lib/site-config";
+import { isTvLazySsrCharactersEnabled } from "@/lib/tv-feature-flags";
 
 type EventChannelListItem = {
   url?: string;
@@ -76,11 +77,22 @@ export default async function TVPage({
   searchParams: Promise<{ videoId?: string }>;
 }) {
   const { videoId } = await searchParams;
+  const lazySsrCharacters = isTvLazySsrCharactersEnabled();
 
   const [{ data: characters }, { data: characterSets }, currentChannel] =
     await Promise.all([
-      getCharactersForTipping(),
-      getAllCharacterSets(),
+      lazySsrCharacters
+        ? Promise.resolve({
+            data: [] as Awaited<
+              ReturnType<typeof getCharactersForTipping>
+            >["data"],
+          })
+        : getCharactersForTipping(),
+      lazySsrCharacters
+        ? Promise.resolve({
+            data: [] as Awaited<ReturnType<typeof getAllCharacterSets>>["data"],
+          })
+        : getAllCharacterSets(),
       loadChannelForVideoId(videoId),
     ]);
 

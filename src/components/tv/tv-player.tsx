@@ -23,7 +23,13 @@ import {
   styleYoutubeIframePresentation,
 } from "@/lib/youtube-iframe-presentation";
 import { YoutubeChromeMask } from "@/components/youtube-chrome-mask";
-import { tracePlayVideoResult, tvTrace, ytStateName } from "@/lib/tvDebugLog";
+import {
+  tracePlayVideoResult,
+  tvLoadMark,
+  tvTrace,
+  ytStateName,
+} from "@/lib/tvDebugLog";
+import { notifyTvFirstPlay } from "@/lib/tv-post-ttfv-idle";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
 
@@ -105,6 +111,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       null
     );
     const suppressUserIntentUntilRef = useRef(0);
+    const aspectFetchedRef = useRef(false);
     const mountedVideoIdRef = useRef<string | undefined>(
       extractYoutubeID(videoUrl) ?? undefined
     );
@@ -284,8 +291,10 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               videoId: extractYoutubeID(videoUrlRef.current),
               externallyControlled,
             });
+            tvLoadMark("T5", {
+              videoId: extractYoutubeID(videoUrlRef.current),
+            });
 
-            notifyVideoAspect();
             syncMuteFromPlayer(event.target);
             onReady?.();
           }}
@@ -300,6 +309,14 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               tvTrace("playback", "onPlay", {
                 videoId: extractYoutubeID(videoUrlRef.current),
               });
+              tvLoadMark("T6", {
+                videoId: extractYoutubeID(videoUrlRef.current),
+              });
+              notifyTvFirstPlay();
+              if (!aspectFetchedRef.current) {
+                aspectFetchedRef.current = true;
+                notifyVideoAspect();
+              }
               onPlay?.();
             }
             if (event.data === 2) {

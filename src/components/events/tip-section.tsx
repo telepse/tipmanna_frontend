@@ -146,6 +146,12 @@ export const TipSection = ({
     presentTextTipDraftModal();
   };
 
+  const openTextDraft = (character: string, context: string) => {
+    stopPreview();
+
+    presentTextTipDraftModal();
+  };
+
   const openTextDraftModal = () => {
     let existingDraft = "";
     try {
@@ -171,7 +177,8 @@ export const TipSection = ({
       tipsForTotals,
       openDraftModal: () => {
         cancelTextPreviewRef.current = null;
-        presentTextTipDraftModal();
+        stopPreview();
+        presentTextTipDraftModal(); // or unified handler
       },
     });
   };
@@ -181,7 +188,8 @@ export const TipSection = ({
     // Text Tip — preview animation, then modal; max one Text in cart on save.
     // ─────────────────────────────
     if (isTextCharacterId(characterId)) {
-      openTextDraftModal();
+      stopPreview();
+      openTextDraftModal(); // ALWAYS immediate
       return;
     }
 

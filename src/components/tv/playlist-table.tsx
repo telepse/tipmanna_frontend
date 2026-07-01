@@ -323,7 +323,9 @@ export default function PlaylistTable({
                   }}
                 >
                   <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
-                    <span className="text-[8px] sm:text-[7px]">Created by:</span>
+                    <span className="text-[8px] sm:text-[7px]">
+                      Created by:
+                    </span>
                     <ArrowRight className="size-2 cursor-pointer" />
                   </span>
                 </button>

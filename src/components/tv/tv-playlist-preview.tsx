@@ -226,117 +226,120 @@ export function TvPlaylistPreview({
           ) : null}
         </p>
       )}
-      <div className="pt-1 space-y-2">
-      {previewIndices.map(originalIndex => {
-        const item =
-          originalIndex === currentIndex && playingItemOverride
-            ? playingItemOverride
-            : items[originalIndex];
-        if (!item) return null;
-        // const isPlaying =
-        //   mode === "GLOBAL"
-        //     ? originalIndex === liveBroadcastIndex
-        //     : !playingItemOverride && originalIndex === currentIndex;
-        const isPlaying =
-          mode === "GLOBAL"
-            ? originalIndex === liveBroadcastIndex
-            : schedulePlayingSlot?.rowIndex === originalIndex;
-        const startLabel = pickTimeLabel(originalIndex);
+      <div className="space-y-2 pt-1">
+        {previewIndices.map(originalIndex => {
+          const item =
+            originalIndex === currentIndex && playingItemOverride
+              ? playingItemOverride
+              : items[originalIndex];
+          if (!item) return null;
+          // const isPlaying =
+          //   mode === "GLOBAL"
+          //     ? originalIndex === liveBroadcastIndex
+          //     : !playingItemOverride && originalIndex === currentIndex;
+          const isPlaying =
+            mode === "GLOBAL"
+              ? originalIndex === liveBroadcastIndex
+              : schedulePlayingSlot?.rowIndex === originalIndex;
+          const startLabel = pickTimeLabel(originalIndex);
 
-        const { contentLanguage, flagUrl } = resolveContentLocaleDisplay(
-          item.channel.contentLanguage,
-          item.channel.contentCountry
-        );
+          const { contentLanguage, flagUrl } = resolveContentLocaleDisplay(
+            item.channel.contentLanguage,
+            item.channel.contentCountry
+          );
 
-        const channelId =
-          typeof item.channel?.id === "string" ? item.channel.id : "";
-        const encounterCount =
-          (channelId ? encountersByChannelId[channelId] : undefined) ??
-          item.channel.encounters ??
-          0;
+          const channelId =
+            typeof item.channel?.id === "string" ? item.channel.id : "";
+          const encounterCount =
+            (channelId ? encountersByChannelId[channelId] : undefined) ??
+            item.channel.encounters ??
+            0;
 
-        return (
-          <div
-            key={`${item.id}-${originalIndex}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => onSelectChannel(originalIndex)}
-            onKeyDown={e => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelectChannel(originalIndex);
-              }
-            }}
-            className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary z-10 -mt-2 scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} `}
-          >
+          return (
             <div
-              className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
+              key={`${item.id}-${originalIndex}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelectChannel(originalIndex)}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectChannel(originalIndex);
+                }
+              }}
+              className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary z-10 -mt-2 scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} `}
             >
-              <h5 className="w-full text-xs font-medium whitespace-nowrap">
-                {item?.channel?.title
-                  ? trimTitle(item.channel.title, titleTrim)
-                  : "Loading..."}
-              </h5>
-
-              <p className={metricRowClass}>
-                {showTimes && startLabel ? (
-                  <span className={airTimeBadgeClass}>{startLabel}</span>
-                ) : null}
-                <span className={metricItemClass}>
-                  <UsersRound className="size-3 shrink-0" />
-                  {item.channel.numOfTips || 0} tips
-                </span>
-                <span className={metricItemClass}>
-                  <EyeIcon className="size-3 shrink-0" />
-                  {encounterCount} seen
-                </span>
-              </p>
-            </div>
-
-            <div className="flex shrink-0 flex-col items-end justify-end gap-1">
-              <button
-                type="button"
-                className="flex items-center gap-[0.5px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
-                onClick={e => {
-                  e.stopPropagation();
-                  openCommentDrawer(item);
-                }}
+              <div
+                className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
               >
-                <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
-                  <span className="text-[8px] sm:text-[7px]">Created by:</span>
-                  <ArrowRight className="size-2 cursor-pointer" />
-                </span>
-              </button>
+                <h5 className="w-full text-xs font-medium whitespace-nowrap">
+                  {item?.channel?.title
+                    ? trimTitle(item.channel.title, titleTrim)
+                    : "Loading..."}
+                </h5>
 
-              <div className="flex w-fit items-center gap-1">
-                <span className="flex items-center gap-0.5 text-[9px]">
-                  <img
-                    src={flagUrl}
-                    alt={contentLanguage}
-                    className="h-3 w-4 sm:h-2 sm:w-3"
-                  />{" "}
-                  <span className="text-[8px] sm:text-[6px]">
-                    {contentLanguage}
+                <p className={metricRowClass}>
+                  {showTimes && startLabel ? (
+                    <span className={airTimeBadgeClass}>{startLabel}</span>
+                  ) : null}
+                  <span className={metricItemClass}>
+                    <UsersRound className="size-3 shrink-0" />
+                    {item.channel.numOfTips || 0} tips
                   </span>
-                </span>
-
-                <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[6px]">
-                  {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
+                  <span className={metricItemClass}>
+                    <EyeIcon className="size-3 shrink-0" />
+                    {encounterCount} seen
+                  </span>
                 </p>
               </div>
-            </div>
 
-            {isPlaying && (
-              <div className="absolute top-0 -left-4 z-20 bg-white lg:-left-6">
-                <span className="flex flex-col">
-                  <AudioLines className="text-primary wave-icon" />
-                  <AudioLines className="text-primary wave-icon" />
-                </span>
+              <div className="flex shrink-0 flex-col items-end justify-end gap-1">
+                <button
+                  type="button"
+                  className="flex items-center gap-[0.5px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
+                  onClick={e => {
+                    e.stopPropagation();
+                    openCommentDrawer(item);
+                  }}
+                >
+                  <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
+                    <span className="text-[8px] sm:text-[7px]">
+                      Created by:
+                    </span>
+                    <ArrowRight className="size-2 cursor-pointer" />
+                  </span>
+                </button>
+
+                <div className="flex w-fit items-center gap-1">
+                  <span className="flex items-center gap-0.5 text-[9px]">
+                    <img
+                      src={flagUrl}
+                      alt={contentLanguage}
+                      className="h-3 w-4 sm:h-2 sm:w-3"
+                    />{" "}
+                    <span className="text-[8px] sm:text-[6px]">
+                      {contentLanguage}
+                    </span>
+                  </span>
+
+                  <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[6px]">
+                    {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-        );
-      })}</div>
+
+              {isPlaying && (
+                <div className="absolute top-0 -left-4 z-20 bg-white lg:-left-6">
+                  <span className="flex flex-col">
+                    <AudioLines className="text-primary wave-icon" />
+                    <AudioLines className="text-primary wave-icon" />
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {commentDrawerTarget ? (
         <CommentDrawer
