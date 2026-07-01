@@ -24,7 +24,7 @@ describe("discover content routing", () => {
     );
   });
 
-  it("routes clips to explore reel only on explore tab with handler", () => {
+  it("routes clips to explore reel on any surface that provides a play handler", () => {
     const clip = { liveStatus: null };
     expect(resolveDiscoverContentTarget(clip, "exploreTab", true)).toBe(
       "explore-reel"
@@ -32,7 +32,11 @@ describe("discover content routing", () => {
     expect(resolveDiscoverContentTarget(clip, "exploreTab", false)).toBe(
       "content"
     );
+    // Dedicated Discover page now reuses Explore playback when a handler exists.
     expect(resolveDiscoverContentTarget(clip, "discovery", true)).toBe(
+      "explore-reel"
+    );
+    expect(resolveDiscoverContentTarget(clip, "discovery", false)).toBe(
       "content"
     );
   });

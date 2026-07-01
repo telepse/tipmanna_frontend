@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
 import { EXPLORE_EVENT_TYPE_OPTIONS } from "@/lib/event-type-options";
-import { getDiscoveryAbsoluteUrl, SITE_URL } from "@/lib/site-config";
+import { getPrimaryOrigin } from "@/lib/site-config";
+
+const TV_ORIGIN = getPrimaryOrigin().replace(/\/$/, "");
 
 async function fetchDiscoveryProgramUrls(): Promise<string[]> {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "");
@@ -17,7 +19,7 @@ async function fetchDiscoveryProgramUrls(): Promise<string[]> {
       .filter(
         (url): url is string => typeof url === "string" && url.startsWith("/")
       )
-      .map(path => getDiscoveryAbsoluteUrl(path));
+      .map(path => `${TV_ORIGIN}${path}`);
   } catch {
     return [];
   }
@@ -43,7 +45,7 @@ async function fetchPublicVideoUrls(): Promise<string[]> {
     return rows
       .map(row => row.event?.id)
       .filter((id): id is string => typeof id === "string" && id.length > 0)
-      .map(id => `${SITE_URL.replace(/\/$/, "")}/content/${id}`);
+      .map(id => `${TV_ORIGIN}/content/${id}`);
   } catch {
     return [];
   }
@@ -61,7 +63,7 @@ async function fetchLiveChannelUrls(): Promise<string[]> {
       live?: Array<{ event?: { id?: string } }>;
       upcoming?: Array<{ event?: { id?: string } }>;
     };
-    const origin = SITE_URL.replace(/\/$/, "");
+    const origin = TV_ORIGIN;
     const ids = new Set<string>();
     for (const bucket of [raw.live, raw.upcoming]) {
       if (!Array.isArray(bucket)) continue;
@@ -92,7 +94,7 @@ async function fetchCommunityUrls(): Promise<string[]> {
       ...(Array.isArray(raw.topByTips) ? raw.topByTips : []),
       ...(Array.isArray(raw.alphabetical) ? raw.alphabetical : []),
     ];
-    const origin = SITE_URL.replace(/\/$/, "");
+    const origin = TV_ORIGIN;
     const seen = new Set<string>();
     return rows
       .map(row => row.id?.trim())
@@ -109,7 +111,7 @@ async function fetchCommunityUrls(): Promise<string[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const tvOrigin = SITE_URL.replace(/\/$/, "");
+  const tvOrigin = TV_ORIGIN;
   const [programUrls, contentUrls, communityUrls, channelUrls] =
     await Promise.all([
       fetchDiscoveryProgramUrls(),
@@ -126,7 +128,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const categoryRoutes = EXPLORE_EVENT_TYPE_OPTIONS.map(opt => ({
-    url: getDiscoveryAbsoluteUrl(`/discover/${opt.slug}`),
+    url: `${tvOrigin}/discover/${opt.slug}`,
     lastModified: new Date(),
     changeFrequency: "weekly" as const,
     priority: 0.6,
@@ -134,7 +136,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const discoveryRoutes: MetadataRoute.Sitemap = [
     {
-      url: getDiscoveryAbsoluteUrl("/discover"),
+      url: `${tvOrigin}/discover`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.5,

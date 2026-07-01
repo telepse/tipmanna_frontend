@@ -25,7 +25,6 @@ export function SuperadminLoginHandler() {
         const token = decodeURIComponent(tokenParam);
 
         console.log("Parsed user data:", userData);
-        console.log("Token:", token);
 
         // Validate the user data structure
         if (!userData.id || !userData.fullName || !userData.email) {

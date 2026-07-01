@@ -33,6 +33,7 @@ import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { ContentCardSkeleton } from "./tv-loading-skeletons";
 import { VirtualRail } from "./virtual-rail";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { isOptimizableImageSrc } from "@/lib/image-src";
 import {
   DISCOVERY_TRENDING_SEARCHES,
   pushRecentDiscoverySearch,
@@ -80,6 +81,7 @@ function RailCoverImage({
         fill
         className="object-cover"
         sizes="(max-width: 640px) 220px, 270px"
+        unoptimized={!isOptimizableImageSrc(src)}
       />
     </div>
   );
@@ -245,14 +247,21 @@ export function DiscoverPanel({
     }
     setSearchLoading(true);
     const t = window.setTimeout(() => {
-      void discoverySearchAction(q, 30).then(res => {
-        if (res.success && res.data) {
-          pushRecentDiscoverySearch(q);
-          setRecentSearches(readRecentDiscoverySearches());
-        }
-        setDiscoveryResults(res.success && res.data ? res.data : null);
-        setSearchLoading(false);
-      });
+      void discoverySearchAction(q, 30)
+        .then(res => {
+          if (res.success && res.data) {
+            pushRecentDiscoverySearch(q);
+            setRecentSearches(readRecentDiscoverySearches());
+          }
+          setDiscoveryResults(res.success && res.data ? res.data : null);
+        })
+        .catch(() => {
+          setDiscoveryResults(null);
+        })
+        .finally(() => {
+          // Never leave the search spinner stuck on a rejected request.
+          setSearchLoading(false);
+        });
     }, 350);
     return () => window.clearTimeout(t);
   }, [searchTerm]);
@@ -264,22 +273,28 @@ export function DiscoverPanel({
       return;
     }
     setTagLoading(true);
-    void discoverySearchAction("", 30, selectedTag).then(res => {
-      const videos = res.success && res.data?.videos ? res.data.videos : [];
-      setTagResults(
-        videos.map(v => ({
-          id: v.id,
-          title: v.title,
-          url: v.url,
-          event: {
-            id: v.eventId,
-            numOfTips: v.numOfTips,
-            amountRaised: 0,
-          },
-        }))
-      );
-      setTagLoading(false);
-    });
+    void discoverySearchAction("", 30, selectedTag)
+      .then(res => {
+        const videos = res.success && res.data?.videos ? res.data.videos : [];
+        setTagResults(
+          videos.map(v => ({
+            id: v.id,
+            title: v.title,
+            url: v.url,
+            event: {
+              id: v.eventId,
+              numOfTips: v.numOfTips,
+              amountRaised: 0,
+            },
+          }))
+        );
+      })
+      .catch(() => {
+        setTagResults([]);
+      })
+      .finally(() => {
+        setTagLoading(false);
+      });
   }, [selectedTag]);
 
   const { push, prefetch } = useAppRouter();
@@ -316,13 +331,16 @@ export function DiscoverPanel({
         return;
       }
       if (target === "explore-reel" && onPlayInExplore) {
+        const eventId = content.event?.id;
+        if (!eventId) return;
         onPlayInExplore({
           videoId: content.id,
-          eventId: content.event.id,
+          eventId,
           channelSnapshot: content as unknown as Record<string, unknown>,
         });
         return;
       }
+      if (!content.event?.id) return;
       goToChannel(content.event.id);
     },
     [surface, onPlayInExplore, goToChannel, openLiveStreamContent]
@@ -462,9 +480,12 @@ export function DiscoverPanel({
     );
   };
 
+  const disableInlinePlaybackForHandoff = Boolean(onPlayInExplore);
+
   const renderContentCard = (content: Content, minWidth = CONTENT_CARD_MIN) => (
     <div
       key={content.id}
+      data-testid="discover-content-card"
       onClick={() => resolveContentClick(content)}
       className={cn(
         "relative flex cursor-pointer gap-1 border-2 bg-black/10",
@@ -476,6 +497,7 @@ export function DiscoverPanel({
           videoUrl={content.url}
           contentId={content.id}
           suppressInlinePlaybackContentId={suppressInlinePlaybackContentId}
+          disableInlinePlayback={disableInlinePlaybackForHandoff}
           className="aspect-video w-full rounded-md"
         />
         <div className="p-1">
@@ -861,6 +883,11 @@ export function DiscoverPanel({
                                         fill
                                         className="object-cover"
                                         sizes="48px"
+                                        unoptimized={
+                                          !isOptimizableImageSrc(
+                                            community.logoUrl
+                                          )
+                                        }
                                       />
                                     </div>
                                   ) : (
@@ -917,6 +944,7 @@ export function DiscoverPanel({
                         suppressInlinePlaybackContentId={
                           suppressInlinePlaybackContentId
                         }
+                        disableInlinePlayback={disableInlinePlaybackForHandoff}
                         className="aspect-video w-full rounded-md"
                       />
 
@@ -1094,6 +1122,7 @@ export function DiscoverPanel({
                           fill
                           className="object-cover"
                           sizes="48px"
+                          unoptimized={!isOptimizableImageSrc(community.logoUrl)}
                         />
                       </div>
                     ) : (
@@ -1286,6 +1315,7 @@ export function DiscoverPanel({
                       suppressInlinePlaybackContentId={
                         suppressInlinePlaybackContentId
                       }
+                      disableInlinePlayback={disableInlinePlaybackForHandoff}
                       className="aspect-video w-full rounded-md"
                     />
 

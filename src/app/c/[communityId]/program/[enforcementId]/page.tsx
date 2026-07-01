@@ -3,10 +3,7 @@ import type { Metadata } from "next";
 
 import { ProgramLanding } from "@/components/program/program-landing";
 import { fetchCommunityProgramBootstrap } from "@/lib/program-api";
-import {
-  getPublicAbsoluteUrl,
-  getPublicFrontendOrigin,
-} from "@/lib/site-config";
+import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 import { formatProgramScheduleDisplay } from "@/lib/utils";
 import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
 
@@ -32,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = `${program.title} is live on ${broadcasterName} TV ${scheduledLabel} 📅⚡`;
 
   return {
-    metadataBase: new URL(getPublicFrontendOrigin()),
+    metadataBase: new URL(getPrimaryOrigin()),
     title: `${program.title} | ${program.community?.name ?? "Community"}`,
     description: `Watch ${program.title} on Tipmanna.`,
     openGraph: {

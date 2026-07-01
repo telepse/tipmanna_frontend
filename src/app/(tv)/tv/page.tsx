@@ -8,7 +8,7 @@ import TVPageShell from "@/components/tv/tv-page-shell";
 import { TvPageSuspenseFallback } from "@/components/tv/tv-page-suspense-fallback";
 import { Metadata } from "next";
 import { Suspense } from "react";
-import { getPublicFrontendOrigin } from "@/lib/site-config";
+import { getPrimaryOrigin } from "@/lib/site-config";
 
 type EventChannelListItem = {
   url?: string;
@@ -43,7 +43,7 @@ export async function generateMetadata({
   const description = `Tune into ${currentChannel.title}'s always-on TV channel featuring scheduled programs, community engagement, and realtime supporter participation.`;
 
   return {
-    metadataBase: new URL(getPublicFrontendOrigin()),
+    metadataBase: new URL(getPrimaryOrigin()),
     title: `Watch ${currentChannel.title} TV — Streaming 24/7 📺`,
     description: description,
     openGraph: {

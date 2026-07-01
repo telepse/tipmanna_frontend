@@ -15,7 +15,7 @@ import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
-import { getPublicFrontendOrigin } from "@/lib/site-config";
+import { getPrimaryOrigin } from "@/lib/site-config";
 import { buildRoomShareUrl } from "@/lib/public-video-url";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const event = eventPayload;
-  const baseUrl = getPublicFrontendOrigin();
+  const baseUrl = getPrimaryOrigin();
 
   // Clean background path logic
   const cleanBackground = event.eventBackground?.startsWith("/")

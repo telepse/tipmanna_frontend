@@ -16,7 +16,7 @@ test.describe("discover live routing", () => {
   }) => {
     await page.goto("/discover");
     await expect(
-      page.getByRole("heading", { name: "Live streams" })
+      page.getByRole("heading", { name: "Live streams" }).first()
     ).toBeVisible({
       timeout: 30_000,
     });

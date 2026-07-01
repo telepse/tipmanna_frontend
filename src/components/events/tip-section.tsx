@@ -43,7 +43,6 @@ import {
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
 import type { TipQuoteContext } from "@/hooks/use-tip-presentation";
 import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
-import { cn } from "@/lib/utils";
 import { TippingElementsProvider } from "../payments/tipping-elements-provider";
 import { RoomCharacter } from "@/types";
 
@@ -127,10 +126,18 @@ export const TipSection = ({
     setOpenDrawer
   );
 
-  const allTips = useMemo(
-    () => buildTipSectionPreviewCharacters(tippingCharacters),
-    [tippingCharacters]
-  );
+  const allTips = useMemo(() => {
+    const ordered = buildTipSectionPreviewCharacters(tippingCharacters);
+    if (ordered.length <= 1) return ordered;
+
+    const [pinnedComment, ...rest] = ordered;
+    const shuffled = [...rest];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return [pinnedComment, ...shuffled];
+  }, [tippingCharacters]);
 
   const openTextDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();

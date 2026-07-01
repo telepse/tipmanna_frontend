@@ -111,6 +111,7 @@ import { SaveHostToggleButton } from "@/components/events/save-host-toggle-butto
 import { useExploreReelLayoutMode } from "@/hooks/use-explore-reel-layout-mode";
 import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-realtime";
 import { getAuthToken } from "@/lib/getAuthToken";
+import { prefetchChannelDrawers } from "@/lib/drawer-prefetch-cache";
 import { markExplorePerf } from "@/lib/web-vitals";
 import {
   exploreReelActionsRailClassName,
@@ -159,8 +160,12 @@ const TipDrawer = dynamic(
 
 /** Append size when near end of queue. */
 const EXPLORE_FEED_PAGE_COUNT = 6;
-/** Start loading before the last clip (stable scroll). */
-const EXPLORE_NEAR_END_SLOTS = 3;
+/**
+ * Start loading further before the last clip so the next batch is ready well
+ * before the user reaches it (infinite feed never feels exhausted). Larger
+ * lead time keeps a warm buffer ahead without changing the single-flight guard.
+ */
+const EXPLORE_NEAR_END_SLOTS = 5;
 /** Mount players for previous slide + next N so clips buffer before scroll. */
 const EXPLORE_PRELOAD_BEHIND = 0;
 const EXPLORE_PRELOAD_AHEAD = 1;
@@ -212,6 +217,13 @@ function youtubePosterUrl(videoUrl: string): string | null {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
 }
 
+function formatReelTime(seconds: number): string {
+  const s = !Number.isFinite(seconds) || seconds < 0 ? 0 : seconds;
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
 function ExploreReelScrubber({
   videoRef,
   active,
@@ -223,32 +235,53 @@ function ExploreReelScrubber({
 }) {
   const [t, setT] = useState(0);
   const [dur, setDur] = useState(0);
+  const [seeking, setSeeking] = useState(false);
+  const [seekT, setSeekT] = useState(0);
 
   useEffect(() => {
     if (!active) return undefined;
     const id = window.setInterval(() => {
       const p = videoRef.current;
       if (!p?.isReady()) return;
-      setT(p.getCurrentTime());
+      if (!seeking) setT(p.getCurrentTime());
       setDur(Math.max(0, p.getDuration()));
     }, 300);
     return () => window.clearInterval(id);
-  }, [active, videoRef]);
+  }, [active, videoRef, seeking]);
 
   const safeDur = dur > 0 ? dur : 1;
+  const shown = seeking ? seekT : t;
+  const remaining = Math.max(0, safeDur - shown);
+
   return (
     <div className="pointer-events-auto z-[92] w-full px-1">
+      {seeking ? (
+        <div className="mb-1 flex items-center justify-between text-[10px] font-medium text-white tabular-nums drop-shadow">
+          <span>{formatReelTime(shown)}</span>
+          <span>-{formatReelTime(remaining)}</span>
+        </div>
+      ) : null}
       <input
         type="range"
         aria-label="Video position"
         min={0}
         max={safeDur}
         step={0.25}
-        value={Math.min(t, safeDur)}
-        onPointerDown={e => e.stopPropagation()}
+        value={Math.min(shown, safeDur)}
+        onPointerDown={e => {
+          e.stopPropagation();
+          setSeekT(t);
+          setSeeking(true);
+        }}
+        onPointerUp={e => {
+          e.stopPropagation();
+          setSeeking(false);
+        }}
+        onPointerCancel={() => setSeeking(false)}
         onClick={e => e.stopPropagation()}
         onChange={e => {
           const next = Number(e.target.value);
+          setSeekT(next);
           const p = videoRef.current;
           if (!p?.isReady()) return;
           p.seekTo(next);
@@ -632,20 +665,6 @@ function ExploreReelSlideTitle({
           </button>
         ) : null}
       </div>
-      {metrics && !metricsRestrictedCommunity ? (
-        <p className={exploreReelMetricsClassName(layoutMode)}>
-          <span className="inline-flex items-center gap-1">
-            <Eye
-              className="size-3"
-              aria-hidden
-            />
-            {metrics.encounters}
-          </span>
-          {active?.event?.showViewCountOnVideos === true ? (
-            <span> · {metrics.views} views</span>
-          ) : null}
-        </p>
-      ) : null}
       {metricsRestrictedCommunity ? (
         <p className={exploreReelMetricsClassName(layoutMode)}>
           Insights hidden —{" "}
@@ -658,9 +677,21 @@ function ExploreReelSlideTitle({
           for full metrics.
         </p>
       ) : metrics ? (
+        // Single metrics row: Save · Share · (eye encounter) · Comments.
+        // The eye/encounter metric sits directly in front of the comment count.
         <p className={exploreReelMetricsClassName(layoutMode)}>
-          {metrics.saves} saves · {metrics.shares} shares · {metrics.comments}{" "}
-          comments
+          {metrics.saves} saves · {metrics.shares} shares ·{" "}
+          <span className="inline-flex items-center gap-1">
+            <Eye
+              className="size-3"
+              aria-hidden
+            />
+            {metrics.encounters}
+          </span>{" "}
+          · {metrics.comments} comments
+          {active?.event?.showViewCountOnVideos === true ? (
+            <span> · {metrics.views} views</span>
+          ) : null}
         </p>
       ) : null}
     </div>
@@ -827,6 +858,18 @@ export const ExploreFeedClient = forwardRef<
     if (!activeEventId || activeChannelId == null) return "";
     return `${activeChannelId}:${activeEventId}`;
   }, [activeChannelId, activeEventId]);
+
+  // Warm comment/tips/profile drawer payloads for the active reel so opening
+  // any drawer is instant (no first-open wait). Idle-scheduled and cached, so
+  // this does not compete with playback/preload work.
+  useEffect(() => {
+    if (!activeEventId || activeChannelId == null) return;
+    prefetchChannelDrawers({
+      eventId: activeEventId,
+      channelId: String(activeChannelId),
+      authenticated: Boolean(getAuthToken()),
+    });
+  }, [activeEventId, activeChannelId]);
 
   const [videoTipCatalog, setVideoTipCatalog] = useState<TvEventCatalog | null>(
     null

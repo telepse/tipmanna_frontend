@@ -9,15 +9,18 @@ import PlaylistTable from "./playlist-table";
 import { useTV } from "../tv-provider";
 import { X } from "lucide-react";
 import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
+import type { RoomCharacter } from "@/types";
 
 interface Props {
   isTVDrawerOpen: boolean;
   setIsTvDrawerOpen: (value: boolean) => void;
+  tippingCharacters?: RoomCharacter[];
 }
 
 export const TVScheduleDrawer = ({
   isTVDrawerOpen,
   setIsTvDrawerOpen,
+  tippingCharacters,
 }: Props) => {
   const {
     playLocalFromSchedule,
@@ -56,6 +59,7 @@ export const TVScheduleDrawer = ({
             <PlaylistTable
               variant="activeBatch"
               forceGlobalTimes
+              tippingCharacters={tippingCharacters}
               onSelectChannel={index => {
                 playLocalFromSchedule(index);
                 setIsTvDrawerOpen(false);
@@ -71,6 +75,7 @@ export const TVScheduleDrawer = ({
               <PlaylistTable
                 variant="alternateBatch"
                 forceGlobalTimes
+                tippingCharacters={tippingCharacters}
                 onSelectChannel={i => {
                   playLocalScheduleItem(alternateBatchItems[i]);
                   setIsTvDrawerOpen(false);

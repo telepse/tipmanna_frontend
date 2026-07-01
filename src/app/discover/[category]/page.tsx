@@ -9,7 +9,7 @@ import {
   eventTypeOptionBySlug,
   eventTypeLabel,
 } from "@/lib/event-type-options";
-import { getDiscoveryAbsoluteUrl } from "@/lib/site-config";
+import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 
 type PageProps = { params: Promise<{ category: string }> };
@@ -34,12 +34,12 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: getDiscoveryAbsoluteUrl(`/discover/${opt.slug}`),
+      canonical: getPublicAbsoluteUrl(`/discover/${opt.slug}`),
     },
     openGraph: {
       title,
       description,
-      url: getDiscoveryAbsoluteUrl(`/discover/${opt.slug}`),
+      url: getPublicAbsoluteUrl(`/discover/${opt.slug}`),
       type: "website",
       siteName: "Tipmanna",
     },
@@ -69,7 +69,7 @@ export default async function DiscoverCategoryPage({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     name: `${eventTypeLabel(opt.value)} — Tipmanna Discover`,
-    url: getDiscoveryAbsoluteUrl(`/discover/${opt.slug}`),
+    url: getPublicAbsoluteUrl(`/discover/${opt.slug}`),
     description: `Community ${opt.label.toLowerCase()} videos on Tipmanna.`,
     hasPart: categoryItems.slice(0, 12).map((row, index) => {
       const eventId = row?.event?.id;
@@ -77,7 +77,7 @@ export default async function DiscoverCategoryPage({ params }: PageProps) {
       const url =
         eventId && channelId
           ? buildContentShareUrl({ eventId, channelId })
-          : getDiscoveryAbsoluteUrl(`/discover/${opt.slug}`);
+          : getPublicAbsoluteUrl(`/discover/${opt.slug}`);
       return {
         "@type": "ListItem",
         position: index + 1,

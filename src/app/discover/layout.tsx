@@ -1,26 +1,23 @@
 import type { Metadata } from "next";
-import {
-  getDiscoveryFrontendOrigin,
-  getPublicAbsoluteUrl,
-} from "@/lib/site-config";
+import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 
 const title = "Discover creators, programs & live streams";
 const description =
   "Search Tipmanna for community clips, scheduled TV programs, live streams, and trending creator content.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(getDiscoveryFrontendOrigin()),
+  metadataBase: new URL(getPrimaryOrigin()),
   title,
   description,
   alternates: {
-    canonical: getPublicAbsoluteUrl("/explore"),
+    canonical: getPublicAbsoluteUrl("/discover"),
   },
   openGraph: {
     title,
     description,
-    url: "/discover",
+    url: getPublicAbsoluteUrl("/discover"),
     type: "website",
-    siteName: "Tipmanna Discover",
+    siteName: "Tipmanna",
     images: [
       {
         url: "/og/discover.svg",

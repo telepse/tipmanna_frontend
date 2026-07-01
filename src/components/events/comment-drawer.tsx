@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Heart, Wallet, X } from "lucide-react";
+import { EyeIcon, Heart, Wallet, X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
 import type { RootState } from "@/redux/store";
@@ -401,6 +401,7 @@ export const CommentDrawer = ({
   const resolvedViewCount = engagementLive?.views ?? metrics?.viewCount ?? 0;
   const resolvedEncounterCount =
     engagementLive?.encounters ?? metrics?.encounterCount ?? 0;
+    
   const resolvedSaveCount = engagementLive?.saves ?? metrics?.saveCount ?? 0;
   const resolvedShareCount = engagementLive?.shares ?? metrics?.shareCount ?? 0;
   const showMetricsSkeleton = loading && !metrics;
@@ -561,8 +562,14 @@ export const CommentDrawer = ({
                     {amountRaisedLabel ? <span>&middot;</span> : null}
                   </>
                 ) : null}
+
                 {amountRaisedLabel ? (
                   <span>{amountRaisedLabel} raised</span>
+                ) : null}
+                {resolvedEncounterCount > 0 ? (
+                  <span>
+                    <EyeIcon className="size-3" /> {resolvedEncounterCount} seen
+                  </span>
                 ) : null}
               </div>
             )}

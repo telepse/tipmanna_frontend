@@ -1,6 +1,6 @@
 import { DiscoverPageClient } from "@/components/discover/discover-page-client";
 import { loadDiscoverCatalogServer } from "@/lib/discover-catalog-server";
-import { getDiscoveryAbsoluteUrl } from "@/lib/site-config";
+import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
@@ -20,11 +20,11 @@ export default async function DiscoverPage() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Tipmanna Discover",
-    url: getDiscoveryAbsoluteUrl("/discover"),
+    url: getPublicAbsoluteUrl("/discover"),
     description: pageDescription,
     potentialAction: {
       "@type": "SearchAction",
-      target: `${getDiscoveryAbsoluteUrl("/discover")}?q={search_term_string}`,
+      target: `${getPublicAbsoluteUrl("/discover")}?q={search_term_string}`,
       "query-input": "required name=search_term_string",
     },
   };

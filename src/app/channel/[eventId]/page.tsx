@@ -12,6 +12,7 @@ import {
   applyVideoDeepLinkQuery,
   parseChannelSearchParam,
 } from "@/lib/public-video-url";
+import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -43,10 +44,21 @@ export async function generateMetadata({
   >;
   const hostName = res.data?.[0]?.event?.hostName ?? "";
   const creatorFirstName = hostName.split(" ")[0];
+  const pageUrl = getPublicAbsoluteUrl(`/channel/${eventId}`);
 
   return {
+    metadataBase: new URL(getPrimaryOrigin()),
     title: `Watch & support ${creatorFirstName} ⚡💎`,
     description: `Discover videos, join live conversations, and support ${creatorFirstName} through realtime visible participation on Tipmanna.`,
+    alternates: {
+      canonical: pageUrl,
+    },
+    openGraph: {
+      title: `Watch & support ${creatorFirstName} ⚡💎`,
+      description: `Discover videos, join live conversations, and support ${creatorFirstName} through realtime visible participation on Tipmanna.`,
+      url: pageUrl,
+      type: "video.other",
+    },
   };
 }
 

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
+  getLegacyRedirectMode,
   isDiscoveryHost,
-  shouldRedirectExploreToDiscover,
+  resolveLegacyRedirectTarget,
 } from "@/lib/site-config";
 
 function normalizeHostname(host: string | null): string {
@@ -31,19 +32,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(dest, 308);
   }
 
-  if (isDiscoveryHost(hostname)) {
-    if (url.pathname === "/") {
-      url.pathname = "/discover";
-      return NextResponse.redirect(url);
-    }
-    if (
-      shouldRedirectExploreToDiscover() &&
-      url.pathname === "/explore" &&
-      url.searchParams.get("tab") !== "discover"
-    ) {
-      url.pathname = "/discover";
-      url.search = "";
-      return NextResponse.redirect(url, 301);
+  // Legacy discovery host (.com) is a configurable redirect-only layer.
+  // Root and marketing routes funnel to /partner; known content/entity paths
+  // are path-preserving so accumulated SEO/backlink equity is retained.
+  if (isDiscoveryHost(hostname) && getLegacyRedirectMode() !== "off") {
+    const target = resolveLegacyRedirectTarget(url.pathname, url.search);
+    if (target) {
+      return NextResponse.redirect(target, 301);
     }
   }
 

@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { DiscoverPanel } from "@/components/tv/discover-panel";
 import Link from "next/link";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
+import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 
 type LiveStreams = {
   upcoming: any[];
@@ -37,6 +39,19 @@ export function DiscoverPageClient({
 }: Props) {
   const searchParams = useSearchParams();
   const initialSearchTerm = searchParams.get("q")?.trim() ?? "";
+  const navigateToExploreVideo = useNavigateToExploreVideo();
+
+  // Dedicated Discover page reuses the Explore playback session: standard
+  // videos hand off to /explore (the long-lived ExploreFeedClient) rather than
+  // opening a separate content surface. Live streams/programs/communities keep
+  // their dedicated destinations (handled inside DiscoverPanel).
+  const handlePlayInExplore = (target: ExploreFeedOpenTarget) => {
+    navigateToExploreVideo({
+      id: target.videoId,
+      event: { id: target.eventId },
+      ...(target.channelSnapshot ?? {}),
+    });
+  };
   return (
     <main
       id="main-content"
@@ -64,6 +79,7 @@ export function DiscoverPageClient({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
         <DiscoverPanel
           surface="discovery"
+          onPlayInExplore={handlePlayInExplore}
           contents={initialContents}
           latestContents={initialLatest}
           spotlightContents={initialSpotlight}

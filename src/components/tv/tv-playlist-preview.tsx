@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  AudioLines,
-  EyeIcon,
-  UsersRound,
-} from "lucide-react";
+import { ArrowRight, AudioLines, EyeIcon, UsersRound } from "lucide-react";
 import { trimTitle } from "@/lib/utils";
 import { useTV } from "@/components/tv-provider";
 import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";
@@ -47,8 +42,7 @@ function resolveCommentDrawerTarget(item: {
 
   return {
     eventId,
-    channelId:
-      item.channel?.id != null ? String(item.channel.id) : null,
+    channelId: item.channel?.id != null ? String(item.channel.id) : null,
     videoTitle:
       typeof item.channel?.title === "string" ? item.channel.title : "",
     videoDescription:
@@ -56,9 +50,7 @@ function resolveCommentDrawerTarget(item: {
         ? item.channel.description
         : "",
     numOfTips:
-      typeof item.channel?.numOfTips === "number"
-        ? item.channel.numOfTips
-        : 0,
+      typeof item.channel?.numOfTips === "number" ? item.channel.numOfTips : 0,
   };
 }
 
@@ -125,12 +117,12 @@ export function TvPlaylistPreview({
 
   const showTimes = mode === "GLOBAL" && broadcastEpoch != null;
 
-  const titleTrim = layout === "mobile" ? 20 : 24;
+  const titleTrim = layout === "mobile" ? 30 : 20;
 
   const airTimeBadgeClass =
     "text-muted-foreground shrink-0 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]";
   const metricRowClass =
-    "text-muted-foreground flex min-w-0 flex-nowrap items-center gap-2 text-[8px] font-semibold";
+    "text-muted-foreground flex min-w-0 flex-nowrap items-center gap-1 text-[8px] font-semibold";
   const metricItemClass = "flex shrink-0 items-center gap-1 whitespace-nowrap";
 
   const pickTimeLabel = (originalIndex: number) => {
@@ -274,7 +266,7 @@ export function TvPlaylistPreview({
                 onSelectChannel(originalIndex);
               }
             }}
-            className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} `}
+            className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary z-10 -mt-2 scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} `}
           >
             <div
               className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
@@ -303,29 +295,31 @@ export function TvPlaylistPreview({
             <div className="flex shrink-0 flex-col items-end justify-end gap-1">
               <button
                 type="button"
-                className="flex items-center gap-1 text-[8px] font-semibold outline outline-black"
+                className="flex items-center gap-[0.5px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
                 onClick={e => {
                   e.stopPropagation();
                   openCommentDrawer(item);
                 }}
               >
-                <span className="flex items-center gap-1 whitespace-nowrap">
-                  Created by:
-                  <ArrowRight className="size-4 cursor-pointer" />
+                <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
+                  <span className="text-[8px] sm:text-[7px]">Created by:</span>
+                  <ArrowRight className="size-2 cursor-pointer" />
                 </span>
               </button>
 
               <div className="flex w-fit items-center gap-1">
-                <span className="flex items-center gap-1 text-[9px]">
+                <span className="flex items-center gap-0.5 text-[9px]">
                   <img
                     src={flagUrl}
                     alt={contentLanguage}
-                    className="size-4"
+                    className="h-3 w-4 sm:h-2 sm:w-3"
                   />{" "}
-                  {contentLanguage}
+                  <span className="text-[8px] sm:text-[6px]">
+                    {contentLanguage}
+                  </span>
                 </span>
 
-                <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[8px]">
+                <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[6px]">
                   {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
                 </p>
               </div>

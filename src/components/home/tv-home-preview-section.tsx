@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useMediaQuery } from "react-responsive";
@@ -52,6 +52,8 @@ function TvPreviewPlayer({
 export default function TvHomePreviewSection() {
   const [characters, setCharacters] = useState<RoomCharacter[] | null>(null);
   const [watchLive, setWatchLive] = useState(false);
+  const [inView, setInView] = useState(false);
+  const sectionRef = useRef<HTMLElement | null>(null);
   const isNarrow = useMediaQuery({ maxWidth: "768px" });
 
   useEffect(() => {
@@ -69,6 +71,34 @@ export default function TvHomePreviewSection() {
       cancelled = true;
     };
   }, []);
+
+  // Auto-initialize the looper when the preview scrolls into view (restores the
+  // original no-click autoplay behavior). Lazy mounting is preserved by the
+  // parent lazy wrapper; this only flips the player on once visible.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries.some(e => e.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (inView && characters && characters.length > 0) {
+      setWatchLive(true);
+    }
+  }, [inView, characters]);
 
   if (characters && characters.length === 0) {
     return (
@@ -100,6 +130,7 @@ export default function TvHomePreviewSection() {
 
   return (
     <section
+      ref={sectionRef}
       className="border-border/60 bg-background w-full border-t py-10 md:py-14"
       aria-labelledby="tv-home-heading"
     >

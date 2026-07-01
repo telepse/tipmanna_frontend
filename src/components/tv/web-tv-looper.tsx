@@ -912,7 +912,7 @@ export const WebTvLooper = ({
 
           {!isMobileLandscape && (
             <div
-              className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-10 bottom-16 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
+              className={`${isFullView ? `absolute top-1/2 right-8 items-center ${TV_RAIL_Z_INDEX} mt-2 flex -translate-y-1/2 flex-col gap-2` : `absolute right-8 bottom-20 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
             >
               <button
                 type="button"
@@ -933,8 +933,6 @@ export const WebTvLooper = ({
                   <Bookmark className="size-5" />
                 )}
               </button>
-
-              <SaveHostToggleButton channelId={channelId} />
 
               <span className="rounded bg-black/50 p-1">
                 <Share2
@@ -1168,14 +1166,6 @@ export const WebTvLooper = ({
             <div
               className={`${isFullView ? "absolute top-1/2 right-4 z-40 mt-2 -translate-y-1/2" : "absolute right-4 bottom-20 z-40"}`}
             >
-              <button
-                type="button"
-                title="View tips"
-                className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white"
-                onClick={() => setTipsListOpen(true)}
-              >
-                {liveNumOfTips} tips
-              </button>
               {showRaisedAmount ? (
                 <ChannelProgressBar
                   amountToRaise={progressAmountToRaise}

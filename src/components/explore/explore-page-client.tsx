@@ -52,7 +52,18 @@ import {
   seedExploreFeedBootFromSsr,
 } from "@/lib/explore-feed-prefetch-cache";
 import { measureExploreBoot } from "@/lib/web-vitals";
+import {
+  isExploreSessionShellEnabled,
+  isUnifiedDiscoverNavEnabled,
+} from "@/lib/site-config";
 import { prefetchExploreTvSchedule } from "@/lib/explore-tv-prefetch-cache";
+import {
+  type DiscoverNavIntent,
+  type ExploreMainTab,
+  openPanelFromExpandedIntent,
+  playInExploreIntent,
+  searchIntent,
+} from "@/lib/discover-navigation-state";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import type { ExploreSsrBootPayload } from "@/lib/explore-ssr-boot";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
@@ -183,13 +194,6 @@ function parseExploreFeedTab(
   return null;
 }
 
-type ExploreMainTab =
-  | "feed"
-  | "discover"
-  | "community"
-  | "my-communities"
-  | "join";
-
 export interface ExplorePageClientProps {
   characters?: any[];
   characterSets?: any[];
@@ -241,6 +245,10 @@ export default function ExplorePageClient({
    * do not snap back to Discover (which blocked Discover→reel `openInExplore`).
    */
   const leaveDiscoverForFeedRef = useRef(false);
+
+  /** Unified Discover navigation + long-lived Explore session (default on; flags allow rollback). */
+  const unifiedDiscoverNav = isUnifiedDiscoverNavEnabled();
+  const sessionShellEnabled = isExploreSessionShellEnabled();
 
   const setMainTab = useCallback((next: ExploreMainTab) => {
     setTab(prev => {
@@ -684,7 +692,10 @@ export default function ExplorePageClient({
     (target: ExploreFeedOpenTarget) => {
       pendingExploreOpenRef.current = target;
       setSuppressDiscoverInlineContentId(target.videoId);
-      setMainTab("feed");
+      // Reel handoff: reveal the feed and close the Discover quick panel.
+      const intent = playInExploreIntent();
+      if (intent.closePanel) setDiscoverSheetOpen(false);
+      if (intent.tab) setMainTab(intent.tab);
       if (!sideChickLocked) {
         setFeedSubTab("trends");
       }
@@ -740,89 +751,89 @@ export default function ExplorePageClient({
 
   const loadExploreCatalog = useCallback(async () => {
     setCatalogLoading(true);
-    const signedIn = isSignedInExplore && Boolean(exploreUserId?.trim());
-    const [
-      feat,
-      lat,
-      spot,
-      rec,
-      most,
-      liveRes,
-      progRes,
-      tipRes,
-      tipEv,
-      iTip,
-      causesRes,
-      commRes,
-    ] = await Promise.all([
-      getAllFeaturedContentsAction(),
-      getLatestContents(),
-      getSpotlightContents(),
-      getRecommendedContents(),
-      getMostTippedContents(),
-      getLiveStreamContents(),
-      getDiscoveryProgramsAction(),
-      getAllTopTippers(),
-      signedIn
-        ? getTippedEventsForTipper()
-        : Promise.resolve({ success: true, data: [] as any[] }),
-      signedIn
-        ? getTotalAmountTippedByTipper()
-        : Promise.resolve({ success: true, data: 0 }),
-      getAllCausesAction(),
-      getCommunityExploreCatalogAction(),
-    ]);
+    try {
+      const signedIn = isSignedInExplore && Boolean(exploreUserId?.trim());
+      const [
+        feat,
+        lat,
+        spot,
+        rec,
+        most,
+        liveRes,
+        progRes,
+        tipRes,
+        tipEv,
+        iTip,
+        causesRes,
+        commRes,
+      ] = await Promise.all([
+        getAllFeaturedContentsAction(),
+        getLatestContents(),
+        getSpotlightContents(),
+        getRecommendedContents(),
+        getMostTippedContents(),
+        getLiveStreamContents(),
+        getDiscoveryProgramsAction(),
+        getAllTopTippers(),
+        signedIn
+          ? getTippedEventsForTipper()
+          : Promise.resolve({ success: true, data: [] as any[] }),
+        signedIn
+          ? getTotalAmountTippedByTipper()
+          : Promise.resolve({ success: true, data: 0 }),
+        getAllCausesAction(),
+        getCommunityExploreCatalogAction(),
+      ]);
 
-    setContents(feat.success ? normalizeListPayload<any>(feat.data) : []);
-    setLatestContents(lat.success ? normalizeListPayload<any>(lat.data) : []);
-    setSpotlightContents(
-      spot.success ? normalizeListPayload<any>(spot.data) : []
-    );
-    setRecommendedContents(
-      rec.success ? normalizeListPayload<any>(rec.data) : []
-    );
-    setMostTippedContents(
-      most.success ? normalizeListPayload<any>(most.data) : []
-    );
-    if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {
-      const ls = liveRes.data as {
-        upcoming?: any[];
-        live?: any[];
-        recentlyEnded?: any[];
-      };
-      setLiveStreams({
-        upcoming: Array.isArray(ls.upcoming) ? ls.upcoming : [],
-        live: Array.isArray(ls.live) ? ls.live : [],
-        recentlyEnded: Array.isArray(ls.recentlyEnded) ? ls.recentlyEnded : [],
-      });
+      setContents(feat.success ? normalizeListPayload<any>(feat.data) : []);
+      setLatestContents(lat.success ? normalizeListPayload<any>(lat.data) : []);
+      setSpotlightContents(
+        spot.success ? normalizeListPayload<any>(spot.data) : []
+      );
+      setRecommendedContents(
+        rec.success ? normalizeListPayload<any>(rec.data) : []
+      );
+      setMostTippedContents(
+        most.success ? normalizeListPayload<any>(most.data) : []
+      );
+      if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {
+        const ls = liveRes.data as {
+          upcoming?: any[];
+          live?: any[];
+          recentlyEnded?: any[];
+        };
+        setLiveStreams({
+          upcoming: Array.isArray(ls.upcoming) ? ls.upcoming : [],
+          live: Array.isArray(ls.live) ? ls.live : [],
+          recentlyEnded: Array.isArray(ls.recentlyEnded)
+            ? ls.recentlyEnded
+            : [],
+        });
+      }
+      setPrograms(
+        progRes.success ? normalizeListPayload<any>(progRes.data) : []
+      );
+      setTippers(tipRes.success ? normalizeListPayload<any>(tipRes.data) : []);
+      setTipperEvents(
+        tipEv.success && Array.isArray(tipEv.data) ? tipEv.data : []
+      );
+      setITipped(
+        typeof iTip.data === "number" ? iTip.data : Number(iTip.data) || 0
+      );
+      setCauses(
+        causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : []
+      );
+      setTopCommunities(
+        commRes.success && Array.isArray(commRes.data?.topByTips)
+          ? commRes.data.topByTips
+          : []
+      );
+    } finally {
+      // Always clear loading so the Discover skeleton can never hang on a
+      // rejected action (root cause of the "skeleton forever" regression).
+      setCatalogLoading(false);
     }
-    setPrograms(progRes.success ? normalizeListPayload<any>(progRes.data) : []);
-    setTippers(tipRes.success ? normalizeListPayload<any>(tipRes.data) : []);
-    setTipperEvents(
-      tipEv.success && Array.isArray(tipEv.data) ? tipEv.data : []
-    );
-    setITipped(
-      typeof iTip.data === "number" ? iTip.data : Number(iTip.data) || 0
-    );
-    setCauses(
-      causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : []
-    );
-    setTopCommunities(
-      commRes.success && Array.isArray(commRes.data?.topByTips)
-        ? commRes.data.topByTips
-        : []
-    );
-    setCatalogLoading(false);
   }, [isSignedInExplore, exploreUserId]);
-
-  const openDiscoverWithSearch = useCallback(
-    (term?: string) => {
-      const q = (term ?? headerSearch).trim();
-      if (q) setDiscoverSearchTerm(q);
-      setMainTab("discover");
-    },
-    [headerSearch, setMainTab]
-  );
 
   const openDiscoverSheet = useCallback(() => {
     setDiscoverSheetOpen(true);
@@ -832,10 +843,39 @@ export default function ExplorePageClient({
     }
   }, [loadExploreCatalog]);
 
+  /**
+   * Applies a declarative {@link DiscoverNavIntent} (from discover-navigation-state)
+   * to React state. Centralizing the rules there keeps the panel/tab/search
+   * surfaces in sync from a single navigation model.
+   */
+  const applyDiscoverNavIntent = useCallback(
+    (intent: DiscoverNavIntent) => {
+      if (intent.searchTerm !== undefined)
+        setDiscoverSearchTerm(intent.searchTerm);
+      if (intent.tab) setMainTab(intent.tab);
+      if (intent.closePanel) setDiscoverSheetOpen(false);
+      if (intent.openPanel) openDiscoverSheet();
+    },
+    [openDiscoverSheet, setMainTab]
+  );
+
+  /**
+   * Unified Discover navigation: Search opens the quick panel over the feed and
+   * never switches the user to the full Discover tab. With the flag off, legacy
+   * behavior (expand to Discover tab + open sheet) is preserved.
+   */
+  const openDiscoverSheetWithTerm = useCallback(
+    (term?: string) => {
+      applyDiscoverNavIntent(
+        searchIntent(term ?? headerSearch, unifiedDiscoverNav)
+      );
+    },
+    [applyDiscoverNavIntent, headerSearch, unifiedDiscoverNav]
+  );
+
   const openDiscoverSheetWithSearch = useCallback(() => {
-    openDiscoverWithSearch(headerSearch);
-    openDiscoverSheet();
-  }, [headerSearch, openDiscoverSheet, openDiscoverWithSearch]);
+    openDiscoverSheetWithTerm(headerSearch);
+  }, [headerSearch, openDiscoverSheetWithTerm]);
 
   useEffect(() => {
     if (tab !== "discover" && !discoverSheetOpen) return;
@@ -1015,8 +1055,7 @@ export default function ExplorePageClient({
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     e.stopPropagation();
-                    openDiscoverWithSearch(e.currentTarget.value);
-                    openDiscoverSheet();
+                    openDiscoverSheetWithTerm(e.currentTarget.value);
                   }
                 }}
                 onClick={e => e.stopPropagation()}
@@ -1105,8 +1144,7 @@ export default function ExplorePageClient({
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.stopPropagation();
-                  openDiscoverWithSearch(e.currentTarget.value);
-                  openDiscoverSheet();
+                  openDiscoverSheetWithTerm(e.currentTarget.value);
                 }
               }}
               onClick={e => e.stopPropagation()}
@@ -1537,7 +1575,12 @@ export default function ExplorePageClient({
                 lockedLabel={`Locked to ${dedicatedCommunityName} (dedicated mode)`}
               />
             </div>
-          ) : tab === "feed" ? (
+          ) : sessionShellEnabled || tab === "feed" ? (
+            // Long-lived Explore session: the reel stays mounted across tab
+            // changes (Discover/Community) so playback, feed position, preload
+            // queues, caches and realtime subscriptions persist. The parent
+            // wrapper is `hidden` and `feedSurfaceActive` pauses playback while
+            // another surface is shown.
             <div className="flex h-full min-h-0 flex-1 flex-col">
               <ExploreFeedClient
                 key={reelsKey}
@@ -1571,7 +1614,13 @@ export default function ExplorePageClient({
               type="button"
               size="sm"
               variant="secondary"
-              onClick={openDiscoverSheet}
+              onClick={() => {
+                // Reveal the feed underneath, then overlay the quick panel
+                // (avoids panel-over-full-Discover and duplicate panel mounts).
+                applyDiscoverNavIntent(
+                  openPanelFromExpandedIntent(unifiedDiscoverNav)
+                );
+              }}
             >
               Open discover panel
             </Button>

@@ -6,6 +6,87 @@ export const DISCOVERY_SITE_URL =
 
 export const LEGACY_HOSTS = ["tipmanna.live", "www.tipmanna.live"];
 
+/**
+ * Canonical primary application origin (tipmanna.tv). All product surfaces,
+ * canonicals, sitemaps, and legacy-host redirects consolidate here.
+ */
+export function getPrimaryOrigin(): string {
+  const raw = process.env.NEXT_PUBLIC_PRIMARY_ORIGIN?.trim() || SITE_URL;
+  try {
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    return new URL(normalized).origin;
+  } catch {
+    return "https://tipmanna.tv";
+  }
+}
+
+/** How the legacy discovery host (.com) behaves. */
+export type LegacyRedirectMode = "path-preserving" | "partner-only" | "off";
+
+/**
+ * Configurable redirect behavior for the legacy discovery host (.com).
+ * Defaults to path-preserving so entity/discovery equity is retained while the
+ * root and marketing routes funnel to the partner page.
+ */
+export function getLegacyRedirectMode(): LegacyRedirectMode {
+  const raw =
+    process.env.NEXT_PUBLIC_LEGACY_REDIRECT_MODE?.trim().toLowerCase();
+  if (raw === "off" || raw === "partner-only" || raw === "path-preserving") {
+    return raw;
+  }
+  return "path-preserving";
+}
+
+/**
+ * Path prefixes whose SEO/backlink equity is preserved when redirecting from
+ * the legacy host. Everything else funnels to `/partner`.
+ */
+export const LEGACY_REDIRECT_PRESERVED_PREFIXES = [
+  "/discover",
+  "/content",
+  "/channel",
+  "/program",
+  "/community",
+  "/c",
+];
+
+export function isPreservedLegacyPath(pathname: string): boolean {
+  if (!pathname || pathname === "/") return false;
+  return LEGACY_REDIRECT_PRESERVED_PREFIXES.some(
+    prefix => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+/**
+ * Resolve the absolute `.tv` URL a legacy `.com` request should redirect to.
+ * Returns `null` when redirects are disabled.
+ */
+export function resolveLegacyRedirectTarget(
+  pathname: string,
+  search = "",
+  mode: LegacyRedirectMode = getLegacyRedirectMode()
+): string | null {
+  if (mode === "off") return null;
+  const origin = getPrimaryOrigin();
+  if (mode === "partner-only") return `${origin}/partner`;
+  if (isPreservedLegacyPath(pathname)) {
+    return `${origin}${pathname}${search ?? ""}`;
+  }
+  return `${origin}/partner`;
+}
+
+/** Feature flag: long-lived Explore session shell (defaults on). */
+export function isExploreSessionShellEnabled(): boolean {
+  const raw = process.env.NEXT_PUBLIC_EXPLORE_SESSION_SHELL?.trim();
+  return raw !== "0" && raw !== "false";
+}
+
+/** Feature flag: unified Discover navigation model (defaults on). */
+export function isUnifiedDiscoverNavEnabled(): boolean {
+  const raw = process.env.NEXT_PUBLIC_UNIFIED_DISCOVER_NAV?.trim();
+  return raw !== "0" && raw !== "false";
+}
+
 function parseHostList(raw: string | undefined, fallback: string[]): string[] {
   if (!raw?.trim()) return fallback;
   return raw
@@ -20,14 +101,6 @@ export function getDiscoveryHosts(): string[] {
     "tipmanna.com",
     "www.tipmanna.com",
   ]);
-}
-
-/** When true, `.com` `/explore` without `tab=discover` redirects to `/discover`. */
-export function shouldRedirectExploreToDiscover(): boolean {
-  return (
-    process.env.NEXT_PUBLIC_DISCOVERY_REDIRECT_EXPLORE === "true" ||
-    process.env.NEXT_PUBLIC_DISCOVERY_REDIRECT_EXPLORE === "1"
-  );
 }
 
 export function isDiscoveryHost(hostname: string): boolean {
@@ -68,7 +141,12 @@ export function getPublicFrontendOrigin(): string {
   }
 }
 
-/** Discovery-domain canonical origin (tipmanna.com). */
+/**
+ * @deprecated Architecture consolidated onto tipmanna.tv. Discovery now lives in
+ * the primary application; the legacy `.com` host is redirect-only (see
+ * `resolveLegacyRedirectTarget`). Retained for rollback only — do not use for
+ * new canonical/sitemap/metadata work; use `getPublicAbsoluteUrl` instead.
+ */
 export function getDiscoveryFrontendOrigin(): string {
   const raw = process.env.NEXT_PUBLIC_DISCOVERY_FRONTEND_APP_URL?.trim();
   if (raw) {
@@ -91,9 +169,16 @@ export function getDiscoveryFrontendOrigin(): string {
   }
 }
 
-/** Absolute URL for a path starting with `/` (or relative segment). */
+/**
+ * Absolute URL for a path starting with `/` (or relative segment).
+ *
+ * Public/production URLs derive from the single origin authority
+ * {@link getPrimaryOrigin} (tipmanna.tv) so canonicals, metadata, structured
+ * data, sitemaps, and public entity share links never resolve to a non-public
+ * origin (e.g. a localhost dev value of `NEXT_PUBLIC_FRONTEND_APP_URL`).
+ */
 export function getPublicAbsoluteUrl(path: string): string {
-  const base = getPublicFrontendOrigin().replace(/\/$/, "");
+  const base = getPrimaryOrigin().replace(/\/$/, "");
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${base}${p}`;
 }

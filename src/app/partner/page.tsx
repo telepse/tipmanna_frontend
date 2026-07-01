@@ -21,10 +21,7 @@ import TvHomePreviewSectionLazy from "@/components/home/tv-home-preview-section-
 import PricingGrid from "@/components/home/pricing-grid";
 
 // Lib imports
-import {
-  getPublicAbsoluteUrl,
-  getPublicFrontendOrigin,
-} from "@/lib/site-config";
+import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 
 function DataSection({ children }: { children: ReactNode }) {
   return <section className="contents">{children}</section>;
@@ -56,7 +53,7 @@ export async function generateMetadata({
     : getPublicAbsoluteUrl("/partner");
 
   return {
-    metadataBase: new URL(getPublicFrontendOrigin()),
+    metadataBase: new URL(getPrimaryOrigin()),
     title,
     description,
     alternates: {

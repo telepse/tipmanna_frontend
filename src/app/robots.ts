@@ -1,13 +1,8 @@
 import type { MetadataRoute } from "next";
-import {
-  DISCOVERY_SITE_URL,
-  getDiscoveryAbsoluteUrl,
-  SITE_URL,
-} from "@/lib/site-config";
+import { getPrimaryOrigin } from "@/lib/site-config";
 
 export default function robots(): MetadataRoute.Robots {
-  const tvOrigin = SITE_URL.replace(/\/$/, "");
-  const discoveryOrigin = DISCOVERY_SITE_URL.replace(/\/$/, "");
+  const tvOrigin = getPrimaryOrigin().replace(/\/$/, "");
 
   return {
     rules: [
@@ -17,11 +12,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/icons/"],
       },
     ],
-    sitemap: [
-      `${tvOrigin}/sitemap.xml`,
-      `${tvOrigin}/video-sitemap.xml`,
-      `${discoveryOrigin}/sitemap.xml`,
-      getDiscoveryAbsoluteUrl("/sitemap.xml"),
-    ],
+    sitemap: [`${tvOrigin}/sitemap.xml`, `${tvOrigin}/video-sitemap.xml`],
   };
 }
