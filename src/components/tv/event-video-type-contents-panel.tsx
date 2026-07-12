@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { ChevronRight, Divide, Sparkles, UsersRound } from "lucide-react";
+import { ChevronRight, Sparkles, UsersRound } from "lucide-react";
 
 import { postExploreFeedBatchAction } from "@/actions/contents";
 import { ContentCardSkeleton } from "./content-card-skeleton";

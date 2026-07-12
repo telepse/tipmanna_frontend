@@ -37,7 +37,6 @@ export const TVExpressButtons = () => {
   const [causes, setCauses] = useState<any[]>([]);
 
   const userRole = useSelector((s: RootState) => s.auth.user?.role);
-  const authToken = useSelector((s: RootState) => s.auth.token);
   const isSignedIn =
     useSelector((s: RootState) => s.auth.isAuthenticated) &&
     (userRole === "HOST" || userRole === "TIPPER");

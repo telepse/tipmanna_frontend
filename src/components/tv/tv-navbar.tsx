@@ -5,7 +5,7 @@ import Link from "next/link";
 
 // THird-party imports
 import { Input } from "@/components/ui/input";
-import { Bell, Menu, Search, UserRound } from "lucide-react";
+import { Menu, Search, UserRound } from "lucide-react";
 
 // Local imports
 import { useEffect, useState } from "react";

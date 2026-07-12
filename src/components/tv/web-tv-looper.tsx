@@ -252,11 +252,8 @@ export const WebTvLooper = ({
   const {
     isFullView,
     fullPresentationFit,
-    fullLayoutToggleShowsPortraitIcon,
     immersiveLayout,
-    enterFull,
     exitFull,
-    toggleFullVariant,
   } = useMobileVideoViewMode({
     videoUrl: effectivePlayerUrl || current?.channel?.url,
     isMobile: isMobileTv,
@@ -519,12 +516,6 @@ export const WebTvLooper = ({
     scheduleEvent?.amountToRaise ??
     channelFinancial?.amountToRaise ??
     0;
-
-  const videoTipCount =
-    channelFinancial?.numOfTips ??
-    (current?.channel as { numOfTips?: number } | undefined)?.numOfTips ??
-    liveNumOfTips;
-  const eventRoomTipCount = scheduleEvent?.numOfTips ?? liveNumOfTips;
 
   const { user, token } = useSelector((state: RootState) => state.auth);
   const role = user?.role;

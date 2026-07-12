@@ -134,9 +134,6 @@ export function TvInteractiveShell({
   mode,
   goLive,
   switchToLocal,
-  scheduleStale,
-  scheduleError,
-  retryScheduleLoad,
   activeTab,
   setActiveTab,
   handleSelectChannel,
@@ -190,7 +187,6 @@ export function TvInteractiveShell({
   const isDesktop = variant === "desktop";
   const isMobile = variant === "mobile";
   const playlistLayout = isDesktop ? "desktop" : "mobile";
-  const bannerW = isDesktop ? "mx-auto max-w-6xl" : "w-full";
 
   const [rightPanelView, setRightPanelView] = useState<
     | "playlist"
