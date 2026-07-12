@@ -64,6 +64,20 @@ import {
 } from "@/schemas";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 
+type HostUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  username: string;
+  role: "HOST";
+  eventCode?: string;
+  eventSlug?: string;
+  numOfEvents?: number;
+  individualLegalFirstName?: string;
+  individualLegalLastName?: string;
+  organizationName?: string;
+};
+
 export const SettingsClient = () => {
   const [tabType, setTabType] = useState<
     | "account_settings"
@@ -136,12 +150,18 @@ export const SettingsClient = () => {
     },
   });
 
+  console.log(user);
+
+  const userType = (user as HostUser)?.individualLegalFirstName
+    ? "INDIVIDUAL"
+    : "ORGANIZATION";
+
   // 3. Define individual profile form
   const individualProfileForm = useForm<individualProfileFormData>({
     resolver: zodResolver(individualProfileFormSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
+      firstName: (user as HostUser)?.individualLegalFirstName ?? "",
+      lastName: (user as HostUser)?.individualLegalLastName ?? "",
       homeAddress: "",
       city: "",
       state: "",
@@ -796,7 +816,7 @@ export const SettingsClient = () => {
                   name="companyRegistrationNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Company registration number</FormLabel>
+                      <FormLabel>Company registration number (CRN)</FormLabel>
                       <FormControl>
                         <Input
                           type="text"
@@ -842,7 +862,7 @@ export const SettingsClient = () => {
                   name="uniqueTaxpayerReference"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Date of birth</FormLabel>
+                      <FormLabel>Tax payer reference (UTR)</FormLabel>
                       <FormControl>
                         <Input
                           type="text"
@@ -868,7 +888,7 @@ export const SettingsClient = () => {
                       <FormControl>
                         <Input
                           type="text"
-                          placeholder="Enter gender"
+                          placeholder="Upload invoice"
                           autoComplete="off"
                           {...field}
                         />
@@ -882,27 +902,64 @@ export const SettingsClient = () => {
                   )}
                 />
 
-                <FormField
-                  control={organisationProfileForm.control}
-                  name="businessBankAccountDetails"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Business bank account details</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          placeholder="Enter business bank account details"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <span className="text-muted-foreground text-sm">
-                        For payment of your invoice
-                      </span>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-3 gap-6">
+                  <FormField
+                    control={organisationProfileForm.control}
+                    name="businessBankAccountDetails"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account name</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            placeholder="Enter account name"
+                            autoComplete="off"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={organisationProfileForm.control}
+                    name="businessBankAccountDetails"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account number</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            placeholder="Enter account number"
+                            autoComplete="off"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={organisationProfileForm.control}
+                    name="businessBankAccountDetails"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sort code</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            placeholder="Enter sort code"
+                            autoComplete="off"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </form>
             </Form>
           </div>

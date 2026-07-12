@@ -189,6 +189,39 @@ export async function getHostEventsTabsAction(token?: string | null) {
   );
 }
 
+export type HostDefaultChannelItem = {
+  id: string;
+  eventName: string;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  approved: boolean;
+  amountRaised: number;
+  numOfTips: number;
+  showAmountRaisedOnVideos?: boolean;
+  showViewCountOnVideos?: boolean;
+  showEncounterOnVideos?: boolean;
+  defaultChannel: {
+    id: string;
+    title: string;
+    url: string;
+    numOfTips: number;
+    isDefault: boolean;
+  };
+};
+
+export async function getHostDefaultChannelsAction(token?: string | null) {
+  return runServerFetch<{ items: HostDefaultChannelItem[] }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/default-channels`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostDefaultChannelsAction"
+  );
+}
+
 // -------- Get host events for tabs by status -------- //
 export async function getHostEventsForTabsByStatus(token?: string | null) {
   return runServerFetch(

@@ -43,7 +43,10 @@ import {
 import type { ExploreFeedClientHandle } from "./explore-feed-client";
 import { ExploreTvScheduleFeed } from "./explore-tv-schedule-feed";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import { exploreOpenTargetFromUrl } from "@/lib/explore-video-navigation";
+import {
+  exploreOpenTargetFromUrl,
+  exploreVideoHandoffKeyFromUrl,
+} from "@/lib/explore-video-navigation";
 import {
   prefetchExploreCommunityFeed,
   prefetchExploreFeedInitial,
@@ -56,7 +59,7 @@ import {
   isExploreSessionShellEnabled,
   isUnifiedDiscoverNavEnabled,
 } from "@/lib/site-config";
-import { prefetchExploreTvSchedule } from "@/lib/explore-tv-prefetch-cache";
+import { prefetchExploreTvSchedule, seedExploreTvPrefetch } from "@/lib/explore-tv-prefetch-cache";
 import {
   type DiscoverNavIntent,
   type ExploreMainTab,
@@ -66,6 +69,11 @@ import {
 } from "@/lib/discover-navigation-state";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import type { ExploreSsrBootPayload } from "@/lib/explore-ssr-boot";
+import {
+  buildExploreFeedHref,
+  exploreFeedUrlStatesEqual,
+  parseExploreFeedUrlState,
+} from "@/lib/explore-url-feed-state";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import {
   getAllCharacterSets,
@@ -186,12 +194,8 @@ function isTipmannaPublicCommunityRow(m: JoinedMembershipRow): boolean {
   );
 }
 
-function parseExploreFeedTab(
-  v: string | null
-): "trends" | "saves" | "tv" | "community" | null {
-  if (v === "trends" || v === "saves" || v === "tv" || v === "community")
-    return v;
-  return null;
+function initialFeedUrlStateFromKey(searchParamsKey: string) {
+  return parseExploreFeedUrlState(new URLSearchParams(searchParamsKey));
 }
 
 export interface ExplorePageClientProps {
@@ -210,6 +214,7 @@ export default function ExplorePageClient({
   const pathBase = pathname ?? "/explore";
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams.toString();
+  const e2eTvSeed = searchParams.get("e2eTv") === "1";
   const tabParam = searchParams.get("tab");
   const sideChick = useSideChick();
   const sideChickLocked =
@@ -365,7 +370,9 @@ export default function ExplorePageClient({
   const [profileDrawerTab, setProfileDrawerTab] = useState<
     "notifications" | "reminders" | "saved" | "profile"
   >("notifications");
-  const [communityFeedSelIds, setCommunityFeedSelIds] = useState<string[]>([]);
+  const [communityFeedSelIds, setCommunityFeedSelIds] = useState<string[]>(
+    () => initialFeedUrlStateFromKey(searchParamsKey).communityFeedSelIds
+  );
   const [joinedMemberships, setJoinedMemberships] = useState<
     JoinedMembershipRow[]
   >([]);
@@ -436,19 +443,45 @@ export default function ExplorePageClient({
 
   const [feedSubTab, setFeedSubTab] = useState<
     "trends" | "saves" | "tv" | "community"
-  >("trends");
+  >(() => initialFeedUrlStateFromKey(searchParamsKey).feedSubTab);
   /** Tipmanna global guide vs a joined community (schedule data unchanged until Phase 8). */
   const [tvExploreSource, setTvExploreSource] = useState<"tipmanna" | string>(
-    "tipmanna"
+    () => initialFeedUrlStateFromKey(searchParamsKey).tvExploreSource
   );
   const exploreFeedRef = useRef<ExploreFeedClientHandle>(null);
   /** Discover → Feed: defer reel open until Feed panel is visible (fixes playbackActive=false + 0 slide height). */
   const pendingExploreOpenRef = useRef<ExploreFeedOpenTarget | null>(null);
   const [exploreOpenNonce, setExploreOpenNonce] = useState(0);
 
-  const [trendEventTypes, setTrendEventTypes] = useState<string[]>([]);
-  const [trendLanguage, setTrendLanguage] = useState("");
-  const [trendCountry, setTrendCountry] = useState("");
+  const [trendEventTypes, setTrendEventTypes] = useState<string[]>(
+    () => initialFeedUrlStateFromKey(searchParamsKey).trendEventTypes
+  );
+  const [trendLanguage, setTrendLanguage] = useState(
+    () => initialFeedUrlStateFromKey(searchParamsKey).trendLanguage
+  );
+  const [trendCountry, setTrendCountry] = useState(
+    () => initialFeedUrlStateFromKey(searchParamsKey).trendCountry
+  );
+
+  useEffect(() => {
+    if (!e2eTvSeed) return;
+    seedExploreTvPrefetch({
+      ongoing: [
+        {
+          channel: {
+            id: "e2e-tv-video",
+            eventId: "e2e-tv-event",
+            url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            title: "E2E TV Programme",
+            liveStatus: "NOT_LIVE",
+          },
+        },
+      ],
+      upcoming: [],
+      ongoingLabel: "On air now",
+      upcomingLabel: "Next 12 hours",
+    });
+  }, [e2eTvSeed]);
 
   useEffect(() => {
     if (tab !== "feed") return;
@@ -491,92 +524,59 @@ export default function ExplorePageClient({
   }, [tvExploreSource, trendEventTypes, trendLanguage, trendCountry]);
 
   const communityPickerMultiRef = useRef(false);
-  const didHydrateExploreQs = useRef(false);
-  const didHydrateExploreVideo = useRef(false);
-  useLayoutEffect(() => {
-    if (didHydrateExploreQs.current) return;
-    didHydrateExploreQs.current = true;
-    const sp = new URLSearchParams(searchParamsKey);
-    const ft = sp.get("feedTypes");
-    if (ft?.trim()) {
-      setTrendEventTypes(
-        ft
-          .split(",")
-          .map(s => s.trim())
-          .filter(Boolean)
-      );
-    }
-    const fl = sp.get("feedLang");
-    if (fl?.trim()) setTrendLanguage(fl.trim());
-    const fc = sp.get("feedCountry");
-    if (fc?.trim()) setTrendCountry(fc.trim());
-    const ftab = parseExploreFeedTab(sp.get("feedTab"));
-    if (ftab) setFeedSubTab(ftab);
-    const tvs = sp.get("tvSource")?.trim();
-    if (tvs) setTvExploreSource(tvs);
-    const comm = sp.get("communities");
-    if (comm?.trim()) {
-      const ids = comm
-        .split(",")
-        .map(s => s.trim())
-        .filter(Boolean);
-      if (ids.length) setCommunityFeedSelIds(ids);
-    }
-  }, [searchParamsKey]);
+  const lastHandledVideoHandoffKeyRef = useRef<string | null>(null);
+  const feedUrlStateRef = useRef({
+    trendEventTypes,
+    trendLanguage,
+    trendCountry,
+    feedSubTab,
+    tvExploreSource,
+    communityFeedSelIds,
+  });
+  feedUrlStateRef.current = {
+    trendEventTypes,
+    trendLanguage,
+    trendCountry,
+    feedSubTab,
+    tvExploreSource,
+    communityFeedSelIds,
+  };
 
+  /** Restore feed shell state from URL on every navigation (back/forward/deep link). */
+  useLayoutEffect(() => {
+    const parsed = parseExploreFeedUrlState(
+      new URLSearchParams(searchParamsKey)
+    );
+    if (sideChickLocked && dedicatedCommunityId) {
+      parsed.communityFeedSelIds = [dedicatedCommunityId];
+      parsed.tvExploreSource = dedicatedCommunityId;
+    }
+    if (exploreFeedUrlStatesEqual(feedUrlStateRef.current, parsed)) return;
+
+    setTrendEventTypes(parsed.trendEventTypes);
+    setTrendLanguage(parsed.trendLanguage);
+    setTrendCountry(parsed.trendCountry);
+    setFeedSubTab(parsed.feedSubTab);
+    setTvExploreSource(parsed.tvExploreSource);
+    setCommunityFeedSelIds(parsed.communityFeedSelIds);
+  }, [searchParamsKey, sideChickLocked, dedicatedCommunityId]);
+
+  /** Push React feed shell state to URL when it diverges (not on history navigation alone). */
   useEffect(() => {
-    const p = new URLSearchParams(searchParamsKey);
-    if (trendEventTypes.length) {
-      p.set("feedTypes", trendEventTypes.join(","));
-    } else {
-      p.delete("feedTypes");
-    }
-    if (trendLanguage.trim()) {
-      p.set("feedLang", trendLanguage.trim());
-    } else {
-      p.delete("feedLang");
-    }
-    if (trendCountry.trim()) {
-      p.set("feedCountry", trendCountry.trim());
-    } else {
-      p.delete("feedCountry");
-    }
-    p.set("feedTab", feedSubTab);
-    if (feedSubTab === "community" && communityFeedSelIds.length > 0) {
-      p.set("communities", communityFeedSelIds.join(","));
-    } else {
-      p.delete("communities");
-    }
-    if (feedSubTab === "tv") {
-      if (tvExploreSource !== "tipmanna") {
-        p.set("tvSource", tvExploreSource);
-      } else {
-        p.delete("tvSource");
-      }
-    } else {
-      p.delete("tvSource");
-    }
-    if (tab === "join" && joinCommunityId) {
-      p.set("tab", "join");
-      p.set("joinCommunity", joinCommunityId);
-    } else if (tab === "join" && !joinCommunityId) {
-      p.set("tab", "my-communities");
-      p.delete("joinCommunity");
-    } else if (tab === "my-communities") {
-      p.set("tab", "my-communities");
-      p.delete("joinCommunity");
-    } else if (tab === "discover") {
-      p.set("tab", "discover");
-      p.delete("joinCommunity");
-    } else if (tab === "community") {
-      p.set("tab", "community");
-      p.delete("joinCommunity");
-    } else {
-      p.delete("tab");
-      p.delete("joinCommunity");
-    }
-    const q = p.toString();
-    const nextHref = q ? `${pathBase}?${q}` : pathBase;
+    const nextHref = buildExploreFeedHref(
+      pathBase,
+      { tab, joinCommunityId },
+      {
+        trendEventTypes,
+        trendLanguage,
+        trendCountry,
+        feedSubTab,
+        tvExploreSource,
+        communityFeedSelIds,
+      },
+      // Intentionally read latest handoff/query params without listing searchParamsKey in deps.
+      searchParamsKey
+    );
     const curHref = `${pathBase}${searchParamsKey ? `?${searchParamsKey}` : ""}`;
     if (nextHref === curHref) return;
 
@@ -593,7 +593,6 @@ export default function ExplorePageClient({
     communityFeedSelIds,
     pathBase,
     router,
-    searchParamsKey,
     tab,
     joinCommunityId,
   ]);
@@ -653,7 +652,6 @@ export default function ExplorePageClient({
 
   const reelsKey = useMemo(() => {
     if (feedSubTab === "saves") return "saves";
-    if (feedSubTab === "tv") return "tv";
     if (feedSubTab === "community") {
       const ids = scopedExploreCommunityIds ?? [];
       return `community-${[...ids].sort().join("|")}`;
@@ -705,12 +703,18 @@ export default function ExplorePageClient({
   );
 
   useLayoutEffect(() => {
-    if (didHydrateExploreVideo.current) return;
-    const target = exploreOpenTargetFromUrl(
-      new URLSearchParams(searchParamsKey)
-    );
+    const sp = new URLSearchParams(searchParamsKey);
+    const handoffKey = exploreVideoHandoffKeyFromUrl(sp);
+    if (!handoffKey) {
+      lastHandledVideoHandoffKeyRef.current = null;
+      return;
+    }
+    if (handoffKey === lastHandledVideoHandoffKeyRef.current) return;
+
+    const target = exploreOpenTargetFromUrl(sp);
     if (!target) return;
-    didHydrateExploreVideo.current = true;
+
+    lastHandledVideoHandoffKeyRef.current = handoffKey;
     handlePlayInExplore(target);
   }, [searchParamsKey, handlePlayInExplore]);
 
@@ -1559,35 +1563,26 @@ export default function ExplorePageClient({
           ) : null}
         </div>
 
-        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-          {feedSubTab === "tv" ? (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <ExploreTvScheduleFeed
-                characters={characters}
-                characterSets={characterSets}
-                onPlayInExplore={handlePlayInExplore}
-                tvExploreFilters={tvExploreFilters}
-                feedSurfaceActive={tab === "feed"}
-                tvSource={tvExploreSource}
-                tvCommunityOptions={tvCommunitySelectOptions}
-                onTvSourceChange={setTvExploreSource}
-                tvSourceLocked={sideChickLocked}
-                lockedLabel={`Locked to ${dedicatedCommunityName} (dedicated mode)`}
-              />
-            </div>
-          ) : sessionShellEnabled || tab === "feed" ? (
+        <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+          {sessionShellEnabled || tab === "feed" ? (
             // Long-lived Explore session: the reel stays mounted across tab
-            // changes (Discover/Community) so playback, feed position, preload
+            // changes (Discover/Community/TV) so playback, feed position, preload
             // queues, caches and realtime subscriptions persist. The parent
             // wrapper is `hidden` and `feedSurfaceActive` pauses playback while
             // another surface is shown.
-            <div className="flex h-full min-h-0 flex-1 flex-col">
+            <div
+              className={cn(
+                "flex h-full min-h-0 flex-1 flex-col",
+                feedSubTab === "tv" && "hidden"
+              )}
+              data-testid="explore-feed-shell"
+            >
               <ExploreFeedClient
                 key={reelsKey}
                 ref={exploreFeedRef}
                 characters={characters}
                 characterSets={characterSets}
-                feedSurfaceActive={tab === "feed"}
+                feedSurfaceActive={tab === "feed" && feedSubTab !== "tv"}
                 feedMode={
                   feedSubTab === "community"
                     ? "community"
@@ -1598,6 +1593,22 @@ export default function ExplorePageClient({
                 communityIds={scopedExploreCommunityIds}
                 trendsFilters={trendsFilters}
                 ssrBoot={ssrBoot}
+              />
+            </div>
+          ) : null}
+          {feedSubTab === "tv" ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ExploreTvScheduleFeed
+                characters={characters}
+                characterSets={characterSets}
+                onPlayInExplore={handlePlayInExplore}
+                tvExploreFilters={tvExploreFilters}
+                feedSurfaceActive={tab === "feed" && feedSubTab === "tv"}
+                tvSource={tvExploreSource}
+                tvCommunityOptions={tvCommunitySelectOptions}
+                onTvSourceChange={setTvExploreSource}
+                tvSourceLocked={sideChickLocked}
+                lockedLabel={`Locked to ${dedicatedCommunityName} (dedicated mode)`}
               />
             </div>
           ) : null}
@@ -1696,6 +1707,8 @@ export default function ExplorePageClient({
                   <button
                     key={opt.value}
                     type="button"
+                    data-testid="explore-filter-type"
+                    data-filter-value={opt.value}
                     onClick={() => toggleTrendEventType(opt.value)}
                     className={cn(
                       "rounded-full border px-2 py-0.5 text-[11px] transition",

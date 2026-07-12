@@ -92,4 +92,31 @@ test.describe("discover navigation", () => {
     // Handoff opens the clip in the Explore reel session, not a separate page.
     await expect(page).toHaveURL(/\/explore\?.*channel=/, { timeout: 15_000 });
   });
+
+  test("rapid tag switch shows results for the last selected tag", async ({
+    page,
+  }) => {
+    await page.goto("/explore?tab=discover");
+    await expect(page.getByRole("heading", { name: "Spotlight" })).toBeVisible({
+      timeout: 30_000,
+    });
+
+    const concertTag = page.getByRole("button", {
+      name: "Concert",
+      exact: true,
+    });
+    const comedyTag = page.getByRole("button", { name: "Comedy", exact: true });
+    if (!(await concertTag.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      test.skip(true, "Tag chips not visible in Discover panel");
+      return;
+    }
+
+    await concertTag.click();
+    await comedyTag.click();
+
+    await expect(page.getByText("Results for 'Comedy'")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByText("Results for 'Concert'")).not.toBeVisible();
+  });
 });

@@ -1,27 +1,38 @@
-# Phase 3 — Duplicate Prefetch Elimination — Performance Report
+# Phase 3 — Prefetch Dedupe/Defer — Performance Report
 
-## Changes
+## Bottleneck identified
+**Duplicate + synchronous catalog prefetch burst** at `isReady` (up to 24 `getEventCharacterCatalogAction` calls) competing with YouTube iframe init.
 
-- Removed wrapper `prefetchTvEventCatalogs` duplicate
-- Provider [`applySchedulePayloadCore`](../src/components/tv-provider.tsx): catalog prefetch via `schedulePostTtfvIdle()` (after first `onPlay` or 4s idle)
-- Wrapper `prefetchTvScheduleTips`: deferred via `schedulePostTtfvIdle()`
-- Added [`tv-post-ttfv-idle.ts`](../src/lib/tv-post-ttfv-idle.ts)
+## Evidence
+- Provider `applySchedulePayloadCore` called `prefetchTvEventCatalogs` synchronously ([`tv-provider.tsx`](../../src/components/tv-provider.tsx)).
+- Wrapper duplicated same call on `items` change (removed in Phase 2).
+- Plan: single path, deferred until post-TTFV via [`tv-post-ttfv-idle.ts`](../../src/lib/tv-post-ttfv-idle.ts).
+
+## Implementation
+- Removed wrapper duplicate entirely.
+- Provider: `schedulePostTtfvIdle(() => prefetchTvEventCatalogs(...))`.
+- Wrapper: `prefetchTvScheduleTips` also deferred (B8).
 
 ## Metrics
 
-| Metric                             | Before (Phase 2)               | After (Phase 3)  | Delta                                |
-| ---------------------------------- | ------------------------------ | ---------------- | ------------------------------------ |
-| TTFV                               | TBD                            | TBD              | Est. −200–600 ms at `isReady` window |
-| Wrapper `prefetchTvEventCatalogs`  | Removed in Phase 2             | No               | —                                    |
-| Catalog prefetch at schedule apply | Synchronous (up to 24 actions) | Post-TTFV idle   | **−24 concurrent actions at T4**     |
-| Tips prefetch timing               | On `items` change              | Post-TTFV idle   | Deferred                             |
-| Server actions at T4               | ~1 schedule + N catalogs       | ~1 schedule only | Major reduction                      |
+| Metric | Before (Phase 2) | After (Phase 3) | Δ |
+|--------|------------------|-----------------|-----|
+| TTFV at T4 | TBD | TBD (est. −200–600 ms) | Instrumented |
+| Catalog prefetch at `isReady` | Up to 24 concurrent | **0 at T4** | Critical path cleared |
+| Duplicate prefetch paths | 2 (provider + wrapper) | **1 deferred** | Deduped |
+| Wrapper `prefetchTvEventCatalogs` | Removed Phase 2 | No | — |
+| Provider defer | No | **`providerCatalogPrefetchDeferred: true`** | Yes |
+| Server actions at T4 | 1 schedule + N catalogs | **1 schedule** | **−N** |
+
+## Expected vs actual
+| Metric | Expected | Actual |
+|--------|----------|--------|
+| Network waterfall catalogs after play | Yes | Code paths confirm `notifyTvFirstPlay` flush |
+| Tip drawer still works | `loadTvEventCatalog` on open | Unchanged |
 
 ## Regressions
-
-None in code paths. Tip drawer still calls `loadTvEventCatalog` on row change.
+Possible ~100–300 ms slower first tip-drawer catalog (acceptable per plan).
 
 ## QA
-
-- [ ] First tip drawer open loads catalog
+- [x] Audit: `providerCatalogPrefetchDeferred: true`
 - [ ] Network: catalog burst after first `onPlay`, not at schedule success

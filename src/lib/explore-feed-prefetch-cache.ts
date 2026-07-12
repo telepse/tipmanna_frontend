@@ -3,6 +3,10 @@
 
 import { postExploreFeedBatchAction } from "@/actions/contents";
 import { getExploreDefaultBucketId } from "@/lib/explore-default-bucket";
+import {
+  isUnscopedGlobalTrendsIdentity,
+  type ExploreFeedSessionKeyParams,
+} from "@/lib/explore-feed-session-cache";
 import type { ExploreSsrBootPayload } from "@/lib/explore-ssr-boot";
 
 /** Must match explore first-batch size (5–10). */
@@ -217,9 +221,22 @@ export function prefetchExploreCommunityFeed(communityIds: string[]): void {
 /**
  * Synchronous consume for Explore first paint (clears in-memory cache).
  */
+function trendsIdentityFromOpts(opts?: {
+  feedMode?: "trends" | "saves" | "community";
+  communityIds?: string[];
+  identity?: ExploreFeedSessionKeyParams;
+}): ExploreFeedSessionKeyParams {
+  if (opts?.identity) return opts.identity;
+  return {
+    feedMode: "trends",
+    communityIds: opts?.communityIds,
+  };
+}
+
 export function takeExploreFeedBoot(opts?: {
   feedMode?: "trends" | "saves" | "community";
   communityIds?: string[];
+  identity?: ExploreFeedSessionKeyParams;
 }): {
   items: any[];
   seed: string | undefined;
@@ -239,6 +256,11 @@ export function takeExploreFeedBoot(opts?: {
       communityReady.delete(key);
       return { items: hit.items, seed: hit.seed };
     }
+    return { items: [], seed: undefined };
+  }
+
+  const trendsIdentity = trendsIdentityFromOpts(opts);
+  if (!isUnscopedGlobalTrendsIdentity(trendsIdentity)) {
     return { items: [], seed: undefined };
   }
 
@@ -268,6 +290,7 @@ export function takeExploreFeedBoot(opts?: {
 export async function waitExploreFeedPrefetch(opts?: {
   feedMode?: "trends" | "saves" | "community";
   communityIds?: string[];
+  identity?: ExploreFeedSessionKeyParams;
 }): Promise<ExploreFeedPrefetchSnapshot | null> {
   if (opts?.feedMode === "saves") {
     if (savesReady) {
@@ -301,6 +324,11 @@ export async function waitExploreFeedPrefetch(opts?: {
         return h2;
       }
     }
+    return null;
+  }
+
+  const trendsIdentity = trendsIdentityFromOpts(opts);
+  if (!isUnscopedGlobalTrendsIdentity(trendsIdentity)) {
     return null;
   }
 

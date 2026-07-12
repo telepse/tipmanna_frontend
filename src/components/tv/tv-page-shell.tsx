@@ -7,20 +7,18 @@ import { ClientErrorBoundary } from "@/components/client-error-boundary";
 type Props = {
   channels?: any[];
   characters: any[];
-  characterSets: any[];
+  characterSets?: any[];
 };
 
 export default function TVPageShell({
   channels = [],
   characters,
-  characterSets,
 }: Props) {
   return (
     <ClientErrorBoundary>
       <TVPageClientWrapper
         channels={channels}
         characters={characters}
-        characterSets={characterSets}
       />
     </ClientErrorBoundary>
   );

@@ -39,6 +39,7 @@ import {
   pushRecentDiscoverySearch,
   readRecentDiscoverySearches,
 } from "@/lib/discovery-search-storage";
+import { shouldApplyDiscoverSearchResult } from "@/lib/discover-search-generation";
 import {
   DISCOVER_RAIL_SUBTITLES,
   DISCOVER_RAIL_UPDATE_HINTS,
@@ -227,6 +228,8 @@ export function DiscoverPanel({
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
   const searchResultsRef = useRef<HTMLDivElement>(null);
+  const searchRequestGenRef = useRef(0);
+  const tagRequestGenRef = useRef(0);
 
   useEffect(() => {
     setRecentSearches(readRecentDiscoverySearches());
@@ -241,25 +244,34 @@ export function DiscoverPanel({
   useEffect(() => {
     const q = searchTerm.trim();
     if (!q) {
+      searchRequestGenRef.current += 1;
       setDiscoveryResults(null);
       setSearchLoading(false);
       return;
     }
+
+    const gen = ++searchRequestGenRef.current;
     setSearchLoading(true);
     const t = window.setTimeout(() => {
       void discoverySearchAction(q, 30)
         .then(res => {
+          if (
+            !shouldApplyDiscoverSearchResult(gen, searchRequestGenRef.current)
+          ) {
+            return;
+          }
           if (res.success && res.data) {
             pushRecentDiscoverySearch(q);
             setRecentSearches(readRecentDiscoverySearches());
           }
           setDiscoveryResults(res.success && res.data ? res.data : null);
         })
-        .catch(() => {
-          setDiscoveryResults(null);
-        })
         .finally(() => {
-          // Never leave the search spinner stuck on a rejected request.
+          if (
+            !shouldApplyDiscoverSearchResult(gen, searchRequestGenRef.current)
+          ) {
+            return;
+          }
           setSearchLoading(false);
         });
     }, 350);
@@ -268,13 +280,19 @@ export function DiscoverPanel({
 
   useEffect(() => {
     if (!selectedTag) {
+      tagRequestGenRef.current += 1;
       setTagResults([]);
       setTagLoading(false);
       return;
     }
+
+    const gen = ++tagRequestGenRef.current;
     setTagLoading(true);
     void discoverySearchAction("", 30, selectedTag)
       .then(res => {
+        if (!shouldApplyDiscoverSearchResult(gen, tagRequestGenRef.current)) {
+          return;
+        }
         const videos = res.success && res.data?.videos ? res.data.videos : [];
         setTagResults(
           videos.map(v => ({
@@ -290,9 +308,15 @@ export function DiscoverPanel({
         );
       })
       .catch(() => {
+        if (!shouldApplyDiscoverSearchResult(gen, tagRequestGenRef.current)) {
+          return;
+        }
         setTagResults([]);
       })
       .finally(() => {
+        if (!shouldApplyDiscoverSearchResult(gen, tagRequestGenRef.current)) {
+          return;
+        }
         setTagLoading(false);
       });
   }, [selectedTag]);

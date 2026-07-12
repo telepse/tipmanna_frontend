@@ -228,7 +228,7 @@ export const newEventSchema = z.object({
   cohosts: z
     .array(
       z.object({
-        fullname: z.string(),
+        fullName: z.string(),
         email: z.string().email("Invalid cohost email"),
       })
     )

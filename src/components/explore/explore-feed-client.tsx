@@ -45,6 +45,8 @@ import {
   waitExploreFeedPrefetch,
 } from "@/lib/explore-feed-prefetch-cache";
 import {
+  buildExploreFeedIdentity,
+  isUnscopedGlobalTrendsIdentity,
   persistExploreFeedSession,
   restoreExploreFeedSession,
   type ExploreFeedSessionKeyParams,
@@ -166,6 +168,8 @@ const EXPLORE_FEED_PAGE_COUNT = 6;
  * lead time keeps a warm buffer ahead without changing the single-flight guard.
  */
 const EXPLORE_NEAR_END_SLOTS = 5;
+/** Max pagination retries per near-end session before giving up until scroll or query reset. */
+const EXPLORE_PAGINATION_MAX_RETRIES = 3;
 /** Mount players for previous slide + next N so clips buffer before scroll. */
 const EXPLORE_PRELOAD_BEHIND = 0;
 const EXPLORE_PRELOAD_AHEAD = 1;
@@ -753,6 +757,8 @@ export const ExploreFeedClient = forwardRef<
     () => [...(communityIds ?? [])].sort().join("|"),
     [communityIds]
   );
+  const { isAuthenticated } = useSelector((s: RootState) => s.auth);
+  const hasExploreSession = hasExploreSessionAuth(isAuthenticated);
   const sessionKeyParams = useMemo<ExploreFeedSessionKeyParams>(
     () => ({
       feedMode,
@@ -761,13 +767,13 @@ export const ExploreFeedClient = forwardRef<
     }),
     [feedMode, communityIdsKey, communityIds, trendsFilters]
   );
+  const feedIdentity = useMemo(
+    () => buildExploreFeedIdentity(sessionKeyParams, { hasExploreSession }),
+    [sessionKeyParams, hasExploreSession]
+  );
   const restoredSessionRef = useRef(
     typeof window !== "undefined"
-      ? restoreExploreFeedSession({
-          feedMode,
-          communityIds,
-          trendsFilters,
-        })
+      ? restoreExploreFeedSession(sessionKeyParams, { hasExploreSession })
       : null
   );
   const exploreBootRef = useRef<{ items: any[]; seed?: string } | null>(null);
@@ -780,12 +786,12 @@ export const ExploreFeedClient = forwardRef<
       };
     } else {
       const useTrendsPrefetchBoot =
-        feedMode === "trends" &&
-        trendsFilters.eventTypes.length === 0 &&
-        !trendsFilters.language?.trim() &&
-        !trendsFilters.country?.trim();
+        isUnscopedGlobalTrendsIdentity(sessionKeyParams);
       exploreBootRef.current = useTrendsPrefetchBoot
-        ? takeExploreFeedBoot({ feedMode: "trends" })
+        ? takeExploreFeedBoot({
+            feedMode: "trends",
+            identity: sessionKeyParams,
+          })
         : feedMode === "saves"
           ? takeExploreFeedBoot({ feedMode: "saves" })
           : feedMode === "community"
@@ -793,9 +799,7 @@ export const ExploreFeedClient = forwardRef<
                 feedMode: "community",
                 communityIds,
               })
-            : ssrBoot?.items?.length
-              ? { items: ssrBoot.items, seed: ssrBoot.seed }
-              : { items: [], seed: undefined };
+            : { items: [], seed: undefined };
     }
   }
   const seedRef = useRef<string | undefined>(exploreBootRef.current.seed);
@@ -827,10 +831,31 @@ export const ExploreFeedClient = forwardRef<
   const [savedContents, setSavedContents] = useState<any[]>([]);
   const [saveBusy, setSaveBusy] = useState(false);
   const [scrollSyncEpoch, setScrollSyncEpoch] = useState(0);
+  const [paginationRetryEpoch, setPaginationRetryEpoch] = useState(0);
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
 
-  const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
-  const hasExploreSession = hasExploreSessionAuth(isAuthenticated);
+  const { user } = useSelector((s: RootState) => s.auth);
+
+  const feedQueryKey = useMemo(() => {
+    if (
+      (feedMode === "saves" || feedMode === "community") &&
+      savesRefreshEpoch > 0
+    ) {
+      return `${feedIdentity.storageKey}:r:${savesRefreshEpoch}`;
+    }
+    return feedIdentity.storageKey;
+  }, [feedIdentity.storageKey, feedMode, savesRefreshEpoch]);
+
+  const loadedQueryKeyRef = useRef<string | null>(null);
+  if (
+    loadedQueryKeyRef.current === null &&
+    exploreBootRef.current!.items.length > 0
+  ) {
+    loadedQueryKeyRef.current = feedQueryKey;
+  }
+  const feedLoadGenerationRef = useRef(0);
+  const paginationFailCountRef = useRef(0);
+  const paginationQueryKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const muted = !loadReelSoundPref();
@@ -1168,26 +1193,34 @@ export const ExploreFeedClient = forwardRef<
 
   useEffect(() => {
     if (items.length === 0) return;
-    persistExploreFeedSession(sessionKeyParams, {
-      items,
-      seed: seedRef.current,
-      activeIndex,
-      scrollTop: scrollRef.current?.scrollTop,
-    });
-  }, [items, activeIndex, sessionKeyParams]);
+    persistExploreFeedSession(
+      sessionKeyParams,
+      {
+        items,
+        seed: seedRef.current,
+        activeIndex,
+        scrollTop: scrollRef.current?.scrollTop,
+      },
+      { hasExploreSession }
+    );
+  }, [items, activeIndex, sessionKeyParams, hasExploreSession]);
 
   useEffect(() => {
     return () => {
       const curItems = itemsRef.current;
       if (curItems.length === 0) return;
-      persistExploreFeedSession(sessionKeyParams, {
-        items: curItems,
-        seed: seedRef.current,
-        activeIndex: activeIndexRef.current,
-        scrollTop: scrollRef.current?.scrollTop,
-      });
+      persistExploreFeedSession(
+        sessionKeyParams,
+        {
+          items: curItems,
+          seed: seedRef.current,
+          activeIndex: activeIndexRef.current,
+          scrollTop: scrollRef.current?.scrollTop,
+        },
+        { hasExploreSession }
+      );
     };
-  }, [sessionKeyParams]);
+  }, [sessionKeyParams, hasExploreSession]);
 
   useEffect(() => {
     const top = restoredSessionRef.current?.scrollTop;
@@ -1200,7 +1233,11 @@ export const ExploreFeedClient = forwardRef<
 
   const fetchBatch = useCallback(
     async (list: any[], count: number) => {
-      if (feedMode === "community" && !(communityIds?.length ?? 0)) {
+      const scope = feedIdentity.fetchScope;
+      if (
+        scope.feedMode === "community" &&
+        !(scope.communityIds?.length ?? 0)
+      ) {
         return [];
       }
       const r = await postExploreFeedBatchAction(
@@ -1208,25 +1245,13 @@ export const ExploreFeedClient = forwardRef<
         seedRef.current,
         count,
         undefined,
-        {
-          feedMode,
-          ...(communityIds?.length ? { communityIds } : {}),
-          eventVideoTypes: trendsFilters.eventTypes.length
-            ? trendsFilters.eventTypes
-            : undefined,
-          language: trendsFilters.language?.trim()
-            ? trendsFilters.language.trim()
-            : undefined,
-          country: trendsFilters.country?.trim()
-            ? trendsFilters.country.trim()
-            : undefined,
-        }
+        scope
       );
       if (!r.success || !r.data) {
         toast.error(r.error ?? r.message ?? "Could not load explore feed");
         return null;
       }
-      if (feedMode === "saves" && r.data.savesFeedEligible === false) {
+      if (scope.feedMode === "saves" && r.data.savesFeedEligible === false) {
         setSavesBlocked(r.data.savesFeedReason ?? "auth");
         if (r.data.seed) seedRef.current = r.data.seed;
         return [];
@@ -1235,13 +1260,7 @@ export const ExploreFeedClient = forwardRef<
       if (r.data.seed) seedRef.current = r.data.seed;
       return Array.isArray(r.data.items) ? (r.data.items as any[]) : [];
     },
-    [
-      feedMode,
-      communityIds,
-      trendsFilters.eventTypes,
-      trendsFilters.language,
-      trendsFilters.country,
-    ]
+    [feedIdentity]
   );
 
   useEffect(() => {
@@ -1274,23 +1293,6 @@ export const ExploreFeedClient = forwardRef<
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [feedMode]);
-
-  useEffect(() => {
-    if (savesRefreshEpoch === 0) return;
-    if (feedMode !== "saves" && feedMode !== "community") return;
-    let cancelled = false;
-    void (async () => {
-      endOfFeedRef.current = false;
-      if (feedMode === "saves") setSavesBlocked(null);
-      const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
-      if (cancelled) return;
-      setItems(batch ?? []);
-      setInitialLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [savesRefreshEpoch, feedMode, fetchBatch]);
 
   const scrollToIndex = useCallback(
     (index: number, behavior: ScrollBehavior = "auto") => {
@@ -1461,16 +1463,20 @@ export const ExploreFeedClient = forwardRef<
     initTvAnalyticsRuntime();
   }, []);
 
+  /** Initial boot + intentional reload when feedQueryKey changes (filters, mode, auth). */
   useEffect(() => {
+    if (loadedQueryKeyRef.current === feedQueryKey) {
+      setInitialLoading(false);
+      return;
+    }
+
+    const gen = ++feedLoadGenerationRef.current;
     let cancelled = false;
+    const isIntentionalReload = loadedQueryKeyRef.current !== null;
     endOfFeedRef.current = false;
     setSavesBlocked(null);
-
-    if (exploreBootRef.current!.items.length > 0) {
-      setInitialLoading(false);
-      return () => {
-        cancelled = true;
-      };
+    if (isIntentionalReload) {
+      setActiveIndex(0);
     }
 
     void (async () => {
@@ -1478,87 +1484,129 @@ export const ExploreFeedClient = forwardRef<
         feedMode === "community" &&
         (!(communityIds?.length ?? 0) || !hasExploreSession)
       ) {
+        if (cancelled || gen !== feedLoadGenerationRef.current) return;
         setItems([]);
+        loadedQueryKeyRef.current = feedQueryKey;
         setInitialLoading(false);
         return;
       }
       const warmed = await waitExploreFeedPrefetch({
         feedMode,
         communityIds,
+        identity: sessionKeyParams,
       });
-      if (cancelled) return;
+      if (cancelled || gen !== feedLoadGenerationRef.current) return;
       if (
-        feedMode === "trends" &&
-        !(communityIds?.length ?? 0) &&
-        trendsFilters.eventTypes.length === 0 &&
-        !trendsFilters.language?.trim() &&
-        !trendsFilters.country?.trim() &&
+        isUnscopedGlobalTrendsIdentity(sessionKeyParams) &&
         warmed?.items?.length
       ) {
         seedRef.current = warmed.seed;
         setItems(warmed.items);
+        loadedQueryKeyRef.current = feedQueryKey;
         setInitialLoading(false);
         return;
       }
       if (feedMode === "saves" && warmed?.items?.length) {
         seedRef.current = warmed.seed;
         setItems(warmed.items);
+        loadedQueryKeyRef.current = feedQueryKey;
         setInitialLoading(false);
         return;
       }
       if (feedMode === "community" && warmed?.items?.length) {
         seedRef.current = warmed.seed;
         setItems(warmed.items);
+        loadedQueryKeyRef.current = feedQueryKey;
         setInitialLoading(false);
         return;
       }
       const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
-      if (cancelled) return;
+      if (cancelled || gen !== feedLoadGenerationRef.current) return;
       setItems(batch ?? []);
+      loadedQueryKeyRef.current = feedQueryKey;
       setInitialLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [
-    fetchBatch,
-    feedMode,
-    communityIdsKey,
-    communityIds?.length,
-    trendsFilters.eventTypes,
-    trendsFilters.language,
-    trendsFilters.country,
-    user,
-    hasExploreSession,
-  ]);
+  }, [feedQueryKey, fetchBatch, feedMode, communityIds, hasExploreSession]);
 
   useEffect(() => {
+    if (!feedSurfaceActive) return;
+
+    if (paginationQueryKeyRef.current !== feedQueryKey) {
+      paginationQueryKeyRef.current = feedQueryKey;
+      paginationFailCountRef.current = 0;
+    }
+
     if (endOfFeedRef.current) return;
     const len = itemsRef.current.length;
-    if (len === 0 || activeIndex < len - EXPLORE_NEAR_END_SLOTS) return;
+    if (len === 0 || activeIndex < len - EXPLORE_NEAR_END_SLOTS) {
+      paginationFailCountRef.current = 0;
+      return;
+    }
+    if (paginationFailCountRef.current >= EXPLORE_PAGINATION_MAX_RETRIES) {
+      return;
+    }
     if (loadingMoreRef.current) return;
     loadingMoreRef.current = true;
+
+    const loadGen = feedLoadGenerationRef.current;
+    const queryKey = loadedQueryKeyRef.current;
+
     void (async () => {
-      const batch = await fetchBatch(itemsRef.current, EXPLORE_FEED_PAGE_COUNT);
-      loadingMoreRef.current = false;
-      if (batch === null) return;
-      if (batch.length === 0) {
-        endOfFeedRef.current = true;
-        return;
-      }
-      setItems(prev => {
-        const seen = new Set(prev.map((x: any) => x.id));
-        const out = [...prev];
-        for (const it of batch) {
-          if (it?.id && !seen.has(it.id)) {
-            seen.add(it.id);
-            out.push(it);
+      try {
+        const batch = await fetchBatch(
+          itemsRef.current,
+          EXPLORE_FEED_PAGE_COUNT
+        );
+        if (loadGen !== feedLoadGenerationRef.current) return;
+        if (queryKey !== loadedQueryKeyRef.current) return;
+
+        if (batch === null) {
+          paginationFailCountRef.current += 1;
+          const curLen = itemsRef.current.length;
+          const idx = activeIndexRef.current;
+          const stillNearEnd =
+            curLen > 0 && idx >= curLen - EXPLORE_NEAR_END_SLOTS;
+          if (
+            stillNearEnd &&
+            paginationFailCountRef.current < EXPLORE_PAGINATION_MAX_RETRIES
+          ) {
+            setPaginationRetryEpoch(e => e + 1);
           }
+          return;
         }
-        return out;
-      });
+
+        paginationFailCountRef.current = 0;
+        if (batch.length === 0) {
+          endOfFeedRef.current = true;
+          return;
+        }
+        setItems(prev => {
+          if (loadGen !== feedLoadGenerationRef.current) return prev;
+          if (queryKey !== loadedQueryKeyRef.current) return prev;
+          const seen = new Set(prev.map((x: any) => x.id));
+          const out = [...prev];
+          for (const it of batch) {
+            if (it?.id && !seen.has(it.id)) {
+              seen.add(it.id);
+              out.push(it);
+            }
+          }
+          return out;
+        });
+      } finally {
+        loadingMoreRef.current = false;
+      }
     })();
-  }, [activeIndex, fetchBatch]);
+  }, [
+    activeIndex,
+    fetchBatch,
+    feedQueryKey,
+    paginationRetryEpoch,
+    feedSurfaceActive,
+  ]);
 
   /** Same-height snap slides: derive active index from scroll (stable vs partial IntersectionObserver batches). */
   useEffect(() => {
@@ -1608,6 +1656,8 @@ export const ExploreFeedClient = forwardRef<
   }, [items.length]);
 
   useEffect(() => {
+    if (!feedSurfaceActive) return;
+
     const cur = items[activeIndex];
     if (!cur) return;
 
@@ -1637,7 +1687,7 @@ export const ExploreFeedClient = forwardRef<
         communityId: cur.community?.id ? cur.community.id : null,
       });
     });
-  }, [activeIndex, items, feedMode]);
+  }, [activeIndex, items, feedMode, feedSurfaceActive]);
 
   if (initialLoading) {
     return <ExploreFeedSkeleton />;

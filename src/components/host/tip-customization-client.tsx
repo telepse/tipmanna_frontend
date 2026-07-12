@@ -14,6 +14,13 @@ import { RootState } from "@/redux/store";
 import type { TipConfigPayload } from "@/lib/tip-config-types";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
+import {
+  Select,
+  SelectItem,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 const api = () =>
   (process.env.NEXT_PUBLIC_BACKEND_API_URL || "").replace(/\/$/, "");
@@ -289,13 +296,26 @@ export default function TipCustomizationClient({
           <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Section CTA</Label>
-              <Input
-                disabled={frozen}
+              <Select
                 value={draft.ctaSectionLabel}
-                onChange={e =>
-                  setDraft({ ...draft, ctaSectionLabel: e.target.value })
+                onValueChange={value =>
+                  setDraft({ ...draft, ctaSectionLabel: value })
                 }
-              />
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a section CTA" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Donate">Donate</SelectItem>
+                  <SelectItem value="Engage">Engage</SelectItem>
+                  <SelectItem value="Gift">Gift</SelectItem>
+                  <SelectItem value="Give">Give</SelectItem>
+                  <SelectItem value="Play">Play</SelectItem>
+                  <SelectItem value="Support">Support</SelectItem>
+                  <SelectItem value="Tip">Tip</SelectItem>
+                  <SelectItem value="Tip or Donate">Tip or Donate</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Pay button label</Label>

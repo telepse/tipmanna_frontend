@@ -57,6 +57,8 @@ export const ReportsClient = () => {
   const { events, transactions } = useReportsAndAnalytics();
   const { summary: payoutSummary } = useHostPayoutSummary();
 
+  console.log(events, transactions);
+
   const {
     totalEarnings,
     thisMonthEarnings,

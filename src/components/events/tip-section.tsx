@@ -132,10 +132,11 @@ export const TipSection = ({
 
     const [pinnedComment, ...rest] = ordered;
     const shuffled = [...rest];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
+    // for (let i = shuffled.length - 1; i > 0; i--) {
+    //   const j = Math.floor(Math.random() * (i + 1));
+    //   [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    // }
+    shuffled.sort(() => Math.random() - 0.5);
     return [pinnedComment, ...shuffled];
   }, [tippingCharacters]);
 
@@ -399,7 +400,7 @@ export const TipSection = ({
             className="flex h-20 min-w-max flex-wrap content-start gap-1 overflow-x-auto px-1"
             style={{ rowGap: "1rem" }}
           >
-            {allTips.map(character => {
+            {allTips.slice(0, 13).map(character => {
               const characterName = tipCartNameForCharacter(character);
               const count = getSelectedCount(characterName);
               const isTextCharacter = isTextCharacterId(character.id);

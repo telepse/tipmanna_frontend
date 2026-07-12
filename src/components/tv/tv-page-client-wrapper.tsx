@@ -65,16 +65,9 @@ interface Character {
     | "Spin";
 }
 
-interface CharacterSet {
-  id: string;
-  name: string;
-  characters: Character[];
-}
-
 interface Props {
   channels?: Channel[];
   characters: Character[];
-  characterSets?: CharacterSet[];
 }
 
 export const getCurrentUser = () => {

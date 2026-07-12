@@ -37,14 +37,38 @@ export async function getTopTipperDetailsAction(
   );
 }
 
+// -------- Get host event details -------- /
+export async function getHostEventDetailsAction(
+  hostId: string,
+  eventId: string,
+  token?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      cache: "no-store",
+    },
+    "getHostEventDetailsAction"
+  );
+}
+
 // -------- Get host event summaries -------- /
-export async function getHostEventSummaries(hostId: string) {
+export async function getHostEventSummaries(
+  hostId: string,
+  token?: string | null
+) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events`,
     {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
       },
       cache: "no-store",
     },

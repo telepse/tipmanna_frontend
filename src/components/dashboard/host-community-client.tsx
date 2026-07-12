@@ -762,6 +762,35 @@ export function HostCommunityClient() {
     loadActivationRequests,
   ]);
 
+  const canRequestTV = bank?.approved?.length && bank.approved.length >= 5;
+
+  const submitTVActivationRequest = useCallback(async () => {
+    if (!authUser || !authToken || !canRequestTV) {
+      toast.error(
+        "You must have at least 5 contents on your community bank to request a TV activation."
+      );
+      return;
+    }
+
+    setActivationBusy(true);
+    try {
+      const res = await createCommunityActivationRequestAction(authToken, {
+        eventId: "63898415-b24f-448d-aa55-ca073a8ba950",
+        kind: "tv",
+      });
+      console.log("res", res);
+      if (!res.success) {
+        toast.error(res.message ?? "Request failed");
+        return;
+      }
+      toast.success("Request submitted");
+      setActivationOpen(false);
+      await loadActivationRequests();
+    } finally {
+      setActivationBusy(false);
+    }
+  }, [authUser, authToken, pickEventId, canRequestTV, loadActivationRequests]);
+
   const resumeCommunityTv = useCallback(async () => {
     if (!selected?.id) return;
     const res = await resumeCommunityTvAction(selected.id, authToken);
@@ -1740,149 +1769,174 @@ export function HostCommunityClient() {
             <DialogDescription>
               {activationKind === "community"
                 ? "Tell admins about your community. Contact email defaults to your signed-in account."
-                : "Link TV activation to an event. Optional community details help admins review your request."}
+                : "Send a request to create a TV for your community."}
             </DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-1">
-            <div className="space-y-2">
-              <Label>Event</Label>
-              {activationEventsLoading ? (
-                <p className="text-muted-foreground text-sm">
-                  Loading your events…
-                </p>
-              ) : hostEventsPick.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  You need an event that is not linked to a community yet.{" "}
-                  <Link
-                    href="/event-only"
-                    className="text-primary font-medium underline underline-offset-2"
+
+          {activationKind === "community" && (
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-1">
+              <div className="space-y-2">
+                <Label>Event</Label>
+                {activationEventsLoading ? (
+                  <p className="text-muted-foreground text-sm">
+                    Loading your events…
+                  </p>
+                ) : hostEventsPick.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    You need an event that is not linked to a community yet.{" "}
+                    <Link
+                      href="/event-only"
+                      className="text-primary font-medium underline underline-offset-2"
+                    >
+                      Create an event
+                    </Link>{" "}
+                    first, then submit a community activation request for it.
+                  </p>
+                ) : (
+                  <Select
+                    value={pickEventId || undefined}
+                    onValueChange={setPickEventId}
                   >
-                    Create an event
-                  </Link>{" "}
-                  first, then submit a community activation request for it.
-                </p>
-              ) : (
-                <Select
-                  value={pickEventId || undefined}
-                  onValueChange={setPickEventId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an event you own" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hostEventsPick.map(e => (
-                      <SelectItem
-                        key={e.id}
-                        value={e.id}
-                      >
-                        {e.eventName?.trim() ? e.eventName : e.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="act-community-name">
-                Community name{" "}
-                {activationKind === "community" ? null : (
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an event you own" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hostEventsPick.map(e => (
+                        <SelectItem
+                          key={e.id}
+                          value={e.id}
+                        >
+                          {e.eventName?.trim() ? e.eventName : e.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="act-community-name">
+                  Community name{" "}
+                  {activationKind === "community" ? null : (
+                    <span className="text-muted-foreground font-normal">
+                      (optional)
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  id="act-community-name"
+                  value={activationCommunityName}
+                  onChange={e => setActivationCommunityName(e.target.value)}
+                  placeholder="Working title"
+                  autoComplete="organization"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="act-desc">
+                  Short description{" "}
+                  {activationKind === "community" ? null : (
+                    <span className="text-muted-foreground font-normal">
+                      (optional)
+                    </span>
+                  )}
+                </Label>
+                <Textarea
+                  id="act-desc"
+                  value={activationDescription}
+                  onChange={e => setActivationDescription(e.target.value)}
+                  placeholder="What is it about?"
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="act-logo">
+                  Logo URL{" "}
                   <span className="text-muted-foreground font-normal">
                     (optional)
                   </span>
-                )}
-              </Label>
-              <Input
-                id="act-community-name"
-                value={activationCommunityName}
-                onChange={e => setActivationCommunityName(e.target.value)}
-                placeholder="Working title"
-                autoComplete="organization"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="act-desc">
-                Short description{" "}
-                {activationKind === "community" ? null : (
+                </Label>
+                <Input
+                  id="act-logo"
+                  type="url"
+                  value={activationLogoUrl}
+                  onChange={e => setActivationLogoUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="act-email">Contact email</Label>
+                <Input
+                  id="act-email"
+                  type="email"
+                  value={activationContactEmail}
+                  onChange={e => setActivationContactEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="act-phone">
+                  Phone{" "}
                   <span className="text-muted-foreground font-normal">
-                    (optional)
+                    (with country code, optional)
                   </span>
-                )}
-              </Label>
-              <Textarea
-                id="act-desc"
-                value={activationDescription}
-                onChange={e => setActivationDescription(e.target.value)}
-                placeholder="What is it about?"
-                rows={3}
-              />
+                </Label>
+                <Input
+                  id="act-phone"
+                  value={activationContactPhone}
+                  onChange={e => setActivationContactPhone(e.target.value)}
+                  placeholder="+44 …"
+                  autoComplete="tel"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="act-logo">
-                Logo URL{" "}
-                <span className="text-muted-foreground font-normal">
-                  (optional)
-                </span>
-              </Label>
-              <Input
-                id="act-logo"
-                type="url"
-                value={activationLogoUrl}
-                onChange={e => setActivationLogoUrl(e.target.value)}
-                placeholder="https://…"
-              />
+          )}
+
+          {activationKind === "community" && (
+            <div className="flex shrink-0 justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setActivationOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={
+                  activationBusy ||
+                  activationEventsLoading ||
+                  !pickEventId ||
+                  hostEventsPick.length === 0 ||
+                  (activationKind === "community" &&
+                    (!activationCommunityName.trim() ||
+                      !activationDescription.trim() ||
+                      !normalizeEmail(activationContactEmail.trim())))
+                }
+                onClick={() => void submitActivationRequest()}
+              >
+                {activationBusy ? "Sending…" : "Submit request"}
+              </Button>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="act-email">Contact email</Label>
-              <Input
-                id="act-email"
-                type="email"
-                value={activationContactEmail}
-                onChange={e => setActivationContactEmail(e.target.value)}
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
+          )}
+
+          {activationKind === "tv" && (
+            <div className="flex shrink-0 justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setActivationOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                // disabled={true}
+                onClick={() => void submitTVActivationRequest()}
+              >
+                {activationBusy ? "Sending…" : "Submit TV request"}
+              </Button>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="act-phone">
-                Phone{" "}
-                <span className="text-muted-foreground font-normal">
-                  (with country code, optional)
-                </span>
-              </Label>
-              <Input
-                id="act-phone"
-                value={activationContactPhone}
-                onChange={e => setActivationContactPhone(e.target.value)}
-                placeholder="+44 …"
-                autoComplete="tel"
-              />
-            </div>
-          </div>
-          <div className="flex shrink-0 justify-end gap-2 border-t pt-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setActivationOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={
-                activationBusy ||
-                activationEventsLoading ||
-                !pickEventId ||
-                hostEventsPick.length === 0 ||
-                (activationKind === "community" &&
-                  (!activationCommunityName.trim() ||
-                    !activationDescription.trim() ||
-                    !normalizeEmail(activationContactEmail.trim())))
-              }
-              onClick={() => void submitActivationRequest()}
-            >
-              {activationBusy ? "Sending…" : "Submit request"}
-            </Button>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
       {memberships.length > 0 ? (

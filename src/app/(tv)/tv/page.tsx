@@ -1,5 +1,4 @@
 import {
-  getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
 import { getEventChannelByYoutubeVideoId } from "@/actions/events";
@@ -79,22 +78,16 @@ export default async function TVPage({
   const { videoId } = await searchParams;
   const lazySsrCharacters = isTvLazySsrCharactersEnabled();
 
-  const [{ data: characters }, { data: characterSets }, currentChannel] =
-    await Promise.all([
-      lazySsrCharacters
-        ? Promise.resolve({
-            data: [] as Awaited<
-              ReturnType<typeof getCharactersForTipping>
-            >["data"],
-          })
-        : getCharactersForTipping(),
-      lazySsrCharacters
-        ? Promise.resolve({
-            data: [] as Awaited<ReturnType<typeof getAllCharacterSets>>["data"],
-          })
-        : getAllCharacterSets(),
-      loadChannelForVideoId(videoId),
-    ]);
+  const [{ data: characters }, currentChannel] = await Promise.all([
+    lazySsrCharacters
+      ? Promise.resolve({
+          data: [] as Awaited<
+            ReturnType<typeof getCharactersForTipping>
+          >["data"],
+        })
+      : getCharactersForTipping(),
+    loadChannelForVideoId(videoId),
+  ]);
 
   if (currentChannel && videoId) {
     return (
@@ -113,7 +106,6 @@ export default async function TVPage({
         <Suspense fallback={<TvPageSuspenseFallback />}>
           <TVPageShell
             characters={characters ?? []}
-            characterSets={characterSets ?? []}
           />
         </Suspense>
       </section>

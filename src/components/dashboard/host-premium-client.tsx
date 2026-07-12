@@ -8,7 +8,10 @@ import { DashboardHeading } from "@/components/dashboard-heading";
 import { HostVideoCoOwnersClient } from "@/components/dashboard/host-video-co-owners-client";
 import { HostVideoRequestsClient } from "@/components/dashboard/host-video-requests-client";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
+import { HostChannelManageClient } from "@/components/dashboard/host-channel-manage-client";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+
+type PremiumTab = "channel_manage" | "video_requests" | "video_coowners";
 
 function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
   return (
@@ -25,9 +28,7 @@ function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
 }
 
 export const HostPremiumClient = () => {
-  const [tabType, setTabType] = useState<"video_requests" | "video_coowners">(
-    "video_requests"
-  );
+  const [tabType, setTabType] = useState<PremiumTab>("video_requests");
   const { status, capabilities, isLoading } = useHostPlanCapabilities();
 
   const showFeatures =
@@ -39,9 +40,7 @@ export const HostPremiumClient = () => {
   const featureTabs = (
     <Tabs
       value={tabType}
-      onValueChange={val =>
-        setTabType(val as "video_requests" | "video_coowners")
-      }
+      onValueChange={val => setTabType(val as PremiumTab)}
       className="section px-0"
     >
       <TabsList className="flex h-14! w-full gap-1">
@@ -58,6 +57,17 @@ export const HostPremiumClient = () => {
           Video Co-owners
         </TabsTrigger>
       </TabsList>
+
+      <TabsContent
+        value="channel_manage"
+        className="mt-6 space-y-6"
+      >
+        <p className="text-muted-foreground text-sm">
+          Manage the default channel for each event room - toggle show view
+          count, show amount raised, and customize tip layout.
+        </p>
+        <HostChannelManageClient />
+      </TabsContent>
 
       <TabsContent
         value="video_requests"

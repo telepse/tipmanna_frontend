@@ -154,6 +154,12 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       });
     }, []);
 
+    const maybeNotifyVideoAspectOnce = useCallback(() => {
+      if (aspectFetchedRef.current) return;
+      aspectFetchedRef.current = true;
+      notifyVideoAspect();
+    }, [notifyVideoAspect]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -313,10 +319,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                 videoId: extractYoutubeID(videoUrlRef.current),
               });
               notifyTvFirstPlay();
-              if (!aspectFetchedRef.current) {
-                aspectFetchedRef.current = true;
-                notifyVideoAspect();
-              }
+              maybeNotifyVideoAspectOnce();
               onPlay?.();
             }
             if (event.data === 2) {
@@ -338,7 +341,6 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                   "contain"
                 );
               }
-              notifyVideoAspect();
               syncMuteFromPlayer(event.target);
               tvTrace("playback", "onPlaybackReady", {
                 videoId: extractYoutubeID(videoUrlRef.current),

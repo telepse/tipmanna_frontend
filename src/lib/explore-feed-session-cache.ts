@@ -15,6 +15,19 @@ export type ExploreFeedSessionKeyParams = {
   };
 };
 
+export type ExploreFeedFetchScope = {
+  feedMode: "trends" | "saves" | "community";
+  communityIds?: string[];
+  eventVideoTypes?: string[];
+  language?: string;
+  country?: string;
+};
+
+export type ExploreFeedIdentity = {
+  storageKey: string;
+  fetchScope: ExploreFeedFetchScope;
+};
+
 export type ExploreFeedSessionSnapshot = {
   items: any[];
   seed?: string;
@@ -23,9 +36,11 @@ export type ExploreFeedSessionSnapshot = {
   bucketId?: number;
 };
 
-function buildExploreFeedSessionKey(
-  params: ExploreFeedSessionKeyParams
-): string {
+/** Canonical feed identity: session key, query key, and fetch scope stay aligned. */
+export function buildExploreFeedIdentity(
+  params: ExploreFeedSessionKeyParams,
+  opts?: { hasExploreSession?: boolean }
+): ExploreFeedIdentity {
   const { feedMode, communityIds, trendsFilters } = params;
   const parts: string[] = [feedMode];
 
@@ -33,8 +48,8 @@ function buildExploreFeedSessionKey(
     parts.push(`b:${getExploreDefaultBucketId()}`);
   }
 
-  if (feedMode === "community" && communityIds?.length) {
-    parts.push([...communityIds].sort().join(","));
+  if (communityIds?.length) {
+    parts.push(`comm:${[...communityIds].sort().join(",")}`);
   }
 
   if (feedMode === "trends" && trendsFilters) {
@@ -46,17 +61,59 @@ function buildExploreFeedSessionKey(
     if (country) parts.push(`c:${country}`);
   }
 
-  return `${STORAGE_PREFIX}${parts.join("|")}`;
+  if (feedMode === "saves" || feedMode === "community") {
+    parts.push(`sess:${opts?.hasExploreSession ? "auth" : "anon"}`);
+  }
+
+  const storageKey = `${STORAGE_PREFIX}${parts.join("|")}`;
+
+  const fetchScope: ExploreFeedFetchScope = { feedMode };
+  if (communityIds?.length) {
+    fetchScope.communityIds = [...communityIds];
+  }
+  if (feedMode === "trends" && trendsFilters) {
+    if (trendsFilters.eventTypes.length) {
+      fetchScope.eventVideoTypes = [...trendsFilters.eventTypes];
+    }
+    const lang = trendsFilters.language?.trim();
+    if (lang) fetchScope.language = lang;
+    const country = trendsFilters.country?.trim();
+    if (country) fetchScope.country = country;
+  }
+
+  return { storageKey, fetchScope };
+}
+
+/** True when warm global-trends prefetch/SSR boot matches this identity. */
+export function isUnscopedGlobalTrendsIdentity(
+  params: ExploreFeedSessionKeyParams
+): boolean {
+  if (params.feedMode !== "trends") return false;
+  if (params.communityIds?.length) return false;
+  const f = params.trendsFilters;
+  if (!f) return true;
+  if (f.eventTypes.length > 0) return false;
+  if (f.language?.trim()) return false;
+  if (f.country?.trim()) return false;
+  return true;
+}
+
+/** Feed load identity (alias for storageKey — session and query keys are identical). */
+export function buildExploreFeedQueryKey(
+  params: ExploreFeedSessionKeyParams,
+  opts?: { hasExploreSession?: boolean }
+): string {
+  return buildExploreFeedIdentity(params, opts).storageKey;
 }
 
 export function restoreExploreFeedSession(
-  params: ExploreFeedSessionKeyParams
+  params: ExploreFeedSessionKeyParams,
+  opts?: { hasExploreSession?: boolean }
 ): ExploreFeedSessionSnapshot | null {
   if (typeof window === "undefined") return null;
+  const { storageKey } = buildExploreFeedIdentity(params, opts);
   try {
-    const raw = window.sessionStorage.getItem(
-      buildExploreFeedSessionKey(params)
-    );
+    const raw = window.sessionStorage.getItem(storageKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ExploreFeedSessionSnapshot;
     if (!parsed || !Array.isArray(parsed.items) || parsed.items.length === 0) {
@@ -87,10 +144,12 @@ export function restoreExploreFeedSession(
 
 export function persistExploreFeedSession(
   params: ExploreFeedSessionKeyParams,
-  snapshot: ExploreFeedSessionSnapshot
+  snapshot: ExploreFeedSessionSnapshot,
+  opts?: { hasExploreSession?: boolean }
 ): void {
   if (typeof window === "undefined") return;
   if (!snapshot.items?.length) return;
+  const { storageKey } = buildExploreFeedIdentity(params, opts);
   try {
     const payload: ExploreFeedSessionSnapshot = {
       ...snapshot,
@@ -98,21 +157,20 @@ export function persistExploreFeedSession(
         ? { bucketId: getExploreDefaultBucketId() }
         : {}),
     };
-    window.sessionStorage.setItem(
-      buildExploreFeedSessionKey(params),
-      JSON.stringify(payload)
-    );
+    window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
   } catch {
     /* quota */
   }
 }
 
 export function clearExploreFeedSession(
-  params: ExploreFeedSessionKeyParams
+  params: ExploreFeedSessionKeyParams,
+  opts?: { hasExploreSession?: boolean }
 ): void {
   if (typeof window === "undefined") return;
+  const { storageKey } = buildExploreFeedIdentity(params, opts);
   try {
-    window.sessionStorage.removeItem(buildExploreFeedSessionKey(params));
+    window.sessionStorage.removeItem(storageKey);
   } catch {
     /* ignore */
   }

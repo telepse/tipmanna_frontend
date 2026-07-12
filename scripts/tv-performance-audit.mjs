@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 /**
- * Static audit of TV page client-side server-action surface on mount.
- * Run from frontend/: node scripts/tv-performance-audit.mjs
+ * Static audit of TV page performance surface.
+ * Run: npm run tv:perf-audit
  */
 import { readFileSync, readdirSync, statSync } from "fs";
-import { join, relative } from "path";
+import { join } from "path";
 
 const ROOT = join(import.meta.dirname, "..");
 const WRAPPER = join(ROOT, "src/components/tv/tv-page-client-wrapper.tsx");
 const PROVIDER = join(ROOT, "src/components/tv-provider.tsx");
+const PAGE = join(ROOT, "src/app/(tv)/tv/page.tsx");
+const PLAYER = join(ROOT, "src/components/tv/tv-player.tsx");
+const SHELL = join(ROOT, "src/components/tv/tv-interactive-shell.tsx");
 
 function countMatches(text, pattern) {
   const re = new RegExp(pattern, "g");
@@ -65,35 +68,56 @@ function auditWrapperMountActions(text) {
 function main() {
   const wrapper = readFileSync(WRAPPER, "utf8");
   const provider = readFileSync(PROVIDER, "utf8");
+  const page = readFileSync(PAGE, "utf8");
+  const player = readFileSync(PLAYER, "utf8");
+  const shell = readFileSync(SHELL, "utf8");
 
   const mountActions = auditWrapperMountActions(wrapper);
   const mountActionCount = Object.values(mountActions).filter(Boolean).length;
-
-  const providerPrefetch = provider.includes("prefetchTvEventCatalogs");
-  const explorePrefetch = wrapper.includes("scheduleExploreFeedPrefetchIdle");
-  const deadTipFeed = wrapper.includes("const [, setTipFeed]");
-  const deadSecondary = wrapper.includes("fetchSecondaryData");
-  const pusherBindings =
-    countMatches(
-      wrapper,
-      "acquireGlobalLiveTvChannel|acquireCommunityLiveTvChannel"
-    ) + countMatches(wrapper, "setTipFeed");
-
   const chunks = getChunkSizes();
 
   const report = {
     generatedAt: new Date().toISOString(),
     wrapperMountServerActionSymbols: mountActions,
     wrapperMountActionSymbolCount: mountActionCount,
-    providerCatalogPrefetch: providerPrefetch,
-    explorePrefetchOnTv: explorePrefetch,
-    deadTipFeedState: deadTipFeed,
-    deadSecondaryFetch: deadSecondary,
+    providerCatalogPrefetchDeferred: provider.includes(
+      "schedulePostTtfvIdle(() => {\n      prefetchTvEventCatalogs"
+    ),
+    explorePrefetchOnTv: wrapper.includes("scheduleExploreFeedPrefetchIdle"),
+    deadTipFeedState: wrapper.includes("const [, setTipFeed]"),
+    deadSecondaryFetch: wrapper.includes("fetchSecondaryData"),
     wrapperPusherAcquireCount: countMatches(
       wrapper,
       "acquireGlobalLiveTvChannel|acquireCommunityLiveTvChannel"
     ),
     setTipFeedCallCount: countMatches(wrapper, "setTipFeed"),
+    ssrGetAllCharacterSets: page.includes("getAllCharacterSets"),
+    ssrGetCharactersForTipping: page.includes("getCharactersForTipping"),
+    oembedOnCuedState: /event\.data === 5[\s\S]{0,400}notifyVideoAspect\(\)/.test(
+      player
+    ),
+    oembedDeferredToFirstPlay: player.includes("maybeNotifyVideoAspectOnce"),
+    tvLoadMarkInstrumented: readFileSync(
+      join(ROOT, "src/lib/tvDebugLog.ts"),
+      "utf8"
+    ).includes("tvLoadMark"),
+    youtubePreconnectOnTv: readFileSync(
+      join(ROOT, "src/app/(tv)/layout.tsx"),
+      "utf8"
+    ).includes("TvYoutubePreconnect"),
+    dynamicPanelImports: countMatches(shell, "const \\w+Panel = dynamic"),
+    dynamicDrawerImports:
+      countMatches(
+        readFileSync(join(ROOT, "src/components/tv/tv-looper.tsx"), "utf8"),
+        "const \\w+Drawer = dynamic"
+      ) +
+      countMatches(
+        readFileSync(join(ROOT, "src/components/tv/web-tv-looper.tsx"), "utf8"),
+        "const \\w+Drawer = dynamic"
+      ),
+    featureFlagsModule: statSync(
+      join(ROOT, "src/lib/tv-feature-flags.ts")
+    ).isFile(),
     buildStaticJsBytes: chunks.totalJs,
     buildStaticJsFileCount: chunks.fileCount,
   };

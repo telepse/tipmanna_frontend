@@ -52,7 +52,6 @@ export default function EventOnlyPage() {
   const requiresVerification = useSelector(
     (state: RootState) => state.auth.requiresVerification
   );
-  const token = useSelector((state: RootState) => state.auth.token);
   const role = user?.role;
 
   const tag = useSelector((state: RootState) => state.auth.tag);

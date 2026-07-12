@@ -150,14 +150,6 @@ export function AppSidebar({ numOfEvents }: Props) {
       // freezed: isFreezed,
     },
     {
-      title: "Video requests",
-      url: `/host/${eventSlug}/video-requests`,
-      icon: Sparkles,
-      // freezed: isFreezed,
-      plan: videoRequestsUiOn,
-      premiumHint: true,
-    },
-    {
       title: "Host Premium",
       url: `/host/${eventSlug}/host-premium`,
       icon: Crown,
@@ -215,14 +207,6 @@ export function AppSidebar({ numOfEvents }: Props) {
       url: `/host/${eventSlug}/host-fees`,
       icon: UserRoundCog,
       // freezed: isFreezed,
-    },
-    {
-      title: "Video co-owners",
-      url: `/host/${eventSlug}/video-co-owners`,
-      icon: Handshake,
-      // freezed: isFreezed,
-      plan: showCoOwnerNav,
-      premiumHint: true,
     },
   ];
 

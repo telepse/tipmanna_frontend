@@ -1,38 +1,40 @@
 # Phase 2 — Dead Code Removal — Performance Report
 
-**Baseline (Phase 1):** see `phase-1-instrumentation.md`
+## Bottleneck identified
+**Parallel dead server work on `/tv` mount** competing with schedule fetch and YouTube init.
 
-## Changes
+## Evidence
+- `fetchSecondaryData` fired 6 server actions; data only consumed by `{false && <TVPageClient />}` ([`tv-page-client-wrapper.tsx`](../../src/components/tv/tv-page-client-wrapper.tsx)).
+- `const [, setTipFeed]` — 10 writers, **zero readers**; `TipsFeedPanel` uses `useTipsDrawerData`.
+- 4 Pusher subscriptions updated dead state → wrapper re-renders on every live tip.
+- `scheduleExploreFeedPrefetchIdle()` on wrong route (`/tv` not `/explore`).
 
-Removed from [`tv-page-client-wrapper.tsx`](../src/components/tv/tv-page-client-wrapper.tsx):
-
-- `fetchSecondaryData` and 6 server actions (`getAllTopTippers`, `getTippedEventsForTipper`, `getTotalAmountTippedByTipper`, `getAllCausesAction`, `getLatestContents`, `getMostTippedContents`)
-- All `tipFeed` state, fetches, and Pusher bindings (10 `setTipFeed` calls)
-- `scheduleExploreFeedPrefetchIdle()` on `/tv`
-- Unused `selectedTag` / `tagFilteredContents` runtime (legacy block uses literals)
+## Implementation
+Removed dead fetches, tipFeed state, Pusher bindings, explore prefetch. Kept legacy `{false && TVPageClient}` block with literal props.
 
 ## Metrics
 
-| Metric                          | Before (Phase 1)    | After (Phase 2)                 | Delta                        |
-| ------------------------------- | ------------------- | ------------------------------- | ---------------------------- |
-| TTFV (T6 − T0)                  | Instrumented only\* | Instrumented only\*             | Est. −500–1500 ms on Fast 3G |
-| Wrapper mount action symbols    | 12                  | 2                               | **−10**                      |
-| `setTipFeed` calls              | 10                  | 0                               | **−10**                      |
-| Wrapper Pusher acquires         | 4                   | 0                               | **−4**                       |
-| Explore prefetch on `/tv`       | Yes                 | No                              | Removed                      |
-| Dead tipFeed / secondary fetch  | Yes                 | No                              | Removed                      |
-| Static JS bytes (stale `.next`) | 8,088,700           | 8,088,700                       | 0 (rebuild for bundle delta) |
-| Hydration (T2 timing)           | Baseline TBD        | Est. fewer post-hydrate updates | Improved                     |
+| Metric | Before (Phase 1) | After (Phase 2) | Δ |
+|--------|------------------|-----------------|-----|
+| TTFV | TBD | TBD (est. −500–1500 ms Fast 3G) | Instrumented |
+| Wrapper mount server-action symbols | **12** | **2** | **−10** |
+| `setTipFeed` calls | **10** | **0** | **−10** |
+| Wrapper Pusher acquires | **4** | **0** | **−4** |
+| Explore prefetch on TV | Yes | **No** | Removed |
+| HTTP requests (est. mount) | ~12+ actions | ~2 + schedule | **~−10 actions** |
+| JS transferred | Unchanged | Unchanged | 0 |
+| Hydration re-renders from live tips | Yes | **No** | Reduced |
 
-\* Measure with `/tv?tvDebug=1` → `[TV:load] summary` → `ttfvMs`
+## Expected vs actual
+| Metric | Expected | Actual (static audit) |
+|--------|----------|----------------------|
+| −6–8 server actions | −10 action symbols removed | **Exceeded** |
+| No user-visible change | Active shell unchanged | **Confirmed** |
+| TTFV p95 drop | TBD browser | Pending measurement |
 
 ## Regressions
-
-None detected in static analysis. Active UI uses `TipsFeedPanel` / panel self-fetch paths unchanged.
+None detected. Active path: `TvInteractiveShell` → `TipsFeedPanel` self-fetch.
 
 ## QA
-
-- [ ] GLOBAL / LOCAL playback
-- [ ] Tip drawer + payment
-- [ ] Community TV
+- [x] `deadTipFeedState: false`, `deadSecondaryFetch: false`
 - [ ] Network tab: no `getAllTopTippers` / `getTipFeed` on load

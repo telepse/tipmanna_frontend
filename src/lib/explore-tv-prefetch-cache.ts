@@ -133,6 +133,27 @@ export async function waitExploreTvPrefetch(
   return null;
 }
 
+/** E2E/dev: warm TV schedule without hitting the API. */
+export function seedExploreTvPrefetch(
+  snapshot: Omit<ExploreTvPrefetchSnapshot, "filterKey"> & {
+    filterKey?: string;
+  },
+  opts?: {
+    tvSource?: "tipmanna" | string;
+    eventVideoTypes?: string[];
+    language?: string;
+    country?: string;
+  }
+): void {
+  const filterKey =
+    snapshot.filterKey ??
+    buildFilterKey({
+      ...opts,
+      tvSource: opts?.tvSource ?? "tipmanna",
+    });
+  ready = { ...snapshot, filterKey };
+}
+
 export function scheduleExploreTvPrefetchIdle(opts?: {
   tvSource?: "tipmanna" | string;
   eventVideoTypes?: string[];

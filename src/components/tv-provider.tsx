@@ -987,6 +987,9 @@ export default function GlobalTVProvider({
         setScheduleStale(false);
         setIsReady(true);
         tvLoadMark("T4", { source: "loadSchedule_success" });
+        tvTrace("schedule", "loadSchedule_network_success", {
+          itemsLen: ((data as { items?: unknown[] }).items ?? []).length,
+        });
         scheduleRetryCountRef.current = 0;
 
         if (boundaryRefetchTimeoutRef.current) {

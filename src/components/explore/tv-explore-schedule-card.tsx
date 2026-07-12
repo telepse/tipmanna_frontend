@@ -161,7 +161,22 @@ export function TvExploreScheduleCard({
             size="sm"
             variant="secondary"
             className="rounded-full"
-            onClick={() => onPlayInExplore({ videoId: channelId, eventId })}
+            data-testid="explore-tv-watch"
+            onClick={() =>
+              onPlayInExplore({
+                videoId: channelId,
+                eventId,
+                channelSnapshot: ch
+                  ? {
+                      ...ch,
+                      id: channelId,
+                      url,
+                      liveStatus: "NOT_LIVE",
+                      event: { id: eventId },
+                    }
+                  : undefined,
+              })
+            }
           >
             Watch in Explore
           </Button>
