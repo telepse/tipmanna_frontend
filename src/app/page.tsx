@@ -1,3 +1,5 @@
+
+
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { NavbarShell } from "@/components/shared/navbar-shell";
@@ -25,7 +27,7 @@ const BACKGROUND_IMAGES = {
   pattern: "/patterns/bg_pattern.webp",
 } as const;
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export default function Home() {
   return (

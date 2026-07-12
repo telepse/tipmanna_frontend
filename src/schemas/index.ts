@@ -162,8 +162,6 @@ export const eventSchema = z.object({
     .optional(),
 });
 
-const reminderOptions = ["2_min", "3_min"] as const;
-
 export const newEventSchema = z.object({
   // 🟢 Basic Info
   eventName: z.string().min(3, "Event name is required"),
