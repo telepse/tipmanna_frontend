@@ -42,6 +42,7 @@ export function useTvLazyCharacters(initialCharacters: CharacterLike[]): {
     let cancelled = false;
     const run = () => {
       void (async () => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const [{ data: chars }, { data: _sets }] = await Promise.all([
           getCharactersForTipping(),
           getAllCharacterSets(),

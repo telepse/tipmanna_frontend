@@ -3,8 +3,6 @@
 import { getAuthToken } from "@/lib/getAuthToken";
 import type { TvScheduleFetchResult } from "@/actions/tv-schedule";
 
-import { isTvDirectScheduleFetchEnabled } from "@/lib/tv-feature-flags";
-
 /** Client-side schedule fetch mirroring fetchTvScheduleAction (skips server-action hop). */
 export async function fetchTvScheduleClient(opts?: {
   communityId?: string | null;

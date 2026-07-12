@@ -23,6 +23,7 @@ import { normalizeSavedVideosList } from "@/lib/save-video-client";
 import type { TippedVideoSummary } from "@/components/tipper/tipper-profile-client";
 import type { RootState } from "@/redux/store";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function loadProfileDrawerBundle(userId: string) {
   const cached = getCachedProfileDrawerData();
   if (cached) return cached;

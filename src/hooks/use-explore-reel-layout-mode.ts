@@ -137,7 +137,6 @@ export function useExploreReelLayoutMode(
     metadataResolved,
     isShortsUrl,
     isLikelyShort,
-    mergedAspect?.classification,
     mergedAspect,
   ]);
 

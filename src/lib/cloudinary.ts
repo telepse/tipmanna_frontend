@@ -1,7 +1,6 @@
 "use server";
 
 import axios from "axios";
-import { toast } from "react-toastify";
 
 const cloud_name = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
 const cloud_secret = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;

@@ -231,6 +231,7 @@ export function exploreReelVideoBandClassName(
 }
 
 export function exploreReelVideoPlayerClassName(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _mode: ExploreReelLayoutMode
 ): string {
   return "min-h-0 min-w-0 flex-1 w-full";

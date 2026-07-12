@@ -77,5 +77,5 @@ export function usePaymentAnimationPlayer({
     window.addEventListener("validated-tip", handleValidatedTip);
     return () =>
       window.removeEventListener("validated-tip", handleValidatedTip);
-  }, [enabled]);
+  }, [enabled, surface]);
 }
