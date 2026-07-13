@@ -59,7 +59,10 @@ import {
   isExploreSessionShellEnabled,
   isUnifiedDiscoverNavEnabled,
 } from "@/lib/site-config";
-import { prefetchExploreTvSchedule, seedExploreTvPrefetch } from "@/lib/explore-tv-prefetch-cache";
+import {
+  prefetchExploreTvSchedule,
+  seedExploreTvPrefetch,
+} from "@/lib/explore-tv-prefetch-cache";
 import {
   type DiscoverNavIntent,
   type ExploreMainTab,
@@ -595,6 +598,7 @@ export default function ExplorePageClient({
     router,
     tab,
     joinCommunityId,
+    searchParamsKey,
   ]);
 
   useEffect(() => {

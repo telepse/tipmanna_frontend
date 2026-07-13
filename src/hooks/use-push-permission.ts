@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { useSelector } from "react-redux";
 import { setPushAuthToken } from "@/lib/push-auth-cache";
 import {

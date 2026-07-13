@@ -1,4 +1,4 @@
-import { Forward, Star } from "lucide-react";
+import { Forward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // Local imports

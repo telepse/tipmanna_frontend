@@ -93,9 +93,8 @@ function main() {
     setTipFeedCallCount: countMatches(wrapper, "setTipFeed"),
     ssrGetAllCharacterSets: page.includes("getAllCharacterSets"),
     ssrGetCharactersForTipping: page.includes("getCharactersForTipping"),
-    oembedOnCuedState: /event\.data === 5[\s\S]{0,400}notifyVideoAspect\(\)/.test(
-      player
-    ),
+    oembedOnCuedState:
+      /event\.data === 5[\s\S]{0,400}notifyVideoAspect\(\)/.test(player),
     oembedDeferredToFirstPlay: player.includes("maybeNotifyVideoAspectOnce"),
     tvLoadMarkInstrumented: readFileSync(
       join(ROOT, "src/lib/tvDebugLog.ts"),

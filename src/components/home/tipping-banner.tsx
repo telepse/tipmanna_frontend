@@ -1,16 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import dynamic from "next/dynamic";
 
 // Third-party imports
 import { Button } from "@/components/ui/button";
 import { motion, useReducedMotion } from "framer-motion";
-
-const MotionDiv = dynamic(
-  () => import("framer-motion").then(m => m.motion.div),
-  { ssr: false }
-);
 
 export default function TippingBanner() {
   const shouldReduceMotion = useReducedMotion();

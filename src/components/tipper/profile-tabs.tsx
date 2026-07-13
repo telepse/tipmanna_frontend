@@ -57,7 +57,7 @@ export const PROFILE_MILESTONES = [
     id: "tipper_first",
     title: "Tipper",
     description: "Made your first tip to unlock the tipper milestone",
-    condition: (tipperEvents: number, totalTipped: number) => tipperEvents >= 1,
+    condition: (tipperEvents: number) => tipperEvents >= 1,
   },
   {
     id: "tipper_100",
@@ -99,14 +99,6 @@ interface Props {
   tippedVideos?: TippedVideoSummary[];
   variant?: "page" | "drawer";
 }
-
-const DRAWER_TABS = [
-  "history",
-  "wallet",
-  "milestones",
-  "awards",
-  "activity",
-] as const;
 
 function walletStatusLabel(status: string | null | undefined): string {
   if (!status) return "—";

@@ -60,8 +60,8 @@ export const StripePaymentButton = ({
 }: StripePaymentButtonProps) => {
   const stripe = useStripe();
   const elements = useElements();
-  const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const [processing, setProcessing] = useState(false);
+  const [, setErrorMessage] = useState<string | undefined>();
+  const [, setProcessing] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();

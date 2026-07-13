@@ -21,7 +21,7 @@ interface Props {
   source?: string;
 }
 
-export function EmbeddedSupportChat({ open, onOpenChange, source }: Props) {
+export function EmbeddedSupportChat({ open, onOpenChange }: Props) {
   const user = useSelector((state: RootState) => state.auth.user);
   const [chatUrl, setChatUrl] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);

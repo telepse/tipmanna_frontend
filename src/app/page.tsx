@@ -1,5 +1,3 @@
-
-
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { NavbarShell } from "@/components/shared/navbar-shell";

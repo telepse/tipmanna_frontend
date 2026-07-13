@@ -50,7 +50,7 @@ interface Props {
 }
 
 export const VisitorProfileBanner = ({ iTipped }: Props) => {
-  const [enabled, setEnabled] = useState(false);
+  const [enabled] = useState(false);
   const [openEmail, setOpenEmail] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 

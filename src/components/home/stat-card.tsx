@@ -5,7 +5,6 @@ import { useMediaQuery } from "react-responsive";
 // Local imports
 import { Paragraph } from "../shared/paragraph";
 import { formatWithCommas } from "@/lib/utils";
-import { Pacifico } from "next/font/google";
 
 interface StatCardProps {
   label: string;

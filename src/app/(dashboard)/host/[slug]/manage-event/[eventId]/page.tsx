@@ -16,10 +16,9 @@ export default async function ManageEventDetailPage({ params }: Props) {
 
   const { data } = await getHostEventDetailsAction(hostId!, eventId, token);
 
-  console.log("data", data);
-
   const {
     eventName,
+    eventDescription,
     organizationName,
     hostName,
     eventType,
@@ -44,7 +43,9 @@ export default async function ManageEventDetailPage({ params }: Props) {
   return (
     <ProtectedRoute>
       <EventDetailClient
+        eventId={eventId}
         eventName={eventName}
+        eventDescription={eventDescription}
         organizationName={organizationName}
         hostName={hostName}
         eventType={eventType}

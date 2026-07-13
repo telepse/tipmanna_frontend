@@ -57,6 +57,69 @@ export async function getHostEventDetailsAction(
   );
 }
 
+export interface UpdateEventCohostPayload {
+  id: string;
+  email: string;
+}
+
+export interface UpdateEventPerformerPayload {
+  id: string;
+  name: string;
+  email?: string;
+  role?: string;
+}
+
+export interface UpdateEventProjectPayload {
+  id: string;
+  name: string;
+}
+
+export interface UpdateEventContentPayload {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+export interface UpdateHostEventDetailsPayload {
+  eventDate?: string;
+  startTime?: string;
+  endTime?: string;
+
+  cohosts?: UpdateEventCohostPayload[];
+
+  performers?: UpdateEventPerformerPayload[];
+
+  projects?: UpdateEventProjectPayload[];
+
+  contents?: UpdateEventContentPayload[];
+}
+
+export async function updateHostEventDetailsAction({
+  hostId,
+  eventId,
+  payload,
+  token,
+}: {
+  hostId: string;
+  eventId: string;
+  payload: UpdateHostEventDetailsPayload;
+  token?: string | null;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+    "updateHostEventDetailsAction"
+  );
+}
+
 // -------- Get host event summaries -------- /
 export async function getHostEventSummaries(
   hostId: string,

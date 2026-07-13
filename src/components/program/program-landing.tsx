@@ -40,7 +40,7 @@ export function ProgramLanding({
   communityId?: string;
   enforcementId: string;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [, setCopied] = useState(false);
 
   const landingPath = communityId
     ? `/c/${communityId}/program/${enforcementId}`

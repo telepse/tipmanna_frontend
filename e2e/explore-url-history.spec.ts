@@ -26,7 +26,9 @@ test.describe("explore URL history", () => {
     const comedyFilter = page
       .getByTestId("explore-filter-type")
       .filter({ hasText: "Comedy" });
-    if (!(await comedyFilter.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    if (
+      !(await comedyFilter.isVisible({ timeout: 5_000 }).catch(() => false))
+    ) {
       test.skip(true, "Comedy filter chip not available");
       return;
     }
@@ -69,9 +71,7 @@ test.describe("explore URL history", () => {
     );
 
     await page.goForward();
-    await expect
-      .poll(() => page.url(), { timeout: 10_000 })
-      .not.toBe(savesUrl);
+    await expect.poll(() => page.url(), { timeout: 10_000 }).not.toBe(savesUrl);
   });
 
   test("feedTab deep link hydrates saves sub-tab", async ({ page }) => {

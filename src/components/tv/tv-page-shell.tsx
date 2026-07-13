@@ -10,10 +10,7 @@ type Props = {
   characterSets?: any[];
 };
 
-export default function TVPageShell({
-  channels = [],
-  characters,
-}: Props) {
+export default function TVPageShell({ channels = [], characters }: Props) {
   return (
     <ClientErrorBoundary>
       <TVPageClientWrapper

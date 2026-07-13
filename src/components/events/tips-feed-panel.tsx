@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useTipsDrawerData } from "@/hooks/use-tips-drawer-data";
-import { cn, formatCurrency, formatUtcTime } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export type TipFeedRow = {
   id: string;

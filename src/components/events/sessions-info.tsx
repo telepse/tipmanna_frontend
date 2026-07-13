@@ -19,13 +19,6 @@ import {
 import { Paragraph } from "@/components/shared/paragraph";
 import { EventFormData } from "@/schemas";
 import { AddItemModal } from "./add-item-modal";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 
 interface SessionsInfoProps {
   control: Control<EventFormData>;

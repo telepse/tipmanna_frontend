@@ -103,8 +103,6 @@ test.describe("explore TV session continuity", () => {
     await page.getByRole("button", { name: "TV" }).click();
     await page.getByRole("button", { name: "Trends" }).click();
     await expect(scroll).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByTestId("explore-video-shell").first()
-    ).toBeVisible();
+    await expect(page.getByTestId("explore-video-shell").first()).toBeVisible();
   });
 });

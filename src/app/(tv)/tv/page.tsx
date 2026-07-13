@@ -1,6 +1,4 @@
-import {
-  getCharactersForTipping,
-} from "@/actions/characters";
+import { getCharactersForTipping } from "@/actions/characters";
 import { getEventChannelByYoutubeVideoId } from "@/actions/events";
 import TVFullscreen from "@/components/tv/tv-fullscreen";
 import TVPageShell from "@/components/tv/tv-page-shell";
@@ -104,9 +102,7 @@ export default async function TVPage({
     <>
       <section className="w-full p-2">
         <Suspense fallback={<TvPageSuspenseFallback />}>
-          <TVPageShell
-            characters={characters ?? []}
-          />
+          <TVPageShell characters={characters ?? []} />
         </Suspense>
       </section>
     </>

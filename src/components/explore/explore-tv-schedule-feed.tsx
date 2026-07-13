@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ChevronsUp, Radio, RefreshCw } from "lucide-react";
+import { Radio, RefreshCw } from "lucide-react";
 
 const TipDrawer = dynamic(
   () =>
@@ -225,7 +225,7 @@ export function ExploreTvScheduleFeed({
     } finally {
       setLoading(false);
     }
-  }, [tvExploreFilters, tvSource]);
+  }, [tvExploreFilters, tvSource, filterKey]);
 
   useEffect(() => {
     prefetchExploreTvSchedule({

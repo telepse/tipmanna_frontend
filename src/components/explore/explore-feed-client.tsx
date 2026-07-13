@@ -40,7 +40,6 @@ import {
 } from "@/actions/contents";
 import {
   EXPLORE_FEED_BOOT_COUNT,
-  prefetchExploreSavesFeed,
   takeExploreFeedBoot,
   waitExploreFeedPrefetch,
 } from "@/lib/explore-feed-prefetch-cache";
@@ -73,7 +72,6 @@ import type { RoomCharacter } from "@/types";
 import {
   flushTvAnalytics,
   initTvAnalyticsRuntime,
-  shutdownTvAnalyticsRuntime,
   setTvAnalyticsContext,
   trackTvVideoComplete,
   trackTvVideoEnd,
@@ -109,7 +107,6 @@ import {
   prefetchTvEventCatalogs,
   type TvEventCatalog,
 } from "@/lib/tv-event-catalog-cache";
-import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import { useExploreReelLayoutMode } from "@/hooks/use-explore-reel-layout-mode";
 import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-realtime";
 import { getAuthToken } from "@/lib/getAuthToken";
@@ -733,18 +730,19 @@ export const ExploreFeedClient = forwardRef<
 >(function ExploreFeedClient(
   {
     characters,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     characterSets: _characterSets,
     feedSurfaceActive = true,
     feedMode = "trends",
     communityIds,
     trendsFilters = { eventTypes: [] as string[], language: "", country: "" },
-    ssrBoot = null,
   },
   ref
 ) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const exploreReturnTo =
     typeof pathname === "string"
       ? `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`
@@ -753,10 +751,6 @@ export const ExploreFeedClient = forwardRef<
   const [savesRefreshEpoch, setSavesRefreshEpoch] = useState(0);
   const videoRef = useRef<VideoPlayerRef>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const communityIdsKey = useMemo(
-    () => [...(communityIds ?? [])].sort().join("|"),
-    [communityIds]
-  );
   const { isAuthenticated } = useSelector((s: RootState) => s.auth);
   const hasExploreSession = hasExploreSessionAuth(isAuthenticated);
   const sessionKeyParams = useMemo<ExploreFeedSessionKeyParams>(
@@ -765,7 +759,7 @@ export const ExploreFeedClient = forwardRef<
       communityIds,
       trendsFilters,
     }),
-    [feedMode, communityIdsKey, communityIds, trendsFilters]
+    [feedMode, communityIds, trendsFilters]
   );
   const feedIdentity = useMemo(
     () => buildExploreFeedIdentity(sessionKeyParams, { hasExploreSession }),
@@ -1029,14 +1023,7 @@ export const ExploreFeedClient = forwardRef<
     } finally {
       setSaveBusy(false);
     }
-  }, [
-    refreshSavedContents,
-    saveExploreChannelId,
-    savedContents,
-    user,
-    user?.id,
-    user?.role,
-  ]);
+  }, [refreshSavedContents, saveExploreChannelId, savedContents, user]);
 
   const [baseMetrics, setBaseMetrics] =
     useState<ExploreReelSlideMetrics | null>(null);
@@ -1215,6 +1202,7 @@ export const ExploreFeedClient = forwardRef<
           items: curItems,
           seed: seedRef.current,
           activeIndex: activeIndexRef.current,
+          // eslint-disable-next-line react-hooks/exhaustive-deps
           scrollTop: scrollRef.current?.scrollTop,
         },
         { hasExploreSession }
@@ -1529,7 +1517,14 @@ export const ExploreFeedClient = forwardRef<
     return () => {
       cancelled = true;
     };
-  }, [feedQueryKey, fetchBatch, feedMode, communityIds, hasExploreSession]);
+  }, [
+    feedQueryKey,
+    fetchBatch,
+    feedMode,
+    communityIds,
+    hasExploreSession,
+    sessionKeyParams,
+  ]);
 
   useEffect(() => {
     if (!feedSurfaceActive) return;

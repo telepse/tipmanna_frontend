@@ -29,7 +29,7 @@ export const EmailVerificationModal = ({
     setIsVerifying(true);
     try {
       onVerify(code);
-    } catch (err) {
+    } catch {
       toast.error("Invalid verification code");
     } finally {
       setIsVerifying(false);

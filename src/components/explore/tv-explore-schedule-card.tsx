@@ -36,7 +36,6 @@ export type TvExploreScheduleCardProps = {
 
 export function TvExploreScheduleCard({
   item,
-  index,
   broadcastEpoch,
   onPlayInExplore,
   onTip,

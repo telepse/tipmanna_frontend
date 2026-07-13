@@ -35,8 +35,8 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
 
-  const [isPlaying,] = useState(false);
-  const [isMuted,] = useState(false);
+  const [isPlaying] = useState(false);
+  const [isMuted] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {

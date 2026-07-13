@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 // Third-party imports
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Asterisk, Search, Sparkles, Tv } from "lucide-react";
+import { Asterisk, Search, Sparkles, Tv } from "lucide-react";
 
 // Local imports
 import { Title } from "@/components/shared/title";
@@ -28,11 +28,6 @@ const PATHS = {
 export default function HeroClient() {
   const [showPrompt, setShowPrompt] = useState(false);
   const router = useRouter();
-
-  // Memoized event handlers
-  const handleJoinClick = useCallback(() => {
-    setShowPrompt(true);
-  }, []);
 
   const handleLocationAllow = useCallback((country: string) => {
     console.log("Allowed in", country);

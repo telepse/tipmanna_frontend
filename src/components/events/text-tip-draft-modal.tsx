@@ -36,7 +36,6 @@ export function TextTipDraftModal({
   value,
   onChange,
   onSave,
-  onRemove,
   stackOnTop = false,
 }: TextTipDraftModalProps) {
   return (

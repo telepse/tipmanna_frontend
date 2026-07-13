@@ -249,16 +249,12 @@ export const WebTvLooper = ({
   const showPlaybackError =
     !isNotice && Boolean(current?.channel) && !playbackUrl.trim();
 
-  const {
-    isFullView,
-    fullPresentationFit,
-    immersiveLayout,
-    exitFull,
-  } = useMobileVideoViewMode({
-    videoUrl: effectivePlayerUrl || current?.channel?.url,
-    isMobile: isMobileTv,
-    resetAnchor: current?.id,
-  });
+  const { isFullView, fullPresentationFit, immersiveLayout, exitFull } =
+    useMobileVideoViewMode({
+      videoUrl: effectivePlayerUrl || current?.channel?.url,
+      isMobile: isMobileTv,
+      resetAnchor: current?.id,
+    });
 
   const { animationMountRef, paymentLayerMetrics, usePlayerBoundsLayer } =
     useTvPaymentAnimationLayer({

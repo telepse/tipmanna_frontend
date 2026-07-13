@@ -132,13 +132,7 @@ export function useExploreReelLayoutMode(
       classification: mergedAspect?.classification ?? null,
       aspect: mergedAspect,
     });
-  }, [
-    isMobile,
-    metadataResolved,
-    isShortsUrl,
-    isLikelyShort,
-    mergedAspect,
-  ]);
+  }, [isMobile, metadataResolved, isShortsUrl, isLikelyShort, mergedAspect]);
 
   useEffect(() => {
     setStableMode(null);

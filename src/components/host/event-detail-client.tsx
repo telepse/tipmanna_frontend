@@ -56,6 +56,7 @@ import { Switch } from "@/components/ui/switch";
 
 // Local imports
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { updateHostEventDetailsAction } from "@/actions/host";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -95,7 +96,9 @@ interface ReportRecipient {
 }
 
 interface Props {
+  eventId: string;
   eventName: string;
+  eventDescription: string;
   organizationName: string;
   hostName: string;
   eventType: string;
@@ -116,7 +119,9 @@ interface Props {
 }
 
 interface EventFormValues {
+  eventId: string;
   eventName: string;
+  eventDescription: string;
   organizationName: string;
   hostName: string;
   eventType: string;
@@ -193,7 +198,9 @@ const formatTime = (time: string) => {
 };
 
 export const EventDetailClient = ({
+  eventId,
   eventName,
+  eventDescription,
   organizationName,
   hostName,
   eventType,
@@ -217,6 +224,7 @@ export const EventDetailClient = ({
   >("event_info");
 
   const user = useSelector((state: RootState) => state.auth.user) as HostUser;
+  const token = useSelector((state: RootState) => state.auth.token);
 
   const userType = (user as HostUser)?.individualLegalFirstName
     ? "INDIVIDUAL"
@@ -236,7 +244,9 @@ export const EventDetailClient = ({
 
   const form = useForm<EventFormValues>({
     defaultValues: {
+      eventId,
       eventName,
+      eventDescription,
       organizationName,
       hostName,
       eventType,
@@ -346,6 +356,54 @@ export const EventDetailClient = ({
     ]);
   };
 
+  const handleSaveChanges = async () => {
+    try {
+      const values = form.getValues();
+
+      await updateHostEventDetailsAction({
+        hostId: user.id,
+        eventId,
+        token,
+        payload: {
+          eventDate: values.eventDate,
+          startTime: values.startTime,
+          endTime: values.endTime,
+
+          cohosts: values.cohosts.map(cohost => ({
+            id: cohost.id,
+            email: cohost.email,
+          })),
+
+          performers: values.performers.map(performer => ({
+            id: performer.id,
+            name: performer.name,
+            email: performer.email,
+            role: performer.role,
+          })),
+
+          projects: values.projects.map(project => ({
+            id: project.id,
+            name: project.name,
+          })),
+
+          contents: values.contents.map(content => ({
+            id: content.id,
+            title: content.title,
+            description: content.description,
+          })),
+        },
+      });
+
+      toast.success("Event updated successfully");
+    } catch (error) {
+      console.error(error);
+
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update event"
+      );
+    }
+  };
+
   return (
     <Form {...form}>
       <section className="flex flex-col gap-6">
@@ -357,7 +415,15 @@ export const EventDetailClient = ({
             <MoveLeft /> {eventName}
           </Link>
 
-          <Button variant="destructive">Delete Event</Button>
+          <div className="flex gap-4">
+            <Button
+              variant="default"
+              onClick={handleSaveChanges}
+            >
+              Save Changes
+            </Button>
+            <Button variant="destructive">Delete Event</Button>
+          </div>
         </div>
 
         <Tabs
@@ -496,6 +562,28 @@ export const EventDetailClient = ({
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="eventDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-semibold">
+                          Event Description
+                        </FormLabel>
+
+                        <FormControl>
+                          <Textarea
+                            className="min-h-16 resize-none bg-gray-100"
+                            disabled
+                            {...field}
+                          />
+                        </FormControl>
+
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 <div className="bg-card space-y-4 rounded-md border p-6">

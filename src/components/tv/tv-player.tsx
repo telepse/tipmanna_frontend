@@ -216,7 +216,13 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
           }
         },
       }),
-      [getReady, onMuteChange, onUserSeek, beginProgrammaticPlayback, syncMuteFromPlayer]
+      [
+        getReady,
+        onMuteChange,
+        onUserSeek,
+        beginProgrammaticPlayback,
+        syncMuteFromPlayer,
+      ]
     );
 
     const youtubeOpts = useMemo(

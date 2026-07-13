@@ -213,7 +213,7 @@ export const OrganiserEventRoomInfo = ({ control }: EventRoomInfoProps) => {
     }
   };
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
 
   const updateLegalNames = async (values: {
     fullName: string;

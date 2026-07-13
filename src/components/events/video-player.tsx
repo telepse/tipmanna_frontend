@@ -544,6 +544,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         alive = false;
         cancelAnimationFrame(raf);
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [videoId, embedMode]);
 
     useEffect(() => {

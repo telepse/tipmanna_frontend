@@ -6,7 +6,7 @@ import Image from "next/image";
 
 // Third-party imports
 import { Mail, MapPin, Phone } from "lucide-react";
-import { CiFacebook, CiLinkedin, CiInstagram } from "react-icons/ci";
+import { CiLinkedin, CiInstagram } from "react-icons/ci";
 import { FaXTwitter } from "react-icons/fa6";
 import { useSelector } from "react-redux";
 
@@ -46,7 +46,6 @@ const currentYear = new Date().getFullYear();
 
 export default function Footer() {
   const { push } = useAppRouter();
-  const [, setIsOpen] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
 
   const { user, isAuthenticated } = useSelector(
