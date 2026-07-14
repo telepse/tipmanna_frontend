@@ -66,6 +66,7 @@ import {
   fetchCommunityProgramBootstrap,
   fetchGlobalProgramBootstrap,
 } from "@/lib/program-api";
+import { createTvScheduleLoadCoalescer } from "@/lib/tv-schedule-load-coalesce";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -430,6 +431,7 @@ export default function GlobalTVProvider({
   const loadScheduleRef = useRef<
     (opts?: { manual?: boolean; resetRetry?: boolean }) => Promise<void>
   >(async () => {});
+  const runCoalescedScheduleLoadRef = useRef(createTvScheduleLoadCoalescer());
   const scheduleEtagRef = useRef<string | null>(null);
   const scheduleSwrBootstrappedRef = useRef(false);
   const syncMissRef = useRef(0);
@@ -937,160 +939,67 @@ export default function GlobalTVProvider({
 
   const loadSchedule = useCallback(
     async (opts?: { manual?: boolean; resetRetry?: boolean }) => {
-      tvTrace("schedule", "loadSchedule_start", {
-        manual: opts?.manual ?? false,
-        resetRetry: opts?.resetRetry ?? false,
-        communityId: scheduleSourceCommunityIdRef.current,
-        mode: modeRef.current,
-      });
-      if (opts?.resetRetry) {
-        scheduleRetryCountRef.current = 0;
-        if (scheduleRetryTimeoutRef.current) {
-          clearTimeout(scheduleRetryTimeoutRef.current);
-          scheduleRetryTimeoutRef.current = null;
-        }
-        if (isTvScheduleSwrEnabled() && !scheduleSwrBootstrappedRef.current) {
-          const cid = scheduleSourceCommunityIdRef.current;
-          const cached = readTvScheduleCache(cid);
-          if (cached) {
-            scheduleSwrBootstrappedRef.current = true;
-            scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
-            applySchedulePayload(cached.body);
-            setScheduleStale(true);
-            setScheduleError(false);
-            setIsReady(true);
-            tvLoadMark("T3_cache_hit", { communityId: cid });
-            tvLoadMark("T4", { source: "schedule_swr_cache" });
-            logTV("schedule_swr_bootstrap", {
-              mode: modeRef.current,
-              currentIndex: currentIndexRef.current,
-              offsetSeconds: null,
-            });
-            if (modeRef.current === "GLOBAL") {
-              queueMicrotask(() => syncToLive());
+      return runCoalescedScheduleLoadRef.current(async () => {
+        tvTrace("schedule", "loadSchedule_start", {
+          manual: opts?.manual ?? false,
+          resetRetry: opts?.resetRetry ?? false,
+          communityId: scheduleSourceCommunityIdRef.current,
+          mode: modeRef.current,
+        });
+        if (opts?.resetRetry) {
+          scheduleRetryCountRef.current = 0;
+          if (scheduleRetryTimeoutRef.current) {
+            clearTimeout(scheduleRetryTimeoutRef.current);
+            scheduleRetryTimeoutRef.current = null;
+          }
+          if (isTvScheduleSwrEnabled() && !scheduleSwrBootstrappedRef.current) {
+            const cid = scheduleSourceCommunityIdRef.current;
+            const cached = readTvScheduleCache(cid);
+            if (cached) {
+              scheduleSwrBootstrappedRef.current = true;
+              scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
+              applySchedulePayload(cached.body);
+              setScheduleStale(true);
+              setScheduleError(false);
+              setIsReady(true);
+              tvLoadMark("T3_cache_hit", { communityId: cid });
+              tvLoadMark("T4", { source: "schedule_swr_cache" });
+              logTV("schedule_swr_bootstrap", {
+                mode: modeRef.current,
+                currentIndex: currentIndexRef.current,
+                offsetSeconds: null,
+              });
+              if (modeRef.current === "GLOBAL") {
+                queueMicrotask(() => syncToLive());
+              }
             }
           }
         }
-      }
 
-      tvLoadMark("T3_cache_miss", {
-        manual: opts?.manual ?? false,
-        communityId: scheduleSourceCommunityIdRef.current,
-      });
-
-      const applySuccess = (data: any, etag: string | null) => {
-        const cid = scheduleSourceCommunityIdRef.current;
-        if (etag) scheduleEtagRef.current = etag;
-        persistTvScheduleCache(data, etag, cid);
-        applySchedulePayload(data);
-        setScheduleError(false);
-        setScheduleStale(false);
-        setIsReady(true);
-        tvLoadMark("T4", { source: "loadSchedule_success" });
-        tvTrace("schedule", "loadSchedule_network_success", {
-          itemsLen: ((data as { items?: unknown[] }).items ?? []).length,
-        });
-        scheduleRetryCountRef.current = 0;
-
-        if (boundaryRefetchTimeoutRef.current) {
-          clearTimeout(boundaryRefetchTimeoutRef.current);
-          boundaryRefetchTimeoutRef.current = null;
-        }
-        const epochMs = data.broadcastEpoch as number | undefined;
-        if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
-          const ms = msToNextHalfDayBoundary(
-            epochMs,
-            Date.now() + driftRef.current
-          );
-          boundaryRefetchTimeoutRef.current = setTimeout(() => {
-            boundaryRefetchTimeoutRef.current = null;
-            void loadScheduleRef.current();
-          }, ms + TV_BOUNDARY_REFETCH_SLACK_MS);
-        }
-      };
-
-      try {
-        const cid = scheduleSourceCommunityIdRef.current;
-        const scheduleOpts = {
-          communityId: cid,
-          ifNoneMatch: scheduleEtagRef.current,
-        };
-        const res = isTvDirectScheduleFetchEnabled()
-          ? await fetchTvScheduleClient(scheduleOpts)
-          : await fetchTvScheduleAction(scheduleOpts);
-
-        if (res.success && res.data?.notModified) {
-          tvTrace("schedule", "loadSchedule_not_modified", {
-            mode: modeRef.current,
-          });
-          logTV("schedule_not_modified", {
-            mode: modeRef.current,
-            currentIndex: currentIndexRef.current,
-            offsetSeconds: null,
-          });
-          return;
-        }
-
-        if (!res.success || !res.data?.body) {
-          const failMsg =
-            !res.success && "error" in res && res.error
-              ? res.error
-              : "message" in res &&
-                  typeof (res as { message?: string }).message === "string"
-                ? (res as { message: string }).message
-                : "Failed to load TV schedule";
-          throw new Error(failMsg);
-        }
-
-        const data = res.data.body;
-        const etag = res.data.etag ?? null;
-
-        logTV("schedule_loaded", {
-          mode: modeRef.current,
-          currentIndex: currentIndexRef.current,
-          offsetSeconds: null,
-          status: res.data.status,
-          checksum: (data as { checksum?: string }).checksum,
-          activeScheduleId: (data as { activeScheduleId?: string })
-            .activeScheduleId,
-        });
-        tvTrace("schedule", "loadSchedule_success", {
-          itemsLen: ((data as { items?: unknown[] }).items ?? []).length,
-          liveScheduleIndex: (
-            data as { livePosition?: { scheduleIndex?: number } }
-          ).livePosition?.scheduleIndex,
-          activeScheduleId: (data as { activeScheduleId?: string })
-            .activeScheduleId,
+        tvLoadMark("T3_cache_miss", {
+          manual: opts?.manual ?? false,
+          communityId: scheduleSourceCommunityIdRef.current,
         });
 
-        applySuccess(data, etag);
-        if (modeRef.current === "GLOBAL") {
-          queueMicrotask(() => syncToLive());
-        }
-      } catch (err) {
-        console.error("Failed to load TV schedule:", err);
-        tvTrace("schedule", "loadSchedule_failure", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        const cid = scheduleSourceCommunityIdRef.current;
-        const cached = readTvScheduleCache(cid);
-        if (cached) {
-          scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
-          applySchedulePayload(cached.body);
-          setScheduleStale(true);
+        const applySuccess = (data: any, etag: string | null) => {
+          const cid = scheduleSourceCommunityIdRef.current;
+          if (etag) scheduleEtagRef.current = etag;
+          persistTvScheduleCache(data, etag, cid);
+          applySchedulePayload(data);
           setScheduleError(false);
+          setScheduleStale(false);
           setIsReady(true);
-          tvLoadMark("T4", { source: "schedule_fallback_cache" });
-          logTV("schedule_fallback_cache", {
-            mode: modeRef.current,
-            currentIndex: currentIndexRef.current,
-            offsetSeconds: null,
+          tvLoadMark("T4", { source: "loadSchedule_success" });
+          tvTrace("schedule", "loadSchedule_network_success", {
+            itemsLen: ((data as { items?: unknown[] }).items ?? []).length,
           });
+          scheduleRetryCountRef.current = 0;
+
           if (boundaryRefetchTimeoutRef.current) {
             clearTimeout(boundaryRefetchTimeoutRef.current);
             boundaryRefetchTimeoutRef.current = null;
           }
-          const epochMs = cached.body.broadcastEpoch as number | undefined;
+          const epochMs = data.broadcastEpoch as number | undefined;
           if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
             const ms = msToNextHalfDayBoundary(
               epochMs,
@@ -1101,21 +1010,116 @@ export default function GlobalTVProvider({
               void loadScheduleRef.current();
             }, ms + TV_BOUNDARY_REFETCH_SLACK_MS);
           }
-        } else {
-          setScheduleError(true);
-          setIsReady(false);
-        }
+        };
 
-        const attempt = scheduleRetryCountRef.current;
-        if (attempt < MAX_SCHEDULE_RETRIES) {
-          const delay =
-            RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
-          scheduleRetryTimeoutRef.current = setTimeout(() => {
-            scheduleRetryCountRef.current += 1;
-            void loadSchedule();
-          }, delay);
+        try {
+          const cid = scheduleSourceCommunityIdRef.current;
+          const scheduleOpts = {
+            communityId: cid,
+            ifNoneMatch: scheduleEtagRef.current,
+          };
+          const res = isTvDirectScheduleFetchEnabled()
+            ? await fetchTvScheduleClient(scheduleOpts)
+            : await fetchTvScheduleAction(scheduleOpts);
+
+          if (res.success && res.data?.notModified) {
+            tvTrace("schedule", "loadSchedule_not_modified", {
+              mode: modeRef.current,
+            });
+            logTV("schedule_not_modified", {
+              mode: modeRef.current,
+              currentIndex: currentIndexRef.current,
+              offsetSeconds: null,
+            });
+            return;
+          }
+
+          if (!res.success || !res.data?.body) {
+            const failMsg =
+              !res.success && "error" in res && res.error
+                ? res.error
+                : "message" in res &&
+                    typeof (res as { message?: string }).message === "string"
+                  ? (res as { message: string }).message
+                  : "Failed to load TV schedule";
+            throw new Error(failMsg);
+          }
+
+          const data = res.data.body;
+          const etag = res.data.etag ?? null;
+
+          logTV("schedule_loaded", {
+            mode: modeRef.current,
+            currentIndex: currentIndexRef.current,
+            offsetSeconds: null,
+            status: res.data.status,
+            checksum: (data as { checksum?: string }).checksum,
+            activeScheduleId: (data as { activeScheduleId?: string })
+              .activeScheduleId,
+          });
+          tvTrace("schedule", "loadSchedule_success", {
+            itemsLen: ((data as { items?: unknown[] }).items ?? []).length,
+            liveScheduleIndex: (
+              data as { livePosition?: { scheduleIndex?: number } }
+            ).livePosition?.scheduleIndex,
+            activeScheduleId: (data as { activeScheduleId?: string })
+              .activeScheduleId,
+          });
+
+          applySuccess(data, etag);
+          if (modeRef.current === "GLOBAL") {
+            queueMicrotask(() => syncToLive());
+          }
+        } catch (err) {
+          console.error("Failed to load TV schedule:", err);
+          tvTrace("schedule", "loadSchedule_failure", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          const cid = scheduleSourceCommunityIdRef.current;
+          const cached = readTvScheduleCache(cid);
+          if (cached) {
+            scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
+            applySchedulePayload(cached.body);
+            setScheduleStale(true);
+            setScheduleError(false);
+            setIsReady(true);
+            tvLoadMark("T4", { source: "schedule_fallback_cache" });
+            logTV("schedule_fallback_cache", {
+              mode: modeRef.current,
+              currentIndex: currentIndexRef.current,
+              offsetSeconds: null,
+            });
+            if (boundaryRefetchTimeoutRef.current) {
+              clearTimeout(boundaryRefetchTimeoutRef.current);
+              boundaryRefetchTimeoutRef.current = null;
+            }
+            const epochMs = cached.body.broadcastEpoch as number | undefined;
+            if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
+              const ms = msToNextHalfDayBoundary(
+                epochMs,
+                Date.now() + driftRef.current
+              );
+              boundaryRefetchTimeoutRef.current = setTimeout(() => {
+                boundaryRefetchTimeoutRef.current = null;
+                void loadScheduleRef.current();
+              }, ms + TV_BOUNDARY_REFETCH_SLACK_MS);
+            }
+          } else {
+            setScheduleError(true);
+            setIsReady(false);
+          }
+
+          const attempt = scheduleRetryCountRef.current;
+          if (attempt < MAX_SCHEDULE_RETRIES) {
+            const delay =
+              RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+            scheduleRetryTimeoutRef.current = setTimeout(() => {
+              scheduleRetryCountRef.current += 1;
+              void loadSchedule();
+            }, delay);
+          }
         }
-      }
+      });
     },
     [applySchedulePayload, syncToLive]
   );

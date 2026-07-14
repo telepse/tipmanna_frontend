@@ -59,8 +59,11 @@ import {
   isExploreSessionShellEnabled,
   isUnifiedDiscoverNavEnabled,
 } from "@/lib/site-config";
+import { isExploreTvPrefetchAfterStableEnabled } from "@/lib/explore-feature-flags";
 import {
+  cancelExploreTvStablePrefetch,
   prefetchExploreTvSchedule,
+  scheduleExploreTvPrefetchAfterStable,
   seedExploreTvPrefetch,
 } from "@/lib/explore-tv-prefetch-cache";
 import {
@@ -505,6 +508,23 @@ export default function ExplorePageClient({
     trendLanguage,
     trendCountry,
   ]);
+
+  useEffect(() => {
+    if (tab !== "feed") {
+      cancelExploreTvStablePrefetch();
+      return;
+    }
+    if (!isExploreTvPrefetchAfterStableEnabled()) {
+      return;
+    }
+    scheduleExploreTvPrefetchAfterStable({
+      tvSource: tvExploreSource,
+      eventVideoTypes: trendEventTypes,
+      language: trendLanguage,
+      country: trendCountry,
+    });
+    return () => cancelExploreTvStablePrefetch();
+  }, [tab, tvExploreSource, trendEventTypes, trendLanguage, trendCountry]);
 
   useEffect(() => {
     const onAuthChanged = () => {

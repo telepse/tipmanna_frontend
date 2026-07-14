@@ -142,7 +142,9 @@ export default function TVPageClientWrapper({
     };
   }, [isMobile]);
 
-  const [activeTab, setActiveTab] = useState<"playlist" | "tips">("playlist");
+  const [activeTab, setActiveTab] = useState<"playlist" | "tips" | "programs">(
+    "playlist"
+  );
 
   const handleSelectChannel = (index: number) => {
     playLocal(index);

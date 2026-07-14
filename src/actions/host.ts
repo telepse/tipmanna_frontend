@@ -120,6 +120,38 @@ export async function updateHostEventDetailsAction({
   );
 }
 
+// -------- Post host event message -------- /
+
+export interface PostHostEventMessagePayload {
+  text: string;
+}
+
+export async function postHostEventMessageAction({
+  hostId,
+  eventId,
+  token,
+  payload,
+}: {
+  hostId: string;
+  eventId: string;
+  token?: string | null;
+  payload: PostHostEventMessagePayload;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+    "postHostEventMessageAction"
+  );
+}
+
 // -------- Get host event summaries -------- /
 export async function getHostEventSummaries(
   hostId: string,

@@ -207,9 +207,13 @@ export async function reportChannelContentAction(
 
 // -------- Get messages by event -------- //
 export async function getMessagesByEventAction(eventId: string) {
+  console.log("eventId", eventId);
   if (!eventId?.trim()) {
     return actionFail("Event ID is required", "getMessagesByEventAction");
   }
+  console.log(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/messages/${eventId.trim()}`
+  );
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/messages/${eventId.trim()}`,
     {
@@ -219,8 +223,7 @@ export async function getMessagesByEventAction(eventId: string) {
       },
       cache: "no-store",
     },
-    "getMessagesByEventAction",
-    raw => (Array.isArray(raw) ? raw : [])
+    "getMessagesByEventAction"
   );
 }
 

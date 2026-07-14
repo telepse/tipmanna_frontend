@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { isExploreTvPrefetchAfterStableEnabled } from "@/lib/explore-feature-flags";
+
 import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 
 export type ExploreTvPrefetchSnapshot = {
@@ -166,5 +168,40 @@ export function scheduleExploreTvPrefetchIdle(opts?: {
     window.requestIdleCallback(() => run(), { timeout: 5000 });
   } else {
     window.setTimeout(run, 2500);
+  }
+}
+
+let stableScheduleGeneration = 0;
+
+export function cancelExploreTvStablePrefetch(): void {
+  stableScheduleGeneration += 1;
+}
+
+/**
+ * Schedule TV prefetch after Explore stabilizes (flag-gated).
+ * When flag is off, delegates to scheduleExploreTvPrefetchIdle (legacy path).
+ */
+export function scheduleExploreTvPrefetchAfterStable(opts?: {
+  tvSource?: "tipmanna" | string;
+  eventVideoTypes?: string[];
+  language?: string;
+  country?: string;
+}): void {
+  if (typeof window === "undefined") return;
+  if (!isExploreTvPrefetchAfterStableEnabled()) {
+    scheduleExploreTvPrefetchIdle(opts);
+    return;
+  }
+
+  const generation = ++stableScheduleGeneration;
+  const run = () => {
+    if (generation !== stableScheduleGeneration) return;
+    prefetchExploreTvSchedule(opts);
+  };
+
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => run(), { timeout: 6000 });
+  } else {
+    window.setTimeout(run, 3000);
   }
 }

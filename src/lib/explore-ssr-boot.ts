@@ -7,6 +7,15 @@ export type ExploreSsrBootPayload = {
   bucketId: number;
 };
 
+/** Fail-open cap so SSR boot fetch cannot block the page indefinitely. */
+export const SSR_BOOT_FETCH_TIMEOUT_MS = 5000;
+
+export function serializeExploreSsrBootScript(
+  payload: ExploreSsrBootPayload
+): string {
+  return `window.__EXPLORE_SSR_BOOT__=${JSON.stringify(payload).replace(/</g, "\\u003c")};`;
+}
+
 export async function fetchExploreSsrBoot(): Promise<ExploreSsrBootPayload | null> {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "");
   if (!base) return null;
@@ -15,6 +24,7 @@ export async function fetchExploreSsrBoot(): Promise<ExploreSsrBootPayload | nul
       `${base}/contents/feed/default-boot?count=${EXPLORE_FEED_BOOT_COUNT}`,
       {
         next: { revalidate: 60 },
+        signal: AbortSignal.timeout(SSR_BOOT_FETCH_TIMEOUT_MS),
       }
     );
     if (!res.ok) return null;

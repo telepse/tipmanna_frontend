@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { gotoExplore } from "./helpers/goto-explore";
 
 /**
  * Unified Discover navigation journeys for the long-lived Explore session.
@@ -28,7 +29,7 @@ test.describe("discover navigation", () => {
   test("search opens the quick panel over the feed without leaving /explore", async ({
     page,
   }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await openHeaderSearch(page);
 
     // Quick panel (sheet) overlays the feed.
@@ -43,7 +44,7 @@ test.describe("discover navigation", () => {
   test("the sheet X closes the quick panel and reveals the feed", async ({
     page,
   }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await openHeaderSearch(page);
 
     const dialog = page.getByRole("dialog", { name: "Discover" });
@@ -66,7 +67,7 @@ test.describe("discover navigation", () => {
   }) => {
     // The Discover surface renders alongside a mounted-but-hidden feed so the
     // reel session (playback, caches, subscriptions) survives surface switches.
-    await page.goto("/explore?tab=discover");
+    await gotoExplore(page, "/explore?tab=discover");
     await expect(
       page.getByRole("heading", { name: "Spotlight" }).first()
     ).toBeVisible({
@@ -96,7 +97,7 @@ test.describe("discover navigation", () => {
   test("rapid tag switch shows results for the last selected tag", async ({
     page,
   }) => {
-    await page.goto("/explore?tab=discover");
+    await gotoExplore(page, "/explore?tab=discover");
     await expect(page.getByRole("heading", { name: "Spotlight" })).toBeVisible({
       timeout: 30_000,
     });

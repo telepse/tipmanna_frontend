@@ -8,6 +8,7 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   timeout: 90_000,
+  globalSetup: "./e2e/global-setup.ts",
   use: {
     baseURL,
     trace: process.env.RUNTIME_HUNT ? "on" : "on-first-retry",

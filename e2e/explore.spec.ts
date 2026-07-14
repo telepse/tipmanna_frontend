@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { gotoExplore } from "./helpers/goto-explore";
 
 test.describe("explore", () => {
   test("loads feed first on default explore URL", async ({ page }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await expect(page.locator("body")).toBeVisible();
 
     const scroll = page.getByTestId("explore-feed-scroll");
@@ -18,7 +19,7 @@ test.describe("explore", () => {
   test("first paint includes SSR default feed boot or visible slide", async ({
     page,
   }) => {
-    const response = await page.goto("/explore");
+    const response = await gotoExplore(page);
     expect(response?.ok()).toBeTruthy();
     const html = await page.content();
     const hadInlineBoot =
@@ -30,7 +31,7 @@ test.describe("explore", () => {
   test("feed scrolls and shows video shell or empty state", async ({
     page,
   }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await expect(page.locator("body")).toBeVisible();
 
     const scroll = page.getByTestId("explore-feed-scroll");
@@ -54,7 +55,7 @@ test.describe("explore", () => {
   });
 
   test("slide actions live inside active slide footer", async ({ page }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     const scroll = page.getByTestId("explore-feed-scroll");
     if (!(await scroll.isVisible({ timeout: 15_000 }).catch(() => false))) {
       test.skip();
@@ -73,14 +74,14 @@ test.describe("explore", () => {
   test("profile shows Guest or Not signed in for anonymous visitors", async ({
     page,
   }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await expect(page.getByText(/Signed in|Guest|Not signed in/i)).toBeVisible({
       timeout: 15_000,
     });
   });
 
   test("discover tab shows distinct category headings", async ({ page }) => {
-    await page.goto("/explore?tab=discover");
+    await gotoExplore(page, "/explore?tab=discover");
     await expect(page.getByRole("heading", { name: "Spotlight" })).toBeVisible({
       timeout: 30_000,
     });

@@ -3,6 +3,7 @@
 
 import { postExploreFeedBatchAction } from "@/actions/contents";
 import { getExploreDefaultBucketId } from "@/lib/explore-default-bucket";
+import { isExploreTvPrefetchAfterStableEnabled } from "@/lib/explore-feature-flags";
 import {
   isUnscopedGlobalTrendsIdentity,
   type ExploreFeedSessionKeyParams,
@@ -362,18 +363,21 @@ export function scheduleExploreFeedPrefetchIdle(opts?: {
   };
 }): void {
   if (typeof window === "undefined") return;
+  const tvDeferredAfterStable = isExploreTvPrefetchAfterStableEnabled();
   const run = () => {
     prefetchExploreFeedInitial();
     prefetchExploreSavesFeed();
     if (opts?.communityIds?.length) {
       prefetchExploreCommunityFeed(opts.communityIds);
     }
-    import("@/lib/explore-tv-prefetch-cache").then(m => {
-      m.scheduleExploreTvPrefetchIdle({
-        tvSource: opts?.tvSource,
-        ...opts?.tvFilters,
+    if (!tvDeferredAfterStable) {
+      import("@/lib/explore-tv-prefetch-cache").then(m => {
+        m.scheduleExploreTvPrefetchIdle({
+          tvSource: opts?.tvSource,
+          ...opts?.tvFilters,
+        });
       });
-    });
+    }
   };
   if (typeof window.requestIdleCallback === "function") {
     window.requestIdleCallback(() => run(), { timeout: 4000 });

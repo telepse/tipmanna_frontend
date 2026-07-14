@@ -1,7 +1,3 @@
-import {
-  postExploreFeedBatchAction,
-  type ExploreFeedBatchData,
-} from "@/actions/contents";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
 import { buildContentShareUrl } from "@/lib/public-video-url";
@@ -15,14 +11,9 @@ type ExploreFeedSeoItem = {
   event?: { id?: string };
 };
 
-async function fetchExploreFeedSeoItems(): Promise<ExploreFeedSeoItem[]> {
-  const res = await postExploreFeedBatchAction(
-    [],
-    undefined,
-    EXPLORE_SEO_FEED_COUNT
-  );
-  if (!res.success || !res.data) return [];
-  const items = (res.data as ExploreFeedBatchData).items;
+export function exploreFeedSeoItemsFromBoot(
+  items?: unknown[] | null
+): ExploreFeedSeoItem[] {
   if (!Array.isArray(items)) return [];
   return items
     .filter(
@@ -67,8 +58,8 @@ function buildExploreItemListJsonLd(items: ExploreFeedSeoItem[]) {
   };
 }
 
-export async function ExploreSeoJsonLd() {
-  const feedSeoItems = await fetchExploreFeedSeoItems();
+export function ExploreSeoJsonLd({ items }: { items?: unknown[] | null }) {
+  const feedSeoItems = exploreFeedSeoItemsFromBoot(items);
   const feedItemListJsonLd = buildExploreItemListJsonLd(feedSeoItems);
   if (!feedItemListJsonLd) return null;
 

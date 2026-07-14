@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { gotoExplore } from "./helpers/goto-explore";
 
 test.describe("explore TV session continuity", () => {
   test("feed stays mounted while TV sub-tab is active", async ({ page }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await expect(
       page
         .getByTestId("explore-feed-scroll")
@@ -18,7 +19,7 @@ test.describe("explore TV session continuity", () => {
   });
 
   test("scroll position preserved across TV and Trends", async ({ page }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     const scroll = page.getByTestId("explore-feed-scroll");
     if (!(await scroll.isVisible({ timeout: 15_000 }).catch(() => false))) {
       test.skip(true, "Feed scroll not available");
@@ -31,14 +32,16 @@ test.describe("explore TV session continuity", () => {
       return;
     }
 
-    await scroll.evaluate(el => {
+    await scroll.evaluate(async el => {
       const slide = el.querySelector(
         "[data-explore-slide]"
       ) as HTMLElement | null;
       const h = slide?.getBoundingClientRect().height ?? 0;
       el.scrollTop = h;
+      await new Promise<void>(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
     });
-    await page.waitForTimeout(300);
 
     const indexBefore = await scroll.evaluate(el => {
       const slide = el.querySelector(
@@ -49,7 +52,10 @@ test.describe("explore TV session continuity", () => {
     });
 
     await page.getByRole("button", { name: "TV" }).click();
-    await page.waitForTimeout(200);
+    await expect(page.getByRole("button", { name: "TV" })).toHaveClass(
+      /bg-white/,
+      { timeout: 10_000 }
+    );
     await page.getByRole("button", { name: "Trends" }).click();
     await expect(scroll).toBeVisible({ timeout: 15_000 });
 
@@ -67,7 +73,7 @@ test.describe("explore TV session continuity", () => {
   test("TV programme handoff opens reel without remount hang", async ({
     page,
   }) => {
-    await page.goto("/explore?feedTab=tv&e2eTv=1");
+    await gotoExplore(page, "/explore?feedTab=tv&e2eTv=1");
     await expect(page.getByRole("button", { name: "TV" })).toHaveClass(
       /bg-white/,
       { timeout: 15_000 }
@@ -93,7 +99,7 @@ test.describe("explore TV session continuity", () => {
   });
 
   test("visible reel shell returns after leaving TV tab", async ({ page }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     const scroll = page.getByTestId("explore-feed-scroll");
     if (!(await scroll.isVisible({ timeout: 15_000 }).catch(() => false))) {
       test.skip(true, "Feed scroll not available");

@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
+import { gotoExplore } from "./helpers/goto-explore";
 
 test.describe("explore URL history", () => {
   test("filter change updates URL and browser back restores prior filter", async ({
     page,
   }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await expect(
       page
         .getByTestId("explore-feed-scroll")
@@ -48,7 +49,7 @@ test.describe("explore URL history", () => {
   });
 
   test("saves sub-tab survives browser back and forward", async ({ page }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await expect(
       page
         .getByTestId("explore-feed-scroll")
@@ -75,7 +76,7 @@ test.describe("explore URL history", () => {
   });
 
   test("feedTab deep link hydrates saves sub-tab", async ({ page }) => {
-    await page.goto("/explore?feedTab=saves");
+    await gotoExplore(page, "/explore?feedTab=saves");
     await expect(page.getByRole("button", { name: "Saves" })).toHaveClass(
       /bg-white/,
       { timeout: 15_000 }
@@ -85,7 +86,7 @@ test.describe("explore URL history", () => {
   test("feedTab=tv deep link shows TV surface with mounted feed shell", async ({
     page,
   }) => {
-    await page.goto("/explore?feedTab=tv");
+    await gotoExplore(page, "/explore?feedTab=tv");
     await expect(page.getByRole("button", { name: "TV" })).toHaveClass(
       /bg-white/,
       { timeout: 15_000 }
@@ -95,7 +96,7 @@ test.describe("explore URL history", () => {
   });
 
   test("feedTab tv back forward restores sub-tab", async ({ page }) => {
-    await page.goto("/explore");
+    await gotoExplore(page);
     await expect(
       page
         .getByTestId("explore-feed-scroll")

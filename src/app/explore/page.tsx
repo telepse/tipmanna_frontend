@@ -1,14 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import ExplorePageClient from "@/components/explore/explore-page-client";
-import { ExploreDiscoverSeoShell } from "@/components/explore/explore-discover-seo-shell";
-import { ExploreSeoJsonLd } from "@/components/explore/explore-seo-jsonld";
+import { ExploreDiscoverSeoGate } from "@/components/explore/explore-discover-seo-gate";
+import { ExploreSsrBootStream } from "@/components/explore/explore-ssr-boot-stream";
 import { getCommunityAccessStateAction } from "@/actions/communities";
-import { fetchExploreSsrBoot } from "@/lib/explore-ssr-boot";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 
 type PageProps = {
@@ -55,9 +53,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function ExplorePage() {
-  const ssrBoot = await fetchExploreSsrBoot();
-
+export default async function ExplorePage({ searchParams }: PageProps) {
+  const sp = await searchParams;
   const websiteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -81,16 +78,8 @@ export default async function ExplorePage() {
     },
   };
 
-  const ssrBootScript =
-    ssrBoot && ssrBoot.items.length > 0
-      ? `window.__EXPLORE_SSR_BOOT__=${JSON.stringify(ssrBoot).replace(/</g, "\\u003c")};`
-      : null;
-
   return (
     <>
-      {ssrBootScript ? (
-        <script dangerouslySetInnerHTML={{ __html: ssrBootScript }} />
-      ) : null}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
@@ -100,20 +89,12 @@ export default async function ExplorePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(exploreJsonLd) }}
       />
       <Suspense fallback={null}>
-        <ExploreSeoJsonLd />
+        <ExploreSsrBootStream />
       </Suspense>
       <Suspense fallback={null}>
-        <ExploreDiscoverSeoShell />
+        <ExploreDiscoverSeoGate tab={sp.tab} />
       </Suspense>
-      <Suspense
-        fallback={
-          <div className="flex min-h-[100dvh] items-center justify-center">
-            Loading explore…
-          </div>
-        }
-      >
-        <ExplorePageClient ssrBoot={ssrBoot} />
-      </Suspense>
+      <ExplorePageClient ssrBoot={null} />
     </>
   );
 }

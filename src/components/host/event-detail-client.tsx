@@ -18,6 +18,7 @@ import {
   UsersRound,
   Check,
   Briefcase,
+  Loader2,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
@@ -56,7 +57,10 @@ import { Switch } from "@/components/ui/switch";
 
 // Local imports
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { updateHostEventDetailsAction } from "@/actions/host";
+import {
+  postHostEventMessageAction,
+  updateHostEventDetailsAction,
+} from "@/actions/host";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -284,6 +288,8 @@ export const EventDetailClient = ({
     endTime: watchedEndTime,
   } = form.watch();
 
+  const eventMessage = form.watch("eventMessage");
+
   const messyEventTime = watchedEventDate + watchedEndTime;
   const messyDatePart = messyEventTime.substring(0, 10);
   const messyTimePart = messyEventTime.slice(-5);
@@ -356,7 +362,12 @@ export const EventDetailClient = ({
     ]);
   };
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPostingMessage, setIsPostingMessage] = useState(false);
+
   const handleSaveChanges = async () => {
+    setIsSaving(true);
+
     try {
       const values = form.getValues();
 
@@ -401,6 +412,42 @@ export const EventDetailClient = ({
       toast.error(
         error instanceof Error ? error.message : "Failed to update event"
       );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePostMessage = async () => {
+    const message = form.getValues("eventMessage").trim();
+
+    if (!message) {
+      return toast.error("Please enter a message.");
+    }
+
+    setIsPostingMessage(true);
+
+    try {
+      await postHostEventMessageAction({
+        hostId: user.id,
+        eventId,
+        token,
+        payload: {
+          text: message,
+        },
+      });
+
+      toast.success("Message sent.");
+
+      // Clear textarea
+      form.setValue("eventMessage", "");
+    } catch (error) {
+      console.error(error);
+
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send message."
+      );
+    } finally {
+      setIsPostingMessage(false);
     }
   };
 
@@ -419,8 +466,16 @@ export const EventDetailClient = ({
             <Button
               variant="default"
               onClick={handleSaveChanges}
+              disabled={isSaving}
             >
-              Save Changes
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
             <Button variant="destructive">Delete Event</Button>
           </div>
@@ -1178,13 +1233,17 @@ export const EventDetailClient = ({
               <div className="flex justify-end">
                 <Button
                   type="button"
-                  onClick={() => {
-                    const message = form.getValues("eventMessage");
-
-                    console.log("Posting message:", message);
-                  }}
+                  onClick={handlePostMessage}
+                  disabled={isPostingMessage || !eventMessage.trim()}
                 >
-                  Send Message
+                  {isPostingMessage ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Message"
+                  )}
                 </Button>
               </div>
             </div>

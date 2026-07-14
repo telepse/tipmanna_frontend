@@ -12,6 +12,8 @@ import {
   ChevronsUp,
   Search,
   X,
+  MoveUpRight,
+  UsersRound,
 } from "lucide-react";
 const TipDrawer = dynamic(
   () =>
@@ -81,7 +83,7 @@ import { WebTvLooper } from "./web-tv-looper";
 import { TV_EVENT_VIDEO_TYPE_TAGS } from "./tv-event-video-type-tags";
 import { Button } from "../ui/button";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
+import { cn, formatProgramScheduleDisplay } from "@/lib/utils";
 import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
@@ -89,6 +91,7 @@ import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-s
 import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { tvTrace } from "@/lib/tvDebugLog";
 import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
+import Link from "next/link";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -102,8 +105,8 @@ export type TvInteractiveShellProps = {
   scheduleStale: boolean;
   scheduleError: boolean;
   retryScheduleLoad: () => void;
-  activeTab: "playlist" | "tips";
-  setActiveTab: (t: "playlist" | "tips") => void;
+  activeTab: "playlist" | "tips" | "programs";
+  setActiveTab: (t: "playlist" | "tips" | "programs") => void;
   handleSelectChannel: (index: number) => void;
   isTipDrawerOpen: boolean;
   setIsTipDrawerOpen: (open: boolean) => void;
@@ -286,6 +289,20 @@ export function TvInteractiveShell({
     };
     window.addEventListener("orientationchange", onOrientation);
     return () => window.removeEventListener("orientationchange", onOrientation);
+  }, []);
+
+  const [programs, setPrograms] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadPrograms = async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery`
+      );
+      const data = await res.json();
+      setPrograms(data as any[]);
+    };
+
+    loadPrograms();
   }, []);
 
   return (
@@ -664,19 +681,26 @@ export function TvInteractiveShell({
                               : "border border-black bg-white text-black"
                           }`}
                         >
-                          TV Playlist <ChevronDown className="size-4" />
+                          TV Playlist
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("programs")}
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] whitespace-nowrap outline ${activeTab === "programs" ? "bg-black text-white" : "border border-black bg-white text-black"}`}
+                        >
+                          TV Programs
                         </button>
                         <button
                           type="button"
                           data-testid="tv-nav-tips"
                           onClick={() => setActiveTab("tips")}
-                          className={`flex shrink-0 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap outline ${
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-1 text-xs whitespace-nowrap outline ${
                             activeTab === "tips"
                               ? "bg-black text-white"
-                              : "bg-white text-black outline-black"
+                              : "bg-white text-black"
                           }`}
                         >
-                          <div
+                          {/* <div
                             className={`${initialTipCount > 999 ? "tip-feed-marquee" : ""}`}
                           >
                             <div
@@ -684,7 +708,8 @@ export function TvInteractiveShell({
                             >
                               {initialTipCount} Tips
                             </div>
-                          </div>{" "}
+                          </div> */}
+                          <UsersRound className="size-4" />
                         </button>
                       </div>
 
@@ -742,6 +767,40 @@ export function TvInteractiveShell({
                             />
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {activeTab === "programs" && (
+                      <div className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-y-auto p-2">
+                        {programs.map(program => (
+                          <div
+                            key={program.id}
+                            className="w-full rounded-md border border-gray-200 p-2"
+                          >
+                            <div className="space-y-1">
+                              <h5 className="flex gap-2">
+                                <Link
+                                  href={program.landingUrl}
+                                  className="text-sm"
+                                  target="_blank"
+                                >
+                                  {program.title}
+                                </Link>
+                                <MoveUpRight className="size-4" />
+                              </h5>
+                              <div className="text-muted-foreground flex items-center justify-between text-xs">
+                                <span>
+                                  Scheduled at{" "}
+                                  {formatProgramScheduleDisplay(
+                                    program.scheduledAt
+                                  )}
+                                </span>
+
+                                <span>{program.communityName}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
 

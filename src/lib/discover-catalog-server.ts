@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import {
   getAllFeaturedContentsAction,
   getDiscoveryProgramsAction,
@@ -27,7 +29,10 @@ export type DiscoverCatalog = {
   topCommunities: unknown[];
 };
 
-export async function loadDiscoverCatalogServer(): Promise<DiscoverCatalog> {
+/** Fail-open cap when Discover catalog fetch runs on the SSR path. */
+export const DISCOVER_CATALOG_FETCH_TIMEOUT_MS = 5000;
+
+async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
   const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, commRes] =
     await Promise.all([
       getAllFeaturedContentsAction(),
@@ -70,4 +75,21 @@ export async function loadDiscoverCatalogServer(): Promise<DiscoverCatalog> {
         ? commRes.data.topByTips
         : [],
   };
+}
+
+/** Per-request dedup when multiple server callers load the catalog in one render. */
+export const loadDiscoverCatalogServer = cache(fetchDiscoverCatalog);
+
+export async function loadDiscoverCatalogServerWithTimeout(): Promise<DiscoverCatalog | null> {
+  try {
+    const result = await Promise.race([
+      loadDiscoverCatalogServer(),
+      new Promise<null>(resolve => {
+        setTimeout(() => resolve(null), DISCOVER_CATALOG_FETCH_TIMEOUT_MS);
+      }),
+    ]);
+    return result;
+  } catch {
+    return null;
+  }
 }

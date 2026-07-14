@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { loadDiscoverCatalogServer } from "@/lib/discover-catalog-server";
+import { loadDiscoverCatalogServerWithTimeout } from "@/lib/discover-catalog-server";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import { DISCOVER_RAIL_SUBTITLES } from "@/lib/event-type-options";
@@ -76,7 +76,8 @@ function SeoRail({
 }
 
 export async function ExploreDiscoverSeoShell() {
-  const catalog = await loadDiscoverCatalogServer();
+  const catalog = await loadDiscoverCatalogServerWithTimeout();
+  if (!catalog) return null;
   const liveStreamItems = [
     ...(catalog.liveStreams.live as LiveStreamRow[]),
     ...(catalog.liveStreams.upcoming as LiveStreamRow[]),

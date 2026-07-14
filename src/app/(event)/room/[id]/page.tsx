@@ -15,6 +15,7 @@ import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
+import type { Message } from "@/types";
 import { getPrimaryOrigin } from "@/lib/site-config";
 import { buildRoomShareUrl } from "@/lib/public-video-url";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
@@ -103,10 +104,8 @@ export default async function EventRoomPage({ params }: Props) {
     getEventChannels(trimmedId),
   ]);
 
-  console.log(eventRes.data);
-
   const eventPayload = eventRes.data;
-  const messages = messagesRes.data;
+  const messages = (messagesRes.data as { data: Message[] })?.data ?? [];
   const iTipped = tippedRes.data ?? 0;
   const channels = channelsRes.data;
 
