@@ -2,6 +2,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
+import { EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS } from "@/lib/explore-feed-fetch-timeout";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import { serverAuthHeaders } from "@/lib/server-auth";
 
@@ -355,6 +356,7 @@ export async function postExploreFeedBatchAction(
       headers: await serverAuthHeaders(authToken),
       body: JSON.stringify(body),
       cache: "no-store",
+      signal: AbortSignal.timeout(EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS),
     },
     "postExploreFeedBatchAction",
     raw => {

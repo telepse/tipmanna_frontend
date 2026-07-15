@@ -44,6 +44,13 @@ import {
   waitExploreFeedPrefetch,
 } from "@/lib/explore-feed-prefetch-cache";
 import {
+  computePaginationBackoffMs,
+  isConfirmedFeedExhaustion,
+  isDuplicateOnlyBatch,
+  mergeBatchDedup,
+} from "@/lib/explore-feed-pagination-policy";
+import { logExplorePagination } from "@/lib/explore-feed-pagination-observability";
+import {
   buildExploreFeedIdentity,
   isUnscopedGlobalTrendsIdentity,
   persistExploreFeedSession,
@@ -165,9 +172,7 @@ const EXPLORE_FEED_PAGE_COUNT = 6;
  * lead time keeps a warm buffer ahead without changing the single-flight guard.
  */
 const EXPLORE_NEAR_END_SLOTS = 5;
-/** Max pagination retries per near-end session before giving up until scroll or query reset. */
-const EXPLORE_PAGINATION_MAX_RETRIES = 3;
-/** Mount players for previous slide + next N so clips buffer before scroll. */
+/** Transient pagination failures use backoff retry (Endless Feed Contract); no permanent cap. */
 const EXPLORE_PRELOAD_BEHIND = 0;
 const EXPLORE_PRELOAD_AHEAD = 1;
 const EXPLORE_REEL_VIRTUALIZE =
@@ -850,6 +855,19 @@ export const ExploreFeedClient = forwardRef<
   const feedLoadGenerationRef = useRef(0);
   const paginationFailCountRef = useRef(0);
   const paginationQueryKeyRef = useRef<string | null>(null);
+  const paginationRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const schedulePaginationRetry = useCallback((delayMs: number) => {
+    if (paginationRetryTimerRef.current) {
+      clearTimeout(paginationRetryTimerRef.current);
+    }
+    paginationRetryTimerRef.current = setTimeout(() => {
+      paginationRetryTimerRef.current = null;
+      setPaginationRetryEpoch(e => e + 1);
+    }, delayMs);
+  }, []);
 
   useEffect(() => {
     const muted = !loadReelSoundPref();
@@ -1468,51 +1486,51 @@ export const ExploreFeedClient = forwardRef<
     }
 
     void (async () => {
-      if (
-        feedMode === "community" &&
-        (!(communityIds?.length ?? 0) || !hasExploreSession)
-      ) {
+      try {
+        if (
+          feedMode === "community" &&
+          (!(communityIds?.length ?? 0) || !hasExploreSession)
+        ) {
+          if (cancelled || gen !== feedLoadGenerationRef.current) return;
+          setItems([]);
+          loadedQueryKeyRef.current = feedQueryKey;
+          return;
+        }
+        const warmed = await waitExploreFeedPrefetch({
+          feedMode,
+          communityIds,
+          identity: sessionKeyParams,
+        });
         if (cancelled || gen !== feedLoadGenerationRef.current) return;
-        setItems([]);
+        if (
+          isUnscopedGlobalTrendsIdentity(sessionKeyParams) &&
+          warmed?.items?.length
+        ) {
+          seedRef.current = warmed.seed;
+          setItems(warmed.items);
+          loadedQueryKeyRef.current = feedQueryKey;
+          return;
+        }
+        if (feedMode === "saves" && warmed?.items?.length) {
+          seedRef.current = warmed.seed;
+          setItems(warmed.items);
+          loadedQueryKeyRef.current = feedQueryKey;
+          return;
+        }
+        if (feedMode === "community" && warmed?.items?.length) {
+          seedRef.current = warmed.seed;
+          setItems(warmed.items);
+          loadedQueryKeyRef.current = feedQueryKey;
+          return;
+        }
+        const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
+        if (cancelled || gen !== feedLoadGenerationRef.current) return;
+        setItems(batch ?? []);
         loadedQueryKeyRef.current = feedQueryKey;
+      } finally {
+        if (cancelled || gen !== feedLoadGenerationRef.current) return;
         setInitialLoading(false);
-        return;
       }
-      const warmed = await waitExploreFeedPrefetch({
-        feedMode,
-        communityIds,
-        identity: sessionKeyParams,
-      });
-      if (cancelled || gen !== feedLoadGenerationRef.current) return;
-      if (
-        isUnscopedGlobalTrendsIdentity(sessionKeyParams) &&
-        warmed?.items?.length
-      ) {
-        seedRef.current = warmed.seed;
-        setItems(warmed.items);
-        loadedQueryKeyRef.current = feedQueryKey;
-        setInitialLoading(false);
-        return;
-      }
-      if (feedMode === "saves" && warmed?.items?.length) {
-        seedRef.current = warmed.seed;
-        setItems(warmed.items);
-        loadedQueryKeyRef.current = feedQueryKey;
-        setInitialLoading(false);
-        return;
-      }
-      if (feedMode === "community" && warmed?.items?.length) {
-        seedRef.current = warmed.seed;
-        setItems(warmed.items);
-        loadedQueryKeyRef.current = feedQueryKey;
-        setInitialLoading(false);
-        return;
-      }
-      const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
-      if (cancelled || gen !== feedLoadGenerationRef.current) return;
-      setItems(batch ?? []);
-      loadedQueryKeyRef.current = feedQueryKey;
-      setInitialLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -1540,14 +1558,19 @@ export const ExploreFeedClient = forwardRef<
       paginationFailCountRef.current = 0;
       return;
     }
-    if (paginationFailCountRef.current >= EXPLORE_PAGINATION_MAX_RETRIES) {
-      return;
-    }
     if (loadingMoreRef.current) return;
     loadingMoreRef.current = true;
 
     const loadGen = feedLoadGenerationRef.current;
     const queryKey = loadedQueryKeyRef.current;
+    const excludeCount = itemsRef.current.length;
+
+    logExplorePagination({
+      phase: "request",
+      feedMode,
+      itemCount: len,
+      activeIndex,
+    });
 
     void (async () => {
       try {
@@ -1560,36 +1583,96 @@ export const ExploreFeedClient = forwardRef<
 
         if (batch === null) {
           paginationFailCountRef.current += 1;
+          const backoffMs = computePaginationBackoffMs(
+            paginationFailCountRef.current
+          );
+          logExplorePagination({
+            phase: "failure",
+            feedMode,
+            itemCount: itemsRef.current.length,
+            failStreak: paginationFailCountRef.current,
+            backoffMs,
+            activeIndex: activeIndexRef.current,
+            reason: "transient",
+          });
           const curLen = itemsRef.current.length;
           const idx = activeIndexRef.current;
           const stillNearEnd =
             curLen > 0 && idx >= curLen - EXPLORE_NEAR_END_SLOTS;
-          if (
-            stillNearEnd &&
-            paginationFailCountRef.current < EXPLORE_PAGINATION_MAX_RETRIES
-          ) {
-            setPaginationRetryEpoch(e => e + 1);
+          if (stillNearEnd) {
+            logExplorePagination({
+              phase: "retry",
+              feedMode,
+              itemCount: curLen,
+              failStreak: paginationFailCountRef.current,
+              backoffMs,
+              activeIndex: idx,
+            });
+            schedulePaginationRetry(backoffMs);
           }
           return;
         }
 
         paginationFailCountRef.current = 0;
-        if (batch.length === 0) {
+
+        if (
+          isConfirmedFeedExhaustion({
+            batchLength: batch.length,
+            feedMode,
+            hadExcludeIds: excludeCount > 0,
+          })
+        ) {
           endOfFeedRef.current = true;
+          logExplorePagination({
+            phase: "exhaustion",
+            feedMode,
+            itemCount: itemsRef.current.length,
+            activeIndex: activeIndexRef.current,
+          });
           return;
         }
+
+        if (batch.length === 0) {
+          return;
+        }
+
+        if (isDuplicateOnlyBatch(itemsRef.current, batch)) {
+          const backoffMs = computePaginationBackoffMs(1);
+          logExplorePagination({
+            phase: "duplicate_batch",
+            feedMode,
+            itemCount: itemsRef.current.length,
+            batchSize: batch.length,
+            newItems: 0,
+            backoffMs,
+            activeIndex: activeIndexRef.current,
+          });
+          logExplorePagination({
+            phase: "retry",
+            feedMode,
+            itemCount: itemsRef.current.length,
+            backoffMs,
+            reason: "duplicate_only",
+          });
+          schedulePaginationRetry(backoffMs);
+          return;
+        }
+
         setItems(prev => {
           if (loadGen !== feedLoadGenerationRef.current) return prev;
           if (queryKey !== loadedQueryKeyRef.current) return prev;
-          const seen = new Set(prev.map((x: any) => x.id));
-          const out = [...prev];
-          for (const it of batch) {
-            if (it?.id && !seen.has(it.id)) {
-              seen.add(it.id);
-              out.push(it);
-            }
+          const { items: merged, newCount } = mergeBatchDedup(prev, batch);
+          if (newCount > 0) {
+            logExplorePagination({
+              phase: "success",
+              feedMode,
+              itemCount: merged.length,
+              batchSize: batch.length,
+              newItems: newCount,
+              activeIndex: activeIndexRef.current,
+            });
           }
-          return out;
+          return merged;
         });
       } finally {
         loadingMoreRef.current = false;
@@ -1598,10 +1681,46 @@ export const ExploreFeedClient = forwardRef<
   }, [
     activeIndex,
     fetchBatch,
+    feedMode,
     feedQueryKey,
     paginationRetryEpoch,
     feedSurfaceActive,
+    schedulePaginationRetry,
   ]);
+
+  /** Resume pagination after transient failures when backend recovers. */
+  useEffect(() => {
+    const tryResumePagination = () => {
+      if (endOfFeedRef.current) return;
+      const len = itemsRef.current.length;
+      const idx = activeIndexRef.current;
+      if (len === 0 || idx < len - EXPLORE_NEAR_END_SLOTS) return;
+      paginationFailCountRef.current = 0;
+      logExplorePagination({
+        phase: "resume",
+        feedMode,
+        itemCount: len,
+        activeIndex: idx,
+      });
+      setPaginationRetryEpoch(e => e + 1);
+    };
+
+    const onOnline = () => tryResumePagination();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") tryResumePagination();
+    };
+
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (paginationRetryTimerRef.current) {
+        clearTimeout(paginationRetryTimerRef.current);
+        paginationRetryTimerRef.current = null;
+      }
+    };
+  }, [feedMode]);
 
   /** Same-height snap slides: derive active index from scroll (stable vs partial IntersectionObserver batches). */
   useEffect(() => {

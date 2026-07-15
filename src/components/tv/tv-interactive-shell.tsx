@@ -3,10 +3,19 @@
 
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
-  ChevronDown,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  Suspense,
+} from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+// Third-party imports
+import {
   ArrowUp,
   ChevronRight,
   ChevronsUp,
@@ -19,6 +28,13 @@ const TipDrawer = dynamic(
   () =>
     import("../events/tip-drawer").then(m => ({
       default: m.TipDrawer,
+    })),
+  { ssr: false }
+);
+const ProgramsPanel = dynamic(
+  () =>
+    import("./programs-panel").then(m => ({
+      default: m.ProgramsPanel,
     })),
   { ssr: false }
 );
@@ -40,6 +56,20 @@ const SpotlightPanel = dynamic(
   () =>
     import("./spotlight-panel").then(m => ({
       default: m.SpotlightPanel,
+    })),
+  { ssr: false }
+);
+const RecommendedForYouPanel = dynamic(
+  () =>
+    import("./recommended-for-you-panel").then(m => ({
+      default: m.RecommendedForYouPanel,
+    })),
+  { ssr: false }
+);
+const TopCommunitiesPanel = dynamic(
+  () =>
+    import("./top-communities-panel").then(m => ({
+      default: m.TopCommunitiesPanel,
     })),
   { ssr: false }
 );
@@ -83,7 +113,12 @@ import { WebTvLooper } from "./web-tv-looper";
 import { TV_EVENT_VIDEO_TYPE_TAGS } from "./tv-event-video-type-tags";
 import { Button } from "../ui/button";
 import Image from "next/image";
-import { cn, formatProgramScheduleDisplay } from "@/lib/utils";
+import {
+  cn,
+  formatProgramScheduleDisplay,
+  getStatusColor,
+  trimTitle,
+} from "@/lib/utils";
 import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
@@ -91,7 +126,6 @@ import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-s
 import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { tvTrace } from "@/lib/tvDebugLog";
 import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
-import Link from "next/link";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -124,6 +158,8 @@ export type TvInteractiveShellProps = {
 };
 
 export type TvInteractiveVariant = "mobile" | "desktop";
+
+export const PROGRAM_DISPLAY_TIMEZONE = "UK";
 
 /**
  * Shared interactive TV UI: looper, schedule, tips tab, Stripe tip drawer.
@@ -193,9 +229,13 @@ export function TvInteractiveShell({
 
   const [rightPanelView, setRightPanelView] = useState<
     | "playlist"
+    | "programs"
     | "top-contents"
     | "latest-contents"
     | "spotlight"
+    | "recommended-for-you"
+    | "top-communities"
+    | "live-streams"
     | "most-tipped"
     | "saved"
     | "video-type"
@@ -207,10 +247,6 @@ export function TvInteractiveShell({
   );
 
   const DISCOVER_SECTIONS = [
-    {
-      id: "upcoming-programs",
-      label: "Programs",
-    },
     {
       id: "top-contents",
       label: "Top contents",
@@ -224,8 +260,24 @@ export function TvInteractiveShell({
       label: "Spotlight",
     },
     {
+      id: "recommended-for-you",
+      label: "Recommended for you",
+    },
+    {
+      id: "top-communities",
+      label: "Top communities",
+    },
+    {
+      id: "programs",
+      label: "Programs",
+    },
+    {
+      id: "live-streams",
+      label: "Live streams",
+    },
+    {
       id: "most-tipped",
-      label: "Most tipped",
+      label: "Most tipped contents",
     },
   ];
 
@@ -466,26 +518,28 @@ export function TvInteractiveShell({
                           : "bg-gray-200 text-black"
                       }`}
                     >
-                      TV
+                      TV playlist
                     </button>
 
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedVideoType(null);
-                        setRightPanelView("saved");
-                        setActiveTab("playlist");
+                        setRightPanelView("programs");
+                        setActiveTab("programs");
                       }}
-                      className={`rounded-md px-2 py-1 text-xs whitespace-nowrap ${
-                        rightPanelView === "saved"
+                      className={`cursor-pointer rounded-md p-1 text-[10px] ${
+                        rightPanelView === "programs"
                           ? "bg-black text-white"
-                          : "text-black underline"
+                          : "bg-gray-200 text-black"
                       }`}
                     >
-                      Saved
+                      TV programs
                     </button>
+                  </div>
 
-                    {rightPanelView !== "playlist" && (
+                  {rightPanelView !== "playlist" &&
+                    rightPanelView !== "programs" && (
                       <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
                         {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
                           <button
@@ -508,7 +562,6 @@ export function TvInteractiveShell({
                         ))}
                       </div>
                     )}
-                  </div>
                 </div>
                 {/* Dynamic Content */}
                 {activeTab === "playlist" && (
@@ -553,6 +606,12 @@ export function TvInteractiveShell({
                       </>
                     )}
 
+                    {rightPanelView === "programs" && (
+                      <Suspense fallback={<div>Loading programs...</div>}>
+                        <ProgramsPanel />
+                      </Suspense>
+                    )}
+
                     {rightPanelView === "top-contents" && <TopContentsPanel />}
 
                     {rightPanelView === "latest-contents" && (
@@ -561,15 +620,23 @@ export function TvInteractiveShell({
 
                     {rightPanelView === "spotlight" && <SpotlightPanel />}
 
+                    {rightPanelView === "recommended-for-you" && (
+                      <RecommendedForYouPanel />
+                    )}
+
+                    {rightPanelView === "top-communities" && (
+                      <TopCommunitiesPanel />
+                    )}
+
+                    {rightPanelView === "programs" && <ProgramsPanel />}
+
+                    {rightPanelView === "live-streams" && <ProgramsPanel />}
+
                     {rightPanelView === "most-tipped" && (
                       <MostTippedContentsPanel />
                     )}
 
                     {rightPanelView === "saved" && <SavedContentsPanel />}
-
-                    {rightPanelView === "upcoming-programs" && (
-                      <UpcomingProgramsPanel />
-                    )}
 
                     {rightPanelView === "video-type" && selectedVideoType && (
                       <EventVideoTypeContentsPanel
@@ -675,7 +742,7 @@ export function TvInteractiveShell({
                         <button
                           type="button"
                           onClick={() => setActiveTab("playlist")}
-                          className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs break-keep whitespace-nowrap outline ${
                             activeTab === "playlist"
                               ? "bg-black text-white"
                               : "border border-black bg-white text-black"
@@ -775,28 +842,45 @@ export function TvInteractiveShell({
                         {programs.map(program => (
                           <div
                             key={program.id}
-                            className="w-full rounded-md border border-gray-200 p-2"
+                            className="border-primary w-full rounded-md border-2 px-2 py-1"
                           >
-                            <div className="space-y-1">
-                              <h5 className="flex gap-2">
-                                <Link
-                                  href={program.landingUrl}
-                                  className="text-sm"
-                                  target="_blank"
-                                >
-                                  {program.title}
-                                </Link>
-                                <MoveUpRight className="size-4" />
-                              </h5>
-                              <div className="text-muted-foreground flex items-center justify-between text-xs">
-                                <span>
-                                  Scheduled at{" "}
-                                  {formatProgramScheduleDisplay(
-                                    program.scheduledAt
-                                  )}
-                                </span>
+                            <div>
+                              <div className="flex items-center justify-between gap-2">
+                                <h5 className="flex gap-2">
+                                  <Link
+                                    href={program.landingUrl}
+                                    className="text-sm"
+                                    target="_blank"
+                                  >
+                                    {trimTitle(program.title, 25)}
+                                  </Link>
+                                  <MoveUpRight className="size-4" />
+                                </h5>
 
-                                <span>{program.communityName}</span>
+                                <span
+                                  className={getStatusColor(
+                                    program.programStatus
+                                  )}
+                                >
+                                  {program.programStatus}
+                                </span>
+                              </div>
+
+                              <div className="text-muted-foreground flex items-center justify-between text-xs">
+                                <p className="flex items-center gap-1 text-[10px]">
+                                  <span>
+                                    Time:{" "}
+                                    {formatProgramScheduleDisplay(
+                                      program.scheduledAt
+                                    )}
+                                  </span>
+
+                                  <span>({PROGRAM_DISPLAY_TIMEZONE})</span>
+                                </p>
+
+                                <span className="text-[10px]">
+                                  {program.communityName}
+                                </span>
                               </div>
                             </div>
                           </div>

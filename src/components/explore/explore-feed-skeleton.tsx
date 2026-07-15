@@ -18,6 +18,7 @@ export function ExploreFeedSkeleton({ className }: { className?: string }) {
         "relative flex h-[100dvh] w-full flex-col overflow-hidden bg-black",
         className
       )}
+      data-testid="explore-feed-skeleton"
       aria-busy="true"
       aria-label="Loading explore feed"
     >

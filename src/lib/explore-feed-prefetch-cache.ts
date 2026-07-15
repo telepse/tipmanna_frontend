@@ -9,6 +9,7 @@ import {
   type ExploreFeedSessionKeyParams,
 } from "@/lib/explore-feed-session-cache";
 import type { ExploreSsrBootPayload } from "@/lib/explore-ssr-boot";
+import { EXPLORE_FEED_PREFETCH_WAIT_TIMEOUT_MS } from "@/lib/explore-feed-fetch-timeout";
 
 /** Must match explore first-batch size (5–10). */
 export const EXPLORE_FEED_BOOT_COUNT = 8;
@@ -288,6 +289,25 @@ export function takeExploreFeedBoot(opts?: {
   return { items: [], seed: undefined };
 }
 
+/** Fail-open: return null when prefetch does not settle within timeoutMs. */
+async function awaitPrefetchWithTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const raced = await Promise.race([
+      promise.then(v => ({ ok: true as const, v })),
+      new Promise<{ ok: false }>(resolve => {
+        timer = setTimeout(() => resolve({ ok: false }), timeoutMs);
+      }),
+    ]);
+    return raced.ok ? raced.v : null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function waitExploreFeedPrefetch(opts?: {
   feedMode?: "trends" | "saves" | "community";
   communityIds?: string[];
@@ -300,7 +320,10 @@ export async function waitExploreFeedPrefetch(opts?: {
       return s;
     }
     if (savesInflight) {
-      await savesInflight;
+      await awaitPrefetchWithTimeout(
+        savesInflight,
+        EXPLORE_FEED_PREFETCH_WAIT_TIMEOUT_MS
+      );
       if (savesReady) {
         const s = savesReady;
         savesReady = null;
@@ -318,7 +341,10 @@ export async function waitExploreFeedPrefetch(opts?: {
     }
     const infl = key ? communityInflight.get(key) : undefined;
     if (infl) {
-      await infl;
+      await awaitPrefetchWithTimeout(
+        infl,
+        EXPLORE_FEED_PREFETCH_WAIT_TIMEOUT_MS
+      );
       const h2 = communityReady.get(key);
       if (h2) {
         communityReady.delete(key);
@@ -342,7 +368,10 @@ export async function waitExploreFeedPrefetch(opts?: {
     return s;
   }
   if (inflight) {
-    await inflight;
+    await awaitPrefetchWithTimeout(
+      inflight,
+      EXPLORE_FEED_PREFETCH_WAIT_TIMEOUT_MS
+    );
     if (ready && !isBucketStale(ready)) {
       const s = ready;
       ready = null;

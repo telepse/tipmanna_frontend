@@ -66,7 +66,10 @@ import {
   fetchCommunityProgramBootstrap,
   fetchGlobalProgramBootstrap,
 } from "@/lib/program-api";
-import { createTvScheduleLoadCoalescer } from "@/lib/tv-schedule-load-coalesce";
+import {
+  createTvScheduleLoadCoalescer,
+  isScheduleResponseStale,
+} from "@/lib/tv-schedule-load-coalesce";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -939,7 +942,8 @@ export default function GlobalTVProvider({
 
   const loadSchedule = useCallback(
     async (opts?: { manual?: boolean; resetRetry?: boolean }) => {
-      return runCoalescedScheduleLoadRef.current(async () => {
+      const coalesceKey = scheduleSourceCommunityIdRef.current;
+      return runCoalescedScheduleLoadRef.current(coalesceKey, async () => {
         tvTrace("schedule", "loadSchedule_start", {
           manual: opts?.manual ?? false,
           resetRetry: opts?.resetRetry ?? false,
@@ -981,7 +985,20 @@ export default function GlobalTVProvider({
           communityId: scheduleSourceCommunityIdRef.current,
         });
 
-        const applySuccess = (data: any, etag: string | null) => {
+        const applySuccess = (
+          data: any,
+          etag: string | null,
+          fetchCommunityId: string | null
+        ) => {
+          if (
+            isScheduleResponseStale(
+              fetchCommunityId,
+              scheduleSourceCommunityIdRef.current
+            )
+          ) {
+            void loadScheduleRef.current?.({ resetRetry: true });
+            return;
+          }
           const cid = scheduleSourceCommunityIdRef.current;
           if (etag) scheduleEtagRef.current = etag;
           persistTvScheduleCache(data, etag, cid);
@@ -1012,10 +1029,11 @@ export default function GlobalTVProvider({
           }
         };
 
+        let fetchCommunityId = scheduleSourceCommunityIdRef.current;
         try {
-          const cid = scheduleSourceCommunityIdRef.current;
+          fetchCommunityId = scheduleSourceCommunityIdRef.current;
           const scheduleOpts = {
-            communityId: cid,
+            communityId: fetchCommunityId,
             ifNoneMatch: scheduleEtagRef.current,
           };
           const res = isTvDirectScheduleFetchEnabled()
@@ -1023,6 +1041,15 @@ export default function GlobalTVProvider({
             : await fetchTvScheduleAction(scheduleOpts);
 
           if (res.success && res.data?.notModified) {
+            if (
+              isScheduleResponseStale(
+                fetchCommunityId,
+                scheduleSourceCommunityIdRef.current
+              )
+            ) {
+              void loadScheduleRef.current?.({ resetRetry: true });
+              return;
+            }
             tvTrace("schedule", "loadSchedule_not_modified", {
               mode: modeRef.current,
             });
@@ -1066,7 +1093,7 @@ export default function GlobalTVProvider({
               .activeScheduleId,
           });
 
-          applySuccess(data, etag);
+          applySuccess(data, etag, fetchCommunityId);
           if (modeRef.current === "GLOBAL") {
             queueMicrotask(() => syncToLive());
           }
@@ -1075,6 +1102,15 @@ export default function GlobalTVProvider({
           tvTrace("schedule", "loadSchedule_failure", {
             error: err instanceof Error ? err.message : String(err),
           });
+          if (
+            isScheduleResponseStale(
+              fetchCommunityId,
+              scheduleSourceCommunityIdRef.current
+            )
+          ) {
+            void loadScheduleRef.current?.({ resetRetry: true });
+            return;
+          }
           const cid = scheduleSourceCommunityIdRef.current;
           const cached = readTvScheduleCache(cid);
           if (cached) {

@@ -151,18 +151,18 @@ export const getEventStatus = (
 };
 
 // ------- Get status color -------- //
-export type EventStatus = "Completed" | "Ongoing" | "Not started";
+export type EventStatus = "Completed" | "Ongoing" | "Not started" | "Upcoming";
 
 export const getStatusColor = (status: EventStatus | string) => {
   switch (status) {
     case "Completed":
-      return "text-white bg-black px-2 py-1 rounded-md text-sm w-fit";
+      return "text-white bg-black px-2 py-1 rounded-md text-[10px] w-fit";
     case "Ongoing":
-      return "text-black bg-moonstone-blue px-2 py-1 rounded-md text-sm w-fit";
+      return "text-black bg-moonstone-blue px-2 py-1 rounded-md text-[10px] w-fit";
     case "Not started":
-      return "text-black bg-gray px-2 py-1 rounded-md text-sm w-fit";
+      return "text-black bg-gray px-2 py-1 rounded-md text-[10px] w-fit";
     default:
-      return "text-gray-600 bg-gray-100 px-2 py-1 rounded-md text-sm w-fit";
+      return "text-gray-600 bg-gray-100 px-2 py-1 rounded-md text-[10px] w-fit";
   }
 };
 

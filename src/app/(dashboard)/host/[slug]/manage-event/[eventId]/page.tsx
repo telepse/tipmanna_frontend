@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { getHostEventDetailsAction } from "@/actions/host";
+import {
+  getHostEventDetailsAction,
+  getHostEventMessagesAction,
+} from "@/actions/host";
 import { getHostID } from "@/lib/getHostId";
 import { ProtectedRoute } from "@/components/protected-route";
 import { getToken } from "@/lib/getToken";
@@ -9,12 +12,33 @@ interface Props {
   params: Promise<{ eventId: string }>;
 }
 
+interface HostMessage {
+  id: string;
+  sender: string;
+  text: string;
+  senderType: "HOST";
+  createdAt: string;
+}
+
 export default async function ManageEventDetailPage({ params }: Props) {
   const hostId = await getHostID();
   const token = await getToken();
   const { eventId } = await params;
 
-  const { data } = await getHostEventDetailsAction(hostId!, eventId, token);
+  const { data: eventDetails } = await getHostEventDetailsAction(
+    hostId!,
+    eventId,
+    token
+  );
+  const { data: hostMessages } = await getHostEventMessagesAction(
+    hostId!,
+    eventId,
+    token
+  );
+  // const [data, hostMessages] = await Promise.all([
+  //   getHostEventDetailsAction(hostId!, eventId, token),
+  //   getHostEventMessagesAction(hostId!, eventId, token),
+  // ]);
 
   const {
     eventName,
@@ -36,7 +60,10 @@ export default async function ManageEventDetailPage({ params }: Props) {
     tipUsageDisclosure,
     channels: contents,
     host: { email: hostEmail },
-  } = data as any;
+  } = eventDetails as any;
+
+  console.log("eventDetails", eventDetails);
+  console.log("hostMessages", hostMessages);
 
   return (
     <ProtectedRoute>
@@ -61,6 +88,7 @@ export default async function ManageEventDetailPage({ params }: Props) {
         tipUsageDisclosure={tipUsageDisclosure}
         contents={contents}
         hostEmail={hostEmail}
+        initialHostMessages={hostMessages as HostMessage[]}
       />
     </ProtectedRoute>
   );

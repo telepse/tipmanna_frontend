@@ -28,24 +28,6 @@ Call log:
 ```yaml
 - region "Notification messages"
 - alert
-- banner:
-    - heading "Tipmanna TV — Explore and discover community media" [level=1]
-    - link "tipmanna":
-        - /url: /explore
-    - button "Open discover search":
-        - textbox "Search videos..."
-    - text: 0 watching live
-- button
-- text: Create
-- button "Feed"
-- button "Start Community"
-- button "Not signed in"
-- button "Trends"
-- button "Saves"
-- button "TV"
-- button "Community"
-- button "My Communities"
-- button "Open filters"
 ```
 
 # Test source

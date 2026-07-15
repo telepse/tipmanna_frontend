@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Third-party imports
 import { useSelector } from "react-redux";
@@ -19,6 +19,7 @@ import {
   Check,
   Briefcase,
   Loader2,
+  Ellipsis,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
@@ -61,6 +62,7 @@ import {
   postHostEventMessageAction,
   updateHostEventDetailsAction,
 } from "@/actions/host";
+import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -120,6 +122,7 @@ interface Props {
   tipUsageDisclosure: TipUsageDisclosure[];
   contents: Content[];
   hostEmail: string;
+  initialHostMessages: HostMessage[];
 }
 
 interface EventFormValues {
@@ -146,6 +149,14 @@ interface EventFormValues {
   hostEmail: string;
   reportRecipients: ReportRecipient[];
   performerReportRecipients: ReportRecipient[]; // add this
+}
+
+interface HostMessage {
+  id: string;
+  sender: string;
+  text: string;
+  senderType: "HOST";
+  createdAt: string;
 }
 
 type HostUser = {
@@ -222,6 +233,7 @@ export const EventDetailClient = ({
   tipUsageDisclosure,
   contents,
   hostEmail,
+  initialHostMessages,
 }: Props) => {
   const [tabType, setTabType] = useState<
     "event_info" | "contents" | "post_to_event" | "generate_report"
@@ -365,6 +377,9 @@ export const EventDetailClient = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isPostingMessage, setIsPostingMessage] = useState(false);
 
+  const [hostMessages, setHostMessages] =
+    useState<HostMessage[]>(initialHostMessages);
+
   const handleSaveChanges = async () => {
     setIsSaving(true);
 
@@ -427,7 +442,7 @@ export const EventDetailClient = ({
     setIsPostingMessage(true);
 
     try {
-      await postHostEventMessageAction({
+      const createdMessage = await postHostEventMessageAction({
         hostId: user.id,
         eventId,
         token,
@@ -435,6 +450,8 @@ export const EventDetailClient = ({
           text: message,
         },
       });
+
+      setHostMessages(prev => [createdMessage.data as HostMessage, ...prev]);
 
       toast.success("Message sent.");
 
@@ -450,6 +467,33 @@ export const EventDetailClient = ({
       setIsPostingMessage(false);
     }
   };
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    const channelName = `event-${eventId}`;
+
+    const channel = subscribeChannel(channelName);
+
+    if (!channel) return;
+
+    const handleHostMessage = (message: HostMessage) => {
+      setHostMessages(prev => {
+        if (prev.some(m => m.id === message.id)) {
+          return prev;
+        }
+
+        return [message, ...prev];
+      });
+    };
+
+    channel.bind("host-message", handleHostMessage);
+
+    return () => {
+      channel.unbind("host-message", handleHostMessage);
+      unsubscribeChannel(channelName);
+    };
+  }, [eventId]);
 
   return (
     <Form {...form}>
@@ -1247,6 +1291,25 @@ export const EventDetailClient = ({
                 </Button>
               </div>
             </div>
+
+            {hostMessages.length > 0 && (
+              <div className="bg-card space-y-4 border p-6">
+                <h5 className="font-semibold">Messages</h5>
+
+                {hostMessages.map(message => (
+                  <div
+                    key={message.id}
+                    className="bg-secondary/30 flex items-center justify-between rounded-md p-4"
+                  >
+                    <p>{message.text}</p>
+
+                    <button type="button">
+                      <Ellipsis />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="generate_report">

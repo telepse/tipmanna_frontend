@@ -1,16 +1,33 @@
 /**
- * Coalesces concurrent TV schedule load invocations into a single in-flight promise.
- * Mirrors explore-tv-prefetch-cache inflight dedup semantics.
+ * Coalesces concurrent TV schedule load invocations into a single in-flight promise
+ * per community source key. Mirrors explore-tv-prefetch-cache inflight dedup semantics.
  */
-export function createTvScheduleLoadCoalescer() {
-  let inflight: Promise<void> | null = null;
+export function tvScheduleCoalesceKey(communityId: string | null): string {
+  return communityId ?? "__global__";
+}
 
-  return async function runCoalesced(fn: () => Promise<void>): Promise<void> {
-    if (inflight) return inflight;
+/** True when the schedule source changed while a fetch was in flight. */
+export function isScheduleResponseStale(
+  fetchCommunityId: string | null,
+  currentCommunityId: string | null
+): boolean {
+  return fetchCommunityId !== currentCommunityId;
+}
+
+export function createTvScheduleLoadCoalescer() {
+  const inflight = new Map<string, Promise<void>>();
+
+  return async function runCoalesced(
+    communityId: string | null,
+    fn: () => Promise<void>
+  ): Promise<void> {
+    const key = tvScheduleCoalesceKey(communityId);
+    const existing = inflight.get(key);
+    if (existing) return existing;
     const p = fn().finally(() => {
-      if (inflight === p) inflight = null;
+      if (inflight.get(key) === p) inflight.delete(key);
     });
-    inflight = p;
+    inflight.set(key, p);
     return p;
   };
 }
