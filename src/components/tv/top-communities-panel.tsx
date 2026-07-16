@@ -1,25 +1,20 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 
 // Third-party imports
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, UsersRound } from "lucide-react";
 
 // Local imports
-import { getCommunityExploreCatalogAction } from "@/actions/communities";
 import { Community } from "@/types/community.types";
 
-export const TopCommunitiesPanel = () => {
-  const topCommunitiesRef = useRef<HTMLDivElement>(null);
-  const [topCommunities, setTopCommunities] = useState<Community[]>([]);
+type Props = {
+  communities: any[];
+};
 
-  useEffect(() => {
-    const fetchTopCommunities = async () => {
-      const res = await getCommunityExploreCatalogAction();
-    //   setTopCommunities(res.data.topByTips as Community[]);
-    };
-    void fetchTopCommunities();
-  }, []);
+export const TopCommunitiesPanel = ({ communities }: Props) => {
+  const topCommunitiesRef = useRef<HTMLDivElement>(null);
 
   const scrollNext = (ref: React.RefObject<HTMLDivElement | null>) => {
     if (ref.current) {
@@ -34,24 +29,23 @@ export const TopCommunitiesPanel = () => {
       <div className="relative">
         <div
           ref={topCommunitiesRef}
-          className="scrollbar-none overflow-x-auto"
+          className="hide__scrollbar scrollbar-none overflow-x-auto"
         >
           <div className="flex gap-6">
-            {topCommunities.map((community: Community) => (
+            {communities.map(community => (
               <div
                 key={community.id}
-                role="button"
-                tabIndex={0}
-                // onClick={() => navigateToExplore(content)}
-                // onKeyDown={e => {
-                //   if (e.key === "Enter" || e.key === " ") {
-                //     e.preventDefault();
-                //     navigateToExplore(content);
-                //   }
-                // }}
-                className="relative flex min-w-[270px] cursor-pointer gap-1 border-2 bg-black/10"
+                className="flex w-[150px] flex-col items-center space-y-2 rounded-lg border p-3"
               >
-                <div className="space-y-1"></div>
+                <UsersRound />
+
+                <div className="space-y-1">
+                  <p className="text-xs">{community.name}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {community.memberCount} members &middot;{" "}
+                    {community.totalTips} tips
+                  </p>
+                </div>
               </div>
             ))}
           </div>

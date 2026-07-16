@@ -17,32 +17,25 @@ import {
 
 export const PROGRAM_DISPLAY_TIMEZONE = "UK";
 
-export const ProgramsPanel = () => {
-  const [programs, setPrograms] = useState<Program[]>([]);
-  const [loading, setLoading] = useState(true);
+type ProgramsPanelProps = {
+  programs: Program[];
+};
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
+export const ProgramsPanel = ({ programs }: ProgramsPanelProps) => {
+  if (!programs.length) {
+    return (
+      <div className="space-y-4">
+        <h5 className="font-semibold">Programs</h5>
 
-    const fetchPrograms = async () => {
-      const res = await getDiscoveryProgramsAction();
-      if (cancelled) return;
-      setPrograms(res.data as Program[]);
-      setLoading(false);
-    };
-
-    void fetchPrograms();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  console.log("programs on TV web", programs);
+        <div className="text-muted-foreground text-sm">
+          No programs available.
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-1">
       <h5 className="font-semibold">Programs</h5>
 
       {programs.map(program => (

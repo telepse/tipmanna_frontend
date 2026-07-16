@@ -47,7 +47,9 @@ export async function runTvScheduleLoadOrchestration(
 
       opts.applySuccess(res.body, res.etag, fetchCommunityId);
     } catch {
-      if (isScheduleResponseStale(fetchCommunityId, opts.getCurrentCommunityId())) {
+      if (
+        isScheduleResponseStale(fetchCommunityId, opts.getCurrentCommunityId())
+      ) {
         opts.scheduleReload({ resetRetry: true });
         return;
       }

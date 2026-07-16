@@ -66,6 +66,13 @@ const RecommendedForYouPanel = dynamic(
     })),
   { ssr: false }
 );
+const LiveStreamsPanel = dynamic(
+  () =>
+    import("./live-streams-panel").then(m => ({
+      default: m.LiveStreamsPanel,
+    })),
+  { ssr: false }
+);
 const TopCommunitiesPanel = dynamic(
   () =>
     import("./top-communities-panel").then(m => ({
@@ -344,6 +351,12 @@ export function TvInteractiveShell({
   }, []);
 
   const [programs, setPrograms] = useState<any[]>([]);
+  const [liveStreams, setLiveStreams] = useState({
+    upcoming: [],
+    live: [],
+    recentlyEnded: [],
+  });
+  const [topCommunities, setTopCommunities] = useState<any[]>([]);
 
   useEffect(() => {
     const loadPrograms = async () => {
@@ -355,6 +368,34 @@ export function TvInteractiveShell({
     };
 
     loadPrograms();
+  }, []);
+
+  useEffect(() => {
+    const loadLiveStreams = async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/live-streams`
+      );
+      console.log("res", res);
+      const data = await res.json();
+      console.log("data", data);
+      setLiveStreams(data as any);
+    };
+
+    loadLiveStreams();
+  }, []);
+
+  useEffect(() => {
+    const loadTopCommunities = async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/explore-catalog`
+      );
+
+      const data = await res.json();
+
+      setTopCommunities(data.topByTips);
+    };
+
+    void loadTopCommunities();
   }, []);
 
   return (
@@ -524,9 +565,10 @@ export function TvInteractiveShell({
                     <button
                       type="button"
                       onClick={() => {
+                        console.log("TV Programs clicked");
                         setSelectedVideoType(null);
                         setRightPanelView("programs");
-                        setActiveTab("programs");
+                        setActiveTab("playlist");
                       }}
                       className={`cursor-pointer rounded-md p-1 text-[10px] ${
                         rightPanelView === "programs"
@@ -539,7 +581,8 @@ export function TvInteractiveShell({
                   </div>
 
                   {rightPanelView !== "playlist" &&
-                    rightPanelView !== "programs" && (
+                    rightPanelView !== "programs" &&
+                    rightPanelView !== "top-communities" && (
                       <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
                         {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
                           <button
@@ -608,7 +651,7 @@ export function TvInteractiveShell({
 
                     {rightPanelView === "programs" && (
                       <Suspense fallback={<div>Loading programs...</div>}>
-                        <ProgramsPanel />
+                        <ProgramsPanel programs={programs} />
                       </Suspense>
                     )}
 
@@ -625,12 +668,12 @@ export function TvInteractiveShell({
                     )}
 
                     {rightPanelView === "top-communities" && (
-                      <TopCommunitiesPanel />
+                      <TopCommunitiesPanel communities={topCommunities} />
                     )}
 
-                    {rightPanelView === "programs" && <ProgramsPanel />}
-
-                    {rightPanelView === "live-streams" && <ProgramsPanel />}
+                    {rightPanelView === "live-streams" && (
+                      <LiveStreamsPanel liveStreams={liveStreams} />
+                    )}
 
                     {rightPanelView === "most-tipped" && (
                       <MostTippedContentsPanel />

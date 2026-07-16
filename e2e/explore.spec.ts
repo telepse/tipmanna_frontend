@@ -83,12 +83,18 @@ test.describe("explore", () => {
 
   test("discover tab shows distinct category headings", async ({ page }) => {
     await gotoExplore(page, "/explore?tab=discover");
-    await waitExploreFeedReady(page);
 
     const discoverPanel = page.getByRole("heading", {
       name: "Discover contents",
     });
-    await expect(discoverPanel).toBeVisible({ timeout: 30_000 });
+    const spotlightHeading = page
+      .locator("h5")
+      .filter({ hasText: /^Spotlight$/ });
+
+    await expect(async () => {
+      await expect(discoverPanel).toBeVisible();
+      await expect(spotlightHeading).toBeVisible();
+    }).toPass({ timeout: 45_000 });
 
     await expect(
       page.locator("h5").filter({ hasText: /^Spotlight$/ })

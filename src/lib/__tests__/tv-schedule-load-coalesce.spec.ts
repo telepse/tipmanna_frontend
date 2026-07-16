@@ -35,10 +35,7 @@ describe("createTvScheduleLoadCoalescer", () => {
       await new Promise(r => setTimeout(r, 20));
     });
 
-    await Promise.all([
-      runCoalesced("comm-a", fn),
-      runCoalesced("comm-a", fn),
-    ]);
+    await Promise.all([runCoalesced("comm-a", fn), runCoalesced("comm-a", fn)]);
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
