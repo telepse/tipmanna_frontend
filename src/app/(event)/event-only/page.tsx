@@ -30,9 +30,12 @@ import { useAppRouter } from "@/components/navigation/navigation-progress-provid
 import { EventFormHelpButton } from "@/components/events/event-form-help-button";
 import { EventContentPrivacyStep } from "@/components/events/event-content-privacy-step";
 import { useFormDraftAutosave } from "@/hooks/use-form-draft-autosave";
+import { DraftSaveIndicator } from "@/components/events/draft-save-indicator";
 import { useFormDraftRestore } from "@/hooks/use-form-draft-restore";
 import { deleteFormDraftAction } from "@/actions/form-drafts";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
+import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
+import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
 import {
   runPrivacyChecksFromForm,
   resolveLiveVideoOwnershipAnswer,
@@ -49,7 +52,6 @@ export default function EventOnlyPage() {
   const requiresVerification = useSelector(
     (state: RootState) => state.auth.requiresVerification
   );
-  const token = useSelector((state: RootState) => state.auth.token);
   const role = user?.role;
 
   const tag = useSelector((state: RootState) => state.auth.tag);
@@ -193,8 +195,19 @@ export default function EventOnlyPage() {
 
   const runPrivacyChecks = () => runPrivacyChecksFromForm(form, user);
 
+  const videoLinks = form.watch("videoLinks") ?? [];
+  const coOwnerSubmitBlocked = useCoOwnerDraftSubmitBlocked(videoLinks);
+
   const onSubmit = async (values: NewEventFormData) => {
     if (!runPrivacyChecks()) {
+      return;
+    }
+
+    const coOwnerErr = await validateCoOwnerDraftsForSubmit(
+      values.videoLinks ?? []
+    );
+    if (coOwnerErr) {
+      toast.error(coOwnerErr);
       return;
     }
 
@@ -261,7 +274,7 @@ export default function EventOnlyPage() {
     }
   }, [user, form]);
 
-  useFormDraftAutosave(form.watch(), {
+  const draftSave = useFormDraftAutosave(form.watch(), {
     kind: "event_only",
     step,
     title: form.watch("eventName") || "Event draft",
@@ -292,6 +305,15 @@ export default function EventOnlyPage() {
       }}
     >
       <AddEventBanner title="Create new event" />
+      {user?.role === "HOST" ? (
+        <div className="container mx-auto px-4 pt-2">
+          <DraftSaveIndicator
+            saving={draftSave.saving}
+            lastSavedAt={draftSave.lastSavedAt}
+            onSaveNow={() => void draftSave.saveNow()}
+          />
+        </div>
+      ) : null}
       <div className="mt-2 flex justify-end px-4">
         <EventFormHelpButton sourceForm="event_only" />
       </div>
@@ -364,7 +386,7 @@ export default function EventOnlyPage() {
                   <Button
                     type="button"
                     size="lg"
-                    disabled={isLoading}
+                    disabled={isLoading || coOwnerSubmitBlocked}
                     onClick={form.handleSubmit(onSubmit)}
                   >
                     {isLoading ? (
@@ -372,6 +394,8 @@ export default function EventOnlyPage() {
                         <Loader2 className="size-4 animate-spin" /> Submitting
                         for approval...
                       </span>
+                    ) : coOwnerSubmitBlocked ? (
+                      <span>Awaiting co-owner approval</span>
                     ) : (
                       <span>Submit for approval</span>
                     )}

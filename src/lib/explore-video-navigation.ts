@@ -36,6 +36,16 @@ export function readExploreChannelSnapshot(
   return undefined;
 }
 
+/** Stable key for deduping URL-driven reel handoffs (`channel` + `eventId`). */
+export function exploreVideoHandoffKeyFromUrl(
+  searchParams: URLSearchParams
+): string | null {
+  const videoId = searchParams.get("channel")?.trim();
+  const eventId = searchParams.get("eventId")?.trim();
+  if (!videoId || !eventId) return null;
+  return `${videoId}:${eventId}`;
+}
+
 export function buildExploreVideoHref(target: ExploreFeedOpenTarget): string {
   const params = new URLSearchParams();
   params.set("tab", "feed");

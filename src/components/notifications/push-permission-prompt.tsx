@@ -86,6 +86,10 @@ export function PushPermissionPrompt({ className }: Props) {
           {error ? (
             <p className="text-destructive mt-1 text-xs">{error}</p>
           ) : null}
+          <p className="text-muted-foreground mt-2 text-[11px]">
+            No account yet? Continue and we will create a free tipper account
+            when you verify.
+          </p>
           <Button
             type="button"
             size="sm"

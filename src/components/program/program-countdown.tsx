@@ -16,10 +16,10 @@ function formatCountdown(ms: number) {
   const minutes = Math.floor((totalSec % 3600) / 60);
   const seconds = totalSec % 60;
   const parts = [
-    days > 0 ? `${days}d` : null,
-    `${pad(hours)}h`,
-    `${pad(minutes)}m`,
-    `${pad(seconds)}s`,
+    days > 0 ? `${days}days` : null,
+    `${pad(hours)}hrs`,
+    `${pad(minutes)}mins`,
+    `${pad(seconds)}secs`,
   ].filter(Boolean);
   return { label: parts.join(" "), ended: false, live: false };
 }
@@ -27,11 +27,9 @@ function formatCountdown(ms: number) {
 export function ProgramCountdown({
   scheduledAt,
   durationSec,
-  className,
 }: {
   scheduledAt: string;
   durationSec: number;
-  className?: string;
 }) {
   const startMs = useMemo(() => new Date(scheduledAt).getTime(), [scheduledAt]);
   const endMs = useMemo(
@@ -51,24 +49,22 @@ export function ProgramCountdown({
 
   if (untilEnd <= 0) {
     return (
-      <p className={className ?? "text-muted-foreground text-sm"}>
-        Program ended
-      </p>
+      <p className="text-muted-foreground text-sm font-medium">Program ended</p>
     );
   }
 
   if (untilStart <= 0) {
     const live = formatCountdown(untilEnd);
     return (
-      <p className={className ?? "text-sm font-medium text-emerald-600"}>
-        On air · {live.label} remaining
+      <p className="text-success text-sm font-medium">
+        On air &middot; {live.label} remaining
       </p>
     );
   }
 
   const upcoming = formatCountdown(untilStart);
   return (
-    <p className={className ?? "text-muted-foreground text-sm"}>
+    <p className="text-muted-foreground text-sm font-medium">
       Starts in {upcoming.label}
     </p>
   );

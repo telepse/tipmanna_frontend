@@ -8,7 +8,11 @@ import { getEventByIdAction } from "@/actions/events";
 import { ChannelClient } from "@/components/events/channel-client";
 import { ActionResult } from "@/lib/action-fetch";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
-import { parseChannelSearchParam } from "@/lib/public-video-url";
+import {
+  applyVideoDeepLinkQuery,
+  parseChannelSearchParam,
+} from "@/lib/public-video-url";
+import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -40,10 +44,21 @@ export async function generateMetadata({
   >;
   const hostName = res.data?.[0]?.event?.hostName ?? "";
   const creatorFirstName = hostName.split(" ")[0];
+  const pageUrl = getPublicAbsoluteUrl(`/channel/${eventId}`);
 
   return {
+    metadataBase: new URL(getPrimaryOrigin()),
     title: `Watch & support ${creatorFirstName} ⚡💎`,
     description: `Discover videos, join live conversations, and support ${creatorFirstName} through realtime visible participation on Tipmanna.`,
+    alternates: {
+      canonical: pageUrl,
+    },
+    openGraph: {
+      title: `Watch & support ${creatorFirstName} ⚡💎`,
+      description: `Discover videos, join live conversations, and support ${creatorFirstName} through realtime visible participation on Tipmanna.`,
+      url: pageUrl,
+      type: "video.other",
+    },
   };
 }
 
@@ -87,7 +102,7 @@ export default async function ChannelPage({ params, searchParams }: Props) {
     ?.event?.id;
   if (canonicalEventId && canonicalEventId !== eventId) {
     const q = new URLSearchParams();
-    if (initialChannelId) q.set("channel", initialChannelId);
+    applyVideoDeepLinkQuery(q, initialChannelId);
     redirect(
       `/channel/${canonicalEventId}${q.toString() ? `?${q.toString()}` : ""}`
     );

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+
+// Third-party imports
 import { useSelector } from "react-redux";
 import { Bell, Check, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+// Local imports
 import { setProgramReminderAction } from "@/actions/program-actions";
 import { GuestReminderPushOffer } from "@/components/program/guest-reminder-push-offer";
 import { usePushPermission } from "@/hooks/use-push-permission";
@@ -85,6 +89,8 @@ export function SetReminderButton({
       );
     }
   };
+
+  const isProgramOver = new Date() > new Date(scheduledAt);
 
   const setReminder = async () => {
     setBusy(true);
@@ -163,7 +169,7 @@ export function SetReminderButton({
           size="sm"
           disabled
         >
-          <Check className="mr-1 size-4" />
+          <Check />
           Reminder set
         </Button>
 
@@ -217,20 +223,26 @@ export function SetReminderButton({
   }
 
   return (
-    <div className="relative w-full rounded-lg border sm:w-fit">
+    <div className="relative w-full rounded-md border shadow-md sm:w-fit">
       <Button
         type="button"
         variant="outline"
-        className="bg-primary w-full text-white sm:w-fit"
+        className={cn(
+          isProgramOver ? "bg-gray-300 text-gray-500" : "bg-primary text-white",
+          "w-full sm:w-fit"
+        )}
         size="sm"
+        disabled={isProgramOver}
         onClick={() => setOpen(v => !v)}
       >
-        <Bell className="mr-1 size-4" />
+        <Bell />
         Set reminder
       </Button>
+
       {open ? (
-        <div className="absolute bottom-full left-0 z-[100030000] mt-2 max-h-[320px] w-72 overflow-y-auto rounded-lg border bg-white p-3 shadow-lg">
-          <p className="mb-2 text-sm font-medium">Remind me</p>
+        <div className="absolute bottom-full left-0 z-[100030000] max-h-[320px] w-72 space-y-2 overflow-y-auto rounded-md border bg-white p-4 shadow-md">
+          <p className="text-sm font-medium">Remind me</p>
+
           <div className="space-y-1">
             {offsetOptions.map(min => (
               <label
@@ -247,29 +259,30 @@ export function SetReminderButton({
               </label>
             ))}
           </div>
+
           {!isAuthenticated ? (
             <Input
               type="email"
               placeholder="Email (guest)"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="mt-3"
             />
           ) : null}
-          <div className="mt-3 flex gap-2">
+
+          <div className="flex gap-2">
             <Button
               type="button"
               size="sm"
               disabled={busy}
               onClick={() => void setReminder()}
             >
-              {busy ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
+              {busy ? <Loader2 className="animate-spin" /> : null}
               Confirm
             </Button>
             <Button
               type="button"
               size="sm"
-              variant="ghost"
+              variant="outline"
               onClick={() => setOpen(false)}
             >
               Cancel

@@ -1,20 +1,27 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import type { RoomCharacter } from "@/types";
-import { CommentDrawer } from "../events/comment-drawer";
-import { TipsDrawer } from "../events/tips-drawer";
+
+const CommentDrawer = dynamic(
+  () =>
+    import("../events/comment-drawer").then(m => ({
+      default: m.CommentDrawer,
+    })),
+  { ssr: false }
+);
+const TipsDrawer = dynamic(
+  () =>
+    import("../events/tips-drawer").then(m => ({
+      default: m.TipsDrawer,
+    })),
+  { ssr: false }
+);
 
 import {
   Volume2,
@@ -30,6 +37,7 @@ import {
   CircleAlert,
   MessageCircleMore,
   ChevronsUp,
+  ArrowRight,
 } from "lucide-react";
 
 import TvPlayer from "./tv-player";
@@ -76,6 +84,8 @@ import { useMediaQuery } from "react-responsive";
 import { cn } from "@/lib/utils";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
+import { useTvPaymentAnimationLayer } from "@/hooks/use-tv-payment-animation-layer";
+import { tvPaymentAnimationLayerStyle } from "@/components/tv/tv-payment-animation-layer";
 import { useVideoChromeAutoHide } from "@/hooks/use-video-chrome-auto-hide";
 import {
   VideoSurfaceBadges,
@@ -93,6 +103,8 @@ import {
   immersivePlayerStageClassName,
 } from "@/components/media/immersive-media-shell";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
+import { tvTrace } from "@/lib/tvDebugLog";
+import { unmuteWithUserGesture } from "@/lib/tv-autoplay";
 
 /**
  * TvLooper renders the TvPlayer, local playback controls (play/pause, mute, seek),
@@ -101,10 +113,12 @@ import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 export const TvLooper = ({
   characters,
   playerLayout = "compact",
+  mobileLandscape = false,
   analyticsSurface = "tv_looper",
   onContinueCommentToTip,
   onEngage,
   onFullViewChange,
+  onRegisterExitFull,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
   showSideRails = true,
@@ -112,6 +126,8 @@ export const TvLooper = ({
   characters: RoomCharacter[];
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
   playerLayout?: "compact" | "wide";
+  /** Mobile device landscape layout — keeps one player instance across orientation. */
+  mobileLandscape?: boolean;
   /** Defaults to tv_looper; use homepage_preview on the marketing homepage embed */
   analyticsSurface?: PaymentSurface;
   /** Optional: parent opens Stripe tip drawer after comment draft handoff from CommentDrawer. */
@@ -120,6 +136,8 @@ export const TvLooper = ({
   onEngage?: () => void;
   /** Notifies parent when mobile full-view mode toggles (shell hides chrome). */
   onFullViewChange?: (isFullView: boolean) => void;
+  /** Registers mobile exitFull for landscape close button in tv-interactive-shell. */
+  onRegisterExitFull?: (exitFull: (() => void) | null) => void;
   commentDrawerVideoTitle?: string;
   commentDrawerVideoDescription?: string;
   showSideRails?: boolean;
@@ -138,6 +156,9 @@ export const TvLooper = ({
     setPlayerVisible,
     playingItemOverride,
     applyPendingPlaybackRestore,
+    applyPendingAudioRestore,
+    unregisterTvPlayer,
+    reloadCurrentPlaybackAt,
     scheduleSourceCommunityId,
   } = useTV();
 
@@ -162,16 +183,9 @@ export const TvLooper = ({
   const segmentStartMsRef = useRef(0);
   const videoErrorReloadsRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  /** Match iframe default (mute:1) so autoplay works on cold load; user can unmute */
+  /** Mute-first on cold load for autoplay policy; unmute only via user gesture. */
   const TV_MUTE_PREF_KEY = "tipmanna_tv_mute_pref";
-  const [isMuted, setIsMuted] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return window.sessionStorage.getItem(TV_MUTE_PREF_KEY) !== "0";
-    } catch {
-      return true;
-    }
-  });
+  const [isMuted, setIsMuted] = useState(true);
   const [miniPlayerActive, setMiniPlayerActive] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -182,14 +196,8 @@ export const TvLooper = ({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerAreaRef = useRef<HTMLDivElement | null>(null);
-  const animationMountRef = useRef<HTMLDivElement | null>(null);
   /** Full-page payment overlays on mobile; confined to player on desktop web (match tv-page-client-wrapper). */
   const isMobileTv = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
-  const [paymentAnimScale, setPaymentAnimScale] = useState(1);
-  const [paymentViewport, setPaymentViewport] = useState({
-    w: 1920,
-    h: 1080,
-  });
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [showShare, setShowShare] = useState(false);
@@ -234,6 +242,25 @@ export const TvLooper = ({
 
   const playbackUrl = candidate && extractYoutubeID(candidate) ? candidate : "";
 
+  useEffect(() => {
+    tvTrace("playback", "playbackUrl_change", {
+      surface: "tv-looper",
+      playbackUrl: playbackUrl || null,
+      videoId: playbackUrl ? extractYoutubeID(playbackUrl) : null,
+      currentId: current?.id,
+      mode,
+      currentIndex,
+    });
+  }, [playbackUrl, current?.id, mode, currentIndex]);
+
+  useEffect(() => {
+    tvTrace("playback", "isPlayerLoading_change", {
+      surface: "tv-looper",
+      isPlayerLoading,
+      currentId: current?.id,
+    });
+  }, [isPlayerLoading, current?.id]);
+
   const showPlaybackError =
     !isNotice && Boolean(current?.channel) && !playbackUrl.trim();
 
@@ -251,13 +278,26 @@ export const TvLooper = ({
     resetAnchor: current?.id,
   });
 
+  const shellEmbedsFullView = Boolean(onFullViewChange);
+  const landscapeChrome = mobileLandscape && isMobileTv;
+  const { animationMountRef, paymentLayerMetrics, usePlayerBoundsLayer } =
+    useTvPaymentAnimationLayer({
+      playerAreaRef,
+      isMobileTv,
+      isFullView,
+      layoutKey: `${current?.id ?? ""}:${currentIndex}:${isFullView}`,
+    });
+
   useEffect(() => {
     if (!isMobileTv) {
       onFullViewChange?.(false);
+      onRegisterExitFull?.(null);
       return;
     }
     onFullViewChange?.(isFullView);
-  }, [isFullView, isMobileTv, onFullViewChange]);
+    onRegisterExitFull?.(exitFull);
+    return () => onRegisterExitFull?.(null);
+  }, [isFullView, isMobileTv, onFullViewChange, onRegisterExitFull, exitFull]);
 
   const currentEventId = String(
     current?.defaultChannelEventId ?? current?.channel?.eventId ?? ""
@@ -360,10 +400,20 @@ export const TvLooper = ({
         r.success &&
         r.data &&
         typeof r.data === "object" &&
+        "views" in r.data
+      ) {
+        const views = (r.data as { views?: number }).views;
+        setChannelViewCount(typeof views === "number" ? views : null);
+      } else if (
+        r.success &&
+        r.data &&
+        typeof r.data === "object" &&
         "encounters" in r.data
       ) {
-        const encounters = (r.data as { encounters?: number }).encounters;
-        setChannelViewCount(typeof encounters === "number" ? encounters : null);
+        const data = r.data as { views?: number; encounters?: number };
+        const views =
+          typeof data.views === "number" ? data.views : data.encounters;
+        setChannelViewCount(typeof views === "number" ? views : null);
       } else {
         setChannelViewCount(null);
       }
@@ -525,7 +575,6 @@ export const TvLooper = ({
       return;
     }
     if (!effectivePlayerUrl) return;
-    setIsPlayerLoading(true);
     videoErrorReloadsRef.current = 0;
   }, [isNotice, effectivePlayerUrl]);
 
@@ -562,8 +611,7 @@ export const TvLooper = ({
       goLive();
       return;
     }
-    const vid = extractYoutubeID(effectivePlayerUrl);
-    if (vid) p.load(vid, Math.max(0, p.getCurrentTime()));
+    reloadCurrentPlaybackAt(Math.max(0, p.getCurrentTime()));
   };
 
   useEffect(() => {
@@ -579,13 +627,13 @@ export const TvLooper = ({
     setPlayerPlayingState(isPlaying);
   }, [isPlaying, setPlayerPlayingState]);
 
-  useLayoutEffect(() => {
-    setPlayerVisible(true);
-  }, [setPlayerVisible]);
-
   useEffect(() => {
-    return () => setPlayerVisible(false);
-  }, [setPlayerVisible]);
+    setPlayerVisible(true);
+    return () => {
+      setPlayerVisible(false);
+      unregisterTvPlayer();
+    };
+  }, [setPlayerVisible, unregisterTvPlayer]);
 
   // ---- Fullscreen detection ----
   useEffect(() => {
@@ -593,32 +641,6 @@ export const TvLooper = ({
     document.addEventListener("fullscreenchange", handleChange);
     return () => document.removeEventListener("fullscreenchange", handleChange);
   }, []);
-
-  // ---- Payment animation: scale virtual viewport to player column (desktop + mobile immersive) ----
-  useEffect(() => {
-    if (isMobileTv && !isFullView) return;
-    const el = playerAreaRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      setPaymentViewport({ w: vw, h: vh });
-      setPaymentAnimScale(
-        Math.min(rect.width / vw, rect.height / vh, 1) || 0.001
-      );
-    };
-
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener("resize", update);
-    update();
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [currentEventId, currentIndex, isMobileTv, isFullView]);
 
   useEffect(() => {
     setCurrentTime(0);
@@ -682,7 +704,7 @@ export const TvLooper = ({
     if (!player || !player.isReady()) return;
 
     if (isMuted) player.mute();
-    else player.unmute();
+    // Never programmatically unmute — audio unlock requires toggleMute user gesture.
   }, [isMuted, playerRef]);
 
   useEffect(() => {
@@ -713,8 +735,9 @@ export const TvLooper = ({
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
     if (isMuted) {
-      player.unmute();
+      unmuteWithUserGesture(player, "TvLooper.toggleMute");
       setIsMuted(false);
+      setIsPlaying(true);
       try {
         window.sessionStorage.setItem(TV_MUTE_PREF_KEY, "0");
       } catch {
@@ -831,8 +854,9 @@ export const TvLooper = ({
     current.channel as Parameters<typeof pickVideoSurfaceBadgeProps>[0],
     currentEventId || undefined
   );
-  const fillViewport = isFullView || isFullscreen;
+  const fillViewport = isFullView || isFullscreen || landscapeChrome;
   const widePlayer = playerLayout === "wide" && !isMobileTv && !fillViewport;
+  const useFixedFullViewChrome = isFullView && !shellEmbedsFullView;
 
   return (
     <div
@@ -840,7 +864,10 @@ export const TvLooper = ({
       {...chromeHide.interactionProps}
       className={cn(
         "relative w-full",
-        isFullView && immersiveFullViewViewportClassName("tv"),
+        useFixedFullViewChrome && immersiveFullViewViewportClassName("tv"),
+        isFullView &&
+          shellEmbedsFullView &&
+          "flex h-full min-h-0 w-full flex-col overflow-hidden bg-black text-white",
         fillViewport &&
           !isFullView &&
           "h-[100dvh] min-h-[100dvh] w-full max-w-none bg-black pt-[env(safe-area-inset-top,0px)] md:h-[min(70vh,680px)]",
@@ -850,7 +877,9 @@ export const TvLooper = ({
         !fillViewport &&
           !widePlayer &&
           (isMobileTv
-            ? "h-full min-h-0 w-full px-2"
+            ? landscapeChrome
+              ? "h-full min-h-0 w-full"
+              : "h-full min-h-0 w-full px-2"
             : "h-[40vh] w-full px-2 lg:!h-[90vh]")
       )}
     >
@@ -904,7 +933,7 @@ export const TvLooper = ({
           </button>
 
           <div className="border border-gray-300">
-            {isMobileTv && !isFullView && (
+            {isMobileTv && !isFullView && !landscapeChrome && (
               <button
                 type="button"
                 onClick={enterFull}
@@ -916,7 +945,7 @@ export const TvLooper = ({
           </div>
 
           <div className="border-2 border-gray-300">
-            {isMobileTv && !isFullView && (
+            {isMobileTv && !isFullView && !landscapeChrome && (
               <button
                 type="button"
                 onClick={toggleFullVariant}
@@ -955,13 +984,10 @@ export const TvLooper = ({
               <div
                 id="global-animation-layer"
                 ref={animationMountRef}
-                style={{
-                  width: paymentViewport.w,
-                  height: paymentViewport.h,
-                  transformOrigin: "top left",
-                  transform: `scale(${paymentAnimScale})`,
-                  position: "relative",
-                }}
+                style={tvPaymentAnimationLayerStyle(
+                  paymentLayerMetrics,
+                  usePlayerBoundsLayer
+                )}
               />
             </div>
           )}
@@ -1227,17 +1253,15 @@ export const TvLooper = ({
               ref={playerRef as React.Ref<import("./tv-player").TvPlayerRef>}
               key="tv-player"
               videoUrl={playbackUrl}
+              externallyControlled
               autoplay
               onReady={() => {
                 setIsPlayerLoading(false);
 
                 const player = playerRef.current;
-                if (player?.isReady()) {
-                  if (isMuted) {
-                    player.mute();
-                  } else {
-                    player.unmute();
-                  }
+                player?.syncMuteFromPlayer?.();
+                if (player?.isReady() && isMuted) {
+                  player.mute();
                 }
 
                 setPlayerVisible(true);
@@ -1247,21 +1271,22 @@ export const TvLooper = ({
                 setIsPlayerLoading(false);
 
                 const player = playerRef.current;
-                if (player?.isReady()) {
-                  if (isMuted) {
-                    player.mute();
-                  } else {
-                    player.unmute();
-                  }
+                player?.syncMuteFromPlayer?.();
+                if (player?.isReady() && isMuted) {
+                  player.mute();
                 }
 
                 applyPendingPlaybackRestore();
+                applyPendingAudioRestore();
                 emitEncounterWhenVideoLoads();
                 const dur = playerRef.current?.getDuration() ?? 0;
                 if (dur > 0) setDuration(dur);
               }}
               onPlay={() => {
+                setIsPlayerLoading(false);
                 setIsPlaying(true);
+                applyPendingPlaybackRestore();
+                applyPendingAudioRestore();
                 const dur = playerRef.current?.getDuration() ?? 0;
                 if (dur > 0) setDuration(dur);
                 const id = current?.id as string | undefined;
@@ -1315,7 +1340,20 @@ export const TvLooper = ({
               !isFullView && !isMobileTv ? "right-2 -bottom-6 left-10" : null
             )}
           >
-            {currentTitle}
+            <div className="flex items-center gap-1">
+              {currentTitle?.substring(0, 25)}{" "}
+              {currentTitle?.length > 25 ? ".." : ""}{" "}
+              {currentTitle?.length > 25 ? (
+                <div
+                  className="-ml-1 flex items-center border border-gray-400"
+                  onClick={() => setShowCommentDrawer(true)}
+                >
+                  <ArrowRight className="size-3 cursor-pointer" />
+                </div>
+              ) : (
+                ""
+              )}
+            </div>
           </div>
 
           <div

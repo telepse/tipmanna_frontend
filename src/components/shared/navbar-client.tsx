@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSelector } from "react-redux";
-
-// Local imports
-import { Logo } from "./logo";
-import { RootState } from "@/redux/store";
-import { CreateDialog } from "../home/create-dialog";
-import { getAccountNavHref } from "@/lib/account-nav-href";
-import { useSideChick } from "@/components/community/side-chick-provider";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// Local imports
+import { Logo } from "./logo";
+import { RootState } from "@/redux/store";
+import { CreateDialog } from "../home/create-dialog";
+import { getAccountNavHref } from "@/lib/account-nav-href";
+import { useSideChick } from "@/components/community/side-chick-provider";
 
 export default function NavbarClient() {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,9 +33,6 @@ export default function NavbarClient() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const sideChick = useSideChick();
-
-  const isHomePage = pathname === "/";
-  const isTipperPage = pathname.includes("tipper");
 
   const { user, isAuthenticated } = useSelector(
     (state: RootState) => state.auth
@@ -95,14 +92,6 @@ export default function NavbarClient() {
           className="hidden gap-6 lg:flex"
           aria-label="Main menu"
         >
-          {/* {NAV_LINKS.map((item, index) => (
-            <NavLink
-              key={index}
-              label={item.label}
-              href={item.href}
-            />
-          ))} */}
-
           <Link
             href="/"
             prefetch={true}

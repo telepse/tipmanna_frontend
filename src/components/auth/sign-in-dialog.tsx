@@ -26,6 +26,7 @@ type SignInDialogProps = {
   /** Raise above parent modals (create dialog, comment drawer). */
   overlayClassName?: string;
   contentClassName?: string;
+  allowInlineSignUp?: boolean;
 };
 
 /**
@@ -41,6 +42,7 @@ export default function SignInDialog({
   onSuccess,
   overlayClassName,
   contentClassName,
+  allowInlineSignUp = false,
 }: SignInDialogProps) {
   return (
     <Dialog
@@ -58,6 +60,7 @@ export default function SignInDialog({
           mode="modal"
           returnTo={returnTo}
           defaultUserType={defaultUserType}
+          allowInlineSignUp={allowInlineSignUp}
           onModalHostSuccess={payload => {
             onSuccess?.(payload);
             onOpenChange(false);

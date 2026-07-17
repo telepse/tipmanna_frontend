@@ -39,5 +39,6 @@ export function useTvEnforcementDeepLink(params: {
     params.itemsLength,
     params.scheduleSourceCommunityId,
     params.playEnforcementProgram,
+    params,
   ]);
 }

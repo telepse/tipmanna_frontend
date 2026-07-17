@@ -14,11 +14,22 @@ import YouTube from "react-youtube";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
-import { getYoutubePlayerVarsChromeless } from "@/lib/youtubePlayerConfig";
+import {
+  getYoutubePlayerVarsChromeless,
+  YOUTUBE_NO_COOKIE_HOST,
+} from "@/lib/youtubePlayerConfig";
 import {
   clearYoutubeIframePresentation,
   styleYoutubeIframePresentation,
 } from "@/lib/youtube-iframe-presentation";
+import { YoutubeChromeMask } from "@/components/youtube-chrome-mask";
+import {
+  tracePlayVideoResult,
+  tvLoadMark,
+  tvTrace,
+  ytStateName,
+} from "@/lib/tvDebugLog";
+import { notifyTvFirstPlay } from "@/lib/tv-post-ttfv-idle";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
 
@@ -30,6 +41,7 @@ export interface TvPlayerRef {
   mute: () => void;
   unmute: () => void;
   isMuted: () => boolean;
+  syncMuteFromPlayer: () => void;
   setVolume: (volume: number) => void;
   getCurrentTime: () => number;
   getDuration: () => number;
@@ -65,6 +77,10 @@ type Props = {
    * After player ready or when a new video is cued (state 5). Dimensions from oEmbed (cached).
    */
   onVideoAspectInfo?: (info: YoutubeAspectInfo) => void;
+  /**
+   * When true, react-youtube videoId is fixed at mount; provider drives loads via ref.load() only.
+   */
+  externallyControlled?: boolean;
 };
 
 const TvPlayer = forwardRef<TvPlayerRef, Props>(
@@ -85,6 +101,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       cover,
       containFill,
       onVideoAspectInfo,
+      externallyControlled = false,
     },
     ref
   ) => {
@@ -94,6 +111,10 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       null
     );
     const suppressUserIntentUntilRef = useRef(0);
+    const aspectFetchedRef = useRef(false);
+    const mountedVideoIdRef = useRef<string | undefined>(
+      extractYoutubeID(videoUrl) ?? undefined
+    );
 
     const beginProgrammaticPlayback = useCallback(() => {
       suppressUserIntentUntilRef.current =
@@ -108,12 +129,46 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       []
     );
 
+    const videoId = extractYoutubeID(videoUrl);
+    const youtubeVideoId = externallyControlled
+      ? mountedVideoIdRef.current
+      : (videoId ?? undefined);
+
+    const videoUrlRef = useRef(videoUrl);
+    videoUrlRef.current = videoUrl;
+    const onVideoAspectInfoRef = useRef(onVideoAspectInfo);
+    onVideoAspectInfoRef.current = onVideoAspectInfo;
+    const onMuteChangeRef = useRef(onMuteChange);
+    onMuteChangeRef.current = onMuteChange;
+
+    const syncMuteFromPlayer = useCallback((target?: YT.Player | null) => {
+      const p = target ?? playerRef.current;
+      if (!p || typeof p.isMuted !== "function") return;
+      onMuteChangeRef.current?.(p.isMuted());
+    }, []);
+
+    const notifyVideoAspect = useCallback(() => {
+      const url = videoUrlRef.current;
+      void fetchYoutubeAspectInfo(url).then(info => {
+        if (info) onVideoAspectInfoRef.current?.(info);
+      });
+    }, []);
+
+    const maybeNotifyVideoAspectOnce = useCallback(() => {
+      if (aspectFetchedRef.current) return;
+      aspectFetchedRef.current = true;
+      notifyVideoAspect();
+    }, [notifyVideoAspect]);
+
     useImperativeHandle(
       ref,
       () => ({
         isReady: getReady,
 
-        play: () => playerRef.current?.playVideo(),
+        play: () => {
+          const result = playerRef.current?.playVideo();
+          tracePlayVideoResult("TvPlayer.play", result);
+        },
         pause: () => playerRef.current?.pauseVideo(),
         stop: () => {
           beginProgrammaticPlayback();
@@ -122,13 +177,16 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
 
         mute: () => {
           playerRef.current?.mute();
+          tvTrace("autoplay", "mute", { source: "TvPlayer.mute" });
           onMuteChange?.(true);
         },
         unmute: () => {
           playerRef.current?.unMute();
+          tvTrace("autoplay", "unmute", { source: "TvPlayer.unmute" });
           onMuteChange?.(false);
         },
         isMuted: () => !!playerRef.current?.isMuted(),
+        syncMuteFromPlayer: () => syncMuteFromPlayer(),
 
         setVolume: (vol: number) => playerRef.current?.setVolume(vol),
         getCurrentTime: () => playerRef.current?.getCurrentTime() ?? 0,
@@ -143,38 +201,39 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         },
 
         load: (videoId: string, start: number) => {
+          tvTrace("playback", "player_load", { videoId, start });
           beginProgrammaticPlayback();
           if (readyRef.current && playerRef.current) {
             playerRef.current.loadVideoById(videoId, start);
+            if (playerRef.current.isMuted()) {
+              tracePlayVideoResult(
+                "TvPlayer.load.muted_play",
+                playerRef.current.playVideo()
+              );
+            }
           } else {
             pendingLoadRef.current = { videoId, start };
           }
         },
       }),
-      [getReady, onMuteChange, onUserSeek, beginProgrammaticPlayback]
+      [
+        getReady,
+        onMuteChange,
+        onUserSeek,
+        beginProgrammaticPlayback,
+        syncMuteFromPlayer,
+      ]
     );
-
-    const videoId = extractYoutubeID(videoUrl);
-
-    const videoUrlRef = useRef(videoUrl);
-    videoUrlRef.current = videoUrl;
-    const onVideoAspectInfoRef = useRef(onVideoAspectInfo);
-    onVideoAspectInfoRef.current = onVideoAspectInfo;
-
-    const notifyVideoAspect = useCallback(() => {
-      const url = videoUrlRef.current;
-      void fetchYoutubeAspectInfo(url).then(info => {
-        if (info) onVideoAspectInfoRef.current?.(info);
-      });
-    }, []);
 
     const youtubeOpts = useMemo(
       () => ({
+        host: YOUTUBE_NO_COOKIE_HOST,
         width: "100%",
         height:
           cover || containFill ? "100%" : miniPlayerActive ? "100%" : "375px",
         playerVars: getYoutubePlayerVarsChromeless({
           autoplay: autoplay,
+          mute: true,
         }) as Record<string, string | number>,
       }),
       [cover, containFill, miniPlayerActive, autoplay]
@@ -192,7 +251,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       } else {
         clearYoutubeIframePresentation(iframe);
       }
-    }, [cover, containFill, videoId]);
+    }, [cover, containFill, youtubeVideoId]);
 
     return (
       <div
@@ -203,7 +262,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         }
       >
         <YouTube
-          videoId={videoId ?? undefined}
+          videoId={youtubeVideoId}
           opts={youtubeOpts}
           onReady={event => {
             playerRef.current = event.target;
@@ -222,17 +281,55 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               const { videoId: vid, start } = pendingLoadRef.current;
               pendingLoadRef.current = null;
               beginProgrammaticPlayback();
+              tvTrace("playback", "player_load_pending", {
+                videoId: vid,
+                start,
+              });
               event.target.loadVideoById(vid, start);
-            } else if (autoplay) {
-              event.target.playVideo();
+              if (event.target.isMuted()) {
+                tracePlayVideoResult(
+                  "TvPlayer.onReady.pending_muted_play",
+                  event.target.playVideo()
+                );
+              }
+            } else if (autoplay && !externallyControlled) {
+              tracePlayVideoResult(
+                "TvPlayer.onReady.autoplay",
+                event.target.playVideo()
+              );
             }
 
-            notifyVideoAspect();
+            tvTrace("playback", "onReady", {
+              videoId: extractYoutubeID(videoUrlRef.current),
+              externallyControlled,
+            });
+            tvLoadMark("T5", {
+              videoId: extractYoutubeID(videoUrlRef.current),
+            });
+
+            syncMuteFromPlayer(event.target);
             onReady?.();
           }}
           onStateChange={event => {
-            if (event.data === 1) onPlay?.();
+            tvTrace("playback", "onStateChange", {
+              state: event.data,
+              stateName: ytStateName(event.data as number),
+              videoId: extractYoutubeID(videoUrlRef.current),
+            });
+            if (event.data === 1) {
+              syncMuteFromPlayer(event.target);
+              tvTrace("playback", "onPlay", {
+                videoId: extractYoutubeID(videoUrlRef.current),
+              });
+              tvLoadMark("T6", {
+                videoId: extractYoutubeID(videoUrlRef.current),
+              });
+              notifyTvFirstPlay();
+              maybeNotifyVideoAspectOnce();
+              onPlay?.();
+            }
             if (event.data === 2) {
+              syncMuteFromPlayer(event.target);
               onPause?.();
               if (Date.now() >= suppressUserIntentUntilRef.current) {
                 onUserPause?.();
@@ -250,13 +347,26 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                   "contain"
                 );
               }
-              notifyVideoAspect();
+              syncMuteFromPlayer(event.target);
+              tvTrace("playback", "onPlaybackReady", {
+                videoId: extractYoutubeID(videoUrlRef.current),
+              });
+              if (
+                event.target.isMuted() &&
+                event.target.getPlayerState() !== 1
+              ) {
+                tracePlayVideoResult(
+                  "TvPlayer.cued_muted_play",
+                  event.target.playVideo()
+                );
+              }
               onPlaybackReady?.();
             }
             if (event.data === 0) onEnd?.();
           }}
           onError={event => onPlayerError?.(event.data as number)}
         />
+        <YoutubeChromeMask />
       </div>
     );
   }

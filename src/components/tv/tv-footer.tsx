@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { useState } from "react";
 
 // Third-party imports
 import { Button } from "@/components/ui/button";
 import { CreateDialog } from "../home/create-dialog";
 import { Plus } from "lucide-react";
-import { CiFacebook, CiInstagram, CiLinkedin } from "react-icons/ci";
+import { CiInstagram, CiLinkedin } from "react-icons/ci";
 import { SocialIcon } from "../shared/social-icon";
 import { FaXTwitter } from "react-icons/fa6";
 

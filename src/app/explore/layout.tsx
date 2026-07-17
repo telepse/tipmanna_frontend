@@ -1,37 +1,38 @@
 import type { Metadata } from "next";
 
-import { getPublicFrontendOrigin } from "@/lib/site-config";
+import { getPrimaryOrigin } from "@/lib/site-config";
 
+const title = "Watch & tip live — Tipmanna TV";
 const description =
-  "Discover and tip on community clips, live events, and trending videos on Tipmanna.";
+  "Tipmanna TV is the flagship feed for community clips, live events, and realtime tipping.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(getPublicFrontendOrigin()),
-  title: "Explore — Tipmanna",
+  metadataBase: new URL(getPrimaryOrigin()),
+  title,
   description,
   alternates: {
     canonical: "/explore",
   },
   openGraph: {
-    title: "Explore — Tipmanna",
+    title,
     description,
     url: "/explore",
     type: "website",
-    siteName: "Tipmanna",
+    siteName: "Tipmanna TV",
     images: [
       {
-        url: "/icons/icon-512.png",
-        width: 512,
-        height: 512,
-        alt: "Tipmanna",
+        url: "/og/explore.svg",
+        width: 1200,
+        height: 630,
+        alt: "Watch and tip live on Tipmanna TV",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Explore — Tipmanna",
+    title,
     description,
-    images: ["/icons/icon-512.png"],
+    images: ["/og/explore.svg"],
   },
 };
 

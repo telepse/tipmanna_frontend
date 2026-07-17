@@ -11,7 +11,7 @@ interface Props {
   causes: Cause[];
 }
 
-export default function Charities({ causes }: Props) {
+export default function Charities({ causes = [] }: Props) {
   return (
     <section className="section items-center">
       <Badge title="Causes" />

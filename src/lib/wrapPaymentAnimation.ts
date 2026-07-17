@@ -1,5 +1,5 @@
 import { AnimationHandle } from "@/types/animation.types";
-import { ANIMATION_DURATION, PAYMENT_WRAP } from "@/lib/animationContract";
+import { PAYMENT_WRAP } from "@/lib/animationContract";
 import { animWarn } from "@/lib/animationDebug";
 
 const SAFETY_TIMEOUT_MS = PAYMENT_WRAP.safetyTimeoutMs;

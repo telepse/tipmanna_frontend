@@ -75,16 +75,33 @@ export function mergeDraftPayload(
   payloadJson: unknown,
   policyJson: unknown
 ): NewEventFormData {
-  const base = (payloadJson ?? {}) as NewEventFormData;
+  const base = (payloadJson ?? {}) as NewEventFormData & {
+    cohosts?: Array<{
+      email?: string;
+      fullName?: string;
+      fullname?: string;
+    }>;
+  };
   const policy = (policyJson ?? {}) as FormDraftPolicyJson;
   const links = Array.isArray(base.videoLinks) ? base.videoLinks : [];
+  const cohosts = Array.isArray(base.cohosts)
+    ? base.cohosts.map(cohost => ({
+        email: cohost.email ?? "",
+        fullName: (cohost.fullName ?? cohost.fullName ?? "").trim(),
+      }))
+    : base.cohosts;
+
+  const mergedBase: NewEventFormData = {
+    ...base,
+    cohosts,
+  };
 
   if (!Array.isArray(policy.videoLinks) || policy.videoLinks.length === 0) {
-    return base;
+    return mergedBase;
   }
 
   return {
-    ...base,
+    ...mergedBase,
     videoLinks: links.map((link, i) => ({
       ...link,
       ownershipAnswer:

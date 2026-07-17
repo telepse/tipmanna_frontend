@@ -18,6 +18,7 @@ import "swiper/css/pagination";
 import "swiper/css/a11y";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
@@ -27,8 +28,6 @@ import { toast } from "react-toastify";
 const Swiper = dynamic(() => import("swiper/react").then(m => m.Swiper), {
   ssr: false,
 });
-
-const PRICING_RETURN_PATH = "/#pricing";
 
 function hostDashboardSlug(user: RootState["auth"]["user"]): string | null {
   if (!user || !isHostRole(user.role)) return null;
@@ -42,6 +41,8 @@ export default function PricingGrid() {
   const [createOpen, setCreateOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
 
+  const pathname = usePathname();
+  const pricingReturnPath = `${pathname ?? "/"}#pricing`;
   const { push } = useAppRouter();
   const { user, isAuthenticated } = useSelector(
     (state: RootState) => state.auth
@@ -109,7 +110,7 @@ export default function PricingGrid() {
   return (
     <section
       id="pricing"
-      className="wrapper section items-center"
+      className="wrapper section scroll-mt-24 items-center"
     >
       <Badge title="Pricing" />
 
@@ -183,7 +184,7 @@ export default function PricingGrid() {
         open={signInOpen}
         onOpenChange={setSignInOpen}
         title="Sign in as host to continue"
-        returnTo={PRICING_RETURN_PATH}
+        returnTo={pricingReturnPath}
         defaultUserType="host"
       />
     </section>

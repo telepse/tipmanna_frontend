@@ -1,12 +1,17 @@
+export const dynamic = "force-dynamic";
+
 import type { ReactNode } from "react";
+import { Metadata } from "next";
 import Image from "next/image";
+
+// Local imports
 import { NavbarShell } from "@/components/shared/navbar-shell";
 import { HeroServer } from "@/components/home/hero-server";
+import { LazySlider } from "@/components/home/lazy-slider";
 import Footer from "@/components/shared/footer";
 import Features from "@/components/home/features";
 import TippingBanner from "@/components/home/tipping-banner";
 import TrustBadges from "@/components/home/trust-badges";
-import { LazySlider } from "@/components/home/lazy-slider";
 import TopEventsSection from "@/components/home/top-events-section";
 import TopContentsSection from "@/components/home/top-contents-section";
 import CharitiesSection from "@/components/home/charities-section";
@@ -16,7 +21,9 @@ import KeyStatsLazy from "@/components/home/key-stats-lazy";
 import FAQs from "@/components/home/faqs";
 import TvHomePreviewSectionLazy from "@/components/home/tv-home-preview-section-lazy";
 import PricingGrid from "@/components/home/pricing-grid";
-import { Metadata } from "next";
+
+// Lib imports
+import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 
 function DataSection({ children }: { children: ReactNode }) {
   return <section className="contents">{children}</section>;
@@ -26,13 +33,40 @@ const BACKGROUND_IMAGES = {
   pattern: "/patterns/bg_pattern.webp",
 } as const;
 
-export const dynamic = "force-static";
+type Props = {
+  searchParams: Promise<{ section?: string }>;
+};
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({
+  searchParams,
+}: Props): Promise<Metadata> {
+  const pricingPageLink = "/partner#pricing";
+  const { section } = await searchParams;
+  const isPricingSection = section === "pricing";
+
+  const title = isPricingSection
+    ? "Launch your own community TV network ⚡"
+    : "Welcome to Tipmanna 💎⚡ — Participatory Community Media";
+  const description = isPricingSection
+    ? "Build your own monetised media ecosystem with TV channels, memberships, livestreams, realtime engagement, and community infrastructure."
+    : "Tipmanna helps creators and communities turn audiences into active participants through TV, realtime engagement, memberships, and supporter experiences.";
+  const pageUrl = isPricingSection
+    ? getPublicAbsoluteUrl(pricingPageLink)
+    : getPublicAbsoluteUrl("/partner");
+
   return {
-    title: "Welcome to Tipmanna — Participatory Community Media",
-    description:
-      "Tipmanna helps creators and communities turn audiences into active participants through TV, realtime engagement, memberships, and supporter experiences.",
+    metadataBase: new URL(getPrimaryOrigin()),
+    title,
+    description,
+    alternates: {
+      canonical: pageUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      url: pageUrl,
+      type: "website",
+    },
   };
 }
 
@@ -61,13 +95,13 @@ export default function Home() {
 
           <Features />
 
+          <TvHomePreviewSectionLazy />
+
           <PricingGrid />
 
           <TrustBadges />
 
           <TippingBanner />
-
-          <TvHomePreviewSectionLazy />
 
           <TopContentsSection />
           <TopEventsSection />

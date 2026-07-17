@@ -14,6 +14,7 @@ import { ToastContainer } from "react-toastify";
 
 // Local imports
 import { Analytics } from "@/components/analytics";
+import { WebVitalsReporter } from "@/components/analytics/web-vitals-reporter";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import { VideoNativeMobileGuard } from "@/components/video-native-mobile-guard";
 import { TextTipDraftModalLayer } from "@/components/events/text-tip-draft-modal-layer";
@@ -48,7 +49,7 @@ export const metadata = {
     "Tipmanna is a platform for tippers to tip their favorite hosts.",
   icons: {
     icon: "/favicon.ico",
-    apple: "/icons/icon-192.png",
+    apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -116,6 +117,20 @@ export default function RootLayout({
           content="Tipmanna"
         />
         <link
+          rel="apple-touch-icon"
+          href="/apple-touch-icon.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href="/apple-touch-icon.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="192x192"
+          href="/icons/icon-192.png"
+        />
+        <link
           rel="apple-touch-startup-image"
           href="/icons/icon-512.png"
         />
@@ -147,6 +162,7 @@ export default function RootLayout({
           <VideoNativeMobileGuard />
           <ServiceWorkerRegistrar />
           <Analytics />
+          <WebVitalsReporter />
           <TextTipDraftModalLayer />
 
           <HashScroll />

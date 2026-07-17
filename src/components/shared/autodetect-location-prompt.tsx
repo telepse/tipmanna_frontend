@@ -65,7 +65,7 @@ interface Props {
   onClose?: () => void;
 }
 
-export const AutoDetectLocationPrompt = ({ open, onDeny, onClose }: Props) => {
+export const AutoDetectLocationPrompt = ({ open, onClose }: Props) => {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -84,14 +84,6 @@ export const AutoDetectLocationPrompt = ({ open, onDeny, onClose }: Props) => {
   const closeModal = () => {
     onClose?.();
     setStep("askAndDetect");
-  };
-
-  const handleDeny = () => {
-    // localStorage.setItem("location_permission", "deny");
-    onDeny();
-    closeModal();
-    // setStep("askAndDetect");
-    router.push("/join");
   };
 
   const detectDeviceLocation = (): Promise<{

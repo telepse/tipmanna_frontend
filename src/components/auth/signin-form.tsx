@@ -26,7 +26,12 @@ import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
 
 // Local imports
-import { HostSignInFormData, hostSignInSchema } from "@/schemas/host.schema";
+import {
+  HostSignInFormData,
+  hostSignInSchema,
+  hostSignUpSchema,
+  type HostSignUpFormData,
+} from "@/schemas/host.schema";
 import {
   TipperSignInFormData,
   tipperSignInSchema,
@@ -34,6 +39,7 @@ import {
 import { Paragraph } from "@/components/shared/paragraph";
 import {
   loginHostAction,
+  loginOrRegisterHostAction,
   loginOrRegisterTipperAction,
   loginTipperAction,
   requestLoginCodeAction,
@@ -68,6 +74,8 @@ export type SigninFormProps = {
   }) => void;
   /** Called when tipper verifies email inside a modal (no navigation). */
   onModalTipperSuccess?: () => void;
+  /** When true, host tab can toggle inline sign-up instead of navigating away. */
+  allowInlineSignUp?: boolean;
 };
 
 export const SigninForm = ({
@@ -76,10 +84,12 @@ export const SigninForm = ({
   defaultUserType = "host",
   onModalHostSuccess,
   onModalTipperSuccess,
+  allowInlineSignUp = false,
 }: SigninFormProps = {}) => {
   const [userType, setUserType] = useState<"host" | "tipper">(
     () => defaultUserType
   );
+  const [hostStep, setHostStep] = useState<"signIn" | "signUp">("signIn");
   const [showPassword, setShowPassword] = useState(false);
   const [tipperStep, setTipperStep] = useState<"email" | "verify">("email");
   const [tipperCode, setTipperCode] = useState("");
@@ -129,6 +139,17 @@ export const SigninForm = ({
     },
   });
 
+  const signUpForm = useForm<HostSignUpFormData>({
+    resolver: zodResolver(hostSignUpSchema),
+    defaultValues: {
+      fullName: "",
+      email: emailParam || "",
+      password: "",
+      confirmPassword: "",
+      acceptedTerms: false,
+    },
+  });
+
   // 2. Define Tipper form
   const tipperForm = useForm<TipperSignInFormData>({
     resolver: zodResolver(tipperSignInSchema),
@@ -136,6 +157,64 @@ export const SigninForm = ({
       email: "",
     },
   });
+
+  const finishHostAuth = async (
+    parsed: NonNullable<ReturnType<typeof parseAuthResponse>>
+  ) => {
+    const { user, token, message } = parsed;
+    toast.success(message);
+    dispatch(
+      setCredentials({
+        user: { ...user, role: "HOST" },
+        token,
+      })
+    );
+    await persistAuthSession(token, user, { expiresDays: 7 });
+    if (mode === "modal" && onModalHostSuccess) {
+      onModalHostSuccess({
+        role: "HOST",
+        username: user.username,
+        eventSlug: user.eventSlug ?? null,
+      });
+      return;
+    }
+    const dest = returnTo;
+    push(dest ?? `/host/${user.eventSlug ?? user.username}`);
+  };
+
+  const onSubmitHostSignUp = async (values: HostSignUpFormData) => {
+    if (values.password !== values.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    try {
+      setIsHostLoading(true);
+      const res = await loginOrRegisterHostAction({
+        fullName: values.fullName,
+        email: values.email,
+        password: values.password,
+        acceptedTerms: values.acceptedTerms,
+      });
+      if (!res.success) {
+        toast.error(res.message);
+        return;
+      }
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Unexpected sign-up response");
+        return;
+      }
+      await finishHostAuth(parsed);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to create host account");
+      }
+    } finally {
+      setIsHostLoading(false);
+    }
+  };
 
   // 3. Define host submit handler
   const onSubmitHost = async (values: HostSignInFormData) => {
@@ -164,29 +243,7 @@ export const SigninForm = ({
         return;
       }
 
-      const { user, token, message } = parsed;
-      toast.success(message);
-
-      dispatch(
-        setCredentials({
-          user: { ...user, role: "HOST" },
-          token,
-        })
-      );
-
-      await persistAuthSession(token, user, { expiresDays: 7 });
-
-      if (mode === "modal" && onModalHostSuccess) {
-        onModalHostSuccess({
-          role: "HOST",
-          username: user.username,
-          eventSlug: user.eventSlug ?? null,
-        });
-        return;
-      }
-
-      const dest = returnTo;
-      push(dest ?? `/host/${user.eventSlug ?? user.username}`);
+      await finishHostAuth(parsed);
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -387,116 +444,243 @@ export const SigninForm = ({
           value="host"
           className="mt-6 space-y-6"
         >
-          <Form {...hostForm}>
-            <form
-              onSubmit={hostForm.handleSubmit(onSubmitHost)}
-              className="space-y-6"
-            >
-              <FormField
-                control={hostForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter email address"
-                        autoComplete="off"
-                        {...field}
-                        readOnly={!!emailParam}
-                        className={
-                          emailParam ? "bg-gray cursor-not-allowed" : ""
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={hostForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
+          {allowInlineSignUp && hostStep === "signUp" ? (
+            <Form {...signUpForm}>
+              <form
+                onSubmit={signUpForm.handleSubmit(onSubmitHostSignUp)}
+                className="space-y-6"
+              >
+                <FormField
+                  control={signUpForm.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full name</FormLabel>
+                      <FormControl>
                         <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Enter password"
-                          autoComplete="off"
+                          placeholder="Your name"
                           {...field}
                         />
-
-                        <button
-                          type="button"
-                          onClick={togglePasswordVisibility}
-                          className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
-                        >
-                          <Eye className="text-muted-foreground" />
-                        </button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <button
-                type="button"
-                data-testid="signin-request-login-code"
-                onClick={() =>
-                  handleRequestLoginCode({ email: hostForm.getValues("email") })
-                }
-                className="text-muted-foreground cursor-pointer text-sm underline"
-              >
-                Request login code instead?
-              </button>
-
-              <Paragraph
-                align="right"
-                size="sm"
-                color="muted"
-              >
-                <Link
-                  href="/forgot-password"
-                  className="hover:underline"
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="Enter email address"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Create password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Confirm password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="acceptedTerms"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start gap-2 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel className="leading-snug font-normal">
+                        I agree to the terms and privacy policy
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  disabled={isHostLoading}
                 >
-                  Forgot password?
-                </Link>
-              </Paragraph>
-
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-                data-testid="signin-host-submit"
-                disabled={isHostLoading}
-              >
-                {isHostLoading ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" /> Signing in...
-                  </span>
-                ) : (
-                  <span>Sign in</span>
-                )}
-              </Button>
-
-              <Paragraph
-                align="center"
-                size="sm"
-              >
-                Don&apos;t have an account?{" "}
-                <Link
-                  href={signupHref}
-                  className="text-primary hover:underline"
+                  {isHostLoading ? "Creating account…" : "Create host account"}
+                </Button>
+                <Paragraph
+                  align="center"
+                  size="sm"
                 >
-                  Sign up
-                </Link>
-              </Paragraph>
-            </form>
-          </Form>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => setHostStep("signIn")}
+                  >
+                    Sign in
+                  </button>
+                </Paragraph>
+              </form>
+            </Form>
+          ) : (
+            <Form {...hostForm}>
+              <form
+                onSubmit={hostForm.handleSubmit(onSubmitHost)}
+                className="space-y-6"
+              >
+                <FormField
+                  control={hostForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter email address"
+                          autoComplete="off"
+                          {...field}
+                          readOnly={!!emailParam}
+                          className={
+                            emailParam ? "bg-gray cursor-not-allowed" : ""
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={hostForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Enter password"
+                            autoComplete="off"
+                            {...field}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={togglePasswordVisibility}
+                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
+                          >
+                            <Eye className="text-muted-foreground" />
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <button
+                  type="button"
+                  data-testid="signin-request-login-code"
+                  onClick={() =>
+                    handleRequestLoginCode({
+                      email: hostForm.getValues("email"),
+                    })
+                  }
+                  className="text-muted-foreground cursor-pointer text-sm underline"
+                >
+                  Request login code instead?
+                </button>
+
+                <Paragraph
+                  align="right"
+                  size="sm"
+                  color="muted"
+                >
+                  <Link
+                    href="/forgot-password"
+                    className="hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </Paragraph>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  data-testid="signin-host-submit"
+                  disabled={isHostLoading}
+                >
+                  {isHostLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" /> Signing in...
+                    </span>
+                  ) : (
+                    <span>Sign in</span>
+                  )}
+                </Button>
+
+                <Paragraph
+                  align="center"
+                  size="sm"
+                >
+                  Don&apos;t have an account?{" "}
+                  {allowInlineSignUp ? (
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => setHostStep("signUp")}
+                    >
+                      Sign up
+                    </button>
+                  ) : (
+                    <Link
+                      href={signupHref}
+                      className="text-primary hover:underline"
+                    >
+                      Sign up
+                    </Link>
+                  )}
+                </Paragraph>
+              </form>
+            </Form>
+          )}
         </TabsContent>
 
         {/* Tipper form */}

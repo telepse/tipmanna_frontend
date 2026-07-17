@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 import TvPlayer from "./tv-player";
@@ -41,11 +42,11 @@ export const ThumbnailPlayer = ({
   const showPlayer = !disableInlinePlayback && play && !suppressInline;
 
   return (
-    <div className={`relative w-full ${className}`}>
+    <div className={`relative w-full ${className ?? ""}`}>
       {!showPlayer ? (
         <button
           type="button"
-          className="relative w-full cursor-pointer border-0 bg-transparent p-0 text-left"
+          className="relative block w-full cursor-pointer border-0 bg-transparent p-0 text-left"
           onClick={() => {
             if (!disableInlinePlayback) {
               setPlay(true);
@@ -53,11 +54,25 @@ export const ThumbnailPlayer = ({
           }}
           aria-label="Play video preview"
         >
-          <img
-            src={thumbnail}
-            alt="video thumbnail"
-            className="h-[170px] w-[270px] object-cover"
-          />
+          <span className="relative block aspect-video w-full overflow-hidden rounded-md">
+            <Image
+              src={thumbnail}
+              alt="Video thumbnail"
+              width={80}
+              height={50}
+              // sizes="(max-width: 640px) 220px, 270px"
+              className="w-full rounded-md object-cover h-auto aspect-video"
+              unoptimized
+            />
+            {/* <Image
+                    src={`https://img.youtube.com/vi/${extractYoutubeID(item.contentUrl!)}/hqdefault.jpg`}
+                      alt=""
+                      width={80}
+                      height={50}
+                      className="w-full rounded-md object-cover h-auto aspect-video"
+                      unoptimized
+                    /> */}
+          </span>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="rounded-full bg-black/50 p-3">
               <svg

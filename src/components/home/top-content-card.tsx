@@ -44,8 +44,6 @@ export const TopContentCard = ({
   amountRaised,
   numOfTips,
   eventDate,
-  startTime,
-  endTime,
   duration,
 }: Props) => {
   const [loadingEventId] = useState<string | null>(null);

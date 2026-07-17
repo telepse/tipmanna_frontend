@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 
 // Third-party imports
 import { useSelector } from "react-redux";
@@ -18,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 // Local imports
-import { PAYOUT_SUMMARY } from "@/constants";
+import type { HostPayoutSummaryBlock } from "@/actions/host-payouts";
 import { EventStatCard } from "./event-stat-card";
 import { RecentEventCard } from "./recent-event-card";
 import { PayoutSummaryCard } from "./payout-summary-card";
@@ -27,6 +28,7 @@ import { RootState } from "@/redux/store";
 import { GenerateQrButton } from "./generate-qr-button";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { getEventStats } from "@/lib/utils";
+import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 
 type Event = {
   id: string;
@@ -38,16 +40,23 @@ type Event = {
 
 interface Props {
   events: [];
+  payoutSummary?: HostPayoutSummaryBlock | null;
 }
 
-export const HostStats = ({ events }: Props) => {
+export const HostStats = ({ events, payoutSummary }: Props) => {
   const user = useSelector((state: RootState) => state.auth.user);
+  const params = useParams();
+  const eventSlug =
+    typeof params?.slug === "string"
+      ? params.slug
+      : user && "eventSlug" in user
+        ? user.eventSlug
+        : "";
 
   const [, setCopied] = useState(false);
 
   if (!user || user.role !== "HOST") return null;
   const eventCode = user!.eventCode;
-  const eventSlug = user!.eventSlug;
 
   const handleCopy = async () => {
     try {
@@ -208,22 +217,38 @@ export const HostStats = ({ events }: Props) => {
         <div className="bg-card space-y-6 rounded-xl border p-6 shadow-sm">
           <h2 className="text-2xl font-semibold">Payout summary</h2>
           <div className="space-y-6">
-            {PAYOUT_SUMMARY.map((item, index) => (
-              <PayoutSummaryCard
-                key={index}
-                label={item.label}
-                value={item.value}
-                bgColor={item.bgColor}
-                txtColor={item.txtColor}
-              />
-            ))}
+            <PayoutSummaryCard
+              label="Pending Payouts"
+              value={(payoutSummary?.pendingMinor ?? 0) / 100}
+              bgColor="#FFF3E7"
+              txtColor="#CB6305"
+              isMoney
+              subLabel={`Event tips: ${formatGbpMinor(payoutSummary?.pendingByBranch.eventTipsMinor ?? 0)} · Community: ${formatGbpMinor(payoutSummary?.pendingByBranch.communitySubscriptionMinor ?? 0)}`}
+            />
+            <PayoutSummaryCard
+              label="Total Received"
+              value={(payoutSummary?.receivedMinor ?? 0) / 100}
+              bgColor="#E5FFE3"
+              txtColor="#04802E"
+              isMoney
+              subLabel={`Event tips: ${formatGbpMinor(payoutSummary?.receivedByBranch.eventTipsMinor ?? 0)} · Community: ${formatGbpMinor(payoutSummary?.receivedByBranch.communitySubscriptionMinor ?? 0)}`}
+            />
 
-            <Link href={`/host/${eventSlug}/reports`}>
+            <Link href={`/host/${eventSlug}/revenue`}>
               <Button
                 size="lg"
                 className="w-full"
               >
-                Go to payments & reports &rarr;
+                Revenue & payouts →
+              </Button>
+            </Link>
+            <Link href={`/host/${eventSlug}/reports`}>
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full"
+              >
+                Reports & insights →
               </Button>
             </Link>
           </div>

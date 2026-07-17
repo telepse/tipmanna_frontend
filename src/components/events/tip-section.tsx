@@ -43,7 +43,6 @@ import {
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
 import type { TipQuoteContext } from "@/hooks/use-tip-presentation";
 import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
-import { cn } from "@/lib/utils";
 import { TippingElementsProvider } from "../payments/tipping-elements-provider";
 import { RoomCharacter } from "@/types";
 
@@ -127,15 +126,30 @@ export const TipSection = ({
     setOpenDrawer
   );
 
-  const allTips = useMemo(
-    () => buildTipSectionPreviewCharacters(tippingCharacters),
-    [tippingCharacters]
-  );
+  const allTips = useMemo(() => {
+    const ordered = buildTipSectionPreviewCharacters(tippingCharacters);
+    if (ordered.length <= 1) return ordered;
+
+    const [pinnedComment, ...rest] = ordered;
+    const shuffled = [...rest];
+    // for (let i = shuffled.length - 1; i > 0; i--) {
+    //   const j = Math.floor(Math.random() * (i + 1));
+    //   [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    // }
+    shuffled.sort(() => Math.random() - 0.5);
+    return [pinnedComment, ...shuffled];
+  }, [tippingCharacters]);
 
   const openTextDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
     stopPreview();
+    presentTextTipDraftModal();
+  };
+
+  const openTextDraft = (character: string, context: string) => {
+    stopPreview();
+
     presentTextTipDraftModal();
   };
 
@@ -164,7 +178,8 @@ export const TipSection = ({
       tipsForTotals,
       openDraftModal: () => {
         cancelTextPreviewRef.current = null;
-        presentTextTipDraftModal();
+        stopPreview();
+        presentTextTipDraftModal(); // or unified handler
       },
     });
   };
@@ -174,7 +189,8 @@ export const TipSection = ({
     // Text Tip — preview animation, then modal; max one Text in cart on save.
     // ─────────────────────────────
     if (isTextCharacterId(characterId)) {
-      openTextDraftModal();
+      stopPreview();
+      openTextDraftModal(); // ALWAYS immediate
       return;
     }
 
@@ -384,7 +400,7 @@ export const TipSection = ({
             className="flex h-20 min-w-max flex-wrap content-start gap-1 overflow-x-auto px-1"
             style={{ rowGap: "1rem" }}
           >
-            {allTips.map(character => {
+            {allTips.slice(0, 13).map(character => {
               const characterName = tipCartNameForCharacter(character);
               const count = getSelectedCount(characterName);
               const isTextCharacter = isTextCharacterId(character.id);

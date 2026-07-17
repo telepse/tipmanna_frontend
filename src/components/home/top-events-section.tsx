@@ -4,5 +4,5 @@ import TopEvents from "./top-events";
 export default async function TopEventsSection() {
   const { data: events } = await getAllFeaturedEventsAction();
 
-  return <TopEvents events={events as unknown as []} />;
+  return <TopEvents events={events ?? []} />;
 }

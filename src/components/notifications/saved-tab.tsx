@@ -45,12 +45,16 @@ type SavedVideoItem = {
 
 interface Props {
   savedContents?: SavedVideoItem[];
+  savedHosts?: SavedHostRow[];
+  loadingSaved?: boolean;
   /** When false, skip initial fetch (parent handles cache). */
   fetchOnMount?: boolean;
 }
 
 export function SavedTab({
   savedContents: savedContentsProp,
+  savedHosts: savedHostsProp,
+  loadingSaved = false,
   fetchOnMount = true,
 }: Props) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
@@ -59,7 +63,9 @@ export function SavedTab({
   );
   const [hosts, setHosts] = useState<SavedHostRow[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
-  const [loadingHosts, setLoadingHosts] = useState(true);
+  const [loadingHosts, setLoadingHosts] = useState(
+    () => !savedHostsProp && fetchOnMount
+  );
   const loadedRef = useRef(false);
 
   const loadVideos = useCallback(async () => {
@@ -89,6 +95,13 @@ export function SavedTab({
     setHosts(rows);
     setLoadingHosts(false);
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (savedHostsProp !== undefined) {
+      setHosts(savedHostsProp);
+      setLoadingHosts(false);
+    }
+  }, [savedHostsProp]);
 
   useEffect(() => {
     if (savedContentsProp !== undefined) {
@@ -140,8 +153,18 @@ export function SavedTab({
         forceMount
         className="mt-3 space-y-2 data-[state=inactive]:hidden"
       >
-        {loadingVideos ? (
-          <p className="text-muted-foreground text-sm">Loading videos…</p>
+        {loadingVideos || loadingSaved ? (
+          <div
+            className="space-y-3"
+            aria-busy="true"
+          >
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-lg border bg-gray-50"
+              />
+            ))}
+          </div>
         ) : displayVideos.length === 0 ? (
           <p className="text-muted-foreground text-sm">No saved videos yet.</p>
         ) : (
@@ -194,7 +217,17 @@ export function SavedTab({
         className="mt-3 space-y-2 data-[state=inactive]:hidden"
       >
         {loadingHosts ? (
-          <p className="text-muted-foreground text-sm">Loading hosts…</p>
+          <div
+            className="space-y-2"
+            aria-busy="true"
+          >
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-14 animate-pulse rounded-lg border bg-gray-50"
+              />
+            ))}
+          </div>
         ) : hosts.length === 0 ? (
           <p className="text-muted-foreground text-sm">No saved hosts yet.</p>
         ) : (

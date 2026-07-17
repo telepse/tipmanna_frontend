@@ -3,21 +3,108 @@
 
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import {
-  ChevronDown,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  Suspense,
+} from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+// Third-party imports
+import {
   ArrowUp,
   ChevronRight,
   ChevronsUp,
-  ChevronsRight,
   Search,
   X,
+  MoveUpRight,
+  UsersRound,
 } from "lucide-react";
 const TipDrawer = dynamic(
   () =>
     import("../events/tip-drawer").then(m => ({
       default: m.TipDrawer,
+    })),
+  { ssr: false }
+);
+const ProgramsPanel = dynamic(
+  () =>
+    import("./programs-panel").then(m => ({
+      default: m.ProgramsPanel,
+    })),
+  { ssr: false }
+);
+const TopContentsPanel = dynamic(
+  () =>
+    import("./top-contents-panel").then(m => ({
+      default: m.TopContentsPanel,
+    })),
+  { ssr: false }
+);
+const LatestContentsPanel = dynamic(
+  () =>
+    import("./latest-contents-panel").then(m => ({
+      default: m.LatestContentsPanel,
+    })),
+  { ssr: false }
+);
+const SpotlightPanel = dynamic(
+  () =>
+    import("./spotlight-panel").then(m => ({
+      default: m.SpotlightPanel,
+    })),
+  { ssr: false }
+);
+const RecommendedForYouPanel = dynamic(
+  () =>
+    import("./recommended-for-you-panel").then(m => ({
+      default: m.RecommendedForYouPanel,
+    })),
+  { ssr: false }
+);
+const LiveStreamsPanel = dynamic(
+  () =>
+    import("./live-streams-panel").then(m => ({
+      default: m.LiveStreamsPanel,
+    })),
+  { ssr: false }
+);
+const TopCommunitiesPanel = dynamic(
+  () =>
+    import("./top-communities-panel").then(m => ({
+      default: m.TopCommunitiesPanel,
+    })),
+  { ssr: false }
+);
+const MostTippedContentsPanel = dynamic(
+  () =>
+    import("./most-tipped-contents-panel").then(m => ({
+      default: m.MostTippedContentsPanel,
+    })),
+  { ssr: false }
+);
+const SavedContentsPanel = dynamic(
+  () =>
+    import("./saved-contents-panel").then(m => ({
+      default: m.SavedContentsPanel,
+    })),
+  { ssr: false }
+);
+const EventVideoTypeContentsPanel = dynamic(
+  () =>
+    import("./event-video-type-contents-panel").then(m => ({
+      default: m.EventVideoTypeContentsPanel,
+    })),
+  { ssr: false }
+);
+const UpcomingProgramsPanel = dynamic(
+  () =>
+    import("./upcoming-programs-panel").then(m => ({
+      default: m.UpcomingProgramsPanel,
     })),
   { ssr: false }
 );
@@ -30,22 +117,22 @@ import { useTV } from "../tv-provider";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
 import { WebTvLooper } from "./web-tv-looper";
-import { TopContentsPanel } from "./top-contents-panel";
-import { LatestContentsPanel } from "./latest-contents-panel";
-import { SpotlightPanel } from "./spotlight-panel";
-import { MostTippedContentsPanel } from "./most-tipped-contents-panel";
-import { SavedContentsPanel } from "./saved-contents-panel";
-import { EventVideoTypeContentsPanel } from "./event-video-type-contents-panel";
 import { TV_EVENT_VIDEO_TYPE_TAGS } from "./tv-event-video-type-tags";
 import { Button } from "../ui/button";
 import Image from "next/image";
-import { UpcomingProgramsPanel } from "./upcoming-programs-panel";
-import { cn } from "@/lib/utils";
+import {
+  cn,
+  formatProgramScheduleDisplay,
+  getStatusColor,
+  trimTitle,
+} from "@/lib/utils";
 import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
 import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-shell";
 import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
+import { tvTrace } from "@/lib/tvDebugLog";
+import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -59,8 +146,8 @@ export type TvInteractiveShellProps = {
   scheduleStale: boolean;
   scheduleError: boolean;
   retryScheduleLoad: () => void;
-  activeTab: "playlist" | "tips";
-  setActiveTab: (t: "playlist" | "tips") => void;
+  activeTab: "playlist" | "tips" | "programs";
+  setActiveTab: (t: "playlist" | "tips" | "programs") => void;
   handleSelectChannel: (index: number) => void;
   isTipDrawerOpen: boolean;
   setIsTipDrawerOpen: (open: boolean) => void;
@@ -78,6 +165,8 @@ export type TvInteractiveShellProps = {
 };
 
 export type TvInteractiveVariant = "mobile" | "desktop";
+
+export const PROGRAM_DISPLAY_TIMEZONE = "UK";
 
 /**
  * Shared interactive TV UI: looper, schedule, tips tab, Stripe tip drawer.
@@ -147,9 +236,13 @@ export function TvInteractiveShell({
 
   const [rightPanelView, setRightPanelView] = useState<
     | "playlist"
+    | "programs"
     | "top-contents"
     | "latest-contents"
     | "spotlight"
+    | "recommended-for-you"
+    | "top-communities"
+    | "live-streams"
     | "most-tipped"
     | "saved"
     | "video-type"
@@ -161,10 +254,6 @@ export function TvInteractiveShell({
   );
 
   const DISCOVER_SECTIONS = [
-    {
-      id: "upcoming-programs",
-      label: "Programs",
-    },
     {
       id: "top-contents",
       label: "Top contents",
@@ -178,28 +267,136 @@ export function TvInteractiveShell({
       label: "Spotlight",
     },
     {
+      id: "recommended-for-you",
+      label: "Recommended for you",
+    },
+    {
+      id: "top-communities",
+      label: "Top communities",
+    },
+    {
+      id: "programs",
+      label: "Programs",
+    },
+    {
+      id: "live-streams",
+      label: "Live streams",
+    },
+    {
       id: "most-tipped",
-      label: "Most tipped",
+      label: "Most tipped contents",
     },
   ];
 
   const [showSearchOptions, setShowSearchOptions] = useState(false);
   const [isMobileFullView, setIsMobileFullView] = useState(false);
+  const [landscapeLayoutDismissed, setLandscapeLayoutDismissed] =
+    useState(false);
+  const exitFullRef = useRef<(() => void) | null>(null);
+  const router = useRouter();
 
   const handleSearchOptions = () => {
     setShowSearchOptions(prev => !prev);
   };
 
+  const viewportWidth = useClientViewportWidth();
   const isMobileLandscape =
     useMediaQuery({ query: "(orientation: landscape)" }) &&
-    window.innerWidth <= 768;
+    viewportWidth > 0 &&
+    viewportWidth <= 768;
+  const showMobileLandscapeLayout =
+    isMobileLandscape && !landscapeLayoutDismissed;
 
-  const router = useRouter();
+  const registerExitFull = useCallback((exitFull: (() => void) | null) => {
+    exitFullRef.current = exitFull;
+  }, []);
 
   const handleMobileLandscapeClose = () => {
-    setIsMobileFullView(false);
-    runPortraitAlignedMobileLandscapeClose(router);
+    tvTrace("navigation", "landscape_close_click", {
+      isMobileFullView,
+      landscapeLayoutDismissed,
+      action: isMobileFullView ? "exit_full_view" : "dismiss_landscape_layout",
+    });
+
+    if (isMobileFullView) {
+      runPortraitAlignedMobileLandscapeClose(router, {
+        isFullView: true,
+        exitFull: () => {
+          exitFullRef.current?.();
+          setIsMobileFullView(false);
+        },
+        explorePath: "/tv",
+      });
+      return;
+    }
+
+    setLandscapeLayoutDismissed(true);
   };
+
+  useEffect(() => {
+    const onOrientation = () => {
+      const landscape =
+        typeof window !== "undefined" &&
+        window.matchMedia("(orientation: landscape)").matches;
+      tvTrace("navigation", "orientation_change", {
+        orientation: landscape ? "landscape" : "portrait",
+        innerWidth: typeof window !== "undefined" ? window.innerWidth : null,
+      });
+      if (!landscape) {
+        setLandscapeLayoutDismissed(false);
+      }
+    };
+    window.addEventListener("orientationchange", onOrientation);
+    return () => window.removeEventListener("orientationchange", onOrientation);
+  }, []);
+
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [liveStreams, setLiveStreams] = useState({
+    upcoming: [],
+    live: [],
+    recentlyEnded: [],
+  });
+  const [topCommunities, setTopCommunities] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadPrograms = async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery`
+      );
+      const data = await res.json();
+      setPrograms(data as any[]);
+    };
+
+    loadPrograms();
+  }, []);
+
+  useEffect(() => {
+    const loadLiveStreams = async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/live-streams`
+      );
+      console.log("res", res);
+      const data = await res.json();
+      console.log("data", data);
+      setLiveStreams(data as any);
+    };
+
+    loadLiveStreams();
+  }, []);
+
+  useEffect(() => {
+    const loadTopCommunities = async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/explore-catalog`
+      );
+
+      const data = await res.json();
+
+      setTopCommunities(data.topByTips);
+    };
+
+    void loadTopCommunities();
+  }, []);
 
   return (
     <>
@@ -237,7 +434,7 @@ export function TvInteractiveShell({
       {isDesktop && (
         <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">
           <div className="col-span-9 object-cover">
-            {tvReady && !isMobileLandscape ? (
+            {tvReady ? (
               <WebTvLooper
                 characters={characters}
                 playerLayout="wide"
@@ -260,9 +457,7 @@ export function TvInteractiveShell({
                 }
               />
             ) : null}
-            {!tvReady && !isMobileLandscape ? (
-              <TvLooperSkeleton layout="wide" />
-            ) : null}
+            {!tvReady ? <TvLooperSkeleton layout="wide" /> : null}
           </div>
 
           <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
@@ -364,26 +559,30 @@ export function TvInteractiveShell({
                           : "bg-gray-200 text-black"
                       }`}
                     >
-                      TV
+                      TV playlist
                     </button>
 
                     <button
                       type="button"
                       onClick={() => {
+                        console.log("TV Programs clicked");
                         setSelectedVideoType(null);
-                        setRightPanelView("saved");
+                        setRightPanelView("programs");
                         setActiveTab("playlist");
                       }}
-                      className={`rounded-md px-2 py-1 text-xs whitespace-nowrap ${
-                        rightPanelView === "saved"
+                      className={`cursor-pointer rounded-md p-1 text-[10px] ${
+                        rightPanelView === "programs"
                           ? "bg-black text-white"
-                          : "text-black underline"
+                          : "bg-gray-200 text-black"
                       }`}
                     >
-                      Saved
+                      TV programs
                     </button>
+                  </div>
 
-                    {rightPanelView !== "playlist" && (
+                  {rightPanelView !== "playlist" &&
+                    rightPanelView !== "programs" &&
+                    rightPanelView !== "top-communities" && (
                       <div className="hide__scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
                         {TV_EVENT_VIDEO_TYPE_TAGS.map(tag => (
                           <button
@@ -406,7 +605,6 @@ export function TvInteractiveShell({
                         ))}
                       </div>
                     )}
-                  </div>
                 </div>
                 {/* Dynamic Content */}
                 {activeTab === "playlist" && (
@@ -421,6 +619,10 @@ export function TvInteractiveShell({
                           <TvPlaylistPreview
                             layout={playlistLayout}
                             onSelectChannel={handleSelectChannel}
+                            onContinueCommentToTip={() =>
+                              setIsTipDrawerOpen(true)
+                            }
+                            tippingCharacters={characters}
                           />
 
                           <button
@@ -447,6 +649,12 @@ export function TvInteractiveShell({
                       </>
                     )}
 
+                    {rightPanelView === "programs" && (
+                      <Suspense fallback={<div>Loading programs...</div>}>
+                        <ProgramsPanel programs={programs} />
+                      </Suspense>
+                    )}
+
                     {rightPanelView === "top-contents" && <TopContentsPanel />}
 
                     {rightPanelView === "latest-contents" && (
@@ -455,15 +663,23 @@ export function TvInteractiveShell({
 
                     {rightPanelView === "spotlight" && <SpotlightPanel />}
 
+                    {rightPanelView === "recommended-for-you" && (
+                      <RecommendedForYouPanel />
+                    )}
+
+                    {rightPanelView === "top-communities" && (
+                      <TopCommunitiesPanel communities={topCommunities} />
+                    )}
+
+                    {rightPanelView === "live-streams" && (
+                      <LiveStreamsPanel liveStreams={liveStreams} />
+                    )}
+
                     {rightPanelView === "most-tipped" && (
                       <MostTippedContentsPanel />
                     )}
 
                     {rightPanelView === "saved" && <SavedContentsPanel />}
-
-                    {rightPanelView === "upcoming-programs" && (
-                      <UpcomingProgramsPanel />
-                    )}
 
                     {rightPanelView === "video-type" && selectedVideoType && (
                       <EventVideoTypeContentsPanel
@@ -486,195 +702,254 @@ export function TvInteractiveShell({
         </div>
       )}
 
-      {isMobile && !isMobileLandscape && (
-        <div
-          className={cn(
-            isMobileFullView
-              ? "fixed inset-0 z-[1100] flex min-h-0 w-full flex-col overflow-hidden bg-black"
-              : "fixed right-0 bottom-0 left-0 flex min-h-0 w-full flex-col overflow-hidden px-2 pt-0 pb-2"
+      {isMobile && (
+        <>
+          {showMobileLandscapeLayout && (
+            <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
           )}
-          style={
-            isMobileFullView
-              ? undefined
-              : {
-                  top: TV_MOBILE_SHELL_TOP,
-                  maxHeight: `calc(100dvh - ${TV_MOBILE_SHELL_TOP})`,
-                }
-          }
-        >
-          {tvReady ? (
-            <div
-              className={cn(
-                "flex min-h-0 w-full flex-col",
-                isMobileFullView
-                  ? "h-full flex-1"
-                  : "flex-1 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]"
-              )}
-            >
+          <div
+            className={cn(
+              showMobileLandscapeLayout
+                ? "relative z-[999] h-full w-full bg-black text-white"
+                : isMobileFullView
+                  ? "fixed inset-0 z-[1100] flex min-h-0 w-full flex-col overflow-hidden bg-black"
+                  : "fixed right-0 bottom-0 left-0 flex min-h-0 w-full flex-col overflow-hidden px-2 pt-0 pb-2"
+            )}
+            style={
+              showMobileLandscapeLayout || isMobileFullView
+                ? undefined
+                : {
+                    top: TV_MOBILE_SHELL_TOP,
+                    maxHeight: `calc(100dvh - ${TV_MOBILE_SHELL_TOP})`,
+                  }
+            }
+          >
+            {tvReady ? (
               <div
                 className={cn(
-                  isMobileFullView
-                    ? "min-h-0 flex-1 overflow-hidden"
-                    : "min-h-[220px] shrink-0 basis-[min(52dvh,420px)] overflow-hidden"
+                  "flex min-h-0 w-full flex-col",
+                  showMobileLandscapeLayout || isMobileFullView
+                    ? "h-full flex-1"
+                    : "flex-1 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]"
                 )}
               >
-                <TvLooper
-                  characters={characters}
-                  playerLayout="compact"
-                  analyticsSurface={tvAnalyticsSurface}
-                  onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
-                  onEngage={() => setIsTipDrawerOpen(true)}
-                  onFullViewChange={setIsMobileFullView}
-                  commentDrawerVideoTitle={
-                    typeof currentPlaying?.channel?.title === "string"
-                      ? currentPlaying.channel.title
-                      : ""
-                  }
-                  commentDrawerVideoDescription={
-                    typeof (currentPlaying?.channel as { description?: string })
-                      ?.description === "string"
-                      ? String(
-                          (currentPlaying?.channel as { description: string })
-                            .description
-                        )
-                      : ""
-                  }
-                  showSideRails={true}
-                />
-              </div>
+                <div
+                  className={cn(
+                    showMobileLandscapeLayout || isMobileFullView
+                      ? "min-h-0 flex-1 overflow-hidden"
+                      : "min-h-[220px] shrink-0 basis-[min(52dvh,420px)] overflow-hidden"
+                  )}
+                >
+                  <TvLooper
+                    key="mobile-tv-looper"
+                    characters={characters}
+                    playerLayout={
+                      showMobileLandscapeLayout ? "wide" : "compact"
+                    }
+                    mobileLandscape={showMobileLandscapeLayout}
+                    analyticsSurface={tvAnalyticsSurface}
+                    onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+                    onEngage={() => setIsTipDrawerOpen(true)}
+                    onFullViewChange={
+                      showMobileLandscapeLayout
+                        ? undefined
+                        : setIsMobileFullView
+                    }
+                    onRegisterExitFull={registerExitFull}
+                    commentDrawerVideoTitle={
+                      typeof currentPlaying?.channel?.title === "string"
+                        ? currentPlaying.channel.title
+                        : ""
+                    }
+                    commentDrawerVideoDescription={
+                      typeof (
+                        currentPlaying?.channel as { description?: string }
+                      )?.description === "string"
+                        ? String(
+                            (
+                              currentPlaying?.channel as {
+                                description: string;
+                              }
+                            ).description
+                          )
+                        : ""
+                    }
+                    showSideRails={!showMobileLandscapeLayout}
+                  />
+                </div>
 
-              {!isMobileFullView ? (
-                <>
-                  <div className="hide__scrollbar flex w-full shrink-0 items-center gap-2 overflow-x-auto px-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("playlist")}
-                      className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs whitespace-nowrap outline ${
-                        activeTab === "playlist"
-                          ? "bg-black text-white"
-                          : "border border-black bg-white text-black"
-                      }`}
-                    >
-                      TV Playlist <ChevronDown className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="tv-nav-tips"
-                      onClick={() => setActiveTab("tips")}
-                      className={`flex shrink-0 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap outline ${
-                        activeTab === "tips"
-                          ? "bg-black text-white"
-                          : "bg-white text-black outline-black"
-                      }`}
-                    >
-                      <div
-                        className={`${initialTipCount > 999 ? "tip-feed-marquee" : ""}`}
-                      >
-                        <div
-                          className={`${initialTipCount > 999 ? "tip-feed-marquee-track" : ""}`}
-                        >
-                          {initialTipCount} Tips
-                        </div>
-                      </div>{" "}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={goLive}
-                      className={`shrink-0 text-xs whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
-                    >
-                      Live TV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={switchToLocal}
-                      className={`shrink-0 text-xs whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
-                    >
-                      Your TV
-                    </button>
-                  </div>
-
-                  {activeTab === "playlist" && (
-                    <div className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2">
-                      <div
-                        className="custom-scrollbar hide__scrollbar relative h-full min-h-0 w-full space-y-3 overflow-y-auto p-2"
-                        ref={scrollRef}
-                        onScroll={handleScroll}
-                      >
-                        <TvPlaylistPreview
-                          layout={playlistLayout}
-                          onSelectChannel={handleSelectChannel}
-                        />
-
+                {!showMobileLandscapeLayout && !isMobileFullView ? (
+                  <>
+                    <div className="hide__scrollbar flex w-full shrink-0 items-center justify-between gap-2 overflow-x-auto px-2">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => setIsTvDrawerOpen(true)}
-                          className="mt-2 flex items-center gap-2 text-sm"
+                          onClick={() => setActiveTab("playlist")}
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs break-keep whitespace-nowrap outline ${
+                            activeTab === "playlist"
+                              ? "bg-black text-white"
+                              : "border border-black bg-white text-black"
+                          }`}
                         >
-                          See full schedule <ArrowUp className="size-4" />
+                          TV Playlist
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("programs")}
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] whitespace-nowrap outline ${activeTab === "programs" ? "bg-black text-white" : "border border-black bg-white text-black"}`}
+                        >
+                          TV Programs
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="tv-nav-tips"
+                          onClick={() => setActiveTab("tips")}
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-1 text-xs whitespace-nowrap outline ${
+                            activeTab === "tips"
+                              ? "bg-black text-white"
+                              : "bg-white text-black"
+                          }`}
+                        >
+                          {/* <div
+                            className={`${initialTipCount > 999 ? "tip-feed-marquee" : ""}`}
+                          >
+                            <div
+                              className={`${initialTipCount > 999 ? "tip-feed-marquee-track" : ""}`}
+                            >
+                              {initialTipCount} Tips
+                            </div>
+                          </div> */}
+                          <UsersRound className="size-4" />
                         </button>
                       </div>
 
-                      <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
-                        <div className="relative h-full w-[2px] bg-gray-200">
-                          <div
-                            className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
-                            style={{
-                              top: `${scrollProgress}%`,
-                              transform: `translate(-50%, -50%)`,
-                            }}
-                          />
-                        </div>
+                      <div className="mr-3 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={goLive}
+                          className={`shrink-0 text-xs whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
+                        >
+                          Live TV
+                        </button>
+                        <button
+                          type="button"
+                          onClick={switchToLocal}
+                          className={`shrink-0 text-xs whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
+                        >
+                          Your TV
+                        </button>
                       </div>
                     </div>
-                  )}
 
-                  {activeTab === "tips" && (
-                    <div
-                      data-testid="tv-tips-feed"
-                      className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2"
-                    >
-                      {tipsFeedPanelEl}
-                    </div>
-                  )}
-                </>
-              ) : null}
-            </div>
-          ) : (
-            <div className="flex min-h-0 w-full flex-1 flex-col gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]">
-              <div className="min-h-[220px] shrink-0 basis-[min(52dvh,420px)]">
-                <TvLooperSkeleton layout="compact" />
+                    {activeTab === "playlist" && (
+                      <div className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-hidden p-2">
+                        <div
+                          className="custom-scrollbar hide__scrollbar relative h-full min-h-0 w-full space-y-3 overflow-y-auto p-2"
+                          ref={scrollRef}
+                          onScroll={handleScroll}
+                        >
+                          <TvPlaylistPreview
+                            layout={playlistLayout}
+                            onSelectChannel={handleSelectChannel}
+                            onContinueCommentToTip={() =>
+                              setIsTipDrawerOpen(true)
+                            }
+                            tippingCharacters={characters}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => setIsTvDrawerOpen(true)}
+                            className="mt-2 flex items-center gap-2 text-sm"
+                          >
+                            See full schedule <ArrowUp className="size-4" />
+                          </button>
+                        </div>
+
+                        <div className="absolute top-0 right-1 flex h-full w-2 justify-center">
+                          <div className="relative h-full w-[2px] bg-gray-200">
+                            <div
+                              className="bg-primary absolute left-1/2 size-2 -translate-x-1/2 rounded-full transition-transform"
+                              style={{
+                                top: `${scrollProgress}%`,
+                                transform: `translate(-50%, -50%)`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeTab === "programs" && (
+                      <div className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col items-start gap-2 overflow-y-auto p-2">
+                        {programs.map(program => (
+                          <div
+                            key={program.id}
+                            className="border-primary w-full rounded-md border-2 px-2 py-1"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-2">
+                                <h5 className="flex gap-2">
+                                  <Link
+                                    href={program.landingUrl}
+                                    className="text-sm"
+                                    target="_blank"
+                                  >
+                                    {trimTitle(program.title, 25)}
+                                  </Link>
+                                  <MoveUpRight className="size-4" />
+                                </h5>
+
+                                <span
+                                  className={getStatusColor(
+                                    program.programStatus
+                                  )}
+                                >
+                                  {program.programStatus}
+                                </span>
+                              </div>
+
+                              <div className="text-muted-foreground flex items-center justify-between text-xs">
+                                <p className="flex items-center gap-1 text-[10px]">
+                                  <span>
+                                    Time:{" "}
+                                    {formatProgramScheduleDisplay(
+                                      program.scheduledAt
+                                    )}
+                                  </span>
+
+                                  <span>({PROGRAM_DISPLAY_TIMEZONE})</span>
+                                </p>
+
+                                <span className="text-[10px]">
+                                  {program.communityName}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {activeTab === "tips" && (
+                      <div
+                        data-testid="tv-tips-feed"
+                        className="relative -mt-2 flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-2"
+                      >
+                        {tipsFeedPanelEl}
+                      </div>
+                    )}
+                  </>
+                ) : null}
               </div>
-              <TvRightPanelSkeleton layout="mobile" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {isMobileLandscape && (
-        <>
-          <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
-          <div className="relative z-[999] h-full w-full bg-black text-white">
-            <WebTvLooper
-              characters={characters}
-              playerLayout="wide"
-              analyticsSurface={tvAnalyticsSurface}
-              onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
-              onEngage={() => setIsTipDrawerOpen(true)}
-              commentDrawerVideoTitle={
-                typeof currentPlaying?.channel?.title === "string"
-                  ? currentPlaying.channel.title
-                  : ""
-              }
-              commentDrawerVideoDescription={
-                typeof (currentPlaying?.channel as { description?: string })
-                  ?.description === "string"
-                  ? String(
-                      (currentPlaying?.channel as { description: string })
-                        .description
-                    )
-                  : ""
-              }
-            />
+            ) : (
+              <div className="flex min-h-0 w-full flex-1 flex-col gap-3 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]">
+                <div className="min-h-[220px] shrink-0 basis-[min(52dvh,420px)]">
+                  <TvLooperSkeleton layout="compact" />
+                </div>
+                <TvRightPanelSkeleton layout="mobile" />
+              </div>
+            )}
           </div>
         </>
       )}
@@ -682,9 +957,10 @@ export function TvInteractiveShell({
       <TVScheduleDrawer
         isTVDrawerOpen={isTVDrawerOpen}
         setIsTvDrawerOpen={setIsTvDrawerOpen}
+        tippingCharacters={characters}
       />
 
-      {isMobileLandscape ? null : (
+      {isMobile && showMobileLandscapeLayout ? null : (
         <div
           className={cn(
             isDesktop

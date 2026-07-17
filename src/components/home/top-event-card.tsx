@@ -28,7 +28,6 @@ interface Props {
 }
 
 export const TopEventCard = ({
-  channelId,
   roomId,
   eventBanner,
   eventName,

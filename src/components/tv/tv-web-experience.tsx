@@ -6,6 +6,7 @@ import {
   type TvInteractiveShellProps,
 } from "./tv-interactive-shell";
 import { cn } from "@/lib/utils";
+import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
 
 export type TvWebExperienceProps = Omit<TvInteractiveShellProps, "variant">;
 
@@ -14,9 +15,11 @@ export type TvWebExperienceProps = Omit<TvInteractiveShellProps, "variant">;
  * interactive TV features as mobile with wider responsive layout.
  */
 export function TvWebExperience(props: TvWebExperienceProps) {
+  const viewportWidth = useClientViewportWidth();
   const isMobileLandscape =
     useMediaQuery({ query: "(orientation: landscape)" }) &&
-    window.innerWidth <= 768;
+    viewportWidth > 0 &&
+    viewportWidth <= 768;
 
   return (
     <div

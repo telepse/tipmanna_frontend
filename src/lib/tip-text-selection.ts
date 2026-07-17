@@ -166,5 +166,6 @@ export function buildTipSectionPreviewCharacters<
   }
 
   const rest = [...restById.values()];
+
   return commentChar ? [commentChar, ...rest] : rest;
 }

@@ -13,6 +13,9 @@ const BASE = {
   disablekb: 1,
 } as const;
 
+/** Privacy-enhanced YouTube embed host when supported by react-youtube / IFrame API. */
+export const YOUTUBE_NO_COOKIE_HOST = "https://www.youtube-nocookie.com";
+
 /** No default YouTube controls — use app UI (scrubbers, TV chrome, etc.). */
 export function getYoutubePlayerVarsChromeless(options: {
   autoplay?: boolean;

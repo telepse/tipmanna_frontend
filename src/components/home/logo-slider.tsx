@@ -14,15 +14,19 @@ interface Props {
   causes: Cause[];
 }
 
-export const LogoSlider = ({ causes }: Props) => {
+export const LogoSlider = ({ causes = [] }: Props) => {
   const [current, setCurrent] = useState(0);
+
+  if (causes.length === 0) {
+    return null;
+  }
 
   const prev = () => setCurrent(i => (i === 0 ? causes.length - 1 : i - 1));
 
   const next = () => setCurrent(i => (i === causes.length - 1 ? 0 : i + 1));
 
   // Calculate the 3 visible CHARITY_LOGOS: prev, current, next
-  const prevIndex = (current - 1 + causes?.length) % causes?.length;
+  const prevIndex = (current - 1 + causes.length) % causes.length;
   const nextIndex = (current + 1) % causes.length;
 
   const visibleCauses = [causes[prevIndex], causes[current], causes[nextIndex]];

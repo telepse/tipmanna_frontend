@@ -1,13 +1,12 @@
-import {
-  getAllCharacterSets,
-  getCharactersForTipping,
-} from "@/actions/characters";
+import { getCharactersForTipping } from "@/actions/characters";
 import { getEventChannelByYoutubeVideoId } from "@/actions/events";
 import TVFullscreen from "@/components/tv/tv-fullscreen";
 import TVPageShell from "@/components/tv/tv-page-shell";
+import { TvPageSuspenseFallback } from "@/components/tv/tv-page-suspense-fallback";
 import { Metadata } from "next";
 import { Suspense } from "react";
-import { getPublicFrontendOrigin } from "@/lib/site-config";
+import { getPrimaryOrigin } from "@/lib/site-config";
+import { isTvLazySsrCharactersEnabled } from "@/lib/tv-feature-flags";
 
 type EventChannelListItem = {
   url?: string;
@@ -42,7 +41,7 @@ export async function generateMetadata({
   const description = `Tune into ${currentChannel.title}'s always-on TV channel featuring scheduled programs, community engagement, and realtime supporter participation.`;
 
   return {
-    metadataBase: new URL(getPublicFrontendOrigin()),
+    metadataBase: new URL(getPrimaryOrigin()),
     title: `Watch ${currentChannel.title} TV — Streaming 24/7 📺`,
     description: description,
     openGraph: {
@@ -75,13 +74,18 @@ export default async function TVPage({
   searchParams: Promise<{ videoId?: string }>;
 }) {
   const { videoId } = await searchParams;
+  const lazySsrCharacters = isTvLazySsrCharactersEnabled();
 
-  const [{ data: characters }, { data: characterSets }, currentChannel] =
-    await Promise.all([
-      getCharactersForTipping(),
-      getAllCharacterSets(),
-      loadChannelForVideoId(videoId),
-    ]);
+  const [{ data: characters }, currentChannel] = await Promise.all([
+    lazySsrCharacters
+      ? Promise.resolve({
+          data: [] as Awaited<
+            ReturnType<typeof getCharactersForTipping>
+          >["data"],
+        })
+      : getCharactersForTipping(),
+    loadChannelForVideoId(videoId),
+  ]);
 
   if (currentChannel && videoId) {
     return (
@@ -97,15 +101,8 @@ export default async function TVPage({
   return (
     <>
       <section className="w-full p-2">
-        <Suspense
-          fallback={
-            <div className="text-muted-foreground p-4 text-sm">Loading TV…</div>
-          }
-        >
-          <TVPageShell
-            characters={characters ?? []}
-            characterSets={characterSets ?? []}
-          />
+        <Suspense fallback={<TvPageSuspenseFallback />}>
+          <TVPageShell characters={characters ?? []} />
         </Suspense>
       </section>
     </>

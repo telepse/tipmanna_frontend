@@ -12,13 +12,23 @@ import {
   useState,
   type MutableRefObject,
   type RefObject,
+  type CSSProperties,
+  type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import Image from "next/image";
+import { ExploreFeedSkeleton } from "@/components/explore/explore-feed-skeleton";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { MessageCircle, Plus, Volume2, VolumeX } from "lucide-react";
-import SignInDialog from "@/components/auth/sign-in-dialog";
+import {
+  ArrowRight,
+  Eye,
+  MessageCircle,
+  Plus,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
 
@@ -34,6 +44,15 @@ import {
   waitExploreFeedPrefetch,
 } from "@/lib/explore-feed-prefetch-cache";
 import {
+  computePaginationBackoffMs,
+  isConfirmedFeedExhaustion,
+  isDuplicateOnlyBatch,
+  mergeBatchDedup,
+} from "@/lib/explore-feed-pagination-policy";
+import { logExplorePagination } from "@/lib/explore-feed-pagination-observability";
+import {
+  buildExploreFeedIdentity,
+  isUnscopedGlobalTrendsIdentity,
   persistExploreFeedSession,
   restoreExploreFeedSession,
   type ExploreFeedSessionKeyParams,
@@ -46,6 +65,7 @@ import {
   VideoSurfaceBadges,
   pickVideoSurfaceBadgeProps,
 } from "@/components/video/video-surface-badges";
+import { LiveStreamFeedBadge } from "@/components/video/live-stream-feed-badge";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
@@ -55,12 +75,10 @@ import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
-import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 import type { RoomCharacter } from "@/types";
 import {
   flushTvAnalytics,
   initTvAnalyticsRuntime,
-  shutdownTvAnalyticsRuntime,
   setTvAnalyticsContext,
   trackTvVideoComplete,
   trackTvVideoEnd,
@@ -88,7 +106,7 @@ import {
 import { toast } from "react-toastify";
 import type { RootState } from "@/redux/store";
 import { trackTvSaveClick } from "@/lib/tvAnalytics";
-import { buildChannelShareUrl } from "@/lib/public-video-url";
+import { buildContentShareUrl } from "@/lib/public-video-url";
 import {
   collectExploreFeedEventIds,
   getCachedTvEventCatalog,
@@ -96,8 +114,47 @@ import {
   prefetchTvEventCatalogs,
   type TvEventCatalog,
 } from "@/lib/tv-event-catalog-cache";
-import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
-import { isYoutubeShortsUrl } from "@/lib/youtube-immersive-meta";
+import { useExploreReelLayoutMode } from "@/hooks/use-explore-reel-layout-mode";
+import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-realtime";
+import { getAuthToken } from "@/lib/getAuthToken";
+import { prefetchChannelDrawers } from "@/lib/drawer-prefetch-cache";
+import { markExplorePerf } from "@/lib/web-vitals";
+import {
+  exploreReelActionsRailClassName,
+  exploreReelDockActionIconClassName,
+  exploreReelDockActionsClassName,
+  exploreReelDockClassName,
+  exploreReelDockHeightCss,
+  exploreReelDockIconButtonClassName,
+  exploreReelDockPrimaryButtonClassName,
+  exploreReelDockScrubberClassName,
+  exploreReelDockSecondaryButtonClassName,
+  exploreReelFeatureCardBannerClassName,
+  exploreReelMetricsClassName,
+  exploreReelMuteButtonClassName,
+  exploreReelMuteIconClassName,
+  exploreReelRailIconButtonClassName,
+  exploreReelRailIconClassName,
+  exploreReelRailStackGapClassName,
+  exploreReelRailTipsChipClassName,
+  exploreReelScrubberTrackClassName,
+  exploreReelStageClassName,
+  exploreReelTapCaptureClassName,
+  exploreReelTipsChipClassName,
+  exploreReelTipsProgressWrapperClassName,
+  exploreReelTitleAboveDockClassName,
+  exploreReelTitleCommentButtonClassName,
+  exploreReelTitleCommentIconClassName,
+  exploreReelTitleOnVideoClassName,
+  exploreReelTitlePlacement,
+  exploreReelTitleRowClassName,
+  exploreReelVideoBandClassName,
+  exploreReelVideoPlayerClassName,
+  type ExploreReelLayoutMode,
+} from "@/lib/explore-reel-layout";
+import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
+import { useMediaQuery } from "react-responsive";
+import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 
 const TipDrawer = dynamic(
   () =>
@@ -107,80 +164,136 @@ const TipDrawer = dynamic(
   { ssr: false }
 );
 
-/**
- * Fixed slide height for snap scrolling. Explore stacks multiple chrome rows
- * (main header + tab strip + feed sub-toolbar); ~7.5rem keeps the stage aligned
- * with the visible flex region so the player stays visually centered.
- */
-const SLIDE_VIEWPORT_LANDSCAPE =
-  "h-[calc(100dvh-7.5rem)] min-h-[calc(100dvh-7.5rem)] max-md:h-[calc(100dvh-7rem)] max-md:min-h-[calc(100dvh-7rem)]";
-
-/** Full-bleed portrait / Shorts slides use nearly the full viewport. */
-const SLIDE_VIEWPORT_FULL_BLEED =
-  "h-[calc(100dvh-4rem)] min-h-[calc(100dvh-4rem)]";
-
-function exploreSlideViewportClass(
-  videoUrl: string | null | undefined
-): string {
-  return isYoutubeShortsUrl(videoUrl)
-    ? SLIDE_VIEWPORT_FULL_BLEED
-    : SLIDE_VIEWPORT_LANDSCAPE;
-}
-
 /** Append size when near end of queue. */
 const EXPLORE_FEED_PAGE_COUNT = 6;
-/** Start loading before the last clip (stable scroll). */
-const EXPLORE_NEAR_END_SLOTS = 3;
-/** Mount players for previous slide + next N so clips buffer before scroll. */
+/**
+ * Start loading further before the last clip so the next batch is ready well
+ * before the user reaches it (infinite feed never feels exhausted). Larger
+ * lead time keeps a warm buffer ahead without changing the single-flight guard.
+ */
+const EXPLORE_NEAR_END_SLOTS = 5;
+/** Transient pagination failures use backoff retry (Endless Feed Contract); no permanent cap. */
 const EXPLORE_PRELOAD_BEHIND = 0;
 const EXPLORE_PRELOAD_AHEAD = 1;
+const EXPLORE_REEL_VIRTUALIZE =
+  process.env.NEXT_PUBLIC_EXPLORE_REEL_VIRTUALIZE === "true";
+const EXPLORE_REEL_VIRTUAL_WINDOW = 2;
+
+function hasExploreSessionAuth(isAuthenticated: boolean): boolean {
+  if (isAuthenticated) return true;
+  if (getAuthToken()) return true;
+  if (typeof document !== "undefined") {
+    return /(?:^|;\s*)(?:token|visitorToken)=/.test(document.cookie);
+  }
+  return false;
+}
+
+function isInReelVirtualWindow(
+  slideIndex: number,
+  activeIndex: number,
+  itemCount: number
+) {
+  if (!EXPLORE_REEL_VIRTUALIZE) return true;
+  const lo = Math.max(0, activeIndex - EXPLORE_REEL_VIRTUAL_WINDOW);
+  const hi = Math.min(itemCount - 1, activeIndex + EXPLORE_REEL_VIRTUAL_WINDOW);
+  return slideIndex >= lo && slideIndex <= hi;
+}
+
+function metricsFromFeedItem(item: any): ExploreReelSlideMetrics | null {
+  const raw = item?.metrics;
+  if (!raw || typeof raw !== "object") return null;
+  const encounters = Number((raw as { encounters?: unknown }).encounters);
+  if (!Number.isFinite(encounters)) return null;
+  const num = (key: string) => {
+    const value = Number((raw as Record<string, unknown>)[key]);
+    return Number.isFinite(value) ? value : 0;
+  };
+  return {
+    views: num("views"),
+    encounters,
+    completes: num("completes"),
+    saves: num("saves"),
+    shares: num("shares"),
+    comments: num("comments"),
+  };
+}
 
 function youtubePosterUrl(videoUrl: string): string | null {
   const id = extractYoutubeID(videoUrl);
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
 }
 
+function formatReelTime(seconds: number): string {
+  const s = !Number.isFinite(seconds) || seconds < 0 ? 0 : seconds;
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
 function ExploreReelScrubber({
   videoRef,
   active,
+  layoutMode,
 }: {
   videoRef: RefObject<VideoPlayerRef | null>;
   active: boolean;
+  layoutMode: ExploreReelLayoutMode;
 }) {
   const [t, setT] = useState(0);
   const [dur, setDur] = useState(0);
+  const [seeking, setSeeking] = useState(false);
+  const [seekT, setSeekT] = useState(0);
 
   useEffect(() => {
     if (!active) return undefined;
     const id = window.setInterval(() => {
       const p = videoRef.current;
       if (!p?.isReady()) return;
-      setT(p.getCurrentTime());
+      if (!seeking) setT(p.getCurrentTime());
       setDur(Math.max(0, p.getDuration()));
     }, 300);
     return () => window.clearInterval(id);
-  }, [active, videoRef]);
+  }, [active, videoRef, seeking]);
 
   const safeDur = dur > 0 ? dur : 1;
+  const shown = seeking ? seekT : t;
+  const remaining = Math.max(0, safeDur - shown);
+
   return (
     <div className="pointer-events-auto z-[92] w-full px-1">
+      {seeking ? (
+        <div className="mb-1 flex items-center justify-between text-[10px] font-medium text-white tabular-nums drop-shadow">
+          <span>{formatReelTime(shown)}</span>
+          <span>-{formatReelTime(remaining)}</span>
+        </div>
+      ) : null}
       <input
         type="range"
         aria-label="Video position"
         min={0}
         max={safeDur}
         step={0.25}
-        value={Math.min(t, safeDur)}
-        onPointerDown={e => e.stopPropagation()}
+        value={Math.min(shown, safeDur)}
+        onPointerDown={e => {
+          e.stopPropagation();
+          setSeekT(t);
+          setSeeking(true);
+        }}
+        onPointerUp={e => {
+          e.stopPropagation();
+          setSeeking(false);
+        }}
+        onPointerCancel={() => setSeeking(false)}
         onClick={e => e.stopPropagation()}
         onChange={e => {
           const next = Number(e.target.value);
+          setSeekT(next);
           const p = videoRef.current;
           if (!p?.isReady()) return;
           p.seekTo(next);
           setT(next);
         }}
-        className="accent-primary h-0.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+        className={exploreReelScrubberTrackClassName(layoutMode)}
       />
     </div>
   );
@@ -203,6 +316,11 @@ type ExploreFeedSlideVideoProps = {
   activeIndexRef: MutableRefObject<number>;
   totalItems: number;
   feedSurfaceActive: boolean;
+  layoutMode: ExploreReelLayoutMode;
+  presentationVideoSize: { width: number; height: number } | null;
+  fullPresentationFit: "cover" | "contain";
+  isMetadataLoading: boolean;
+  onPlayerAspectInfo?: (info: YoutubeAspectInfo) => void;
   videoRef: RefObject<VideoPlayerRef | null>;
   onActivePlaying: () => void;
   onActiveReelEnded?: () => void;
@@ -219,6 +337,11 @@ function ExploreFeedSlideVideo({
   activeIndexRef,
   totalItems,
   feedSurfaceActive,
+  layoutMode,
+  presentationVideoSize,
+  fullPresentationFit,
+  isMetadataLoading,
+  onPlayerAspectInfo,
   videoRef,
   onActivePlaying,
   onActiveReelEnded,
@@ -227,23 +350,8 @@ function ExploreFeedSlideVideo({
   playerRetryKey = 0,
   onEngageUnlocked,
 }: ExploreFeedSlideVideoProps) {
-  const { aspectInfo, isLoading: aspectLoading } = useYoutubeVideoAspect(
-    item.url
-  );
-  const presentationVideoSize = useMemo(() => {
-    if (!aspectInfo || aspectInfo.width <= 0 || aspectInfo.height <= 0)
-      return null;
-    return { width: aspectInfo.width, height: aspectInfo.height };
-  }, [aspectInfo]);
-
-  const isFullBleed =
-    aspectInfo?.classification === "portrait" ||
-    aspectInfo?.classification === "square";
-
-  const explorePresentationFit = useMemo<"contain" | "cover">(
-    () => (isFullBleed ? "cover" : "contain"),
-    [isFullBleed]
-  );
+  const posterObjectFitClass =
+    fullPresentationFit === "contain" ? "object-contain" : "object-cover";
 
   const playbackActive = feedSurfaceActive && slideIndex === activeIndex;
 
@@ -330,7 +438,10 @@ function ExploreFeedSlideVideo({
   return (
     <div
       data-testid="explore-video-shell"
-      className={`relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden ${isFullBleed ? "" : ""}`}
+      className={cn(
+        "relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden",
+        exploreReelVideoPlayerClassName(layoutMode)
+      )}
     >
       <VideoSurfaceBadges
         {...pickVideoSurfaceBadgeProps(
@@ -339,15 +450,27 @@ function ExploreFeedSlideVideo({
         )}
         position="top-right"
       />
+      <LiveStreamFeedBadge
+        liveStatus={(item as { liveStatus?: string | null }).liveStatus ?? null}
+        className="pointer-events-none absolute top-3 left-3 z-[56]"
+      />
       {showPlayerMount ? (
         <>
-          {aspectLoading ? (
+          {isMetadataLoading ? (
             <div className="absolute inset-0 z-[25] flex items-center justify-center bg-black">
-              <div className="aspect-video max-h-full w-full max-w-full animate-pulse bg-white/10 sm:max-w-[min(100%,520px)]" />
+              <div
+                className={cn(
+                  "max-h-full w-full max-w-full animate-pulse bg-white/10",
+                  layoutMode === "mobileLandscape" ||
+                    layoutMode === "desktopLandscape"
+                    ? "aspect-video sm:max-w-[min(100%,520px)]"
+                    : "h-full max-w-[min(100%,480px)]"
+                )}
+              />
             </div>
           ) : null}
           <div
-            className="absolute inset-0 z-30"
+            className={exploreReelTapCaptureClassName()}
             onPointerDownCapture={e => {
               e.preventDefault();
               e.stopPropagation();
@@ -356,7 +479,7 @@ function ExploreFeedSlideVideo({
             aria-hidden
           />
           {pauseFlash ? (
-            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
+            <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center">
               <span className="rounded-full bg-black/50 p-4 text-white">
                 {pauseFlash === "pause" ? "❚❚" : "▶"}
               </span>
@@ -372,13 +495,9 @@ function ExploreFeedSlideVideo({
             loadingBackdropClassName="bg-black"
             showLoadingLabel={false}
             transitionLoadingOverlay={false}
-            fullPresentationFit={explorePresentationFit}
+            fullPresentationFit={fullPresentationFit}
             presentationVideoSize={presentationVideoSize}
-            className={
-              isFullBleed
-                ? "min-h-0 min-w-0 flex-1"
-                : "mt-16 min-h-0 min-w-0 flex-1 sm:mt-20"
-            }
+            className={exploreReelVideoPlayerClassName(layoutMode)}
             onError={() => {
               if (slideIndex === activeIndex) onPlayerError?.();
             }}
@@ -400,11 +519,15 @@ function ExploreFeedSlideVideo({
               });
               onActiveReelEnded?.();
             }}
+            onVideoAspectInfo={onPlayerAspectInfo}
           />
         </>
       ) : inPreloadBand ? (
         <div
-          className={`relative flex min-h-[45vh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-black ${isFullBleed ? "" : "mt-16 sm:mt-20"}`}
+          className={cn(
+            "relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-black",
+            exploreReelVideoPlayerClassName(layoutMode)
+          )}
         >
           {/* Explore off-stage slides: YouTube poster (external CDN). */}
           {poster ? (
@@ -412,7 +535,10 @@ function ExploreFeedSlideVideo({
             <img
               alt=""
               src={poster}
-              className="h-full w-auto max-w-full object-contain opacity-90"
+              className={cn(
+                "h-full w-full max-w-full opacity-90",
+                posterObjectFitClass
+              )}
             />
           ) : (
             <p className="text-muted-foreground px-6 text-center text-sm">
@@ -420,6 +546,159 @@ function ExploreFeedSlideVideo({
             </p>
           )}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExploreFeedSlideStage({
+  item,
+  isMobile,
+  children,
+}: {
+  item: { url?: string | null; durationSeconds?: number | null };
+  isMobile: boolean;
+  children: (ctx: {
+    layoutMode: ExploreReelLayoutMode;
+    presentationVideoSize: { width: number; height: number } | null;
+    fullPresentationFit: "cover" | "contain";
+    isMetadataLoading: boolean;
+    onPlayerAspectInfo: (info: YoutubeAspectInfo) => void;
+  }) => ReactNode;
+}) {
+  const videoUrl = typeof item.url === "string" ? item.url : null;
+  const durationSeconds =
+    typeof item.durationSeconds === "number" ? item.durationSeconds : null;
+  const {
+    layoutMode,
+    presentationVideoSize,
+    fullPresentationFit,
+    isMetadataLoading,
+    onPlayerAspectInfo,
+  } = useExploreReelLayoutMode(videoUrl, isMobile, { durationSeconds });
+  return (
+    <>
+      {children({
+        layoutMode,
+        presentationVideoSize,
+        fullPresentationFit,
+        isMetadataLoading,
+        onPlayerAspectInfo,
+      })}
+    </>
+  );
+}
+
+type ExploreReelSlideMetrics = {
+  views: number;
+  encounters: number;
+  completes: number;
+  saves: number;
+  shares: number;
+  comments: number;
+};
+
+type ExploreReelSlideTitleProps = {
+  item: any;
+  layoutMode: ExploreReelLayoutMode;
+  reelMuted: boolean;
+  setReelMuted: (muted: boolean) => void;
+  videoRef: RefObject<VideoPlayerRef | null>;
+  setExploreCommentOpen: (open: boolean) => void;
+  active: any;
+  metrics: ExploreReelSlideMetrics | null;
+  metricsRestrictedCommunity: { id: string; name: string } | null;
+  className?: string;
+};
+
+function ExploreReelSlideTitle({
+  item,
+  layoutMode,
+  reelMuted,
+  setReelMuted,
+  videoRef,
+  setExploreCommentOpen,
+  active,
+  metrics,
+  metricsRestrictedCommunity,
+  className,
+}: ExploreReelSlideTitleProps) {
+  return (
+    <div className={className}>
+      <div className={exploreReelTitleRowClassName(layoutMode)}>
+        <button
+          type="button"
+          title={reelMuted ? "Unmute" : "Mute"}
+          className={exploreReelMuteButtonClassName(layoutMode)}
+          onPointerDown={e => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={e => {
+            e.stopPropagation();
+            const p = videoRef.current;
+            if (!p?.isReady()) return;
+            if (reelMuted) p.unmute();
+            else p.mute();
+            setReelMuted(p.isMuted());
+          }}
+        >
+          {reelMuted ? (
+            <VolumeX className={exploreReelMuteIconClassName(layoutMode)} />
+          ) : (
+            <Volume2 className={exploreReelMuteIconClassName(layoutMode)} />
+          )}
+        </button>
+        <span className="min-w-0 truncate">{item.title.substring(0, 30)}</span>
+        {item.title.length > 30 ? ".." : ""}
+        {item.title.length > 30 ? (
+          <button
+            type="button"
+            aria-label="Open comments"
+            className={exploreReelTitleCommentButtonClassName(layoutMode)}
+            onPointerDown={e => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={e => {
+              e.stopPropagation();
+              setExploreCommentOpen(true);
+            }}
+          >
+            <ArrowRight
+              className={exploreReelTitleCommentIconClassName(layoutMode)}
+            />
+          </button>
+        ) : null}
+      </div>
+      {metricsRestrictedCommunity ? (
+        <p className={exploreReelMetricsClassName(layoutMode)}>
+          Insights hidden —{" "}
+          <Link
+            href={`/explore?tab=join&joinCommunity=${encodeURIComponent(metricsRestrictedCommunity.id)}`}
+            className="pointer-events-auto underline"
+          >
+            Join {metricsRestrictedCommunity.name}
+          </Link>{" "}
+          for full metrics.
+        </p>
+      ) : metrics ? (
+        // Single metrics row: Save · Share · (eye encounter) · Comments.
+        // The eye/encounter metric sits directly in front of the comment count.
+        <p className={exploreReelMetricsClassName(layoutMode)}>
+          {metrics.saves} saves · {metrics.shares} shares · {metrics.comments}{" "}
+          comments ·
+          <span className="inline-flex items-center gap-1">
+            <Eye
+              className="size-3"
+              aria-hidden
+            />
+            {metrics.encounters} seen
+          </span>
+          {active?.event?.showViewCountOnVideos === true ? (
+            <span> · {metrics.views} views</span>
+          ) : null}
+        </p>
       ) : null}
     </div>
   );
@@ -438,6 +717,7 @@ export interface ExploreFeedClientProps {
     language: string;
     country: string;
   };
+  ssrBoot?: { items: any[]; seed: string; bucketId: number } | null;
 }
 
 export type ExploreFeedClientHandle = {
@@ -455,6 +735,7 @@ export const ExploreFeedClient = forwardRef<
 >(function ExploreFeedClient(
   {
     characters,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     characterSets: _characterSets,
     feedSurfaceActive = true,
     feedMode = "trends",
@@ -466,6 +747,7 @@ export const ExploreFeedClient = forwardRef<
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const exploreReturnTo =
     typeof pathname === "string"
       ? `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`
@@ -474,25 +756,23 @@ export const ExploreFeedClient = forwardRef<
   const [savesRefreshEpoch, setSavesRefreshEpoch] = useState(0);
   const videoRef = useRef<VideoPlayerRef>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const communityIdsKey = useMemo(
-    () => [...(communityIds ?? [])].sort().join("|"),
-    [communityIds]
-  );
+  const { isAuthenticated } = useSelector((s: RootState) => s.auth);
+  const hasExploreSession = hasExploreSessionAuth(isAuthenticated);
   const sessionKeyParams = useMemo<ExploreFeedSessionKeyParams>(
     () => ({
       feedMode,
       communityIds,
       trendsFilters,
     }),
-    [feedMode, communityIdsKey, communityIds, trendsFilters]
+    [feedMode, communityIds, trendsFilters]
+  );
+  const feedIdentity = useMemo(
+    () => buildExploreFeedIdentity(sessionKeyParams, { hasExploreSession }),
+    [sessionKeyParams, hasExploreSession]
   );
   const restoredSessionRef = useRef(
     typeof window !== "undefined"
-      ? restoreExploreFeedSession({
-          feedMode,
-          communityIds,
-          trendsFilters,
-        })
+      ? restoreExploreFeedSession(sessionKeyParams, { hasExploreSession })
       : null
   );
   const exploreBootRef = useRef<{ items: any[]; seed?: string } | null>(null);
@@ -505,16 +785,19 @@ export const ExploreFeedClient = forwardRef<
       };
     } else {
       const useTrendsPrefetchBoot =
-        feedMode === "trends" &&
-        trendsFilters.eventTypes.length === 0 &&
-        !trendsFilters.language?.trim() &&
-        !trendsFilters.country?.trim();
+        isUnscopedGlobalTrendsIdentity(sessionKeyParams);
       exploreBootRef.current = useTrendsPrefetchBoot
-        ? takeExploreFeedBoot({ feedMode: "trends" })
+        ? takeExploreFeedBoot({
+            feedMode: "trends",
+            identity: sessionKeyParams,
+          })
         : feedMode === "saves"
           ? takeExploreFeedBoot({ feedMode: "saves" })
           : feedMode === "community"
-            ? takeExploreFeedBoot({ feedMode: "community" })
+            ? takeExploreFeedBoot({
+                feedMode: "community",
+                communityIds,
+              })
             : { items: [], seed: undefined };
     }
   }
@@ -547,9 +830,44 @@ export const ExploreFeedClient = forwardRef<
   const [savedContents, setSavedContents] = useState<any[]>([]);
   const [saveBusy, setSaveBusy] = useState(false);
   const [scrollSyncEpoch, setScrollSyncEpoch] = useState(0);
+  const [paginationRetryEpoch, setPaginationRetryEpoch] = useState(0);
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
 
   const { user } = useSelector((s: RootState) => s.auth);
+
+  const feedQueryKey = useMemo(() => {
+    if (
+      (feedMode === "saves" || feedMode === "community") &&
+      savesRefreshEpoch > 0
+    ) {
+      return `${feedIdentity.storageKey}:r:${savesRefreshEpoch}`;
+    }
+    return feedIdentity.storageKey;
+  }, [feedIdentity.storageKey, feedMode, savesRefreshEpoch]);
+
+  const loadedQueryKeyRef = useRef<string | null>(null);
+  if (
+    loadedQueryKeyRef.current === null &&
+    exploreBootRef.current!.items.length > 0
+  ) {
+    loadedQueryKeyRef.current = feedQueryKey;
+  }
+  const feedLoadGenerationRef = useRef(0);
+  const paginationFailCountRef = useRef(0);
+  const paginationQueryKeyRef = useRef<string | null>(null);
+  const paginationRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const schedulePaginationRetry = useCallback((delayMs: number) => {
+    if (paginationRetryTimerRef.current) {
+      clearTimeout(paginationRetryTimerRef.current);
+    }
+    paginationRetryTimerRef.current = setTimeout(() => {
+      paginationRetryTimerRef.current = null;
+      setPaginationRetryEpoch(e => e + 1);
+    }, delayMs);
+  }, []);
 
   useEffect(() => {
     const muted = !loadReelSoundPref();
@@ -571,10 +889,24 @@ export const ExploreFeedClient = forwardRef<
   const activeEventId = active?.event?.id ?? "";
   const activeChannelId = active?.id;
 
+  const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
+
   const playingVideoKey = useMemo(() => {
     if (!activeEventId || activeChannelId == null) return "";
     return `${activeChannelId}:${activeEventId}`;
   }, [activeChannelId, activeEventId]);
+
+  // Warm comment/tips/profile drawer payloads for the active reel so opening
+  // any drawer is instant (no first-open wait). Idle-scheduled and cached, so
+  // this does not compete with playback/preload work.
+  useEffect(() => {
+    if (!activeEventId || activeChannelId == null) return;
+    prefetchChannelDrawers({
+      eventId: activeEventId,
+      channelId: String(activeChannelId),
+      authenticated: Boolean(getAuthToken()),
+    });
+  }, [activeEventId, activeChannelId]);
 
   const [videoTipCatalog, setVideoTipCatalog] = useState<TvEventCatalog | null>(
     null
@@ -709,22 +1041,10 @@ export const ExploreFeedClient = forwardRef<
     } finally {
       setSaveBusy(false);
     }
-  }, [
-    refreshSavedContents,
-    saveExploreChannelId,
-    savedContents,
-    user,
-    user?.id,
-    user?.role,
-  ]);
+  }, [refreshSavedContents, saveExploreChannelId, savedContents, user]);
 
-  const [metrics, setMetrics] = useState<{
-    encounters: number;
-    completes: number;
-    saves: number;
-    shares: number;
-    comments: number;
-  } | null>(null);
+  const [baseMetrics, setBaseMetrics] =
+    useState<ExploreReelSlideMetrics | null>(null);
   const [metricsRestrictedCommunity, setMetricsRestrictedCommunity] = useState<{
     id: string;
     name: string;
@@ -732,13 +1052,27 @@ export const ExploreFeedClient = forwardRef<
 
   useEffect(() => {
     if (!feedSurfaceActive) {
-      setMetrics(null);
+      setBaseMetrics(null);
       setMetricsRestrictedCommunity(null);
       return;
     }
     const rawId = activeChannelId != null ? String(activeChannelId) : "";
     if (!rawId) {
-      setMetrics(null);
+      setBaseMetrics(null);
+      setMetricsRestrictedCommunity(null);
+      return;
+    }
+
+    const fromPayload = metricsFromFeedItem(active);
+    if (fromPayload) {
+      setBaseMetrics(fromPayload);
+      setMetricsRestrictedCommunity(null);
+      return;
+    }
+
+    const mayBeRestricted = Boolean(active?.community?.id);
+    if (!mayBeRestricted) {
+      setBaseMetrics(null);
       setMetricsRestrictedCommunity(null);
       return;
     }
@@ -756,7 +1090,7 @@ export const ExploreFeedClient = forwardRef<
             "restricted" in d &&
             (d as { restricted?: boolean }).restricted === true
           ) {
-            setMetrics(null);
+            setBaseMetrics(null);
             const c = (d as { community?: { id: string; name: string } })
               .community;
             setMetricsRestrictedCommunity(
@@ -765,9 +1099,9 @@ export const ExploreFeedClient = forwardRef<
             return;
           }
           setMetricsRestrictedCommunity(null);
-          setMetrics(d as ExploreChannelMetrics);
+          setBaseMetrics(d as ExploreChannelMetrics);
         } else {
-          setMetrics(null);
+          setBaseMetrics(null);
           setMetricsRestrictedCommunity(null);
         }
       })();
@@ -777,7 +1111,16 @@ export const ExploreFeedClient = forwardRef<
       cancelled = true;
       window.clearTimeout(probeTimer);
     };
-  }, [activeChannelId, feedSurfaceActive]);
+  }, [active, activeChannelId, feedSurfaceActive]);
+
+  const metrics = useChannelEngagementRealtime({
+    channelId: activeChannelId != null ? String(activeChannelId) : null,
+    initial: baseMetrics,
+    enabled:
+      feedSurfaceActive &&
+      Boolean(activeChannelId) &&
+      !metricsRestrictedCommunity,
+  });
   const { openWalletModalNonce } = useWalletTopupTipResume(
     activeEventId || undefined,
     setIsTipDrawerOpen
@@ -792,10 +1135,16 @@ export const ExploreFeedClient = forwardRef<
     setReelEngageUnlocked(false);
   }, [activeIndex]);
 
+  const didMarkFirstPlayRef = useRef(false);
+
   const handleExploreClipPlaying = useCallback(() => {
     const idx = activeIndexRef.current;
     const cur = activeRef.current;
     if (!cur) return;
+    if (!didMarkFirstPlayRef.current) {
+      didMarkFirstPlayRef.current = true;
+      markExplorePerf("explore-first-playable");
+    }
     const scheduleItemId = `explore-${cur.id}`;
     if (lastTrackedItemIdRef.current !== scheduleItemId) {
       lastTrackedItemIdRef.current = scheduleItemId;
@@ -849,26 +1198,35 @@ export const ExploreFeedClient = forwardRef<
 
   useEffect(() => {
     if (items.length === 0) return;
-    persistExploreFeedSession(sessionKeyParams, {
-      items,
-      seed: seedRef.current,
-      activeIndex,
-      scrollTop: scrollRef.current?.scrollTop,
-    });
-  }, [items, activeIndex, sessionKeyParams]);
+    persistExploreFeedSession(
+      sessionKeyParams,
+      {
+        items,
+        seed: seedRef.current,
+        activeIndex,
+        scrollTop: scrollRef.current?.scrollTop,
+      },
+      { hasExploreSession }
+    );
+  }, [items, activeIndex, sessionKeyParams, hasExploreSession]);
 
   useEffect(() => {
     return () => {
       const curItems = itemsRef.current;
       if (curItems.length === 0) return;
-      persistExploreFeedSession(sessionKeyParams, {
-        items: curItems,
-        seed: seedRef.current,
-        activeIndex: activeIndexRef.current,
-        scrollTop: scrollRef.current?.scrollTop,
-      });
+      persistExploreFeedSession(
+        sessionKeyParams,
+        {
+          items: curItems,
+          seed: seedRef.current,
+          activeIndex: activeIndexRef.current,
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+          scrollTop: scrollRef.current?.scrollTop,
+        },
+        { hasExploreSession }
+      );
     };
-  }, [sessionKeyParams]);
+  }, [sessionKeyParams, hasExploreSession]);
 
   useEffect(() => {
     const top = restoredSessionRef.current?.scrollTop;
@@ -881,7 +1239,11 @@ export const ExploreFeedClient = forwardRef<
 
   const fetchBatch = useCallback(
     async (list: any[], count: number) => {
-      if (feedMode === "community" && !(communityIds?.length ?? 0)) {
+      const scope = feedIdentity.fetchScope;
+      if (
+        scope.feedMode === "community" &&
+        !(scope.communityIds?.length ?? 0)
+      ) {
         return [];
       }
       const r = await postExploreFeedBatchAction(
@@ -889,25 +1251,13 @@ export const ExploreFeedClient = forwardRef<
         seedRef.current,
         count,
         undefined,
-        {
-          feedMode,
-          ...(communityIds?.length ? { communityIds } : {}),
-          eventVideoTypes: trendsFilters.eventTypes.length
-            ? trendsFilters.eventTypes
-            : undefined,
-          language: trendsFilters.language?.trim()
-            ? trendsFilters.language.trim()
-            : undefined,
-          country: trendsFilters.country?.trim()
-            ? trendsFilters.country.trim()
-            : undefined,
-        }
+        scope
       );
       if (!r.success || !r.data) {
         toast.error(r.error ?? r.message ?? "Could not load explore feed");
         return null;
       }
-      if (feedMode === "saves" && r.data.savesFeedEligible === false) {
+      if (scope.feedMode === "saves" && r.data.savesFeedEligible === false) {
         setSavesBlocked(r.data.savesFeedReason ?? "auth");
         if (r.data.seed) seedRef.current = r.data.seed;
         return [];
@@ -916,14 +1266,15 @@ export const ExploreFeedClient = forwardRef<
       if (r.data.seed) seedRef.current = r.data.seed;
       return Array.isArray(r.data.items) ? (r.data.items as any[]) : [];
     },
-    [
-      feedMode,
-      communityIds,
-      trendsFilters.eventTypes,
-      trendsFilters.language,
-      trendsFilters.country,
-    ]
+    [feedIdentity]
   );
+
+  useEffect(() => {
+    if (feedMode !== "saves" && feedMode !== "community") return;
+    const onAuthChanged = () => setSavesRefreshEpoch(e => e + 1);
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [feedMode]);
 
   useEffect(() => {
     if (feedMode !== "saves") return;
@@ -935,31 +1286,19 @@ export const ExploreFeedClient = forwardRef<
       }
     };
     const onSavesChanged = () => maybeReload();
+    const onAuthChanged = () => maybeReload();
     const onVis = () => {
       if (document.visibilityState === "visible") maybeReload();
     };
     window.addEventListener("tipmanna:saves-changed", onSavesChanged);
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
     document.addEventListener("visibilitychange", onVis);
     return () => {
       window.removeEventListener("tipmanna:saves-changed", onSavesChanged);
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [feedMode]);
-
-  useEffect(() => {
-    if (feedMode !== "saves" || savesRefreshEpoch === 0) return;
-    let cancelled = false;
-    void (async () => {
-      endOfFeedRef.current = false;
-      setSavesBlocked(null);
-      const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
-      if (cancelled) return;
-      setItems(batch ?? []);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [savesRefreshEpoch, feedMode, fetchBatch]);
 
   const scrollToIndex = useCallback(
     (index: number, behavior: ScrollBehavior = "auto") => {
@@ -993,6 +1332,17 @@ export const ExploreFeedClient = forwardRef<
   const executeOpenInExplore = useCallback(
     async (target: ExploreFeedOpenTarget) => {
       const { videoId, eventId, channelSnapshot } = target;
+      const snapshotLiveStatus =
+        channelSnapshot &&
+        typeof channelSnapshot === "object" &&
+        typeof (channelSnapshot as { liveStatus?: unknown }).liveStatus ===
+          "string"
+          ? String((channelSnapshot as { liveStatus: string }).liveStatus)
+          : null;
+      if (snapshotLiveStatus === "UPCOMING") {
+        openingVideoIdRef.current = null;
+        return;
+      }
       const myGen = ++openGenerationRef.current;
       scrollLayoutRetryRef.current = 0;
       openingVideoIdRef.current = videoId;
@@ -1012,6 +1362,10 @@ export const ExploreFeedClient = forwardRef<
 
       if (snap) {
         const row = channelSnapshot as any;
+        if (row.liveStatus === "UPCOMING") {
+          openingVideoIdRef.current = null;
+          return;
+        }
         setItems(prev => {
           if (myGen !== openGenerationRef.current) return prev;
           if (openingVideoIdRef.current !== videoId) return prev;
@@ -1039,7 +1393,8 @@ export const ExploreFeedClient = forwardRef<
         !row ||
         (typeof row.restricted === "boolean" && row.restricted) ||
         typeof row.url !== "string" ||
-        !row.url.trim()
+        !row.url.trim() ||
+        row.liveStatus === "UPCOMING"
       ) {
         openingVideoIdRef.current = null;
         return;
@@ -1114,85 +1469,258 @@ export const ExploreFeedClient = forwardRef<
     initTvAnalyticsRuntime();
   }, []);
 
+  /** Initial boot + intentional reload when feedQueryKey changes (filters, mode, auth). */
   useEffect(() => {
+    if (loadedQueryKeyRef.current === feedQueryKey) {
+      setInitialLoading(false);
+      return;
+    }
+
+    const gen = ++feedLoadGenerationRef.current;
     let cancelled = false;
+    const isIntentionalReload = loadedQueryKeyRef.current !== null;
     endOfFeedRef.current = false;
     setSavesBlocked(null);
-
-    if (exploreBootRef.current!.items.length > 0) {
-      setInitialLoading(false);
-      return () => {
-        cancelled = true;
-      };
+    if (isIntentionalReload) {
+      setActiveIndex(0);
     }
 
     void (async () => {
-      if (feedMode === "community" && (!(communityIds?.length ?? 0) || !user)) {
-        setItems([]);
+      try {
+        if (
+          feedMode === "community" &&
+          (!(communityIds?.length ?? 0) || !hasExploreSession)
+        ) {
+          if (cancelled || gen !== feedLoadGenerationRef.current) return;
+          setItems([]);
+          loadedQueryKeyRef.current = feedQueryKey;
+          return;
+        }
+        const warmed = await waitExploreFeedPrefetch({
+          feedMode,
+          communityIds,
+          identity: sessionKeyParams,
+        });
+        if (cancelled || gen !== feedLoadGenerationRef.current) return;
+        if (
+          isUnscopedGlobalTrendsIdentity(sessionKeyParams) &&
+          warmed?.items?.length
+        ) {
+          seedRef.current = warmed.seed;
+          setItems(warmed.items);
+          loadedQueryKeyRef.current = feedQueryKey;
+          return;
+        }
+        if (feedMode === "saves" && warmed?.items?.length) {
+          seedRef.current = warmed.seed;
+          setItems(warmed.items);
+          loadedQueryKeyRef.current = feedQueryKey;
+          return;
+        }
+        if (feedMode === "community" && warmed?.items?.length) {
+          seedRef.current = warmed.seed;
+          setItems(warmed.items);
+          loadedQueryKeyRef.current = feedQueryKey;
+          return;
+        }
+        const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
+        if (cancelled || gen !== feedLoadGenerationRef.current) return;
+        setItems(batch ?? []);
+        loadedQueryKeyRef.current = feedQueryKey;
+      } finally {
+        if (cancelled || gen !== feedLoadGenerationRef.current) return;
         setInitialLoading(false);
-        return;
       }
-      const warmed = await waitExploreFeedPrefetch();
-      if (cancelled) return;
-      if (
-        feedMode === "trends" &&
-        !(communityIds?.length ?? 0) &&
-        trendsFilters.eventTypes.length === 0 &&
-        !trendsFilters.language?.trim() &&
-        !trendsFilters.country?.trim() &&
-        warmed?.items?.length
-      ) {
-        seedRef.current = warmed.seed;
-        setItems(warmed.items);
-        setInitialLoading(false);
-        return;
-      }
-      const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
-      if (cancelled) return;
-      setItems(batch ?? []);
-      setInitialLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [
+    feedQueryKey,
     fetchBatch,
     feedMode,
-    communityIdsKey,
-    communityIds?.length,
-    trendsFilters.eventTypes,
-    trendsFilters.language,
-    trendsFilters.country,
-    user,
+    communityIds,
+    hasExploreSession,
+    sessionKeyParams,
   ]);
 
   useEffect(() => {
+    if (!feedSurfaceActive) return;
+
+    if (paginationQueryKeyRef.current !== feedQueryKey) {
+      paginationQueryKeyRef.current = feedQueryKey;
+      paginationFailCountRef.current = 0;
+    }
+
     if (endOfFeedRef.current) return;
     const len = itemsRef.current.length;
-    if (len === 0 || activeIndex < len - EXPLORE_NEAR_END_SLOTS) return;
+    if (len === 0 || activeIndex < len - EXPLORE_NEAR_END_SLOTS) {
+      paginationFailCountRef.current = 0;
+      return;
+    }
     if (loadingMoreRef.current) return;
     loadingMoreRef.current = true;
+
+    const loadGen = feedLoadGenerationRef.current;
+    const queryKey = loadedQueryKeyRef.current;
+    const excludeCount = itemsRef.current.length;
+
+    logExplorePagination({
+      phase: "request",
+      feedMode,
+      itemCount: len,
+      activeIndex,
+    });
+
     void (async () => {
-      const batch = await fetchBatch(itemsRef.current, EXPLORE_FEED_PAGE_COUNT);
-      loadingMoreRef.current = false;
-      if (batch === null) return;
-      if (batch.length === 0) {
-        endOfFeedRef.current = true;
-        return;
-      }
-      setItems(prev => {
-        const seen = new Set(prev.map((x: any) => x.id));
-        const out = [...prev];
-        for (const it of batch) {
-          if (it?.id && !seen.has(it.id)) {
-            seen.add(it.id);
-            out.push(it);
+      try {
+        const batch = await fetchBatch(
+          itemsRef.current,
+          EXPLORE_FEED_PAGE_COUNT
+        );
+        if (loadGen !== feedLoadGenerationRef.current) return;
+        if (queryKey !== loadedQueryKeyRef.current) return;
+
+        if (batch === null) {
+          paginationFailCountRef.current += 1;
+          const backoffMs = computePaginationBackoffMs(
+            paginationFailCountRef.current
+          );
+          logExplorePagination({
+            phase: "failure",
+            feedMode,
+            itemCount: itemsRef.current.length,
+            failStreak: paginationFailCountRef.current,
+            backoffMs,
+            activeIndex: activeIndexRef.current,
+            reason: "transient",
+          });
+          const curLen = itemsRef.current.length;
+          const idx = activeIndexRef.current;
+          const stillNearEnd =
+            curLen > 0 && idx >= curLen - EXPLORE_NEAR_END_SLOTS;
+          if (stillNearEnd) {
+            logExplorePagination({
+              phase: "retry",
+              feedMode,
+              itemCount: curLen,
+              failStreak: paginationFailCountRef.current,
+              backoffMs,
+              activeIndex: idx,
+            });
+            schedulePaginationRetry(backoffMs);
           }
+          return;
         }
-        return out;
-      });
+
+        paginationFailCountRef.current = 0;
+
+        if (
+          isConfirmedFeedExhaustion({
+            batchLength: batch.length,
+            feedMode,
+            hadExcludeIds: excludeCount > 0,
+          })
+        ) {
+          endOfFeedRef.current = true;
+          logExplorePagination({
+            phase: "exhaustion",
+            feedMode,
+            itemCount: itemsRef.current.length,
+            activeIndex: activeIndexRef.current,
+          });
+          return;
+        }
+
+        if (batch.length === 0) {
+          return;
+        }
+
+        if (isDuplicateOnlyBatch(itemsRef.current, batch)) {
+          const backoffMs = computePaginationBackoffMs(1);
+          logExplorePagination({
+            phase: "duplicate_batch",
+            feedMode,
+            itemCount: itemsRef.current.length,
+            batchSize: batch.length,
+            newItems: 0,
+            backoffMs,
+            activeIndex: activeIndexRef.current,
+          });
+          logExplorePagination({
+            phase: "retry",
+            feedMode,
+            itemCount: itemsRef.current.length,
+            backoffMs,
+            reason: "duplicate_only",
+          });
+          schedulePaginationRetry(backoffMs);
+          return;
+        }
+
+        setItems(prev => {
+          if (loadGen !== feedLoadGenerationRef.current) return prev;
+          if (queryKey !== loadedQueryKeyRef.current) return prev;
+          const { items: merged, newCount } = mergeBatchDedup(prev, batch);
+          if (newCount > 0) {
+            logExplorePagination({
+              phase: "success",
+              feedMode,
+              itemCount: merged.length,
+              batchSize: batch.length,
+              newItems: newCount,
+              activeIndex: activeIndexRef.current,
+            });
+          }
+          return merged;
+        });
+      } finally {
+        loadingMoreRef.current = false;
+      }
     })();
-  }, [activeIndex, fetchBatch]);
+  }, [
+    activeIndex,
+    fetchBatch,
+    feedMode,
+    feedQueryKey,
+    paginationRetryEpoch,
+    feedSurfaceActive,
+    schedulePaginationRetry,
+  ]);
+
+  /** Resume pagination after transient failures when backend recovers. */
+  useEffect(() => {
+    const tryResumePagination = () => {
+      if (endOfFeedRef.current) return;
+      const len = itemsRef.current.length;
+      const idx = activeIndexRef.current;
+      if (len === 0 || idx < len - EXPLORE_NEAR_END_SLOTS) return;
+      paginationFailCountRef.current = 0;
+      logExplorePagination({
+        phase: "resume",
+        feedMode,
+        itemCount: len,
+        activeIndex: idx,
+      });
+      setPaginationRetryEpoch(e => e + 1);
+    };
+
+    const onOnline = () => tryResumePagination();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") tryResumePagination();
+    };
+
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (paginationRetryTimerRef.current) {
+        clearTimeout(paginationRetryTimerRef.current);
+        paginationRetryTimerRef.current = null;
+      }
+    };
+  }, [feedMode]);
 
   /** Same-height snap slides: derive active index from scroll (stable vs partial IntersectionObserver batches). */
   useEffect(() => {
@@ -1242,6 +1770,8 @@ export const ExploreFeedClient = forwardRef<
   }, [items.length]);
 
   useEffect(() => {
+    if (!feedSurfaceActive) return;
+
     const cur = items[activeIndex];
     if (!cur) return;
 
@@ -1271,14 +1801,10 @@ export const ExploreFeedClient = forwardRef<
         communityId: cur.community?.id ? cur.community.id : null,
       });
     });
-  }, [activeIndex, items, feedMode]);
+  }, [activeIndex, items, feedMode, feedSurfaceActive]);
 
   if (initialLoading) {
-    return (
-      <div className="flex h-[100dvh] items-center justify-center bg-black text-white">
-        Loading feed…
-      </div>
-    );
+    return <ExploreFeedSkeleton />;
   }
 
   if (items.length === 0) {
@@ -1313,15 +1839,19 @@ export const ExploreFeedClient = forwardRef<
               Sign in
             </Button>
           </div>
-          <SignInDialog
+          <TipperEmailOtpSignInDialog
             open={signInOpen}
             onOpenChange={setSignInOpen}
-            returnTo={exploreReturnTo}
+            signInTitle="Sign in to view your saves feed"
+            onVerified={() => {
+              setSavesBlocked(null);
+              setSavesRefreshEpoch(e => e + 1);
+            }}
           />
         </>
       );
     }
-    if (feedMode === "community" && !user) {
+    if (feedMode === "community" && !hasExploreSession) {
       return (
         <>
           <div className="flex h-[100dvh] flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white">
@@ -1336,10 +1866,11 @@ export const ExploreFeedClient = forwardRef<
               Sign in
             </Button>
           </div>
-          <SignInDialog
+          <TipperEmailOtpSignInDialog
             open={signInOpen}
             onOpenChange={setSignInOpen}
-            returnTo={exploreReturnTo}
+            signInTitle="Sign in to browse community clips"
+            onVerified={() => setSavesRefreshEpoch(e => e + 1)}
           />
         </>
       );
@@ -1390,282 +1921,389 @@ export const ExploreFeedClient = forwardRef<
   }
 
   return (
-    <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-black">
+    <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-black">
       <div
         data-testid="explore-feed-scroll"
         ref={scrollRef}
         className={cn(
-          "min-h-0 w-full max-w-[100vw] min-w-0 flex-1 touch-pan-y snap-y snap-mandatory overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]",
+          "h-full min-h-0 w-full max-w-[100vw] min-w-0 flex-1 touch-pan-y snap-y snap-mandatory overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]",
           isTipDrawerOpen && "pointer-events-none select-none"
         )}
       >
-        {items.map((item, i) => (
-          <div
-            key={item.id}
-            data-explore-slide
-            data-index={i}
-            className={cn(
-              "relative flex min-h-0 w-full max-w-[100vw] min-w-0 shrink-0 snap-start snap-always flex-col bg-black",
-              exploreSlideViewportClass(
-                typeof item.url === "string" ? item.url : null
-              )
-            )}
-          >
-            {isInExplorePreloadWindow(i, activeIndex, items.length) ? (
-              <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden">
-                <ExploreFeedSlideVideo
-                  item={item}
-                  slideIndex={i}
-                  activeIndex={activeIndex}
-                  activeIndexRef={activeIndexRef}
-                  totalItems={items.length}
-                  feedSurfaceActive={feedSurfaceActive}
-                  videoRef={videoRef}
-                  onActivePlaying={handleExploreClipPlaying}
-                  onActiveReelEnded={advanceReelAfterEnd}
-                  onActiveReelMuteChange={setReelMuted}
-                  onPlayerError={handleExplorePlayerError}
-                  playerRetryKey={playerRetryKey}
-                  onEngageUnlocked={
-                    i === activeIndex
-                      ? () => setReelEngageUnlocked(true)
-                      : undefined
-                  }
-                />
-              </div>
-            ) : (
-              <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
-                {item.title}
-              </div>
-            )}
-
-            {i === activeIndex ? (
-              <>
-                {activeChannelId != null &&
-                process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
-                  <div className="pointer-events-auto absolute top-14 left-3 z-[13100] max-w-[min(360px,calc(100vw-3rem))]">
-                    <VideoFeatureCardBanner
-                      surfaceChannelId={String(activeChannelId)}
-                      hostSurfaceChannelId={String(activeChannelId)}
-                      compact
-                      onTipFeatured={id => {
-                        setActiveVideoFeatureCardId(id);
-                        setIsTipDrawerOpen(true);
-                      }}
-                    />
-                  </div>
-                ) : null}
-                <div className="pointer-events-none absolute right-3 bottom-28 left-3 space-y-1 text-white">
-                  <div className="flex items-center gap-2 text-sm font-semibold drop-shadow-md">
-                    <button
-                      type="button"
-                      title={reelMuted ? "Unmute" : "Mute"}
-                      className="cursor-pointer rounded bg-black/50 p-1"
-                      onClick={e => {
-                        e.stopPropagation();
-                        const p = videoRef.current;
-                        if (!p?.isReady()) return;
-                        if (reelMuted) p.unmute();
-                        else p.mute();
-                        setReelMuted(!reelMuted);
-                      }}
-                    >
-                      {reelMuted ? (
-                        <VolumeX className="size-4 text-white" />
-                      ) : (
-                        <Volume2 className="size-4 text-white" />
-                      )}
-                    </button>{" "}
-                    {item.title ?? item.event?.eventName}
-                  </div>
-                  {/* <div className="pointer-events-auto flex items-center gap-2">
-                    <SaveHostToggleButton
-                      channelId={
-                        activeChannelId != null ? String(activeChannelId) : null
-                      }
-                      className="rounded bg-black/50 p-1 text-white"
-                      iconClassName="size-4 text-white"
-                    />
-                    
-                  </div> */}
-                  {/* {active?.event?.showAmountRaisedOnVideos !== false ? (
-                    <p className="text-xs opacity-90 drop-shadow-md">
-                      £{liveAmountRaised} raised
-                    </p>
-                  ) : null} */}
-                  {active?.event?.showViewCountOnVideos === true &&
-                  metrics &&
-                  !metricsRestrictedCommunity ? (
-                    <p className="text-[11px] opacity-80 drop-shadow-md">
-                      {metrics.encounters} views
-                    </p>
-                  ) : null}
-                  {metricsRestrictedCommunity ? (
-                    <p className="text-[11px] opacity-80 drop-shadow-md">
-                      Insights hidden —{" "}
-                      <Link
-                        href={`/explore?tab=join&joinCommunity=${encodeURIComponent(metricsRestrictedCommunity.id)}`}
-                        className="pointer-events-auto underline"
-                      >
-                        Join {metricsRestrictedCommunity.name}
-                      </Link>{" "}
-                      for full metrics.
-                    </p>
-                  ) : metrics ? (
-                    <p className="text-[11px] opacity-80 drop-shadow-md">
-                      {metrics.saves} saves · {metrics.shares} shares ·{" "}
-                      {metrics.comments} comments
-                    </p>
-                  ) : null}
-                </div>
-                {reelEngageUnlocked ? (
-                  <div className="pointer-events-auto absolute right-3 bottom-20 left-3 z-[88] [@media(min-width:640px)]:right-14">
-                    <ExploreReelScrubber
-                      videoRef={videoRef}
-                      active={
-                        Boolean(feedSurfaceActive) && Boolean(activeEventId)
-                      }
-                    />
-                  </div>
-                ) : null}
-                {activeEventId ? (
-                  <ImmersiveChannelActionsRail
-                    eventId={activeEventId}
-                    channelId={
-                      activeChannelId != null ? String(activeChannelId) : null
-                    }
-                    videoTitle={
-                      typeof active?.title === "string" ? active.title : ""
-                    }
-                    videoDescription={
-                      typeof (active as { description?: string } | undefined)
-                        ?.description === "string"
-                        ? String(
-                            (active as { description: string }).description
-                          )
-                        : ""
-                    }
-                    numOfTips={liveNumOfTips}
-                    characters={characters as RoomCharacter[]}
-                    onContinueToTip={() => setIsTipDrawerOpen(true)}
-                    hostName={active?.event?.hostName ?? null}
-                    isSaved={isExploreChannelSaved}
-                    saveBusy={saveBusy}
-                    onSaveClick={() => void handleExploreSaveToggle()}
-                    commentOpen={exploreCommentOpen}
-                    onCommentOpenChange={setExploreCommentOpen}
-                    metricsRefreshKey={exploreCommentMetricsRefreshKey}
-                    onShareOpen={() =>
-                      setExploreCommentMetricsRefreshKey(k => k + 1)
-                    }
-                    hideTipsChip={
-                      typeof active?.event?.amountToRaise === "number" &&
-                      active.event.amountToRaise > 0 &&
-                      !isTipDrawerOpen
-                    }
-                    hideHostAndAudio
-                    className="pointer-events-auto absolute top-1/2 right-8 z-[90] -translate-y-1/2"
-                    shareUrl={buildChannelShareUrl({
-                      eventId: activeEventId,
-                      channelId:
-                        activeChannelId != null
-                          ? String(activeChannelId)
-                          : undefined,
-                    })}
-                    shareTitle={
-                      typeof active?.title === "string" && active.title.trim()
-                        ? active.title
-                        : typeof active?.event?.eventName === "string"
-                          ? active.event.eventName
-                          : "Watch on Tipmanna"
-                    }
-                    videoTipCount={
-                      typeof active?.numOfTips === "number"
-                        ? active.numOfTips
-                        : undefined
-                    }
-                    eventRoomTipCount={liveNumOfTips}
-                  />
-                ) : null}
-                {typeof active?.event?.amountToRaise === "number" &&
-                active.event.amountToRaise > 0 &&
-                !isTipDrawerOpen ? (
-                  <div className="pointer-events-auto absolute top-1/2 right-4 z-[90] -translate-y-1/2">
-                    <button
-                      type="button"
-                      title="View tips"
-                      className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
-                      onClick={e => {
-                        e.stopPropagation();
-                        setTipsListOpen(true);
-                      }}
-                    >
-                      {liveNumOfTips} tips
-                    </button>
-                    <ChannelProgressBar
-                      eventId={activeEventId}
-                      amountToRaise={active.event.amountToRaise}
-                      amountRaised={Number(liveAmountRaised)}
-                    />
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-
-            {i === activeIndex && !isTipDrawerOpen ? (
+        {items.map((item, i) => {
+          if (!isInReelVirtualWindow(i, activeIndex, items.length)) {
+            return (
               <div
-                data-testid="explore-slide-actions"
-                className="pointer-events-auto flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-white/10 bg-black/80 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-              >
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="gap-1 rounded-full px-5 shadow-lg"
-                  aria-label="Create video"
-                  title="Create"
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setCreateDialogOpen(true);
-                  }}
-                >
-                  <Plus className="size-4" />
-                </Button>
-                <div className="flex items-center">
-                  <Button
-                    type="button"
-                    className="h-9 gap-1 rounded-full rounded-r-none bg-white px-3 text-sm text-black shadow-lg"
-                    onClick={() => router.push("/tv")}
+                key={item.id}
+                data-explore-slide
+                data-index={i}
+                className="relative flex h-full min-h-0 w-full max-w-[100vw] min-w-0 shrink-0 snap-start snap-always flex-col bg-black"
+                aria-hidden
+              />
+            );
+          }
+
+          return (
+            <ExploreFeedSlideStage
+              key={item.id}
+              item={item}
+              isMobile={isMobile}
+            >
+              {({
+                layoutMode: slideLayoutMode,
+                presentationVideoSize: slidePresentationVideoSize,
+                fullPresentationFit: slideFullPresentationFit,
+                isMetadataLoading: slideMetadataLoading,
+                onPlayerAspectInfo,
+              }) => {
+                const slideTitlePlacement =
+                  exploreReelTitlePlacement(slideLayoutMode);
+                const dockHeightCss = exploreReelDockHeightCss(
+                  slideLayoutMode,
+                  i === activeIndex && reelEngageUnlocked
+                );
+
+                return (
+                  <div
+                    data-explore-slide
+                    data-index={i}
+                    data-explore-layout-mode={slideLayoutMode}
+                    className="relative flex h-full min-h-0 w-full max-w-[100vw] min-w-0 shrink-0 snap-start snap-always flex-col bg-black"
+                    style={
+                      {
+                        "--explore-reel-dock-h": dockHeightCss,
+                      } as CSSProperties
+                    }
                   >
-                    Watch TV
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="default"
-                    className="h-9 gap-1 rounded-full rounded-l-none px-4 text-sm shadow-lg"
-                    onClick={() => setIsTipDrawerOpen(true)}
-                  >
-                    Engage
-                  </Button>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="gap-1 rounded-full px-5 shadow-lg"
-                  aria-label="Comments"
-                  title="Comments"
-                  onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setExploreCommentOpen(true);
-                  }}
-                >
-                  <MessageCircle className="size-4" />
-                </Button>
-              </div>
-            ) : null}
-          </div>
-        ))}
+                    {isInExplorePreloadWindow(i, activeIndex, items.length) ? (
+                      <div
+                        className={cn(
+                          exploreReelStageClassName(slideLayoutMode),
+                          "min-h-0 flex-1"
+                        )}
+                      >
+                        <div
+                          className={exploreReelVideoBandClassName(
+                            slideLayoutMode
+                          )}
+                        >
+                          <ExploreFeedSlideVideo
+                            item={item}
+                            slideIndex={i}
+                            activeIndex={activeIndex}
+                            activeIndexRef={activeIndexRef}
+                            totalItems={items.length}
+                            feedSurfaceActive={feedSurfaceActive}
+                            layoutMode={slideLayoutMode}
+                            presentationVideoSize={slidePresentationVideoSize}
+                            fullPresentationFit={slideFullPresentationFit}
+                            isMetadataLoading={slideMetadataLoading}
+                            onPlayerAspectInfo={onPlayerAspectInfo}
+                            videoRef={videoRef}
+                            onActivePlaying={handleExploreClipPlaying}
+                            onActiveReelEnded={advanceReelAfterEnd}
+                            onActiveReelMuteChange={setReelMuted}
+                            onPlayerError={handleExplorePlayerError}
+                            playerRetryKey={playerRetryKey}
+                            onEngageUnlocked={
+                              i === activeIndex
+                                ? () => setReelEngageUnlocked(true)
+                                : undefined
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
+                        <span className="inline-flex items-center gap-1">
+                          {item?.title.substring(0, 15)}
+                          {item?.title.length > 15 ? ".." : ""}
+                          {item?.title.length > 15 ? (
+                            <button
+                              type="button"
+                              aria-label="Open comments"
+                              className="pointer-events-auto -ml-2 inline-flex items-center rounded p-1"
+                              onPointerDown={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setExploreCommentOpen(true);
+                              }}
+                            >
+                              <ArrowRight className="size-4" />
+                            </button>
+                          ) : null}
+                        </span>
+                      </div>
+                    )}
+
+                    {i === activeIndex ? (
+                      <>
+                        {activeChannelId != null &&
+                        process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !==
+                          "false" ? (
+                          <div
+                            className={exploreReelFeatureCardBannerClassName(
+                              slideLayoutMode
+                            )}
+                          >
+                            <VideoFeatureCardBanner
+                              surfaceChannelId={String(activeChannelId)}
+                              hostSurfaceChannelId={String(activeChannelId)}
+                              compact
+                              onTipFeatured={id => {
+                                setActiveVideoFeatureCardId(id);
+                                setIsTipDrawerOpen(true);
+                              }}
+                            />
+                          </div>
+                        ) : null}
+                        {slideTitlePlacement === "onVideo" ? (
+                          <ExploreReelSlideTitle
+                            item={item}
+                            layoutMode={slideLayoutMode}
+                            reelMuted={reelMuted}
+                            setReelMuted={setReelMuted}
+                            videoRef={videoRef}
+                            setExploreCommentOpen={setExploreCommentOpen}
+                            active={active}
+                            metrics={metrics}
+                            metricsRestrictedCommunity={
+                              metricsRestrictedCommunity
+                            }
+                            className={exploreReelTitleOnVideoClassName(
+                              slideLayoutMode
+                            )}
+                          />
+                        ) : null}
+                        {slideTitlePlacement === "aboveDock" ? (
+                          <ExploreReelSlideTitle
+                            item={item}
+                            layoutMode={slideLayoutMode}
+                            reelMuted={reelMuted}
+                            setReelMuted={setReelMuted}
+                            videoRef={videoRef}
+                            setExploreCommentOpen={setExploreCommentOpen}
+                            active={active}
+                            metrics={metrics}
+                            metricsRestrictedCommunity={
+                              metricsRestrictedCommunity
+                            }
+                            className={exploreReelTitleAboveDockClassName(
+                              slideLayoutMode
+                            )}
+                          />
+                        ) : null}
+                        {activeEventId ? (
+                          <ImmersiveChannelActionsRail
+                            eventId={activeEventId}
+                            channelId={
+                              activeChannelId != null
+                                ? String(activeChannelId)
+                                : null
+                            }
+                            videoTitle={
+                              typeof active?.title === "string"
+                                ? active.title
+                                : ""
+                            }
+                            videoDescription={
+                              typeof (
+                                active as { description?: string } | undefined
+                              )?.description === "string"
+                                ? String(
+                                    (active as { description: string })
+                                      .description
+                                  )
+                                : ""
+                            }
+                            numOfTips={liveNumOfTips}
+                            characters={characters as RoomCharacter[]}
+                            onContinueToTip={() => setIsTipDrawerOpen(true)}
+                            hostName={active?.event?.hostName ?? null}
+                            isSaved={isExploreChannelSaved}
+                            saveBusy={saveBusy}
+                            onSaveClick={() => void handleExploreSaveToggle()}
+                            commentOpen={exploreCommentOpen}
+                            onCommentOpenChange={setExploreCommentOpen}
+                            metricsRefreshKey={exploreCommentMetricsRefreshKey}
+                            onShareOpen={() =>
+                              setExploreCommentMetricsRefreshKey(k => k + 1)
+                            }
+                            hideTipsChip={
+                              typeof active?.event?.amountToRaise ===
+                                "number" &&
+                              active.event.amountToRaise > 0 &&
+                              !isTipDrawerOpen
+                            }
+                            hideHostAndAudio
+                            className={exploreReelActionsRailClassName(
+                              slideLayoutMode
+                            )}
+                            iconButtonClassName={exploreReelRailIconButtonClassName(
+                              slideLayoutMode
+                            )}
+                            iconClassName={exploreReelRailIconClassName(
+                              slideLayoutMode
+                            )}
+                            stackClassName={exploreReelRailStackGapClassName(
+                              slideLayoutMode
+                            )}
+                            tipsChipClassName={exploreReelRailTipsChipClassName(
+                              slideLayoutMode
+                            )}
+                            shareUrl={buildContentShareUrl({
+                              eventId: activeEventId,
+                              channelId:
+                                activeChannelId != null
+                                  ? String(activeChannelId)
+                                  : undefined,
+                            })}
+                            shareTitle={
+                              typeof active?.title === "string" &&
+                              active.title.trim()
+                                ? active.title
+                                : typeof active?.event?.eventName === "string"
+                                  ? active.event.eventName
+                                  : "Watch on Tipmanna"
+                            }
+                            videoTipCount={
+                              typeof active?.numOfTips === "number"
+                                ? active.numOfTips
+                                : undefined
+                            }
+                            eventRoomTipCount={liveNumOfTips}
+                          />
+                        ) : null}
+                        {typeof active?.event?.amountToRaise === "number" &&
+                        active.event.amountToRaise > 0 &&
+                        !isTipDrawerOpen ? (
+                          <div
+                            className={exploreReelTipsProgressWrapperClassName(
+                              slideLayoutMode
+                            )}
+                          >
+                            <button
+                              type="button"
+                              title="View tips"
+                              className={exploreReelTipsChipClassName(
+                                slideLayoutMode
+                              )}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setTipsListOpen(true);
+                              }}
+                            >
+                              {liveNumOfTips} tips
+                            </button>
+                            <ChannelProgressBar
+                              eventId={activeEventId}
+                              amountToRaise={active.event.amountToRaise}
+                              amountRaised={Number(liveAmountRaised)}
+                            />
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {i === activeIndex && !isTipDrawerOpen ? (
+                      <div
+                        data-testid="explore-slide-actions"
+                        className={exploreReelDockClassName(slideLayoutMode)}
+                      >
+                        {reelEngageUnlocked ? (
+                          <div
+                            className={exploreReelDockScrubberClassName(
+                              slideLayoutMode
+                            )}
+                          >
+                            <ExploreReelScrubber
+                              videoRef={videoRef}
+                              layoutMode={slideLayoutMode}
+                              active={
+                                Boolean(feedSurfaceActive) &&
+                                Boolean(activeEventId)
+                              }
+                            />
+                          </div>
+                        ) : null}
+                        <div
+                          className={exploreReelDockActionsClassName(
+                            slideLayoutMode
+                          )}
+                        >
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className={exploreReelDockIconButtonClassName(
+                              slideLayoutMode
+                            )}
+                            aria-label="Create video"
+                            title="Create"
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setCreateDialogOpen(true);
+                            }}
+                          >
+                            <Plus
+                              className={exploreReelDockActionIconClassName(
+                                slideLayoutMode
+                              )}
+                            />
+                          </Button>
+                          <div className="flex items-center">
+                            <Button
+                              type="button"
+                              className={exploreReelDockPrimaryButtonClassName(
+                                slideLayoutMode
+                              )}
+                              onClick={() => router.push("/tv")}
+                            >
+                              Watch TV
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="default"
+                              className={exploreReelDockSecondaryButtonClassName(
+                                slideLayoutMode
+                              )}
+                              onClick={() => setIsTipDrawerOpen(true)}
+                            >
+                              Engage
+                            </Button>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className={exploreReelDockIconButtonClassName(
+                              slideLayoutMode
+                            )}
+                            aria-label="Comments"
+                            title="Comments"
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setExploreCommentOpen(true);
+                            }}
+                          >
+                            <MessageCircle
+                              className={exploreReelDockActionIconClassName(
+                                slideLayoutMode
+                              )}
+                            />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }}
+            </ExploreFeedSlideStage>
+          );
+        })}
       </div>
 
       <CreateDialog

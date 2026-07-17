@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Clock, Eye, Share2, Star, Video } from "lucide-react";
+import { Clock, Eye, MoveUpRight, Share2, Star, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -13,8 +13,18 @@ import { toast } from "react-toastify";
 
 import { changeEventVideoDisplaySettingsAction } from "@/actions/events";
 import { EventRoomVideosModal } from "@/components/dashboard/event-room-videos-modal";
+import { PremiumFeatureBadge } from "@/components/dashboard/premium-feature-badge";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { formatDate } from "@/lib/formatDate";
+import { buildChannelSharePath } from "@/lib/public-video-url";
 import { RootState } from "@/redux/store";
+
+interface DefaultChannelInfo {
+  id: string;
+  title: string;
+  url: string;
+  numOfTips?: number;
+}
 
 interface Props {
   id: string;
@@ -27,7 +37,10 @@ interface Props {
   numOfTips: number;
   showAmountRaisedOnVideos?: boolean;
   showViewCountOnVideos?: boolean;
+  showEncounterOnVideos?: boolean;
   hostSubscriptionTier?: "NONE" | "HOST_PREMIUM" | "HOST_COMMUNITY";
+  variant?: "event" | "channel";
+  defaultChannel?: DefaultChannelInfo;
 }
 
 export function ManageEventCard({
@@ -41,37 +54,54 @@ export function ManageEventCard({
   numOfTips,
   showAmountRaisedOnVideos = true,
   showViewCountOnVideos = false,
-  hostSubscriptionTier = "NONE",
+  showEncounterOnVideos = false,
+  variant = "event",
+  defaultChannel,
 }: Props) {
   const user = useSelector((state: RootState) => state.auth.user);
   const params = useParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
+  const { capabilities } = useHostPlanCapabilities();
 
   const [videosOpen, setVideosOpen] = useState(false);
   const [showAmountRaised, setShowAmountRaised] = useState(
     showAmountRaisedOnVideos
   );
   const [showViewCount, setShowViewCount] = useState(showViewCountOnVideos);
+  const [showEncounter, setShowEncounter] = useState(showEncounterOnVideos);
   const [displaySaving, setDisplaySaving] = useState(false);
 
   useEffect(() => {
     setShowAmountRaised(showAmountRaisedOnVideos);
     setShowViewCount(showViewCountOnVideos);
-  }, [showAmountRaisedOnVideos, showViewCountOnVideos]);
-
-  const premiumHost =
-    hostSubscriptionTier === "HOST_PREMIUM" ||
-    hostSubscriptionTier === "HOST_COMMUNITY";
+    setShowEncounter(showEncounterOnVideos);
+  }, [showAmountRaisedOnVideos, showViewCountOnVideos, showEncounterOnVideos]);
 
   let eventCode;
   if (user?.role === "HOST") {
     eventCode = user?.eventCode;
   }
 
+  const canToggleDisplay = capabilities.toggleVideoDisplaySettings;
+  const canAccessTipLayout = capabilities.accessTipLayout;
+  const isChannelVariant = variant === "channel";
+  const displayTitle = isChannelVariant
+    ? defaultChannel?.title?.trim() || "Default channel"
+    : eventName;
+  const channelSharePath =
+    isChannelVariant && defaultChannel
+      ? buildChannelSharePath({ eventId: id, channelId: defaultChannel.id })
+      : null;
+
   const persistVideoDisplaySettings = async (next: {
     showAmountRaisedOnVideos: boolean;
     showViewCountOnVideos: boolean;
+    showEncounterOnVideos: boolean;
   }) => {
+    if (!canToggleDisplay) {
+      toast.info("Active Host Premium subscription required.");
+      return;
+    }
     setDisplaySaving(true);
     try {
       const res = await changeEventVideoDisplaySettingsAction(next, id);
@@ -79,6 +109,7 @@ export function ManageEventCard({
         toast.error(res.message ?? "Could not update video display settings");
         setShowAmountRaised(showAmountRaisedOnVideos);
         setShowViewCount(showViewCountOnVideos);
+        setShowEncounter(showEncounterOnVideos);
         return;
       }
       toast.success("Video display settings updated");
@@ -87,21 +118,69 @@ export function ManageEventCard({
     }
   };
 
+  const premiumToggleRow = (
+    idSuffix: string,
+    label: string,
+    checked: boolean,
+    onCheckedChange: (checked: boolean) => void
+  ) => (
+    <div className="flex items-center justify-between gap-4">
+      <Label
+        htmlFor={`${idSuffix}-${id}`}
+        className="text-muted-foreground flex items-center gap-1.5 text-sm font-normal"
+      >
+        {label}
+        <PremiumFeatureBadge />
+      </Label>
+      <Switch
+        id={`${idSuffix}-${id}`}
+        checked={checked}
+        disabled={displaySaving || !canToggleDisplay}
+        onCheckedChange={onCheckedChange}
+      />
+    </div>
+  );
+
+  const router = useRouter();
+
   return (
     <>
       <div className="bg-card flex flex-wrap items-center justify-between gap-4 rounded-md border p-6">
         <div className="space-y-2">
-          <h5 className="text-xl font-semibold">{eventName}</h5>
+          <h5 className="flex items-center gap-2 text-xl font-semibold">
+            {displayTitle}{" "}
+            <MoveUpRight
+              className="size-4 cursor-pointer"
+              onClick={() =>
+                router.push(`/host/${hostSlug}/manage-event/${id}`)
+              }
+            />
+          </h5>
+          {isChannelVariant ? (
+            <p className="text-muted-foreground text-sm">
+              Event room: {eventName}
+            </p>
+          ) : null}
+          {isChannelVariant && defaultChannel?.url ? (
+            <p className="text-muted-foreground truncate text-xs">
+              {defaultChannel.url}
+            </p>
+          ) : null}
           <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
             {formatDate(eventDate)} <Clock className="size-4" /> {startTime} -{" "}
-            {endTime} &middot; Performers:{" "}
+            {endTime}
+            {!isChannelVariant ? <> &middot; Performers: </> : null}
           </p>
-          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+          <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
             <span className="text-primary">Tips raised:</span>{" "}
             <span className="text-primary font-semibold">
               &pound;{amountRaised || 0}
             </span>{" "}
-            <span>Event code: {eventCode}</span>
+            {isChannelVariant && defaultChannel ? (
+              <span>Channel tips: {defaultChannel.numOfTips ?? 0}</span>
+            ) : (
+              <span>Event code: {eventCode}</span>
+            )}
           </p>
           <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
             <span>Tippers engaged:</span>{" "}
@@ -120,48 +199,52 @@ export function ManageEventCard({
               )}
             </span>
           </p>
-          {premiumHost && approved ? (
+          {approved && variant !== "channel" ? (
             <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between gap-4">
-                <Label
-                  htmlFor={`show-amount-${id}`}
-                  className="text-muted-foreground text-sm font-normal"
-                >
-                  Show amount raised on videos
-                </Label>
-                <Switch
-                  id={`show-amount-${id}`}
-                  checked={showAmountRaised}
-                  disabled={displaySaving}
-                  onCheckedChange={checked => {
-                    setShowAmountRaised(checked);
-                    void persistVideoDisplaySettings({
-                      showAmountRaisedOnVideos: checked,
-                      showViewCountOnVideos: showViewCount,
-                    });
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <Label
-                  htmlFor={`show-views-${id}`}
-                  className="text-muted-foreground text-sm font-normal"
-                >
-                  Show view count on videos
-                </Label>
-                <Switch
-                  id={`show-views-${id}`}
-                  checked={showViewCount}
-                  disabled={displaySaving}
-                  onCheckedChange={checked => {
-                    setShowViewCount(checked);
-                    void persistVideoDisplaySettings({
-                      showAmountRaisedOnVideos: showAmountRaised,
-                      showViewCountOnVideos: checked,
-                    });
-                  }}
-                />
-              </div>
+              {premiumToggleRow(
+                "show-amount",
+                "Show amount raised on videos",
+                showAmountRaised,
+                checked => {
+                  setShowAmountRaised(checked);
+                  void persistVideoDisplaySettings({
+                    showAmountRaisedOnVideos: checked,
+                    showViewCountOnVideos: showViewCount,
+                    showEncounterOnVideos: showEncounter,
+                  });
+                }
+              )}
+              {premiumToggleRow(
+                "show-views",
+                "Show view count on videos (10s+)",
+                showViewCount,
+                checked => {
+                  setShowViewCount(checked);
+                  void persistVideoDisplaySettings({
+                    showAmountRaisedOnVideos: showAmountRaised,
+                    showViewCountOnVideos: checked,
+                    showEncounterOnVideos: showEncounter,
+                  });
+                }
+              )}
+              {premiumToggleRow(
+                "show-encounter",
+                "Show video encounters on videos",
+                showEncounter,
+                checked => {
+                  setShowEncounter(checked);
+                  void persistVideoDisplaySettings({
+                    showAmountRaisedOnVideos: showAmountRaised,
+                    showViewCountOnVideos: showViewCount,
+                    showEncounterOnVideos: checked,
+                  });
+                }
+              )}
+              {!canToggleDisplay ? (
+                <p className="text-muted-foreground text-xs">
+                  Subscribe to Host Premium to control public video metrics.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -188,27 +271,65 @@ export function ManageEventCard({
               <Eye /> View event room
             </Button>
           )}
-          <Button
-            type="button"
-            disabled={!approved}
-            className="bg-secondary/20 w-fit text-black"
-            onClick={() => setVideosOpen(true)}
-          >
-            <Video className="size-4" /> View videos
-          </Button>
-          <Button
-            asChild
-            disabled={!approved || !hostSlug}
-            className="bg-secondary/20 w-fit text-black"
-          >
-            <Link
-              href={`/host/${hostSlug}/tip-customization/${id}`}
-              prefetch={false}
-              className="inline-flex items-center gap-2"
+          {isChannelVariant ? (
+            approved && channelSharePath ? (
+              <Button
+                asChild
+                className="bg-secondary/20 w-fit text-black"
+              >
+                <Link
+                  href={channelSharePath}
+                  prefetch={false}
+                  className="inline-flex items-center gap-2"
+                >
+                  <Video className="size-4" /> View default channel
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                disabled
+                className="bg-secondary/20 w-fit text-black"
+              >
+                <Video className="size-4" /> View default channel
+              </Button>
+            )
+          ) : (
+            <Button
+              type="button"
+              disabled={!approved}
+              className="bg-secondary/20 w-fit text-black"
+              onClick={() => setVideosOpen(true)}
             >
+              <Video className="size-4" /> View videos
+            </Button>
+          )}
+          {canAccessTipLayout && approved && hostSlug ? (
+            <Button
+              asChild
+              className="bg-secondary/20 w-fit text-black"
+            >
+              <Link
+                href={`/host/${hostSlug}/tip-customization/${id}`}
+                prefetch={false}
+                className="inline-flex items-center gap-2"
+              >
+                <PremiumFeatureBadge className="size-3.5" />
+                Tip layout
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              disabled
+              className="bg-secondary/20 inline-flex w-fit items-center gap-2 text-black"
+              onClick={() =>
+                toast.info("Active Host Premium subscription required.")
+              }
+            >
+              <PremiumFeatureBadge className="size-3.5" />
               Tip layout
-            </Link>
-          </Button>
+            </Button>
+          )}
           <Button
             disabled={!approved}
             className="bg-secondary/20 w-fit text-black"
@@ -218,12 +339,14 @@ export function ManageEventCard({
         </div>
       </div>
 
-      <EventRoomVideosModal
-        open={videosOpen}
-        onOpenChange={setVideosOpen}
-        eventId={id}
-        eventName={eventName}
-      />
+      {!isChannelVariant ? (
+        <EventRoomVideosModal
+          open={videosOpen}
+          onOpenChange={setVideosOpen}
+          eventId={id}
+          eventName={eventName}
+        />
+      ) : null}
     </>
   );
 }

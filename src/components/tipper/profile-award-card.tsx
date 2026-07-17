@@ -11,6 +11,7 @@ interface ProfileAwardCardProps {
 }
 
 export const ProfileAwardCard = ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   id,
   label,
   desc,

@@ -13,8 +13,6 @@ import type { RootState } from "@/redux/store";
 
 export const ManageEventClient = () => {
   const user = useSelector((s: RootState) => s.auth.user);
-  const hostSubscriptionTier =
-    user?.role === "HOST" ? user.hostSubscriptionTier : undefined;
   const [tabType, setTabType] = useState<
     "all_events" | "approved_events" | "pending_events"
   >("all_events");
@@ -92,7 +90,7 @@ export const ManageEventClient = () => {
                   numOfTips={event.numOfTips}
                   showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
                   showViewCountOnVideos={event.showViewCountOnVideos}
-                  hostSubscriptionTier={hostSubscriptionTier}
+                  showEncounterOnVideos={event.showEncounterOnVideos}
                 />
               ))}
         </TabsContent>
@@ -118,7 +116,7 @@ export const ManageEventClient = () => {
                   numOfTips={event.numOfTips}
                   showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
                   showViewCountOnVideos={event.showViewCountOnVideos}
-                  hostSubscriptionTier={hostSubscriptionTier}
+                  showEncounterOnVideos={event.showEncounterOnVideos}
                 />
               ))}
         </TabsContent>
@@ -144,7 +142,7 @@ export const ManageEventClient = () => {
                   numOfTips={event.numOfTips}
                   showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
                   showViewCountOnVideos={event.showViewCountOnVideos}
-                  hostSubscriptionTier={hostSubscriptionTier}
+                  showEncounterOnVideos={event.showEncounterOnVideos}
                 />
               ))}
         </TabsContent>

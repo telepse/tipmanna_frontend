@@ -5,6 +5,8 @@ interface Props {
   value: number;
   bgColor: string;
   txtColor: string;
+  subLabel?: string;
+  isMoney?: boolean;
 }
 
 export const PayoutSummaryCard = ({
@@ -12,7 +14,13 @@ export const PayoutSummaryCard = ({
   value,
   bgColor,
   txtColor,
+  subLabel,
+  isMoney,
 }: Props) => {
+  const display = isMoney
+    ? `£${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : String(value);
+
   return (
     <div
       className="flex items-center gap-4 rounded-xl p-6"
@@ -34,8 +42,16 @@ export const PayoutSummaryCard = ({
           className="text-3xl font-semibold"
           style={{ color: txtColor }}
         >
-          {value}
+          {display}
         </h5>
+        {subLabel ? (
+          <p
+            className="text-xs opacity-90"
+            style={{ color: txtColor }}
+          >
+            {subLabel}
+          </p>
+        ) : null}
       </div>
     </div>
   );

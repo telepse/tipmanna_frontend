@@ -784,14 +784,14 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
             >
               {/* Video URL */}
               <Input
-                placeholder={`Cohost fullname ${index + 1}`}
+                placeholder={`Co-host full name ${index + 1}`}
                 className="bg-black/15 text-white"
-                {...register(`cohosts.${index}.fullname` as const)}
+                {...register(`cohosts.${index}.fullName` as const)}
               />
 
               {/* Video Title */}
               <Input
-                placeholder={`Cohost email ${index + 1}`}
+                placeholder={`Co-host email ${index + 1}`}
                 className="bg-black/15 text-white"
                 {...register(`cohosts.${index}.email` as const)}
               />
@@ -808,7 +808,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
 
           <Button
             type="button"
-            onClick={() => cohostAppend({ fullname: "", email: "" })}
+            onClick={() => cohostAppend({ fullName: "", email: "" })}
             className="bg-white text-black hover:bg-white/80"
           >
             + Add co host

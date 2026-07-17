@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  getLegacyRedirectMode,
+  isDiscoveryHost,
+  resolveLegacyRedirectTarget,
+} from "@/lib/site-config";
 
 function normalizeHostname(host: string | null): string {
   return (host ?? "").split(":")[0].toLowerCase();
@@ -19,13 +24,22 @@ export function middleware(request: NextRequest) {
   const rawHost = request.headers.get("host");
   const hostname = normalizeHostname(rawHost);
 
-  // Redirect mixed-case host to canonical lowercase (308 preserves method)
   if (rawHost && hostname !== rawHost.split(":")[0]) {
     const dest = url.clone();
     const port = rawHost.includes(":") ? rawHost.split(":")[1] : "";
     dest.hostname = port ? `${hostname}:${port}` : hostname;
     dest.protocol = url.protocol;
     return NextResponse.redirect(dest, 308);
+  }
+
+  // Legacy discovery host (.com) is a configurable redirect-only layer.
+  // Root and marketing routes funnel to /partner; known content/entity paths
+  // are path-preserving so accumulated SEO/backlink equity is retained.
+  if (isDiscoveryHost(hostname) && getLegacyRedirectMode() !== "off") {
+    const target = resolveLegacyRedirectTarget(url.pathname, url.search);
+    if (target) {
+      return NextResponse.redirect(target, 301);
+    }
   }
 
   const tvHost = canonicalTvHost(hostname);

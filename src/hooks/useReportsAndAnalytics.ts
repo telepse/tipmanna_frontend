@@ -10,6 +10,7 @@ import {
 } from "@/actions/host";
 import { useHostID } from "./useHostID";
 import type { RootState } from "@/redux/store";
+import { unwrapPaginatedList } from "@/lib/unwrap-paginated-list";
 
 interface ReportsData {
   events: any[];
@@ -18,19 +19,20 @@ interface ReportsData {
 
 export function useReportsAndAnalytics() {
   const user = useSelector((s: RootState) => s.auth.user);
+  const token = useSelector((s: RootState) => s.auth.token);
   const hostId = useHostID();
 
   const fetcher = async (): Promise<ReportsData> => {
     if (!hostId || !user?.id) return { events: [], transactions: [] };
 
     const [eventsRes, transactionsRes] = await Promise.all([
-      getHostEventSummaries(hostId),
+      getHostEventSummaries(hostId, token),
       getHostTransactionsAction(hostId),
     ]);
 
     return {
-      events: (eventsRes.data as any[]) || [],
-      transactions: (transactionsRes.data as any[]) || [],
+      events: unwrapPaginatedList(eventsRes.data),
+      transactions: unwrapPaginatedList(transactionsRes.data),
     };
   };
 

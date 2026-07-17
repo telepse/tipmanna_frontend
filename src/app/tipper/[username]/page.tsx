@@ -14,6 +14,11 @@ import { getToken } from "@/lib/getToken";
 import { getAllCausesAction } from "@/actions/home";
 import { Cause } from "@/types/cause.types";
 import { Content } from "@/types/content.types";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function TipperProfile() {
   const token = await getToken();

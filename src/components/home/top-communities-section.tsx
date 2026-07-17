@@ -9,5 +9,10 @@ export default async function TopCommunitiesSection() {
   const communities: CommunityExploreCatalogRow[] =
     res.success && res.data?.topByTips ? res.data.topByTips : [];
 
-  return <TopCommunities communities={communities} />;
+  return (
+    <TopCommunities
+      communities={communities}
+      showWhenEmpty
+    />
+  );
 }

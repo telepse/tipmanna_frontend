@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   upsertFormDraftAction,
   type FormDraftKind,
@@ -22,6 +22,11 @@ type Options = {
   payloadKind?: "event" | "modal";
 };
 
+export type FormDraftSaveState = {
+  saving: boolean;
+  lastSavedAt: Date | null;
+};
+
 /** Debounced autosave for multi-step host create forms and modal add-video flows. */
 export function useFormDraftAutosave(
   payload: unknown,
@@ -36,40 +41,55 @@ export function useFormDraftAutosave(
   }: Options
 ) {
   const draftIdRef = useRef<string | null>(draftId ?? null);
+  const [saveState, setSaveState] = useState<FormDraftSaveState>({
+    saving: false,
+    lastSavedAt: null,
+  });
 
   useEffect(() => {
     draftIdRef.current = draftId ?? draftIdRef.current;
   }, [draftId]);
 
-  useEffect(() => {
-    if (!enabled) return;
+  const persistDraft = useCallback(async () => {
+    const { payloadJson, policyJson } =
+      payloadKind === "modal"
+        ? splitModalDraftPayload(
+            payload as import("@/components/events/add-video-form").AddVideoFormValues
+          )
+        : splitDraftPayload(payload as NewEventFormData);
 
-    const timer = window.setTimeout(() => {
-      const { payloadJson, policyJson } =
-        payloadKind === "modal"
-          ? splitModalDraftPayload(
-              payload as import("@/components/events/add-video-form").AddVideoFormValues
-            )
-          : splitDraftPayload(payload as NewEventFormData);
-
-      void upsertFormDraftAction({
+    setSaveState(s => ({ ...s, saving: true }));
+    try {
+      const res = await upsertFormDraftAction({
         id: draftIdRef.current ?? undefined,
         kind,
         step,
         title,
         payloadJson,
         policyJson,
-      }).then(res => {
-        if (res.success && res.data && typeof res.data === "object") {
-          const id = (res.data as { id?: string }).id;
-          if (id && id !== draftIdRef.current) {
-            draftIdRef.current = id;
-            onDraftId?.(id);
-          }
-        }
       });
+      if (res.success && res.data && typeof res.data === "object") {
+        const id = (res.data as { id?: string }).id;
+        if (id && id !== draftIdRef.current) {
+          draftIdRef.current = id;
+          onDraftId?.(id);
+        }
+      }
+      setSaveState({ saving: false, lastSavedAt: new Date() });
+    } catch {
+      setSaveState(s => ({ ...s, saving: false }));
+    }
+  }, [payload, kind, step, title, onDraftId, payloadKind]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const timer = window.setTimeout(() => {
+      void persistDraft();
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [payload, kind, step, title, enabled, onDraftId, payloadKind]);
+  }, [payload, enabled, persistDraft]);
+
+  return { ...saveState, saveNow: persistDraft };
 }

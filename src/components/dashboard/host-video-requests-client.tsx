@@ -94,10 +94,6 @@ export function HostVideoRequestsClient() {
   const [tvReason, setTvReason] = useState("");
   const [tvNote, setTvNote] = useState("");
 
-  const [globSourceEventId, setGlobSourceEventId] = useState("");
-  const [globSourceChannelId, setGlobSourceChannelId] = useState("");
-  const [globText, setGlobText] = useState("");
-
   const [approveHours, setApproveHours] = useState<Record<string, string>>({});
 
   const loadVideos = useCallback(async () => {
@@ -183,10 +179,6 @@ export function HostVideoRequestsClient() {
     () => events.find(e => e.id === tvSourceEventId),
     [events, tvSourceEventId]
   );
-  const globEvent = useMemo(
-    () => events.find(e => e.id === globSourceEventId),
-    [events, globSourceEventId]
-  );
 
   const onCheckFeature = async () => {
     if (!userId || !featChannelId || !featTargetUrl.trim()) {
@@ -247,25 +239,6 @@ export function HostVideoRequestsClient() {
     toast.success("TV feature request submitted");
     setTvReason("");
     setTvNote("");
-    void loadSent();
-  };
-
-  const onSubmitGlobal = async () => {
-    if (!userId || !globSourceChannelId || !globText.trim()) {
-      toast.error("Pick a channel and enter announcement copy.");
-      return;
-    }
-    const r = await createVideoRequestAction({
-      kind: "global_announce",
-      sourceChannelId: globSourceChannelId,
-      announcementText: globText.trim(),
-    });
-    if (!r.success) {
-      toast.error(r.message ?? "Submit failed");
-      return;
-    }
-    toast.success("Global announcement request submitted");
-    setGlobText("");
     void loadSent();
   };
 
@@ -345,7 +318,7 @@ export function HostVideoRequestsClient() {
     <div className="space-y-8 p-6">
       <DashboardHeading
         title="Video requests"
-        subtitle="Ask to feature clips on others’ Tipmanna videos, request TV placements, or request a global spotlight card."
+        subtitle="Ask to feature clips on others’ Tipmanna videos or request TV placements."
       />
 
       <Tabs defaultValue="send">
@@ -509,64 +482,6 @@ export function HostVideoRequestsClient() {
               </Button>
             </div>
           </section>
-
-          {/* <section className="rounded-lg border p-4">
-            <h3 className="font-semibold">Global announcement card</h3>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Request platform-wide spotlight; ops approves wording and timing.
-            </p>
-            <div className="mt-3 grid gap-2 sm:max-w-xl">
-              <label className="text-xs font-medium">Backed by clip</label>
-              <select
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-                value={globSourceEventId}
-                onChange={e => {
-                  setGlobSourceEventId(e.target.value);
-                  setGlobSourceChannelId("");
-                }}
-              >
-                <option value="">Choose event</option>
-                {events.map(e => (
-                  <option
-                    key={e.id}
-                    value={e.id}
-                  >
-                    {e.eventName}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-                value={globSourceChannelId}
-                onChange={e => setGlobSourceChannelId(e.target.value)}
-                disabled={!globEvent}
-              >
-                <option value="">Choose clip</option>
-                {(globEvent?.channels ?? []).map(c => (
-                  <option
-                    key={c.id}
-                    value={c.id}
-                  >
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-              <label className="text-xs font-medium">Announcement</label>
-              <Textarea
-                rows={4}
-                value={globText}
-                onChange={e => setGlobText(e.target.value)}
-                maxLength={2000}
-              />
-              <Button
-                type="button"
-                className="w-fit"
-                onClick={() => void onSubmitGlobal()}
-              >
-                Submit global request
-              </Button>
-            </div>
-          </section> */}
         </TabsContent>
 
         <TabsContent

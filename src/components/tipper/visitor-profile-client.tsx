@@ -18,7 +18,6 @@ import { useForm } from "react-hook-form";
 import { loginVisitorAction, verifyCodeAction } from "@/actions/auth";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
-import { getTipperUsername } from "@/lib/utils";
 import { toast } from "react-toastify";
 import { setCredentials } from "@/features/auth-slice";
 import { Input } from "../ui/input";
@@ -68,11 +67,7 @@ export const VisitorProfileClient = ({
   const dispatch = useDispatch();
 
   const user = useSelector((state: RootState) => state.auth.user);
-  const username = user
-    ? getTipperUsername(user.email || "") || user.username
-    : "";
   const userId = user ? user.id : "";
-  console.log(userId);
 
   const token = useSelector((state: RootState) => state.auth.token);
 
@@ -127,7 +122,6 @@ export const VisitorProfileClient = ({
     }
   };
 
-  const [, setIsVerifying] = useState(false);
   const [step, setStep] = useState<Step>("signIn");
 
   const handleLogin = async (values: { email: string }) => {

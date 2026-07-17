@@ -15,7 +15,18 @@ import {
   type ScheduleItem,
 } from "@/lib/tv/broadcastEngine";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { logTV } from "@/lib/tvDebugLog";
+import { logTV, tvLoadMark, tvTrace } from "@/lib/tvDebugLog";
+import {
+  isSameOrchestratedPlayback,
+  type TvPlaybackRequest,
+} from "@/lib/tv-playback-request";
+import {
+  applyPaymentPlaybackRestore,
+  applyPendingAudioRestore as applyPendingAudioRestoreHelper,
+  playWithUserGesture,
+  prepareMutedLoadForAutoplay,
+  type PendingAudioRestore,
+} from "@/lib/tv-autoplay";
 import {
   initTvAnalyticsRuntime,
   shutdownTvAnalyticsRuntime,
@@ -23,8 +34,14 @@ import {
   trackTvUserInteraction,
 } from "@/lib/tvAnalytics";
 import { preloadVideos } from "@/lib/preloadManager";
+import { schedulePostTtfvIdle } from "@/lib/tv-post-ttfv-idle";
 import { usePathname } from "next/navigation";
 import { fetchTvScheduleAction } from "@/actions/tv-schedule";
+import { fetchTvScheduleClient } from "@/lib/tv-schedule-client-fetch";
+import {
+  isTvDirectScheduleFetchEnabled,
+  isTvScheduleSwrEnabled,
+} from "@/lib/tv-feature-flags";
 import {
   clearPersistedPaymentSnapshot,
   isPaymentPendingReturn,
@@ -49,6 +66,10 @@ import {
   fetchCommunityProgramBootstrap,
   fetchGlobalProgramBootstrap,
 } from "@/lib/program-api";
+import {
+  createTvScheduleLoadCoalescer,
+  isScheduleResponseStale,
+} from "@/lib/tv-schedule-load-coalesce";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -75,8 +96,8 @@ function msToNextHalfDayBoundary(epochMs: number, nowMs: number): number {
 }
 function tvScheduleStorageKey(communityId: string | null) {
   return communityId
-    ? `tipmanna-tv-schedule-v1-c/${communityId}`
-    : "tipmanna-tv-schedule-v1";
+    ? `tipmanna-tv-schedule-v2-c/${communityId}`
+    : "tipmanna-tv-schedule-v2";
 }
 
 function persistTvScheduleCache(
@@ -233,6 +254,15 @@ type TVContextType = {
   /** After payment + GLOBAL `syncToLive` / new video cue, restores mute/play from snapshot */
   applyPendingPlaybackRestore: () => void;
 
+  /** After programmatic load (CUED/PLAYING), completes muted autoplay policy. */
+  applyPendingAudioRestore: () => void;
+
+  /** Clear provider player ref when TvPlayer unmounts (orientation-safe). */
+  unregisterTvPlayer: () => void;
+
+  /** Reload the current orchestrated video at a time (error recovery from looper). */
+  reloadCurrentPlaybackAt: (startSeconds: number) => void;
+
   /** Community TV: load `/communities/:id/tv/schedule`; null = Tipmanna global. */
   scheduleSourceCommunityId: string | null;
   setScheduleSourceCommunityId: (id: string | null) => void;
@@ -248,9 +278,78 @@ type TVContextType = {
 
 const TVContext = createContext<TVContextType | null>(null);
 
+const noop = () => {};
+const noopAsync = async () => {};
+
+function createFallbackTvContext(): TVContextType {
+  return {
+    items: [],
+    broadcastEpoch: null,
+    totalDuration: 0,
+    currentIndex: 0,
+    mode: "GLOBAL",
+    isReady: false,
+    isPaymentActive: false,
+    playerRef: { current: null },
+    activeBatch: null,
+    alternateBatch: null,
+    alternateBatchItems: [],
+    alternateBatchTotalDuration: 0,
+    getSyncedNow: () => Date.now(),
+    liveBroadcastIndex: 0,
+    lastLivePosition: null,
+    lastLocalIndex: 0,
+    localModeReason: null,
+    selectedTag: null,
+    setSelectedTag: noop,
+    scrollToSection: noop,
+    registerSection: noop,
+    goLive: noop,
+    switchToLocal: noop,
+    playLocal: noop,
+    playLocalFromSchedule: noop,
+    previewPinIndex: 0,
+    playLocalScheduleItem: noop,
+    playEnforcementProgram: noopAsync,
+    playingItemOverride: null,
+    schedulePlayingSlot: null,
+    enterLocalMode: noop,
+    enterGlobalMode: noop,
+    onPlayerPause: noop,
+    onPlayerSeek: noop,
+    onVideoEnd: noop,
+    setPlayerPlayingState: noop,
+    setPlayerVisible: noop,
+    ongoingCollection: null,
+    upcomingCollection: null,
+    pauseForPayment: noop,
+    preparePlaybackForTipDrawer: noop,
+    snapshotPlaybackForPaymentRedirect: noop,
+    resumeAfterPayment: noop,
+    applyPendingPlaybackRestore: noop,
+    applyPendingAudioRestore: noop,
+    unregisterTvPlayer: noop,
+    reloadCurrentPlaybackAt: noop,
+    scheduleSourceCommunityId: null,
+    setScheduleSourceCommunityId: noop,
+    scheduleError: false,
+    scheduleStale: false,
+    retryScheduleLoad: noop,
+    selectedIndex: null,
+    setSelectedIndex: noop,
+  };
+}
+
+const FALLBACK_TV_CONTEXT = createFallbackTvContext();
+
 export function useTV() {
   const ctx = useContext(TVContext);
-  if (!ctx) throw new Error("GlobalTVProvider missing");
+  if (!ctx) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[useTV] GlobalTVProvider missing — using fallback context");
+    }
+    return FALLBACK_TV_CONTEXT;
+  }
   return ctx;
 }
 
@@ -316,10 +415,6 @@ export default function GlobalTVProvider({
   const paymentActiveRef = useRef(false);
   const paymentSnapshotRef = useRef<TvPaymentPlaybackSnapshot | null>(null);
   const pendingSchedulePayloadRef = useRef<any>(null);
-  const pendingPlaybackRestoreRef = useRef<{
-    wasMuted: boolean;
-    wasPlaying: boolean;
-  } | null>(null);
   const [isPaymentActive, setIsPaymentActive] = useState(false);
   const isPlayingRef = useRef(false);
 
@@ -339,8 +434,24 @@ export default function GlobalTVProvider({
   const loadScheduleRef = useRef<
     (opts?: { manual?: boolean; resetRetry?: boolean }) => Promise<void>
   >(async () => {});
+  const runCoalescedScheduleLoadRef = useRef(createTvScheduleLoadCoalescer());
   const scheduleEtagRef = useRef<string | null>(null);
+  const scheduleSwrBootstrappedRef = useRef(false);
   const syncMissRef = useRef(0);
+  const isReadyRef = useRef(false);
+  const broadcastEpochRef = useRef<number | null>(null);
+  const totalDurationRef = useRef(0);
+  const itemsLenRef = useRef(0);
+  const orchestratedPlaybackRef = useRef<{
+    videoId: string;
+    startSeconds: number;
+  } | null>(null);
+  const pendingPlaybackRequestRef = useRef<TvPlaybackRequest | null>(null);
+  const pendingAudioRestoreRef = useRef<PendingAudioRestore | null>(null);
+  const paymentPlaybackRestoreRef = useRef<{
+    wasMuted: boolean;
+    wasPlaying: boolean;
+  } | null>(null);
 
   const pathname = usePathname();
   const scheduleSourceCommunityIdRef = useRef<string | null>(null);
@@ -385,6 +496,11 @@ export default function GlobalTVProvider({
     setIsReady(false);
     setScheduleError(false);
     setScheduleStale(false);
+    orchestratedPlaybackRef.current = null;
+    pendingPlaybackRequestRef.current = null;
+    pendingAudioRestoreRef.current = null;
+    scheduleSwrBootstrappedRef.current = false;
+    paymentPlaybackRestoreRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -410,10 +526,16 @@ export default function GlobalTVProvider({
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
+    tvTrace("index", "setCurrentIndex", {
+      currentIndex,
+      mode: modeRef.current,
+      liveBroadcastIndex: liveBroadcastIndexRef.current,
+    });
   }, [currentIndex]);
 
   useEffect(() => {
     modeRef.current = mode;
+    tvTrace("navigation", "mode_change", { mode });
   }, [mode]);
 
   useEffect(() => {
@@ -424,6 +546,22 @@ export default function GlobalTVProvider({
     preloadVideos(items, currentIndex);
   }, [items, currentIndex]);
 
+  useEffect(() => {
+    isReadyRef.current = isReady;
+  }, [isReady]);
+
+  useEffect(() => {
+    broadcastEpochRef.current = broadcastEpoch;
+  }, [broadcastEpoch]);
+
+  useEffect(() => {
+    totalDurationRef.current = totalDuration;
+  }, [totalDuration]);
+
+  useEffect(() => {
+    itemsLenRef.current = items.length;
+  }, [items.length]);
+
   const getNow = useCallback(() => Date.now() + driftRef.current, []);
   const getSyncedNow = getNow;
 
@@ -431,14 +569,96 @@ export default function GlobalTVProvider({
     isPlayingRef.current = playing;
   }, []);
 
+  const unregisterTvPlayer = useCallback(() => {
+    tvTrace("playback", "player_unregister", {});
+    playerRef.current = null;
+  }, []);
+
+  const requestPlayback = useCallback((req: TvPlaybackRequest): boolean => {
+    tvTrace("playback", "requestPlayback", {
+      reason: req.reason,
+      videoId: req.videoId,
+      startSeconds: req.startSeconds,
+      scheduleIndex: req.scheduleIndex,
+    });
+
+    if (isSameOrchestratedPlayback(orchestratedPlaybackRef.current, req)) {
+      tvTrace("playback", "requestPlayback_skipped", {
+        reason: "unchanged",
+        videoId: req.videoId,
+        startSeconds: req.startSeconds,
+      });
+      return false;
+    }
+
+    const player = playerRef.current;
+    if (!player?.isReady()) {
+      pendingPlaybackRequestRef.current = req;
+      tvTrace("playback", "requestPlayback_deferred", {
+        reason: "player_not_ready",
+        videoId: req.videoId,
+      });
+      return false;
+    }
+
+    pendingPlaybackRequestRef.current = null;
+    orchestratedPlaybackRef.current = {
+      videoId: req.videoId,
+      startSeconds: req.startSeconds,
+    };
+    pendingAudioRestoreRef.current = prepareMutedLoadForAutoplay(player, true);
+    player.load(req.videoId, req.startSeconds);
+    return true;
+  }, []);
+
+  const flushPendingPlaybackRequest = useCallback(() => {
+    const pending = pendingPlaybackRequestRef.current;
+    if (!pending) return;
+    requestPlayback(pending);
+  }, [requestPlayback]);
+
+  const reloadCurrentPlaybackAt = useCallback(
+    (startSeconds: number) => {
+      const vid = orchestratedPlaybackRef.current?.videoId;
+      if (!vid) return;
+      orchestratedPlaybackRef.current = null;
+      requestPlayback({
+        reason: "error_reload",
+        videoId: vid,
+        startSeconds,
+      });
+    },
+    [requestPlayback]
+  );
+
   const syncToLive = useCallback(() => {
-    if (paymentActiveRef.current) return;
-    if (modeRef.current !== "GLOBAL") return;
-    if (!broadcastEpoch || !items.length || !totalDuration) return;
+    if (paymentActiveRef.current) {
+      tvTrace("playback", "syncToLive_skipped", { reason: "payment_active" });
+      return;
+    }
+    if (modeRef.current !== "GLOBAL") {
+      tvTrace("playback", "syncToLive_skipped", {
+        reason: "not_global",
+        mode: modeRef.current,
+      });
+      return;
+    }
+    if (!broadcastEpoch || !items.length || !totalDuration) {
+      tvTrace("playback", "syncToLive_skipped", {
+        reason: "missing_schedule",
+        broadcastEpoch: !!broadcastEpoch,
+        itemsLen: items.length,
+        totalDuration,
+      });
+      return;
+    }
 
     const player = playerRef.current;
     if (!player || !player.isReady()) {
       syncMissRef.current += 1;
+      tvTrace("playback", "syncToLive_player_not_ready", {
+        syncMiss: syncMissRef.current,
+      });
       if (syncMissRef.current > 15) {
         syncMissRef.current = 0;
         lastSyncedIndex.current = -1;
@@ -455,10 +675,25 @@ export default function GlobalTVProvider({
       getNow()
     );
 
-    if (!pos.item) return;
+    if (!pos.item) {
+      tvTrace("playback", "syncToLive_no_item", {
+        loopPosition: pos.loopPosition,
+      });
+      return;
+    }
 
     const isNotice = pos.item.segmentKind === "notice";
     if (!isNotice && !pos.item.channel?.url) return;
+
+    tvTrace("playback", "syncToLive", {
+      mode: modeRef.current,
+      currentIndex: currentIndexRef.current,
+      lastSyncedIndex: lastSyncedIndex.current,
+      offsetSeconds: pos.offsetSeconds,
+      scheduleIndex: pos.scheduleIndex,
+      segmentKind: pos.item.segmentKind,
+      itemId: pos.item.id,
+    });
 
     logTV("broadcast_sync", {
       mode: modeRef.current,
@@ -480,17 +715,87 @@ export default function GlobalTVProvider({
 
       if (!isNotice) {
         const videoId = extractYoutubeID(pos.item.channel.url);
-        if (videoId) player.load(videoId, pos.offsetSeconds);
+        if (videoId) {
+          const sameVideo =
+            orchestratedPlaybackRef.current?.videoId === videoId &&
+            player.isReady();
+          if (sameVideo) {
+            tvTrace("playback", "syncToLive_coalesced_seek", {
+              videoId,
+              offsetSeconds: pos.offsetSeconds,
+              scheduleIndex: pos.scheduleIndex,
+            });
+            orchestratedPlaybackRef.current = {
+              videoId,
+              startSeconds: pos.offsetSeconds,
+            };
+            player.seekTo(pos.offsetSeconds, false);
+          } else {
+            requestPlayback({
+              reason: "syncToLive",
+              videoId,
+              startSeconds: pos.offsetSeconds,
+              scheduleIndex: pos.scheduleIndex,
+            });
+          }
+        }
       } else {
+        tvTrace("playback", "syncToLive_notice_pause", {
+          scheduleIndex: pos.scheduleIndex,
+        });
         player.pause();
       }
     } else if (!isNotice) {
-      const actual = player.getCurrentTime();
-      if (Math.abs(actual - pos.offsetSeconds) > DRIFT_THRESHOLD_S) {
-        player.seekTo(pos.offsetSeconds, false);
+      const videoId = extractYoutubeID(pos.item.channel.url);
+      const orchestrated = orchestratedPlaybackRef.current;
+      if (videoId && (!orchestrated || orchestrated.videoId !== videoId)) {
+        requestPlayback({
+          reason: "syncToLive",
+          videoId,
+          startSeconds: pos.offsetSeconds,
+          scheduleIndex: pos.scheduleIndex,
+        });
+      } else {
+        const actual = player.getCurrentTime();
+        if (Math.abs(actual - pos.offsetSeconds) > DRIFT_THRESHOLD_S) {
+          tvTrace("playback", "syncToLive_drift_seek", {
+            actual,
+            target: pos.offsetSeconds,
+          });
+          orchestratedPlaybackRef.current = orchestratedPlaybackRef.current
+            ? {
+                ...orchestratedPlaybackRef.current,
+                startSeconds: pos.offsetSeconds,
+              }
+            : null;
+          player.seekTo(pos.offsetSeconds, false);
+        }
       }
     }
-  }, [broadcastEpoch, items, totalDuration, getNow]);
+  }, [broadcastEpoch, items, totalDuration, getNow, requestPlayback]);
+
+  const maybeSyncToLive = useCallback(
+    (source: string) => {
+      if (modeRef.current !== "GLOBAL") return;
+      if (
+        !isReadyRef.current ||
+        itemsLenRef.current < 1 ||
+        broadcastEpochRef.current == null ||
+        totalDurationRef.current <= 0
+      ) {
+        tvTrace("playback", "syncToLive_deferred", {
+          source,
+          isReady: isReadyRef.current,
+          itemsLen: itemsLenRef.current,
+          broadcastEpoch: broadcastEpochRef.current != null,
+          totalDuration: totalDurationRef.current,
+        });
+        return;
+      }
+      syncToLive();
+    },
+    [syncToLive]
+  );
 
   const selectedIndexRef = useRef<number | null>(null);
 
@@ -500,11 +805,23 @@ export default function GlobalTVProvider({
 
   const setPlayerVisible = useCallback(
     (visible: boolean) => {
+      tvTrace("navigation", "setPlayerVisible", {
+        visible,
+        mode: modeRef.current,
+      });
       if (visible && modeRef.current === "GLOBAL") {
-        queueMicrotask(() => syncToLive());
+        queueMicrotask(() => {
+          flushPendingPlaybackRequest();
+          maybeSyncToLive("setPlayerVisible");
+        });
+      } else if (visible) {
+        flushPendingPlaybackRequest();
+      }
+      if (!visible) {
+        paymentPlaybackRestoreRef.current = null;
       }
     },
-    [syncToLive]
+    [maybeSyncToLive, flushPendingPlaybackRequest]
   );
 
   const applySchedulePayloadCore = useCallback((data: any) => {
@@ -517,12 +834,16 @@ export default function GlobalTVProvider({
     if (activeScheduleIdRef.current !== sid) {
       lastSyncedIndex.current = -1;
       activeScheduleIdRef.current = sid;
+      orchestratedPlaybackRef.current = null;
+      pendingPlaybackRequestRef.current = null;
     }
 
     setItems(data.items ?? []);
-    prefetchTvEventCatalogs(
-      collectTvScheduleEventIds((data.items as any[]) ?? [], 24)
-    );
+    schedulePostTtfvIdle(() => {
+      prefetchTvEventCatalogs(
+        collectTvScheduleEventIds((data.items as any[]) ?? [], 24)
+      );
+    });
     setBroadcastEpoch(data.broadcastEpoch ?? null);
     setTotalDuration(data.totalDuration ?? 0);
     setActiveBatch(data.activeBatch ?? null);
@@ -550,6 +871,21 @@ export default function GlobalTVProvider({
         totalDuration: live.totalDuration ?? data.totalDuration ?? 0,
       });
       setLiveBroadcastIndex(live.scheduleIndex);
+      if (modeRef.current === "GLOBAL" && !paymentActiveRef.current) {
+        setCurrentIndex(live.scheduleIndex);
+        currentIndexRef.current = live.scheduleIndex;
+        lastSyncedIndex.current = live.scheduleIndex;
+        tvTrace("schedule", "cold_start_seeded_index", {
+          scheduleIndex: live.scheduleIndex,
+          offsetSeconds: live.offsetSeconds,
+        });
+      }
+      tvTrace("schedule", "livePosition_resolved", {
+        scheduleIndex: live.scheduleIndex,
+        offsetSeconds: live.offsetSeconds,
+        loopPosition: live.loopPosition ?? 0,
+        currentIndex: currentIndexRef.current,
+      });
     }
 
     const oc =
@@ -580,114 +916,107 @@ export default function GlobalTVProvider({
     [applySchedulePayloadCore]
   );
 
+  const applyPendingAudioRestore = useCallback(() => {
+    const player = playerRef.current;
+    const pending = pendingAudioRestoreRef.current;
+    if (!player?.isReady() || !pending) return;
+    pendingAudioRestoreRef.current = applyPendingAudioRestoreHelper(
+      player,
+      pending,
+      "TvProvider.applyPendingAudioRestore"
+    );
+  }, []);
+
   const applyPendingPlaybackRestore = useCallback(() => {
-    const p = pendingPlaybackRestoreRef.current;
+    const p = paymentPlaybackRestoreRef.current;
     if (!p) return;
-    pendingPlaybackRestoreRef.current = null;
+    paymentPlaybackRestoreRef.current = null;
     const pl = playerRef.current;
     if (!pl?.isReady()) return;
-    if (p.wasMuted) pl.mute();
-    else pl.unmute();
-    if (p.wasPlaying) pl.play();
+    pendingAudioRestoreRef.current = applyPaymentPlaybackRestore(
+      pl,
+      p,
+      "TvProvider.applyPendingPlaybackRestore"
+    );
   }, []);
 
   const loadSchedule = useCallback(
     async (opts?: { manual?: boolean; resetRetry?: boolean }) => {
-      if (opts?.resetRetry) {
-        scheduleRetryCountRef.current = 0;
-        if (scheduleRetryTimeoutRef.current) {
-          clearTimeout(scheduleRetryTimeoutRef.current);
-          scheduleRetryTimeoutRef.current = null;
-        }
-      }
-
-      const applySuccess = (data: any, etag: string | null) => {
-        const cid = scheduleSourceCommunityIdRef.current;
-        if (etag) scheduleEtagRef.current = etag;
-        persistTvScheduleCache(data, etag, cid);
-        applySchedulePayload(data);
-        setScheduleError(false);
-        setScheduleStale(false);
-        setIsReady(true);
-        scheduleRetryCountRef.current = 0;
-
-        if (boundaryRefetchTimeoutRef.current) {
-          clearTimeout(boundaryRefetchTimeoutRef.current);
-          boundaryRefetchTimeoutRef.current = null;
-        }
-        const epochMs = data.broadcastEpoch as number | undefined;
-        if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
-          const ms = msToNextHalfDayBoundary(
-            epochMs,
-            Date.now() + driftRef.current
-          );
-          boundaryRefetchTimeoutRef.current = setTimeout(() => {
-            boundaryRefetchTimeoutRef.current = null;
-            void loadScheduleRef.current();
-          }, ms + TV_BOUNDARY_REFETCH_SLACK_MS);
-        }
-      };
-
-      try {
-        const cid = scheduleSourceCommunityIdRef.current;
-        const res = await fetchTvScheduleAction({
-          communityId: cid,
-          ifNoneMatch: scheduleEtagRef.current,
-        });
-
-        if (res.success && res.data?.notModified) {
-          logTV("schedule_not_modified", {
-            mode: modeRef.current,
-            currentIndex: currentIndexRef.current,
-            offsetSeconds: null,
-          });
-          return;
-        }
-
-        if (!res.success || !res.data?.body) {
-          throw new Error(
-            res.error ?? res.message ?? "Failed to load TV schedule"
-          );
-        }
-
-        const data = res.data.body;
-        const etag = res.data.etag ?? null;
-
-        logTV("schedule_loaded", {
+      const coalesceKey = scheduleSourceCommunityIdRef.current;
+      return runCoalescedScheduleLoadRef.current(coalesceKey, async () => {
+        tvTrace("schedule", "loadSchedule_start", {
+          manual: opts?.manual ?? false,
+          resetRetry: opts?.resetRetry ?? false,
+          communityId: scheduleSourceCommunityIdRef.current,
           mode: modeRef.current,
-          currentIndex: currentIndexRef.current,
-          offsetSeconds: null,
-          status: res.data.status,
-          checksum: (data as { checksum?: string }).checksum,
-          activeScheduleId: (data as { activeScheduleId?: string })
-            .activeScheduleId,
+        });
+        if (opts?.resetRetry) {
+          scheduleRetryCountRef.current = 0;
+          if (scheduleRetryTimeoutRef.current) {
+            clearTimeout(scheduleRetryTimeoutRef.current);
+            scheduleRetryTimeoutRef.current = null;
+          }
+          if (isTvScheduleSwrEnabled() && !scheduleSwrBootstrappedRef.current) {
+            const cid = scheduleSourceCommunityIdRef.current;
+            const cached = readTvScheduleCache(cid);
+            if (cached) {
+              scheduleSwrBootstrappedRef.current = true;
+              scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
+              applySchedulePayload(cached.body);
+              setScheduleStale(true);
+              setScheduleError(false);
+              setIsReady(true);
+              tvLoadMark("T3_cache_hit", { communityId: cid });
+              tvLoadMark("T4", { source: "schedule_swr_cache" });
+              logTV("schedule_swr_bootstrap", {
+                mode: modeRef.current,
+                currentIndex: currentIndexRef.current,
+                offsetSeconds: null,
+              });
+              if (modeRef.current === "GLOBAL") {
+                queueMicrotask(() => syncToLive());
+              }
+            }
+          }
+        }
+
+        tvLoadMark("T3_cache_miss", {
+          manual: opts?.manual ?? false,
+          communityId: scheduleSourceCommunityIdRef.current,
         });
 
-        applySuccess(data, etag);
-        if (modeRef.current === "GLOBAL") {
-          lastSyncedIndex.current = -1;
-          queueMicrotask(() => syncToLive());
-        }
-      } catch (err) {
-        console.error("Failed to load TV schedule:", err);
-        const cid = scheduleSourceCommunityIdRef.current;
-        const cached = readTvScheduleCache(cid);
-        if (cached) {
-          scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
-          applySchedulePayload(cached.body);
-          setScheduleStale(true);
+        const applySuccess = (
+          data: any,
+          etag: string | null,
+          fetchCommunityId: string | null
+        ) => {
+          if (
+            isScheduleResponseStale(
+              fetchCommunityId,
+              scheduleSourceCommunityIdRef.current
+            )
+          ) {
+            void loadScheduleRef.current?.({ resetRetry: true });
+            return;
+          }
+          const cid = scheduleSourceCommunityIdRef.current;
+          if (etag) scheduleEtagRef.current = etag;
+          persistTvScheduleCache(data, etag, cid);
+          applySchedulePayload(data);
           setScheduleError(false);
+          setScheduleStale(false);
           setIsReady(true);
-          logTV("schedule_fallback_cache", {
-            mode: modeRef.current,
-            currentIndex: currentIndexRef.current,
-            offsetSeconds: null,
+          tvLoadMark("T4", { source: "loadSchedule_success" });
+          tvTrace("schedule", "loadSchedule_network_success", {
+            itemsLen: ((data as { items?: unknown[] }).items ?? []).length,
           });
+          scheduleRetryCountRef.current = 0;
+
           if (boundaryRefetchTimeoutRef.current) {
             clearTimeout(boundaryRefetchTimeoutRef.current);
             boundaryRefetchTimeoutRef.current = null;
           }
-          const epochMs = cached.body.broadcastEpoch as number | undefined;
+          const epochMs = data.broadcastEpoch as number | undefined;
           if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
             const ms = msToNextHalfDayBoundary(
               epochMs,
@@ -698,21 +1027,135 @@ export default function GlobalTVProvider({
               void loadScheduleRef.current();
             }, ms + TV_BOUNDARY_REFETCH_SLACK_MS);
           }
-        } else {
-          setScheduleError(true);
-          setIsReady(false);
-        }
+        };
 
-        const attempt = scheduleRetryCountRef.current;
-        if (attempt < MAX_SCHEDULE_RETRIES) {
-          const delay =
-            RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
-          scheduleRetryTimeoutRef.current = setTimeout(() => {
-            scheduleRetryCountRef.current += 1;
-            void loadSchedule();
-          }, delay);
+        let fetchCommunityId = scheduleSourceCommunityIdRef.current;
+        try {
+          fetchCommunityId = scheduleSourceCommunityIdRef.current;
+          const scheduleOpts = {
+            communityId: fetchCommunityId,
+            ifNoneMatch: scheduleEtagRef.current,
+          };
+          const res = isTvDirectScheduleFetchEnabled()
+            ? await fetchTvScheduleClient(scheduleOpts)
+            : await fetchTvScheduleAction(scheduleOpts);
+
+          if (res.success && res.data?.notModified) {
+            if (
+              isScheduleResponseStale(
+                fetchCommunityId,
+                scheduleSourceCommunityIdRef.current
+              )
+            ) {
+              void loadScheduleRef.current?.({ resetRetry: true });
+              return;
+            }
+            tvTrace("schedule", "loadSchedule_not_modified", {
+              mode: modeRef.current,
+            });
+            logTV("schedule_not_modified", {
+              mode: modeRef.current,
+              currentIndex: currentIndexRef.current,
+              offsetSeconds: null,
+            });
+            return;
+          }
+
+          if (!res.success || !res.data?.body) {
+            const failMsg =
+              !res.success && "error" in res && res.error
+                ? res.error
+                : "message" in res &&
+                    typeof (res as { message?: string }).message === "string"
+                  ? (res as { message: string }).message
+                  : "Failed to load TV schedule";
+            throw new Error(failMsg);
+          }
+
+          const data = res.data.body;
+          const etag = res.data.etag ?? null;
+
+          logTV("schedule_loaded", {
+            mode: modeRef.current,
+            currentIndex: currentIndexRef.current,
+            offsetSeconds: null,
+            status: res.data.status,
+            checksum: (data as { checksum?: string }).checksum,
+            activeScheduleId: (data as { activeScheduleId?: string })
+              .activeScheduleId,
+          });
+          tvTrace("schedule", "loadSchedule_success", {
+            itemsLen: ((data as { items?: unknown[] }).items ?? []).length,
+            liveScheduleIndex: (
+              data as { livePosition?: { scheduleIndex?: number } }
+            ).livePosition?.scheduleIndex,
+            activeScheduleId: (data as { activeScheduleId?: string })
+              .activeScheduleId,
+          });
+
+          applySuccess(data, etag, fetchCommunityId);
+          if (modeRef.current === "GLOBAL") {
+            queueMicrotask(() => syncToLive());
+          }
+        } catch (err) {
+          console.error("Failed to load TV schedule:", err);
+          tvTrace("schedule", "loadSchedule_failure", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          if (
+            isScheduleResponseStale(
+              fetchCommunityId,
+              scheduleSourceCommunityIdRef.current
+            )
+          ) {
+            void loadScheduleRef.current?.({ resetRetry: true });
+            return;
+          }
+          const cid = scheduleSourceCommunityIdRef.current;
+          const cached = readTvScheduleCache(cid);
+          if (cached) {
+            scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
+            applySchedulePayload(cached.body);
+            setScheduleStale(true);
+            setScheduleError(false);
+            setIsReady(true);
+            tvLoadMark("T4", { source: "schedule_fallback_cache" });
+            logTV("schedule_fallback_cache", {
+              mode: modeRef.current,
+              currentIndex: currentIndexRef.current,
+              offsetSeconds: null,
+            });
+            if (boundaryRefetchTimeoutRef.current) {
+              clearTimeout(boundaryRefetchTimeoutRef.current);
+              boundaryRefetchTimeoutRef.current = null;
+            }
+            const epochMs = cached.body.broadcastEpoch as number | undefined;
+            if (typeof epochMs === "number" && Number.isFinite(epochMs)) {
+              const ms = msToNextHalfDayBoundary(
+                epochMs,
+                Date.now() + driftRef.current
+              );
+              boundaryRefetchTimeoutRef.current = setTimeout(() => {
+                boundaryRefetchTimeoutRef.current = null;
+                void loadScheduleRef.current();
+              }, ms + TV_BOUNDARY_REFETCH_SLACK_MS);
+            }
+          } else {
+            setScheduleError(true);
+            setIsReady(false);
+          }
+
+          const attempt = scheduleRetryCountRef.current;
+          if (attempt < MAX_SCHEDULE_RETRIES) {
+            const delay =
+              RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+            scheduleRetryTimeoutRef.current = setTimeout(() => {
+              scheduleRetryCountRef.current += 1;
+              void loadSchedule();
+            }, delay);
+          }
         }
-      }
+      });
     },
     [applySchedulePayload, syncToLive]
   );
@@ -751,6 +1194,9 @@ export default function GlobalTVProvider({
 
   useEffect(() => {
     scheduleEtagRef.current = null;
+    tvTrace("schedule", "schedule_source_change", {
+      communityId: scheduleSourceCommunityId,
+    });
     resetPlaybackForScheduleSourceChange();
     void loadScheduleRef.current?.({ resetRetry: true });
   }, [resetPlaybackForScheduleSourceChange, scheduleSourceCommunityId]);
@@ -767,6 +1213,10 @@ export default function GlobalTVProvider({
   const retryScheduleLoad = useCallback(() => {
     void loadSchedule({ manual: true, resetRetry: true });
   }, [loadSchedule]);
+
+  useEffect(() => {
+    tvLoadMark("T2", { source: "TVProvider_mount" });
+  }, []);
 
   useEffect(() => {
     initTvAnalyticsRuntime();
@@ -791,6 +1241,9 @@ export default function GlobalTVProvider({
 
   useEffect(() => {
     const onVis = () => {
+      tvTrace("navigation", "visibilitychange", {
+        state: document.visibilityState,
+      });
       if (document.visibilityState === "visible") {
         void loadSchedule();
       }
@@ -887,7 +1340,6 @@ export default function GlobalTVProvider({
       });
     }
     syncToLive();
-    queueMicrotask(() => syncToLive());
   }, [syncToLive]);
 
   const goLive = enterGlobalMode;
@@ -901,8 +1353,13 @@ export default function GlobalTVProvider({
   const loadLocalAtIndex = useCallback(
     (
       index: number,
-      opts: { source: "preview" | "schedule"; updatePreviewPin: boolean }
+      opts: {
+        source: "preview" | "schedule";
+        updatePreviewPin: boolean;
+        userGesture?: boolean;
+      }
     ) => {
+      tvTrace("playback", "loadLocalAtIndex", { index, source: opts.source });
       setPlayingItemOverride(null);
       setSchedulePlayingSlot({
         scope: "active",
@@ -917,20 +1374,48 @@ export default function GlobalTVProvider({
       const item = items[index];
       if (!item) return;
 
-      const player = playerRef.current;
-      if (!player || !player.isReady()) return;
-
       const videoId = extractYoutubeID(item.channel.url);
-      if (videoId) player.load(videoId, 0);
+      if (videoId) {
+        requestPlayback({
+          reason: "loadLocal",
+          videoId,
+          startSeconds: 0,
+          scheduleIndex: index,
+        });
+        if (opts.userGesture) {
+          const player = playerRef.current;
+          if (player?.isReady()) {
+            playWithUserGesture(
+              player,
+              pendingAudioRestoreRef.current,
+              "loadLocalAtIndex"
+            );
+            pendingAudioRestoreRef.current = null;
+          }
+        }
+      }
     },
-    [items, enterLocalMode]
+    [items, enterLocalMode, requestPlayback]
   );
 
   const playLocal = useCallback(
-    (index: number) => {
-      trackTvUserInteraction("click", "playlist");
+    (
+      index: number,
+      opts?: {
+        userGesture?: boolean;
+        updatePreviewPin?: boolean;
+        trackClick?: boolean;
+      }
+    ) => {
+      if (opts?.trackClick !== false) {
+        trackTvUserInteraction("click", "playlist");
+      }
       setSelectedIndex(index);
-      loadLocalAtIndex(index, { source: "preview", updatePreviewPin: true });
+      loadLocalAtIndex(index, {
+        source: "preview",
+        updatePreviewPin: opts?.updatePreviewPin ?? true,
+        userGesture: opts?.userGesture ?? true,
+      });
     },
     [loadLocalAtIndex]
   );
@@ -942,7 +1427,11 @@ export default function GlobalTVProvider({
       setSelectedIndex(index);
       setPreviewPinIndex(index);
 
-      loadLocalAtIndex(index, { source: "schedule", updatePreviewPin: false });
+      loadLocalAtIndex(index, {
+        source: "schedule",
+        updatePreviewPin: false,
+        userGesture: true,
+      });
     },
     [loadLocalAtIndex]
   );
@@ -968,12 +1457,31 @@ export default function GlobalTVProvider({
       if (typeof window !== "undefined") {
         sessionStorage.setItem(SESSION_LOCAL_INDEX_KEY, String(anchor));
       }
-      const player = playerRef.current;
-      if (!player || !player.isReady()) return;
       const videoId = extractYoutubeID(item.channel.url);
-      if (videoId) player.load(videoId, 0);
+      if (videoId) {
+        requestPlayback({
+          reason: "loadLocal",
+          videoId,
+          startSeconds: 0,
+        });
+        const player = playerRef.current;
+        if (player?.isReady()) {
+          playWithUserGesture(
+            player,
+            pendingAudioRestoreRef.current,
+            "playLocalScheduleItem"
+          );
+          pendingAudioRestoreRef.current = null;
+        }
+      }
     },
-    [items, alternateBatchItems, enterLocalMode, playLocalFromSchedule]
+    [
+      items,
+      alternateBatchItems,
+      enterLocalMode,
+      playLocalFromSchedule,
+      requestPlayback,
+    ]
   );
 
   const loadEnforcementPlayerItem = useCallback(
@@ -987,10 +1495,13 @@ export default function GlobalTVProvider({
       pendingEnforcementPlaybackRef.current = null;
       const videoId = extractYoutubeID(item.channel.url);
       if (!videoId) return false;
-      player.load(videoId, offsetSeconds);
-      return true;
+      return requestPlayback({
+        reason: "enforcement",
+        videoId,
+        startSeconds: offsetSeconds,
+      });
     },
-    []
+    [requestPlayback]
   );
 
   const playEnforcementProgram = useCallback(
@@ -1014,10 +1525,13 @@ export default function GlobalTVProvider({
         );
         const liveItem = pos.item;
         if (isEnforcementScheduleItem(liveItem, enfId)) {
-          loadLocalAtIndex(pos.scheduleIndex, {
+          setPlayingItemOverride(null);
+          setSchedulePlayingSlot({
+            scope: "active",
+            rowIndex: pos.scheduleIndex,
             source: "schedule",
-            updatePreviewPin: false,
           });
+          enterLocalMode("enforcement_live", pos.scheduleIndex);
           loadEnforcementPlayerItem(liveItem, pos.offsetSeconds);
           return;
         }
@@ -1076,7 +1590,6 @@ export default function GlobalTVProvider({
       items,
       totalDuration,
       getNow,
-      loadLocalAtIndex,
       playLocalFromSchedule,
       enterLocalMode,
       loadEnforcementPlayerItem,
@@ -1084,6 +1597,10 @@ export default function GlobalTVProvider({
   );
 
   const onVideoEnd = useCallback(() => {
+    tvTrace("playback", "onVideoEnd", {
+      mode: modeRef.current,
+      currentIndex: currentIndexRef.current,
+    });
     if (paymentActiveRef.current) return;
 
     const queue = enforcementPlaybackQueueRef.current;
@@ -1104,10 +1621,18 @@ export default function GlobalTVProvider({
       const len = items.length;
       if (len < 1) return;
       if (len < 2) {
-        playLocal(0);
+        playLocal(0, {
+          userGesture: false,
+          updatePreviewPin: false,
+          trackClick: false,
+        });
         return;
       }
-      playLocal((currentIndexRef.current + 1) % len);
+      playLocal((currentIndexRef.current + 1) % len, {
+        userGesture: false,
+        updatePreviewPin: false,
+        trackClick: false,
+      });
       return;
     }
 
@@ -1251,16 +1776,13 @@ export default function GlobalTVProvider({
       setMode("GLOBAL");
       modeRef.current = "GLOBAL";
       lastSyncedIndex.current = -1;
-      pendingPlaybackRestoreRef.current = {
+      paymentPlaybackRestoreRef.current = {
         wasMuted: snap.wasMuted,
         wasPlaying: snap.wasPlaying,
       };
       paymentActiveRef.current = false;
       setIsPaymentActive(false);
       syncToLive();
-      window.setTimeout(() => {
-        applyPendingPlaybackRestore();
-      }, 350);
       return;
     }
 
@@ -1282,9 +1804,11 @@ export default function GlobalTVProvider({
     player.seekTo(snap.currentTime, false);
     paymentActiveRef.current = false;
     setIsPaymentActive(false);
-    if (snap.wasMuted) player.mute();
-    else player.unmute();
-    if (snap.wasPlaying) player.play();
+    paymentPlaybackRestoreRef.current = {
+      wasMuted: snap.wasMuted,
+      wasPlaying: snap.wasPlaying,
+    };
+    applyPendingPlaybackRestore();
   }, [
     items,
     alternateBatchItems,
@@ -1296,15 +1820,16 @@ export default function GlobalTVProvider({
   useEffect(() => {
     /** Re-sync live position when returning to the TV page without resetting the broadcast timeline. */
     const handler = () => {
+      tvTrace("navigation", "tv_page_open", { mode: modeRef.current });
       lastSyncedIndex.current = -1;
       if (modeRef.current === "GLOBAL") {
-        queueMicrotask(() => syncToLive());
+        queueMicrotask(() => maybeSyncToLive("tv_page_open"));
       }
     };
 
     window.addEventListener("tv-page-open", handler);
     return () => window.removeEventListener("tv-page-open", handler);
-  }, [syncToLive]);
+  }, [maybeSyncToLive]);
 
   /** Restore TV state after full-page return from `/success` (Stripe); same-session uses `resumeAfterPayment`. */
   useEffect(() => {
@@ -1339,15 +1864,12 @@ export default function GlobalTVProvider({
       lastSyncedIndex.current = -1;
       paymentActiveRef.current = false;
       setIsPaymentActive(false);
-      pendingPlaybackRestoreRef.current = {
+      paymentPlaybackRestoreRef.current = {
         wasMuted: persisted.wasMuted,
         wasPlaying: persisted.wasPlaying,
       };
       queueMicrotask(() => {
         syncToLive();
-        window.setTimeout(() => {
-          applyPendingPlaybackRestore();
-        }, 350);
       });
       clearPendingReturnSoon();
       return;
@@ -1366,9 +1888,11 @@ export default function GlobalTVProvider({
       const p = playerRef.current;
       if (!p?.isReady()) return;
       p.seekTo(persisted.currentTime, false);
-      if (persisted.wasMuted) p.mute();
-      else p.unmute();
-      if (persisted.wasPlaying) p.play();
+      paymentPlaybackRestoreRef.current = {
+        wasMuted: persisted.wasMuted,
+        wasPlaying: persisted.wasPlaying,
+      };
+      applyPendingPlaybackRestore();
     });
     clearPendingReturnSoon();
   }, [
@@ -1434,6 +1958,9 @@ export default function GlobalTVProvider({
         snapshotPlaybackForPaymentRedirect,
         resumeAfterPayment,
         applyPendingPlaybackRestore,
+        applyPendingAudioRestore,
+        unregisterTvPlayer,
+        reloadCurrentPlaybackAt,
 
         ongoingCollection,
         upcomingCollection,

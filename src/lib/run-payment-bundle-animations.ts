@@ -13,7 +13,6 @@ import {
   shouldSkipPaymentSegment,
 } from "@/lib/payment-playback-budget";
 import { startPaymentRewardOverlays } from "@/lib/reward-overlays/mount-web-reward-layers";
-import { animLog } from "@/lib/animationDebug";
 import {
   logRealtimeTelemetry,
   type RealtimeSurface,

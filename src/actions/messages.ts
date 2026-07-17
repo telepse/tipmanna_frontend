@@ -95,6 +95,7 @@ export type CommentDrawerData = {
     videoTipCount: number;
     eventRoomTipCount: number;
     viewCount: number;
+    encounterCount?: number;
   };
   comments: Array<{
     id: string;
@@ -163,13 +164,19 @@ export async function getTipsDrawerAction(
   eventId: string,
   channelId: string | null,
   scope: "event" | "video" = "event",
-  token?: string | null
+  token?: string | null,
+  opts?: { cursor?: string | null; limit?: number }
 ) {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
+  const params = new URLSearchParams();
+  params.set("scope", scope);
+  if (opts?.cursor) params.set("cursor", opts.cursor);
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  const qs = params.toString();
   const path =
     scope === "video" && channelId
-      ? `/messages/channel/${encodeURIComponent(eventId)}/${encodeURIComponent(channelId)}/tips?scope=video`
-      : `/messages/event/${encodeURIComponent(eventId)}/tips?scope=event`;
+      ? `/messages/channel/${encodeURIComponent(eventId)}/${encodeURIComponent(channelId)}/tips?${qs}`
+      : `/messages/event/${encodeURIComponent(eventId)}/tips?${qs}`;
   return runServerFetch(
     `${base.replace(/\/$/, "")}${path}`,
     {
@@ -203,6 +210,9 @@ export async function getMessagesByEventAction(eventId: string) {
   if (!eventId?.trim()) {
     return actionFail("Event ID is required", "getMessagesByEventAction");
   }
+  console.log(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/messages/${eventId.trim()}`
+  );
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/messages/${eventId.trim()}`,
     {
@@ -212,8 +222,7 @@ export async function getMessagesByEventAction(eventId: string) {
       },
       cache: "no-store",
     },
-    "getMessagesByEventAction",
-    raw => (Array.isArray(raw) ? raw : [])
+    "getMessagesByEventAction"
   );
 }
 

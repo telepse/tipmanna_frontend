@@ -39,6 +39,19 @@ export async function newCreateEventAction(
   );
 }
 
+// -------- Get host events (lightweight summary for create dialog) -------- //
+export async function getHostEventsSummaryAction(token?: string | null) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/me/summary`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostEventsSummaryAction"
+  );
+}
+
 // -------- Get host events -------- //
 export async function getHostEventsAction(token?: string | null) {
   return runServerFetch(
@@ -112,6 +125,22 @@ export async function upsertYoutubeChannelAction(
   );
 }
 
+export async function getVideoCoOwnerInviteStatusAction(
+  draftKey: string,
+  token?: string | null
+) {
+  const q = new URLSearchParams({ draftKey });
+  return runServerFetch(
+    `${COOWNER_API}/host/video-co-owner-invites/status?${q}`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getVideoCoOwnerInviteStatusAction"
+  );
+}
+
 export async function createVideoCoOwnerInviteAction(
   body: {
     draftKey: string;
@@ -157,6 +186,39 @@ export async function getHostEventsTabsAction(token?: string | null) {
       cache: "no-store",
     },
     "getHostEventsTabsAction"
+  );
+}
+
+export type HostDefaultChannelItem = {
+  id: string;
+  eventName: string;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  approved: boolean;
+  amountRaised: number;
+  numOfTips: number;
+  showAmountRaisedOnVideos?: boolean;
+  showViewCountOnVideos?: boolean;
+  showEncounterOnVideos?: boolean;
+  defaultChannel: {
+    id: string;
+    title: string;
+    url: string;
+    numOfTips: number;
+    isDefault: boolean;
+  };
+};
+
+export async function getHostDefaultChannelsAction(token?: string | null) {
+  return runServerFetch<{ items: HostDefaultChannelItem[] }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/default-channels`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostDefaultChannelsAction"
   );
 }
 
@@ -628,6 +690,7 @@ export async function changeEventVideoDisplaySettingsAction(
   values: {
     showAmountRaisedOnVideos: boolean;
     showViewCountOnVideos: boolean;
+    showEncounterOnVideos: boolean;
   },
   eventId: string,
   token?: string | null

@@ -15,7 +15,8 @@ import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
-import { getPublicFrontendOrigin } from "@/lib/site-config";
+import type { Message } from "@/types";
+import { getPrimaryOrigin } from "@/lib/site-config";
 import { buildRoomShareUrl } from "@/lib/public-video-url";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 
@@ -45,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const event = eventPayload;
-  const baseUrl = getPublicFrontendOrigin();
+  const baseUrl = getPrimaryOrigin();
 
   // Clean background path logic
   const cleanBackground = event.eventBackground?.startsWith("/")
@@ -56,21 +57,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? `${baseUrl}${cleanBackground}`
     : `${baseUrl}/events/together.png`;
 
-  // Fix: Ensure description is > 100 characters for LinkedIn
-  const orgName = event.organizationName ?? "the host";
-  let description = `Join ${event.eventName} hosted by ${orgName}. Support the event, watch live, and tip your favorite characters.`;
+  const title = `Join ${event.eventName} hosted by ${event.hostName?.split(" ")[0]} on Tipmanna 💎⚡`;
 
-  if (description.length < 100) {
-    description += ` Experience a live interactive event where you can engage with the community and make an impact in real-time.`;
-  }
+  const description = `Support the event, watch live, and send paid engagements. Experience live interation and make an impact in real-time.`;
 
   return {
     metadataBase: new URL(baseUrl),
-    title: event.eventName,
-    description: description,
+    title,
+    description,
     openGraph: {
-      title: event.eventName,
-      description: description,
+      title,
+      description,
       url: `/room/${trimmedId}`,
       siteName: "TipManna",
       images: [
@@ -85,8 +82,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: event.eventName,
-      description: description,
+      title,
+      description,
       images: [imageUrl],
     },
   };
@@ -107,9 +104,8 @@ export default async function EventRoomPage({ params }: Props) {
     getEventChannels(trimmedId),
   ]);
 
-  console.log(eventRes.data);
-
   const eventPayload = eventRes.data;
+  // const messages = (messagesRes.data as { data: Message[] })?.data ?? [];
   const messages = messagesRes.data;
   const iTipped = tippedRes.data ?? 0;
   const channels = channelsRes.data;

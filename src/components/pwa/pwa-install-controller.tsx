@@ -41,6 +41,7 @@ export function PwaInstallController() {
   const refreshPreference = useCallback(async () => {
     const pref = await fetchPwaPreference();
     setPreference(pref);
+    prefRef.current = pref;
     return pref;
   }, []);
 
@@ -60,6 +61,10 @@ export function PwaInstallController() {
       if (trigger === "payment") {
         await incrementPwaPaymentCount();
         await refreshPreference();
+      }
+
+      if (isPwaAutoPromptSuppressed(prefRef.current, installedRef.current)) {
+        return;
       }
 
       setOpen(true);
@@ -86,10 +91,14 @@ export function PwaInstallController() {
   }, []);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    if (installed || isPwaAutoPromptSuppressed(prefRef.current, installed)) {
-      return;
+    if (installed) {
+      setOpen(false);
     }
+  }, [installed]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (installed) return;
 
     let elapsed = readEngagementElapsedMs();
     let lastTick = document.visibilityState === "visible" ? Date.now() : null;
@@ -97,6 +106,9 @@ export function PwaInstallController() {
 
     const tick = () => {
       if (document.visibilityState !== "visible") return;
+      if (isPwaAutoPromptSuppressed(prefRef.current, installedRef.current)) {
+        return;
+      }
       const now = Date.now();
       if (lastTick != null) {
         elapsed += now - lastTick;
@@ -132,23 +144,30 @@ export function PwaInstallController() {
         writeEngagementElapsedMs(elapsed);
       }
     };
-  }, [installed, preference?.status]);
+  }, [installed]);
 
   const handleOpenChange = (next: boolean) => {
+    if (
+      next &&
+      isPwaAutoPromptSuppressed(prefRef.current, installedRef.current)
+    ) {
+      return;
+    }
     setOpen(next);
     if (!next) {
       void refreshPreference();
     }
   };
 
-  if (installed) return null;
+  const suppressed = isPwaAutoPromptSuppressed(preference, installed);
 
   return (
     <InstallPromptSheet
-      open={open}
+      open={open && !suppressed}
       onOpenChange={handleOpenChange}
       onPreferenceChange={(pref: PwaPreferenceSnapshot | null) => {
         setPreference(pref as PwaPreferenceRecord | null);
+        prefRef.current = pref as PwaPreferenceRecord | null;
       }}
     />
   );

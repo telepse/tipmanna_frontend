@@ -25,7 +25,7 @@ const BACKGROUND_IMAGES = {
   pattern: "/patterns/bg_pattern.webp",
 } as const;
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export default function Home() {
   return (

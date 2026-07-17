@@ -56,8 +56,7 @@ export function computeTipRewardEligibility(
   }
 
   const rewardGalaxy = totalGbp >= GALAXY_MIN_AMOUNT_GBP;
-  const rewardTurbo =
-    styleSet.size >= TURBO_MIN_DISTINCT_STYLES || rewardGalaxy;
+  const rewardTurbo = styleSet.size >= 3 || rewardGalaxy;
 
   return {
     rewardTurbo,

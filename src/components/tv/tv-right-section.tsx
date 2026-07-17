@@ -301,6 +301,7 @@ export const TVRightSection = () => {
       <TVScheduleDrawer
         isTVDrawerOpen={isTvDrawerOpen}
         setIsTvDrawerOpen={setIsTvDrawerOpen}
+        tippingCharacters={characters}
       />
     </div>
   );

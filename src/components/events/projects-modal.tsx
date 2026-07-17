@@ -28,8 +28,6 @@ interface Props {
 export const ProjectsModal = ({
   open,
   onClose,
-  isHost,
-  eventId,
   projects,
   setProjects,
 }: Props) => {

@@ -16,6 +16,7 @@ import Image from "next/image";
 
 // Third-party imports
 import {
+  ArrowRight,
   AudioLines,
   Bookmark,
   ChevronLeft,
@@ -30,7 +31,7 @@ import {
   Plus,
   RectangleHorizontal,
   RectangleVertical,
-  Search,
+  Rocket,
   Share2,
   Tv,
   UserRound,
@@ -82,7 +83,7 @@ import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { ChannelProgressBar } from "./channel-progress-bar";
 import { SaveEventId } from "./save-event-id";
 import {
-  buildChannelShareUrl,
+  buildContentShareUrl,
   pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { getCurrentUser } from "./event-room-client";
@@ -112,6 +113,15 @@ import { cn } from "@/lib/utils";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import {
+  awaitCommentDrawerPrefetch,
+  awaitProfileDrawerPrefetch,
+  awaitTipsDrawerPrefetch,
+  getCachedProfileDrawerData,
+  hydrateSavedContentsFromProfileCache,
+  prefetchChannelDrawers,
+  prefetchProfileDrawerData,
+} from "@/lib/drawer-prefetch-cache";
 import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import {
@@ -142,7 +152,7 @@ interface Props {
   characters: any[];
   eventId: string;
   characterSets: any[];
-  /** Deep link from `/channel/{eventId}?channel=` — selects initial video. */
+  /** Deep link from `/channel/{eventId}?v=` — selects initial video. */
   initialChannelId?: string | null;
   /** When the active video changes (e.g. event room lightbox URL sync). */
   onActiveChannelChange?: (channelId: string) => void;
@@ -265,8 +275,13 @@ export const ChannelClient = ({
     currentContent?.event?.showViewCountOnVideos ??
     playlist[0]?.event?.showViewCountOnVideos ??
     initialEvent?.showViewCountOnVideos;
+  const showEncounterOnVideos =
+    currentContent?.event?.showEncounterOnVideos ??
+    playlist[0]?.event?.showEncounterOnVideos ??
+    initialEvent?.showEncounterOnVideos;
   const showRaisedAmount = showAmountRaisedOnVideos !== false;
   const showViewCount = showViewCountOnVideos === true;
+  const showEncounterCount = showEncounterOnVideos === true;
 
   const { amountRaised: liveAmountRaised, numOfTips: liveNumOfTips } =
     useEventRoomRealtime({
@@ -324,6 +339,14 @@ export const ChannelClient = ({
         r.success &&
         r.data &&
         typeof r.data === "object" &&
+        "views" in r.data
+      ) {
+        const views = (r.data as { views?: number }).views;
+        setChannelViewCount(typeof views === "number" ? views : null);
+      } else if (
+        r.success &&
+        r.data &&
+        typeof r.data === "object" &&
         "encounters" in r.data
       ) {
         const encounters = (r.data as { encounters?: number }).encounters;
@@ -338,34 +361,45 @@ export const ChannelClient = ({
   }, [currentContent?.id, showViewCount]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadProfileData = async () => {
       if (!user?.id) {
         setSavedContents([]);
         setTipperEvents([]);
         setITipped(0);
+        setCauses([]);
         return;
       }
-      const [
-        { data: _tipperEvents },
-        { data: _iTipped },
-        { data: _causes },
-        savedRes,
-      ] = await Promise.all([
-        getTippedEventsForTipper(),
-        getTotalAmountTippedByTipper(),
-        getAllCausesAction(),
-        getSavedVideosForTipper(),
-      ]);
 
-      setTipperEvents(Array.isArray(_tipperEvents) ? _tipperEvents : []);
-      setITipped(coalesceNumber(_iTipped));
-      setCauses(Array.isArray(_causes) ? _causes : []);
-      setSavedContents(
-        normalizeSavedVideosList(savedRes.success ? savedRes.data : [])
+      const cachedSaved = hydrateSavedContentsFromProfileCache();
+      if (cachedSaved.length) setSavedContents(cachedSaved);
+
+      const cached = getCachedProfileDrawerData();
+      if (cached) {
+        setTipperEvents(
+          Array.isArray(cached.tipperEvents) ? cached.tipperEvents : []
+        );
+        setITipped(typeof cached.iTipped === "number" ? cached.iTipped : 0);
+        setCauses(Array.isArray(cached.causes) ? cached.causes : []);
+        if (Array.isArray(cached.savedContents)) {
+          setSavedContents(cached.savedContents);
+        }
+        return;
+      }
+
+      await prefetchProfileDrawerData();
+      const fresh = getCachedProfileDrawerData();
+      if (!fresh) return;
+      setTipperEvents(
+        Array.isArray(fresh.tipperEvents) ? fresh.tipperEvents : []
       );
+      setITipped(typeof fresh.iTipped === "number" ? fresh.iTipped : 0);
+      setCauses(Array.isArray(fresh.causes) ? fresh.causes : []);
+      if (Array.isArray(fresh.savedContents)) {
+        setSavedContents(fresh.savedContents);
+      }
     };
 
-    void fetchData();
+    void loadProfileData();
   }, [user?.id]);
 
   const [currentTime, setCurrentTime] = useState(0);
@@ -442,6 +476,15 @@ export const ChannelClient = ({
   useEffect(() => {
     prevPlayingForVideoStartRef.current = false;
   }, [currentContent?.id]);
+
+  useEffect(() => {
+    if (!eventId || !currentContent?.id) return;
+    prefetchChannelDrawers({
+      eventId,
+      channelId: String(currentContent.id),
+      authenticated: Boolean(user?.id),
+    });
+  }, [eventId, currentContent?.id, user?.id]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -521,7 +564,11 @@ export const ChannelClient = ({
     };
   }, [eventId, currentContent?.id, isPlaying]);
 
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+
+  useEffect(() => {
+    setIsMuted(true);
+  }, [currentContent?.id]);
   const [, setAudioUnlocked] = useState(false);
   const [openPlaylist, setOpenPlaylist] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
@@ -627,7 +674,7 @@ export const ChannelClient = ({
 
   const shareUrl =
     eventId && channelIdForShare
-      ? buildChannelShareUrl({ eventId, channelId: channelIdForShare })
+      ? buildContentShareUrl({ eventId, channelId: channelIdForShare })
       : "";
 
   const shareTitle =
@@ -1228,6 +1275,14 @@ export const ChannelClient = ({
             <button
               type="button"
               className="cursor-pointer rounded bg-black/50 p-1"
+              onPointerDown={() => {
+                if (eventId && paymentChannelIdForTip) {
+                  void awaitCommentDrawerPrefetch(
+                    eventId,
+                    paymentChannelIdForTip
+                  );
+                }
+              }}
               onClick={() => setShowCommentDrawer(true)}
             >
               <MessageCircleMore className="size-5 text-white" />
@@ -1254,6 +1309,8 @@ export const ChannelClient = ({
               }
               numOfTips={liveNumOfTips}
               amountRaised={showRaisedAmount ? Number(liveAmountRaised) : null}
+              showViewCount={showViewCount}
+              showEncounterCount={showEncounterCount}
               tippingCharacters={tipPriceCatalog}
               onContinueToTip={() => setIsTipDrawerOpen(true)}
               hostName={currentContent?.event?.hostName}
@@ -1280,6 +1337,15 @@ export const ChannelClient = ({
               type="button"
               title="View tips"
               className="absolute -top-6 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
+              onPointerDown={() => {
+                if (eventId && currentContent?.id) {
+                  void awaitTipsDrawerPrefetch(
+                    eventId,
+                    String(currentContent.id),
+                    "event"
+                  );
+                }
+              }}
               onClick={() => setTipsListOpen(true)}
             >
               {liveNumOfTips} tips
@@ -1404,7 +1470,7 @@ export const ChannelClient = ({
                   setIsProfileDrawerOpen(false);
                 }}
               >
-                <Search
+                <Rocket
                   className="size-5 sm:size-7"
                   strokeWidth={2}
                 />
@@ -1427,6 +1493,9 @@ export const ChannelClient = ({
               <button
                 type="button"
                 className="hidden cursor-pointer sm:inline-block"
+                onPointerDown={() => {
+                  void awaitProfileDrawerPrefetch();
+                }}
                 onClick={() => {
                   setIsCreatePopupOpen(false);
                   setIsProfileDrawerOpen(true);
@@ -1527,7 +1596,7 @@ export const ChannelClient = ({
               setIsProfileDrawerOpen(false);
             }}
           >
-            <Search
+            <Rocket
               className="size-5"
               strokeWidth={2}
             />{" "}
@@ -1555,6 +1624,9 @@ export const ChannelClient = ({
           <button
             type="button"
             className="mt-[5px] flex cursor-pointer flex-col items-center"
+            onPointerDown={() => {
+              void awaitProfileDrawerPrefetch();
+            }}
             onClick={() => {
               setIsCreatePopupOpen(false);
               setIsProfileDrawerOpen(true);
@@ -1627,12 +1699,22 @@ export const ChannelClient = ({
             />
           </span>
           <span className="font-semibold">Now playing:</span>{" "}
-          {playlist[currentContentIndex]?.title.substring(0, 25)}{" "}
-          {playlist[currentContentIndex]?.title.length > 25 ? "..." : ""}
+          {playlist[currentContentIndex]?.title.substring(0, 25)}
+          {playlist[currentContentIndex]?.title.length > 25 ? ".." : ""}{" "}
+          {playlist[currentContentIndex]?.title.length > 25 ? (
+            <div
+              className="-ml-2 flex items-center border border-gray-400"
+              onClick={() => setShowCommentDrawer(true)}
+            >
+              <ArrowRight className="size-4 cursor-pointer" />
+            </div>
+          ) : (
+            ""
+          )}
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex flex-col px-1 w-full">
+          <div className="flex w-full flex-col px-1">
             <input
               type="range"
               min={0}

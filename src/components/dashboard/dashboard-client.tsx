@@ -27,7 +27,7 @@ import { StatCard } from "./stat-card";
 import type { Event } from "@/types";
 import { RecentEventCard } from "./recent-event-card";
 import { useHostEvents } from "@/hooks/useHostEvents";
-import { HostSubscriptionPanel } from "@/components/dashboard/host-subscription-panel";
+import { HostSubscriptionQuickLinks } from "@/components/dashboard/host-subscription-quick-links";
 import { CreateDialog } from "@/components/home/create-dialog";
 import { FormDraftsPanel } from "@/components/dashboard/form-drafts-panel";
 
@@ -72,7 +72,7 @@ export const DashboardClient = () => {
       </div>
 
       {"role" in user && user.role === "HOST" && (
-        <HostSubscriptionPanel eventSlug={hostEventSlugParam} />
+        <HostSubscriptionQuickLinks eventSlug={hostEventSlugParam} />
       )}
 
       {"role" in user && user.role === "HOST" && <FormDraftsPanel />}

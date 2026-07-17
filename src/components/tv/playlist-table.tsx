@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, AudioLines, EyeIcon, UsersRound } from "lucide-react";
 import { trimTitle } from "@/lib/utils";
-import { Bookmark, UsersRound } from "lucide-react";
 import { useTV } from "../tv-provider";
+import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";
 import {
   cumulativeStartOffsetSeconds,
   formatPlaylistClock,
@@ -11,14 +13,49 @@ import {
   wallClockStartMsForScheduleIndex,
   type WallClockLabelMode,
 } from "@/lib/tv/playlistDisplay";
+import { CommentDrawer } from "@/components/events/comment-drawer";
+import { fetchTvChannelEncountersBatch } from "@/lib/tv/channelEncountersClient";
+import type { RoomCharacter } from "@/types";
 
-type Props = {
-  showTimes?: boolean;
-  /** When true, show live TV times even if mode is LOCAL (authoritative schedule) */
-  forceGlobalTimes?: boolean;
-  variant: "activeBatch" | "alternateBatch";
-  onSelectChannel: (indexInBatch: number) => void;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type CommentDrawerTarget = {
+  eventId: string;
+  channelId: string | null;
+  videoTitle: string;
+  videoDescription: string;
+  numOfTips: number;
 };
+
+function resolveCommentDrawerTarget(item: {
+  defaultChannelEventId?: string;
+  channel?: {
+    id?: string | number;
+    eventId?: string;
+    title?: string;
+    description?: string | null;
+    numOfTips?: number;
+  };
+}): CommentDrawerTarget | null {
+  const eventId = String(
+    item.defaultChannelEventId ?? item.channel?.eventId ?? ""
+  ).trim();
+  if (!eventId || eventId === "notice") return null;
+
+  return {
+    eventId,
+    channelId: item.channel?.id != null ? String(item.channel.id) : null,
+    videoTitle:
+      typeof item.channel?.title === "string" ? item.channel.title : "",
+    videoDescription:
+      typeof item.channel?.description === "string"
+        ? item.channel.description
+        : "",
+    numOfTips:
+      typeof item.channel?.numOfTips === "number" ? item.channel.numOfTips : 0,
+  };
+}
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   CONCERT_MUSIC: "Concert",
@@ -31,17 +68,33 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   CORPORATE: "Corporate",
   COMEDY: "Comedy",
   FASHION: "Fashion",
-  GAME_SPORT: "Game & Sport",
+  GAME_SPORT: "Games",
   CHILDREN: "Children",
   EDUCATION: "Education",
   OTHER: "Other",
 };
+
+type Props = {
+  showTimes?: boolean;
+  /** When true, show live TV times even if mode is LOCAL (authoritative schedule) */
+  forceGlobalTimes?: boolean;
+  variant: "activeBatch" | "alternateBatch";
+  onSelectChannel: (indexInBatch: number) => void;
+  tippingCharacters?: RoomCharacter[];
+};
+
+const airTimeBadgeClass =
+  "text-muted-foreground shrink-0 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]";
+const metricRowClass =
+  "text-muted-foreground flex min-w-0 flex-nowrap items-center gap-1 text-[8px] font-semibold";
+const metricItemClass = "flex shrink-0 items-center gap-1 whitespace-nowrap";
 
 export default function PlaylistTable({
   showTimes,
   forceGlobalTimes,
   variant,
   onSelectChannel,
+  tippingCharacters,
 }: Props) {
   const {
     items,
@@ -51,21 +104,83 @@ export default function PlaylistTable({
     mode,
     getSyncedNow,
     liveBroadcastIndex,
+    schedulePlayingSlot,
   } = useTV();
 
   const list = variant === "activeBatch" ? items : alternateBatchItems;
 
-  if (!list.length) return null;
+  const [commentDrawerTarget, setCommentDrawerTarget] =
+    useState<CommentDrawerTarget | null>(null);
+
+  const [encountersByChannelId, setEncountersByChannelId] = useState<
+    Record<string, number>
+  >({});
 
   /** Schedule list always follows live broadcast order (not local playback). */
   const activeBatchRotationStart = liveBroadcastIndex;
 
-  const orderedIndices =
-    variant === "activeBatch"
-      ? forceGlobalTimes
-        ? list.map((_, i) => i)
-        : buildRotatedScheduleOrder(list.length, activeBatchRotationStart)
-      : list.map((_, i) => i);
+  const orderedIndices = useMemo(
+    () =>
+      variant === "activeBatch"
+        ? forceGlobalTimes
+          ? list.map((_, i) => i)
+          : buildRotatedScheduleOrder(list.length, activeBatchRotationStart)
+        : list.map((_, i) => i),
+    [variant, forceGlobalTimes, list, activeBatchRotationStart]
+  );
+
+  const channelsMissingEncounters = useMemo(() => {
+    const missing = new Set<string>();
+    for (const rowIndex of orderedIndices) {
+      const item = list[rowIndex];
+      const channelId = item?.channel?.id;
+      if (
+        typeof channelId !== "string" ||
+        !UUID_RE.test(channelId) ||
+        item.segmentKind === "notice"
+      ) {
+        continue;
+      }
+      if (typeof item.channel?.encounters !== "number") {
+        missing.add(channelId);
+      }
+    }
+    return [...missing];
+  }, [orderedIndices, list]);
+
+  useEffect(() => {
+    const seeded: Record<string, number> = {};
+    for (const rowIndex of orderedIndices) {
+      const item = list[rowIndex];
+      const channelId = item?.channel?.id;
+      if (
+        typeof channelId === "string" &&
+        typeof item?.channel?.encounters === "number"
+      ) {
+        seeded[channelId] = item.channel.encounters;
+      }
+    }
+    setEncountersByChannelId(seeded);
+  }, [orderedIndices, list]);
+
+  useEffect(() => {
+    if (channelsMissingEncounters.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      const fetched = await fetchTvChannelEncountersBatch(
+        channelsMissingEncounters
+      );
+      if (cancelled || Object.keys(fetched).length === 0) return;
+      setEncountersByChannelId(prev => ({ ...prev, ...fetched }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [channelsMissingEncounters]);
+
+  if (!list.length) return null;
 
   const activeWallClockMode: WallClockLabelMode =
     variant === "activeBatch" && forceGlobalTimes
@@ -83,98 +198,183 @@ export default function PlaylistTable({
       ? totalDuration > 0
       : alternateBatchItems.length > 0);
 
+  const openCommentDrawer = (
+    item: Parameters<typeof resolveCommentDrawerTarget>[0]
+  ) => {
+    const target = resolveCommentDrawerTarget(item);
+    if (target) setCommentDrawerTarget(target);
+  };
+
+  const pickTimeLabel = (rowIndex: number) => {
+    if (!effectiveShowTimes || broadcastEpoch == null) return "";
+
+    if (variant === "activeBatch" && totalDuration) {
+      return formatPlaylistClock(
+        wallClockStartMsForScheduleIndex(
+          broadcastEpoch,
+          totalDuration,
+          now,
+          liveBroadcastIndex,
+          rowIndex,
+          items,
+          activeWallClockMode
+        )
+      );
+    }
+
+    if (variant === "alternateBatch") {
+      const off = cumulativeStartOffsetSeconds(alternateBatchItems, rowIndex);
+      return formatPlaylistClock(
+        nextTwelveHourBlockStartMs(broadcastEpoch, now) + off * 1000
+      );
+    }
+
+    return "";
+  };
+
+  const isRowPlaying = (rowIndex: number) => {
+    if (variant === "activeBatch") {
+      if (mode === "GLOBAL") return rowIndex === liveBroadcastIndex;
+      return (
+        schedulePlayingSlot?.scope === "active" &&
+        schedulePlayingSlot.rowIndex === rowIndex
+      );
+    }
+    return (
+      schedulePlayingSlot?.scope === "alternate" &&
+      schedulePlayingSlot.rowIndex === rowIndex
+    );
+  };
+
   return (
-    <div className="w-full max-w-[330px] overflow-hidden rounded-lg border sm:max-w-[440px]">
-      {orderedIndices.map((rowIndex, liveIndex) => {
-        const item = list[rowIndex];
-        if (!item) return null;
+    <>
+      <div className="w-full space-y-2">
+        {orderedIndices.map((rowIndex, liveIndex) => {
+          const item = list[rowIndex];
+          if (!item) return null;
 
-        const isCurrent =
-          variant === "activeBatch" && rowIndex === liveBroadcastIndex;
+          const isPlaying = isRowPlaying(rowIndex);
+          const showAired =
+            variant === "activeBatch" &&
+            forceGlobalTimes &&
+            rowIndex < liveBroadcastIndex;
+          const startLabel = pickTimeLabel(rowIndex);
 
-        const showAired =
-          variant === "activeBatch" &&
-          forceGlobalTimes &&
-          rowIndex < liveBroadcastIndex;
+          const { contentLanguage, flagUrl } = resolveContentLocaleDisplay(
+            item.channel.contentLanguage,
+            item.channel.contentCountry
+          );
 
-        let start = "";
-        if (effectiveShowTimes && broadcastEpoch != null) {
-          if (variant === "activeBatch" && totalDuration) {
-            start = formatPlaylistClock(
-              wallClockStartMsForScheduleIndex(
-                broadcastEpoch,
-                totalDuration,
-                now,
-                liveBroadcastIndex,
-                rowIndex,
-                items,
-                activeWallClockMode
-              )
-            );
-          } else if (variant === "alternateBatch") {
-            const off = cumulativeStartOffsetSeconds(
-              alternateBatchItems,
-              rowIndex
-            );
-            start = formatPlaylistClock(
-              nextTwelveHourBlockStartMs(broadcastEpoch, now) + off * 1000
-            );
-          }
-        }
+          const channelId =
+            typeof item.channel?.id === "string" ? item.channel.id : "";
+          const encounterCount =
+            (channelId ? encountersByChannelId[channelId] : undefined) ??
+            item.channel.encounters ??
+            0;
 
-        return (
-          <div
-            key={item.id || liveIndex}
-            className="flex flex-col gap-4 space-y-4 border-none"
-          >
+          return (
             <div
-              className={`relative mb-6 flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-4 py-2 transition-all duration-300 ${isCurrent ? "ring-primary scale-100 shadow-lg ring-4" : "scale-100 ring-4 ring-gray-200"} ${showAired ? "opacity-80" : ""} `}
+              key={item.id || liveIndex}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectChannel(rowIndex)}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectChannel(rowIndex);
+                }
+              }}
+              className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary z-10 -mt-2 scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} ${showAired ? "opacity-80" : ""}`}
             >
-              <div className="flex items-center gap-2">
-                {isCurrent && <Bookmark className="-ml-2 size-5" />}
+              <div
+                className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
+              >
+                <h5 className="w-full text-xs font-medium whitespace-nowrap">
+                  {typeof item?.channel?.title === "string" &&
+                  item.channel.title.trim()
+                    ? trimTitle(item.channel.title, 20)
+                    : "Loading..."}
+                </h5>
 
-                <div className="space-y-1">
-                  <h5 className="text-sm font-medium">
-                    {trimTitle(item.channel.title, 20)}
-                  </h5>
-
-                  <p className="text-muted-foreground text-[10px]">
-                    Host: {item.channel.hostName?.split(" ")[0] || ""}{" "}
-                    <span className="text-primary text-[10px] opacity-50">
-                      @{item.channel.username || ""}
+                <p className={metricRowClass}>
+                  {effectiveShowTimes && startLabel ? (
+                    <span className={airTimeBadgeClass}>
+                      {showAired ? `Aired ${startLabel}` : startLabel}
                     </span>
-                  </p>
+                  ) : null}
+                  <span className={metricItemClass}>
+                    <UsersRound className="size-3 shrink-0" />
+                    {item.channel.numOfTips || 0} tips
+                  </span>
+                  <span className={metricItemClass}>
+                    <EyeIcon className="size-3 shrink-0" />
+                    {encounterCount} seen
+                  </span>
+                </p>
+              </div>
 
-                  {effectiveShowTimes && (
-                    <p className="text-muted-foreground text-[10px]">
-                      {showAired && (
-                        <span className="mr-1 font-medium text-neutral-500">
-                          Aired
-                        </span>
-                      )}
-                      Starts: {start} — Duration: {item.duration}s
-                    </p>
-                  )}
+              <div className="flex shrink-0 flex-col items-end justify-end gap-1">
+                <button
+                  type="button"
+                  className="flex items-center gap-[0.5px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
+                  onClick={e => {
+                    e.stopPropagation();
+                    openCommentDrawer(item);
+                  }}
+                >
+                  <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
+                    <span className="text-[8px] sm:text-[7px]">
+                      Created by:
+                    </span>
+                    <ArrowRight className="size-2 cursor-pointer" />
+                  </span>
+                </button>
+
+                <div className="flex w-fit items-center gap-1">
+                  <span className="flex items-center gap-0.5 text-[9px]">
+                    <img
+                      src={flagUrl}
+                      alt={contentLanguage}
+                      className="h-3 w-4 sm:h-2 sm:w-3"
+                    />{" "}
+                    <span className="text-[8px] sm:text-[6px]">
+                      {contentLanguage}
+                    </span>
+                  </span>
+
+                  <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[6px]">
+                    {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
+                  </p>
                 </div>
               </div>
 
-              <div className="flex flex-col items-end justify-end gap-1">
-                <span className="flex items-center gap-1 text-xs font-semibold">
-                  <UsersRound className="size-4" />{" "}
-                  <span className="whitespace-nowrap">
-                    {item.channel.numOfTips || 0} tips
+              {isPlaying && (
+                <div className="absolute top-0 -left-4 z-20 bg-white lg:-left-6">
+                  <span className="flex flex-col">
+                    <AudioLines className="text-primary wave-icon" />
+                    <AudioLines className="text-primary wave-icon" />
                   </span>
-                </span>
-
-                <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[10px] text-black">
-                  {EVENT_TYPE_LABELS[item.channel.eventType]}
-                </p>
-              </div>
+                </div>
+              )}
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      {commentDrawerTarget ? (
+        <CommentDrawer
+          isCommentDrawerOpen={commentDrawerTarget != null}
+          setIsCommentDrawerOpen={open => {
+            if (!open) setCommentDrawerTarget(null);
+          }}
+          eventId={commentDrawerTarget.eventId}
+          channelId={commentDrawerTarget.channelId}
+          videoTitle={commentDrawerTarget.videoTitle}
+          videoDescription={commentDrawerTarget.videoDescription}
+          numOfTips={commentDrawerTarget.numOfTips}
+          tippingCharacters={tippingCharacters}
+        />
+      ) : null}
+    </>
   );
 }

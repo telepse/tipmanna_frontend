@@ -28,8 +28,6 @@ interface Props {
 export const PerformersModal = ({
   open,
   onClose,
-  isHost,
-  eventId,
   performers,
   setPerformers,
 }: Props) => {

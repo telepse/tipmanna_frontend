@@ -3,10 +3,36 @@ export type ProgramBootstrapItem = {
   position: number;
   title: string;
   durationSec: number;
+
   channelId: string;
   eventId: string;
+
   contentUrl: string | null;
   thumbnailUrl: string | null;
+
+  description: string | null;
+  amountRaised: number;
+
+  creator: {
+    id: string;
+    name: string;
+    username: string;
+  } | null;
+
+  coOwners: {
+    id: string;
+    name: string;
+    email: string;
+  }[];
+
+  stats: {
+    tips: number;
+    saves: number;
+    shares: number;
+    comments: number;
+    encounters: number;
+    views: number;
+  };
 };
 
 export type ProgramBootstrap = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { LocationPrompt } from "@/components/shared/location-prompt"; // your existing component
 
 export default function PageLoaderWithLocation({
@@ -9,7 +9,7 @@ export default function PageLoaderWithLocation({
   children: React.ReactNode;
 }) {
   const [showPrompt, setShowPrompt] = useState(true);
-  const [locationAllowed, setLocationAllowed] = useState(false);
+  const [, setLocationAllowed] = useState(false);
 
   const handleAllow = (country: string) => {
     console.log("User allowed location:", country);

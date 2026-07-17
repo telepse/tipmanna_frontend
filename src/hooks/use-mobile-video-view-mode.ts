@@ -9,6 +9,7 @@ import type {
 } from "@/lib/youtube-immersive-meta";
 import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
+import { tvTrace } from "@/lib/tvDebugLog";
 
 /** Unified mobile video presentation (orientation-independent). */
 export const VIEW_MODE = {
@@ -119,6 +120,9 @@ export function useMobileVideoViewMode({
 
   const enterFull = useCallback(() => {
     if (!isMobile) return;
+    tvTrace("fullscreen", "full_view_enter_start", {
+      videoUrl: videoUrl ?? null,
+    });
     const id = extractYoutubeID(videoUrl ?? "") ?? undefined;
     if (!id) return;
 
@@ -128,11 +132,15 @@ export function useMobileVideoViewMode({
 
     const applyMode = (classification: "portrait" | "landscape") => {
       if (generation !== enterFullGenerationRef.current) return;
-      setViewMode(
+      const nextMode =
         classification === "portrait"
           ? VIEW_MODE.FULL_PORTRAIT
-          : VIEW_MODE.FULL_LANDSCAPE
-      );
+          : VIEW_MODE.FULL_LANDSCAPE;
+      tvTrace("fullscreen", "full_view_enter", {
+        viewMode: nextMode,
+        videoId: id,
+      });
+      setViewMode(nextMode);
     };
 
     if (aspectInfo?.videoId === id) {
@@ -152,10 +160,11 @@ export function useMobileVideoViewMode({
   }, [isMobile, aspectInfo, videoUrl]);
 
   const exitFull = useCallback(() => {
+    tvTrace("fullscreen", "full_view_exit", { previousViewMode: viewMode });
     userPinnedFullVariantRef.current = false;
     enterFullGenerationRef.current += 1;
     setViewMode(VIEW_MODE.INLINE);
-  }, []);
+  }, [viewMode]);
 
   /**
    * Flip FULL_LANDSCAPE ↔ FULL_PORTRAIT (single `setViewMode`, no player remount).

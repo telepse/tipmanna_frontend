@@ -31,13 +31,8 @@ function trimTitle(title: string, maxLength = 20): string {
 }
 
 export const TVPageClient = ({
-  channels,
-  currentPlayingIndex,
   contents,
   tippers,
-  tipperEvents,
-  iTipped,
-  causes,
   latestContents,
   mostTippedContents,
   selectedTag,
@@ -67,8 +62,6 @@ export const TVPageClient = ({
   const userId = useSelector((s: RootState) => s.auth.user?.id);
 
   const [savedVideos, setSavedVideos] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [loadingSaved, setLoadingSaved] = useState(false);
 
   useEffect(() => {
     if (!userId) return;

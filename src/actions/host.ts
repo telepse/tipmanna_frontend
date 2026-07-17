@@ -37,14 +37,199 @@ export async function getTopTipperDetailsAction(
   );
 }
 
+// -------- Get host event details -------- /
+export async function getHostEventDetailsAction(
+  hostId: string,
+  eventId: string,
+  token?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      cache: "no-store",
+    },
+    "getHostEventDetailsAction"
+  );
+}
+
+export interface UpdateEventCohostPayload {
+  id: string;
+  email: string;
+}
+
+export interface UpdateEventPerformerPayload {
+  id: string;
+  name: string;
+  email?: string;
+  role?: string;
+}
+
+export interface UpdateEventProjectPayload {
+  id: string;
+  name: string;
+}
+
+export interface UpdateEventContentPayload {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+export interface UpdateHostEventDetailsPayload {
+  eventDate?: string;
+  startTime?: string;
+  endTime?: string;
+
+  cohosts?: UpdateEventCohostPayload[];
+
+  performers?: UpdateEventPerformerPayload[];
+
+  projects?: UpdateEventProjectPayload[];
+
+  contents?: UpdateEventContentPayload[];
+}
+
+export async function updateHostEventDetailsAction({
+  hostId,
+  eventId,
+  payload,
+  token,
+}: {
+  hostId: string;
+  eventId: string;
+  payload: UpdateHostEventDetailsPayload;
+  token?: string | null;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+    "updateHostEventDetailsAction"
+  );
+}
+
+// -------- Delete host event details -------- /
+export async function deleteHostEventDetailsAction({
+  hostId,
+  eventId,
+  token,
+}: {
+  hostId: string;
+  eventId: string;
+  token?: string | null;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      cache: "no-store",
+    },
+    "deleteHostEventDetailsAction"
+  );
+}
+
+// -------- Post host event message -------- /
+
+export interface PostHostEventMessagePayload {
+  text: string;
+}
+
+export async function postHostEventMessageAction({
+  hostId,
+  eventId,
+  token,
+  payload,
+}: {
+  hostId: string;
+  eventId: string;
+  token?: string | null;
+  payload: PostHostEventMessagePayload;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+    "postHostEventMessageAction"
+  );
+}
+
+export async function getHostEventMessagesAction(
+  hostId: string,
+  eventId: string,
+  token?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/messages`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      cache: "no-store",
+    },
+    "getHostEventMessagesAction"
+  );
+}
+
+export async function deleteHostEventMessageAction({
+  hostId,
+  eventId,
+  messageId,
+  token,
+}: {
+  hostId: string;
+  eventId: string;
+  messageId: string;
+  token?: string | null;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/messages/${messageId}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      cache: "no-store",
+    },
+    "deleteHostEventMessageAction"
+  );
+}
+
 // -------- Get host event summaries -------- /
-export async function getHostEventSummaries(hostId: string) {
+export async function getHostEventSummaries(
+  hostId: string,
+  token?: string | null
+) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events`,
     {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
       },
       cache: "no-store",
     },

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Heart, Wallet, X } from "lucide-react";
+import { EyeIcon, Heart, Wallet, X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
 import type { RootState } from "@/redux/store";
@@ -18,11 +18,18 @@ import {
 } from "@/lib/tip-text-selection";
 import { TextTipDraftModal } from "@/components/events/text-tip-draft-modal";
 import {
-  getChannelCommentDrawerAction,
   reportChannelContentAction,
   toggleCommentLikeAction,
   type CommentDrawerData,
 } from "@/actions/messages";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useCommentDrawerData } from "@/hooks/use-comment-drawer-data";
+import { flushTvAnalytics } from "@/lib/tvAnalytics";
 import { Input } from "@/components/ui/input";
 import { stopPreview } from "@/lib/previewController";
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
@@ -34,6 +41,7 @@ import {
 } from "@/lib/drawer-z-index";
 import { toast } from "react-toastify";
 import { useCommentDrawerRealtime } from "@/hooks/use-comment-drawer-realtime";
+import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-realtime";
 import {
   Select,
   SelectContent,
@@ -42,7 +50,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SaveHostToggleButton } from "./save-host-toggle-button";
-import { flushTvAnalytics } from "@/lib/tvAnalytics";
 
 interface Props {
   isCommentDrawerOpen: boolean;
@@ -53,6 +60,8 @@ interface Props {
   videoDescription?: string;
   numOfTips?: number;
   amountRaised?: number | null;
+  showViewCount?: boolean;
+  showEncounterCount?: boolean;
   /** Characters from the room (used to run comment preview when adding a draft). */
   tippingCharacters?: RoomCharacter[];
   /** After saving draft locally: close comment drawer and open tip UI (parent owns drawer open state). */
@@ -71,6 +80,8 @@ export const CommentDrawer = ({
   videoDescription,
   numOfTips,
   amountRaised,
+  showViewCount = false,
+  showEncounterCount = false,
   tippingCharacters,
   onContinueToTip,
   hostName,
@@ -85,7 +96,17 @@ export const CommentDrawer = ({
   );
 
   const [drawerData, setDrawerData] = useState<CommentDrawerData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
+  const {
+    drawerData: fetchedDrawerData,
+    loading,
+    revalidate,
+  } = useCommentDrawerData(
+    eventId,
+    channelId,
+    isCommentDrawerOpen,
+    metricsRefreshKey
+  );
   const [pendingDraft, setPendingDraft] = useState("");
   const [draftModalOpen, setDraftModalOpen] = useState(false);
   const [modalDraft, setModalDraft] = useState("");
@@ -131,6 +152,25 @@ export const CommentDrawer = ({
   const channelMeta = drawerData?.channel;
   const hostMeta = drawerData?.host;
 
+  const engagementInitial = useMemo(() => {
+    if (!metrics) return null;
+    return {
+      views: metrics.viewCount ?? 0,
+      encounters: metrics.encounterCount ?? 0,
+      completes: 0,
+      saves: metrics.saveCount ?? 0,
+      shares: metrics.shareCount ?? 0,
+      comments: metrics.commentCount ?? 0,
+    };
+  }, [metrics]);
+
+  const engagementLive = useChannelEngagementRealtime({
+    channelId:
+      isCommentDrawerOpen && channelId != null ? String(channelId) : null,
+    initial: engagementInitial,
+    enabled: isCommentDrawerOpen && Boolean(channelId),
+  });
+
   useEffect(() => {
     setPendingDraft("");
   }, [channelId]);
@@ -148,42 +188,22 @@ export const CommentDrawer = ({
   }, [isCommentDrawerOpen]);
 
   useEffect(() => {
-    if (!isCommentDrawerOpen || !eventId?.trim() || !channelId?.trim()) {
-      setDrawerData(null);
-      return;
-    }
+    if (fetchedDrawerData) setDrawerData(fetchedDrawerData);
+  }, [fetchedDrawerData]);
 
-    let cancelled = false;
+  useEffect(() => {
+    if (!isCommentDrawerOpen) return;
+    void flushTvAnalytics();
+  }, [isCommentDrawerOpen, metricsRefreshKey]);
 
-    const loadDrawer = () => {
-      setLoading(true);
-      void flushTvAnalytics().finally(() =>
-        getChannelCommentDrawerAction(eventId.trim(), channelId.trim()).then(
-          res => {
-            if (cancelled) return;
-            setLoading(false);
-            if (res.success && res.data) {
-              setDrawerData(res.data);
-            } else {
-              setDrawerData(null);
-            }
-          }
-        )
-      );
-    };
-
-    loadDrawer();
-
+  useEffect(() => {
+    if (!isCommentDrawerOpen) return;
     const onFocus = () => {
-      if (document.visibilityState === "visible") loadDrawer();
+      if (document.visibilityState === "visible") void revalidate();
     };
     window.addEventListener("focus", onFocus);
-
-    return () => {
-      cancelled = true;
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [isCommentDrawerOpen, eventId, channelId, metricsRefreshKey]);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [isCommentDrawerOpen, revalidate]);
 
   const handleLiveComment = useCallback(
     (comment: {
@@ -378,7 +398,19 @@ export const CommentDrawer = ({
   const resolvedTitle = videoTitle?.trim() || channelMeta?.title?.trim() || "";
   const resolvedDescription =
     videoDescription?.trim() || channelMeta?.description?.trim() || "";
-  const resolvedViewCount = metrics?.viewCount ?? 0;
+  const resolvedViewCount = engagementLive?.views ?? metrics?.viewCount ?? 0;
+  const resolvedEncounterCount =
+    engagementLive?.encounters ?? metrics?.encounterCount ?? 0;
+
+  const resolvedSaveCount = engagementLive?.saves ?? metrics?.saveCount ?? 0;
+  const resolvedShareCount = engagementLive?.shares ?? metrics?.shareCount ?? 0;
+  const showMetricsSkeleton = loading && !metrics;
+  const commentCountLabel = showMetricsSkeleton
+    ? "—"
+    : String(metrics?.commentCount ?? items.length);
+  const likeCountLabel = showMetricsSkeleton
+    ? "—"
+    : String(metrics?.commentLikeCount ?? 0);
   const coOwnerNames = useMemo(() => {
     const fromApi = channelMeta?.coOwnerNames?.filter(Boolean) ?? [];
     if (fromApi.length) return fromApi;
@@ -397,211 +429,266 @@ export const CommentDrawer = ({
           ref={drawerShellRef}
           className={`${DRAWER_Z_INDEX} flex h-[72vh] flex-col overflow-hidden rounded-t-[32px] bg-white p-0`}
         >
-          {/* Top Bar */}
-          <div className="relative border-b">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              {/* Left side metrics */}
-              <div className="flex items-end gap-4">
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-black">
-                    Comments {metrics?.commentCount ?? items.length}
+          <div className="sticky top-0 z-10 shrink-0 bg-white">
+            {/* Top Bar */}
+            <div className="relative border-b">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                {/* Left side metrics */}
+                <div className="flex items-end gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-black">
+                      Comments {commentCountLabel}
+                    </span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-400">
+                    Likes {likeCountLabel}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-gray-400">
-                  Likes {metrics?.commentLikeCount ?? 0}
-                </span>
-              </div>
 
-              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setReportOpen(v => !v)}
+                  >
+                    Report
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCommentDrawerOpen(false)}
+                    className="rounded-full p-2 hover:bg-gray-100"
+                  >
+                    <X className="text-muted-foreground h-7 w-7" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 p-4">
+              <h4 className="text-sm font-semibold">
+                {hostMeta?.firstName ?? hostName} ·{" "}
+                {hostMeta?.username ? `@${hostMeta.username}` : null}{" "}
+                <span className="text-primary">Creator</span>
+                <SaveHostToggleButton
+                  channelId={channelId != null ? String(channelId) : null}
+                  className="rounded bg-black/50 p-1 text-white"
+                  iconClassName="size-4 text-white"
+                />
+              </h4>
+              {coOwnerNames.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                    Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
+                    {coOwnerNames.join(", ")}
+                  </span>
+                </div>
+              ) : null}
+              {(resolvedTitle || loading) && (
+                <p className="text-sm font-medium">
+                  {resolvedTitle || (loading ? "Loading…" : "")}
+                </p>
+              )}
+              {resolvedDescription ? (
+                <div>
+                  <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
+                    {resolvedDescription}
+                  </p>
+                  {resolvedDescription.length > 120 ? (
+                    <button
+                      type="button"
+                      className="text-primary mt-1 text-xs font-medium"
+                      onClick={() => setDescOpen(true)}
+                    >
+                      See more
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              <p className="flex flex-wrap items-center gap-2 text-xs text-black">
+                {showMetricsSkeleton ? (
+                  <span className="flex flex-wrap gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <span
+                        key={i}
+                        className="inline-block h-3 w-16 animate-pulse rounded bg-gray-100"
+                      />
+                    ))}
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      Channel tips:{" "}
+                      {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
+                    </span>
+                    <span>·</span>
+                    <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
+                    <span>·</span>
+                    <span>Saves {resolvedSaveCount}</span>
+                    <span>·</span>
+                    <span>Shares {resolvedShareCount}</span>
+                  </>
+                )}
+              </p>
+              {channelMeta ? (
+                <p className="text-muted-foreground text-[11px]">
+                  {channelMeta.eventVideoType} · {channelMeta.contentLanguage} ·{" "}
+                  {channelMeta.contentCountry} · added{" "}
+                  {new Date(channelMeta.createdAt).toLocaleDateString()}
+                  {channelMeta.communityName
+                    ? ` · ${channelMeta.communityName}`
+                    : ""}
+                </p>
+              ) : null}
+            </div>
+
+            {(showViewCount || showEncounterCount || amountRaisedLabel) && (
+              <div className="ml-4 flex w-fit flex-wrap items-center gap-2 rounded-sm border p-2 text-xs">
+                {showViewCount ? (
+                  <>
+                    <span>
+                      Views {resolvedViewCount.toLocaleString()} (10s+)
+                    </span>
+                    {(showEncounterCount || amountRaisedLabel) && (
+                      <span>&middot;</span>
+                    )}
+                  </>
+                ) : null}
+                {showEncounterCount ? (
+                  <>
+                    <span>
+                      Encounters {resolvedEncounterCount.toLocaleString()}
+                    </span>
+                    {amountRaisedLabel ? <span>&middot;</span> : null}
+                  </>
+                ) : null}
+
+                {amountRaisedLabel ? (
+                  <span>{amountRaisedLabel} raised</span>
+                ) : null}
+                {resolvedEncounterCount > 0 ? (
+                  <span>
+                    <EyeIcon className="size-3" /> {resolvedEncounterCount} seen
+                  </span>
+                ) : null}
+              </div>
+            )}
+
+            {reportOpen ? (
+              <div className="space-y-2 border-b px-4 pb-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Report video</p>
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(false)}
+                    className="rounded-full p-1 hover:bg-gray-100"
+                    aria-label="Close report"
+                  >
+                    <X className="text-muted-foreground size-5" />
+                  </button>
+                </div>
+                <Select
+                  value={reportReason}
+                  onValueChange={setReportReason}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="verbally_abusive">
+                      Verbally abusive
+                    </SelectItem>
+                    <SelectItem value="sexual_harassment">
+                      Sexual harassment
+                    </SelectItem>
+                    <SelectItem value="promotes_violence">
+                      Promotes violence
+                    </SelectItem>
+                    <SelectItem value="deceptive">Deceptive</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {reportReason === "other" ? (
+                  <Input
+                    value={reportOther}
+                    onChange={e => setReportOther(e.target.value)}
+                    placeholder="Describe the issue"
+                  />
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void submitReport()}
+                >
+                  Submit report
+                </Button>
+              </div>
+            ) : null}
+
+            {/* Existing Draft + Pay Area */}
+            <div className="border-b px-4 pt-4 pb-3">
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  disabled
+                  value={pendingDraft}
+                  placeholder="Your comment draft appears here after you add it."
+                  className="text-muted-foreground h-9 min-h-[12px] resize-none border border-gray-200 sm:flex-1"
+                />
+
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={() => setReportOpen(v => !v)}
+                  onClick={openDraftModal}
+                  className="h-9 border-none bg-black text-white hover:bg-black/80"
                 >
-                  Report
+                  {draftActionLabel}
                 </Button>
+              </div>
+
+              <div className="relative mt-3 w-full">
+                <Button
+                  type="button"
+                  className="h-9 w-full bg-black pr-10 text-white hover:bg-black/90"
+                  onClick={handlePay}
+                  disabled={!pendingDraft.trim()}
+                >
+                  {sendCommentLabel}
+                </Button>
+
                 <button
                   type="button"
-                  onClick={() => setIsCommentDrawerOpen(false)}
-                  className="rounded-full p-2 hover:bg-gray-100"
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white p-1.5 shadow disabled:opacity-50"
+                  disabled={!pendingDraft.trim()}
+                  onClick={e => {
+                    e.stopPropagation();
+                    handlePay();
+                  }}
                 >
-                  <X className="text-muted-foreground h-7 w-7" />
+                  <Wallet className="text-primary size-4" />
                 </button>
               </div>
-            </div>
-          </div>
-
-          <div className="space-y-2 p-4">
-            <h4 className="text-sm font-semibold">
-              {hostMeta?.firstName ?? hostName} ·{" "}
-              {hostMeta?.username ? `@${hostMeta.username}` : null}{" "}
-              <span className="text-primary">Creator</span>
-              <SaveHostToggleButton
-                channelId={channelId != null ? String(channelId) : null}
-                className="rounded bg-black/50 p-1 text-white"
-                iconClassName="size-4 text-white"
-              />
-            </h4>
-            {coOwnerNames.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                  Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
-                  {coOwnerNames.join(", ")}
-                </span>
-              </div>
-            ) : null}
-            {(resolvedTitle || loading) && (
-              <p className="text-sm font-medium">
-                {resolvedTitle || (loading ? "Loading…" : "")}
-              </p>
-            )}
-            {resolvedDescription ? (
-              <p className="text-muted-foreground text-xs whitespace-pre-wrap">
-                {resolvedDescription}
-              </p>
-            ) : null}
-            <p className="flex flex-wrap items-center gap-2 text-xs text-black">
-              <span>
-                Channel tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
-              </span>
-              <span>·</span>
-              <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
-              <span>·</span>
-              <span>Saves {metrics?.saveCount ?? 0}</span>
-              <span>·</span>
-              <span>Shares {metrics?.shareCount ?? 0}</span>
-            </p>
-            {channelMeta ? (
-              <p className="text-muted-foreground text-[11px]">
-                {channelMeta.eventVideoType} · {channelMeta.contentLanguage} ·{" "}
-                {channelMeta.contentCountry} · added{" "}
-                {new Date(channelMeta.createdAt).toLocaleDateString()}
-                {channelMeta.communityName
-                  ? ` · ${channelMeta.communityName}`
-                  : ""}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="ml-4 flex w-fit items-center gap-2 rounded-sm border p-2 text-xs">
-            <span>Views {resolvedViewCount.toLocaleString()}</span> &middot;
-            <span>
-              {amountRaisedLabel ? (
-                <>
-                  <span>{amountRaisedLabel} raised</span>
-                  <span>·</span>
-                </>
-              ) : null}
-            </span>
-          </div>
-
-          {reportOpen ? (
-            <div className="space-y-2 border-b px-4 pb-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Report video</p>
-                <button
-                  type="button"
-                  onClick={() => setReportOpen(false)}
-                  className="rounded-full p-1 hover:bg-gray-100"
-                  aria-label="Close report"
-                >
-                  <X className="text-muted-foreground size-5" />
-                </button>
-              </div>
-              <Select
-                value={reportReason}
-                onValueChange={setReportReason}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Reason" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="verbally_abusive">
-                    Verbally abusive
-                  </SelectItem>
-                  <SelectItem value="sexual_harassment">
-                    Sexual harassment
-                  </SelectItem>
-                  <SelectItem value="promotes_violence">
-                    Promotes violence
-                  </SelectItem>
-                  <SelectItem value="deceptive">Deceptive</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              {reportReason === "other" ? (
-                <Input
-                  value={reportOther}
-                  onChange={e => setReportOther(e.target.value)}
-                  placeholder="Describe the issue"
-                />
-              ) : null}
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void submitReport()}
-              >
-                Submit report
-              </Button>
-            </div>
-          ) : null}
-
-          {/* Existing Draft + Pay Area */}
-          <div className="border-b px-4 pt-4 pb-3">
-            <div className="flex gap-2">
-              <Input
-                readOnly
-                disabled
-                value={pendingDraft}
-                placeholder="Your comment draft appears here after you add it."
-                className="text-muted-foreground h-9 min-h-[12px] resize-none border border-gray-200 sm:flex-1"
-              />
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={openDraftModal}
-                className="h-9 border-none bg-black text-white hover:bg-black/80"
-              >
-                {draftActionLabel}
-              </Button>
-            </div>
-
-            <div className="relative mt-3 w-full">
-              <Button
-                type="button"
-                className="h-9 w-full bg-black pr-10 text-white hover:bg-black/90"
-                onClick={handlePay}
-                disabled={!pendingDraft.trim()}
-              >
-                {sendCommentLabel}
-              </Button>
-
-              <button
-                type="button"
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-white p-1.5 shadow disabled:opacity-50"
-                disabled={!pendingDraft.trim()}
-                onClick={e => {
-                  e.stopPropagation();
-                  handlePay();
-                }}
-              >
-                <Wallet className="text-primary size-4" />
-              </button>
             </div>
           </div>
 
           {/* Comments List */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-5 pb-8">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-5 pb-8">
             {!channelId?.trim() ? (
               <p className="text-muted-foreground text-center text-sm">
                 Select a video to see comments.
               </p>
-            ) : loading ? (
-              <p className="text-muted-foreground text-center text-sm">
-                Loading...
-              </p>
+            ) : loading && items.length === 0 ? (
+              <ul
+                className="space-y-3"
+                aria-busy="true"
+              >
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <li
+                    key={i}
+                    className="animate-pulse rounded-lg border bg-gray-50 px-4 py-6"
+                  />
+                ))}
+              </ul>
             ) : items.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
                 <p className="text-lg text-gray-600">
@@ -649,6 +736,18 @@ export const CommentDrawer = ({
           </div>
         </DrawerContent>
       </Drawer>
+
+      <Dialog
+        open={descOpen}
+        onOpenChange={setDescOpen}
+      >
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{resolvedTitle || "Video description"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm whitespace-pre-wrap">{resolvedDescription}</p>
+        </DialogContent>
+      </Dialog>
 
       <TextTipDraftModal
         open={draftModalOpen}

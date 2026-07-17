@@ -1,13 +1,12 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
+// Local imports
 import { ProgramLanding } from "@/components/program/program-landing";
 import { fetchGlobalProgramBootstrap } from "@/lib/program-api";
-import {
-  getPublicAbsoluteUrl,
-  getPublicFrontendOrigin,
-} from "@/lib/site-config";
+import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 import { formatProgramScheduleDisplay } from "@/lib/utils";
+import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
 
 type Props = {
   params: Promise<{ enforcementId: string }>;
@@ -22,10 +21,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const thumb = program.items.find(i => i.thumbnailUrl)?.thumbnailUrl;
   const broadcasterName = program.community?.name ?? "Tipmanna";
   const scheduledLabel = formatProgramScheduleDisplay(program.scheduledAt);
-  const title = `${program.title} is live on ${broadcasterName} TV ${scheduledLabel}`;
+  const title = `${program.title} is live on ${broadcasterName} TV ${scheduledLabel} 📅⚡`;
 
   return {
-    metadataBase: new URL(getPublicFrontendOrigin()),
+    metadataBase: new URL(getPrimaryOrigin()),
     title,
     description: `Set a reminder and join viewers around the world for this scheduled community broadcast and realtime shared experience.`,
     openGraph: {
@@ -35,6 +34,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "website",
       ...(thumb ? { images: [{ url: thumb, width: 1200, height: 630 }] } : {}),
     },
+    twitter: {
+      card: thumb ? "summary_large_image" : "summary",
+      title,
+      description: `Set a reminder and join viewers around the world for this scheduled community broadcast and realtime shared experience.`,
+      ...(thumb ? { images: [thumb] } : {}),
+    },
   };
 }
 
@@ -42,12 +47,28 @@ export default async function GlobalProgramPage({ params }: Props) {
   const { enforcementId } = await params;
   const program = await fetchGlobalProgramBootstrap(enforcementId);
 
+  console.log("program", program);
+
   if (!program) notFound();
 
+  const broadcastJsonLd = buildBroadcastEventJsonLd({
+    title: program.title,
+    startDate: program.scheduledAt,
+    url: getPublicAbsoluteUrl(`/program/${enforcementId}`),
+    image: program.items.find(i => i.thumbnailUrl)?.thumbnailUrl ?? null,
+    organizerName: program.community?.name ?? "Tipmanna TV",
+  });
+
   return (
-    <ProgramLanding
-      program={program}
-      enforcementId={enforcementId}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(broadcastJsonLd) }}
+      />
+      <ProgramLanding
+        program={program}
+        enforcementId={enforcementId}
+      />
+    </>
   );
 }

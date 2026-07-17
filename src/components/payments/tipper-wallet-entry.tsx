@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Star, Wallet } from "lucide-react";
-import { BeatLoader } from "react-spinners";
 import {
   Dialog,
   DialogContent,

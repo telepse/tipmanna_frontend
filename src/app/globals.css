@@ -426,6 +426,10 @@ p {
   font-family: var(--font-open-sans);
 }
 
+#info {
+  font-family: var(--font-racing);
+}
+
 #instant-overlay {
   position: fixed;
   inset: 0;

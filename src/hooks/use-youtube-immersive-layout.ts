@@ -5,6 +5,7 @@ import {
   classificationToImmersiveLayoutMode,
   fetchYoutubeAspectInfo,
   type ImmersiveLayoutMode,
+  type YoutubeAspectFetchHints,
   type YoutubeAspectInfo,
 } from "@/lib/youtube-immersive-meta";
 
@@ -15,13 +16,17 @@ export function useYoutubeImmersiveLayout(
   return layoutMode;
 }
 
-export function useYoutubeVideoAspect(videoUrl: string | null | undefined): {
+export function useYoutubeVideoAspect(
+  videoUrl: string | null | undefined,
+  hints?: YoutubeAspectFetchHints
+): {
   aspectInfo: YoutubeAspectInfo | null;
   layoutMode: ImmersiveLayoutMode;
   isLoading: boolean;
 } {
   const [aspectInfo, setAspectInfo] = useState<YoutubeAspectInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const durationSeconds = hints?.durationSeconds ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -29,7 +34,9 @@ export function useYoutubeVideoAspect(videoUrl: string | null | undefined): {
     setAspectInfo(null);
 
     void (async () => {
-      const info = await fetchYoutubeAspectInfo(videoUrl);
+      const info = await fetchYoutubeAspectInfo(videoUrl, {
+        durationSeconds,
+      });
       if (cancelled) return;
       setAspectInfo(info);
       setIsLoading(false);
@@ -38,7 +45,7 @@ export function useYoutubeVideoAspect(videoUrl: string | null | undefined): {
     return () => {
       cancelled = true;
     };
-  }, [videoUrl]);
+  }, [videoUrl, durationSeconds]);
 
   const layoutMode: ImmersiveLayoutMode =
     aspectInfo != null

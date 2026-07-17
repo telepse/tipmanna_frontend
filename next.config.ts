@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
 
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
@@ -7,7 +12,11 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: __dirname,
+  },
   images: {
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",
@@ -43,4 +52,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSerwist(nextConfig);
+export default withBundleAnalyzer(withSerwist(nextConfig));

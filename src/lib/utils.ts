@@ -151,18 +151,18 @@ export const getEventStatus = (
 };
 
 // ------- Get status color -------- //
-export type EventStatus = "Completed" | "Ongoing" | "Not started";
+export type EventStatus = "Completed" | "Ongoing" | "Not started" | "Upcoming";
 
 export const getStatusColor = (status: EventStatus | string) => {
   switch (status) {
     case "Completed":
-      return "text-white bg-black px-2 py-1 rounded-md text-sm w-fit";
+      return "text-white bg-black px-2 py-1 rounded-md text-[10px] w-fit";
     case "Ongoing":
-      return "text-black bg-moonstone-blue px-2 py-1 rounded-md text-sm w-fit";
+      return "text-black bg-moonstone-blue px-2 py-1 rounded-md text-[10px] w-fit";
     case "Not started":
-      return "text-black bg-gray px-2 py-1 rounded-md text-sm w-fit";
+      return "text-black bg-gray px-2 py-1 rounded-md text-[10px] w-fit";
     default:
-      return "text-gray-600 bg-gray-100 px-2 py-1 rounded-md text-sm w-fit";
+      return "text-gray-600 bg-gray-100 px-2 py-1 rounded-md text-[10px] w-fit";
   }
 };
 
@@ -252,6 +252,7 @@ export const getEventStats = (events: Event[]) => {
 
 // ------- Calculate earnings -------- //
 export function calculateEarnings(data: Transaction[]) {
+  const rows = Array.isArray(data) ? data : [];
   const now = new Date();
 
   // Helper: get month and year key like "2025-10"
@@ -259,7 +260,7 @@ export function calculateEarnings(data: Transaction[]) {
     `${date.getFullYear()}-${date.getMonth() + 1}`;
 
   // Group transactions by month
-  const monthlyTotals = data?.reduce<Record<string, number>>((acc, tx) => {
+  const monthlyTotals = rows.reduce<Record<string, number>>((acc, tx) => {
     const txDate = new Date(tx.purchaseTime);
     const key = getMonthKey(txDate);
     acc[key] = (acc[key] || 0) + tx.amount;
@@ -271,7 +272,7 @@ export function calculateEarnings(data: Transaction[]) {
   const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonthKey = getMonthKey(lastMonthDate);
 
-  const totalEarnings = data?.reduce((sum, tx) => sum + tx.amount, 0);
+  const totalEarnings = rows.reduce((sum, tx) => sum + tx.amount, 0);
   const thisMonthEarnings = monthlyTotals[currentMonthKey] ?? 0;
   const lastMonthEarnings = monthlyTotals[lastMonthKey] ?? 0;
 
@@ -286,7 +287,7 @@ export function calculateEarnings(data: Transaction[]) {
   }
 
   // Last payment (most recent transaction)
-  const lastPayment = data
+  const lastPayment = rows
     .slice()
     .sort(
       (a, b) =>

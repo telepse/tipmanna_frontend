@@ -1,13 +1,16 @@
 /**
  * Share URL rules:
- * - Video in event context with known channelId → buildChannelShareUrl
- * - Content-only landing pages → buildContentShareUrl
+ * - Per-video share/copy → buildContentShareUrl (`/content/{eventId}?v={videoId}`)
+ * - Event channel playlist (enlarge lightbox only) → buildChannelShareUrl
  * - Event room links → buildRoomShareUrl
  */
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Query param that selects a video on /content or /channel pages. */
+export const VIDEO_DEEP_LINK_PARAM = "v";
 
 export function isLikelyUuid(value: string | null | undefined): boolean {
   if (!value?.trim()) return false;
@@ -28,18 +31,21 @@ type SharePathArgs = {
   channelId?: string | null;
 };
 
-function appendChannelQuery(path: string, channelId?: string | null): string {
+function appendVideoDeepLinkQuery(
+  path: string,
+  channelId?: string | null
+): string {
   const cid = channelId?.trim();
   if (!cid) return path;
-  return `${path}?channel=${encodeURIComponent(cid)}`;
+  return `${path}?${VIDEO_DEEP_LINK_PARAM}=${encodeURIComponent(cid)}`;
 }
 
-/** Path segment is always the parent event UUID; `?channel=` selects a video. */
+/** Path segment is always the parent event UUID; `?v=` selects a video. */
 export function buildChannelSharePath({
   eventId,
   channelId,
 }: SharePathArgs): string {
-  return appendChannelQuery(
+  return appendVideoDeepLinkQuery(
     `/channel/${encodeURIComponent(eventId.trim())}`,
     channelId
   );
@@ -49,7 +55,7 @@ export function buildContentSharePath({
   eventId,
   channelId,
 }: SharePathArgs): string {
-  return appendChannelQuery(
+  return appendVideoDeepLinkQuery(
     `/content/${encodeURIComponent(eventId.trim())}`,
     channelId
   );
@@ -71,8 +77,20 @@ export function buildRoomShareUrl(eventId: string): string {
   return getPublicAbsoluteUrl(buildRoomSharePath(eventId));
 }
 
-/** Pick playlist row for `?channel=` deep links. */
-export function pickInitialChannelContent<T extends { id?: unknown }>(
+/** Apply video deep-link query param to URLSearchParams for canonical redirects. */
+export function applyVideoDeepLinkQuery(
+  params: URLSearchParams,
+  videoId: string | null | undefined
+): void {
+  const id = videoId?.trim();
+  if (!id) return;
+  params.set(VIDEO_DEEP_LINK_PARAM, id);
+}
+
+/** Pick playlist row for `?v=` deep links; prefers default when no deep link. */
+export function pickInitialChannelContent<
+  T extends { id?: unknown; isDefault?: boolean },
+>(
   playlist: T[],
   initialChannelId?: string | null,
   fallback?: T
@@ -83,13 +101,18 @@ export function pickInitialChannelContent<T extends { id?: unknown }>(
     const match = playlist.find(row => String(row.id) === cid);
     if (match) return match;
   }
-  return fallback ?? playlist[0];
+  if (fallback) return fallback;
+  return playlist.find(row => row.isDefault === true) ?? playlist[0];
 }
 
 export function parseChannelSearchParam(
   searchParams: Record<string, string | string[] | undefined>
 ): string | null {
-  const raw = searchParams.channel ?? searchParams.channelId ?? searchParams.c;
+  const raw =
+    searchParams[VIDEO_DEEP_LINK_PARAM] ??
+    searchParams.channel ??
+    searchParams.channelId ??
+    searchParams.c;
   if (typeof raw === "string" && raw.trim()) return raw.trim();
   if (Array.isArray(raw) && raw[0]?.trim()) return raw[0].trim();
   return null;

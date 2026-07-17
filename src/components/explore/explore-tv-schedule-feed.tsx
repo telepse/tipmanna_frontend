@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ChevronsUp, Radio, RefreshCw } from "lucide-react";
+import { Radio, RefreshCw } from "lucide-react";
 
 const TipDrawer = dynamic(
   () =>
@@ -34,6 +34,11 @@ import {
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import {
+  prefetchExploreTvSchedule,
+  waitExploreTvPrefetch,
+} from "@/lib/explore-tv-prefetch-cache";
+import { TvExploreScheduleCard } from "@/components/explore/tv-explore-schedule-card";
 import type { RoomCharacter } from "@/types";
 
 type TvPlaylistLike = {
@@ -46,10 +51,12 @@ type TvPlaylistLike = {
     numOfTips?: number;
     eventId?: string;
     eventType?: string;
+    description?: string | null;
   };
   segmentKind?: string;
   blockTitle?: string;
   duration?: number;
+  axisStartSec?: number;
 };
 
 function thumbUrl(videoUrl: string | undefined): string | null {
@@ -113,6 +120,7 @@ export function ExploreTvScheduleFeed({
   const [upcoming, setUpcoming] = useState<TvPlaylistLike[]>([]);
   const [ongoingLabel, setOngoingLabel] = useState("On air now");
   const [upcomingLabel, setUpcomingLabel] = useState("Next 12 hours");
+  const [broadcastEpoch, setBroadcastEpoch] = useState<number | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const etagRef = useRef<string | null>(null);
@@ -158,6 +166,16 @@ export function ExploreTvScheduleFeed({
     setLoading(true);
     setError(null);
     try {
+      const warmed = await waitExploreTvPrefetch(filterKey);
+      if (warmed) {
+        setOngoingLabel(warmed.ongoingLabel);
+        setUpcomingLabel(warmed.upcomingLabel);
+        setOngoing(warmed.ongoing as TvPlaylistLike[]);
+        setUpcoming(warmed.upcoming as TvPlaylistLike[]);
+        setBroadcastEpoch(warmed.broadcastEpoch);
+        setLoading(false);
+        return;
+      }
       const q = buildTvScheduleQuery(tvExploreFilters);
       const res = await fetchTvScheduleAction({
         communityId: tvSource !== "tipmanna" ? tvSource : null,
@@ -178,6 +196,7 @@ export function ExploreTvScheduleFeed({
         upcomingLabel?: string;
         items?: unknown[];
         alternateBatchItems?: unknown[];
+        broadcastEpoch?: number;
       };
       etagRef.current = res.data.etag ?? etagRef.current;
       setOngoingLabel(
@@ -187,6 +206,11 @@ export function ExploreTvScheduleFeed({
         typeof data.upcomingLabel === "string"
           ? data.upcomingLabel
           : "Next 12 hours"
+      );
+      setBroadcastEpoch(
+        typeof data.broadcastEpoch === "number"
+          ? data.broadcastEpoch
+          : undefined
       );
       setOngoing(
         Array.isArray(data.items) ? (data.items as TvPlaylistLike[]) : []
@@ -201,11 +225,17 @@ export function ExploreTvScheduleFeed({
     } finally {
       setLoading(false);
     }
-  }, [tvExploreFilters, tvSource]);
+  }, [tvExploreFilters, tvSource, filterKey]);
 
   useEffect(() => {
+    prefetchExploreTvSchedule({
+      tvSource,
+      eventVideoTypes: tvExploreFilters?.eventVideoTypes,
+      language: tvExploreFilters?.language,
+      country: tvExploreFilters?.country,
+    });
     void loadSchedule();
-  }, [loadSchedule]);
+  }, [loadSchedule, tvExploreFilters, tvSource]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -234,94 +264,21 @@ export function ExploreTvScheduleFeed({
     };
   }, [loadSchedule, tvSource]);
 
-  const renderCard = (item: TvPlaylistLike, i: number) => {
-    const ch = item.channel;
-    const eventId = ch?.eventId;
-    const channelId = ch?.id;
-    const url = ch?.url;
-    const thumb = thumbUrl(url);
-    const title =
-      item.blockTitle || ch?.title || ch?.hostName || "Programme slot";
-    const isNotice =
-      item.segmentKind && item.segmentKind !== "regular" && !channelId;
-
-    if (isNotice) {
-      return (
-        <div
-          key={`notice-${i}`}
-          className="bg-muted/30 text-muted-foreground rounded-2xl border px-4 py-3 text-sm"
-        >
-          {title}
-        </div>
-      );
-    }
-
-    if (!channelId || !eventId || !url) {
-      return (
-        <div
-          key={`empty-${i}`}
-          className="bg-muted/20 rounded-2xl border px-4 py-3 text-sm"
-        >
-          {title}
-        </div>
-      );
-    }
-
-    return (
-      <div
-        key={`${channelId}-${i}`}
-        className="bg-card overflow-hidden rounded-2xl border shadow-sm"
-      >
-        <div className="relative aspect-video w-full bg-black">
-          {thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={thumb}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-              Video
-            </div>
-          )}
-        </div>
-        <div className="space-y-2 p-3">
-          <p className="line-clamp-2 text-sm leading-snug font-semibold">
-            {title}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            {ch?.hostName ?? ch?.username ?? "Host"} · {ch?.numOfTips ?? 0} tips
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="rounded-full"
-              onClick={() => onPlayInExplore({ videoId: channelId, eventId })}
-            >
-              Watch in Explore
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="default"
-              className="gap-1 rounded-full"
-              onClick={() => {
-                setTipEventId(eventId);
-                setTipChannelId(channelId);
-                setTipDrawerOpen(true);
-              }}
-            >
-              <ChevronsUp className="size-4" />
-              Tip
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const renderCard = (item: TvPlaylistLike, i: number) => (
+    <TvExploreScheduleCard
+      key={`${item.channel?.id ?? "slot"}-${i}`}
+      item={item}
+      index={i}
+      broadcastEpoch={broadcastEpoch}
+      onPlayInExplore={onPlayInExplore}
+      onTip={(eventId, channelId) => {
+        setTipEventId(eventId);
+        setTipChannelId(channelId);
+        setTipDrawerOpen(true);
+      }}
+      thumbUrl={thumbUrl}
+    />
+  );
 
   if (loading && ongoing.length === 0 && upcoming.length === 0) {
     return (

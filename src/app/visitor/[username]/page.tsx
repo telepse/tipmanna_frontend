@@ -8,10 +8,14 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { getToken } from "@/lib/getToken";
 import { TippedVideoSummary } from "@/components/tipper/tipper-profile-client";
 import { Event } from "@/types";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function VisitorProfile() {
   const token = await getToken();
-  console.log(token);
 
   // Fetch all data in parallel
   const [eventsRes, iTippedRes, tippedVideosRes] = await Promise.all([
