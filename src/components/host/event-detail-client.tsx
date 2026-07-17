@@ -23,9 +23,6 @@ import {
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
-
-// Local imports
-import { RootState } from "@/redux/store";
 import {
   Form,
   FormControl,
@@ -55,14 +52,24 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Local imports
+import { RootState } from "@/redux/store";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
+  deleteHostEventDetailsAction,
+  deleteHostEventMessageAction,
   postHostEventMessageAction,
   updateHostEventDetailsAction,
 } from "@/actions/host";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
+import { useRouter } from "next/navigation";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -487,13 +494,77 @@ export const EventDetailClient = ({
       });
     };
 
+    const handleDeletedMessage = ({ id }: { id: string }) => {
+      setHostMessages(prev => prev.filter(message => message.id !== id));
+    };
+
+    channel.bind("host-message-deleted", handleDeletedMessage);
     channel.bind("host-message", handleHostMessage);
 
     return () => {
       channel.unbind("host-message", handleHostMessage);
+      channel.unbind("host-message-deleted", handleDeletedMessage);
       unsubscribeChannel(channelName);
     };
   }, [eventId]);
+
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(
+    null
+  );
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      setDeletingMessageId(messageId);
+
+      await deleteHostEventMessageAction({
+        hostId: user.id,
+        eventId,
+        messageId,
+        token,
+      });
+
+      // Optimistic removal
+      setHostMessages(prev => prev.filter(message => message.id !== messageId));
+
+      toast.success("Message deleted.");
+    } catch (error) {
+      console.error(error);
+
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete message."
+      );
+    } finally {
+      setDeletingMessageId(null);
+    }
+  };
+
+  // const [isDeleting, setIsDeleting] = useState(false);
+  // const router = useRouter();
+
+  // const handleDeleteEvent = async () => {
+  //   try {
+  //     setIsDeleting(true);
+
+  //     await deleteHostEventDetailsAction({
+  //       hostId: user.id,
+  //       eventId,
+  //       token,
+  //     });
+
+  //     toast.success("Event deleted.");
+
+  //   } catch (error) {
+  //     console.error(error);
+
+  //     toast.error(
+  //       error instanceof Error
+  //         ? error.message
+  //         : "Failed to delete event."
+  //     );
+  //   } finally {
+  //     setIsDeleting(false);
+  //   }
+  // };
 
   return (
     <Form {...form}>
@@ -521,7 +592,20 @@ export const EventDetailClient = ({
                 "Save Changes"
               )}
             </Button>
-            <Button variant="destructive">Delete Event</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {}}
+            >
+              Delete Event
+            </Button>
+            {/* <Button variant="destructive" onClick={handleDeleteEvent} disabled={isDeleting}>
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : "Delete Event"}
+            </Button> */}
           </div>
         </div>
 
@@ -1303,9 +1387,26 @@ export const EventDetailClient = ({
                   >
                     <p>{message.text}</p>
 
-                    <button type="button">
-                      <Ellipsis />
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="cursor-pointer"
+                        >
+                          <Ellipsis />
+                        </button>
+                      </DropdownMenuTrigger>
+
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="text-destructive cursor-pointer"
+                          onClick={() => handleDeleteMessage(message.id)}
+                          disabled={deletingMessageId === message.id}
+                        >
+                          Delete Message
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ))}
               </div>

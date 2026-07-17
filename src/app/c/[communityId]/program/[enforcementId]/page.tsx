@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
+// Local imports
 import { ProgramLanding } from "@/components/program/program-landing";
 import { fetchCommunityProgramBootstrap } from "@/lib/program-api";
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";

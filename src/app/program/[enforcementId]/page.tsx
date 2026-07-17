@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
+// Local imports
 import { ProgramLanding } from "@/components/program/program-landing";
 import { fetchGlobalProgramBootstrap } from "@/lib/program-api";
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
@@ -45,6 +46,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function GlobalProgramPage({ params }: Props) {
   const { enforcementId } = await params;
   const program = await fetchGlobalProgramBootstrap(enforcementId);
+
+  console.log("program", program);
 
   if (!program) notFound();
 

@@ -109,6 +109,8 @@ export function EventPusherProvider({
             minute: "2-digit",
           }),
       };
+      console.log("Host message received", message);
+
       onNewChatMessageRef.current(formattedMessage);
     };
 
@@ -116,6 +118,7 @@ export function EventPusherProvider({
     publicChannel.bind("latest-tip-updated", handleLatestTip);
     publicChannel.bind("session-activated", handleSession);
     publicChannel.bind("new-message", handleNewMessage);
+    publicChannel.bind("host-message", handleNewMessage);
     privateChannel.bind("screen-settings-updated", handleScreenSettings);
 
     return () => {
@@ -123,6 +126,7 @@ export function EventPusherProvider({
       publicChannel.unbind("latest-tip-updated", handleLatestTip);
       publicChannel.unbind("session-activated", handleSession);
       publicChannel.unbind("new-message", handleNewMessage);
+      publicChannel.unbind("host-message", handleNewMessage);
       privateChannel.unbind("screen-settings-updated", handleScreenSettings);
       unsubscribeChannel(publicName);
       unsubscribeChannel(privateName);

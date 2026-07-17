@@ -58,10 +58,20 @@ export const ThumbnailPlayer = ({
             <Image
               src={thumbnail}
               alt="Video thumbnail"
-              fill
-              sizes="(max-width: 640px) 220px, 270px"
-              className="object-cover"
+              width={80}
+              height={50}
+              // sizes="(max-width: 640px) 220px, 270px"
+              className="w-full rounded-md object-cover h-auto aspect-video"
+              unoptimized
             />
+            {/* <Image
+                    src={`https://img.youtube.com/vi/${extractYoutubeID(item.contentUrl!)}/hqdefault.jpg`}
+                      alt=""
+                      width={80}
+                      height={50}
+                      className="w-full rounded-md object-cover h-auto aspect-video"
+                      unoptimized
+                    /> */}
           </span>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="rounded-full bg-black/50 p-3">

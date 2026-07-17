@@ -98,14 +98,14 @@ export const ChatContainer = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
           className={cn(
-            "mr-4 flex max-w-[70%] flex-col",
-            msg.role === "host" ? "items-start" : "ml-auto items-end"
+            "mr-4 flex max-w-[80%] flex-col",
+            msg.senderType === "HOST" ? "items-start" : "ml-auto items-end"
           )}
         >
           <div
             className={cn(
               "relative rounded-2xl bg-white p-4 text-sm text-black shadow-md",
-              msg.role === "host"
+              msg.senderType === "HOST"
                 ? "rounded-tl-none bg-white text-black"
                 : "rounded-tr-none bg-[#fff] text-black"
             )}
@@ -113,7 +113,7 @@ export const ChatContainer = ({
             <div className="flex items-center gap-2">
               <p className="text-xs font-semibold">{msg.sender}</p>
 
-              {msg.role === "host" && (
+              {msg.senderType === "HOST" && (
                 <span className="rounded-md bg-[#BCE6FF] px-1.5 py-0.5 text-xs">
                   Host
                 </span>

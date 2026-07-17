@@ -31,7 +31,7 @@ import {
   Plus,
   RectangleHorizontal,
   RectangleVertical,
-  Search,
+  Rocket,
   Share2,
   Tv,
   UserRound,
@@ -1470,7 +1470,7 @@ export const ChannelClient = ({
                   setIsProfileDrawerOpen(false);
                 }}
               >
-                <Search
+                <Rocket
                   className="size-5 sm:size-7"
                   strokeWidth={2}
                 />
@@ -1596,7 +1596,7 @@ export const ChannelClient = ({
               setIsProfileDrawerOpen(false);
             }}
           >
-            <Search
+            <Rocket
               className="size-5"
               strokeWidth={2}
             />{" "}

@@ -120,6 +120,29 @@ export async function updateHostEventDetailsAction({
   );
 }
 
+// -------- Delete host event details -------- /
+export async function deleteHostEventDetailsAction({
+  hostId,
+  eventId,
+  token,
+}: {
+  hostId: string;
+  eventId: string;
+  token?: string | null;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      cache: "no-store",
+    },
+    "deleteHostEventDetailsAction"
+  );
+}
+
 // -------- Post host event message -------- /
 
 export interface PostHostEventMessagePayload {
@@ -168,6 +191,30 @@ export async function getHostEventMessagesAction(
       cache: "no-store",
     },
     "getHostEventMessagesAction"
+  );
+}
+
+export async function deleteHostEventMessageAction({
+  hostId,
+  eventId,
+  messageId,
+  token,
+}: {
+  hostId: string;
+  eventId: string;
+  messageId: string;
+  token?: string | null;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/messages/${messageId}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      cache: "no-store",
+    },
+    "deleteHostEventMessageAction"
   );
 }
 

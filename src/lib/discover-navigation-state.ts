@@ -69,3 +69,11 @@ export function openPanelFromExpandedIntent(
 ): DiscoverNavIntent {
   return { ...(unifiedNav ? { tab: "feed" } : {}), openPanel: true };
 }
+
+/**
+ * Quick panel → full Discover tab (client-side /explore?tab=discover).
+ * Closes the overlay and switches main tab without a document refresh.
+ */
+export function expandDiscoverTabIntent(): DiscoverNavIntent {
+  return { tab: "discover", closePanel: true };
+}

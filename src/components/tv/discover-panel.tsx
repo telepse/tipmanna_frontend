@@ -13,6 +13,7 @@ import {
   ChevronRight,
   CircleHelp,
   Radio,
+  Search,
   Sparkles,
   Tv,
   UsersRound,
@@ -575,7 +576,7 @@ export function DiscoverPanel({
   return (
     <div className={cn("space-y-2", className)}>
       {showHeading ? (
-        <h2 className="text-2xl font-semibold">Discover contents</h2>
+        <h2 className="text-lg font-semibold lg:text-2xl">Discover contents</h2>
       ) : null}
 
       {/* CONTENT SEARCH */}
@@ -587,39 +588,42 @@ export function DiscoverPanel({
             render={({ field }) => (
               <FormItem className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <FormControl className="flex-1">
-                    <Input
-                      placeholder="Search..."
-                      autoComplete="off"
-                      aria-label="Search discovery catalogue"
-                      onKeyDown={e => {
-                        if (e.key === "Escape") {
-                          form.setValue("searchTerm", "");
-                          setDiscoveryResults(null);
-                          setActiveSearchIndex(-1);
-                          return;
-                        }
-                        if (!flatSearchResults.length) return;
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          setActiveSearchIndex(i =>
-                            Math.min(i + 1, flatSearchResults.length - 1)
-                          );
-                          return;
-                        }
-                        if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          setActiveSearchIndex(i => Math.max(i - 1, 0));
-                          return;
-                        }
-                        if (e.key === "Enter" && activeSearchIndex >= 0) {
-                          e.preventDefault();
-                          const item = flatSearchResults[activeSearchIndex];
-                          if (item) activateSearchResult(item);
-                        }
-                      }}
-                      {...field}
-                    />
+                  <FormControl className="relative flex-1">
+                    <div className="relative">
+                      <Input
+                        placeholder="Search..."
+                        autoComplete="off"
+                        aria-label="Search discovery catalogue"
+                        onKeyDown={e => {
+                          if (e.key === "Escape") {
+                            form.setValue("searchTerm", "");
+                            setDiscoveryResults(null);
+                            setActiveSearchIndex(-1);
+                            return;
+                          }
+                          if (!flatSearchResults.length) return;
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setActiveSearchIndex(i =>
+                              Math.min(i + 1, flatSearchResults.length - 1)
+                            );
+                            return;
+                          }
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setActiveSearchIndex(i => Math.max(i - 1, 0));
+                            return;
+                          }
+                          if (e.key === "Enter" && activeSearchIndex >= 0) {
+                            e.preventDefault();
+                            const item = flatSearchResults[activeSearchIndex];
+                            if (item) activateSearchResult(item);
+                          }
+                        }}
+                        {...field}
+                      />
+                      <Search className="absolute top-1/2 right-2 -translate-y-1/2" />
+                    </div>
                   </FormControl>
 
                   {onOpenBookmarks ? (

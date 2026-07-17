@@ -207,7 +207,6 @@ export async function reportChannelContentAction(
 
 // -------- Get messages by event -------- //
 export async function getMessagesByEventAction(eventId: string) {
-  console.log("eventId", eventId);
   if (!eventId?.trim()) {
     return actionFail("Event ID is required", "getMessagesByEventAction");
   }

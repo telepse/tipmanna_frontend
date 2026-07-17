@@ -105,7 +105,8 @@ export default async function EventRoomPage({ params }: Props) {
   ]);
 
   const eventPayload = eventRes.data;
-  const messages = (messagesRes.data as { data: Message[] })?.data ?? [];
+  // const messages = (messagesRes.data as { data: Message[] })?.data ?? [];
+  const messages = messagesRes.data;
   const iTipped = tippedRes.data ?? 0;
   const channels = channelsRes.data;
 

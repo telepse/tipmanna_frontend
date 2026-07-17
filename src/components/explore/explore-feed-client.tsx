@@ -686,15 +686,15 @@ function ExploreReelSlideTitle({
         // Single metrics row: Save · Share · (eye encounter) · Comments.
         // The eye/encounter metric sits directly in front of the comment count.
         <p className={exploreReelMetricsClassName(layoutMode)}>
-          {metrics.saves} saves · {metrics.shares} shares ·{" "}
+          {metrics.saves} saves · {metrics.shares} shares · {metrics.comments}{" "}
+          comments ·
           <span className="inline-flex items-center gap-1">
             <Eye
               className="size-3"
               aria-hidden
             />
-            {metrics.encounters}
-          </span>{" "}
-          · {metrics.comments} comments
+            {metrics.encounters} seen
+          </span>
           {active?.event?.showViewCountOnVideos === true ? (
             <span> · {metrics.views} views</span>
           ) : null}

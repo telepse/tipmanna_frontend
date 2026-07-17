@@ -94,7 +94,9 @@ export default async function ExplorePage({ searchParams }: PageProps) {
       <Suspense fallback={null}>
         <ExploreDiscoverSeoGate tab={sp.tab} />
       </Suspense>
-      <ExplorePageClient ssrBoot={null} />
+      <Suspense fallback={null}>
+        <ExplorePageClient ssrBoot={null} />
+      </Suspense>
     </>
   );
 }

@@ -303,7 +303,7 @@ export function exploreReelMetricsClassName(
   mode: ExploreReelLayoutMode
 ): string {
   return exploreReelIsDesktopMode(mode)
-    ? "text-sm opacity-85 drop-shadow-md"
+    ? "text-sm opacity-85 drop-shadow-md inline-flex items-center gap-1"
     : "text-[11px] opacity-80 drop-shadow-md";
 }
 

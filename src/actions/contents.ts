@@ -2,7 +2,10 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
-import { EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS } from "@/lib/explore-feed-fetch-timeout";
+import {
+  EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS,
+  EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS,
+} from "@/lib/explore-feed-fetch-timeout";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import { serverAuthHeaders } from "@/lib/server-auth";
 
@@ -349,6 +352,14 @@ export async function postExploreFeedBatchAction(
     body.communityIds = opts.communityIds.slice(0, 50);
   }
 
+  // Continuation (pagination) fetches carry excludeChannelIds and always miss
+  // the backend default-feed cache, so they legitimately take longer than the
+  // boot fail-open budget. Boot (no excludes) keeps the tight fail-open cap.
+  const fetchTimeoutMs =
+    excludeChannelIds.length > 0
+      ? EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS
+      : EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS;
+
   return runServerFetch<ExploreFeedBatchData>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/feed/batch`,
     {
@@ -356,7 +367,7 @@ export async function postExploreFeedBatchAction(
       headers: await serverAuthHeaders(authToken),
       body: JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(fetchTimeoutMs),
     },
     "postExploreFeedBatchAction",
     raw => {

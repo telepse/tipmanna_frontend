@@ -57,16 +57,16 @@ test.describe("explore URL history", () => {
         .first()
     ).toBeVisible({ timeout: 45_000 });
 
-    await page.getByRole("button", { name: "Saves" }).click();
+    await page.getByTestId("explore-subtab-saves").click();
     await expect(page).toHaveURL(/feedTab=saves/, { timeout: 10_000 });
     const savesUrl = page.url();
 
-    await page.getByRole("button", { name: "Trends" }).click();
+    await page.getByTestId("explore-subtab-trends").click();
     await expect(page).toHaveURL(/feedTab=trends/, { timeout: 10_000 });
 
     await page.goBack();
     await expect(page).toHaveURL(/feedTab=saves/, { timeout: 10_000 });
-    await expect(page.getByRole("button", { name: "Saves" })).toHaveClass(
+    await expect(page.getByTestId("explore-subtab-saves")).toHaveClass(
       /bg-white/,
       { timeout: 10_000 }
     );
@@ -104,15 +104,15 @@ test.describe("explore URL history", () => {
         .first()
     ).toBeVisible({ timeout: 45_000 });
 
-    await page.getByRole("button", { name: "TV" }).click();
+    await page.getByTestId("explore-subtab-tv").click();
     await expect(page).toHaveURL(/feedTab=tv/, { timeout: 10_000 });
 
-    await page.getByRole("button", { name: "Trends" }).click();
+    await page.getByTestId("explore-subtab-trends").click();
     await expect(page).toHaveURL(/feedTab=trends/, { timeout: 10_000 });
 
     await page.goBack();
     await expect(page).toHaveURL(/feedTab=tv/, { timeout: 10_000 });
-    await expect(page.getByRole("button", { name: "TV" })).toHaveClass(
+    await expect(page.getByTestId("explore-subtab-tv")).toHaveClass(
       /bg-white/,
       { timeout: 10_000 }
     );

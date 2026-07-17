@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // Third-party imports
-import { Plus, Search, Tv, UserRound } from "lucide-react";
+import { Rocket, Plus, Search, Tv, UserRound } from "lucide-react";
 import { NotificationBadge } from "@/components/notifications/notification-badge";
 
 // Local imports
@@ -100,7 +100,7 @@ export const TVExpressButtons = () => {
           }}
           className="flex flex-col items-center justify-center border border-black/20"
         >
-          <Search
+          <Rocket
             className="size-5"
             strokeWidth={2}
           />{" "}

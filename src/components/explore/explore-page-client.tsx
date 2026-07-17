@@ -69,6 +69,7 @@ import {
 import {
   type DiscoverNavIntent,
   type ExploreMainTab,
+  expandDiscoverTabIntent,
   openPanelFromExpandedIntent,
   playInExploreIntent,
   searchIntent,
@@ -80,6 +81,10 @@ import {
   exploreFeedUrlStatesEqual,
   parseExploreFeedUrlState,
 } from "@/lib/explore-url-feed-state";
+import {
+  exploreCurrentHref,
+  exploreStateAheadOfUrl,
+} from "@/lib/explore-url-sync-policy";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import {
   getAllCharacterSets,
@@ -112,6 +117,8 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { ListFilterPlus, Lock, Plus, Search, UserRound } from "lucide-react";
+import { Bars3BottomLeftIcon } from "@heroicons/react/24/outline";
+
 import { NotificationBadge } from "@/components/notifications/notification-badge";
 import { ExploreInstallPrompt } from "@/components/pwa/explore-install-prompt";
 import { ExploreFeedSkeleton } from "@/components/explore/explore-feed-skeleton";
@@ -256,12 +263,15 @@ export default function ExplorePageClient({
    * do not snap back to Discover (which blocked Discover→reel `openInExplore`).
    */
   const leaveDiscoverForFeedRef = useRef(false);
+  /** True after local tab change until URL query catches up (prevents stale tabParam reset). */
+  const localTabNavRef = useRef(false);
 
   /** Unified Discover navigation + long-lived Explore session (default on; flags allow rollback). */
   const unifiedDiscoverNav = isUnifiedDiscoverNavEnabled();
   const sessionShellEnabled = isExploreSessionShellEnabled();
 
   const setMainTab = useCallback((next: ExploreMainTab) => {
+    localTabNavRef.current = true;
     setTab(prev => {
       if (prev === "discover" && next === "feed") {
         leaveDiscoverForFeedRef.current = true;
@@ -271,6 +281,10 @@ export default function ExplorePageClient({
   }, []);
 
   const joinCommunityId = searchParams.get("joinCommunity")?.trim() ?? "";
+  const joinCommunityIdRef = useRef(joinCommunityId);
+  joinCommunityIdRef.current = joinCommunityId;
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
 
   useEffect(() => {
     if (tab !== "join") return;
@@ -279,30 +293,6 @@ export default function ExplorePageClient({
       router.replace(EXPLORE_COMMUNITY_HUB_HREF, { scroll: false });
     }
   }, [tab, joinCommunityId, router]);
-
-  useEffect(() => {
-    if (tabParam !== "discover") {
-      leaveDiscoverForFeedRef.current = false;
-    }
-
-    const fromUrl: ExploreMainTab =
-      tabParam === "discover"
-        ? "discover"
-        : tabParam === "community"
-          ? "community"
-          : tabParam === "my-communities"
-            ? "my-communities"
-            : tabParam === "join"
-              ? "join"
-              : "feed";
-
-    setTab(prev => {
-      if (leaveDiscoverForFeedRef.current && tabParam === "discover") {
-        return prev;
-      }
-      return fromUrl;
-    });
-  }, [tabParam]);
 
   useLayoutEffect(() => {
     if (ssrBoot?.items?.length) {
@@ -565,6 +555,146 @@ export default function ExplorePageClient({
     communityFeedSelIds,
   };
 
+  useEffect(() => {
+    if (tabParam !== "discover") {
+      leaveDiscoverForFeedRef.current = false;
+    }
+
+    const fromUrl: ExploreMainTab =
+      tabParam === "discover"
+        ? "discover"
+        : tabParam === "community"
+          ? "community"
+          : tabParam === "my-communities"
+            ? "my-communities"
+            : tabParam === "join"
+              ? "join"
+              : "feed";
+
+    if (localTabNavRef.current) {
+      const stateAhead = exploreStateAheadOfUrl(
+        pathBase,
+        { tab, joinCommunityId },
+        feedUrlStateRef.current,
+        searchParamsKey
+      );
+      if (stateAhead) return;
+      localTabNavRef.current = false;
+    }
+
+    setTab(prev => {
+      if (leaveDiscoverForFeedRef.current && tabParam === "discover") {
+        return prev;
+      }
+      return fromUrl;
+    });
+  }, [tabParam, tab, pathBase, joinCommunityId, searchParamsKey]);
+
+  /** Latest query string for merge-only reads — omit from URL-push effect deps. */
+  const searchParamsKeyRef = useRef(searchParamsKey);
+  searchParamsKeyRef.current = searchParamsKey;
+
+  /** Monotonic id so only the latest URL commit may retry. */
+  const urlCommitGenRef = useRef(0);
+
+  const commitExploreUrlPush = useCallback(
+    (
+      tabCtx: { tab: ExploreMainTab; joinCommunityId?: string },
+      feedState: typeof feedUrlStateRef.current
+    ) => {
+      const liveSearchKey =
+        typeof window !== "undefined"
+          ? window.location.search.replace(/^\?/, "")
+          : searchParamsKeyRef.current;
+      const mergeKey = liveSearchKey || searchParamsKeyRef.current;
+      const nextHref = buildExploreFeedHref(
+        pathBase,
+        tabCtx,
+        feedState,
+        mergeKey
+      );
+      const curHref =
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : exploreCurrentHref(pathBase, searchParamsKeyRef.current);
+      if (nextHref === curHref) return;
+
+      const commitGen = ++urlCommitGenRef.current;
+      router.push(nextHref, { scroll: false });
+
+      queueMicrotask(() => {
+        if (commitGen !== urlCommitGenRef.current) return;
+        if (typeof window === "undefined") return;
+        const liveHref = `${window.location.pathname}${window.location.search}`;
+        if (liveHref === nextHref) return;
+        router.push(nextHref, { scroll: false });
+      });
+    },
+    [pathBase, router]
+  );
+
+  const navigateFeedSubTab = useCallback(
+    (sub: "trends" | "saves" | "tv" | "community") => {
+      localTabNavRef.current = true;
+      setMainTab("feed");
+      setFeedSubTab(sub);
+      commitExploreUrlPush(
+        { tab: "feed", joinCommunityId: joinCommunityIdRef.current },
+        { ...feedUrlStateRef.current, feedSubTab: sub }
+      );
+    },
+    [commitExploreUrlPush, setMainTab]
+  );
+
+  const navigateMainTab = useCallback(
+    (nextTab: ExploreMainTab) => {
+      setMainTab(nextTab);
+      commitExploreUrlPush(
+        {
+          tab: nextTab,
+          joinCommunityId:
+            nextTab === "join" ? joinCommunityIdRef.current : undefined,
+        },
+        feedUrlStateRef.current
+      );
+    },
+    [commitExploreUrlPush, setMainTab]
+  );
+
+  /** Clear local navigation guard once the browser URL matches React state. */
+  useEffect(() => {
+    if (!localTabNavRef.current) return;
+    if (
+      !exploreStateAheadOfUrl(
+        pathBase,
+        { tab, joinCommunityId },
+        feedUrlStateRef.current,
+        searchParamsKey
+      )
+    ) {
+      localTabNavRef.current = false;
+    }
+  }, [
+    searchParamsKey,
+    tab,
+    joinCommunityId,
+    pathBase,
+    feedSubTab,
+    trendEventTypes,
+    trendLanguage,
+    trendCountry,
+    tvExploreSource,
+    communityFeedSelIds,
+  ]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      localTabNavRef.current = false;
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   /** Restore feed shell state from URL on every navigation (back/forward/deep link). */
   useLayoutEffect(() => {
     const parsed = parseExploreFeedUrlState(
@@ -574,6 +704,17 @@ export default function ExplorePageClient({
       parsed.communityFeedSelIds = [dedicatedCommunityId];
       parsed.tvExploreSource = dedicatedCommunityId;
     }
+
+    const stateAhead = exploreStateAheadOfUrl(
+      pathBase,
+      { tab, joinCommunityId },
+      feedUrlStateRef.current,
+      searchParamsKey
+    );
+    if (localTabNavRef.current && stateAhead) {
+      return;
+    }
+
     if (exploreFeedUrlStatesEqual(feedUrlStateRef.current, parsed)) return;
 
     setTrendEventTypes(parsed.trendEventTypes);
@@ -582,31 +723,50 @@ export default function ExplorePageClient({
     setFeedSubTab(parsed.feedSubTab);
     setTvExploreSource(parsed.tvExploreSource);
     setCommunityFeedSelIds(parsed.communityFeedSelIds);
-  }, [searchParamsKey, sideChickLocked, dedicatedCommunityId]);
+  }, [
+    searchParamsKey,
+    sideChickLocked,
+    dedicatedCommunityId,
+    pathBase,
+    tab,
+    joinCommunityId,
+  ]);
 
-  /** Push React feed shell state to URL when it diverges (not on history navigation alone). */
+  /** Passive URL corrections (filters, membership defaults) — never history push. */
   useEffect(() => {
     const nextHref = buildExploreFeedHref(
       pathBase,
       { tab, joinCommunityId },
-      {
-        trendEventTypes,
-        trendLanguage,
-        trendCountry,
-        feedSubTab,
-        tvExploreSource,
-        communityFeedSelIds,
-      },
-      // Intentionally read latest handoff/query params without listing searchParamsKey in deps.
-      searchParamsKey
+      feedUrlStateRef.current,
+      searchParamsKeyRef.current
     );
-    const curHref = `${pathBase}${searchParamsKey ? `?${searchParamsKey}` : ""}`;
+    const curHref = exploreCurrentHref(pathBase, searchParamsKeyRef.current);
     if (nextHref === curHref) return;
 
-    const handle = window.setTimeout(() => {
-      router.replace(nextHref, { scroll: false });
-    }, 200);
-    return () => window.clearTimeout(handle);
+    const userNavigated = exploreStateAheadOfUrl(
+      pathBase,
+      { tab, joinCommunityId },
+      feedUrlStateRef.current,
+      searchParamsKeyRef.current
+    );
+    if (userNavigated) {
+      const pushIfStale = () => {
+        if (typeof window === "undefined") return;
+        const liveHref = `${window.location.pathname}${window.location.search}`;
+        if (liveHref === nextHref) return;
+        router.push(nextHref, { scroll: false });
+      };
+      if (localTabNavRef.current) {
+        queueMicrotask(pushIfStale);
+        requestAnimationFrame(pushIfStale);
+        return;
+      }
+      router.push(nextHref, { scroll: false });
+      queueMicrotask(pushIfStale);
+      return;
+    }
+
+    router.replace(nextHref, { scroll: false });
   }, [
     trendEventTypes,
     trendLanguage,
@@ -714,16 +874,16 @@ export default function ExplorePageClient({
     (target: ExploreFeedOpenTarget) => {
       pendingExploreOpenRef.current = target;
       setSuppressDiscoverInlineContentId(target.videoId);
-      // Reel handoff: reveal the feed and close the Discover quick panel.
       const intent = playInExploreIntent();
       if (intent.closePanel) setDiscoverSheetOpen(false);
-      if (intent.tab) setMainTab(intent.tab);
       if (!sideChickLocked) {
-        setFeedSubTab("trends");
+        navigateFeedSubTab("trends");
+      } else if (intent.tab) {
+        navigateMainTab(intent.tab);
       }
       setExploreOpenNonce(n => n + 1);
     },
-    [setMainTab, sideChickLocked]
+    [navigateMainTab, navigateFeedSubTab, sideChickLocked]
   );
 
   useLayoutEffect(() => {
@@ -880,12 +1040,16 @@ export default function ExplorePageClient({
     (intent: DiscoverNavIntent) => {
       if (intent.searchTerm !== undefined)
         setDiscoverSearchTerm(intent.searchTerm);
-      if (intent.tab) setMainTab(intent.tab);
+      if (intent.tab) navigateMainTab(intent.tab);
       if (intent.closePanel) setDiscoverSheetOpen(false);
       if (intent.openPanel) openDiscoverSheet();
     },
-    [openDiscoverSheet, setMainTab]
+    [navigateMainTab, openDiscoverSheet]
   );
+
+  const expandDiscoverFromPanel = useCallback(() => {
+    applyDiscoverNavIntent(expandDiscoverTabIntent());
+  }, [applyDiscoverNavIntent]);
 
   /**
    * Unified Discover navigation: Search opens the quick panel over the feed and
@@ -932,26 +1096,34 @@ export default function ExplorePageClient({
 
   const onCommunityFeedPick = useCallback(
     (id: string, checked: boolean, multi: boolean) => {
+      const prev = feedUrlStateRef.current.communityFeedSelIds;
+      let next: string[];
+      if (multi) {
+        next = checked
+          ? prev.includes(id)
+            ? prev
+            : [...prev, id]
+          : prev.filter(x => x !== id);
+      } else if (checked) {
+        next = [id];
+      } else {
+        next = prev.filter(x => x !== id);
+      }
+      if (next.length) prefetchExploreCommunityFeed(next);
+      localTabNavRef.current = true;
       setMainTab("feed");
       setFeedSubTab("community");
-      setCommunityFeedSelIds(prev => {
-        let next: string[];
-        if (multi) {
-          next = checked
-            ? prev.includes(id)
-              ? prev
-              : [...prev, id]
-            : prev.filter(x => x !== id);
-        } else if (checked) {
-          next = [id];
-        } else {
-          next = prev.filter(x => x !== id);
+      setCommunityFeedSelIds(next);
+      commitExploreUrlPush(
+        { tab: "feed", joinCommunityId: joinCommunityIdRef.current },
+        {
+          ...feedUrlStateRef.current,
+          feedSubTab: "community",
+          communityFeedSelIds: next,
         }
-        if (next.length) prefetchExploreCommunityFeed(next);
-        return next;
-      });
+      );
     },
-    [setMainTab]
+    [commitExploreUrlPush, setMainTab]
   );
 
   useEffect(() => {
@@ -1040,6 +1212,14 @@ export default function ExplorePageClient({
             manna
           </Link>
 
+          <button
+            type="button"
+            className="cursor-pointer rounded border border-black p-0.25 sm:p-0.5"
+            onClick={openDiscoverSheet}
+          >
+            <Bars3BottomLeftIcon className="size-4 sm:size-5" />
+          </button>
+
           <div className="flex items-center gap-1 rounded-full p-1 text-sm">
             {/* <button
               type="button"
@@ -1061,35 +1241,6 @@ export default function ExplorePageClient({
                 aria-label="Dedicated community mode — tap for details"
               />
             ) : null}
-
-            <div
-              className="relative p-1 sm:hidden"
-              onClick={openDiscoverSheetWithSearch}
-              role="button"
-              tabIndex={0}
-              onKeyDown={e => {
-                if (e.key === "Enter" || e.key === " ") {
-                  openDiscoverSheetWithSearch();
-                }
-              }}
-              aria-label="Open discover search"
-            >
-              <Input
-                type="text"
-                placeholder="Search videos..."
-                className="h-4 w-32 text-xs"
-                value={headerSearch}
-                onChange={e => setHeaderSearch(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") {
-                    e.stopPropagation();
-                    openDiscoverSheetWithTerm(e.currentTarget.value);
-                  }
-                }}
-                onClick={e => e.stopPropagation()}
-              />
-              <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
-            </div>
 
             {/* <button
               type="button"
@@ -1179,7 +1330,36 @@ export default function ExplorePageClient({
             />
             <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
           </div>
+
           <div className="flex items-center gap-1">
+            <div
+              className="relative p-1 sm:hidden"
+              onClick={openDiscoverSheetWithSearch}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  openDiscoverSheetWithSearch();
+                }
+              }}
+              aria-label="Open discover search"
+            >
+              <Input
+                type="text"
+                placeholder="Search videos..."
+                className="h-4 w-32 text-xs"
+                value={headerSearch}
+                onChange={e => setHeaderSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                    openDiscoverSheetWithTerm(e.currentTarget.value);
+                  }
+                }}
+                onClick={e => e.stopPropagation()}
+              />
+              <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
+            </div>
             <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
             <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
               {exploreLiveViewers.length} watching live
@@ -1237,10 +1417,14 @@ export default function ExplorePageClient({
                   ? sideChickPillActive
                   : "border border-black bg-white/80 text-black")
             )}
+            data-testid="explore-chrome-feed"
             onPointerEnter={prefetchExploreFeedInitial}
             onClick={() => {
-              setMainTab("feed");
-              if (feedSubTab === "community") setFeedSubTab("trends");
+              if (feedSubTab === "community") {
+                navigateFeedSubTab("trends");
+              } else {
+                navigateMainTab("feed");
+              }
             }}
           >
             Feed
@@ -1255,7 +1439,8 @@ export default function ExplorePageClient({
                   ? sideChickPillActive
                   : "border border-black bg-white text-black")
             )}
-            onClick={() => setTab("my-communities")}
+            data-testid="explore-chrome-start-community"
+            onClick={() => navigateMainTab("my-communities")}
           >
             Start Community
           </button>
@@ -1402,11 +1587,9 @@ export default function ExplorePageClient({
                     feedSubTab === "trends" &&
                       "bg-white/40 text-white shadow-lg"
                   )}
+                  data-testid="explore-subtab-trends"
                   onPointerEnter={prefetchExploreFeedInitial}
-                  onClick={() => {
-                    setMainTab("feed");
-                    setFeedSubTab("trends");
-                  }}
+                  onClick={() => navigateFeedSubTab("trends")}
                 >
                   Trends
                 </button>
@@ -1416,14 +1599,12 @@ export default function ExplorePageClient({
                     "shrink-0 rounded-full px-2.5 transition sm:px-3",
                     feedSubTab === "saves" && "bg-white/40 text-white shadow-sm"
                   )}
+                  data-testid="explore-subtab-saves"
                   onPointerEnter={() => {
                     prefetchExploreFeedInitial();
                     prefetchExploreSavesFeed();
                   }}
-                  onClick={() => {
-                    setMainTab("feed");
-                    setFeedSubTab("saves");
-                  }}
+                  onClick={() => navigateFeedSubTab("saves")}
                 >
                   Saves
                 </button>
@@ -1433,11 +1614,9 @@ export default function ExplorePageClient({
                     "shrink-0 rounded-full px-2.5 transition sm:px-3",
                     feedSubTab === "tv" && "bg-white/40 text-white shadow-sm"
                   )}
+                  data-testid="explore-subtab-tv"
                   onPointerEnter={prefetchTvSchedule}
-                  onClick={() => {
-                    setMainTab("feed");
-                    setFeedSubTab("tv");
-                  }}
+                  onClick={() => navigateFeedSubTab("tv")}
                 >
                   TV
                 </button>
@@ -1448,6 +1627,7 @@ export default function ExplorePageClient({
                     feedSubTab === "community" &&
                       "bg-white/40 text-white shadow-sm"
                   )}
+                  data-testid="explore-subtab-community"
                   onPointerEnter={() => {
                     if (eligibleCommunityIdsForPrefetch.length) {
                       prefetchExploreCommunityFeed(
@@ -1455,10 +1635,7 @@ export default function ExplorePageClient({
                       );
                     }
                   }}
-                  onClick={() => {
-                    setMainTab("feed");
-                    setFeedSubTab("community");
-                  }}
+                  onClick={() => navigateFeedSubTab("community")}
                 >
                   Community
                 </button>
@@ -1520,7 +1697,7 @@ export default function ExplorePageClient({
                           <button
                             type="button"
                             className="text-primary underline"
-                            onClick={() => setMainTab("my-communities")}
+                            onClick={() => navigateMainTab("my-communities")}
                           >
                             Communities
                           </button>{" "}
@@ -1686,6 +1863,7 @@ export default function ExplorePageClient({
       <DiscoverSheet
         open={discoverSheetOpen}
         onClose={() => setDiscoverSheetOpen(false)}
+        onExpandToDiscover={expandDiscoverFromPanel}
         contents={contents}
         tippers={tippers}
         latestContents={latestContents}
