@@ -38,6 +38,7 @@ import {
 } from "@/schemas/tipper.schema";
 import { Paragraph } from "@/components/shared/paragraph";
 import {
+  forgotPasswordAction,
   loginHostAction,
   loginOrRegisterHostAction,
   loginOrRegisterTipperAction,
@@ -53,7 +54,10 @@ import {
   parseAuthResponse,
 } from "@/lib/auth-response";
 import { persistAuthSession } from "@/lib/session-client";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { store, type RootState } from "@/redux/store";
+
+type HostAuthView = "signIn" | "signUp" | "forgotPassword" | "verifyEmail";
 
 function safeInternalPath(next: string | null): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
@@ -76,6 +80,7 @@ export type SigninFormProps = {
   onModalTipperSuccess?: () => void;
   /** When true, host tab can toggle inline sign-up instead of navigating away. */
   allowInlineSignUp?: boolean;
+  className?: string;
 };
 
 export const SigninForm = ({
@@ -85,11 +90,15 @@ export const SigninForm = ({
   onModalHostSuccess,
   onModalTipperSuccess,
   allowInlineSignUp = false,
+  className,
 }: SigninFormProps = {}) => {
   const [userType, setUserType] = useState<"host" | "tipper">(
     () => defaultUserType
   );
   const [hostStep, setHostStep] = useState<"signIn" | "signUp">("signIn");
+  const [hostAuthView, setHostAuthView] = useState<HostAuthView>("signIn");
+  const [hostVerifyEmail, setHostVerifyEmail] = useState("");
+  const [hostVerifyCode, setHostVerifyCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [tipperStep, setTipperStep] = useState<"email" | "verify">("email");
   const [tipperCode, setTipperCode] = useState("");
@@ -98,6 +107,7 @@ export const SigninForm = ({
 
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
+  const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
 
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email");
@@ -194,6 +204,7 @@ export const SigninForm = ({
         email: values.email,
         password: values.password,
         acceptedTerms: values.acceptedTerms,
+        visitorId: visitorIdForMerge,
       });
       if (!res.success) {
         toast.error(res.message);
@@ -202,6 +213,19 @@ export const SigninForm = ({
       const parsed = parseAuthResponse(res.data);
       if (!parsed) {
         toast.error("Unexpected sign-up response");
+        return;
+      }
+      if (mode === "modal") {
+        dispatch(
+          setCredentials({
+            user: { ...parsed.user, role: "HOST" },
+            token: parsed.token,
+            requiresVerification: true,
+          })
+        );
+        setHostVerifyEmail(values.email);
+        setHostAuthView("verifyEmail");
+        toast.success(parsed.message);
         return;
       }
       await finishHostAuth(parsed);
@@ -221,10 +245,18 @@ export const SigninForm = ({
     try {
       setIsHostLoading(true);
 
-      const res = await loginHostAction(values);
+      const res = await loginHostAction({
+        ...values,
+        visitorId: visitorIdForMerge,
+      });
       if (!res.success) {
         if (isUnverifiedHostMessage(res.message)) {
           toast.info("Verify your email to continue — we sent you a code.");
+          if (mode === "modal") {
+            setHostVerifyEmail(values.email);
+            setHostAuthView("verifyEmail");
+            return;
+          }
           const emailQ = encodeURIComponent(values.email);
           push(
             returnTo
@@ -269,8 +301,12 @@ export const SigninForm = ({
               fullName: "",
               email: values.email,
               acceptedTerms: tipperAcceptedTerms,
+              visitorId: visitorIdForMerge,
             })
-          : await loginTipperAction(values);
+          : await loginTipperAction({
+              ...values,
+              visitorId: visitorIdForMerge,
+            });
 
       if (!res.success) {
         toast.error(res.message);
@@ -395,6 +431,12 @@ export const SigninForm = ({
           "Verification code sent — check your email"
       );
 
+      if (mode === "modal") {
+        setHostVerifyEmail(values.email);
+        setHostAuthView("verifyEmail");
+        return;
+      }
+
       const emailQ = encodeURIComponent(values.email);
       push(
         returnTo
@@ -415,12 +457,87 @@ export const SigninForm = ({
     }
   };
 
+  const handleModalHostVerify = async () => {
+    try {
+      setIsHostLoading(true);
+      const user = authUser ?? store.getState().auth.user;
+      const token = authToken ?? store.getState().auth.token;
+      const email = hostVerifyEmail || user?.email;
+      if (!email || !token) return;
+
+      const verifyRes = await verifyCodeAction(email, hostVerifyCode);
+      if (!verifyRes.success) {
+        toast.error(verifyRes.message ?? "Verification failed");
+        return;
+      }
+
+      const parsed = parseAuthResponse(verifyRes.data);
+      const sessionUser = parsed?.user ?? user;
+      const sessionToken = parsed?.token ?? token;
+      if (!sessionUser || !sessionToken) {
+        toast.error("Verification succeeded but session could not be restored");
+        return;
+      }
+
+      dispatch(
+        setCredentials({
+          user: { ...sessionUser, role: "HOST" },
+          token: sessionToken,
+          requiresVerification: false,
+        })
+      );
+
+      await persistAuthSession(sessionToken, sessionUser, { expiresDays: 7 });
+      toast.success("Email verified successfully!");
+      setHostAuthView("signIn");
+      setHostStep("signIn");
+      onModalHostSuccess?.({
+        role: "HOST",
+        username: sessionUser.username,
+        eventSlug:
+          "eventSlug" in sessionUser ? (sessionUser.eventSlug ?? null) : null,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to verify email");
+      }
+    } finally {
+      setIsHostLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (email: string) => {
+    try {
+      setIsHostLoading(true);
+      const res = await forgotPasswordAction(email);
+      if (!res.success) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(
+        (res.data as { message?: string })?.message ??
+          "If an account exists, a reset link was sent."
+      );
+      setHostAuthView("signIn");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to send reset link");
+      }
+    } finally {
+      setIsHostLoading(false);
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-xl">
+    <div className={className ? "" : "mx-auto max-w-2xl"}>
       <Tabs
         value={userType}
         onValueChange={val => setUserType(val as "host" | "tipper")}
-        className="section lg:py-12"
+        className={`${className ? className : "section lg:py-12"}`}
       >
         <TabsList className="bg-secondary/20 flex h-14! w-full">
           <TabsTrigger
@@ -428,7 +545,7 @@ export const SigninForm = ({
             data-testid="signin-tab-host"
             className="h-13! font-semibold"
           >
-            Host
+            Host creator
           </TabsTrigger>
           <TabsTrigger
             value="tipper"
@@ -439,12 +556,110 @@ export const SigninForm = ({
           </TabsTrigger>
         </TabsList>
 
+        <Paragraph
+          align="center"
+          size="sm"
+          color="muted"
+        >
+          {userType === "host"
+            ? "Add content or event"
+            : "Engage on content and join event"}
+        </Paragraph>
+
         {/* Host form */}
         <TabsContent
           value="host"
           className="mt-6 space-y-6"
         >
-          {allowInlineSignUp && hostStep === "signUp" ? (
+          {mode === "modal" && hostAuthView === "forgotPassword" ? (
+            <div className="space-y-6">
+              <h2 className="text-center text-xl font-semibold">
+                Reset your password
+              </h2>
+              <Form {...hostForm}>
+                <form
+                  onSubmit={hostForm.handleSubmit(
+                    values => void handleForgotPassword(values.email)
+                  )}
+                  className="space-y-6"
+                >
+                  <FormField
+                    control={hostForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="Enter email address"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full"
+                    disabled={isHostLoading}
+                  >
+                    {isHostLoading ? "Sending…" : "Send reset link"}
+                  </Button>
+                </form>
+              </Form>
+              <button
+                type="button"
+                className="text-primary flex items-center gap-1 text-sm hover:underline"
+                onClick={() => setHostAuthView("signIn")}
+              >
+                <MoveLeft className="size-4" /> Back to sign in
+              </button>
+            </div>
+          ) : mode === "modal" && hostAuthView === "verifyEmail" ? (
+            <div className="relative flex flex-col items-center justify-center gap-6 px-2">
+              <h2 className="mt-2 text-center text-2xl font-semibold">
+                Verify your email
+              </h2>
+              <Paragraph
+                align="center"
+                size="sm"
+                color="muted"
+              >
+                We&apos;ve sent a 6-digit code to{" "}
+                <strong>{hostVerifyEmail}</strong>.
+              </Paragraph>
+              <div className="react-otp-input">
+                <OTPInput
+                  value={hostVerifyCode}
+                  onChange={setHostVerifyCode}
+                  numInputs={6}
+                  renderInput={props => <input {...props} />}
+                  inputStyle={otpInputStyle}
+                  shouldAutoFocus
+                />
+              </div>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full bg-black"
+                disabled={isHostLoading || hostVerifyCode.length < 6}
+                onClick={() => void handleModalHostVerify()}
+              >
+                {isHostLoading ? "Verifying email..." : "Verify email"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="hover:bg-gray absolute top-0 left-0 border-none outline-none hover:text-black"
+                onClick={() => setHostAuthView("signIn")}
+              >
+                <MoveLeft /> Back
+              </Button>
+            </div>
+          ) : allowInlineSignUp && hostStep === "signUp" ? (
             <Form {...signUpForm}>
               <form
                 onSubmit={signUpForm.handleSubmit(onSubmitHostSignUp)}
@@ -632,12 +847,22 @@ export const SigninForm = ({
                   size="sm"
                   color="muted"
                 >
-                  <Link
-                    href="/forgot-password"
-                    className="hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
+                  {mode === "modal" ? (
+                    <button
+                      type="button"
+                      className="hover:underline"
+                      onClick={() => setHostAuthView("forgotPassword")}
+                    >
+                      Forgot password?
+                    </button>
+                  ) : (
+                    <Link
+                      href="/forgot-password"
+                      className="hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  )}
                 </Paragraph>
 
                 <Button

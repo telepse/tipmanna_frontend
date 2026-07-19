@@ -34,6 +34,7 @@ import { persistAuthSession } from "@/lib/session-client";
 import { RootState } from "@/redux/store";
 import { setCredentials, updateTipper } from "@/features/auth-slice";
 import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 
 import { ApiError } from "@/types/api-error.types";
 import { Paragraph } from "../shared/paragraph";
@@ -91,6 +92,7 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
         fullName: "",
         email: values.email,
         acceptedTerms: true,
+        visitorId: getVisitorIdForAuthMerge(user),
       });
 
       if (!res.success) {

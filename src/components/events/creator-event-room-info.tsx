@@ -113,10 +113,17 @@ export const CreatorEventRoomInfo = ({ control }: EventRoomInfoProps) => {
     // Use the flattened fields from the user object
     if (
       hasCreatedBefore ||
-      (user && "individualLegalFirstName" in user && "fullName" in user)
+      (user &&
+        "individualLegalFirstName" in user &&
+        "fullName" in user &&
+        "individualLegalLastName" in user)
     ) {
       setValue("firstName", user?.fullName.split(" ")[0]);
-      setValue("lastName", user?.fullName.split(" ")[1]);
+      setValue(
+        "lastName",
+        (user as HostUser)?.individualLegalLastName ??
+          user?.fullName.split(" ")[1]
+      );
       // setValue("organizationName", (user as HostUser)?.organizationName);
     }
   }, [hasCreatedBefore, user, setValue]);

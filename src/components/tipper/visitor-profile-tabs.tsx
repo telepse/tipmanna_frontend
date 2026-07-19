@@ -28,10 +28,13 @@ type TippedVideoSummary = {
 export const VisitorProfileTabs = ({
   events,
   tippedVideos = [],
+  variant = "page",
 }: {
   events: Event[];
   tippedVideos?: TippedVideoSummary[];
+  variant?: "page" | "drawer";
 }) => {
+  const isDrawer = variant === "drawer";
   const [tab, setTab] = useState<
     "history" | "notifications" | "reminders" | "milestones" | "awards"
   >("history");
@@ -50,21 +53,25 @@ export const VisitorProfileTabs = ({
               | "awards"
           )
         }
-        className="section gap-8 lg:py-12"
+        className={isDrawer ? "section gap-4 py-2" : "section gap-8 lg:py-12"}
       >
         <TabsList className="flex !h-14 w-full border bg-white">
-          <TabsTrigger
-            value="notifications"
-            className="!h-12 text-xs font-semibold data-[state=active]:bg-[#321801] data-[state=active]:text-white sm:text-sm"
-          >
-            <Bell className="hidden size-6 sm:inline-block" /> Alerts
-          </TabsTrigger>
-          <TabsTrigger
-            value="reminders"
-            className="!h-12 text-xs font-semibold data-[state=active]:bg-[#321801] data-[state=active]:text-white sm:text-sm"
-          >
-            Reminders
-          </TabsTrigger>
+          {!isDrawer ? (
+            <>
+              <TabsTrigger
+                value="notifications"
+                className="!h-12 text-xs font-semibold data-[state=active]:bg-[#321801] data-[state=active]:text-white sm:text-sm"
+              >
+                <Bell className="hidden size-6 sm:inline-block" /> Alerts
+              </TabsTrigger>
+              <TabsTrigger
+                value="reminders"
+                className="!h-12 text-xs font-semibold data-[state=active]:bg-[#321801] data-[state=active]:text-white sm:text-sm"
+              >
+                Reminders
+              </TabsTrigger>
+            </>
+          ) : null}
           <TabsTrigger
             value="history"
             className="!h-12 text-xs font-semibold data-[state=active]:bg-[#321801] data-[state=active]:text-white sm:text-sm"
@@ -86,13 +93,17 @@ export const VisitorProfileTabs = ({
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="notifications">
-          <NotificationsTab variant="page" />
-        </TabsContent>
+        {!isDrawer ? (
+          <>
+            <TabsContent value="notifications">
+              <NotificationsTab variant="page" />
+            </TabsContent>
 
-        <TabsContent value="reminders">
-          <ReminderBucketTab variant="page" />
-        </TabsContent>
+            <TabsContent value="reminders">
+              <ReminderBucketTab variant="page" />
+            </TabsContent>
+          </>
+        ) : null}
 
         {/* Tipping history */}
         <TabsContent

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import {
   Form,
@@ -70,6 +71,7 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
         fullName: "",
         email: values.email,
         acceptedTerms: true,
+        visitorId: getVisitorIdForAuthMerge(user),
       });
 
       if (!res.success) {

@@ -2,10 +2,12 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { DiscoverPanel } from "@/components/tv/discover-panel";
 import Link from "next/link";
-import { getPublicAbsoluteUrl } from "@/lib/site-config";
+
+// Local imports
+import { DiscoverPanel } from "@/components/tv/discover-panel";
 import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
+import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 
 type LiveStreams = {
@@ -57,13 +59,13 @@ export function DiscoverPageClient({
       id="main-content"
       className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col"
     >
-      <header className="border-b px-4 py-5 sm:px-6">
+      <header className="border-b px-4 py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold sm:text-2xl">
+            <h1 className="text-2xl font-semibold sm:text-4xl">
               Discover creators, programs &amp; live streams
             </h1>
-            <p className="text-muted-foreground max-w-2xl text-sm">
+            <p className="text-muted-foreground max-w-2xl text-sm leading-normal">
               Browse curated rails, search by category, and jump into creator
               event rooms — then continue watching on Tipmanna TV.
             </p>
@@ -72,20 +74,21 @@ export function DiscoverPageClient({
           <div className="flex items-center gap-2">
             <Link
               href="/partner"
-              className="bg-primary inline-flex shrink-0 items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-white"
+              className="bg-primary inline-flex shrink-0 rounded-md px-4 py-2.5 text-sm font-medium text-white"
             >
               About Tipmanna
             </Link>
             <Link
               href={getPublicAbsoluteUrl("/explore")}
-              className="inline-flex shrink-0 items-center justify-center rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white"
+              className="inline-flex shrink-0 rounded-md bg-black px-4 py-2.5 text-sm font-medium text-white"
             >
               Watch on Tipmanna TV
             </Link>
           </div>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
         <DiscoverPanel
           surface="discovery"
           onPlayInExplore={handlePlayInExplore}

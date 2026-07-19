@@ -3,6 +3,7 @@ import Image from "next/image";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 import TvPlayer from "./tv-player";
+import { Play } from "lucide-react";
 
 interface Props {
   videoUrl: string;
@@ -42,7 +43,7 @@ export const ThumbnailPlayer = ({
   const showPlayer = !disableInlinePlayback && play && !suppressInline;
 
   return (
-    <div className={`relative w-full ${className ?? ""}`}>
+    <div className={`relative ${className ?? ""}`}>
       {!showPlayer ? (
         <button
           type="button"
@@ -54,34 +55,20 @@ export const ThumbnailPlayer = ({
           }}
           aria-label="Play video preview"
         >
-          <span className="relative block aspect-video w-full overflow-hidden rounded-md">
+          <span className="relative block aspect-video w-full overflow-hidden rounded-md p-2">
             <Image
               src={thumbnail}
               alt="Video thumbnail"
               width={80}
               height={50}
-              // sizes="(max-width: 640px) 220px, 270px"
-              className="w-full rounded-md object-cover h-auto aspect-video"
+              className="aspect-video h-auto w-full rounded-md object-cover"
               unoptimized
             />
-            {/* <Image
-                    src={`https://img.youtube.com/vi/${extractYoutubeID(item.contentUrl!)}/hqdefault.jpg`}
-                      alt=""
-                      width={80}
-                      height={50}
-                      className="w-full rounded-md object-cover h-auto aspect-video"
-                      unoptimized
-                    /> */}
           </span>
+
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="rounded-full bg-black/50 p-3">
-              <svg
-                className="h-8 w-8 text-white"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M8 5v14l11-7z" />
-              </svg>
+            <div className="rounded-full bg-black/70 p-2">
+              <Play className="size-6 text-white" />
             </div>
           </div>
         </button>

@@ -35,6 +35,7 @@ import { setCredentials } from "@/features/auth-slice";
 import { verifyCodeAction, loginOrRegisterTipperAction } from "@/actions/auth";
 import { ApiError } from "@/types/api-error.types";
 import { dispatchAuthChanged } from "@/lib/auth-events";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import {
   SIGN_IN_NESTED_OVERLAY_Z_INDEX,
   SIGN_IN_NESTED_Z_INDEX,
@@ -117,10 +118,13 @@ export function TipperEmailOtpSignInDialog({
     try {
       setIsLoading(true);
 
+      const visitorId = getVisitorIdForAuthMerge(store.getState().auth.user);
+
       const res = await loginOrRegisterTipperAction({
         fullName: "",
         email: values.email,
         acceptedTerms: values.acceptedTerms ?? true,
+        visitorId,
       });
 
       if (!res.success) {

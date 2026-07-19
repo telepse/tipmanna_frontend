@@ -210,14 +210,44 @@ const formatEventDate = (date: Date | string) => {
   return `${day}${suffix} ${month} ${year}`;
 };
 
-const formatTime = (time: string) => {
-  const [hours, minutes] = time.split(":").map(Number);
+const formatTime = (time?: string | null) => {
+  console.log("NEW formatTime", time);
+
+  if (!time) return "";
+
+  const parts = time.split(":");
+
+  if (parts.length < 2) return time;
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return time;
+  }
 
   const period = hours >= 12 ? "PM" : "AM";
   const hour12 = hours % 12 || 12;
 
-  return `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`;
+  return `${hour12}:${String(minutes).padStart(2, "0")} ${period}`;
 };
+
+const EVENT_TYPE_OPTIONS = [
+  { value: "CONCERT_MUSIC", label: "Concert & Music" },
+  { value: "DRAMA_ART", label: "Drama & Art" },
+  { value: "FESTIVAL", label: "Festival" },
+  { value: "FOOD", label: "Food" },
+  { value: "HANG_OUT", label: "Hang Out" },
+  { value: "ISLAMIC", label: "Islamic" },
+  { value: "CHRISTIAN", label: "Christian" },
+  { value: "CORPORATE", label: "Corporate" },
+  { value: "COMEDY", label: "Comedy" },
+  { value: "FASHION", label: "Fashion" },
+  { value: "GAME_SPORT", label: "Game & Sport" },
+  { value: "OTHER", label: "Other" },
+  { value: "CHILDREN", label: "Children" },
+  { value: "EDUCATION", label: "Education" },
+];
 
 export const EventDetailClient = ({
   eventId,
@@ -398,6 +428,9 @@ export const EventDetailClient = ({
         eventId,
         token,
         payload: {
+          eventName: values.eventName,
+          eventDescription: values.eventDescription,
+          eventType: values.eventType,
           eventDate: values.eventDate,
           startTime: values.startTime,
           endTime: values.endTime,
@@ -423,6 +456,8 @@ export const EventDetailClient = ({
             id: content.id,
             title: content.title,
             description: content.description,
+            url: content.url,
+            eventVideoType: content.eventVideoType,
           })),
         },
       });
@@ -566,6 +601,12 @@ export const EventDetailClient = ({
   //   }
   // };
 
+  console.log({
+    watchedEventDate,
+    watchedStartTime,
+    watchedEndTime,
+  });
+
   return (
     <Form {...form}>
       <section className="flex flex-col gap-6">
@@ -658,9 +699,28 @@ export const EventDetailClient = ({
             <div className="grid grid-cols-12 gap-6">
               <div className="col-span-full space-y-6 lg:col-span-7">
                 <div className="bg-card space-y-4 rounded-md border p-6">
-                  <h5 className="flex items-center gap-2 text-xl font-bold">
-                    <FileText /> Basic Event Information
-                  </h5>
+                  <div className="flex items-center justify-between">
+                    <h5 className="flex items-center gap-2 text-xl font-bold">
+                      <FileText />
+                      Basic Event Information
+                    </h5>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleEditableToggle("basicEventInfo", () => {
+                          console.log(form.getValues());
+                        })
+                      }
+                      className="cursor-pointer"
+                    >
+                      {isEditable("basicEventInfo") ? (
+                        <Check />
+                      ) : (
+                        <PencilLine />
+                      )}
+                    </button>
+                  </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField
@@ -671,13 +731,15 @@ export const EventDetailClient = ({
                           <FormLabel className="text-sm font-semibold">
                             Event Name
                           </FormLabel>
+
                           <FormControl>
                             <Input
                               className="bg-gray-100"
-                              disabled
+                              disabled={!isEditable("basicEventInfo")}
                               {...field}
                             />
                           </FormControl>
+
                           <FormMessage />
                         </FormItem>
                       )}
@@ -691,13 +753,15 @@ export const EventDetailClient = ({
                           <FormLabel className="text-sm font-semibold">
                             Event Organizer
                           </FormLabel>
+
                           <FormControl>
                             <Input
                               className="bg-gray-100"
-                              disabled
+                              disabled={!isEditable("basicEventInfo")}
                               {...field}
                             />
                           </FormControl>
+
                           <FormMessage />
                         </FormItem>
                       )}
@@ -713,13 +777,15 @@ export const EventDetailClient = ({
                           <FormLabel className="text-sm font-semibold">
                             Host Name
                           </FormLabel>
+
                           <FormControl>
                             <Input
                               className="bg-gray-100"
-                              disabled
+                              disabled={!isEditable("basicEventInfo")}
                               {...field}
                             />
                           </FormControl>
+
                           <FormMessage />
                         </FormItem>
                       )}
@@ -733,13 +799,30 @@ export const EventDetailClient = ({
                           <FormLabel className="text-sm font-semibold">
                             Event Type
                           </FormLabel>
-                          <FormControl>
-                            <Input
-                              className="bg-gray-100"
-                              disabled
-                              {...field}
-                            />
-                          </FormControl>
+
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            disabled={!isEditable("basicEventInfo")}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-full bg-gray-100">
+                                <SelectValue placeholder="Select event type" />
+                              </SelectTrigger>
+                            </FormControl>
+
+                            <SelectContent>
+                              {EVENT_TYPE_OPTIONS.map(option => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
                           <FormMessage />
                         </FormItem>
                       )}
@@ -758,7 +841,7 @@ export const EventDetailClient = ({
                         <FormControl>
                           <Textarea
                             className="min-h-16 resize-none bg-gray-100"
-                            disabled
+                            disabled={!isEditable("basicEventInfo")}
                             {...field}
                           />
                         </FormControl>
@@ -769,137 +852,145 @@ export const EventDetailClient = ({
                   />
                 </div>
 
-                <div className="bg-card space-y-4 rounded-md border p-6">
-                  <div className="flex items-center justify-between">
-                    <h5 className="flex items-center gap-2 text-xl font-bold">
-                      <Calendar /> Event Timing
-                    </h5>
+                {eventDate && startTime && endTime && (
+                  <div className="bg-card space-y-4 rounded-md border p-6">
+                    <div className="flex items-center justify-between">
+                      <h5 className="flex items-center gap-2 text-xl font-bold">
+                        <Calendar /> Event Timing
+                      </h5>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleEditableToggle("eventTiming", () => {
-                          console.log(form.getValues());
-                        })
-                      }
-                      className="cursor-pointer"
-                    >
-                      {isEditable("eventTiming") ? <Check /> : <PencilLine />}
-                    </button>
-                  </div>
-
-                  {isEditable("eventTiming") ? (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                      <FormField
-                        control={form.control}
-                        name="eventDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-semibold">
-                              Event Date
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="date"
-                                value={
-                                  field.value
-                                    ? new Date(field.value)
-                                        .toISOString()
-                                        .split("T")[0]
-                                    : ""
-                                }
-                                onChange={e => field.onChange(e.target.value)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="startTime"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-semibold">
-                              Start Time
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="time"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="endTime"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-semibold">
-                              End Time
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="time"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  ) : (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold">
-                        Date
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          disabled
-                          className="bg-gray-100"
-                          value={`${formatEventDate(watchedEventDate)}, ${formatTime(
-                            watchedStartTime
-                          )} - ${formatTime(watchedEndTime)}`}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-
-                  <div className="bg-secondary/30 flex items-center justify-between rounded-md border p-4">
-                    <div className="flex items-center gap-4">
-                      <Clock className="text-primary" />
-
-                      <div className="space-y-1">
-                        <h5 className="text-lg font-semibold">
-                          Extend Duration
-                        </h5>
-                        <p className="text-sm">Add more time to event</p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (hasEventEnded) {
-                          return toast.error(
-                            "You cannot extend the event duration after it has ended."
-                          );
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleEditableToggle("eventTiming", () => {
+                            console.log(form.getValues());
+                          })
                         }
+                        className="cursor-pointer"
+                      >
+                        {isEditable("eventTiming") ? <Check /> : <PencilLine />}
+                      </button>
+                    </div>
 
-                        setExtendDialogOpen(true);
-                      }}
-                      className="cursor-pointer"
-                    >
-                      <PencilLine />
-                    </button>
+                    {isEditable("eventTiming") ? (
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <FormField
+                          control={form.control}
+                          name="eventDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-semibold">
+                                Event Date
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  value={
+                                    field.value
+                                      ? new Date(field.value)
+                                          .toISOString()
+                                          .split("T")[0]
+                                      : ""
+                                  }
+                                  onChange={e => field.onChange(e.target.value)}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="startTime"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-semibold">
+                                Start Time
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="time"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="endTime"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-semibold">
+                                End Time
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="time"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    ) : (
+                      <FormItem>
+                        <FormLabel className="text-sm font-semibold">
+                          Date
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            disabled
+                            className="bg-gray-100"
+                            value={
+                              watchedEventDate &&
+                              watchedStartTime &&
+                              watchedEndTime
+                                ? `${formatEventDate(watchedEventDate)}, ${formatTime(
+                                    watchedStartTime
+                                  )} - ${formatTime(watchedEndTime)}`
+                                : ""
+                            }
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+
+                    <div className="bg-secondary/30 flex items-center justify-between rounded-md border p-4">
+                      <div className="flex items-center gap-4">
+                        <Clock className="text-primary" />
+
+                        <div className="space-y-1">
+                          <h5 className="text-lg font-semibold">
+                            Extend Duration
+                          </h5>
+                          <p className="text-sm">Add more time to event</p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (hasEventEnded) {
+                            return toast.error(
+                              "You cannot extend the event duration after it has ended."
+                            );
+                          }
+
+                          setExtendDialogOpen(true);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <PencilLine />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {cohosts.length > 0 && (
                   <div className="bg-card space-y-4 rounded-md border p-6">
@@ -1305,10 +1396,72 @@ export const EventDetailClient = ({
                         )}
                       />
 
-                      <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                      <FormField
+                        control={form.control}
+                        name={`contents.${contents.findIndex(
+                          item => item.id === content.id
+                        )}.url`}
+                        render={({ field }) => (
+                          <FormItem>
+                            {isEditable(`content-${content.id}`) ? (
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  className="h-8 text-sm"
+                                />
+                              </FormControl>
+                            ) : (
+                              <p className="text-sm">{field.value}</p>
+                            )}
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name={`contents.${contents.findIndex(
+                          item => item.id === content.id
+                        )}.eventVideoType`}
+                        render={({ field }) => (
+                          <FormItem>
+                            {isEditable(`content-${content.id}`) ? (
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="h-8 text-sm">
+                                    <SelectValue placeholder="Select category" />
+                                  </SelectTrigger>
+                                </FormControl>
+
+                                <SelectContent>
+                                  {EVENT_TYPE_OPTIONS.map(option => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="bg-primary size-2 rounded-full"></span>{" "}
+                                {EVENT_TYPE_OPTIONS.find(
+                                  option => option.value === field.value
+                                )?.label ?? field.value}
+                              </div>
+                            )}
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* <p className="text-muted-foreground flex items-center gap-2 text-sm">
                         <span className="bg-primary size-2 rounded-full"></span>{" "}
                         {content.eventVideoType.toLowerCase()}
-                      </p>
+                      </p> */}
                     </div>
                   </div>
 

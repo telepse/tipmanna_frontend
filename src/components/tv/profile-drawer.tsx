@@ -12,6 +12,10 @@ import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 import { persistAuthSession } from "@/lib/session-client";
 import { dispatchAuthChanged } from "@/lib/auth-events";
+import {
+  getVisitorIdForAuthMerge,
+  touchVisitorTimestamp,
+} from "@/lib/visitor-session";
 import OTPInput from "react-otp-input";
 import { useMediaQuery } from "react-responsive";
 import { Bookmark, Calendar, MoveLeft, UserRound, X } from "lucide-react";
@@ -32,6 +36,7 @@ import { setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
 import { Paragraph } from "@/components/shared/paragraph";
 import { TipperProfileClient } from "../tipper/tipper-profile-client";
+import { VisitorProfileClient } from "../tipper/visitor-profile-client";
 import { NotificationsTab } from "@/components/notifications/notifications-tab";
 import { ReminderBucketTab } from "@/components/notifications/reminder-bucket-tab";
 import { SavedTab } from "@/components/notifications/saved-tab";
@@ -96,6 +101,12 @@ export const ProfileDrawer = ({
   const tippedVideos = tippedVideosProp ?? drawerData.tippedVideos;
 
   useEffect(() => {
+    if (isProfileDrawerOpen && user?.role === "VISITOR") {
+      touchVisitorTimestamp();
+    }
+  }, [isProfileDrawerOpen, user?.role]);
+
+  useEffect(() => {
     if (isProfileDrawerOpen && initialTab) {
       setActiveTab(initialTab);
     }
@@ -135,6 +146,7 @@ export const ProfileDrawer = ({
         fullName: "",
         email: values.email,
         acceptedTerms: true,
+        visitorId: getVisitorIdForAuthMerge(user),
       });
 
       if (!res.success) {
@@ -225,6 +237,17 @@ export const ProfileDrawer = ({
   };
 
   const renderProfileTab = () => {
+    if (user?.role === "VISITOR") {
+      return (
+        <VisitorProfileClient
+          variant="drawer"
+          events={tipperEvents}
+          iTipped={iTipped}
+          tippedVideos={tippedVideos}
+        />
+      );
+    }
+
     if (
       (isAuthenticated && !requiresVerification) ||
       profileStep === "tipperProfile"

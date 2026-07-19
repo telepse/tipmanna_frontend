@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
 // Local imports
 import { HostSignUpFormData, hostSignUpSchema } from "@/schemas/host.schema";
@@ -36,6 +36,8 @@ import { ApiError } from "@/types/api-error.types";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { parseAuthResponse } from "@/lib/auth-response";
 import { persistAuthSession } from "@/lib/session-client";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import type { RootState } from "@/redux/store";
 
 function safeInternalPath(next: string | null): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
@@ -57,6 +59,8 @@ export const SignupForm = () => {
 
   const { push } = useAppRouter();
   const dispatch = useDispatch();
+  const authUser = useSelector((s: RootState) => s.auth.user);
+  const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
 
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
@@ -93,7 +97,10 @@ export const SignupForm = () => {
     try {
       setIsHostLoading(true);
 
-      const res = await registerHostAction(values);
+      const res = await registerHostAction({
+        ...values,
+        visitorId: visitorIdForMerge,
+      });
       if (!res.success) {
         toast.error(res.message);
         return;
@@ -146,7 +153,10 @@ export const SignupForm = () => {
     try {
       setIsTipperLoading(true);
 
-      const res = await registerTipperAction(values);
+      const res = await registerTipperAction({
+        ...values,
+        visitorId: visitorIdForMerge,
+      });
       if (!res.success) {
         toast.error(res.message);
         return;
@@ -203,7 +213,7 @@ export const SignupForm = () => {
             value="host"
             className="h-13! font-semibold"
           >
-            Host
+            Host creator
           </TabsTrigger>
           <TabsTrigger
             value="tipper"
@@ -219,8 +229,8 @@ export const SignupForm = () => {
           color="muted"
         >
           {userType === "host"
-            ? "Add event as a host"
-            : "Join an event to Engage"}
+            ? "Add content or event"
+            : "Engage on content and join event"}
         </Paragraph>
 
         {/* Host form */}

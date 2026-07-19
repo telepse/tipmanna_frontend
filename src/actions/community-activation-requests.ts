@@ -10,7 +10,8 @@ function api() {
 export async function createCommunityActivationRequestAction(
   token?: string | null,
   body?: {
-    eventId: string;
+    eventId?: string;
+    communityId?: string;
     kind?: "community" | "tv";
     communityName?: string | null;
     description?: string | null;
@@ -19,7 +20,15 @@ export async function createCommunityActivationRequestAction(
     contactPhone?: string | null;
   }
 ) {
-  if (!body?.eventId) {
+  const eventId = body?.eventId?.trim() ?? "";
+  const communityId = body?.communityId?.trim() ?? "";
+  if (!eventId && !communityId) {
+    return actionFail(
+      "eventId or communityId required",
+      "createCommunityActivationRequestAction"
+    );
+  }
+  if (body?.kind !== "tv" && !eventId) {
     return actionFail(
       "eventId required",
       "createCommunityActivationRequestAction"
@@ -31,19 +40,20 @@ export async function createCommunityActivationRequestAction(
       method: "POST",
       headers: await serverAuthHeaders(token),
       body: JSON.stringify({
-        eventId: body.eventId,
-        ...(body.kind === "tv" ? { kind: "tv" } : {}),
-        ...(body.communityName?.trim()
+        ...(eventId ? { eventId } : {}),
+        ...(communityId ? { communityId } : {}),
+        ...(body?.kind === "tv" ? { kind: "tv" } : {}),
+        ...(body?.communityName?.trim()
           ? { communityName: body.communityName.trim() }
           : {}),
-        ...(body.description?.trim()
+        ...(body?.description?.trim()
           ? { description: body.description.trim() }
           : {}),
-        ...(body.logoUrl?.trim() ? { logoUrl: body.logoUrl.trim() } : {}),
-        ...(body.contactEmail?.trim()
+        ...(body?.logoUrl?.trim() ? { logoUrl: body.logoUrl.trim() } : {}),
+        ...(body?.contactEmail?.trim()
           ? { contactEmail: body.contactEmail.trim() }
           : {}),
-        ...(body.contactPhone?.trim()
+        ...(body?.contactPhone?.trim()
           ? { contactPhone: body.contactPhone.trim() }
           : {}),
       }),

@@ -34,6 +34,7 @@ import { ApiError } from "@/types/api-error.types";
 import { RootState } from "@/redux/store";
 import { parseAuthResponse, type AuthUserPayload } from "@/lib/auth-response";
 import type { HostUser, TipperUser, VisitorUser } from "@/features/auth-slice";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 
 type signIn_Step = "signIn" | "signInVerifyCode" | "signUp";
 
@@ -78,6 +79,10 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
     password: string;
     acceptedTerms: boolean;
   }) => {
+    if (authState === "signUp" && !values.acceptedTerms) {
+      toast.error("You must agree to the terms and privacy policy");
+      return;
+    }
     try {
       setIsLoading(true);
 
@@ -86,6 +91,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
         password: values.password,
         email: values.email,
         acceptedTerms: values.acceptedTerms,
+        visitorId: getVisitorIdForAuthMerge(user),
       });
 
       if (!res.success) {
@@ -208,6 +214,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
       await persistAuthSession(sessionToken, sessionUser, { expiresDays: 7 });
 
       toast.success("Email verified successfully!");
+      onNext?.();
       setSignInStep("signUp");
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -451,7 +458,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
                         placeholder="Enter fullname"
                         autoComplete="off"
                         className="bg-black/25"
-                        disabled={!!user?.fullName}
+                        disabled={Boolean(user?.fullName?.trim())}
                         {...field}
                       />
                     </FormControl>
@@ -472,7 +479,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
                       placeholder="Enter email address"
                       autoComplete="off"
                       className="bg-black/25"
-                      disabled={!!user?.email}
+                      disabled={Boolean(user?.email?.trim())}
                       {...field}
                     />
                   </FormControl>

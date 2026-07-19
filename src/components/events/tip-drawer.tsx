@@ -16,6 +16,9 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { persistAuthSession } from "@/lib/session-client";
+import { invalidateProfileDrawerCache } from "@/lib/drawer-prefetch-cache";
+import { dispatchAuthChanged } from "@/lib/auth-events";
+import { touchVisitorTimestamp } from "@/lib/visitor-session";
 import { useMediaQuery } from "react-responsive";
 import { BeatLoader } from "react-spinners";
 import {
@@ -670,6 +673,9 @@ export const TipDrawer = ({
           },
           { expiresDays: 1 }
         );
+        touchVisitorTimestamp();
+        invalidateProfileDrawerCache();
+        dispatchAuthChanged();
       } else {
         throw new Error("Failed to create visitor account");
       }

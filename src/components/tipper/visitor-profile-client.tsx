@@ -4,7 +4,7 @@ import { VisitorProfileBanner } from "./visitor-profile-banner";
 import { VisitorProfileTabs } from "./visitor-profile-tabs";
 import { MoveLeft, TriangleAlert } from "lucide-react";
 import { Button } from "../ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import {
   Form,
@@ -41,10 +41,13 @@ type TippedVideoSummary = {
   paymentSurfaces: string[];
 };
 
+import { touchVisitorTimestamp } from "@/lib/visitor-session";
+
 interface Props {
   events: Event[];
   iTipped: number;
   tippedVideos?: TippedVideoSummary[];
+  variant?: "page" | "drawer";
 }
 
 type ApiError = { error: { status: number; message: string } };
@@ -54,7 +57,9 @@ export const VisitorProfileClient = ({
   events,
   iTipped,
   tippedVideos = [],
+  variant = "page",
 }: Props) => {
+  const isDrawer = variant === "drawer";
   const [openEmail, setOpenEmail] = useState(false);
 
   const form = useForm<{ email: string; code: string }>({
@@ -78,6 +83,12 @@ export const VisitorProfileClient = ({
   const [code, setCode] = useState("");
   const router = useRouter();
 
+  useEffect(() => {
+    if (user?.role === "VISITOR") {
+      touchVisitorTimestamp();
+    }
+  }, [user?.role]);
+
   const inputStyle = {
     background: "#f7c87c80",
     width: isMobile ? "36px" : "54px",
@@ -94,7 +105,10 @@ export const VisitorProfileClient = ({
 
       if (!user?.email) return;
       const res = await verifyCodeAction(user.email, code);
-      console.log(res);
+      if (!res.success) {
+        toast.error(res.message ?? "Verification failed");
+        return;
+      }
 
       dispatch(
         setCredentials({
@@ -104,9 +118,24 @@ export const VisitorProfileClient = ({
         })
       );
 
+      await persistAuthSession(
+        token!,
+        {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          username: user.username,
+          role: "TIPPER",
+        },
+        { expiresDays: 60 }
+      );
+
       toast.success("Email verified successfully!");
 
-      // redirect to tipper profile
+      if (isDrawer) {
+        setOpenEmail(false);
+        return;
+      }
       router.push(`/tipper/${user.username}`);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -162,6 +191,7 @@ export const VisitorProfileClient = ({
             role: "TIPPER",
           },
           token,
+          requiresVerification: true,
         })
       );
 
@@ -186,10 +216,13 @@ export const VisitorProfileClient = ({
 
   return (
     <div className="space-y-1">
-      <NavbarShell />
-      <VisitorProfileBanner iTipped={iTipped} />
+      {!isDrawer ? <NavbarShell /> : null}
+      <VisitorProfileBanner
+        iTipped={iTipped}
+        variant={variant}
+      />
 
-      <div className="p-4">
+      <div className={isDrawer ? "px-2" : "p-4"}>
         <p className="mx-auto flex max-w-2xl items-center justify-between gap-2 rounded-md border border-dashed border-black p-4 text-sm text-black">
           <div className="flex items-center gap-2">
             <TriangleAlert className="text-destructive" /> Stop missing out.{" "}
@@ -203,6 +236,11 @@ export const VisitorProfileClient = ({
             Sign in
           </Button>
         </p>
+        {isDrawer ? (
+          <p className="text-muted-foreground mx-auto mt-2 max-w-2xl text-center text-xs">
+            Guest account expires after 24 hours of inactivity.
+          </p>
+        ) : null}
       </div>
 
       <Dialog
@@ -303,8 +341,9 @@ export const VisitorProfileClient = ({
       <VisitorProfileTabs
         events={events}
         tippedVideos={tippedVideos}
+        variant={variant}
       />
-      <Footer />
+      {!isDrawer ? <Footer /> : null}
     </div>
   );
 };
