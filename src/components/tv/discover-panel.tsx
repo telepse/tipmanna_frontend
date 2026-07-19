@@ -3,6 +3,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 
 // Third-party imports
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
@@ -18,14 +20,12 @@ import {
   Tv,
   UsersRound,
 } from "lucide-react";
+import { cn, formatProgramScheduleDisplay, trimTitle } from "@/lib/utils";
 
 // Local imports
 import { ThumbnailPlayer } from "./thumbnail-player";
-import { cn } from "@/lib/utils";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import Link from "next/link";
-import Image from "next/image";
 import {
   discoverySearchAction,
   type DiscoverySearchResult,
@@ -161,13 +161,14 @@ function DiscoverRailHeading({
   const updateHint = DISCOVER_RAIL_UPDATE_HINTS[railKey];
   return (
     <div>
-      <div className="flex items-center gap-1.5">
-        <h5 className="font-semibold">{title}</h5>
+      <div className="flex items-center gap-1">
+        <h5 className="text-xl font-semibold">{title}</h5>
+
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="text-muted-foreground inline-flex shrink-0 rounded-full p-0.5 sm:hidden"
+              className="text-muted-foreground inline-flex shrink-0 cursor-pointer rounded-full p-0.5 sm:hidden"
               aria-label={`How ${title} updates`}
             >
               <CircleHelp className="size-3.5" />
@@ -181,7 +182,8 @@ function DiscoverRailHeading({
           </TooltipContent>
         </Tooltip>
       </div>
-      <p className="text-muted-foreground text-xs">{subtitle}</p>
+
+      <p className="text-muted-foreground text-sm">{subtitle}</p>
     </div>
   );
 }
@@ -495,12 +497,12 @@ export function DiscoverPanel({
             ? "Recently ended · Opens in creator's event room"
             : DISCOVER_RAIL_SUBTITLES.live;
     return (
-      <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-[10px]">
+      <span className="text-muted-foreground inline-flex w-52 items-center gap-1 text-[10px] sm:w-64">
         <Radio
-          className="size-3"
+          className="size-4 shrink-0"
           aria-hidden
         />
-        {copy}
+        <span className="break-words">{copy}</span>
       </span>
     );
   };
@@ -513,7 +515,7 @@ export function DiscoverPanel({
       data-testid="discover-content-card"
       onClick={() => resolveContentClick(content)}
       className={cn(
-        "relative flex cursor-pointer gap-1 border-2 bg-black/10",
+        "relative flex cursor-pointer gap-1 rounded-md border-2 bg-gray-200",
         minWidth
       )}
     >
@@ -523,12 +525,17 @@ export function DiscoverPanel({
           contentId={content.id}
           suppressInlinePlaybackContentId={suppressInlinePlaybackContentId}
           disableInlinePlayback={disableInlinePlaybackForHandoff}
-          className="aspect-video w-full rounded-md"
+          className="w-64 rounded-md sm:w-80"
         />
-        <div className="p-1">
-          <h5 className="text-sm">{content.title}</h5>
+
+        <div className="space-y-1 p-2">
+          <h5 className="line-clamp-1 text-sm">
+            {trimTitle(content.title, 30)}
+          </h5>
+
           {renderLiveRoomCue(content)}
-          <div className="text-muted-foreground flex items-center gap-4 text-sm">
+
+          <div className="text-muted-foreground flex items-center gap-4 text-xs">
             <span className="flex items-center gap-1">
               <UsersRound className="size-4" />
               {content.event?.numOfTips ?? 0} Tips
@@ -645,18 +652,20 @@ export function DiscoverPanel({
                     Find Event here
                   </Link>
                 </p>
+
                 {!searchTerm.trim() && !hasDiscoveryResults ? (
-                  <div className="space-y-2 pt-1">
+                  <div className="space-y-4">
                     {recentSearches.length > 0 ? (
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-muted-foreground text-[11px]">
+                        <span className="text-muted-foreground text-xs font-medium">
                           Recent
                         </span>
+
                         {recentSearches.map(term => (
                           <button
                             key={term}
                             type="button"
-                            className="bg-muted hover:bg-muted/80 rounded-full px-2 py-0.5 text-[11px]"
+                            className="cursor-pointer rounded-md bg-gray-200 px-2 py-0.5 text-xs hover:bg-black hover:text-white"
                             onClick={() => form.setValue("searchTerm", term)}
                           >
                             {term}
@@ -664,15 +673,17 @@ export function DiscoverPanel({
                         ))}
                       </div>
                     ) : null}
+
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-muted-foreground text-[11px]">
+                      <span className="text-muted-foreground text-xs font-medium">
                         Trending
                       </span>
+
                       {DISCOVERY_TRENDING_SEARCHES.map(term => (
                         <button
                           key={term}
                           type="button"
-                          className="bg-muted hover:bg-muted/80 rounded-full px-2 py-0.5 text-[11px]"
+                          className="cursor-pointer rounded-md bg-gray-200 px-2 py-0.5 text-xs hover:bg-black hover:text-white"
                           onClick={() => form.setValue("searchTerm", term)}
                         >
                           {term}
@@ -688,50 +699,48 @@ export function DiscoverPanel({
       </Form>
 
       {/* CONTENT TAGS */}
-      <div className="flex flex-wrap gap-1 pb-4">
-        <div className="flex gap-1 overflow-x-scroll pb-4">
-          {EXPLORE_EVENT_TYPE_OPTIONS.map(opt => {
-            const isSelected = selectedTag === opt.value;
-            const tagClassName = cn(
-              "rounded px-2 py-1 text-xs",
-              isSelected ? "bg-black text-white" : "bg-gray-200"
-            );
-            const onTagClick = () => {
-              setSelectedTag(prev => (prev === opt.value ? null : opt.value));
-              if (!isSelected) form.setValue("searchTerm", "");
-            };
-            if (surface === "discovery") {
-              return (
-                <Link
-                  key={opt.value}
-                  href={`/discover/${opt.slug}`}
-                  className={tagClassName}
-                  onClick={e => {
-                    if (isSelected) {
-                      e.preventDefault();
-                      onTagClick();
-                    }
-                  }}
-                >
-                  {opt.label}
-                </Link>
-              );
-            }
+      <div className="hide__scrollbar flex gap-1.5 overflow-x-auto">
+        {EXPLORE_EVENT_TYPE_OPTIONS.map(opt => {
+          const isSelected = selectedTag === opt.value;
+          const tagClassName = cn(
+            "rounded-md px-2 py-1 text-xs shrink-0 cursor-pointer hover:bg-black hover:text-white",
+            isSelected ? "bg-black text-white" : "bg-gray-200"
+          );
+          const onTagClick = () => {
+            setSelectedTag(prev => (prev === opt.value ? null : opt.value));
+            if (!isSelected) form.setValue("searchTerm", "");
+          };
+          if (surface === "discovery") {
             return (
-              <button
+              <Link
                 key={opt.value}
-                type="button"
-                onClick={onTagClick}
+                href={`/discover/${opt.slug}`}
                 className={tagClassName}
+                onClick={e => {
+                  if (isSelected) {
+                    e.preventDefault();
+                    onTagClick();
+                  }
+                }}
               >
                 {opt.label}
-              </button>
+              </Link>
             );
-          })}
-        </div>
+          }
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={onTagClick}
+              className={tagClassName}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="space-y-4 overflow-y-auto pb-8">
+      <div className="space-y-6 overflow-y-auto pb-8">
         {searchTerm && (
           <div className="space-y-4">
             <h5 className="font-semibold">
@@ -830,7 +839,10 @@ export function DiscoverPanel({
 
                       {discoveryResults!.livestreams.length > 0 ? (
                         <div className="space-y-2">
-                          <h6 className="text-sm font-medium">Live streams</h6>
+                          <h5 className="text-sm font-semibold">
+                            Live streams
+                          </h5>
+
                           <VirtualRail
                             items={discoveryResults!.livestreams}
                             getItemKey={stream => stream.id}
@@ -863,6 +875,7 @@ export function DiscoverPanel({
                                         <Radio className="size-8 text-neutral-500" />
                                       </div>
                                     )}
+
                                     <div className="p-1">
                                       <h5 className="text-sm">
                                         {stream.title}
@@ -1021,7 +1034,7 @@ export function DiscoverPanel({
             <button
               type="button"
               onClick={() => scrollNext(topContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
             >
               <ChevronRight size={24} />
             </button>
@@ -1038,7 +1051,7 @@ export function DiscoverPanel({
           <div className="relative">
             <div
               ref={latestContentsRef}
-              className="scrollbar-none overflow-x-auto"
+              className="scrollbar-none hide__scrollbar overflow-x-auto"
             >
               <div className="flex gap-4">
                 {catalogLoading && latestContents.length === 0
@@ -1052,7 +1065,7 @@ export function DiscoverPanel({
             <button
               type="button"
               onClick={() => scrollNext(latestContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
             >
               <ChevronRight size={24} />
             </button>
@@ -1069,7 +1082,7 @@ export function DiscoverPanel({
           <div className="relative">
             <div
               ref={spotlightContentsRef}
-              className="scrollbar-none overflow-x-auto"
+              className="scrollbar-none hide__scrollbar overflow-x-auto"
             >
               <div className="flex gap-4">
                 {catalogLoading && resolvedSpotlight.length === 0
@@ -1083,7 +1096,7 @@ export function DiscoverPanel({
             <button
               type="button"
               onClick={() => scrollNext(spotlightContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
             >
               <ChevronRight size={24} />
             </button>
@@ -1100,7 +1113,7 @@ export function DiscoverPanel({
           <div className="relative">
             <div
               ref={recommendedContentsRef}
-              className="scrollbar-none overflow-x-auto"
+              className="scrollbar-none hide__scrollbar overflow-x-auto"
             >
               <div className="flex gap-4">
                 {catalogLoading && resolvedRecommended.length === 0
@@ -1114,7 +1127,7 @@ export function DiscoverPanel({
             <button
               type="button"
               onClick={() => scrollNext(recommendedContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
             >
               <ChevronRight size={24} />
             </button>
@@ -1124,10 +1137,13 @@ export function DiscoverPanel({
         {/* TOP COMMUNITIES */}
         {topCommunities.length > 0 ? (
           <div className="space-y-4">
-            <h5 className="font-semibold">Top communities</h5>
-            <p className="text-muted-foreground text-xs">
-              Ranked by total tips across approved bank videos.
-            </p>
+            <div className="space-y-1">
+              <h5 className="text-xl font-semibold">Top communities</h5>
+              <p className="text-muted-foreground text-xs">
+                Ranked by total tips across approved bank videos.
+              </p>
+            </div>
+
             <div className="relative">
               <VirtualRail
                 containerRef={topCommunitiesRef}
@@ -1138,7 +1154,7 @@ export function DiscoverPanel({
                   <Link
                     href={exploreCommunityJoinHref(community.id)}
                     className={cn(
-                      "rounded-md border bg-black/10 p-2",
+                      "border-moonstone-blue flex flex-col items-center justify-center gap-2 rounded-md border-2 bg-gray-100 p-4",
                       PROGRAM_CARD_MIN
                     )}
                   >
@@ -1156,14 +1172,21 @@ export function DiscoverPanel({
                         />
                       </div>
                     ) : (
-                      <div className="bg-muted flex size-12 items-center justify-center rounded-md">
-                        <UsersRound className="size-6 text-neutral-500" />
+                      <div className="border-moonstone-blue flex size-12 items-center justify-center rounded-md border-2 bg-white">
+                        <UsersRound className="size-6" />
                       </div>
                     )}
-                    <p className="mt-2 text-sm font-medium">{community.name}</p>
+
+                    <h5 className="text-sm font-semibold">{community.name}</h5>
+
+                    <p className="text-muted-foreground line-clamp-1 text-xs">
+                      {trimTitle(community.description ?? "", 20)}
+                    </p>
+
                     <p className="text-muted-foreground text-xs">
-                      £{community.totalTips} tips · {community.memberCount}{" "}
-                      members
+                      £{community.totalTips} tips &middot;{" "}
+                      {community.memberCount} member
+                      {community.memberCount > 1 ? "s" : ""}
                     </p>
                   </Link>
                 )}
@@ -1171,7 +1194,7 @@ export function DiscoverPanel({
               <button
                 type="button"
                 onClick={() => scrollNext(topCommunitiesRef)}
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
               >
                 <ChevronRight size={24} />
               </button>
@@ -1188,7 +1211,7 @@ export function DiscoverPanel({
           <div className="relative">
             <div
               ref={programsRef}
-              className="scrollbar-none overflow-x-auto"
+              className="scrollbar-none hide__scrollbar overflow-x-auto"
             >
               <div className="flex gap-4">
                 {catalogLoading && programs.length === 0 ? (
@@ -1205,7 +1228,7 @@ export function DiscoverPanel({
                       target="_blank"
                       rel="noopener noreferrer"
                       className={cn(
-                        "rounded-md border bg-black/10 p-2",
+                        "rounded-md border bg-gray-200 p-2",
                         PROGRAM_CARD_MIN
                       )}
                     >
@@ -1220,13 +1243,17 @@ export function DiscoverPanel({
                           <Tv className="size-8 text-neutral-500" />
                         </div>
                       )}
-                      <p className="mt-2 text-sm font-medium">
-                        {program.title}
-                      </p>
-                      <p className="text-muted-foreground text-xs capitalize">
-                        {program.status.toLowerCase()} ·{" "}
-                        {new Date(program.scheduledAt).toLocaleString()}
-                      </p>
+
+                      <div className="sapce-y-1 p-2">
+                        <h5 className="line-clamp-1 text-sm font-medium">
+                          {trimTitle(program.title, 30)}
+                        </h5>
+
+                        <p className="text-muted-foreground text-xs capitalize">
+                          Scheduled:{" "}
+                          {formatProgramScheduleDisplay(program.scheduledAt)}
+                        </p>
+                      </div>
                     </Link>
                   ))
                 )}
@@ -1253,7 +1280,7 @@ export function DiscoverPanel({
           <div className="relative">
             <div
               ref={liveStreamsRef}
-              className="scrollbar-none overflow-x-auto"
+              className="scrollbar-none hide__scrollbar overflow-x-auto"
             >
               <div className="flex gap-4">
                 {catalogLoading && liveStreamItems.length === 0 ? (
@@ -1272,27 +1299,37 @@ export function DiscoverPanel({
                         onClick={() => openLiveStreamContent(content)}
                       >
                         {content.liveLabel ? (
-                          <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white uppercase">
-                            <Radio className="size-3" />
+                          <span className="bg-destructive absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold text-white uppercase">
+                            <Radio className="size-4" />
                             {content.liveLabel}
                           </span>
                         ) : null}
-                        <div className="cursor-pointer bg-black/10">
+
+                        <div className="cursor-pointer rounded-md bg-gray-200">
                           <ThumbnailPlayer
                             videoUrl={content.url}
                             contentId={content.id}
                             suppressInlinePlaybackContentId={
                               suppressInlinePlaybackContentId
                             }
-                            className="aspect-video w-full rounded-md"
+                            className="aspect-video w-64 rounded-md sm:w-80"
                           />
-                          <div className="p-1">
-                            <h5 className="text-sm">{content.title}</h5>
+
+                          <div className="space-y-1 p-2">
+                            <h5 className="line-clamp-1 text-sm">
+                              {trimTitle(content.title, 30)}
+                            </h5>
+
                             {renderLiveRoomCue(content)}
-                            <div className="text-muted-foreground flex items-center gap-4 text-sm">
+
+                            <div className="text-muted-foreground flex items-center gap-4 text-xs">
                               <span className="flex items-center gap-1">
                                 <UsersRound className="size-4" />
                                 {content.event?.numOfTips ?? 0} Tips
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <Sparkles className="size-4" /> &pound;
+                                {content.event?.amountRaised ?? 0} raised
                               </span>
                             </div>
                           </div>
@@ -1307,7 +1344,7 @@ export function DiscoverPanel({
               <button
                 type="button"
                 onClick={() => scrollNext(liveStreamsRef)}
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
               >
                 <ChevronRight size={24} />
               </button>
@@ -1335,7 +1372,7 @@ export function DiscoverPanel({
                   <div
                     onClick={() => resolveContentClick(content)}
                     className={cn(
-                      "cursor-pointer bg-black/10",
+                      "cursor-pointer rounded-md bg-gray-200",
                       CONTENT_CARD_MIN
                     )}
                   >
@@ -1346,14 +1383,17 @@ export function DiscoverPanel({
                         suppressInlinePlaybackContentId
                       }
                       disableInlinePlayback={disableInlinePlaybackForHandoff}
-                      className="aspect-video w-full rounded-md"
+                      className="aspect-video w-64 rounded-md sm:w-80"
                     />
 
-                    <div className="space-y-1 p-1">
-                      <h5 className="text-sm">{content.title}</h5>
+                    <div className="space-y-1 p-2">
+                      <h5 className="line-clamp-1 text-sm">
+                        {trimTitle(content.title, 30)}
+                      </h5>
+
                       {renderLiveRoomCue(content)}
 
-                      <div className="text-muted-foreground flex items-center gap-4 text-sm">
+                      <div className="text-muted-foreground flex items-center gap-4 text-xs">
                         <span className="flex items-center gap-1">
                           <UsersRound className="size-4" />
                           {content.event.numOfTips} Tips

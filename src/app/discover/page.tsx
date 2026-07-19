@@ -1,10 +1,12 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
+import { Suspense } from "react";
+
+// Local imports
 import { DiscoverPageClient } from "@/components/discover/discover-page-client";
 import { loadDiscoverCatalogServer } from "@/lib/discover-catalog-server";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
-import type { Metadata } from "next";
-import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Discover creators, programs, and live streams on Tipmanna",

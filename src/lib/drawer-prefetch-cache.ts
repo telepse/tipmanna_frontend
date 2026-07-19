@@ -9,12 +9,14 @@ import {
 import {
   getSavedVideosForTipper,
   getTippedEventsForTipper,
+  getTippedEventsForVisitor,
   getTotalAmountTippedByTipper,
+  getTotalAmountTippedByVisitor,
   getMyTippedVideos,
 } from "@/actions/events";
 import { getAllCausesAction } from "@/actions/home";
 import { fetchSavedHostsMe } from "@/lib/save-host-client";
-import { getAuthToken } from "@/lib/getAuthToken";
+import { getAuthToken, getAuthUserFromCookies } from "@/lib/getAuthToken";
 import { normalizeSavedVideosList } from "@/lib/save-video-client";
 import type { TipFeedRow } from "@/components/events/tips-feed-panel";
 
@@ -285,16 +287,27 @@ export function prefetchChannelDrawers(input: {
 export async function prefetchProfileDrawerData(): Promise<void> {
   const token = getAuthToken();
   if (!token) return;
-  const key = "profile-drawer";
+  const authUser = getAuthUserFromCookies();
+  const isVisitor = authUser?.role?.toUpperCase() === "VISITOR";
+  const key =
+    isVisitor && authUser?.id
+      ? `profile-drawer-visitor-${authUser.id}`
+      : "profile-drawer";
   if (profileCache.has(key)) return;
   const [causesRes, eventsRes, tippedRes, savedRes, videosRes, hosts] =
     await Promise.all([
       getAllCausesAction(),
-      getTippedEventsForTipper(token),
-      getTotalAmountTippedByTipper(token),
-      getSavedVideosForTipper(token),
+      isVisitor
+        ? getTippedEventsForVisitor(token)
+        : getTippedEventsForTipper(token),
+      isVisitor
+        ? getTotalAmountTippedByVisitor(token)
+        : getTotalAmountTippedByTipper(token),
+      isVisitor
+        ? Promise.resolve({ success: true, data: [] })
+        : getSavedVideosForTipper(token),
       getMyTippedVideos(token),
-      fetchSavedHostsMe(),
+      isVisitor ? Promise.resolve([]) : fetchSavedHostsMe(),
     ]);
   profileCache.set(key, {
     causes:
@@ -312,17 +325,30 @@ export async function prefetchProfileDrawerData(): Promise<void> {
   writeSession(key, profileCache.get(key));
 }
 
-export function getCachedProfileDrawerData(): Record<string, any> | null {
+export function getCachedProfileDrawerData(
+  cacheKey = "profile-drawer"
+): Record<string, any> | null {
   return (
-    (profileCache.get("profile-drawer") as Record<string, any>) ??
-    readSession<Record<string, any>>("profile-drawer")
+    (profileCache.get(cacheKey) as Record<string, any>) ??
+    readSession<Record<string, any>>(cacheKey)
   );
 }
 
 export function invalidateProfileDrawerCache() {
   profileCache.delete("profile-drawer");
+  for (const k of [...profileCache.keys()]) {
+    if (k.startsWith("profile-drawer-visitor-")) {
+      profileCache.delete(k);
+    }
+  }
   try {
     sessionStorage.removeItem(`${SESSION_PREFIX}profile-drawer`);
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i);
+      if (k?.includes("profile-drawer-visitor-")) {
+        sessionStorage.removeItem(k);
+      }
+    }
   } catch {
     /* noop */
   }

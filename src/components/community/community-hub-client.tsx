@@ -33,6 +33,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 import { cn } from "@/lib/utils";
 import { normalizeEmail } from "@/lib/normalize-email";
 import type { RootState } from "@/redux/store";
@@ -687,11 +688,12 @@ export default function CommunityHubClient() {
           </div>
         </DialogContent>
       </Dialog>
+
       <Dialog
         open={catalogOpen}
         onOpenChange={setCatalogOpen}
       >
-        <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-3 sm:max-w-xl">
+        <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-4 overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>All communities</DialogTitle>
             <DialogDescription>
@@ -705,7 +707,7 @@ export default function CommunityHubClient() {
             aria-label="Filter communities"
           />
           <ScrollArea className="min-h-0 flex-1 pr-3">
-            <ul className="divide-border divide-y rounded-lg border">
+            <ul className="divide-border divide-y rounded-md border">
               {filteredCatalog.map(c => (
                 <li
                   key={c.id}
@@ -728,7 +730,7 @@ export default function CommunityHubClient() {
                       <span className="text-muted-foreground self-center text-xs">
                         Member
                       </span>
-                    ) : (
+                    ) : !c.isSystem ? (
                       <Button
                         type="button"
                         size="sm"
@@ -740,7 +742,7 @@ export default function CommunityHubClient() {
                       >
                         Join
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </li>
               ))}
@@ -751,10 +753,11 @@ export default function CommunityHubClient() {
 
       <div className="mx-auto flex max-w-2xl flex-col gap-8 px-4 py-8 sm:gap-10 sm:py-10">
         <header className="order-1 space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Communities</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-2xl font-semibold">Communities</h1>
+
+          <p className="text-muted-foreground max-w-lg text-sm leading-normal">
             {!isAuthenticated
-              ? "Sign in to start a community and see communities you are a member of."
+              ? "Sign in to send a start community request, view your memberships, and search new communities to join."
               : "Search public communities, manage your memberships, and control which ones appear in Explore."}
           </p>
         </header>
@@ -796,88 +799,94 @@ export default function CommunityHubClient() {
             </div>
           ) : null}
           {searchResults.length > 0 ? (
-            <ul className="divide-border divide-y rounded-lg border">
-              {searchResults.map(c => (
-                <li
-                  key={c.id}
-                  className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex min-w-0 items-start gap-3">
-                    {c.logoUrl ? (
-                      <div className="relative size-10 shrink-0 overflow-hidden rounded-md">
-                        <Image
-                          src={c.logoUrl}
-                          alt=""
-                          fill
-                          className="object-cover"
-                          sizes="40px"
-                        />
-                      </div>
-                    ) : null}
-                    <div className="min-w-0 space-y-1">
-                      <p className="truncate text-sm font-medium">{c.name}</p>
-                      {c.description ? (
-                        <p className="text-muted-foreground line-clamp-2 text-xs">
-                          {c.description}
-                        </p>
+            <ul className="divide-border divide-y rounded-md border">
+              {searchResults.map(c => {
+                const isTipmannaPublic = isTipmannaSystemCommunity(
+                  c.id,
+                  c.name
+                );
+                return (
+                  <li
+                    key={c.id}
+                    className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      {c.logoUrl ? (
+                        <div className="relative size-10 shrink-0 overflow-hidden rounded-md">
+                          <Image
+                            src={c.logoUrl}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="40px"
+                          />
+                        </div>
                       ) : null}
-                      <p className="text-muted-foreground text-[11px]">
-                        {typeof c.totalTips === "number"
-                          ? `£${c.totalTips} tips`
-                          : null}
-                        {typeof c.totalTips === "number" &&
-                        typeof c.memberCount === "number"
-                          ? " · "
-                          : null}
-                        {typeof c.memberCount === "number"
-                          ? `${c.memberCount} members`
-                          : null}
-                        {(typeof c.totalTips === "number" ||
-                          typeof c.memberCount === "number") &&
-                        c.createdAt
-                          ? " · "
-                          : null}
-                        {c.createdAt
-                          ? `Created ${formatCommunityDate(c.createdAt)}`
-                          : null}
-                      </p>
-                      {c.viewer?.joined ? (
-                        <p className="text-muted-foreground text-xs">
-                          You&apos;re a member
-                          {c.viewer.feedActive === false
-                            ? " · Explore feed paused"
-                            : ""}
+                      <div className="min-w-0 space-y-1">
+                        <p className="truncate text-sm font-medium">{c.name}</p>
+                        {c.description ? (
+                          <p className="text-muted-foreground line-clamp-2 text-xs">
+                            {c.description}
+                          </p>
+                        ) : null}
+                        <p className="text-muted-foreground text-[11px]">
+                          {typeof c.totalTips === "number"
+                            ? `£${c.totalTips} tips`
+                            : null}
+                          {typeof c.totalTips === "number" &&
+                          typeof c.memberCount === "number"
+                            ? " · "
+                            : null}
+                          {typeof c.memberCount === "number"
+                            ? `${c.memberCount} members`
+                            : null}
+                          {(typeof c.totalTips === "number" ||
+                            typeof c.memberCount === "number") &&
+                          c.createdAt
+                            ? " · "
+                            : null}
+                          {c.createdAt
+                            ? `Created ${formatCommunityDate(c.createdAt)}`
+                            : null}
                         </p>
+                        {c.viewer?.joined ? (
+                          <p className="text-muted-foreground text-xs">
+                            You&apos;re a member
+                            {c.viewer.feedActive === false
+                              ? " · Explore feed paused"
+                              : ""}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      {c.viewer?.joined ? (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Link href={exploreCommunityJoinHref(c.id)}>
+                            Details
+                          </Link>
+                        </Button>
+                      ) : !isTipmannaPublic ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            if (!isAuthenticated) openJoinSignIn(c.id);
+                            else router.push(exploreCommunityJoinHref(c.id));
+                          }}
+                        >
+                          Join
+                        </Button>
                       ) : null}
                     </div>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    {c.viewer?.joined ? (
-                      <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Link href={exploreCommunityJoinHref(c.id)}>
-                          Details
-                        </Link>
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          if (!isAuthenticated) openJoinSignIn(c.id);
-                          else router.push(exploreCommunityJoinHref(c.id));
-                        }}
-                      >
-                        Join
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           ) : searchQ.trim().length >= 1 && !searchBusy ? (
             <p className="text-muted-foreground text-xs">No matches.</p>
@@ -887,11 +896,14 @@ export default function CommunityHubClient() {
           ) : null}
         </section>
 
-        <section className="order-3 space-y-3 border-t pt-8">
-          <h2 className="text-lg font-medium">Top communities</h2>
-          <p className="text-muted-foreground text-xs">
-            Ranked by total tips across approved bank videos.
-          </p>
+        <section className="order-3 space-y-4 border-t pt-8">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Top communities</h2>
+            <p className="text-muted-foreground text-xs">
+              Ranked by total tips received.
+            </p>
+          </div>
+
           {catalogLoading ? (
             <div className="grid gap-3 sm:grid-cols-3">
               <Skeleton className="h-28 rounded-lg" />
@@ -909,7 +921,8 @@ export default function CommunityHubClient() {
 
         <section className="order-4 space-y-4 border-t pt-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-medium">Communities you own</h2>
+            <h2 className="text-lg font-semibold">Communities you own</h2>
+
             <div className="flex flex-wrap items-center gap-2">
               {canCreateCommunity && (
                 <Button
@@ -1034,7 +1047,8 @@ export default function CommunityHubClient() {
 
         <section className="order-5 space-y-4 border-t pt-8">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-medium">Your memberships</h2>
+            <h5 className="text-lg font-semibold">Your memberships</h5>
+
             <Button
               type="button"
               variant="outline"
@@ -1053,7 +1067,7 @@ export default function CommunityHubClient() {
                   Default system community
                 </h3>
                 <p className="text-muted-foreground text-xs">
-                  Public hub — everyone can explore Tipmanna content here.
+                  Public hub — everyone can explore Tipmanna content.
                 </p>
                 <ul className="divide-border divide-y rounded-lg border">
                   {defaultSystemRows.map(m => (
@@ -1068,9 +1082,10 @@ export default function CommunityHubClient() {
           ) : (
             <div className="space-y-8">
               <div className="space-y-2">
-                <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                <h5 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                   Default system community
-                </h3>
+                </h5>
+
                 <ul className="divide-border divide-y rounded-lg border">
                   {defaultSystemRows.map(m => (
                     <MembershipRow
@@ -1096,9 +1111,10 @@ export default function CommunityHubClient() {
 
               {feedOn.length > 0 ? (
                 <div className="space-y-2">
-                  <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  <h5 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                     Explore feed on
-                  </h3>
+                  </h5>
+
                   <ul className="divide-border divide-y rounded-lg border">
                     {feedOn.map(m => (
                       <MembershipRow
@@ -1252,6 +1268,7 @@ function MembershipRow({
   const logoUrl = m.community?.logoUrl;
   const canToggle = membershipUsable(m);
   const defaultSystem = isDefaultSystemCommunity(m);
+
   return (
     <li className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
@@ -1266,8 +1283,10 @@ function MembershipRow({
             />
           </div>
         ) : null}
+
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{name}</p>
+
           {!canToggle ? (
             <p className="text-muted-foreground text-xs">
               Membership inactive or expired — renew or rejoin to use Explore
@@ -1281,23 +1300,30 @@ function MembershipRow({
           ) : null}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
+
+      <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-xs">In Explore feed</span>
+
           <Switch
             checked={m.feedActive}
-            disabled={!canToggle || defaultSystem}
+            // disabled={!canToggle || defaultSystem}
+            disabled
             onCheckedChange={v => onFeedActive(m.communityId, v)}
             aria-label={`Include ${name} in Explore`}
           />
         </div>
-        <Button
-          asChild
-          variant="outline"
-          size="sm"
-        >
-          <Link href={exploreCommunityJoinHref(m.communityId)}>Details</Link>
-        </Button>
+
+        {!defaultSystem && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+          >
+            <Link href={exploreCommunityJoinHref(m.communityId)}>Details</Link>
+          </Button>
+        )}
+
         {m.community?.tvActivatedAt ? (
           <Button
             asChild
@@ -1309,6 +1335,7 @@ function MembershipRow({
             </Link>
           </Button>
         ) : null}
+
         {canToggle && !defaultSystem ? (
           <Button
             type="button"
@@ -1325,6 +1352,7 @@ function MembershipRow({
             Copy dedicated link
           </Button>
         ) : null}
+
         <Button
           type="button"
           variant="ghost"

@@ -15,6 +15,7 @@ export function getAccountNavHref(
     case "HOST":
       return `/host/${user.eventSlug}`;
     case "VISITOR":
+      return user.username ? `/visitor/${user.username}` : "/tv";
     default:
       return "/sign-in";
   }

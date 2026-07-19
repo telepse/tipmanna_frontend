@@ -8,6 +8,7 @@ export async function registerHostAction(values: {
   email: string;
   password: string;
   acceptedTerms: boolean;
+  visitorId?: string;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/register-host`,
@@ -26,6 +27,7 @@ export async function registerTipperAction(values: {
   fullName: string;
   email: string;
   acceptedTerms: boolean;
+  visitorId?: string;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/register-tipper`,
@@ -44,6 +46,7 @@ export async function loginOrRegisterTipperAction(values: {
   fullName: string;
   email: string;
   acceptedTerms: boolean;
+  visitorId?: string;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/login-or-register`,
@@ -63,6 +66,7 @@ export async function loginOrRegisterHostAction(values: {
   email: string;
   acceptedTerms: boolean;
   password: string;
+  visitorId?: string;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/login-or-register-host`,
@@ -96,6 +100,7 @@ export async function verifyCodeAction(email: string, code: string) {
 export async function loginHostAction(values: {
   email: string;
   password: string;
+  visitorId?: string;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/login-host`,
@@ -110,7 +115,10 @@ export async function loginHostAction(values: {
 }
 
 // -------- Login tipper -------- //
-export async function loginTipperAction(values: { email: string }) {
+export async function loginTipperAction(values: {
+  email: string;
+  visitorId?: string;
+}) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/login-tipper`,
     {

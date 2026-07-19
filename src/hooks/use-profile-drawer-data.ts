@@ -9,11 +9,14 @@ import {
   getMyTippedVideos,
   getSavedVideosForTipper,
   getTippedEventsForTipper,
+  getTippedEventsForVisitor,
   getTotalAmountTippedByTipper,
+  getTotalAmountTippedByVisitor,
 } from "@/actions/events";
 import { getAllCausesAction } from "@/actions/home";
 import { fetchSavedHostsMe } from "@/lib/save-host-client";
 import { getAuthToken } from "@/lib/getAuthToken";
+import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import {
   getCachedProfileDrawerData,
   invalidateProfileDrawerCache,
@@ -23,20 +26,32 @@ import { normalizeSavedVideosList } from "@/lib/save-video-client";
 import type { TippedVideoSummary } from "@/components/tipper/tipper-profile-client";
 import type { RootState } from "@/redux/store";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function loadProfileDrawerBundle(userId: string) {
-  const cached = getCachedProfileDrawerData();
+async function loadProfileDrawerBundle(
+  role: string | undefined,
+  userId: string
+) {
+  const cacheKey =
+    role === "VISITOR" ? `profile-drawer-visitor-${userId}` : "profile-drawer";
+  const cached = getCachedProfileDrawerData(cacheKey);
   if (cached) return cached;
 
   const token = getAuthToken();
+  const isVisitor = role === "VISITOR";
+
   const [causesRes, eventsRes, tippedRes, savedRes, videosRes, hosts] =
     await Promise.all([
       getAllCausesAction(),
-      getTippedEventsForTipper(token),
-      getTotalAmountTippedByTipper(token),
-      getSavedVideosForTipper(token),
+      isVisitor
+        ? getTippedEventsForVisitor(token)
+        : getTippedEventsForTipper(token),
+      isVisitor
+        ? getTotalAmountTippedByVisitor(token)
+        : getTotalAmountTippedByTipper(token),
+      isVisitor
+        ? Promise.resolve({ success: true, data: [] })
+        : getSavedVideosForTipper(token),
       getMyTippedVideos(token),
-      fetchSavedHostsMe(),
+      isVisitor ? Promise.resolve([]) : fetchSavedHostsMe(),
     ]);
 
   return {
@@ -58,11 +73,12 @@ async function loadProfileDrawerBundle(userId: string) {
 
 export function useProfileDrawerData(enabled = true) {
   const userId = useSelector((s: RootState) => s.auth.user?.id);
+  const userRole = useSelector((s: RootState) => s.auth.user?.role);
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
 
   const swrKey =
     enabled && userId && isAuthenticated
-      ? (["profile-drawer", userId] as const)
+      ? (["profile-drawer", userId, userRole ?? ""] as const)
       : enabled
         ? (["profile-drawer-causes"] as const)
         : null;
@@ -84,7 +100,7 @@ export function useProfileDrawerData(enabled = true) {
           savedHosts: [] as Awaited<ReturnType<typeof fetchSavedHostsMe>>,
         };
       }
-      return loadProfileDrawerBundle(userId);
+      return loadProfileDrawerBundle(userRole, userId);
     },
     {
       revalidateOnFocus: false,
@@ -101,15 +117,20 @@ export function useProfileDrawerData(enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     const onSaves = () => void refresh();
+    const onAuth = () => void refresh();
     window.addEventListener("tipmanna:saves-changed", onSaves);
-    return () => window.removeEventListener("tipmanna:saves-changed", onSaves);
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuth);
+    return () => {
+      window.removeEventListener("tipmanna:saves-changed", onSaves);
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuth);
+    };
   }, [enabled, refresh]);
 
   useEffect(() => {
     if (enabled && isAuthenticated && userId) {
       void prefetchProfileDrawerData();
     }
-  }, [enabled, isAuthenticated, userId]);
+  }, [enabled, isAuthenticated, userId, userRole]);
 
   return {
     tipperEvents: data?.tipperEvents ?? [],

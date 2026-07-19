@@ -97,7 +97,10 @@ export function VirtualRail<T>({
     <div
       ref={scrollRef}
       data-virtual-rail-scroll
-      className={cn("scrollbar-none overflow-x-auto", className)}
+      className={cn(
+        "scrollbar-none hide__scrollbar overflow-x-auto",
+        className
+      )}
     >
       <div className={cn("flex", gapClassName)}>
         {items.map((item, index) => (

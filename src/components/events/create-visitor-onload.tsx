@@ -8,6 +8,7 @@ import { RootState } from "@/redux/store";
 import { createVisitorTipperAction } from "@/actions/visitors";
 import { setCredentials } from "@/features/auth-slice";
 import { getDeviceKey } from "@/lib/getAuthToken";
+import { touchVisitorTimestamp } from "@/lib/visitor-session";
 
 export default function CreateVisitorOnLoad() {
   const dispatch = useDispatch();
@@ -30,7 +31,7 @@ export default function CreateVisitorOnLoad() {
             requiresVerification: false,
           })
         );
-        console.log("✅ Loaded visitor tipper from cookies:", parsedUser);
+        touchVisitorTimestamp();
         return;
       } catch (err) {
         console.error(err);
@@ -93,8 +94,7 @@ export default function CreateVisitorOnLoad() {
             requiresVerification: false,
           })
         );
-
-        console.log("✅ Visitor tipper created and stored successfully");
+        touchVisitorTimestamp();
       } else {
         console.error("❌ Visitor creation failed:", result.message);
       }

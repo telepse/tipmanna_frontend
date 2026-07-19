@@ -47,9 +47,11 @@ type Step = "signIn" | "verifyCode";
 
 interface Props {
   iTipped: number;
+  variant?: "page" | "drawer";
 }
 
-export const VisitorProfileBanner = ({ iTipped }: Props) => {
+export const VisitorProfileBanner = ({ iTipped, variant = "page" }: Props) => {
+  const isDrawer = variant === "drawer";
   const [enabled] = useState(false);
   const [openEmail, setOpenEmail] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -176,12 +178,12 @@ export const VisitorProfileBanner = ({ iTipped }: Props) => {
     >
       <Button
         onClick={handleBack}
-        className="open_sans absolute top-4 left-4 flex items-center gap-2 rounded-full px-4 py-2 text-sm text-white sm:text-base lg:top-8 lg:left-8"
+        className={`open_sans absolute top-4 left-4 flex items-center gap-2 rounded-full px-4 py-2 text-sm text-white sm:text-base lg:top-8 lg:left-8 ${isDrawer ? "hidden" : ""}`}
       >
         <ArrowLeft className="size-5" /> <span>Back to event</span>
       </Button>
 
-      <div className="mx-auto max-w-2xl px-4 py-6">
+      <div className={`mx-auto max-w-2xl px-4 ${isDrawer ? "py-3" : "py-6"}`}>
         {/* === Mobile Layout === */}
         <div className="flex flex-col items-center gap-4 text-white sm:hidden">
           {/* Avatar */}

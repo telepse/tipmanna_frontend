@@ -689,6 +689,15 @@ export function HostCommunityClient() {
         toast.error("Sign in to submit an activation request.");
         return;
       }
+      if (kind === "tv") {
+        if (!selected?.id) {
+          toast.error("Select a community first.");
+          return;
+        }
+        setPickEventId(selected.eventId ?? "");
+        setActivationOpen(true);
+        return;
+      }
       setActivationOpen(true);
       setActivationEventsLoading(true);
       try {
@@ -708,7 +717,7 @@ export function HostCommunityClient() {
         setActivationEventsLoading(false);
       }
     },
-    [authUser, authToken]
+    [authUser, authToken, selected?.eventId, selected?.id]
   );
 
   const submitActivationRequest = useCallback(async () => {
@@ -771,14 +780,20 @@ export function HostCommunityClient() {
       );
       return;
     }
+    if (!selected?.id) {
+      toast.error("Select a community first.");
+      return;
+    }
 
     setActivationBusy(true);
     try {
       const res = await createCommunityActivationRequestAction(authToken, {
-        eventId: "63898415-b24f-448d-aa55-ca073a8ba950",
+        ...(pickEventId.trim() || selected.eventId?.trim()
+          ? { eventId: pickEventId.trim() || selected.eventId!.trim() }
+          : {}),
+        communityId: selected.id,
         kind: "tv",
       });
-      console.log("res", res);
       if (!res.success) {
         toast.error(res.message ?? "Request failed");
         return;
@@ -789,7 +804,15 @@ export function HostCommunityClient() {
     } finally {
       setActivationBusy(false);
     }
-  }, [authUser, authToken, pickEventId, canRequestTV, loadActivationRequests]);
+  }, [
+    authUser,
+    authToken,
+    pickEventId,
+    selected?.eventId,
+    selected?.id,
+    canRequestTV,
+    loadActivationRequests,
+  ]);
 
   const resumeCommunityTv = useCallback(async () => {
     if (!selected?.id) return;

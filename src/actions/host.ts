@@ -81,6 +81,9 @@ export interface UpdateEventContentPayload {
 }
 
 export interface UpdateHostEventDetailsPayload {
+  eventName?: string;
+  eventDescription?: string;
+  eventType?: string;
   eventDate?: string;
   startTime?: string;
   endTime?: string;

@@ -363,6 +363,10 @@ export const CreateDialog = ({
     />
   );
 
+  if (signInOpen) {
+    return signInDialog;
+  }
+
   const awaitingHostSessionProbe =
     openPopup &&
     communityFeatureOn &&
@@ -665,21 +669,24 @@ export const CreateDialog = ({
               {[
                 {
                   value: "content",
-                  title: "Content",
+                  title: "Content channel",
                   subtitle: "Upload videos to create content",
-                  description: "Suitable for content creators",
+                  description: "Suitable for",
+                  role: "content creators",
                 },
                 {
                   value: "event",
-                  title: "Event",
+                  title: "Event channel",
                   subtitle: "Livestream your event and share",
-                  description: "Suitable for event organizers",
+                  description: "Suitable for",
+                  role: "event organizers",
                 },
                 {
                   value: "event_content",
-                  title: "Event and Content",
+                  title: "Event and Content channel",
                   subtitle: "Livestream and upload videos",
-                  description: "Suitable for charity and event",
+                  description: "Suitable for",
+                  role: "charity and event",
                 },
               ].map(option => (
                 <Label
@@ -688,7 +695,7 @@ export const CreateDialog = ({
                   className="relative flex w-full flex-col sm:w-[400px] sm:flex-row"
                 >
                   <div
-                    className={`w-full sm:w-[400px] ${selected === option.value ? "border-primary bg-primary/20" : "border-white/30 bg-[#251212]"} duration transition-300 flex w-full items-center justify-between gap-2 rounded-2xl border-2 p-4 text-white shadow-2xl`}
+                    className={`w-full sm:w-[270px] ${selected === option.value ? "border-primary bg-primary/20" : "border-white/30 bg-[#251212]"} duration transition-300 flex w-full items-center justify-between gap-2 rounded-2xl border-2 p-4 text-white shadow-2xl`}
                   >
                     <div className="relative flex w-full">
                       <div className="flex flex-col gap-1">
@@ -696,7 +703,7 @@ export const CreateDialog = ({
                         <p className="text-xs text-white/80">
                           {option.subtitle}
                         </p>
-                        <span className="inline-block text-[10px] text-white/50 sm:hidden">
+                        <span className="inline-block shrink-0 text-[10px] text-white/50 sm:hidden">
                           {option.description}
                         </span>
                       </div>
@@ -710,7 +717,7 @@ export const CreateDialog = ({
                   </div>
 
                   <span className="hidden text-xs text-white/80 sm:inline-block">
-                    {option.description}
+                    {option.description} <br /> {option.role}
                   </span>
                 </Label>
               ))}
@@ -718,19 +725,19 @@ export const CreateDialog = ({
           </div>
 
           <p className="mt-3 text-center text-xs text-white/55">
-            Sign in as a{" "}
+            * To add videos straight to your existing channels <br /> and
+            communities, sign in as a{" "}
             <button
               type="button"
-              className="text-primary underline-offset-2 hover:underline"
+              className="text-primary cursor-pointer underline underline-offset-2 hover:underline"
               onClick={() => {
                 setSignInIntent("type-picker-proceed");
                 setSignInOpen(true);
               }}
             >
-              host
+              host creator
             </button>{" "}
-            to add videos straight to your events and communities from here when
-            Community is enabled.
+            from here.
           </p>
 
           <div className="mt-4 flex items-center justify-between">

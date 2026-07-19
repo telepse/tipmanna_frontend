@@ -6,6 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// Local imports
 import { SigninForm } from "./signin-form";
 
 export type SignInModalPayload = {
@@ -51,11 +53,12 @@ export default function SignInDialog({
     >
       <DialogContent
         overlayClassName={overlayClassName}
-        className={`max-h-[90vh] overflow-y-auto sm:max-w-md ${contentClassName ?? ""}`}
+        className={`max-h-[80vh] overflow-y-auto sm:max-w-md ${contentClassName ?? ""}`}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
+
         <SigninForm
           mode="modal"
           returnTo={returnTo}
@@ -69,6 +72,7 @@ export default function SignInDialog({
             onSuccess?.({ role: "TIPPER" });
             onOpenChange(false);
           }}
+          className="py-4"
         />
       </DialogContent>
     </Dialog>
