@@ -757,7 +757,7 @@ export default function CommunityHubClient() {
 
           <p className="text-muted-foreground max-w-lg text-sm leading-normal">
             {!isAuthenticated
-              ? "Sign in to send a start community request, view your memberships, and search new communities to join."
+              ? "Search new communities to join. Sign in to send a start community request and view your memberships."
               : "Search public communities, manage your memberships, and control which ones appear in Explore."}
           </p>
         </header>
@@ -924,7 +924,7 @@ export default function CommunityHubClient() {
             <h2 className="text-lg font-semibold">Communities you own</h2>
 
             <div className="flex flex-wrap items-center gap-2">
-              {canCreateCommunity && (
+              {/* {canCreateCommunity && (
                 <Button
                   type="button"
                   variant="secondary"
@@ -933,7 +933,7 @@ export default function CommunityHubClient() {
                 >
                   Start community
                 </Button>
-              )}
+              )} */}
               {/* {user?.role === "HOST" && eventSlug ? (
                 <Button
                   type="button"
@@ -960,10 +960,6 @@ export default function CommunityHubClient() {
               </p>
               <p className="text-sm font-medium">
                 Send a request to start another community
-              </p>
-              <p className="text-muted-foreground text-xs">
-                Sign in as a tipper, visitor, or host. You can submit details in
-                the next step.
               </p>
               <Button
                 type="button"
@@ -1066,9 +1062,7 @@ export default function CommunityHubClient() {
                 <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                   Default system community
                 </h3>
-                <p className="text-muted-foreground text-xs">
-                  Public hub — everyone can explore Tipmanna content.
-                </p>
+                
                 <ul className="divide-border divide-y rounded-lg border">
                   {defaultSystemRows.map(m => (
                     <SyntheticTipmannaRow
@@ -1241,16 +1235,18 @@ function SyntheticTipmannaRow({ m }: { m: HubMembership }) {
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{name}</p>
         <p className="text-muted-foreground text-xs">
-          Sign in for full membership controls and additional communities.
-        </p>
+                  Public hub — everyone can explore Tipmanna content.
+                </p>
       </div>
-      <Button
+      {/* <Button
         asChild
         variant="outline"
         size="sm"
       >
         <Link href={exploreCommunityJoinHref(m.communityId)}>Details</Link>
-      </Button>
+      </Button> */}
+      <Link href="/partner">
+      <Button asChild variant="outline" size="sm">About Tipmanna</Button></Link>
     </li>
   );
 }

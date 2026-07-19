@@ -597,10 +597,23 @@ export default function ExplorePageClient({
   /** Monotonic id so only the latest URL commit may retry. */
   const urlCommitGenRef = useRef(0);
 
-  const commitExploreUrlPush = useCallback(
+  type ExploreUrlCommitSource =
+    | "feed-subtab-click"
+    | "main-tab-click"
+    | "filter-change"
+    | "filter-lang-change"
+    | "filter-country-change"
+    | "community-selection"
+    | "discover-expand"
+    | "passive-sync"
+    | "retry-microtask";
+
+  const commitExploreUrl = useCallback(
     (
+      _source: ExploreUrlCommitSource,
       tabCtx: { tab: ExploreMainTab; joinCommunityId?: string },
-      feedState: typeof feedUrlStateRef.current
+      feedState: typeof feedUrlStateRef.current,
+      mode: "push" | "replace" = "push"
     ) => {
       const liveSearchKey =
         typeof window !== "undefined"
@@ -620,7 +633,11 @@ export default function ExplorePageClient({
       if (nextHref === curHref) return;
 
       const commitGen = ++urlCommitGenRef.current;
-      router.push(nextHref, { scroll: false });
+      const navigate =
+        mode === "replace" ? router.replace.bind(router) : router.push.bind(router);
+      navigate(nextHref, { scroll: false });
+
+      if (mode === "replace") return;
 
       queueMicrotask(() => {
         if (commitGen !== urlCommitGenRef.current) return;
@@ -638,18 +655,21 @@ export default function ExplorePageClient({
       localTabNavRef.current = true;
       setMainTab("feed");
       setFeedSubTab(sub);
-      commitExploreUrlPush(
+      commitExploreUrl(
+        "feed-subtab-click",
         { tab: "feed", joinCommunityId: joinCommunityIdRef.current },
         { ...feedUrlStateRef.current, feedSubTab: sub }
       );
     },
-    [commitExploreUrlPush, setMainTab]
+    [commitExploreUrl, setMainTab]
   );
 
   const navigateMainTab = useCallback(
     (nextTab: ExploreMainTab) => {
+      localTabNavRef.current = true;
       setMainTab(nextTab);
-      commitExploreUrlPush(
+      commitExploreUrl(
+        "main-tab-click",
         {
           tab: nextTab,
           joinCommunityId:
@@ -658,7 +678,7 @@ export default function ExplorePageClient({
         feedUrlStateRef.current
       );
     },
-    [commitExploreUrlPush, setMainTab]
+    [commitExploreUrl, setMainTab]
   );
 
   /** Clear local navigation guard once the browser URL matches React state. */
@@ -732,7 +752,7 @@ export default function ExplorePageClient({
     joinCommunityId,
   ]);
 
-  /** Passive URL corrections (filters, membership defaults) — never history push. */
+  /** Passive URL normalization only — explicit user navigation owns push commits. */
   useEffect(() => {
     const nextHref = buildExploreFeedHref(
       pathBase,
@@ -743,30 +763,23 @@ export default function ExplorePageClient({
     const curHref = exploreCurrentHref(pathBase, searchParamsKeyRef.current);
     if (nextHref === curHref) return;
 
-    const userNavigated = exploreStateAheadOfUrl(
-      pathBase,
-      { tab, joinCommunityId },
-      feedUrlStateRef.current,
-      searchParamsKeyRef.current
-    );
-    if (userNavigated) {
-      const pushIfStale = () => {
-        if (typeof window === "undefined") return;
-        const liveHref = `${window.location.pathname}${window.location.search}`;
-        if (liveHref === nextHref) return;
-        router.push(nextHref, { scroll: false });
-      };
-      if (localTabNavRef.current) {
-        queueMicrotask(pushIfStale);
-        requestAnimationFrame(pushIfStale);
-        return;
-      }
-      router.push(nextHref, { scroll: false });
-      queueMicrotask(pushIfStale);
+    if (
+      exploreStateAheadOfUrl(
+        pathBase,
+        { tab, joinCommunityId },
+        feedUrlStateRef.current,
+        searchParamsKeyRef.current
+      )
+    ) {
       return;
     }
 
-    router.replace(nextHref, { scroll: false });
+    commitExploreUrl(
+      "passive-sync",
+      { tab, joinCommunityId },
+      feedUrlStateRef.current,
+      "replace"
+    );
   }, [
     trendEventTypes,
     trendLanguage,
@@ -775,10 +788,10 @@ export default function ExplorePageClient({
     tvExploreSource,
     communityFeedSelIds,
     pathBase,
-    router,
     tab,
     joinCommunityId,
     searchParamsKey,
+    commitExploreUrl,
   ]);
 
   useEffect(() => {
@@ -864,11 +877,48 @@ export default function ExplorePageClient({
     }
   }, [tab]);
 
-  const toggleTrendEventType = useCallback((value: string) => {
-    setTrendEventTypes(prev =>
-      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
-    );
-  }, []);
+  const toggleTrendEventType = useCallback(
+    (value: string) => {
+      localTabNavRef.current = true;
+      const prev = feedUrlStateRef.current.trendEventTypes;
+      const next = prev.includes(value)
+        ? prev.filter(v => v !== value)
+        : [...prev, value];
+      setTrendEventTypes(next);
+      commitExploreUrl(
+        "filter-change",
+        { tab, joinCommunityId },
+        { ...feedUrlStateRef.current, trendEventTypes: next }
+      );
+    },
+    [commitExploreUrl, tab, joinCommunityId]
+  );
+
+  const setTrendLanguageWithUrl = useCallback(
+    (value: string) => {
+      localTabNavRef.current = true;
+      setTrendLanguage(value);
+      commitExploreUrl(
+        "filter-lang-change",
+        { tab, joinCommunityId },
+        { ...feedUrlStateRef.current, trendLanguage: value }
+      );
+    },
+    [commitExploreUrl, tab, joinCommunityId]
+  );
+
+  const setTrendCountryWithUrl = useCallback(
+    (value: string) => {
+      localTabNavRef.current = true;
+      setTrendCountry(value);
+      commitExploreUrl(
+        "filter-country-change",
+        { tab, joinCommunityId },
+        { ...feedUrlStateRef.current, trendCountry: value }
+      );
+    },
+    [commitExploreUrl, tab, joinCommunityId]
+  );
 
   const handlePlayInExplore = useCallback(
     (target: ExploreFeedOpenTarget) => {
@@ -1114,7 +1164,8 @@ export default function ExplorePageClient({
       setMainTab("feed");
       setFeedSubTab("community");
       setCommunityFeedSelIds(next);
-      commitExploreUrlPush(
+      commitExploreUrl(
+        "community-selection",
         { tab: "feed", joinCommunityId: joinCommunityIdRef.current },
         {
           ...feedUrlStateRef.current,
@@ -1123,7 +1174,7 @@ export default function ExplorePageClient({
         }
       );
     },
-    [commitExploreUrlPush, setMainTab]
+    [commitExploreUrl, setMainTab]
   );
 
   useEffect(() => {
@@ -1419,13 +1470,7 @@ export default function ExplorePageClient({
             )}
             data-testid="explore-chrome-feed"
             onPointerEnter={prefetchExploreFeedInitial}
-            onClick={() => {
-              if (feedSubTab === "community") {
-                navigateFeedSubTab("trends");
-              } else {
-                navigateMainTab("feed");
-              }
-            }}
+            onClick={() => navigateMainTab("feed")}
           >
             Feed
           </button>
@@ -1934,7 +1979,7 @@ export default function ExplorePageClient({
                   <Input
                     id="explore-lang-overlay"
                     value={trendLanguage}
-                    onChange={e => setTrendLanguage(e.target.value)}
+                    onChange={e => setTrendLanguageWithUrl(e.target.value)}
                     placeholder="e.g. en-GB"
                     className="h-8 text-xs"
                   />
@@ -1949,7 +1994,7 @@ export default function ExplorePageClient({
                   <Input
                     id="explore-country-overlay"
                     value={trendCountry}
-                    onChange={e => setTrendCountry(e.target.value)}
+                    onChange={e => setTrendCountryWithUrl(e.target.value)}
                     placeholder="e.g. GB (use all for worldwide)"
                     className="h-8 text-xs"
                   />

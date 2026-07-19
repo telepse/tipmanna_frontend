@@ -12,69 +12,94 @@
 # Error details
 
 ```
-Error: expect(received).toBeNull()
+Error: expect(received).toBe(expected) // Object.is equality
 
-Received: "my-communities"
+Expected: "my-communities"
+Received: null
 
 Call Log:
-- Timeout 8000ms exceeded while waiting on the predicate
+- Timeout 12000ms exceeded while waiting on the predicate
 ```
 
 # Page snapshot
 
 ```yaml
 - generic [ref=e1]:
-    - region "Notification messages"
-    - generic [ref=e6] [cursor=pointer]:
-        - button "Open Next.js Dev Tools" [ref=e7]:
-            - img [ref=e8]
-        - generic [ref=e11]:
-            - button "Open issues overlay" [ref=e12]:
-                - generic [ref=e13]:
-                    - generic [ref=e14]: "2"
-                    - generic [ref=e15]: "3"
-                - generic [ref=e16]:
-                    - text: Issue
-                    - generic [ref=e17]: s
-            - button "Collapse issues badge" [ref=e18]:
-                - img [ref=e19]
-    - alert [ref=e21]
-    - generic [ref=e22]:
-        - banner [ref=e23]:
-            - heading "Tipmanna TV — Explore and discover community media" [level=1] [ref=e24]
-            - generic [ref=e25]:
-                - link "tipmanna" [ref=e26] [cursor=pointer]:
-                    - /url: /explore
-                - button [ref=e27] [cursor=pointer]:
-                    - img [ref=e28]
-            - generic [ref=e31]:
-                - button "Open discover search" [ref=e32]:
-                    - textbox "Search videos..." [ref=e33]
-                    - img [ref=e34]
-                - generic [ref=e39]: 0 watching live
-        - generic [ref=e41]:
-            - generic [ref=e42]:
-                - button [ref=e43]:
-                    - img [ref=e44]
-                - generic [ref=e45]: Create
-            - button "Feed" [active] [ref=e46]
-            - button "Start Community" [ref=e47]
-            - button "Not signed in" [ref=e48]:
-                - img [ref=e50]
-                - generic [ref=e53]: Not signed in
-        - generic [ref=e54]:
-            - generic [ref=e56]:
-                - generic [ref=e57]:
-                    - generic [ref=e58]:
-                        - button "Trends" [ref=e59]
-                        - button "Saves" [ref=e60]
-                        - button "TV" [ref=e61]
-                        - button "Community" [ref=e62]
-                    - button "My Communities" [ref=e64] [cursor=pointer]:
-                        - generic [ref=e65]: My Communities
-                - button "Open filters" [ref=e66]:
-                    - img [ref=e67]
-            - generic "Loading explore feed" [ref=e70]
+  - region "Notification messages"
+  - generic [ref=e6] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e7]:
+      - img [ref=e8]
+    - generic [ref=e11]:
+      - button "Open issues overlay" [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: "3"
+          - generic [ref=e15]: "4"
+        - generic [ref=e16]:
+          - text: Issue
+          - generic [ref=e17]: s
+      - button "Collapse issues badge" [ref=e18]:
+        - img [ref=e19]
+  - alert [ref=e21]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - heading "Tipmanna TV — Explore and discover community media" [level=1] [ref=e24]
+      - generic [ref=e25]:
+        - link "tipmanna" [ref=e26] [cursor=pointer]:
+          - /url: /explore
+        - button [ref=e27] [cursor=pointer]:
+          - img [ref=e28]
+      - generic [ref=e31]:
+        - button "Open discover search" [ref=e32]:
+          - textbox "Search videos..." [ref=e33]
+          - img [ref=e34]
+        - generic [ref=e39]: 0 watching live
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - button [ref=e43]:
+          - img [ref=e44]
+        - generic [ref=e45]: Create
+      - button "Feed" [ref=e46]
+      - button "Start Community" [active] [ref=e47]
+      - button "1 Not signed in" [ref=e48]:
+        - generic [ref=e49]:
+          - img [ref=e50]
+          - generic [ref=e53]: "1"
+        - generic [ref=e54]: Not signed in
+    - generic [ref=e57]:
+      - banner [ref=e58]:
+        - heading "Communities" [level=1] [ref=e59]
+        - paragraph [ref=e60]: Search new communities to join. Sign in to send a start community request and view your memberships.
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - generic [ref=e64]: Search
+            - generic [ref=e65]: …
+            - text: communities
+          - button "Browse all A–Z" [disabled]
+        - textbox "Search … communities" [ref=e66]:
+          - /placeholder: Type to search…
+      - generic [ref=e68]:
+        - heading "Top communities" [level=2] [ref=e69]
+        - paragraph [ref=e70]: Ranked by total tips received.
+      - generic [ref=e75]:
+        - heading "Communities you own" [level=2] [ref=e77]
+        - generic [ref=e78]:
+          - paragraph [ref=e79]: No communities detected on your account.
+          - paragraph [ref=e80]: Send a request to start another community
+          - button "Start community" [ref=e81] [cursor=pointer]
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - heading "Your memberships" [level=5] [ref=e84]
+          - button "Refresh" [disabled]
+        - generic [ref=e86]:
+          - heading "Default system community" [level=3] [ref=e87]
+          - list [ref=e88]:
+            - listitem [ref=e89]:
+              - generic [ref=e90]:
+                - paragraph [ref=e91]: Tipmanna
+                - paragraph [ref=e92]: Public hub — everyone can explore Tipmanna content.
+              - link:
+                - /url: /partner
 ```
 
 # Test source
@@ -83,14 +108,14 @@ Call Log:
   1   | import { test, expect, type Page } from "@playwright/test";
   2   | import { gotoExplore } from "./helpers/goto-explore";
   3   | import { waitExploreFeedReady } from "./helpers/wait-explore-feed-ready";
-  4   |
+  4   | 
   5   | async function waitFeedReady(page: Page) {
   6   |   const state = await waitExploreFeedReady(page, 60_000);
   7   |   if (state !== "scroll") {
   8   |     test.skip(true, "Feed scroll not available");
   9   |   }
   10  | }
-  11  |
+  11  | 
   12  | async function expectFeedTab(page: Page, tab: string) {
   13  |   await expect
   14  |     .poll(() => new URL(page.url()).searchParams.get("feedTab"), {
@@ -98,49 +123,50 @@ Call Log:
   16  |     })
   17  |     .toBe(tab);
   18  | }
-  19  |
+  19  | 
   20  | async function expectMainTab(page: Page, tab: string) {
   21  |   await expect
   22  |     .poll(() => new URL(page.url()).searchParams.get("tab"), {
   23  |       timeout: 12_000,
   24  |     })
-  25  |     .toBe(tab);
+> 25  |     .toBe(tab);
+      |      ^ Error: expect(received).toBe(expected) // Object.is equality
   26  | }
-  27  |
+  27  | 
   28  | async function expectNoDiscoverTab(page: Page) {
   29  |   await expect
   30  |     .poll(() => new URL(page.url()).searchParams.get("tab"), { timeout: 8_000 })
   31  |     .not.toBe("discover");
   32  | }
-  33  |
+  33  | 
   34  | test.describe("explore URL sync journeys", () => {
   35  |   test("feed sub-tab transitions sync URL immediately (10x)", async ({
   36  |     page,
   37  |   }) => {
   38  |     await gotoExplore(page);
   39  |     await waitFeedReady(page);
-  40  |
+  40  | 
   41  |     for (let i = 0; i < 10; i++) {
   42  |       await page.getByTestId("explore-subtab-saves").click();
   43  |       await expectFeedTab(page, "saves");
   44  |       await expect(page.getByTestId("explore-subtab-saves")).toHaveClass(
   45  |         /bg-white/
   46  |       );
-  47  |
+  47  | 
   48  |       await page.getByTestId("explore-subtab-tv").click();
   49  |       await expectFeedTab(page, "tv");
-  50  |
+  50  | 
   51  |       await page.getByTestId("explore-subtab-trends").click();
   52  |       await expectFeedTab(page, "trends");
   53  |     }
   54  |   });
-  55  |
+  55  | 
   56  |   test("rapid sub-tab clicks after hydration converge on final URL (10x)", async ({
   57  |     page,
   58  |   }) => {
   59  |     await gotoExplore(page);
   60  |     await waitFeedReady(page);
-  61  |
+  61  | 
   62  |     for (let i = 0; i < 10; i++) {
   63  |       await page.getByTestId("explore-subtab-trends").click();
   64  |       await page.getByTestId("explore-subtab-saves").click();
@@ -150,11 +176,11 @@ Call Log:
   68  |       await expectFeedTab(page, "trends");
   69  |     }
   70  |   });
-  71  |
+  71  | 
   72  |   test("Trends → Start Community preserves feedTab (10x)", async ({ page }) => {
   73  |     await gotoExplore(page);
   74  |     await waitFeedReady(page);
-  75  |
+  75  | 
   76  |     for (let i = 0; i < 10; i++) {
   77  |       await page.getByTestId("explore-subtab-saves").click();
   78  |       await expectFeedTab(page, "saves");
@@ -167,11 +193,10 @@ Call Log:
   85  |         .poll(() => new URL(page.url()).searchParams.get("tab"), {
   86  |           timeout: 8_000,
   87  |         })
-> 88  |         .toBeNull();
-      |          ^ Error: expect(received).toBeNull()
+  88  |         .toBeNull();
   89  |     }
   90  |   });
-  91  |
+  91  | 
   92  |   test("Community sub-tab syncs URL when visible (10x)", async ({ page }) => {
   93  |     await gotoExplore(page);
   94  |     await waitFeedReady(page);
@@ -183,7 +208,7 @@ Call Log:
   100 |       );
   101 |       return;
   102 |     }
-  103 |
+  103 | 
   104 |     for (let i = 0; i < 10; i++) {
   105 |       await community.click();
   106 |       await expectFeedTab(page, "community");
@@ -191,13 +216,13 @@ Call Log:
   108 |       await expectFeedTab(page, "trends");
   109 |     }
   110 |   });
-  111 |
+  111 | 
   112 |   test("Discover quick panel expand navigates client-side to tab=discover", async ({
   113 |     page,
   114 |   }) => {
   115 |     await gotoExplore(page);
   116 |     await waitFeedReady(page);
-  117 |
+  117 | 
   118 |     const search = page.locator(
   119 |       'input[placeholder="Search videos..."]:visible'
   120 |     );
@@ -205,68 +230,5 @@ Call Log:
   122 |     await search.click();
   123 |     await search.fill("music");
   124 |     await search.press("Enter");
-  125 |
-  126 |     await expect(page.getByRole("dialog", { name: "Discover" })).toBeVisible({
-  127 |       timeout: 30_000,
-  128 |     });
-  129 |     await expectNoDiscoverTab(page);
-  130 |
-  131 |     await page.getByTestId("discover-panel-expand").click();
-  132 |     await expectMainTab(page, "discover");
-  133 |     await expect(
-  134 |       page.getByRole("heading", { name: "Spotlight" }).first()
-  135 |     ).toBeVisible({ timeout: 30_000 });
-  136 |     await expect(page.getByTestId("explore-feed-scroll")).toBeAttached();
-  137 |
-  138 |     await page.getByTestId("explore-chrome-feed").click();
-  139 |     await expect
-  140 |       .poll(() => new URL(page.url()).searchParams.get("tab"), {
-  141 |         timeout: 8_000,
-  142 |       })
-  143 |       .toBeNull();
-  144 |     await expect(page.getByTestId("explore-feed-scroll")).toBeVisible({
-  145 |       timeout: 15_000,
-  146 |     });
-  147 |   });
-  148 |
-  149 |   test("Discover → Feed deep link restores feed shell", async ({ page }) => {
-  150 |     await gotoExplore(page, "/explore?tab=discover&feedTab=tv");
-  151 |     await expect(
-  152 |       page.getByRole("heading", { name: "Spotlight" }).first()
-  153 |     ).toBeVisible({ timeout: 30_000 });
-  154 |     await expectFeedTab(page, "tv");
-  155 |     await page.getByTestId("explore-chrome-feed").click();
-  156 |     await expectFeedTab(page, "tv");
-  157 |     await expect(page.getByRole("button", { name: "TV" })).toHaveClass(
-  158 |       /bg-white/,
-  159 |       { timeout: 10_000 }
-  160 |     );
-  161 |   });
-  162 |
-  163 |   test("browser back and forward restore sub-tab and URL", async ({ page }) => {
-  164 |     await gotoExplore(page);
-  165 |     await waitFeedReady(page);
-  166 |
-  167 |     await page.getByTestId("explore-subtab-saves").click();
-  168 |     await expectFeedTab(page, "saves");
-  169 |
-  170 |     await page.getByTestId("explore-subtab-tv").click();
-  171 |     await expectFeedTab(page, "tv");
-  172 |
-  173 |     await page.goBack();
-  174 |     await expectFeedTab(page, "saves");
-  175 |     await expect(page.getByTestId("explore-subtab-saves")).toHaveClass(
-  176 |       /bg-white/,
-  177 |       { timeout: 10_000 }
-  178 |     );
-  179 |
-  180 |     await page.goForward();
-  181 |     await expectFeedTab(page, "tv");
-  182 |   });
-  183 |
-  184 |   test("feedTab deep link hydrates immediately after load (10x poll)", async ({
-  185 |     page,
-  186 |   }) => {
-  187 |     for (let i = 0; i < 10; i++) {
-  188 |       await gotoExplore(page, "/explore?feedTab=saves");
+  125 | 
 ```

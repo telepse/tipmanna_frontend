@@ -571,6 +571,7 @@ export const SigninForm = ({
           value="host"
           className="mt-6 space-y-6"
         >
+          <div key={`host-${hostAuthView}-${hostStep}`}>
           {mode === "modal" && hostAuthView === "forgotPassword" ? (
             <div className="space-y-6">
               <h2 className="text-center text-xl font-semibold">
@@ -906,6 +907,7 @@ export const SigninForm = ({
               </form>
             </Form>
           )}
+          </div>
         </TabsContent>
 
         {/* Tipper form */}
