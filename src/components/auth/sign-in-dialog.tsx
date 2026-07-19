@@ -54,12 +54,14 @@ export default function SignInDialog({
       <DialogContent
         overlayClassName={overlayClassName}
         className={`max-h-[80vh] overflow-y-auto sm:max-w-md ${contentClassName ?? ""}`}
+        onOpenAutoFocus={e => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <SigninForm
+          key={open ? "open" : "closed"}
           mode="modal"
           returnTo={returnTo}
           defaultUserType={defaultUserType}

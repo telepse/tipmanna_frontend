@@ -52,6 +52,7 @@ import {
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
 import { Button } from "@/components/ui/button";
 import { isHostRole } from "@/lib/is-host-role";
+import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
 
 type SignInIntent = "add-video" | "type-picker-proceed" | null;
 
@@ -208,6 +209,40 @@ export const CreateDialog = ({
     return list.find(c => c.id === targetId)?.event?.eventType;
   }, [hostTab, targetId, events, owned, coCreated]);
 
+  const clearSignInPending = () => {
+    setSignInIntent(null);
+    setPendingHref(null);
+    pendingVideoSubmitRef.current = null;
+  };
+
+  const openSignInFromCreate = (
+    intent: NonNullable<SignInIntent>,
+    href?: string
+  ) => {
+    setSignInIntent(intent);
+    if (href) setPendingHref(href);
+    requestAnimationFrame(() => setSignInOpen(true));
+  };
+
+  const handleCreateOpenChange = (open: boolean) => {
+    setOpenPopup(open);
+    if (!open) {
+      setSignInOpen(false);
+      clearSignInPending();
+    }
+  };
+
+  const handleSignInOpenChange = (open: boolean) => {
+    setSignInOpen(open);
+    if (!open && signInIntent) {
+      if (signInIntent === "add-video") {
+        pendingVideoSubmitRef.current = null;
+      }
+      setSignInIntent(null);
+      setPendingHref(null);
+    }
+  };
+
   const handleProceed = () => {
     if (!selected || isProceeding) return;
 
@@ -226,10 +261,8 @@ export const CreateDialog = ({
         href = "/";
     }
 
-    if (!user) {
-      setSignInIntent("type-picker-proceed");
-      setPendingHref(href);
-      setSignInOpen(true);
+    if (needsCreateHostAuth(user)) {
+      openSignInFromCreate("type-picker-proceed", href);
       return;
     }
 
@@ -261,8 +294,7 @@ export const CreateDialog = ({
   const handleHostVideoSubmit = async (values: AddVideoFormValues) => {
     if (!showHostCreateFlow) {
       pendingVideoSubmitRef.current = values;
-      setSignInIntent("add-video");
-      setSignInOpen(true);
+      openSignInFromCreate("add-video");
       toast.error("Sign in to add a video");
       return;
     }
@@ -350,10 +382,12 @@ export const CreateDialog = ({
     ? SIGN_IN_EXPLORE_Z_INDEX
     : SIGN_IN_NESTED_Z_INDEX;
 
+  const createDialogOpen = openPopup && !signInOpen;
+
   const signInDialog = (
     <SignInDialog
       open={signInOpen}
-      onOpenChange={setSignInOpen}
+      onOpenChange={handleSignInOpenChange}
       title="Sign in to continue"
       defaultUserType="host"
       allowInlineSignUp
@@ -362,10 +396,6 @@ export const CreateDialog = ({
       contentClassName={signInContentZIndex}
     />
   );
-
-  if (signInOpen) {
-    return signInDialog;
-  }
 
   const awaitingHostSessionProbe =
     openPopup &&
@@ -377,20 +407,22 @@ export const CreateDialog = ({
   if (awaitingHostSessionProbe) {
     return (
       <>
-        <Dialog
-          open={openPopup}
-          onOpenChange={setOpenPopup}
-        >
-          <DialogContent
-            overlayClassName={dialogOverlayZIndex}
-            className={`${dialogContentZIndex} rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-md`}
+        {createDialogOpen ? (
+          <Dialog
+            open
+            onOpenChange={handleCreateOpenChange}
           >
-            <DialogHeader>
-              <DialogTitle className="text-white/70">Add a video</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-white/70">Checking your host session…</p>
-          </DialogContent>
-        </Dialog>
+            <DialogContent
+              overlayClassName={dialogOverlayZIndex}
+              className={`${dialogContentZIndex} rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-md`}
+            >
+              <DialogHeader>
+                <DialogTitle className="text-white/70">Add a video</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-white/70">Checking your host session…</p>
+            </DialogContent>
+          </Dialog>
+        ) : null}
         {signInDialog}
       </>
     );
@@ -399,10 +431,11 @@ export const CreateDialog = ({
   if (showHostCreateFlow) {
     return (
       <>
-        <Dialog
-          open={openPopup}
-          onOpenChange={setOpenPopup}
-        >
+        {createDialogOpen ? (
+          <Dialog
+            open
+            onOpenChange={handleCreateOpenChange}
+          >
           <DialogContent
             overlayClassName={dialogOverlayZIndex}
             className={`${dialogContentZIndex} max-h-[90vh] overflow-y-auto rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-2xl`}
@@ -638,7 +671,8 @@ export const CreateDialog = ({
               </>
             )}
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        ) : null}
         {signInDialog}
       </>
     );
@@ -646,10 +680,11 @@ export const CreateDialog = ({
 
   return (
     <>
-      <Dialog
-        open={openPopup}
-        onOpenChange={setOpenPopup}
-      >
+      {createDialogOpen ? (
+        <Dialog
+          open
+          onOpenChange={handleCreateOpenChange}
+        >
         <DialogContent
           overlayClassName={dialogOverlayZIndex}
           className={`${dialogContentZIndex} rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-md`}
@@ -730,10 +765,7 @@ export const CreateDialog = ({
             <button
               type="button"
               className="text-primary cursor-pointer underline underline-offset-2 hover:underline"
-              onClick={() => {
-                setSignInIntent("type-picker-proceed");
-                setSignInOpen(true);
-              }}
+              onClick={() => openSignInFromCreate("type-picker-proceed")}
             >
               host creator
             </button>{" "}
@@ -758,7 +790,8 @@ export const CreateDialog = ({
             </button>
           </div>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      ) : null}
 
       {signInDialog}
     </>

@@ -120,6 +120,64 @@ describe("explore-url-sync-policy", () => {
     );
     expect(exploreCurrentHref("/explore", "")).toBe("/explore");
   });
+
+  it("detects filter state ahead of URL", () => {
+    const feedState = {
+      trendEventTypes: ["COMEDY"],
+      trendLanguage: "",
+      trendCountry: "",
+      feedSubTab: "trends" as const,
+      tvExploreSource: "tipmanna",
+      communityFeedSelIds: [] as string[],
+    };
+    expect(
+      exploreStateAheadOfUrl("/explore", { tab: "feed" }, feedState, "")
+    ).toBe(true);
+    expect(
+      exploreStateAheadOfUrl(
+        "/explore",
+        { tab: "feed" },
+        feedState,
+        "feedTypes=COMEDY&feedTab=trends"
+      )
+    ).toBe(false);
+  });
+
+  it("buildExploreFeedHref clears tab when returning to feed", () => {
+    const feedState = {
+      trendEventTypes: [] as string[],
+      trendLanguage: "",
+      trendCountry: "",
+      feedSubTab: "saves" as const,
+      tvExploreSource: "tipmanna",
+      communityFeedSelIds: [] as string[],
+    };
+    const href = buildExploreFeedHref(
+      "/explore",
+      { tab: "feed" },
+      feedState,
+      "tab=my-communities&feedTab=saves"
+    );
+    expect(href).toBe("/explore?feedTab=saves");
+    expect(href).not.toContain("tab=my-communities");
+  });
+
+  it("buildExploreFeedHref adds feedTypes for filter commits", () => {
+    const href = buildExploreFeedHref(
+      "/explore",
+      { tab: "feed" },
+      {
+        trendEventTypes: ["COMEDY"],
+        trendLanguage: "",
+        trendCountry: "",
+        feedSubTab: "trends",
+        tvExploreSource: "tipmanna",
+        communityFeedSelIds: [],
+      },
+      ""
+    );
+    expect(href).toBe("/explore?feedTypes=COMEDY&feedTab=trends");
+  });
 });
 
 describe("discover-navigation-state expand", () => {

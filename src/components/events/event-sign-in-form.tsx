@@ -13,6 +13,7 @@ import {
   FormItem,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import OTPInput from "react-otp-input";
 import { useForm } from "react-hook-form";
@@ -520,6 +521,26 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
               >
                 Request login code?
               </button>
+            ) : null}
+
+            {authState === "signUp" ? (
+              <FormField
+                control={signInForm.control}
+                name="acceptedTerms"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start gap-2 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={v => field.onChange(v === true)}
+                      />
+                    </FormControl>
+                    <FormLabel className="leading-snug font-normal">
+                      I agree to the terms and privacy policy
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
             ) : null}
 
             <Button
