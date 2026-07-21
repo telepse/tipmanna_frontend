@@ -17,6 +17,7 @@ import { Message, RoomCharacter } from "@/types";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { TipAnimationEvent } from "@/lib/animation-guard";
 import { animLog } from "@/lib/animationDebug";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import { useAnimationQueue } from "@/hooks/use-animation-queue";
 import { Pin } from "lucide-react";
 
@@ -72,6 +73,7 @@ export const RoomMessages = ({
 
   const { enqueue } = useAnimationQueue({
     eventId,
+    surface: "room_messages",
   });
 
   const characterMap = useMemo(() => {
@@ -132,6 +134,13 @@ export const RoomMessages = ({
     };
 
     const handleNewTip = (data: TipAnimationEvent) => {
+      tracePaymentAnimation({
+        stage: "validated_tip_listener_received",
+        surface: "room_messages",
+        eventId: data.eventId,
+        bundleId: data.id,
+        seq: data.seq,
+      });
       animLog("[RoomMessages] validated-tip received", {
         id: data.id,
         seq: data.seq,

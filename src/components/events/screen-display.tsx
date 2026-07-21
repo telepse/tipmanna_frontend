@@ -27,6 +27,7 @@ import { preloadPaymentAnimationAssetsForCharacters } from "@/lib/preload-paymen
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { Performer } from "@/types/performer.types";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 
 function getLightboxVideoSrc(bg: string): string {
   switch (bg) {
@@ -94,9 +95,85 @@ export const ScreenDisplay = ({
 
   const { isLandscape, isMobile, isDesktop } = useScreenDetection();
   const { isSupported: isWakeLockSupported } = useWakeLock({ enabled: isOpen });
-  const { enqueue } = useAnimationQueue({ eventId, enabled: isOpen });
+  const { enqueue } = useAnimationQueue({
+    eventId,
+    enabled: isOpen,
+    surface: "screen_display",
+  });
 
   useGlobalTipStream({ eventId, enabled: isOpen, surface: "screen_display" });
+
+  const prevOpenRef = useRef(isOpen);
+  useEffect(() => {
+    if (prevOpenRef.current === isOpen) return;
+    if (isOpen) {
+      tracePaymentAnimation({
+        stage: "screen_display_reopen_started",
+        surface: "screen_display",
+        eventId,
+        isOpen: true,
+        streamEnabled: true,
+        queueEnabled: true,
+      });
+      tracePaymentAnimation({
+        stage: "screen_display_stream_enabled",
+        surface: "screen_display",
+        eventId,
+        isOpen: true,
+        streamEnabled: true,
+      });
+      tracePaymentAnimation({
+        stage: "screen_display_queue_enabled",
+        surface: "screen_display",
+        eventId,
+        isOpen: true,
+        queueEnabled: true,
+      });
+      tracePaymentAnimation({
+        stage: "screen_display_reopen_ready",
+        surface: "screen_display",
+        eventId,
+        isOpen: true,
+        streamEnabled: true,
+        queueEnabled: true,
+        handlerBound: true,
+      });
+      tracePaymentAnimation({
+        stage: "screen_display_ready",
+        surface: "screen_display",
+        eventId,
+        isOpen: true,
+        streamEnabled: true,
+        queueEnabled: true,
+        handlerBound: true,
+      });
+    } else {
+      tracePaymentAnimation({
+        stage: "screen_display_stream_disabled",
+        surface: "screen_display",
+        eventId,
+        isOpen: false,
+        streamEnabled: false,
+      });
+      tracePaymentAnimation({
+        stage: "screen_display_queue_flushed",
+        surface: "screen_display",
+        eventId,
+        isOpen: false,
+        queueEnabled: false,
+      });
+      tracePaymentAnimation({
+        stage: "screen_display_closed",
+        surface: "screen_display",
+        eventId,
+        isOpen: false,
+        streamEnabled: false,
+        queueEnabled: false,
+        handlerBound: false,
+      });
+    }
+    prevOpenRef.current = isOpen;
+  }, [isOpen, eventId]);
 
   const characterMap = useMemo(() => {
     const map = new Map<string, RoomCharacter>();
@@ -124,16 +201,34 @@ export const ScreenDisplay = ({
     amountToRaise > 0 ? Math.min((amountRaised / amountToRaise) * 100, 100) : 0;
 
   const openLightbox = useCallback(() => {
+    tracePaymentAnimation({
+      stage: "screen_display_open_requested",
+      surface: "screen_display",
+      eventId,
+      isOpen: false,
+    });
     setIsOpen(true);
+    tracePaymentAnimation({
+      stage: "screen_display_open_committed",
+      surface: "screen_display",
+      eventId,
+      isOpen: true,
+    });
     const url = new URL(window.location.href);
     url.searchParams.set("lightbox", "open");
     window.history.pushState({}, "", url.toString());
-  }, []);
+  }, [eventId]);
 
   const closeLightbox = useCallback(() => {
+    tracePaymentAnimation({
+      stage: "screen_display_close_requested",
+      surface: "screen_display",
+      eventId,
+      isOpen: true,
+    });
     setIsOpen(false);
     router.replace(window.location.pathname);
-  }, [router]);
+  }, [router, eventId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -160,6 +255,16 @@ export const ScreenDisplay = ({
 
     const handleValidatedTip = (e: Event) => {
       const data = (e as CustomEvent<TipAnimationEvent>).detail;
+      tracePaymentAnimation({
+        stage: "validated_tip_listener_received",
+        surface: "screen_display",
+        eventId: data.eventId,
+        bundleId: data.id,
+        seq: data.seq,
+        isOpen: true,
+        streamEnabled: true,
+        queueEnabled: true,
+      });
       animLog("NEW TIP PAYLOAD", data);
 
       const dedupeKeyBase = data.id ?? `${data.eventId}-${data.serverTs}`;

@@ -4,9 +4,7 @@ async function openCreateTypePicker(page: import("@playwright/test").Page) {
   await page.goto("/");
   await expect(page.locator("body")).toBeVisible();
 
-  const createButton = page
-    .getByRole("button", { name: /^create$/i })
-    .first();
+  const createButton = page.getByRole("button", { name: /^create$/i }).first();
   await expect(createButton).toBeVisible({ timeout: 30_000 });
   await createButton.click();
 
@@ -64,7 +62,9 @@ test.describe("create dialog sign-in restore", () => {
     await expect(emailInput).toHaveValue("test-host@example.com");
   });
 
-  test("forgot password stays inside create modal sign-in", async ({ page }) => {
+  test("forgot password stays inside create modal sign-in", async ({
+    page,
+  }) => {
     const signInDialog = await openSignInFromCreateProceed(page);
 
     await signInDialog

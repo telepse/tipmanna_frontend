@@ -14,9 +14,11 @@ import { EventVideoTypeTagPicker } from "@/components/events/event-video-type-ta
 export function VideoLinksEventVideoTypeField({
   control,
   index,
+  label,
 }: {
   control: Control<NewEventFormData>;
   index: number;
+  label: string;
 }) {
   return (
     <FormField
@@ -25,7 +27,7 @@ export function VideoLinksEventVideoTypeField({
       render={({ field }) => (
         <FormItem>
           <FormLabel className="text-xs font-medium text-white/80">
-            Event video type (Explore &amp; TV)
+            {label} video type (Helps people find you on Explore &amp; TV)
           </FormLabel>
           <FormControl>
             <EventVideoTypeTagPicker

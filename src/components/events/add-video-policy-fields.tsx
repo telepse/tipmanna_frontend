@@ -142,6 +142,8 @@ export function AddVideoPolicyFields({
       coOwnerName: coName.trim() || "Co-owner",
       coOwnerEmail: coEmail.trim(),
       payoutPercentBp: Math.round(coPct * 100),
+      contentTitle: form.getValues("title")?.trim() || "",
+      youtubeLink: form.getValues("url")?.trim() || "",
     });
     setInvitePending(false);
     if (!res.success) {

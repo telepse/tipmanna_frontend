@@ -17,6 +17,7 @@ import {
   logRealtimeTelemetry,
   type RealtimeSurface,
 } from "@/lib/realtime-telemetry";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 
 /**
  * Shared payment path: Turbo/Galaxy companions for the bundle window, then
@@ -64,8 +65,54 @@ export function enqueuePaymentBundleForValidatedTip(options: {
 
   selectedCharacters.forEach((character, characterIndex) => {
     const key = buildDedupeKey(character.name);
-    if (playedAnimations.has(key)) return;
+    tracePaymentAnimation({
+      stage: "playback_key_checked",
+      surface,
+      eventId: data.eventId,
+      bundleId: data.id,
+      seq: data.seq,
+      playbackKey: key,
+      characterName: character.name,
+      styleName: character.styleName,
+    });
+
+    if (playedAnimations.has(key)) {
+      tracePaymentAnimation({
+        stage: "playback_key_duplicate",
+        surface,
+        eventId: data.eventId,
+        bundleId: data.id,
+        seq: data.seq,
+        playbackKey: key,
+        characterName: character.name,
+        styleName: character.styleName,
+        result: "skipped",
+      });
+      return;
+    }
+
     markPlayed(key);
+    tracePaymentAnimation({
+      stage: "playback_key_marked",
+      surface,
+      eventId: data.eventId,
+      bundleId: data.id,
+      seq: data.seq,
+      playbackKey: key,
+      characterName: character.name,
+      styleName: character.styleName,
+      markPlayedTiming: "before_queue_acceptance",
+    });
+
+    const traceContext = {
+      surface,
+      eventId: data.eventId,
+      bundleId: data.id,
+      seq: data.seq,
+      playbackKey: key,
+      characterName: character.name,
+      styleName: character.styleName,
+    };
 
     paymentAnimations.push(
       wrapPaymentAnimation(() => {
@@ -79,11 +126,30 @@ export function enqueuePaymentBundleForValidatedTip(options: {
           return noopPaymentAnimationHandle();
         }
         return createAnimationFromStyle(character, "payment", animationMount);
-      })
+      }, traceContext)
     );
+
+    tracePaymentAnimation({
+      stage: "playback_task_created",
+      surface,
+      eventId: data.eventId,
+      bundleId: data.id,
+      seq: data.seq,
+      playbackKey: key,
+      characterName: character.name,
+      styleName: character.styleName,
+    });
   });
 
   if (paymentAnimations.length > 0) {
+    tracePaymentAnimation({
+      stage: "playback_task_offered_to_queue",
+      surface,
+      eventId: data.eventId,
+      bundleId: data.id,
+      seq: data.seq,
+      taskCount: paymentAnimations.length,
+    });
     enqueue(paymentAnimations);
   }
 }

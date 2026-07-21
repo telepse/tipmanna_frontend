@@ -1,4 +1,8 @@
 import Pusher, { type Channel } from "pusher-js";
+import {
+  tracePaymentAnimation,
+  tracePusherRuntimeIdentity,
+} from "@/lib/payment-animation-trace";
 
 let pusherSingleton: Pusher | null = null;
 const channelRefCounts = new Map<string, number>();
@@ -47,6 +51,11 @@ export function getPusherClient(): Pusher | null {
  * Ref-counted channel subscribe. Returns the shared channel instance or null.
  */
 export function subscribeChannel(channelName: string): Channel | null {
+  tracePaymentAnimation({
+    stage: "channel_acquire_requested",
+    channel: channelName,
+  });
+
   const client = getPusherClient();
   if (!client || !channelName) return null;
 
@@ -56,12 +65,23 @@ export function subscribeChannel(channelName: string): Channel | null {
 
     if (prev === 0) {
       channel = client.subscribe(channelName);
+      tracePaymentAnimation({
+        stage: "channel_acquired",
+        channel: channelName,
+        result: "subscribed",
+      });
+      tracePusherRuntimeIdentity(channelName);
     } else {
       channel = client.channel(channelName);
     }
 
     if (!channel) return null;
     channelRefCounts.set(channelName, prev + 1);
+    tracePaymentAnimation({
+      stage: "channel_ref_count_incremented",
+      channel: channelName,
+      queuePendingCount: prev + 1,
+    });
     return channel;
   } catch (e) {
     console.error("[Pusher] subscribeChannel failed", channelName, e);
@@ -78,6 +98,12 @@ export function unsubscribeChannel(channelName: string): void {
 
   if (next === 0) {
     channelRefCounts.delete(channelName);
+    tracePaymentAnimation({
+      stage: "channel_ref_count_decremented",
+      channel: channelName,
+      queuePendingCount: 0,
+      result: "unsubscribed",
+    });
     const client = getPusherClient();
     if (!client) return;
     try {
@@ -87,6 +113,11 @@ export function unsubscribeChannel(channelName: string): void {
     }
   } else {
     channelRefCounts.set(channelName, next);
+    tracePaymentAnimation({
+      stage: "channel_ref_count_decremented",
+      channel: channelName,
+      queuePendingCount: next,
+    });
   }
 }
 

@@ -19,6 +19,7 @@ import { luxuryFireworksStyle } from "../animation-styles/luxury-fireworks";
 import { dragonSpiralStyle } from "../animation-styles/dragon-spiral";
 import { cosmicVortexStyle } from "../animation-styles/cosmic-vortex";
 import { animWarn } from "./animationDebug";
+import { tracePaymentAnimation } from "./payment-animation-trace";
 
 export const ANIMATION_STYLE_NAMES = [
   "Confetti",
@@ -148,17 +149,74 @@ export function createAnimationFromStyleName(
   void _container;
   const dur = ANIMATION_DURATION[mode].default;
   const isPreview = mode === "preview";
+  const lookupStyleName = character.styleName;
+
+  tracePaymentAnimation({
+    stage: "style_lookup_started",
+    characterName: character.name,
+    styleName: character.styleName,
+    lookupStyleName,
+    mode,
+    iconPresent: Boolean(character.iconUrl?.trim()),
+  });
 
   if (!isKnownAnimationStyleName(character.styleName)) {
     animWarn(`Unknown animation style: ${character.styleName}`);
+    tracePaymentAnimation({
+      stage: "style_registry_unknown",
+      characterName: character.name,
+      styleName: character.styleName,
+      lookupStyleName,
+      mode,
+      iconPresent: Boolean(character.iconUrl?.trim()),
+      result: "empty_handle",
+    });
+    tracePaymentAnimation({
+      stage: "empty_handle_returned",
+      characterName: character.name,
+      styleName: character.styleName,
+      lookupStyleName,
+      factoryName: "EMPTY_HANDLE",
+    });
     return EMPTY_HANDLE;
   }
 
+  const registryKey = character.styleName;
   const factory = ANIMATION_STYLE_REGISTRY[character.styleName];
   if (!factory) {
     animWarn(`Missing factory for style: ${character.styleName}`);
+    tracePaymentAnimation({
+      stage: "empty_handle_returned",
+      characterName: character.name,
+      styleName: character.styleName,
+      lookupStyleName,
+      registryKey,
+      factoryName: "EMPTY_HANDLE",
+    });
     return EMPTY_HANDLE;
   }
 
-  return factory(character, mode, dur, isPreview);
+  tracePaymentAnimation({
+    stage: "style_registry_match",
+    characterName: character.name,
+    styleName: character.styleName,
+    lookupStyleName,
+    registryKey,
+    mode,
+    iconPresent: Boolean(character.iconUrl?.trim()),
+    factoryName: character.styleName,
+  });
+
+  const handle = factory(character, mode, dur, isPreview);
+  tracePaymentAnimation({
+    stage: "style_factory_created",
+    characterName: character.name,
+    styleName: character.styleName,
+    lookupStyleName,
+    registryKey,
+    mode,
+    factoryName: character.styleName,
+    result: "created",
+  });
+  return handle;
 }

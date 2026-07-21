@@ -190,7 +190,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
         </p>
 
         <h2 className="font-semibold">
-          Let&apos;s setup your private channel to host your event and content
+          Let&apos;s setup your channel to host your event and content
         </h2>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -200,7 +200,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="relative">
-                  What would you like to name your private channel?{" "}
+                  What would you like to name your channel?{" "}
                   <span className="text-destructive absolute top-0 right-4">
                     *
                   </span>
@@ -344,7 +344,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Are you creating this private channel as an individual or an
+                Are you creating this channel as an individual or an
                 organisation? *
               </FormLabel>
               <FormControl>
@@ -775,7 +775,16 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
 
         {/* Co-host */}
         <div className="space-y-4 rounded-lg border bg-black/25 p-4 text-white shadow">
-          <h2 className="flex items-center gap-2 font-semibold">Co-host</h2>
+          <div className="space-y-1">
+            <h2 className="flex items-center gap-2 font-semibold">
+              Co-host <span className="text-sm text-white/50">(optional)</span>
+            </h2>
+
+            <p className="text-sm text-white/50">
+              Co-host has access to your channel settings and can receive payout
+              report
+            </p>
+          </div>
 
           {cohostFields.map((field, index) => (
             <div
@@ -817,9 +826,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
 
         <div className="space-y-6 rounded-lg border border-white bg-black/25 p-4 shadow sm:p-6">
           <div className="space-y-1">
-            <h2 className="font-semibold">
-              Add more videos to your private channel?
-            </h2>
+            <h2 className="font-semibold">Add more videos to your channel?</h2>
             <p className="text-sm text-white/50">Recommended (skip)</p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

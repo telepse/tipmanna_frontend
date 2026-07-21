@@ -7,6 +7,9 @@ import {
 } from "../discover-navigation-state";
 import {
   exploreCurrentHref,
+  exploreHrefsEqual,
+  exploreLiveSearchParamsKey,
+  exploreNeedsFeedTabBootstrap,
   exploreStateAheadOfUrl,
 } from "../explore-url-sync-policy";
 import { buildExploreFeedHref } from "../explore-url-feed-state";
@@ -177,6 +180,76 @@ describe("explore-url-sync-policy", () => {
       ""
     );
     expect(href).toBe("/explore?feedTypes=COMEDY&feedTab=trends");
+  });
+
+  it("exploreHrefsEqual ignores query parameter order", () => {
+    expect(
+      exploreHrefsEqual(
+        "/explore?feedTab=saves&tab=my-communities",
+        "/explore?tab=my-communities&feedTab=saves"
+      )
+    ).toBe(true);
+    expect(exploreHrefsEqual("/explore", "/explore?feedTab=saves")).toBe(false);
+  });
+
+  it("exploreNeedsFeedTabBootstrap detects bare /explore", () => {
+    expect(exploreNeedsFeedTabBootstrap("")).toBe(true);
+    expect(exploreNeedsFeedTabBootstrap("feedTab=trends")).toBe(false);
+    expect(exploreNeedsFeedTabBootstrap("feedTab=saves")).toBe(false);
+  });
+
+  it("buildExploreFeedHref bootstrap step omits new filter before push", () => {
+    const liveParsed = {
+      trendEventTypes: [] as string[],
+      trendLanguage: "",
+      trendCountry: "",
+      feedSubTab: "trends" as const,
+      tvExploreSource: "tipmanna",
+      communityFeedSelIds: [] as string[],
+    };
+    const bootstrapHref = buildExploreFeedHref(
+      "/explore",
+      { tab: "feed" },
+      liveParsed,
+      ""
+    );
+    expect(bootstrapHref).toBe("/explore?feedTab=trends");
+    expect(bootstrapHref).not.toContain("feedTypes");
+
+    const filterHref = buildExploreFeedHref(
+      "/explore",
+      { tab: "feed" },
+      {
+        ...liveParsed,
+        trendEventTypes: ["COMEDY"],
+      },
+      "feedTab=trends"
+    );
+    expect(filterHref).toContain("feedTypes=COMEDY");
+    expect(filterHref).toContain("feedTab=trends");
+    expect(
+      exploreHrefsEqual(filterHref, "/explore?feedTypes=COMEDY&feedTab=trends")
+    ).toBe(true);
+  });
+
+  it("exploreLiveSearchParamsKey falls back to React searchParams without window", () => {
+    expect(exploreLiveSearchParamsKey("feedTab=saves")).toBe("feedTab=saves");
+    expect(exploreLiveSearchParamsKey("")).toBe("");
+  });
+
+  it("exploreHrefsEqual distinguishes filter variants", () => {
+    expect(
+      exploreHrefsEqual(
+        "/explore?feedTypes=COMEDY&feedTab=trends",
+        "/explore?feedTypes=MUSIC&feedTab=trends"
+      )
+    ).toBe(false);
+    expect(
+      exploreHrefsEqual(
+        "/explore?feedTypes=COMEDY&feedTab=trends",
+        "/explore?feedTab=trends"
+      )
+    ).toBe(false);
   });
 });
 

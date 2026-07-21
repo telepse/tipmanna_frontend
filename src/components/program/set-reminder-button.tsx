@@ -228,7 +228,9 @@ export function SetReminderButton({
         type="button"
         variant="outline"
         className={cn(
-          isProgramOver ? "bg-gray-300 text-gray-500" : "bg-primary text-white",
+          isProgramOver
+            ? "bg-gray-300 text-gray-500"
+            : "outline-primary outline",
           "w-full sm:w-fit"
         )}
         size="sm"

@@ -1062,7 +1062,7 @@ export default function CommunityHubClient() {
                 <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                   Default system community
                 </h3>
-                
+
                 <ul className="divide-border divide-y rounded-lg border">
                   {defaultSystemRows.map(m => (
                     <SyntheticTipmannaRow
@@ -1235,8 +1235,8 @@ function SyntheticTipmannaRow({ m }: { m: HubMembership }) {
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{name}</p>
         <p className="text-muted-foreground text-xs">
-                  Public hub — everyone can explore Tipmanna content.
-                </p>
+          Public hub — everyone can explore Tipmanna content.
+        </p>
       </div>
       {/* <Button
         asChild
@@ -1246,7 +1246,14 @@ function SyntheticTipmannaRow({ m }: { m: HubMembership }) {
         <Link href={exploreCommunityJoinHref(m.communityId)}>Details</Link>
       </Button> */}
       <Link href="/partner">
-      <Button asChild variant="outline" size="sm">About Tipmanna</Button></Link>
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+        >
+          About Tipmanna
+        </Button>
+      </Link>
     </li>
   );
 }

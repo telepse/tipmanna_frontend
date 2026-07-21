@@ -572,20 +572,118 @@ export const SigninForm = ({
           className="mt-6 space-y-6"
         >
           <div key={`host-${hostAuthView}-${hostStep}`}>
-          {mode === "modal" && hostAuthView === "forgotPassword" ? (
-            <div className="space-y-6">
-              <h2 className="text-center text-xl font-semibold">
-                Reset your password
-              </h2>
-              <Form {...hostForm}>
+            {mode === "modal" && hostAuthView === "forgotPassword" ? (
+              <div className="space-y-6">
+                <h2 className="text-center text-xl font-semibold">
+                  Reset your password
+                </h2>
+                <Form {...hostForm}>
+                  <form
+                    onSubmit={hostForm.handleSubmit(
+                      values => void handleForgotPassword(values.email)
+                    )}
+                    className="space-y-6"
+                  >
+                    <FormField
+                      control={hostForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="Enter email address"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full"
+                      disabled={isHostLoading}
+                    >
+                      {isHostLoading ? "Sending…" : "Send reset link"}
+                    </Button>
+                  </form>
+                </Form>
+                <button
+                  type="button"
+                  className="text-primary flex items-center gap-1 text-sm hover:underline"
+                  onClick={() => setHostAuthView("signIn")}
+                >
+                  <MoveLeft className="size-4" /> Back to sign in
+                </button>
+              </div>
+            ) : mode === "modal" && hostAuthView === "verifyEmail" ? (
+              <div className="relative flex flex-col items-center justify-center gap-6 px-2">
+                <h2 className="mt-2 text-center text-2xl font-semibold">
+                  Verify your email
+                </h2>
+                <Paragraph
+                  align="center"
+                  size="sm"
+                  color="muted"
+                >
+                  We&apos;ve sent a 6-digit code to{" "}
+                  <strong>{hostVerifyEmail}</strong>.
+                </Paragraph>
+                <div className="react-otp-input">
+                  <OTPInput
+                    value={hostVerifyCode}
+                    onChange={setHostVerifyCode}
+                    numInputs={6}
+                    renderInput={props => <input {...props} />}
+                    inputStyle={otpInputStyle}
+                    shouldAutoFocus
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="w-full bg-black"
+                  disabled={isHostLoading || hostVerifyCode.length < 6}
+                  onClick={() => void handleModalHostVerify()}
+                >
+                  {isHostLoading ? "Verifying email..." : "Verify email"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="hover:bg-gray absolute top-0 left-0 border-none outline-none hover:text-black"
+                  onClick={() => setHostAuthView("signIn")}
+                >
+                  <MoveLeft /> Back
+                </Button>
+              </div>
+            ) : allowInlineSignUp && hostStep === "signUp" ? (
+              <Form {...signUpForm}>
                 <form
-                  onSubmit={hostForm.handleSubmit(
-                    values => void handleForgotPassword(values.email)
-                  )}
+                  onSubmit={signUpForm.handleSubmit(onSubmitHostSignUp)}
                   className="space-y-6"
                 >
                   <FormField
-                    control={hostForm.control}
+                    control={signUpForm.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full name</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Your name"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={signUpForm.control}
                     name="email"
                     render={({ field }) => (
                       <FormItem>
@@ -601,312 +699,217 @@ export const SigninForm = ({
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={signUpForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="Create password"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={signUpForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm password</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="Confirm password"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={signUpForm.control}
+                    name="acceptedTerms"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start gap-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="leading-snug font-normal">
+                          I agree to the terms and privacy policy
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
                   <Button
                     type="submit"
                     size="lg"
                     className="w-full"
                     disabled={isHostLoading}
                   >
-                    {isHostLoading ? "Sending…" : "Send reset link"}
+                    {isHostLoading
+                      ? "Creating account…"
+                      : "Create host account"}
                   </Button>
+                  <Paragraph
+                    align="center"
+                    size="sm"
+                  >
+                    Already have an account?{" "}
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => setHostStep("signIn")}
+                    >
+                      Sign in
+                    </button>
+                  </Paragraph>
                 </form>
               </Form>
-              <button
-                type="button"
-                className="text-primary flex items-center gap-1 text-sm hover:underline"
-                onClick={() => setHostAuthView("signIn")}
-              >
-                <MoveLeft className="size-4" /> Back to sign in
-              </button>
-            </div>
-          ) : mode === "modal" && hostAuthView === "verifyEmail" ? (
-            <div className="relative flex flex-col items-center justify-center gap-6 px-2">
-              <h2 className="mt-2 text-center text-2xl font-semibold">
-                Verify your email
-              </h2>
-              <Paragraph
-                align="center"
-                size="sm"
-                color="muted"
-              >
-                We&apos;ve sent a 6-digit code to{" "}
-                <strong>{hostVerifyEmail}</strong>.
-              </Paragraph>
-              <div className="react-otp-input">
-                <OTPInput
-                  value={hostVerifyCode}
-                  onChange={setHostVerifyCode}
-                  numInputs={6}
-                  renderInput={props => <input {...props} />}
-                  inputStyle={otpInputStyle}
-                  shouldAutoFocus
-                />
-              </div>
-              <Button
-                type="button"
-                size="lg"
-                className="w-full bg-black"
-                disabled={isHostLoading || hostVerifyCode.length < 6}
-                onClick={() => void handleModalHostVerify()}
-              >
-                {isHostLoading ? "Verifying email..." : "Verify email"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="hover:bg-gray absolute top-0 left-0 border-none outline-none hover:text-black"
-                onClick={() => setHostAuthView("signIn")}
-              >
-                <MoveLeft /> Back
-              </Button>
-            </div>
-          ) : allowInlineSignUp && hostStep === "signUp" ? (
-            <Form {...signUpForm}>
-              <form
-                onSubmit={signUpForm.handleSubmit(onSubmitHostSignUp)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={signUpForm.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Your name"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="Enter email address"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="Create password"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm password</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="Confirm password"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="acceptedTerms"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start gap-2 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel className="leading-snug font-normal">
-                        I agree to the terms and privacy policy
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="w-full"
-                  disabled={isHostLoading}
+            ) : (
+              <Form {...hostForm}>
+                <form
+                  onSubmit={hostForm.handleSubmit(onSubmitHost)}
+                  className="space-y-6"
                 >
-                  {isHostLoading ? "Creating account…" : "Create host account"}
-                </Button>
-                <Paragraph
-                  align="center"
-                  size="sm"
-                >
-                  Already have an account?{" "}
-                  <button
-                    type="button"
-                    className="text-primary hover:underline"
-                    onClick={() => setHostStep("signIn")}
-                  >
-                    Sign in
-                  </button>
-                </Paragraph>
-              </form>
-            </Form>
-          ) : (
-            <Form {...hostForm}>
-              <form
-                onSubmit={hostForm.handleSubmit(onSubmitHost)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={hostForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter email address"
-                          autoComplete="off"
-                          {...field}
-                          readOnly={!!emailParam}
-                          className={
-                            emailParam ? "bg-gray cursor-not-allowed" : ""
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={hostForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
+                  <FormField
+                    control={hostForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
                           <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Enter password"
+                            placeholder="Enter email address"
                             autoComplete="off"
                             {...field}
+                            readOnly={!!emailParam}
+                            className={
+                              emailParam ? "bg-gray cursor-not-allowed" : ""
+                            }
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                          <button
-                            type="button"
-                            onClick={togglePasswordVisibility}
-                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
-                          >
-                            <Eye className="text-muted-foreground" />
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={hostForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Enter password"
+                              autoComplete="off"
+                              {...field}
+                            />
 
-                <button
-                  type="button"
-                  data-testid="signin-request-login-code"
-                  onClick={() =>
-                    handleRequestLoginCode({
-                      email: hostForm.getValues("email"),
-                    })
-                  }
-                  className="text-muted-foreground cursor-pointer text-sm underline"
-                >
-                  Request login code instead?
-                </button>
+                            <button
+                              type="button"
+                              onClick={togglePasswordVisibility}
+                              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
+                            >
+                              <Eye className="text-muted-foreground" />
+                            </button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <Paragraph
-                  align="right"
-                  size="sm"
-                  color="muted"
-                >
-                  {mode === "modal" ? (
-                    <button
-                      type="button"
-                      className="hover:underline"
-                      onClick={() => setHostAuthView("forgotPassword")}
-                    >
-                      Forgot password?
-                    </button>
-                  ) : (
-                    <Link
-                      href="/forgot-password"
-                      className="hover:underline"
-                    >
-                      Forgot password?
-                    </Link>
-                  )}
-                </Paragraph>
+                  <button
+                    type="button"
+                    data-testid="signin-request-login-code"
+                    onClick={() =>
+                      handleRequestLoginCode({
+                        email: hostForm.getValues("email"),
+                      })
+                    }
+                    className="text-muted-foreground cursor-pointer text-sm underline"
+                  >
+                    Request login code instead?
+                  </button>
 
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="w-full"
-                  data-testid="signin-host-submit"
-                  disabled={isHostLoading}
-                >
-                  {isHostLoading ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="size-4 animate-spin" /> Signing in...
-                    </span>
-                  ) : (
-                    <span>Sign in</span>
-                  )}
-                </Button>
+                  <Paragraph
+                    align="right"
+                    size="sm"
+                    color="muted"
+                  >
+                    {mode === "modal" ? (
+                      <button
+                        type="button"
+                        className="hover:underline"
+                        onClick={() => setHostAuthView("forgotPassword")}
+                      >
+                        Forgot password?
+                      </button>
+                    ) : (
+                      <Link
+                        href="/forgot-password"
+                        className="hover:underline"
+                      >
+                        Forgot password?
+                      </Link>
+                    )}
+                  </Paragraph>
 
-                <Paragraph
-                  align="center"
-                  size="sm"
-                >
-                  Don&apos;t have an account?{" "}
-                  {allowInlineSignUp ? (
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      onClick={() => setHostStep("signUp")}
-                    >
-                      Sign up
-                    </button>
-                  ) : (
-                    <Link
-                      href={signupHref}
-                      className="text-primary hover:underline"
-                    >
-                      Sign up
-                    </Link>
-                  )}
-                </Paragraph>
-              </form>
-            </Form>
-          )}
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full"
+                    data-testid="signin-host-submit"
+                    disabled={isHostLoading}
+                  >
+                    {isHostLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="size-4 animate-spin" /> Signing
+                        in...
+                      </span>
+                    ) : (
+                      <span>Sign in</span>
+                    )}
+                  </Button>
+
+                  <Paragraph
+                    align="center"
+                    size="sm"
+                  >
+                    Don&apos;t have an account?{" "}
+                    {allowInlineSignUp ? (
+                      <button
+                        type="button"
+                        className="text-primary hover:underline"
+                        onClick={() => setHostStep("signUp")}
+                      >
+                        Sign up
+                      </button>
+                    ) : (
+                      <Link
+                        href={signupHref}
+                        className="text-primary hover:underline"
+                      >
+                        Sign up
+                      </Link>
+                    )}
+                  </Paragraph>
+                </form>
+              </Form>
+            )}
           </div>
         </TabsContent>
 
