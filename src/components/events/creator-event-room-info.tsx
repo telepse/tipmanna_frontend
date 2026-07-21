@@ -156,7 +156,7 @@ export const CreatorEventRoomInfo = ({ control }: EventRoomInfoProps) => {
         </p>
 
         <h2 className="font-semibold">
-          Let&apos;s setup your private channel to host your videos
+          Let&apos;s setup your channel to host your videos
         </h2>
 
         <FormField
@@ -165,7 +165,7 @@ export const CreatorEventRoomInfo = ({ control }: EventRoomInfoProps) => {
           render={({ field }) => (
             <FormItem>
               <FormLabel className="relative w-fit">
-                What would you like to name your private channel?{" "}
+                What would you like to name your channel?{" "}
                 <span className="text-destructive absolute top-0 -right-4">
                   *
                 </span>
@@ -188,7 +188,7 @@ export const CreatorEventRoomInfo = ({ control }: EventRoomInfoProps) => {
           render={({ field }) => (
             <FormItem>
               <FormLabel className="relative w-fit">
-                Private Channel Description{" "}
+                Channel Description{" "}
                 <span className="text-destructive absolute top-0 -right-4">
                   *
                 </span>
@@ -246,9 +246,8 @@ export const CreatorEventRoomInfo = ({ control }: EventRoomInfoProps) => {
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Are you uploading videos to this private channel as an
-                individual or an organisation?{" "}
-                <span className="text-destructive">*</span>
+                Are you uploading videos to this channel as an individual or an
+                organisation? <span className="text-destructive">*</span>
               </FormLabel>
 
               <FormControl>
@@ -565,9 +564,7 @@ export const CreatorEventRoomInfo = ({ control }: EventRoomInfoProps) => {
 
         <div className="space-y-6 rounded-lg border border-white p-4 shadow sm:p-6">
           <div className="space-y-1">
-            <h2 className="font-semibold">
-              Add more videos to your private channel?
-            </h2>
+            <h2 className="font-semibold">Add more videos to your channel?</h2>
             <p className="text-sm text-white/50">Recommended (skip)</p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

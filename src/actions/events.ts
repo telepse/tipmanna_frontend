@@ -147,6 +147,8 @@ export async function createVideoCoOwnerInviteAction(
     coOwnerName: string;
     coOwnerEmail: string;
     payoutPercentBp: number;
+    contentTitle?: string;
+    youtubeLink?: string;
   },
   token?: string | null
 ) {

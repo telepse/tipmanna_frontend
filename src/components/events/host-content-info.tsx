@@ -228,6 +228,7 @@ export const HostContentInfo = ({ control }: Props) => {
                 <VideoLinksEventVideoTypeField
                   control={control}
                   index={index}
+                  label="Content"
                 />
 
                 <div className="space-y-2">

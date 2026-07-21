@@ -1,6 +1,10 @@
 import { AnimationHandle } from "@/types/animation.types";
 import { PAYMENT_WRAP } from "@/lib/animationContract";
 import { animWarn } from "@/lib/animationDebug";
+import {
+  tracePaymentAnimation,
+  tracePaymentAnimationError,
+} from "@/lib/payment-animation-trace";
 
 const SAFETY_TIMEOUT_MS = PAYMENT_WRAP.safetyTimeoutMs;
 
@@ -16,10 +20,83 @@ const PAYMENT_BETWEEN_CYCLES_GAP_MS = PAYMENT_WRAP.betweenCyclesMs;
 
 const PAYMENT_SECOND_CYCLE_BEAT_MS = PAYMENT_WRAP.secondCycleBeatMs;
 
+export interface PaymentAnimationTraceContext {
+  surface?: string;
+  eventId?: string;
+  bundleId?: string;
+  seq?: number;
+  playbackKey?: string;
+  characterName?: string;
+  styleName?: string;
+}
+
 async function runSinglePaymentPlay(
-  factory: () => AnimationHandle
+  factory: () => AnimationHandle,
+  cycleNumber: 1 | 2,
+  ctx?: PaymentAnimationTraceContext
 ): Promise<void> {
-  const handle = factory();
+  tracePaymentAnimation({
+    stage: "payment_cycle_started",
+    cycleNumber,
+    surface: ctx?.surface,
+    eventId: ctx?.eventId,
+    bundleId: ctx?.bundleId,
+    seq: ctx?.seq,
+    playbackKey: ctx?.playbackKey,
+    characterName: ctx?.characterName,
+    styleName: ctx?.styleName,
+  });
+
+  let handle: AnimationHandle;
+  try {
+    tracePaymentAnimation({
+      stage: "animation_factory_invoked",
+      cycleNumber,
+      surface: ctx?.surface,
+      bundleId: ctx?.bundleId,
+      playbackKey: ctx?.playbackKey,
+      characterName: ctx?.characterName,
+      styleName: ctx?.styleName,
+    });
+    handle = factory();
+    if (
+      !handle ||
+      typeof handle.finished?.then !== "function" ||
+      typeof handle.stop !== "function"
+    ) {
+      tracePaymentAnimation({
+        stage: "animation_handle_invalid",
+        cycleNumber,
+        surface: ctx?.surface,
+        bundleId: ctx?.bundleId,
+        playbackKey: ctx?.playbackKey,
+        characterName: ctx?.characterName,
+        styleName: ctx?.styleName,
+        result: "invalid_handle",
+      });
+      return;
+    }
+    tracePaymentAnimation({
+      stage: "animation_handle_returned",
+      cycleNumber,
+      surface: ctx?.surface,
+      bundleId: ctx?.bundleId,
+      playbackKey: ctx?.playbackKey,
+      characterName: ctx?.characterName,
+      styleName: ctx?.styleName,
+      result: "ok",
+    });
+  } catch (err) {
+    tracePaymentAnimationError("payment_cycle_failed", err, {
+      cycleNumber,
+      surface: ctx?.surface,
+      bundleId: ctx?.bundleId,
+      playbackKey: ctx?.playbackKey,
+      characterName: ctx?.characterName,
+      styleName: ctx?.styleName,
+    });
+    return;
+  }
 
   handle.start?.();
 
@@ -31,6 +108,23 @@ async function runSinglePaymentPlay(
       } catch {
         /* best-effort */
       }
+      tracePaymentAnimation({
+        stage: "animation_safety_timeout",
+        cycleNumber,
+        surface: ctx?.surface,
+        bundleId: ctx?.bundleId,
+        playbackKey: ctx?.playbackKey,
+        characterName: ctx?.characterName,
+        styleName: ctx?.styleName,
+      });
+      tracePaymentAnimation({
+        stage: "animation_stop_invoked",
+        cycleNumber,
+        surface: ctx?.surface,
+        bundleId: ctx?.bundleId,
+        playbackKey: ctx?.playbackKey,
+        result: "safety_timeout",
+      });
       animWarn(
         "[wrapPaymentAnimation] safety timeout fired after",
         SAFETY_TIMEOUT_MS,
@@ -45,16 +139,46 @@ async function runSinglePaymentPlay(
       handle.finished.then(() => "finished" as const),
       timeoutPromise,
     ]);
-    if (winner === "finished" && timeoutId !== undefined) {
-      clearTimeout(timeoutId);
-      timeoutId = undefined;
+    if (winner === "finished") {
+      tracePaymentAnimation({
+        stage: "animation_finished_resolved",
+        cycleNumber,
+        surface: ctx?.surface,
+        bundleId: ctx?.bundleId,
+        playbackKey: ctx?.playbackKey,
+        characterName: ctx?.characterName,
+        styleName: ctx?.styleName,
+      });
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
     }
-  } catch {
+  } catch (err) {
+    tracePaymentAnimation({
+      stage: "animation_finished_rejected",
+      cycleNumber,
+      surface: ctx?.surface,
+      bundleId: ctx?.bundleId,
+      playbackKey: ctx?.playbackKey,
+      characterName: ctx?.characterName,
+      styleName: ctx?.styleName,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
     // swallow to protect queue
   } finally {
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
     }
+    tracePaymentAnimation({
+      stage: "payment_cycle_completed",
+      cycleNumber,
+      surface: ctx?.surface,
+      bundleId: ctx?.bundleId,
+      playbackKey: ctx?.playbackKey,
+      characterName: ctx?.characterName,
+      styleName: ctx?.styleName,
+    });
   }
 }
 
@@ -64,13 +188,35 @@ async function runSinglePaymentPlay(
  * Preview mode never uses this — only `createAnimationFromStyle(..., "payment")` paths.
  */
 export function wrapPaymentAnimation(
-  factory: () => AnimationHandle
+  factory: () => AnimationHandle,
+  traceContext?: PaymentAnimationTraceContext
 ): () => Promise<void> {
   return async () => {
-    await runSinglePaymentPlay(factory);
-    await sleep(PAYMENT_BETWEEN_CYCLES_GAP_MS);
-    await sleep(PAYMENT_SECOND_CYCLE_BEAT_MS);
-    await runSinglePaymentPlay(factory);
+    try {
+      await runSinglePaymentPlay(factory, 1, traceContext);
+      await sleep(PAYMENT_BETWEEN_CYCLES_GAP_MS);
+      await sleep(PAYMENT_SECOND_CYCLE_BEAT_MS);
+      await runSinglePaymentPlay(factory, 2, traceContext);
+      tracePaymentAnimation({
+        stage: "payment_double_cycle_completed",
+        surface: traceContext?.surface,
+        eventId: traceContext?.eventId,
+        bundleId: traceContext?.bundleId,
+        seq: traceContext?.seq,
+        playbackKey: traceContext?.playbackKey,
+        characterName: traceContext?.characterName,
+        styleName: traceContext?.styleName,
+        result: "ok",
+      });
+    } catch (err) {
+      tracePaymentAnimationError("payment_cycle_failed", err, {
+        surface: traceContext?.surface,
+        bundleId: traceContext?.bundleId,
+        playbackKey: traceContext?.playbackKey,
+        characterName: traceContext?.characterName,
+        styleName: traceContext?.styleName,
+      });
+    }
   };
 }
 

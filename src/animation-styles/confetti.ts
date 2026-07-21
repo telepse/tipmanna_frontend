@@ -2,6 +2,13 @@ import confetti from "canvas-confetti";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
 import { AnimationMode } from "@/lib/animationMode";
 import { AnimationHandle } from "@/types/animation.types";
+import {
+  traceAnimationAssetLoad,
+  traceAnimationDomCleanup,
+  traceAnimationDomMountAttempt,
+  traceAnimationDomMounted,
+  traceAnimationDomNotMounted,
+} from "@/lib/animation-dom-trace";
 
 export function confettiStyle({
   mode,
@@ -35,6 +42,10 @@ export function confettiStyle({
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
+  const domCtx = { styleName: "Confetti", characterName: tips?.[0], mode };
+
+  traceAnimationDomMountAttempt(domCtx, { mode });
+
   Object.assign(canvas.style, {
     position: "fixed",
     inset: "0",
@@ -43,6 +54,13 @@ export function confettiStyle({
   });
 
   document.body.appendChild(canvas);
+
+  if (!canvas.isConnected) {
+    traceAnimationDomNotMounted(domCtx, "canvas_not_connected");
+  } else {
+    traceAnimationDomMounted(canvas, domCtx, { mode });
+    traceAnimationAssetLoad(true, domCtx, { mode });
+  }
 
   const fire = confetti.create(canvas, { resize: false, useWorker: true });
   const origin = { x: 0.5, y: 0.06 };
@@ -57,8 +75,20 @@ export function confettiStyle({
   function cleanup() {
     if (stopped) return;
     stopped = true;
+    traceAnimationDomCleanup(
+      canvas,
+      domCtx,
+      "canvas[style*='fixed']",
+      "started"
+    );
     fire.reset();
     canvas.remove();
+    traceAnimationDomCleanup(
+      canvas,
+      domCtx,
+      "canvas[style*='fixed']",
+      "completed"
+    );
   }
 
   // ------------------ Initial Pulse ------------------

@@ -132,6 +132,13 @@ export default async function ContentPage({ params, searchParams }: Props) {
     getEventByIdAction(eventId),
   ]);
 
+  // fetch creator data
+  const res = (await getContentChannelAction(eventId)) as ActionResult<
+    ContentData[]
+  >;
+  const videoRes = res.data;
+  console.log(videoRes);
+
   const eventCatalog = parseEventCharacterCatalog(
     eventRes.success ? eventRes.data?.characterSets : []
   );

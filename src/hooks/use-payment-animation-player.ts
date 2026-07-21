@@ -6,6 +6,7 @@ import type { TipAnimationEvent } from "@/lib/animation-guard";
 import { useAnimationQueue } from "@/hooks/use-animation-queue";
 import { animLog } from "@/lib/animationDebug";
 import { enqueuePaymentBundleForValidatedTip } from "@/lib/run-payment-bundle-animations";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 
 export interface UsePaymentAnimationPlayerOptions {
   /** Tips for this event are played; empty string skips playback. */
@@ -35,7 +36,11 @@ export function usePaymentAnimationPlayer({
   animationMountRef.current = animationMount;
 
   const queueKey = eventId || "__no-event__";
-  const { enqueue } = useAnimationQueue({ eventId: queueKey, enabled });
+  const { enqueue } = useAnimationQueue({
+    eventId: queueKey,
+    enabled,
+    surface,
+  });
 
   const enqueueRef = useRef(enqueue);
   enqueueRef.current = enqueue;
@@ -57,6 +62,14 @@ export function usePaymentAnimationPlayer({
       const payloadEventId =
         data?.eventId != null ? String(data.eventId).trim() : "";
       if (!sid || !payloadEventId || payloadEventId !== sid) return;
+
+      tracePaymentAnimation({
+        stage: "validated_tip_listener_received",
+        surface,
+        eventId: data.eventId,
+        bundleId: data.id,
+        seq: data.seq,
+      });
 
       animLog("[usePaymentAnimationPlayer]", {
         eventId: data.eventId,

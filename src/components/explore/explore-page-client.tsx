@@ -83,6 +83,9 @@ import {
 } from "@/lib/explore-url-feed-state";
 import {
   exploreCurrentHref,
+  exploreHrefsEqual,
+  exploreLiveSearchParamsKey,
+  exploreNeedsFeedTabBootstrap,
   exploreStateAheadOfUrl,
 } from "@/lib/explore-url-sync-policy";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
@@ -572,14 +575,7 @@ export default function ExplorePageClient({
               : "feed";
 
     if (localTabNavRef.current) {
-      const stateAhead = exploreStateAheadOfUrl(
-        pathBase,
-        { tab, joinCommunityId },
-        feedUrlStateRef.current,
-        searchParamsKey
-      );
-      if (stateAhead) return;
-      localTabNavRef.current = false;
+      return;
     }
 
     setTab(prev => {
@@ -596,6 +592,7 @@ export default function ExplorePageClient({
 
   /** Monotonic id so only the latest URL commit may retry. */
   const urlCommitGenRef = useRef(0);
+  const bareExploreCanonicalizedRef = useRef(false);
 
   type ExploreUrlCommitSource =
     | "feed-subtab-click"
@@ -603,10 +600,12 @@ export default function ExplorePageClient({
     | "filter-change"
     | "filter-lang-change"
     | "filter-country-change"
+    | "filter-bootstrap"
     | "community-selection"
     | "discover-expand"
     | "passive-sync"
-    | "retry-microtask";
+    | "retry-microtask"
+    | "retry-raf";
 
   const commitExploreUrl = useCallback(
     (
@@ -615,37 +614,81 @@ export default function ExplorePageClient({
       feedState: typeof feedUrlStateRef.current,
       mode: "push" | "replace" = "push"
     ) => {
-      const liveSearchKey =
-        typeof window !== "undefined"
-          ? window.location.search.replace(/^\?/, "")
-          : searchParamsKeyRef.current;
-      const mergeKey = liveSearchKey || searchParamsKeyRef.current;
+      const liveSearchKey = exploreLiveSearchParamsKey(
+        searchParamsKeyRef.current
+      );
       const nextHref = buildExploreFeedHref(
         pathBase,
         tabCtx,
         feedState,
-        mergeKey
+        liveSearchKey
       );
       const curHref =
         typeof window !== "undefined"
           ? `${window.location.pathname}${window.location.search}`
           : exploreCurrentHref(pathBase, searchParamsKeyRef.current);
-      if (nextHref === curHref) return;
+      if (exploreHrefsEqual(nextHref, curHref)) return;
+
+      if (mode === "replace") {
+        router.replace(nextHref, { scroll: false });
+        return;
+      }
+
+      const pushWithRetries = (href: string, commitGen: number) => {
+        router.push(href, { scroll: false });
+        const retryIfStale = () => {
+          if (commitGen !== urlCommitGenRef.current) return;
+          if (typeof window === "undefined") return;
+          const liveHref = `${window.location.pathname}${window.location.search}`;
+          if (exploreHrefsEqual(liveHref, href)) return;
+          router.push(href, { scroll: false });
+        };
+        queueMicrotask(retryIfStale);
+        requestAnimationFrame(retryIfStale);
+      };
+
+      if (exploreNeedsFeedTabBootstrap(liveSearchKey)) {
+        const liveParsed = parseExploreFeedUrlState(
+          new URLSearchParams(liveSearchKey)
+        );
+        const bootstrapState = {
+          ...feedState,
+          trendEventTypes: liveParsed.trendEventTypes,
+          trendLanguage: liveParsed.trendLanguage,
+          trendCountry: liveParsed.trendCountry,
+          tvExploreSource: liveParsed.tvExploreSource,
+          communityFeedSelIds: liveParsed.communityFeedSelIds,
+        };
+        const bootstrapHref = buildExploreFeedHref(
+          pathBase,
+          tabCtx,
+          bootstrapState,
+          liveSearchKey
+        );
+        if (!exploreHrefsEqual(bootstrapHref, curHref)) {
+          router.replace(bootstrapHref, { scroll: false });
+        }
+        const commitGen = ++urlCommitGenRef.current;
+        queueMicrotask(() => {
+          if (commitGen !== urlCommitGenRef.current) return;
+          const liveKey = exploreLiveSearchParamsKey(
+            searchParamsKeyRef.current
+          );
+          const fullHref = buildExploreFeedHref(
+            pathBase,
+            tabCtx,
+            feedState,
+            liveKey
+          );
+          const liveHref = `${window.location.pathname}${window.location.search}`;
+          if (exploreHrefsEqual(liveHref, fullHref)) return;
+          pushWithRetries(fullHref, commitGen);
+        });
+        return;
+      }
 
       const commitGen = ++urlCommitGenRef.current;
-      const navigate =
-        mode === "replace" ? router.replace.bind(router) : router.push.bind(router);
-      navigate(nextHref, { scroll: false });
-
-      if (mode === "replace") return;
-
-      queueMicrotask(() => {
-        if (commitGen !== urlCommitGenRef.current) return;
-        if (typeof window === "undefined") return;
-        const liveHref = `${window.location.pathname}${window.location.search}`;
-        if (liveHref === nextHref) return;
-        router.push(nextHref, { scroll: false });
-      });
+      pushWithRetries(nextHref, commitGen);
     },
     [pathBase, router]
   );
@@ -655,10 +698,14 @@ export default function ExplorePageClient({
       localTabNavRef.current = true;
       setMainTab("feed");
       setFeedSubTab(sub);
+      feedUrlStateRef.current = {
+        ...feedUrlStateRef.current,
+        feedSubTab: sub,
+      };
       commitExploreUrl(
         "feed-subtab-click",
         { tab: "feed", joinCommunityId: joinCommunityIdRef.current },
-        { ...feedUrlStateRef.current, feedSubTab: sub }
+        feedUrlStateRef.current
       );
     },
     [commitExploreUrl, setMainTab]
@@ -680,6 +727,24 @@ export default function ExplorePageClient({
     },
     [commitExploreUrl, setMainTab]
   );
+
+  /** Canonicalize bare /explore once on mount so push commits have a query baseline. */
+  useLayoutEffect(() => {
+    if (bareExploreCanonicalizedRef.current) return;
+    bareExploreCanonicalizedRef.current = true;
+    if (localTabNavRef.current) return;
+    if (tab !== "feed") return;
+    if (!exploreNeedsFeedTabBootstrap(searchParamsKey)) return;
+
+    commitExploreUrl(
+      "passive-sync",
+      { tab: "feed", joinCommunityId },
+      feedUrlStateRef.current,
+      "replace"
+    );
+    // Mount-only: subsequent bare /explore entries rely on commitExploreUrl bootstrap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional once-per-mount
+  }, []);
 
   /** Clear local navigation guard once the browser URL matches React state. */
   useEffect(() => {
@@ -725,18 +790,11 @@ export default function ExplorePageClient({
       parsed.tvExploreSource = dedicatedCommunityId;
     }
 
-    const stateAhead = exploreStateAheadOfUrl(
-      pathBase,
-      { tab, joinCommunityId },
-      feedUrlStateRef.current,
-      searchParamsKey
-    );
-    if (localTabNavRef.current && stateAhead) {
+    if (localTabNavRef.current) {
       return;
     }
 
     if (exploreFeedUrlStatesEqual(feedUrlStateRef.current, parsed)) return;
-
     setTrendEventTypes(parsed.trendEventTypes);
     setTrendLanguage(parsed.trendLanguage);
     setTrendCountry(parsed.trendCountry);
@@ -754,21 +812,24 @@ export default function ExplorePageClient({
 
   /** Passive URL normalization only — explicit user navigation owns push commits. */
   useEffect(() => {
+    if (localTabNavRef.current) return;
+
+    const liveKey = exploreLiveSearchParamsKey(searchParamsKeyRef.current);
     const nextHref = buildExploreFeedHref(
       pathBase,
       { tab, joinCommunityId },
       feedUrlStateRef.current,
-      searchParamsKeyRef.current
+      liveKey
     );
-    const curHref = exploreCurrentHref(pathBase, searchParamsKeyRef.current);
-    if (nextHref === curHref) return;
+    const curHref = exploreCurrentHref(pathBase, liveKey);
+    if (exploreHrefsEqual(nextHref, curHref)) return;
 
     if (
       exploreStateAheadOfUrl(
         pathBase,
         { tab, joinCommunityId },
         feedUrlStateRef.current,
-        searchParamsKeyRef.current
+        liveKey
       )
     ) {
       return;
@@ -877,47 +938,71 @@ export default function ExplorePageClient({
     }
   }, [tab]);
 
+  const commitFilterExploreUrl = useCallback(
+    (
+      source: Extract<
+        ExploreUrlCommitSource,
+        "filter-change" | "filter-lang-change" | "filter-country-change"
+      >,
+      nextFeedState: typeof feedUrlStateRef.current,
+      applyState: () => void
+    ) => {
+      localTabNavRef.current = true;
+      setMainTab("feed");
+      feedUrlStateRef.current = nextFeedState;
+      applyState();
+
+      const tabCtx = {
+        tab: "feed" as const,
+        joinCommunityId: joinCommunityIdRef.current,
+      };
+
+      commitExploreUrl(source, tabCtx, nextFeedState);
+    },
+    [commitExploreUrl, setMainTab]
+  );
+
   const toggleTrendEventType = useCallback(
     (value: string) => {
-      localTabNavRef.current = true;
       const prev = feedUrlStateRef.current.trendEventTypes;
       const next = prev.includes(value)
         ? prev.filter(v => v !== value)
         : [...prev, value];
-      setTrendEventTypes(next);
-      commitExploreUrl(
-        "filter-change",
-        { tab, joinCommunityId },
-        { ...feedUrlStateRef.current, trendEventTypes: next }
+      const nextFeedState = {
+        ...feedUrlStateRef.current,
+        trendEventTypes: next,
+      };
+      commitFilterExploreUrl("filter-change", nextFeedState, () =>
+        setTrendEventTypes(next)
       );
     },
-    [commitExploreUrl, tab, joinCommunityId]
+    [commitFilterExploreUrl]
   );
 
   const setTrendLanguageWithUrl = useCallback(
     (value: string) => {
-      localTabNavRef.current = true;
-      setTrendLanguage(value);
-      commitExploreUrl(
-        "filter-lang-change",
-        { tab, joinCommunityId },
-        { ...feedUrlStateRef.current, trendLanguage: value }
+      const nextFeedState = {
+        ...feedUrlStateRef.current,
+        trendLanguage: value,
+      };
+      commitFilterExploreUrl("filter-lang-change", nextFeedState, () =>
+        setTrendLanguage(value)
       );
     },
-    [commitExploreUrl, tab, joinCommunityId]
+    [commitFilterExploreUrl]
   );
 
   const setTrendCountryWithUrl = useCallback(
     (value: string) => {
-      localTabNavRef.current = true;
-      setTrendCountry(value);
-      commitExploreUrl(
-        "filter-country-change",
-        { tab, joinCommunityId },
-        { ...feedUrlStateRef.current, trendCountry: value }
+      const nextFeedState = {
+        ...feedUrlStateRef.current,
+        trendCountry: value,
+      };
+      commitFilterExploreUrl("filter-country-change", nextFeedState, () =>
+        setTrendCountry(value)
       );
     },
-    [commitExploreUrl, tab, joinCommunityId]
+    [commitFilterExploreUrl]
   );
 
   const handlePlayInExplore = useCallback(

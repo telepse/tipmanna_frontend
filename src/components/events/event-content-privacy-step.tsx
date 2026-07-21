@@ -217,7 +217,7 @@ export function EventContentPrivacyStep({
           <h2 className="font-semibold">Privacy &amp; policy</h2>
           <p className={`mt-1 ${CREATE_FORM_MUTED_TEXT_CLASS}`}>
             Confirm YouTube channels and ownership for each video. Co-owner
-            invites require Host Premium or Host Community.
+            invites requires a paid plan.
           </p>
         </div>
 
@@ -523,6 +523,8 @@ function CoOwnerInviteBlock({
       coOwnerName: name.trim(),
       coOwnerEmail: email.trim(),
       payoutPercentBp: Math.round(pct * 100),
+      contentTitle: getValues(`videoLinks.${index}.title`)?.trim() || "",
+      youtubeLink: getValues(`videoLinks.${index}.url`)?.trim() || "",
     });
     setPending(false);
     if (!res.success) {
@@ -602,7 +604,7 @@ function CoOwnerInviteBlock({
       ) : null}
       <div className="flex items-center gap-2">
         <FormLabel className={`shrink-0 ${CREATE_FORM_LABEL_CLASS}`}>
-          Share % (of 100%)
+          Co-owner share % (of 100%)
         </FormLabel>
         <Input
           type="number"

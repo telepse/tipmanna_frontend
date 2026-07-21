@@ -3,6 +3,7 @@ import {
   logRealtimeTelemetry,
   type RealtimeSurface,
 } from "@/lib/realtime-telemetry";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 
 /** Wire / transport max age; product “still live” uses `playbackEndsAt` on the payload. */
 export const STALE_THRESHOLD_MS = REALTIME_GUARD.staleThresholdMs;
@@ -55,11 +56,24 @@ export function createTipGuard(options?: { surface?: RealtimeSurface }) {
           reason: "stale",
           ts: Date.now(),
         });
+        tracePaymentAnimation({
+          stage: "guard_rejected",
+          surface,
+          eventId: data.eventId,
+          bundleId: data.id,
+          seq: data.seq,
+          serverTs: data.serverTs,
+          previousSeq: lastSeqByEvent.get(data.eventId),
+          previousServerTs: lastServerTsByEvent.get(data.eventId),
+          rejectionReason: "stale_server_timestamp",
+          result: "rejected",
+        });
         return false;
       }
 
       if (typeof data.seq === "number") {
         const lastSeq = lastSeqByEvent.get(data.eventId) ?? 0;
+        const prevServerTs = lastServerTsByEvent.get(data.eventId);
         if (data.seq <= lastSeq) {
           logRealtimeTelemetry({
             event: "tip_animation_rejected",
@@ -73,9 +87,33 @@ export function createTipGuard(options?: { surface?: RealtimeSurface }) {
             reason: "duplicate_seq",
             ts: Date.now(),
           });
+          tracePaymentAnimation({
+            stage: "guard_rejected",
+            surface,
+            eventId: data.eventId,
+            bundleId: data.id,
+            seq: data.seq,
+            serverTs: data.serverTs,
+            previousSeq: lastSeq,
+            previousServerTs: lastServerTsByEvent.get(data.eventId),
+            rejectionReason:
+              data.seq === lastSeq ? "duplicate_seq" : "older_seq",
+            result: "rejected",
+          });
           return false;
         }
         lastSeqByEvent.set(data.eventId, data.seq);
+        tracePaymentAnimation({
+          stage: "guard_accepted",
+          surface,
+          eventId: data.eventId,
+          bundleId: data.id,
+          seq: data.seq,
+          serverTs: data.serverTs,
+          previousSeq: lastSeq,
+          previousServerTs: prevServerTs,
+          result: "accepted",
+        });
       } else {
         const lastTs = lastServerTsByEvent.get(data.eventId) ?? 0;
         if (data.serverTs <= lastTs) {
@@ -90,9 +128,29 @@ export function createTipGuard(options?: { surface?: RealtimeSurface }) {
             reason: "duplicate_ts",
             ts: Date.now(),
           });
+          tracePaymentAnimation({
+            stage: "guard_rejected",
+            surface,
+            eventId: data.eventId,
+            bundleId: data.id,
+            serverTs: data.serverTs,
+            previousServerTs: lastTs,
+            rejectionReason:
+              data.serverTs === lastTs ? "duplicate_seq" : "older_seq",
+            result: "rejected",
+          });
           return false;
         }
         lastServerTsByEvent.set(data.eventId, data.serverTs);
+        tracePaymentAnimation({
+          stage: "guard_accepted",
+          surface,
+          eventId: data.eventId,
+          bundleId: data.id,
+          serverTs: data.serverTs,
+          previousServerTs: lastTs,
+          result: "accepted",
+        });
       }
 
       logRealtimeTelemetry({

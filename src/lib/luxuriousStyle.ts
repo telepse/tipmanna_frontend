@@ -1,6 +1,13 @@
 import { AnimationHandle } from "@/types/animation.types";
 import { ANIMATION_DURATION } from "./animationContract";
 import { AnimationMode } from "./animationMode";
+import {
+  traceAnimationAssetLoad,
+  traceAnimationDomCleanup,
+  traceAnimationDomMountAttempt,
+  traceAnimationDomMounted,
+  traceAnimationDomNotMounted,
+} from "@/lib/animation-dom-trace";
 
 export function luxuriousStyle({
   videos = [],
@@ -39,10 +46,15 @@ export function luxuriousStyle({
     ? document.getElementById(containerId)
     : document.body;
 
+  const domCtx = { styleName: "Luxurious", mode };
+
+  traceAnimationDomMountAttempt(domCtx, { containerId, isPreview });
+
   if (!mount) {
     console.warn(
       `Luxurious animation container with id "${containerId}" not found. Animation skipped.`
     );
+    traceAnimationDomNotMounted(domCtx, "mount_not_found");
     return { stop: () => {}, finished: Promise.resolve() };
   }
 
@@ -70,7 +82,10 @@ export function luxuriousStyle({
 
     mount.appendChild(video);
     nodes.push(video);
-    video.play().catch(() => {});
+    video.play().then(
+      () => traceAnimationAssetLoad(true, domCtx, { videoSrc: video.src }),
+      () => traceAnimationAssetLoad(false, domCtx, { videoSrc: video.src })
+    );
 
     const videoLife = TOTAL_DURATION - i * stagger;
     const anim = video.animate(
@@ -119,6 +134,10 @@ export function luxuriousStyle({
     entranceAnimations.push(anim);
   }
 
+  if (nodes[0]) {
+    traceAnimationDomMounted(nodes[0], domCtx, { nodeCount: nodes.length });
+  }
+
   const finished = new Promise<void>(resolve => {
     const t = window.setTimeout(() => {
       stopped = true;
@@ -130,6 +149,12 @@ export function luxuriousStyle({
 
   // ---------- Cleanup function ----------
   function cleanup() {
+    traceAnimationDomCleanup(
+      nodes[0] ?? null,
+      domCtx,
+      "video[style*='fixed']",
+      "started"
+    );
     entranceAnimations.forEach(a => a.cancel());
     entranceAnimations.length = 0;
     nodes.forEach(v => {
@@ -138,6 +163,12 @@ export function luxuriousStyle({
     });
     timeouts.forEach(clearTimeout);
     timeouts.length = 0;
+    traceAnimationDomCleanup(
+      nodes[0] ?? null,
+      domCtx,
+      "video[style*='fixed']",
+      "completed"
+    );
   }
 
   // ---------- Stop function ----------

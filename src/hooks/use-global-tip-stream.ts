@@ -5,6 +5,7 @@ import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { createTipGuard, type TipAnimationEvent } from "@/lib/animation-guard";
 import { animLog } from "@/lib/animationDebug";
 import { logRealtimeTelemetry } from "@/lib/realtime-telemetry";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import type { Channel } from "pusher-js";
 
 /**
@@ -68,6 +69,18 @@ export function useGlobalTipStream(
     const guard = createTipGuard({ surface });
 
     const handleTipAnimation = (data: TipAnimationEvent) => {
+      tracePaymentAnimation({
+        stage: "raw_tip_animation_received",
+        surface,
+        eventId: data.eventId,
+        bundleId: data.id,
+        seq: data.seq,
+        serverTs: data.serverTs,
+        selectedTips: data.selectedTips,
+        channel: "global-live-tv",
+        eventName: "tip-animation",
+      });
+
       const raw = eventIdRef.current;
       const filter =
         raw !== undefined && String(raw).trim() !== ""
@@ -96,7 +109,27 @@ export function useGlobalTipStream(
           reason: `eventId_mismatch:expected=${filter}`,
           ts: Date.now(),
         });
+        tracePaymentAnimation({
+          stage: "event_id_filter_rejected",
+          surface,
+          eventId: data.eventId,
+          bundleId: data.id,
+          seq: data.seq,
+          rejectionReason: "wrong_event",
+          result: "rejected",
+        });
         return;
+      }
+
+      if (filter !== undefined) {
+        tracePaymentAnimation({
+          stage: "event_id_filter_accepted",
+          surface,
+          eventId: data.eventId,
+          bundleId: data.id,
+          seq: data.seq,
+          result: "accepted",
+        });
       }
 
       const accepted = guard.shouldAccept(data);
@@ -125,10 +158,29 @@ export function useGlobalTipStream(
         ts: Date.now(),
       });
 
+      tracePaymentAnimation({
+        stage: "validated_tip_dispatched",
+        surface,
+        eventId: data.eventId,
+        bundleId: data.id,
+        seq: data.seq,
+        serverTs: data.serverTs,
+        selectedTips: data.selectedTips,
+        result: "dispatched",
+      });
+
       window.dispatchEvent(new CustomEvent("validated-tip", { detail: data }));
     };
 
     channel.bind("tip-animation", handleTipAnimation);
+    tracePaymentAnimation({
+      stage: "tip_handler_bound",
+      surface,
+      eventId: eventIdRef.current,
+      channel: "global-live-tv",
+      eventName: "tip-animation",
+      handlerBound: true,
+    });
     logRealtimeTelemetry({
       event: "subscription_bind",
       surface,
@@ -138,6 +190,14 @@ export function useGlobalTipStream(
 
     return () => {
       channel.unbind("tip-animation", handleTipAnimation);
+      tracePaymentAnimation({
+        stage: "tip_handler_unbound",
+        surface,
+        eventId: eventIdRef.current,
+        channel: "global-live-tv",
+        eventName: "tip-animation",
+        handlerBound: false,
+      });
       logRealtimeTelemetry({
         event: "subscription_unbind",
         surface,
