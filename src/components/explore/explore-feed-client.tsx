@@ -43,6 +43,7 @@ import {
   takeExploreFeedBoot,
   waitExploreFeedPrefetch,
 } from "@/lib/explore-feed-prefetch-cache";
+import { useExploreFeedInitialLoadingFailOpen } from "@/lib/use-explore-feed-initial-loading-failopen";
 import {
   computePaginationBackoffMs,
   isConfirmedFeedExhaustion,
@@ -821,6 +822,7 @@ export const ExploreFeedClient = forwardRef<
   const [initialLoading, setInitialLoading] = useState(
     () => exploreBootRef.current!.items.length === 0
   );
+  useExploreFeedInitialLoadingFailOpen(initialLoading, setInitialLoading);
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [exploreCommentOpen, setExploreCommentOpen] = useState(false);

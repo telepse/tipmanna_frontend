@@ -18,6 +18,7 @@ import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { TipAnimationEvent } from "@/lib/animation-guard";
 import { animLog } from "@/lib/animationDebug";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
+import { clearPendingTipBroadcast } from "@/lib/payment-origin";
 import { useAnimationQueue } from "@/hooks/use-animation-queue";
 import { Pin } from "lucide-react";
 
@@ -97,10 +98,35 @@ export const RoomMessages = ({
 
     const handler = (e: Event) => {
       const customEvent = e as CustomEvent;
-      const { amount, sender, textTip, selectedTips } =
-        customEvent.detail || {};
+      const {
+        amount,
+        sender,
+        textTip,
+        selectedTips,
+        transactionId,
+        eventChannelId,
+      } = customEvent.detail || {};
       if (!selectedTips || selectedTips.length === 0) return;
       if (!amount) return;
+
+      const correlatedTransactionId =
+        typeof transactionId === "string" && transactionId.trim()
+          ? transactionId.trim()
+          : undefined;
+      const correlatedEventChannelId =
+        typeof eventChannelId === "string" && eventChannelId.trim()
+          ? eventChannelId.trim()
+          : undefined;
+
+      if (correlatedTransactionId) {
+        tracePaymentAnimation({
+          stage: "create_message_request_correlated",
+          surface: "room_messages",
+          eventId,
+          transactionId: correlatedTransactionId,
+          transactionCorrelation: "present",
+        });
+      }
 
       const tipCounts: Record<string, number> = {};
       selectedTips.forEach((tip: string) => {
@@ -130,7 +156,17 @@ export const RoomMessages = ({
         secondaryText: textTip || undefined,
         selectedTips,
         purchasedSummary,
+        ...(correlatedEventChannelId
+          ? { eventChannelId: correlatedEventChannelId }
+          : {}),
+        ...(correlatedTransactionId
+          ? { transactionId: correlatedTransactionId }
+          : {}),
       });
+
+      if (correlatedTransactionId) {
+        clearPendingTipBroadcast();
+      }
     };
 
     const handleNewTip = (data: TipAnimationEvent) => {

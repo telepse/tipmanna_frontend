@@ -13,6 +13,7 @@ import { setSelectedTips, markPaymentCompleted } from "@/features/tip-slice";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
 import { notifyTextTipDraftSync } from "@/lib/tip-text-selection";
 import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
+import { readPendingTipBroadcast } from "@/lib/payment-origin";
 
 export const DropTip = ({ eventId }: { eventId: string }) => {
   const [tipDropped, setTipDropped] = useState(false);
@@ -44,6 +45,10 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
       .map(([name, qty]) => `${qty} ${name}`)
       .join(", ");
 
+    const pending = readPendingTipBroadcast();
+    const transactionId = pending?.transactionId?.trim() || undefined;
+    const eventChannelId = pending?.eventChannelId?.trim() || undefined;
+
     window.dispatchEvent(
       new CustomEvent("tip:dropped", {
         detail: {
@@ -53,6 +58,8 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
           eventId,
           selectedTips,
           purchasedSummary,
+          ...(transactionId ? { transactionId } : {}),
+          ...(eventChannelId ? { eventChannelId } : {}),
         },
       })
     );
