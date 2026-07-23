@@ -69,7 +69,7 @@ import {
   updateHostEventDetailsAction,
 } from "@/actions/host";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
-import { useRouter } from "next/navigation";
+import { formatEventSubmissionKindLabel } from "@/lib/event-submission-kind";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -130,6 +130,7 @@ interface Props {
   contents: Content[];
   hostEmail: string;
   initialHostMessages: HostMessage[];
+  submissionKind?: string | null;
 }
 
 interface EventFormValues {
@@ -271,6 +272,7 @@ export const EventDetailClient = ({
   contents,
   hostEmail,
   initialHostMessages,
+  submissionKind,
 }: Props) => {
   const [tabType, setTabType] = useState<
     "event_info" | "contents" | "post_to_event" | "generate_report"
@@ -766,6 +768,15 @@ export const EventDetailClient = ({
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  <div className="bg-muted/30 rounded-md border px-4 py-3">
+                    <p className="text-muted-foreground text-xs tracking-wide uppercase">
+                      Form submission type
+                    </p>
+                    <p className="text-base font-medium">
+                      {formatEventSubmissionKindLabel(submissionKind)}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

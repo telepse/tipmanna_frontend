@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   saving?: boolean;
   lastSavedAt?: Date | null;
+  saveError?: string | null;
   onSaveNow?: () => void;
   className?: string;
 };
@@ -14,6 +15,7 @@ type Props = {
 export function DraftSaveIndicator({
   saving = false,
   lastSavedAt = null,
+  saveError = null,
   onSaveNow,
   className,
 }: Props) {
@@ -29,6 +31,8 @@ export function DraftSaveIndicator({
           <Loader2 className="size-3 animate-spin" />
           Saving draft…
         </span>
+      ) : saveError ? (
+        <span className="text-destructive">{saveError}</span>
       ) : lastSavedAt ? (
         <span>Draft saved {lastSavedAt.toLocaleTimeString()}</span>
       ) : (

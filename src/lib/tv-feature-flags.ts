@@ -27,3 +27,15 @@ export function isTvSsrScheduleSeedEnabled(): boolean {
     process.env.NEXT_PUBLIC_TV_SSR_SCHEDULE === "1"
   );
 }
+
+/**
+ * Diagnostic startup-latency tracing (Phase 1). Behaviour-neutral: only enables
+ * the `[TV_STARTUP_TRACE]` observability layer. `?tvDebug=1` also enables it
+ * (handled in tv-startup-trace). Never gate TV product behaviour on this flag.
+ */
+export function isTvStartupTraceFlagEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED === "true" ||
+    process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED === "1"
+  );
+}

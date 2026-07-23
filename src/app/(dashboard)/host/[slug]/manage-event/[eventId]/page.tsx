@@ -59,6 +59,7 @@ export default async function ManageEventDetailPage({ params }: Props) {
     resourcesRequested,
     tipUsageDisclosure,
     channels: contents,
+    submissionKind,
     host: { email: hostEmail },
   } = eventDetails as any;
 
@@ -89,6 +90,7 @@ export default async function ManageEventDetailPage({ params }: Props) {
         contents={contents}
         hostEmail={hostEmail}
         initialHostMessages={hostMessages as HostMessage[]}
+        submissionKind={submissionKind}
       />
     </ProtectedRoute>
   );

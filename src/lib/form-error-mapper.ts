@@ -49,8 +49,13 @@ export function applyServerFormErrors<T extends FieldValues>(
   }
 
   rows.forEach(row => {
-    const path = (row.path ?? "").trim();
+    let path = (row.path ?? "").trim();
     if (!path) return;
+    if (path === "coOwnerDraftKey" || path.endsWith(".coOwnerDraftKey")) {
+      path = path.includes("videoLinks.")
+        ? path.replace(/\.coOwnerDraftKey$/, ".ownershipAnswer")
+        : "ownershipAnswer";
+    }
     form.setError(path as Path<T>, { type: "server", message: row.message });
   });
 

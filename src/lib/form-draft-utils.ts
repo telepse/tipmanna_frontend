@@ -107,11 +107,7 @@ export function mergeDraftPayload(
       ownershipAnswer:
         policy.videoLinks?.[i]?.ownershipAnswer ?? link.ownershipAnswer,
       coOwnerDraftKey:
-        policy.videoLinks?.[i]?.coOwnerDraftKey ??
-        link.coOwnerDraftKey ??
-        (typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : ""),
+        policy.videoLinks?.[i]?.coOwnerDraftKey ?? link.coOwnerDraftKey ?? "",
       onYoutubeChannelSlot:
         policy.videoLinks?.[i]?.onYoutubeChannelSlot ??
         link.onYoutubeChannelSlot ??

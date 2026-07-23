@@ -1,4 +1,15 @@
 import { getVideoCoOwnerInviteStatusAction } from "@/actions/events";
+import {
+  coOwnerBlockReasonMessage,
+  evaluateCoOwnerSubmitReadiness,
+} from "@/lib/coowner-submit-readiness.util";
+
+export {
+  coOwnerBlockReasonMessage,
+  evaluateCoOwnerSubmitReadiness,
+  type CoOwnerBlockReason,
+  type CoOwnerSubmitReadiness,
+} from "@/lib/coowner-submit-readiness.util";
 
 type LinkSlice = {
   ownershipAnswer?: string | null;
@@ -11,19 +22,22 @@ export async function validateCoOwnerDraftsForSubmit(
 ): Promise<string | null> {
   for (const link of links) {
     if (link.ownershipAnswer !== "no") continue;
+
     const draftKey = link.coOwnerDraftKey?.trim();
     if (!draftKey) {
-      return "Co-owner draft id missing — save to draft and try again";
+      return coOwnerBlockReasonMessage("missing_draft_key");
     }
+
     const res = await getVideoCoOwnerInviteStatusAction(draftKey);
     if (!res.success) {
-      return res.message ?? "Could not verify co-owner approval status";
+      return res.message ?? coOwnerBlockReasonMessage("status_fetch_failed");
     }
+
     const invites = (res.data as { invites?: { status: string }[] } | null)
       ?.invites;
-    const hasApproved = invites?.some(i => i.status === "approved") ?? false;
-    if (!hasApproved) {
-      return "Co-owner must approve the email invite before you can submit";
+    const readiness = evaluateCoOwnerSubmitReadiness(invites);
+    if (readiness.blocked && readiness.reason) {
+      return coOwnerBlockReasonMessage(readiness.reason);
     }
   }
   return null;

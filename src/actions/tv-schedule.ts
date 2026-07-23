@@ -14,6 +14,8 @@ export async function fetchTvScheduleAction(opts?: {
   communityId?: string | null;
   ifNoneMatch?: string | null;
   query?: string;
+  /** Diagnostic-only correlation id (see tv-startup-trace). Never required. */
+  startupTraceId?: string | null;
 }): Promise<ActionResult<TvScheduleFetchResult>> {
   const base = (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(
     /\/$/,
@@ -36,6 +38,9 @@ export async function fetchTvScheduleAction(opts?: {
   const headers = await serverAuthHeaders();
   if (opts?.ifNoneMatch?.trim()) {
     headers["If-None-Match"] = opts.ifNoneMatch.trim();
+  }
+  if (opts?.startupTraceId?.trim()) {
+    headers["X-TV-Startup-Trace-Id"] = opts.startupTraceId.trim();
   }
 
   try {

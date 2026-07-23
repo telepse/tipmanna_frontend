@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
 import {
@@ -85,9 +85,9 @@ import {
   exploreCurrentHref,
   exploreHrefsEqual,
   exploreLiveSearchParamsKey,
-  exploreNeedsFeedTabBootstrap,
   exploreStateAheadOfUrl,
 } from "@/lib/explore-url-sync-policy";
+import { commitExploreHistory } from "@/lib/explore-url-history";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import {
   getAllCharacterSets,
@@ -225,13 +225,22 @@ export default function ExplorePageClient({
   characterSets: initialCharacterSets = [],
   ssrBoot = null,
 }: ExplorePageClientProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const pathBase = pathname ?? "/explore";
   const searchParams = useSearchParams();
   const searchParamsKey = searchParams.toString();
-  const e2eTvSeed = searchParams.get("e2eTv") === "1";
-  const tabParam = searchParams.get("tab");
+  const [historySyncGen, setHistorySyncGen] = useState(0);
+  const liveSearchParamsKey = useMemo(() => {
+    void historySyncGen;
+    if (typeof window === "undefined") return searchParamsKey;
+    return exploreLiveSearchParamsKey(searchParamsKey);
+  }, [searchParamsKey, historySyncGen]);
+  const liveUrlParams = useMemo(
+    () => new URLSearchParams(liveSearchParamsKey),
+    [liveSearchParamsKey]
+  );
+  const e2eTvSeed = liveUrlParams.get("e2eTv") === "1";
+  const tabParam = liveUrlParams.get("tab");
   const sideChick = useSideChick();
   const sideChickLocked =
     !sideChick.loading &&
@@ -261,8 +270,8 @@ export default function ExplorePageClient({
   );
 
   /**
-   * Leaving Discover for Feed updates React state immediately, but `router.replace`
-   * clears `?tab=discover` one tick later. Until then, ignore stale URL→tab sync so we
+   * Leaving Discover for Feed updates React state immediately, but history
+   * replaceState clears `?tab=discover` one tick later. Until then, ignore stale URL→tab sync so we
    * do not snap back to Discover (which blocked Discover→reel `openInExplore`).
    */
   const leaveDiscoverForFeedRef = useRef(false);
@@ -283,7 +292,7 @@ export default function ExplorePageClient({
     });
   }, []);
 
-  const joinCommunityId = searchParams.get("joinCommunity")?.trim() ?? "";
+  const joinCommunityId = liveUrlParams.get("joinCommunity")?.trim() ?? "";
   const joinCommunityIdRef = useRef(joinCommunityId);
   joinCommunityIdRef.current = joinCommunityId;
   const tabRef = useRef(tab);
@@ -293,9 +302,13 @@ export default function ExplorePageClient({
     if (tab !== "join") return;
     if (!joinCommunityId) {
       setTab("my-communities");
-      router.replace(EXPLORE_COMMUNITY_HUB_HREF, { scroll: false });
+      commitExploreHistory({
+        href: EXPLORE_COMMUNITY_HUB_HREF,
+        mode: "replace",
+        source: "join-tab-guard",
+      });
     }
-  }, [tab, joinCommunityId, router]);
+  }, [tab, joinCommunityId]);
 
   useLayoutEffect(() => {
     if (ssrBoot?.items?.length) {
@@ -590,26 +603,20 @@ export default function ExplorePageClient({
   const searchParamsKeyRef = useRef(searchParamsKey);
   searchParamsKeyRef.current = searchParamsKey;
 
-  /** Monotonic id so only the latest URL commit may retry. */
-  const urlCommitGenRef = useRef(0);
-  const bareExploreCanonicalizedRef = useRef(false);
-
+  /** Monotonic id reserved for future generation guards (history-only commits). */
   type ExploreUrlCommitSource =
     | "feed-subtab-click"
     | "main-tab-click"
     | "filter-change"
     | "filter-lang-change"
     | "filter-country-change"
-    | "filter-bootstrap"
     | "community-selection"
     | "discover-expand"
-    | "passive-sync"
-    | "retry-microtask"
-    | "retry-raf";
+    | "passive-sync";
 
   const commitExploreUrl = useCallback(
     (
-      _source: ExploreUrlCommitSource,
+      source: ExploreUrlCommitSource,
       tabCtx: { tab: ExploreMainTab; joinCommunityId?: string },
       feedState: typeof feedUrlStateRef.current,
       mode: "push" | "replace" = "push"
@@ -623,74 +630,9 @@ export default function ExplorePageClient({
         feedState,
         liveSearchKey
       );
-      const curHref =
-        typeof window !== "undefined"
-          ? `${window.location.pathname}${window.location.search}`
-          : exploreCurrentHref(pathBase, searchParamsKeyRef.current);
-      if (exploreHrefsEqual(nextHref, curHref)) return;
-
-      if (mode === "replace") {
-        router.replace(nextHref, { scroll: false });
-        return;
-      }
-
-      const pushWithRetries = (href: string, commitGen: number) => {
-        router.push(href, { scroll: false });
-        const retryIfStale = () => {
-          if (commitGen !== urlCommitGenRef.current) return;
-          if (typeof window === "undefined") return;
-          const liveHref = `${window.location.pathname}${window.location.search}`;
-          if (exploreHrefsEqual(liveHref, href)) return;
-          router.push(href, { scroll: false });
-        };
-        queueMicrotask(retryIfStale);
-        requestAnimationFrame(retryIfStale);
-      };
-
-      if (exploreNeedsFeedTabBootstrap(liveSearchKey)) {
-        const liveParsed = parseExploreFeedUrlState(
-          new URLSearchParams(liveSearchKey)
-        );
-        const bootstrapState = {
-          ...feedState,
-          trendEventTypes: liveParsed.trendEventTypes,
-          trendLanguage: liveParsed.trendLanguage,
-          trendCountry: liveParsed.trendCountry,
-          tvExploreSource: liveParsed.tvExploreSource,
-          communityFeedSelIds: liveParsed.communityFeedSelIds,
-        };
-        const bootstrapHref = buildExploreFeedHref(
-          pathBase,
-          tabCtx,
-          bootstrapState,
-          liveSearchKey
-        );
-        if (!exploreHrefsEqual(bootstrapHref, curHref)) {
-          router.replace(bootstrapHref, { scroll: false });
-        }
-        const commitGen = ++urlCommitGenRef.current;
-        queueMicrotask(() => {
-          if (commitGen !== urlCommitGenRef.current) return;
-          const liveKey = exploreLiveSearchParamsKey(
-            searchParamsKeyRef.current
-          );
-          const fullHref = buildExploreFeedHref(
-            pathBase,
-            tabCtx,
-            feedState,
-            liveKey
-          );
-          const liveHref = `${window.location.pathname}${window.location.search}`;
-          if (exploreHrefsEqual(liveHref, fullHref)) return;
-          pushWithRetries(fullHref, commitGen);
-        });
-        return;
-      }
-
-      const commitGen = ++urlCommitGenRef.current;
-      pushWithRetries(nextHref, commitGen);
+      commitExploreHistory({ href: nextHref, mode, source });
     },
-    [pathBase, router]
+    [pathBase]
   );
 
   const navigateFeedSubTab = useCallback(
@@ -728,24 +670,6 @@ export default function ExplorePageClient({
     [commitExploreUrl, setMainTab]
   );
 
-  /** Canonicalize bare /explore once on mount so push commits have a query baseline. */
-  useLayoutEffect(() => {
-    if (bareExploreCanonicalizedRef.current) return;
-    bareExploreCanonicalizedRef.current = true;
-    if (localTabNavRef.current) return;
-    if (tab !== "feed") return;
-    if (!exploreNeedsFeedTabBootstrap(searchParamsKey)) return;
-
-    commitExploreUrl(
-      "passive-sync",
-      { tab: "feed", joinCommunityId },
-      feedUrlStateRef.current,
-      "replace"
-    );
-    // Mount-only: subsequent bare /explore entries rely on commitExploreUrl bootstrap.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional once-per-mount
-  }, []);
-
   /** Clear local navigation guard once the browser URL matches React state. */
   useEffect(() => {
     if (!localTabNavRef.current) return;
@@ -775,6 +699,7 @@ export default function ExplorePageClient({
   useEffect(() => {
     const onPopState = () => {
       localTabNavRef.current = false;
+      setHistorySyncGen(g => g + 1);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -783,7 +708,7 @@ export default function ExplorePageClient({
   /** Restore feed shell state from URL on every navigation (back/forward/deep link). */
   useLayoutEffect(() => {
     const parsed = parseExploreFeedUrlState(
-      new URLSearchParams(searchParamsKey)
+      new URLSearchParams(liveSearchParamsKey)
     );
     if (sideChickLocked && dedicatedCommunityId) {
       parsed.communityFeedSelIds = [dedicatedCommunityId];
@@ -802,7 +727,8 @@ export default function ExplorePageClient({
     setTvExploreSource(parsed.tvExploreSource);
     setCommunityFeedSelIds(parsed.communityFeedSelIds);
   }, [
-    searchParamsKey,
+    liveSearchParamsKey,
+    historySyncGen,
     sideChickLocked,
     dedicatedCommunityId,
     pathBase,

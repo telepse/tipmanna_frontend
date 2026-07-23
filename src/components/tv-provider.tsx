@@ -17,6 +17,13 @@ import {
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { logTV, tvLoadMark, tvTrace } from "@/lib/tvDebugLog";
 import {
+  getTvStartupTraceId,
+  hashShortId,
+  markTvStartupNavigation,
+  tvStartupEvent,
+  updateTvStartupContext,
+} from "@/lib/tv-startup-trace";
+import {
   isSameOrchestratedPlayback,
   type TvPlaybackRequest,
 } from "@/lib/tv-playback-request";
@@ -432,7 +439,11 @@ export default function GlobalTVProvider({
     typeof setTimeout
   > | null>(null);
   const loadScheduleRef = useRef<
-    (opts?: { manual?: boolean; resetRetry?: boolean }) => Promise<void>
+    (opts?: {
+      manual?: boolean;
+      resetRetry?: boolean;
+      trigger?: string;
+    }) => Promise<void>
   >(async () => {});
   const runCoalescedScheduleLoadRef = useRef(createTvScheduleLoadCoalescer());
   const scheduleEtagRef = useRef<string | null>(null);
@@ -469,6 +480,10 @@ export default function GlobalTVProvider({
   }, []);
 
   const resetPlaybackForScheduleSourceChange = useCallback(() => {
+    tvStartupEvent("source_reset", {
+      trigger: "schedule_source_change",
+      data: { communityId: hashShortId(scheduleSourceCommunityIdRef.current) },
+    });
     lastSyncedIndex.current = -1;
     activeScheduleIdRef.current = null;
     syncMissRef.current = 0;
@@ -531,11 +546,17 @@ export default function GlobalTVProvider({
       mode: modeRef.current,
       liveBroadcastIndex: liveBroadcastIndexRef.current,
     });
+    updateTvStartupContext({ currentIndex });
+    tvStartupEvent("setCurrentIndex", {
+      trigger: modeRef.current,
+      data: { currentIndex },
+    });
   }, [currentIndex]);
 
   useEffect(() => {
     modeRef.current = mode;
     tvTrace("navigation", "mode_change", { mode });
+    updateTvStartupContext({ source: mode === "GLOBAL" ? "global" : "local" });
   }, [mode]);
 
   useEffect(() => {
@@ -548,6 +569,7 @@ export default function GlobalTVProvider({
 
   useEffect(() => {
     isReadyRef.current = isReady;
+    updateTvStartupContext({ scheduleReady: isReady });
   }, [isReady]);
 
   useEffect(() => {
@@ -606,6 +628,17 @@ export default function GlobalTVProvider({
       videoId: req.videoId,
       startSeconds: req.startSeconds,
     };
+    tvStartupEvent("playback_command_issued", {
+      canonicalMark: "T9",
+      trigger: req.reason,
+      data: {
+        command: "loadVideoById",
+        videoIdHash: hashShortId(req.videoId),
+        startOffsetSeconds: req.startSeconds,
+        muted: player.isMuted?.() ?? null,
+        currentIndex: currentIndexRef.current,
+      },
+    });
     pendingAudioRestoreRef.current = prepareMutedLoadForAutoplay(player, true);
     player.load(req.videoId, req.startSeconds);
     return true;
@@ -632,6 +665,10 @@ export default function GlobalTVProvider({
   );
 
   const syncToLive = useCallback(() => {
+    tvStartupEvent("syncToLive", {
+      trigger: "sync_tick",
+      data: { currentIndex: currentIndexRef.current },
+    });
     if (paymentActiveRef.current) {
       tvTrace("playback", "syncToLive_skipped", { reason: "payment_active" });
       return;
@@ -662,7 +699,7 @@ export default function GlobalTVProvider({
       if (syncMissRef.current > 15) {
         syncMissRef.current = 0;
         lastSyncedIndex.current = -1;
-        void loadScheduleRef.current?.();
+        void loadScheduleRef.current?.({ trigger: "sync_miss" });
       }
       return;
     }
@@ -729,6 +766,15 @@ export default function GlobalTVProvider({
               videoId,
               startSeconds: pos.offsetSeconds,
             };
+            tvStartupEvent("playback_command_issued", {
+              trigger: "syncToLive_coalesced_seek",
+              data: {
+                command: "seekTo",
+                videoIdHash: hashShortId(videoId),
+                startOffsetSeconds: pos.offsetSeconds,
+                currentIndex: pos.scheduleIndex,
+              },
+            });
             player.seekTo(pos.offsetSeconds, false);
           } else {
             requestPlayback({
@@ -768,6 +814,14 @@ export default function GlobalTVProvider({
                 startSeconds: pos.offsetSeconds,
               }
             : null;
+          tvStartupEvent("playback_command_issued", {
+            trigger: "syncToLive_drift_seek",
+            data: {
+              command: "seekTo",
+              startOffsetSeconds: pos.offsetSeconds,
+              currentIndex: pos.scheduleIndex,
+            },
+          });
           player.seekTo(pos.offsetSeconds, false);
         }
       }
@@ -839,6 +893,22 @@ export default function GlobalTVProvider({
     }
 
     setItems(data.items ?? []);
+    tvStartupEvent("playlist_selected", {
+      canonicalMark: "T5",
+      reason: data.scheduleFallback
+        ? "fallback"
+        : data.scheduleState === "NO_SAFE_CONTENT"
+          ? "notice"
+          : "ongoing",
+      data: {
+        scheduleState: data.scheduleState ?? null,
+        ongoingCount: Array.isArray(data.items) ? data.items.length : 0,
+        alternateCount: Array.isArray(data.alternateBatchItems)
+          ? data.alternateBatchItems.length
+          : 0,
+        scheduleRevision: data.scheduleRevisions?.ongoing ?? null,
+      },
+    });
     schedulePostTtfvIdle(() => {
       prefetchTvEventCatalogs(
         collectTvScheduleEventIds((data.items as any[]) ?? [], 24)
@@ -885,6 +955,24 @@ export default function GlobalTVProvider({
         offsetSeconds: live.offsetSeconds,
         loopPosition: live.loopPosition ?? 0,
         currentIndex: currentIndexRef.current,
+      });
+      const liveItem = (data.items as any[])?.[live.scheduleIndex];
+      tvStartupEvent("initial_playback_position_resolved", {
+        canonicalMark: "T6",
+        reason:
+          modeRef.current === "GLOBAL" && !paymentActiveRef.current
+            ? "cold_start_seeded_index"
+            : "live_position_only",
+        data: {
+          selectedIndex: live.scheduleIndex,
+          liveOffsetSeconds: live.offsetSeconds,
+          totalDuration: live.totalDuration ?? data.totalDuration ?? 0,
+          videoIdHash: hashShortId(
+            liveItem?.channel?.url
+              ? extractYoutubeID(liveItem.channel.url)
+              : null
+          ),
+        },
       });
     }
 
@@ -941,7 +1029,11 @@ export default function GlobalTVProvider({
   }, []);
 
   const loadSchedule = useCallback(
-    async (opts?: { manual?: boolean; resetRetry?: boolean }) => {
+    async (opts?: {
+      manual?: boolean;
+      resetRetry?: boolean;
+      trigger?: string;
+    }) => {
       const coalesceKey = scheduleSourceCommunityIdRef.current;
       return runCoalescedScheduleLoadRef.current(coalesceKey, async () => {
         tvTrace("schedule", "loadSchedule_start", {
@@ -950,6 +1042,7 @@ export default function GlobalTVProvider({
           communityId: scheduleSourceCommunityIdRef.current,
           mode: modeRef.current,
         });
+        const startupTrigger = opts?.trigger ?? "initial";
         if (opts?.resetRetry) {
           scheduleRetryCountRef.current = 0;
           if (scheduleRetryTimeoutRef.current) {
@@ -968,6 +1061,31 @@ export default function GlobalTVProvider({
               setIsReady(true);
               tvLoadMark("T3_cache_hit", { communityId: cid });
               tvLoadMark("T4", { source: "schedule_swr_cache" });
+              tvStartupEvent("session_cache_bootstrap", {
+                trigger: startupTrigger,
+                data: { communityId: hashShortId(cid) },
+              });
+              tvStartupEvent("schedule_payload_accepted", {
+                canonicalMark: "T4",
+                trigger: startupTrigger,
+                data: {
+                  source: "session_cache",
+                  scheduleState: (cached.body as any)?.scheduleState ?? null,
+                  ongoingCount: Array.isArray((cached.body as any)?.items)
+                    ? (cached.body as any).items.length
+                    : 0,
+                  alternateCount: Array.isArray(
+                    (cached.body as any)?.alternateBatchItems
+                  )
+                    ? (cached.body as any).alternateBatchItems.length
+                    : 0,
+                  scheduleRevision:
+                    (cached.body as any)?.scheduleRevisions?.ongoing ?? null,
+                  activeScheduleIdHash: hashShortId(
+                    (cached.body as any)?.activeScheduleId ?? null
+                  ),
+                },
+              });
               logTV("schedule_swr_bootstrap", {
                 mode: modeRef.current,
                 currentIndex: currentIndexRef.current,
@@ -1002,6 +1120,25 @@ export default function GlobalTVProvider({
           const cid = scheduleSourceCommunityIdRef.current;
           if (etag) scheduleEtagRef.current = etag;
           persistTvScheduleCache(data, etag, cid);
+          tvStartupEvent("schedule_payload_accepted", {
+            canonicalMark: "T4",
+            trigger: "network",
+            data: {
+              source: "network",
+              scheduleState: (data as any)?.scheduleState ?? null,
+              ongoingCount: Array.isArray((data as any)?.items)
+                ? (data as any).items.length
+                : 0,
+              alternateCount: Array.isArray((data as any)?.alternateBatchItems)
+                ? (data as any).alternateBatchItems.length
+                : 0,
+              scheduleRevision:
+                (data as any)?.scheduleRevisions?.ongoing ?? null,
+              activeScheduleIdHash: hashShortId(
+                (data as any)?.activeScheduleId ?? null
+              ),
+            },
+          });
           applySchedulePayload(data);
           setScheduleError(false);
           setScheduleStale(false);
@@ -1024,19 +1161,38 @@ export default function GlobalTVProvider({
             );
             boundaryRefetchTimeoutRef.current = setTimeout(() => {
               boundaryRefetchTimeoutRef.current = null;
-              void loadScheduleRef.current();
+              void loadScheduleRef.current({ trigger: "boundary" });
             }, ms + TV_BOUNDARY_REFETCH_SLACK_MS);
           }
         };
 
         let fetchCommunityId = scheduleSourceCommunityIdRef.current;
+        const requestStartedAt =
+          typeof performance !== "undefined" ? performance.now() : Date.now();
+        const usingDirectFetch = isTvDirectScheduleFetchEnabled();
+        tvStartupEvent("schedule_request_started", {
+          canonicalMark: "T3",
+          trigger: startupTrigger,
+          data: {
+            scheduleSource: fetchCommunityId ? "community" : "global",
+            communityIdHash: hashShortId(fetchCommunityId),
+            fetchMode: usingDirectFetch ? "direct_fetch" : "server_action",
+            attempt: scheduleRetryCountRef.current,
+            hasEtag: !!scheduleEtagRef.current,
+          },
+        });
+        const finishedElapsed = () =>
+          (typeof performance !== "undefined"
+            ? performance.now()
+            : Date.now()) - requestStartedAt;
         try {
           fetchCommunityId = scheduleSourceCommunityIdRef.current;
           const scheduleOpts = {
             communityId: fetchCommunityId,
             ifNoneMatch: scheduleEtagRef.current,
+            startupTraceId: getTvStartupTraceId(),
           };
-          const res = isTvDirectScheduleFetchEnabled()
+          const res = usingDirectFetch
             ? await fetchTvScheduleClient(scheduleOpts)
             : await fetchTvScheduleAction(scheduleOpts);
 
@@ -1047,9 +1203,23 @@ export default function GlobalTVProvider({
                 scheduleSourceCommunityIdRef.current
               )
             ) {
+              tvStartupEvent("stale_schedule_response", {
+                trigger: startupTrigger,
+                reason: "not_modified_stale_source",
+              });
               void loadScheduleRef.current?.({ resetRetry: true });
               return;
             }
+            tvStartupEvent("schedule_request_finished", {
+              trigger: startupTrigger,
+              reason: "not_modified",
+              data: {
+                outcome: "304",
+                status: res.data.status ?? 304,
+                elapsedRequestMs: Math.round(finishedElapsed()),
+                fromCache: false,
+              },
+            });
             tvTrace("schedule", "loadSchedule_not_modified", {
               mode: modeRef.current,
             });
@@ -1074,6 +1244,17 @@ export default function GlobalTVProvider({
 
           const data = res.data.body;
           const etag = res.data.etag ?? null;
+
+          tvStartupEvent("schedule_request_finished", {
+            trigger: startupTrigger,
+            reason: "success",
+            data: {
+              outcome: "success",
+              status: res.data.status ?? 200,
+              elapsedRequestMs: Math.round(finishedElapsed()),
+              fromCache: false,
+            },
+          });
 
           logTV("schedule_loaded", {
             mode: modeRef.current,
@@ -1108,13 +1289,49 @@ export default function GlobalTVProvider({
               scheduleSourceCommunityIdRef.current
             )
           ) {
+            tvStartupEvent("stale_schedule_response", {
+              trigger: startupTrigger,
+              reason: "failure_stale_source",
+            });
             void loadScheduleRef.current?.({ resetRetry: true });
             return;
           }
           const cid = scheduleSourceCommunityIdRef.current;
           const cached = readTvScheduleCache(cid);
+          const attemptForDelay = scheduleRetryCountRef.current;
+          const willRetry = attemptForDelay < MAX_SCHEDULE_RETRIES;
+          const selectedRetryDelay = willRetry
+            ? RETRY_DELAYS_MS[
+                Math.min(attemptForDelay, RETRY_DELAYS_MS.length - 1)
+              ]
+            : null;
+          tvStartupEvent("schedule_request_finished", {
+            trigger: startupTrigger,
+            reason: "failure",
+            data: {
+              outcome: "failure",
+              elapsedRequestMs: Math.round(finishedElapsed()),
+              fromCache: !!cached,
+              error: err instanceof Error ? err.message : String(err),
+              willRetry,
+              retryDelayMs: selectedRetryDelay,
+              scheduleReadyRemainedFalse: !cached,
+              playerMountPrevented: !cached,
+            },
+          });
           if (cached) {
             scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
+            tvStartupEvent("schedule_payload_accepted", {
+              canonicalMark: "T4",
+              trigger: "fallback_cache",
+              data: {
+                source: "fallback_cache",
+                scheduleState: (cached.body as any)?.scheduleState ?? null,
+                ongoingCount: Array.isArray((cached.body as any)?.items)
+                  ? (cached.body as any).items.length
+                  : 0,
+              },
+            });
             applySchedulePayload(cached.body);
             setScheduleStale(true);
             setScheduleError(false);
@@ -1137,7 +1354,7 @@ export default function GlobalTVProvider({
               );
               boundaryRefetchTimeoutRef.current = setTimeout(() => {
                 boundaryRefetchTimeoutRef.current = null;
-                void loadScheduleRef.current();
+                void loadScheduleRef.current({ trigger: "boundary" });
               }, ms + TV_BOUNDARY_REFETCH_SLACK_MS);
             }
           } else {
@@ -1149,9 +1366,29 @@ export default function GlobalTVProvider({
           if (attempt < MAX_SCHEDULE_RETRIES) {
             const delay =
               RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+            const scheduledAtMs =
+              typeof performance !== "undefined"
+                ? performance.now()
+                : Date.now();
+            tvStartupEvent("retry_scheduled", {
+              trigger: startupTrigger,
+              data: {
+                attempt,
+                retryDelayMs: delay,
+                failureAtMs: Math.round(scheduledAtMs),
+                scheduleReadyRemainedFalse: !isReadyRef.current,
+              },
+            });
             scheduleRetryTimeoutRef.current = setTimeout(() => {
               scheduleRetryCountRef.current += 1;
-              void loadSchedule();
+              tvStartupEvent("retry_executed", {
+                trigger: "retry",
+                data: {
+                  attempt: scheduleRetryCountRef.current,
+                  retryDelayMs: delay,
+                },
+              });
+              void loadSchedule({ trigger: "retry" });
             }, delay);
           }
         }
@@ -1168,8 +1405,9 @@ export default function GlobalTVProvider({
     if (typeof window === "undefined") return;
 
     const onScheduleUpdated = () => {
+      tvStartupEvent("pusher_schedule_refresh", { trigger: "pusher" });
       scheduleEtagRef.current = null;
-      void loadScheduleRef.current?.({ manual: true });
+      void loadScheduleRef.current?.({ manual: true, trigger: "pusher" });
     };
 
     const cid = scheduleSourceCommunityId;
@@ -1198,7 +1436,10 @@ export default function GlobalTVProvider({
       communityId: scheduleSourceCommunityId,
     });
     resetPlaybackForScheduleSourceChange();
-    void loadScheduleRef.current?.({ resetRetry: true });
+    void loadScheduleRef.current?.({
+      resetRetry: true,
+      trigger: "source_change",
+    });
   }, [resetPlaybackForScheduleSourceChange, scheduleSourceCommunityId]);
 
   useEffect(() => {
@@ -1216,6 +1457,17 @@ export default function GlobalTVProvider({
 
   useEffect(() => {
     tvLoadMark("T2", { source: "TVProvider_mount" });
+    markTvStartupNavigation();
+    updateTvStartupContext({
+      source: scheduleSourceCommunityIdRef.current ? "community" : "global",
+      scheduleReady: false,
+      playerReady: false,
+      overlayVisible: true,
+    });
+    tvStartupEvent("tv_provider_mounted", {
+      canonicalMark: "T2",
+      trigger: "provider_mount",
+    });
   }, []);
 
   useEffect(() => {
@@ -1224,7 +1476,7 @@ export default function GlobalTVProvider({
   }, []);
 
   useEffect(() => {
-    void loadSchedule({ resetRetry: true });
+    void loadSchedule({ resetRetry: true, trigger: "initial" });
     return () => {
       if (scheduleRetryTimeoutRef.current) {
         clearTimeout(scheduleRetryTimeoutRef.current);
@@ -1234,7 +1486,7 @@ export default function GlobalTVProvider({
 
   useEffect(() => {
     const id = setInterval(() => {
-      void loadSchedule();
+      void loadSchedule({ trigger: "interval" });
     }, SCHEDULE_REFETCH_MS);
     return () => clearInterval(id);
   }, [loadSchedule]);
@@ -1245,7 +1497,10 @@ export default function GlobalTVProvider({
         state: document.visibilityState,
       });
       if (document.visibilityState === "visible") {
-        void loadSchedule();
+        tvStartupEvent("visibility_schedule_refresh", {
+          trigger: "visibility",
+        });
+        void loadSchedule({ trigger: "visibility" });
       }
     };
     document.addEventListener("visibilitychange", onVis);

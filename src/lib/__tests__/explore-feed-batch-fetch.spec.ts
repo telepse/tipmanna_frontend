@@ -30,23 +30,37 @@ describe("postExploreFeedBatchAction fetch timeouts", () => {
   });
 
   it("uses 10s per-attempt timeout for boot requests with no excludes", async () => {
-    const timeoutMsUsed: number[] = [];
-    const originalTimeout = AbortSignal.timeout.bind(AbortSignal);
-    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
-      timeoutMsUsed.push(ms);
-      return originalTimeout(ms);
-    });
+    vi.useFakeTimers();
+    let fetchCalls = 0;
+    const abortedAtStart: boolean[] = [];
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        jsonResponse({ items: [{ id: "boot" }], seed: "seed-boot" })
-      )
+      vi.fn((_url: string, init?: RequestInit) => {
+        fetchCalls += 1;
+        abortedAtStart.push(Boolean(init?.signal?.aborted));
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(
+              new DOMException("The operation was aborted.", "AbortError")
+            );
+          });
+        });
+      })
     );
 
-    await postExploreFeedBatchAction([], undefined, 8);
+    const resultPromise = postExploreFeedBatchAction([], undefined, 8);
+    await vi.advanceTimersByTimeAsync(
+      EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS + 400
+    );
+    expect(fetchCalls).toBeGreaterThanOrEqual(2);
+    expect(abortedAtStart.every(v => v === false)).toBe(true);
 
-    expect(timeoutMsUsed).toEqual([EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS]);
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await resultPromise;
+    expect(result.success).toBe(false);
+
+    vi.useRealTimers();
   });
 
   it("uses 20s per-attempt timeout for pagination requests with excludes", async () => {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getVideoCoOwnerInviteStatusAction } from "@/actions/events";
+import { evaluateCoOwnerSubmitReadiness } from "@/lib/coowner-submit-readiness.util";
 
 type LinkSlice = {
   ownershipAnswer?: string | null;
@@ -9,7 +10,10 @@ type LinkSlice = {
 };
 
 /** True when any co-owned video link lacks an approved invite. */
-export function useCoOwnerDraftSubmitBlocked(links: LinkSlice[]): boolean {
+export function useCoOwnerDraftSubmitBlocked(links: LinkSlice[]): {
+  blocked: boolean;
+  refresh: () => Promise<void>;
+} {
   const coOwned = useMemo(
     () => links.filter(link => link.ownershipAnswer === "no"),
     [links]
@@ -24,13 +28,15 @@ export function useCoOwnerDraftSubmitBlocked(links: LinkSlice[]): boolean {
     [coOwned]
   );
 
-  const [blocked, setBlocked] = useState(false);
+  const [blocked, setBlocked] = useState(() => coOwned.length > 0);
 
   const refresh = useCallback(async () => {
     if (coOwned.length === 0) {
       setBlocked(false);
       return;
     }
+
+    setBlocked(true);
 
     for (const link of coOwned) {
       const draftKey = link.coOwnerDraftKey?.trim();
@@ -47,8 +53,8 @@ export function useCoOwnerDraftSubmitBlocked(links: LinkSlice[]): boolean {
 
       const invites = (res.data as { invites?: { status: string }[] } | null)
         ?.invites;
-      const hasApproved = invites?.some(i => i.status === "approved") ?? false;
-      if (!hasApproved) {
+      const readiness = evaluateCoOwnerSubmitReadiness(invites);
+      if (readiness.blocked) {
         setBlocked(true);
         return;
       }
@@ -64,5 +70,5 @@ export function useCoOwnerDraftSubmitBlocked(links: LinkSlice[]): boolean {
     return () => window.clearInterval(id);
   }, [refresh, coOwned.length, watchKey]);
 
-  return blocked;
+  return { blocked, refresh };
 }

@@ -25,6 +25,7 @@ type Options = {
 export type FormDraftSaveState = {
   saving: boolean;
   lastSavedAt: Date | null;
+  saveError: string | null;
 };
 
 /** Debounced autosave for multi-step host create forms and modal add-video flows. */
@@ -44,6 +45,7 @@ export function useFormDraftAutosave(
   const [saveState, setSaveState] = useState<FormDraftSaveState>({
     saving: false,
     lastSavedAt: null,
+    saveError: null,
   });
 
   useEffect(() => {
@@ -74,10 +76,24 @@ export function useFormDraftAutosave(
           draftIdRef.current = id;
           onDraftId?.(id);
         }
+        setSaveState({
+          saving: false,
+          lastSavedAt: new Date(),
+          saveError: null,
+        });
+      } else {
+        setSaveState(s => ({
+          ...s,
+          saving: false,
+          saveError: res.message ?? "Could not save draft",
+        }));
       }
-      setSaveState({ saving: false, lastSavedAt: new Date() });
     } catch {
-      setSaveState(s => ({ ...s, saving: false }));
+      setSaveState(s => ({
+        ...s,
+        saving: false,
+        saveError: "Could not save draft",
+      }));
     }
   }, [payload, kind, step, title, onDraftId, payloadKind]);
 

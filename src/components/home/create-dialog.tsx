@@ -657,6 +657,9 @@ export const CreateDialog = ({
                       eventEventType={resolvedEventType}
                       showHostYoutubeSlot
                       requirePolicyFields
+                      coOwnerPolicyMode={
+                        hostTab === "cocreator" ? "ownerOnly" : "full"
+                      }
                       onFormReady={setAddVideoForm}
                       onDraftIdChange={setModalDraftId}
                       draftAutosave={

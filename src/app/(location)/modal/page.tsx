@@ -7,11 +7,7 @@ import { useRouter } from "next/navigation";
 import { AutoDetectLocationPrompt } from "@/components/shared/autodetect-location-prompt";
 import { Logo } from "@/components/shared/logo";
 
-export default function AutoDetectLocation({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AutoDetectLocation() {
   const [showPrompt, setShowPrompt] = useState(true);
   const router = useRouter();
 
@@ -35,10 +31,6 @@ export default function AutoDetectLocation({
           />
         </>
       )}
-
-      <div className={showPrompt ? "pointer-events-none blur-sm" : ""}>
-        {children}
-      </div>
     </div>
   );
 }

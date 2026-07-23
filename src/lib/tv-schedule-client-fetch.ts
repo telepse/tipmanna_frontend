@@ -8,6 +8,8 @@ export async function fetchTvScheduleClient(opts?: {
   communityId?: string | null;
   ifNoneMatch?: string | null;
   query?: string;
+  /** Diagnostic-only correlation id (see tv-startup-trace). Never required. */
+  startupTraceId?: string | null;
 }): Promise<
   | { success: true; data: TvScheduleFetchResult }
   | { success: false; error: string }
@@ -37,6 +39,9 @@ export async function fetchTvScheduleClient(opts?: {
   if (token) headers.Authorization = `Bearer ${token}`;
   if (opts?.ifNoneMatch?.trim()) {
     headers["If-None-Match"] = opts.ifNoneMatch.trim();
+  }
+  if (opts?.startupTraceId?.trim()) {
+    headers["X-TV-Startup-Trace-Id"] = opts.startupTraceId.trim();
   }
 
   try {

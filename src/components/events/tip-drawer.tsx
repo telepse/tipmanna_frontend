@@ -1181,7 +1181,7 @@ export const TipDrawer = ({
           >
             <DialogContent
               overlayClassName="bg-black/60"
-              className="max-h-[85vh] max-w-md rounded-xl bg-white p-6"
+              className="max-w-md rounded-xl bg-white p-6"
             >
               <DialogHeader>
                 <DialogTitle className="text-lg font-semibold">
@@ -1192,7 +1192,7 @@ export const TipDrawer = ({
               {/* Stripe Card Form */}
               <PaymentElement />
 
-              <Button
+              {/* <Button
                 disabled={isProcessing}
                 onClick={onConfirm}
                 className="w-full bg-black text-white"
@@ -1206,7 +1206,7 @@ export const TipDrawer = ({
                 ) : (
                   `${payCta} £${walletPayTotal}`
                 )}
-              </Button>
+              </Button> */}
             </DialogContent>
           </Dialog>
         </DrawerContent>

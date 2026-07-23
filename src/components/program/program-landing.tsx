@@ -31,7 +31,7 @@ import type { ProgramBootstrap } from "@/lib/program-types";
 import { buildContentSharePath } from "@/lib/public-video-url";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { extractYoutubeID, getYoutubeThumbnail } from "@/lib/extractYoutubeID";
-import { trimTitle } from "@/lib/utils";
+import { formatProgramScheduleDisplay, trimTitle } from "@/lib/utils";
 
 function formatDuration(totalSec: number) {
   const m = Math.floor(totalSec / 60);
@@ -44,36 +44,14 @@ function formatDuration(totalSec: number) {
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
-const PROGRAM_DISPLAY_TIMEZONE = "Europe/London";
-
-function formatScheduleDisplay(isoDate: string) {
-  const date = new Date(isoDate);
-
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: PROGRAM_DISPLAY_TIMEZONE,
-    weekday: "long",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).formatToParts(date);
-
-  const get = (type: string) =>
-    parts.find((p: { type: string }) => p.type === type)?.value;
-
-  return `${get("hour")}:${get("minute")} ${get(
-    "dayPeriod"
-  )} (UK), ${get("weekday")}, ${get("day")} ${get("month")}, ${get("year")}`;
-}
-
 function contentItemHref(item: { eventId: string; channelId: string }): string {
   return buildContentSharePath({
     eventId: item.eventId,
     channelId: item.channelId,
   });
 }
+
+const PROGRAM_DISPLAY_TIMEZONE = "UK";
 
 export function ProgramLanding({
   program,
@@ -165,14 +143,15 @@ export function ProgramLanding({
 
         <div className="space-y-4 px-4 py-6">
           <div className="space-y-0.5">
-            <h1 className="-leading-[0.1] line-clamp-2 text-2xl font-semibold break-words">
-              {program.title}
+            <h1 className="text-2xl font-semibold">
+              {isMobile ? trimTitle(program.title, 20) : program.title}
             </h1>
 
             <p className="text-sm">
-              <span className="font-medium">Time:</span>{" "}
+              <span className="font-medium">Scheduled:</span>{" "}
               <span className="text-muted-foreground">
-                {formatScheduleDisplay(program.scheduledAt)}
+                {formatProgramScheduleDisplay(program.scheduledAt)} (
+                {PROGRAM_DISPLAY_TIMEZONE})
               </span>
             </p>
 
@@ -203,17 +182,15 @@ export function ProgramLanding({
             </Button>
 
             <div className="flex gap-2">
-              <div className="flex-1 sm:flex-none">
-                <SetReminderButton
-                  programTitle={program.title}
-                  scheduledAt={program.scheduledAt}
-                  offsetOptions={program.reminderConfig.options}
-                  defaultOffset={program.reminderConfig.defaultOffset}
-                  enforcementId={communityId ? program.id : undefined}
-                  globalEnforcementId={communityId ? undefined : program.id}
-                  communityId={communityId}
-                />
-              </div>
+              <SetReminderButton
+                programTitle={program.title}
+                scheduledAt={program.scheduledAt}
+                offsetOptions={program.reminderConfig.options}
+                defaultOffset={program.reminderConfig.defaultOffset}
+                enforcementId={communityId ? program.id : undefined}
+                globalEnforcementId={communityId ? undefined : program.id}
+                communityId={communityId}
+              />
 
               <Button
                 type="button"
@@ -240,9 +217,7 @@ export function ProgramLanding({
       </div>
 
       <div className="space-y-4">
-        <h5 className="w-fit text-lg font-medium underline decoration-[0.5px] underline-offset-4">
-          Program lineup
-        </h5>
+        <h5 className="text-lg font-medium">Program lineup</h5>
 
         <div className="space-y-4">
           {program.items.map((item, idx) => {
@@ -352,90 +327,86 @@ export function ProgramLanding({
           })}
         </div>
 
-        <div className="w-full px-4">
-          <div className="mx-auto max-w-lg">
-            <Dialog
-              open={contentModalOpen}
-              onOpenChange={open => {
-                setContentModalOpen(open);
+        <Dialog
+          open={contentModalOpen}
+          onOpenChange={open => {
+            setContentModalOpen(open);
 
-                if (!open) {
-                  setSelectedItem(null);
-                }
-              }}
-            >
-              <DialogContent>
-                {selectedItem && (
-                  <>
-                    <DialogHeader>
-                      <DialogTitle>{selectedItem.title}</DialogTitle>
-                    </DialogHeader>
+            if (!open) {
+              setSelectedItem(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-sm">
+            {selectedItem && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{selectedItem.title}</DialogTitle>
+                </DialogHeader>
 
-                    <div className="space-y-4 text-sm">
-                      <div className="text-xs sm:text-sm">
-                        Creator:{" "}
-                        <span className="font-medium">
-                          {selectedItem.creator?.name ?? "-"}
-                        </span>{" "}
-                        &middot; Username:{" "}
-                        <span className="font-medium">
-                          {selectedItem.creator?.username ?? "-"}
-                        </span>
-                      </div>
+                <div className="space-y-4 text-sm">
+                  <div className="text-xs sm:text-sm">
+                    Creator:{" "}
+                    <span className="font-medium">
+                      {selectedItem.creator?.name ?? "-"}
+                    </span>{" "}
+                    &middot; Username:{" "}
+                    <span className="font-medium">
+                      {selectedItem.creator?.username ?? "-"}
+                    </span>
+                  </div>
 
-                      {selectedItem.contentUrl ? (
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="ghost"
-                          className="absolute right-4 bottom-0"
-                        >
-                          <Link
-                            href={selectedItem.contentUrl}
-                            className="flex items-center gap-2 border border-black hover:bg-black hover:text-white"
-                          >
-                            <Play /> Play video
-                          </Link>
-                        </Button>
-                      ) : null}
+                  {selectedItem.contentUrl ? (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="ghost"
+                      className="absolute right-4 bottom-0"
+                    >
+                      <Link
+                        href={selectedItem.contentUrl}
+                        className="flex items-center gap-2 border border-black hover:bg-black hover:text-white"
+                      >
+                        <Play /> Play video
+                      </Link>
+                    </Button>
+                  ) : null}
 
-                      <p>{selectedItem.description || "No description"}</p>
+                  <p>{selectedItem.description || "No description"}</p>
 
-                      <p className="text-xs sm:text-sm">
-                        Duration: {formatDuration(selectedItem.durationSec)}
-                      </p>
+                  <p className="text-xs sm:text-sm">
+                    Duration: {formatDuration(selectedItem.durationSec)}
+                  </p>
 
-                      <div className="text-xs sm:text-sm">
-                        Channel tips: {selectedItem.stats.tips} &middot; Saves:{" "}
-                        {selectedItem.stats.saves} &middot; Shares:{" "}
-                        {selectedItem.stats.shares} &middot; Comments:{" "}
-                        {selectedItem.stats.comments}
-                      </div>
+                  <div className="text-xs sm:text-sm">
+                    Channel tips: {selectedItem.stats.tips} &middot; Saves:{" "}
+                    {selectedItem.stats.saves} &middot; Shares:{" "}
+                    {selectedItem.stats.shares} &middot; Comments:{" "}
+                    {selectedItem.stats.comments}
+                  </div>
 
-                      <div className="mb-8 flex w-fit items-center gap-2 rounded-md border px-2 py-1 text-xs sm:text-sm">
-                        Amount raised: &pound;{selectedItem.amountRaised}{" "}
-                        &middot; <Eye className="size-4" />{" "}
-                        {selectedItem.stats.encounters} seen
-                      </div>
+                  <div className="mb-8 flex w-fit items-center gap-2 rounded-md border px-2 py-1 text-xs sm:text-sm">
+                    Amount raised: &pound;{selectedItem.amountRaised} &middot;{" "}
+                    <Eye className="size-4" /> {selectedItem.stats.encounters}{" "}
+                    seen
+                  </div>
 
-                      {selectedItem.coOwners.length > 0 && (
-                        <div>
-                          <p className="font-medium">Co-owner(s)</p>
+                  {selectedItem.coOwners.length > 0 && (
+                    <div>
+                      <p className="font-medium">Co-owner(s)</p>
 
-                          <ul className="list-disc pl-5">
-                            {selectedItem.coOwners.map(owner => (
-                              <li key={owner.id}>{owner.name}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      <ul className="list-disc pl-5">
+                        {selectedItem.coOwners.map(owner => (
+                          <li key={owner.id}>{owner.name}</li>
+                        ))}
+                      </ul>
                     </div>
-                  </>
-                )}
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

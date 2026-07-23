@@ -367,7 +367,7 @@ export async function postExploreFeedBatchAction(
       headers: await serverAuthHeaders(authToken),
       body: JSON.stringify(body),
       cache: "no-store",
-      perAttemptTimeoutMs: fetchTimeoutMs,
+      signal: AbortSignal.timeout(fetchTimeoutMs),
     },
     "postExploreFeedBatchAction",
     raw => {

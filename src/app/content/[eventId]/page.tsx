@@ -11,13 +11,14 @@ import { resolveProgramWatchAllPlaylist } from "@/actions/program-actions";
 import { getToken } from "@/lib/getToken";
 import {
   applyVideoDeepLinkQuery,
+  buildContentShareUrl,
   parseChannelSearchParam,
+  pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { notFound, redirect } from "next/navigation";
 import { ActionResult } from "@/lib/action-fetch";
 import { Metadata } from "next";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
-import { getPublicAbsoluteUrl } from "@/lib/site-config";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
@@ -25,14 +26,26 @@ export interface Props {
 }
 
 interface ContentData {
-  title: string;
+  id?: string;
+  title?: string;
   url?: string;
   description?: string;
   createdAt?: string;
+  restricted?: boolean;
+  isDefault?: boolean;
   event: {
     hostName: string;
     id?: string;
   };
+}
+
+function pickContentForPage(
+  list: ContentData[],
+  initialChannelId: string | null
+): ContentData | undefined {
+  const playable = list.filter(c => !c.restricted);
+  const playlist = playable.length ? playable : list;
+  return pickInitialChannelContent(playlist, initialChannelId);
 }
 
 /**
@@ -41,17 +54,21 @@ interface ContentData {
  */
 export async function generateMetadata({
   params,
-}: {
-  params: Promise<{ eventId: string }>;
-}): Promise<Metadata> {
+  searchParams,
+}: Props): Promise<Metadata> {
   const { eventId } = await params;
+  const sp = await searchParams;
+  const initialChannelId = parseChannelSearchParam(sp);
 
-  // fetch creator data
   const res = (await getContentChannelAction(eventId)) as ActionResult<
     ContentData[]
   >;
-  const videoRes = res.data?.[0];
-  const pageUrl = getPublicAbsoluteUrl(`/content/${eventId}`);
+  const list = Array.isArray(res.data) ? res.data : [];
+  const videoRes = pickContentForPage(list, initialChannelId);
+  const pageUrl = buildContentShareUrl({
+    eventId,
+    channelId: initialChannelId ?? undefined,
+  });
   const title = `Watch "${videoRes?.title}" by ${videoRes?.event.hostName} 🎬 💎`;
   const description = `Watch this video on Tipmanna and join the experience through comments, reactions, and realtime supporter engagement.`;
 
@@ -132,13 +149,6 @@ export default async function ContentPage({ params, searchParams }: Props) {
     getEventByIdAction(eventId),
   ]);
 
-  // fetch creator data
-  const res = (await getContentChannelAction(eventId)) as ActionResult<
-    ContentData[]
-  >;
-  const videoRes = res.data;
-  console.log(videoRes);
-
   const eventCatalog = parseEventCharacterCatalog(
     eventRes.success ? eventRes.data?.characterSets : []
   );
@@ -183,22 +193,17 @@ export default async function ContentPage({ params, searchParams }: Props) {
     }
   }
 
-  const primary = (playable.length ? playable : list)[0] as
-    | {
-        title?: string;
-        url?: string;
-        description?: string;
-        createdAt?: string;
-        event?: { hostName?: string };
-      }
-    | undefined;
+  const primary = pickContentForPage(list as ContentData[], initialChannelId);
 
   const videoJsonLd =
     primary?.title && primary.event?.hostName
       ? buildVideoObjectJsonLd({
           title: primary.title,
           hostName: primary.event.hostName,
-          url: getPublicAbsoluteUrl(`/content/${eventId}`),
+          url: buildContentShareUrl({
+            eventId,
+            channelId: initialChannelId ?? undefined,
+          }),
           videoUrl: primary.url,
           description: primary.description,
           uploadDate: primary.createdAt,

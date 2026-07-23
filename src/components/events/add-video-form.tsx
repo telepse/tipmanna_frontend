@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
@@ -24,8 +24,12 @@ import { VideoLinkContentLanguageCombobox } from "@/components/events/video-link
 import { EventVideoTypeTagPicker } from "@/components/events/event-video-type-tag-picker";
 import { EVENT_VIDEO_TYPE_OPTIONS } from "@/lib/event-video-type-options";
 import { AddVideoPolicyFields } from "@/components/events/add-video-policy-fields";
-import type { CoOwnerInviteStatusValue } from "@/hooks/use-coowner-invite-status";
 import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
+import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
+import {
+  mintYoutubeVerifyRequest,
+  resolveYoutubeVerifyOutcome,
+} from "@/lib/youtube-verify-request.util";
 import {
   CREATE_FORM_INPUT_CLASS,
   CREATE_FORM_LABEL_CLASS,
@@ -137,6 +141,8 @@ type AddVideoFormProps = {
     targetId: string;
     enabled?: boolean;
   };
+  /** When "ownerOnly", co-owned uploads are hidden (e.g. community co-creator tab). */
+  coOwnerPolicyMode?: "full" | "ownerOnly";
 };
 
 export function AddVideoForm({
@@ -150,6 +156,7 @@ export function AddVideoForm({
   onFormReady,
   onDraftIdChange,
   draftAutosave,
+  coOwnerPolicyMode = "full",
 }: AddVideoFormProps) {
   const authUser = useSelector((s: RootState) => s.auth.user);
   const isHost = isHostRole(authUser?.role);
@@ -161,8 +168,8 @@ export function AddVideoForm({
   const [verifyState, setVerifyState] = useState<
     "idle" | "checking" | "verified" | "failed"
   >("idle");
-  const [coOwnerInviteStatus, setCoOwnerInviteStatus] =
-    useState<CoOwnerInviteStatusValue>(null);
+  const nextVerifyRequestIdRef = useRef(0);
+  const latestVerifyRequestIdRef = useRef(0);
   const [modalDraftId, setModalDraftId] = useState<string | null>(() => {
     if (typeof window === "undefined" || !draftAutosave?.targetId) return null;
     return sessionStorage.getItem(
@@ -261,10 +268,13 @@ export function AddVideoForm({
 
   const setReminder = form.watch("setReminder");
   const ownershipAnswer = form.watch("ownershipAnswer");
-  const coOwnerSubmitBlocked =
-    requirePolicyFields &&
-    ownershipAnswer === "no" &&
-    coOwnerInviteStatus !== "approved";
+  const coOwnerDraftKey = form.watch("coOwnerDraftKey");
+  const coOwnerLinkSlice =
+    requirePolicyFields && ownershipAnswer === "no"
+      ? [{ ownershipAnswer: "no" as const, coOwnerDraftKey }]
+      : [];
+  const { blocked: coOwnerSubmitBlocked, refresh: refreshCoOwnerSubmit } =
+    useCoOwnerDraftSubmitBlocked(coOwnerLinkSlice);
 
   const inheritEventTypeLabel =
     eventEventType &&
@@ -606,28 +616,44 @@ export function AddVideoForm({
                     toast.error("Add a video URL first");
                     return;
                   }
+                  nextVerifyRequestIdRef.current += 1;
+                  const request = mintYoutubeVerifyRequest(
+                    url,
+                    slot as 1 | 2,
+                    nextVerifyRequestIdRef.current
+                  );
+                  latestVerifyRequestIdRef.current = request.requestId;
+
                   setVerifyState("checking");
                   const res = await verifyYoutubeOwnershipAction(
                     url,
                     slot as 1 | 2
                   );
-                  if (!res.success) {
+
+                  const currentUrl = form.getValues("url")?.trim() ?? "";
+                  const currentSlot = Number(form.getValues("hostYoutubeSlot"));
+                  const outcome = resolveYoutubeVerifyOutcome(
+                    request,
+                    latestVerifyRequestIdRef.current,
+                    currentUrl,
+                    currentSlot,
+                    res
+                  );
+
+                  if (outcome.kind === "stale") return;
+
+                  if (outcome.kind === "error") {
                     setVerifyState("failed");
-                    toast.error(res.message ?? "Verification failed");
+                    toast.error(outcome.message);
                     return;
                   }
-                  if (
-                    (res.data as { status?: string })?.status === "verified"
-                  ) {
+                  if (outcome.kind === "verified") {
                     setVerifyState("verified");
                     toast.success("Video verified on your YouTube channel");
-                  } else {
-                    setVerifyState("failed");
-                    toast.error(
-                      (res.data as { message?: string })?.message ??
-                        "Video not found on selected channel"
-                    );
+                    return;
                   }
+                  setVerifyState("failed");
+                  toast.error(outcome.message);
                 }}
               >
                 {verifyState === "checking"
@@ -645,7 +671,9 @@ export function AddVideoForm({
             form={form}
             variant={variant}
             videoTitle={form.watch("title") || "Video"}
-            onCoOwnerInviteStatusChange={setCoOwnerInviteStatus}
+            coOwnerPolicyMode={coOwnerPolicyMode}
+            onCoOwnerInviteApproved={() => void refreshCoOwnerSubmit()}
+            onDraftSaveNow={() => draftSave.saveNow()}
           />
         ) : null}
 

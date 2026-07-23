@@ -99,6 +99,7 @@ import {
 } from "@/components/media/immersive-media-shell";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { tvTrace } from "@/lib/tvDebugLog";
+import { tvStartupEvent } from "@/lib/tv-startup-trace";
 import { unmuteWithUserGesture } from "@/lib/tv-autoplay";
 import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
 
@@ -239,12 +240,27 @@ export const WebTvLooper = ({
     });
   }, [playbackUrl, current?.id, mode, currentIndex]);
 
+  const overlayRemovedTracedRef = useRef(false);
   useEffect(() => {
     tvTrace("playback", "isPlayerLoading_change", {
       isPlayerLoading,
       currentId: current?.id,
     });
-  }, [isPlayerLoading, current?.id]);
+    if (!isPlayerLoading && !overlayRemovedTracedRef.current) {
+      overlayRemovedTracedRef.current = true;
+      const player = playerRef.current;
+      const reason = isNotice
+        ? "notice"
+        : player?.isReady?.()
+          ? "player_ready_or_playing"
+          : "cleared";
+      tvStartupEvent("player_overlay_removed", {
+        canonicalMark: "T12",
+        reason,
+        data: { surface: "web-tv-looper" },
+      });
+    }
+  }, [isPlayerLoading, current?.id, isNotice, playerRef]);
 
   const showPlaybackError =
     !isNotice && Boolean(current?.channel) && !playbackUrl.trim();
@@ -572,6 +588,10 @@ export const WebTvLooper = ({
 
   const handlePlayerError = () => {
     const p = playerRef.current;
+    tvStartupEvent("player_error", {
+      trigger: "youtube_onError",
+      data: { mode, surface: "web-tv-looper" },
+    });
     if (!p?.isReady()) return;
     console.error(
       "[TvLooper] Playback error reload attempt",

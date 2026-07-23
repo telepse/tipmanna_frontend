@@ -109,7 +109,6 @@ export function EventPusherProvider({
             minute: "2-digit",
           }),
       };
-      console.log("Host message received", message);
 
       onNewChatMessageRef.current(formattedMessage);
     };

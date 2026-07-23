@@ -5,6 +5,7 @@ import React, {
   useImperativeHandle,
   useRef,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
 } from "react";
@@ -30,6 +31,12 @@ import {
   ytStateName,
 } from "@/lib/tvDebugLog";
 import { notifyTvFirstPlay } from "@/lib/tv-post-ttfv-idle";
+import {
+  hashShortId,
+  isTvStartupTraceEnabled,
+  tvStartupEvent,
+  updateTvStartupContext,
+} from "@/lib/tv-startup-trace";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
 
@@ -115,6 +122,66 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const mountedVideoIdRef = useRef<string | undefined>(
       extractYoutubeID(videoUrl) ?? undefined
     );
+    const initialEmbedTracedRef = useRef(false);
+
+    /**
+     * Diagnostic-only (no behaviour change): record player mount + earliest
+     * reliable observation that the YouTube IFrame API object exists. react-youtube
+     * loads the API script internally, so exact script-load time is not observable
+     * through the library; we emit the closest reliable signal (window.YT.Player
+     * present) and mark it approximate. Active only when tracing is enabled.
+     */
+    useEffect(() => {
+      tvStartupEvent("player_component_mounted", {
+        trigger: externallyControlled ? "external" : "internal",
+        data: { videoIdHash: hashShortId(mountedVideoIdRef.current ?? null) },
+      });
+      if (mountedVideoIdRef.current && !initialEmbedTracedRef.current) {
+        initialEmbedTracedRef.current = true;
+        tvStartupEvent("playback_command_issued", {
+          canonicalMark: "T9",
+          trigger: "initial_embed",
+          data: {
+            command: "initial_embed",
+            videoIdHash: hashShortId(mountedVideoIdRef.current),
+            startOffsetSeconds: 0,
+          },
+        });
+      }
+      if (!isTvStartupTraceEnabled()) return;
+
+      const w = window as unknown as { YT?: { Player?: unknown } };
+      const emitApi = (approx: boolean) =>
+        tvStartupEvent("youtube_api_available", {
+          canonicalMark: "T7",
+          reason: approx ? "yt_object_detected" : "yt_object_present_at_mount",
+          data: { approximate: true },
+        });
+
+      if (w.YT && w.YT.Player) {
+        emitApi(false);
+        return;
+      }
+      let done = false;
+      const id = setInterval(() => {
+        if (done) return;
+        if (w.YT && w.YT.Player) {
+          done = true;
+          clearInterval(id);
+          emitApi(true);
+        }
+      }, 200);
+      // Bounded so the poll cannot linger; onReady will supersede regardless.
+      const stop = setTimeout(() => {
+        done = true;
+        clearInterval(id);
+      }, 20_000);
+      return () => {
+        done = true;
+        clearInterval(id);
+        clearTimeout(stop);
+      };
+    }, [externallyControlled]);
 
     const beginProgrammaticPlayback = useCallback(() => {
       suppressUserIntentUntilRef.current =
@@ -306,6 +373,12 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
             tvLoadMark("T5", {
               videoId: extractYoutubeID(videoUrlRef.current),
             });
+            updateTvStartupContext({ playerReady: true, playerState: "READY" });
+            tvStartupEvent("player_ready", {
+              canonicalMark: "T8",
+              trigger: "youtube_onReady",
+              data: { externallyControlled },
+            });
 
             syncMuteFromPlayer(event.target);
             onReady?.();
@@ -316,6 +389,15 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               stateName: ytStateName(event.data as number),
               videoId: extractYoutubeID(videoUrlRef.current),
             });
+            updateTvStartupContext({
+              playerState: ytStateName(event.data as number),
+            });
+            if (event.data === 3) {
+              tvStartupEvent("player_buffering", {
+                canonicalMark: "T10",
+                trigger: "youtube_state_3",
+              });
+            }
             if (event.data === 1) {
               syncMuteFromPlayer(event.target);
               tvTrace("playback", "onPlay", {
@@ -323,6 +405,10 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               });
               tvLoadMark("T6", {
                 videoId: extractYoutubeID(videoUrlRef.current),
+              });
+              tvStartupEvent("player_playing", {
+                canonicalMark: "T11",
+                trigger: "youtube_state_1",
               });
               notifyTvFirstPlay();
               maybeNotifyVideoAspectOnce();

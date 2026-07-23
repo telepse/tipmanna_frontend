@@ -390,6 +390,7 @@ export type NewEventFormData = z.infer<typeof newEventSchema>;
 /** API body for POST /events/new (form output + derived live-stream ownership). */
 export type NewCreateEventPayload = NewEventFormData & {
   liveVideoOwnershipAnswer?: "yes" | "no";
+  submissionKind?: "content_only" | "event_only" | "event_and_content";
 };
 
 export type EditProfileFormData = z.infer<typeof editProfileSchema>;

@@ -200,7 +200,8 @@ export default function EventAndContentPage() {
   const runPrivacyChecks = () => runPrivacyChecksFromForm(form, user);
 
   const videoLinks = form.watch("videoLinks") ?? [];
-  const coOwnerSubmitBlocked = useCoOwnerDraftSubmitBlocked(videoLinks);
+  const { blocked: coOwnerSubmitBlocked, refresh: refreshCoOwnerSubmit } =
+    useCoOwnerDraftSubmitBlocked(videoLinks);
 
   const onSubmit = async (values: NewEventFormData) => {
     if (!runPrivacyChecks()) {
@@ -232,6 +233,7 @@ export default function EventAndContentPage() {
         ...values,
         eventBanner: imageUrl,
         liveVideoOwnershipAnswer: resolveLiveVideoOwnershipAnswer(values),
+        submissionKind: "event_and_content",
       });
 
       if (!result.success) {
@@ -364,6 +366,8 @@ export default function EventAndContentPage() {
           {step === 4 && (
             <EventContentPrivacyStep
               control={form.control as unknown as Control<NewEventFormData>}
+              onCoOwnerInviteApproved={() => void refreshCoOwnerSubmit()}
+              onDraftSaveNow={() => draftSave.saveNow()}
             />
           )}
 

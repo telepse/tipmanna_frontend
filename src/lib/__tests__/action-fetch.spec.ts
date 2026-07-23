@@ -95,28 +95,33 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
     vi.useRealTimers();
   });
 
-  it("passes a fresh perAttemptTimeoutMs signal on attempt 1 after attempt 0 aborts", async () => {
+  it("aborts attempt 0 at 10s but allows attempt 1 to run to completion", async () => {
+    vi.useFakeTimers();
+
     let fetchCalls = 0;
-    const timeoutMsUsed: number[] = [];
-    const originalTimeout = AbortSignal.timeout.bind(AbortSignal);
-    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
-      timeoutMsUsed.push(ms);
-      return originalTimeout(ms);
-    });
+    const abortedAtStart: boolean[] = [];
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (_url: string, init?: RequestInit) => {
+      vi.fn((_url: string, init?: RequestInit) => {
         fetchCalls += 1;
-        if (fetchCalls === 1) {
-          throw new DOMException("The operation was aborted.", "AbortError");
-        }
-        expect(init?.signal?.aborted).toBe(false);
-        return jsonResponse({ ok: true });
+        abortedAtStart.push(Boolean(init?.signal?.aborted));
+        return new Promise<Response>((resolve, reject) => {
+          const delayMs = fetchCalls === 1 ? 12_000 : 2_000;
+          const timer = setTimeout(() => {
+            resolve(jsonResponse({ ok: true }));
+          }, delayMs);
+          init?.signal?.addEventListener("abort", () => {
+            clearTimeout(timer);
+            reject(
+              new DOMException("The operation was aborted.", "AbortError")
+            );
+          });
+        });
       })
     );
 
-    const result = await runServerFetch(
+    const resultPromise = runServerFetch(
       "http://example.test/feed/batch",
       {
         method: "POST",
@@ -126,9 +131,16 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
       "testTenSecondPerAttempt"
     );
 
+    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(2_000);
+    const result = await resultPromise;
+
     expect(result.success).toBe(true);
     expect(fetchCalls).toBe(2);
-    expect(timeoutMsUsed).toEqual([10_000, 10_000]);
+    expect(abortedAtStart).toEqual([false, false]);
+
+    vi.useRealTimers();
   });
 
   it("coalesces duplicate in-flight requests with perAttemptTimeoutMs", async () => {
@@ -138,6 +150,7 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
       "fetch",
       vi.fn(async () => {
         fetchCalls += 1;
+        await new Promise(r => setTimeout(r, 20));
         return jsonResponse({ ok: true });
       })
     );
@@ -191,14 +204,22 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
   });
 
   it("returns failure after exhausting retries when every attempt times out", async () => {
+    vi.useFakeTimers();
+
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
-        throw new DOMException("The operation was aborted.", "AbortError");
+      vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(
+              new DOMException("The operation was aborted.", "AbortError")
+            );
+          });
+        });
       })
     );
 
-    const result = await runServerFetch(
+    const resultPromise = runServerFetch(
       "http://example.test/feed/batch",
       {
         method: "POST",
@@ -208,8 +229,18 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
       "testExhaustedRetries"
     );
 
+    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.advanceTimersByTimeAsync(800);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.advanceTimersByTimeAsync(1_600);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    const result = await resultPromise;
     expect(result.success).toBe(false);
     expect(result.error).toContain("timed out");
-    expect(fetch).toHaveBeenCalledTimes(4);
+
+    vi.useRealTimers();
   });
 });

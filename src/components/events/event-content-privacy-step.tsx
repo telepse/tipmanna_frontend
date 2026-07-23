@@ -33,6 +33,10 @@ import {
   useCoOwnerInviteStatus,
 } from "@/hooks/use-coowner-invite-status";
 import { mapCoOwnerInviteErrors } from "@/lib/coowner-invite-error.util";
+import {
+  mintYoutubeVerifyRequest,
+  resolveYoutubeVerifyOutcome,
+} from "@/lib/youtube-verify-request.util";
 import { toast } from "react-toastify";
 import {
   CREATE_FORM_INPUT_CLASS,
@@ -48,8 +52,12 @@ type YtRow = { slot: number; url: string; locked: boolean };
 
 export function EventContentPrivacyStep({
   control,
+  onCoOwnerInviteApproved,
+  onDraftSaveNow,
 }: {
   control: Control<NewEventFormData>;
+  onCoOwnerInviteApproved?: () => void;
+  onDraftSaveNow?: () => void | Promise<void>;
 }) {
   const { watch, setValue, getValues } = useFormContext<NewEventFormData>();
   const user = useSelector((s: RootState) => s.auth.user);
@@ -62,6 +70,8 @@ export function EventContentPrivacyStep({
   const [verifyStatus, setVerifyStatus] = useState<
     Record<number, "idle" | "checking" | "verified" | "failed">
   >({});
+  const nextVerifyRequestIdRef = useRef(0);
+  const latestVerifyRequestIdByIndexRef = useRef<Record<number, number>>({});
 
   const hostTier =
     user?.role === "HOST"
@@ -146,27 +156,48 @@ export function EventContentPrivacyStep({
       );
       return;
     }
+    nextVerifyRequestIdRef.current += 1;
+    const request = mintYoutubeVerifyRequest(
+      url,
+      slot,
+      nextVerifyRequestIdRef.current
+    );
+    latestVerifyRequestIdByIndexRef.current[videoIndex] = request.requestId;
+
     setVerifyStatus(prev => ({ ...prev, [videoIndex]: "checking" }));
     setValue(`videoLinks.${videoIndex}.isOnHostYoutube`, false);
     const res = await verifyYoutubeOwnershipAction(url, slot, token);
-    if (!res.success) {
+
+    const currentUrl = getValues(`videoLinks.${videoIndex}.url`)?.trim() ?? "";
+    const currentSlot = getValues(
+      `videoLinks.${videoIndex}.onYoutubeChannelSlot`
+    );
+    const latestRequestId =
+      latestVerifyRequestIdByIndexRef.current[videoIndex] ?? 0;
+    const outcome = resolveYoutubeVerifyOutcome(
+      request,
+      latestRequestId,
+      currentUrl,
+      currentSlot as number,
+      res
+    );
+
+    if (outcome.kind === "stale") return;
+
+    if (outcome.kind === "error") {
       setVerifyStatus(prev => ({ ...prev, [videoIndex]: "failed" }));
-      toast.error(res.message ?? "Verification failed");
+      toast.error(outcome.message);
       return;
     }
-    const status = (res.data as { status?: string })?.status;
-    if (status === "verified") {
+    if (outcome.kind === "verified") {
       setVerifyStatus(prev => ({ ...prev, [videoIndex]: "verified" }));
       setValue(`videoLinks.${videoIndex}.isOnHostYoutube`, true);
       toast.success("Video verified on your YouTube channel");
-    } else {
-      setVerifyStatus(prev => ({ ...prev, [videoIndex]: "failed" }));
-      setValue(`videoLinks.${videoIndex}.isOnHostYoutube`, false);
-      toast.error(
-        (res.data as { message?: string })?.message ??
-          "Video not found on selected channel"
-      );
+      return;
     }
+    setVerifyStatus(prev => ({ ...prev, [videoIndex]: "failed" }));
+    setValue(`videoLinks.${videoIndex}.isOnHostYoutube`, false);
+    toast.error(outcome.message);
   };
 
   const [coOwnerBlockIndex, setCoOwnerBlockIndex] = useState<number | null>(
@@ -443,6 +474,8 @@ export function EventContentPrivacyStep({
                 index={i}
                 canInvite={!!canInvite}
                 videoTitle={watch(`videoLinks.${i}.title`) || `Video ${i + 1}`}
+                onCoOwnerInviteApproved={onCoOwnerInviteApproved}
+                onDraftSaveNow={onDraftSaveNow}
               />
             ) : null}
           </div>
@@ -456,10 +489,14 @@ function CoOwnerInviteBlock({
   index,
   canInvite,
   videoTitle,
+  onCoOwnerInviteApproved,
+  onDraftSaveNow,
 }: {
   index: number;
   canInvite: boolean;
   videoTitle: string;
+  onCoOwnerInviteApproved?: () => void;
+  onDraftSaveNow?: () => void | Promise<void>;
 }) {
   const user = useSelector((s: RootState) => s.auth.user);
   const { getValues, watch } = useFormContext<NewEventFormData>();
@@ -486,6 +523,7 @@ function CoOwnerInviteBlock({
       if (data?.status === "approved") {
         toast.success(`Co-owner approved: ${videoTitle}`);
         setCoOwnerInviteChannel(null);
+        onCoOwnerInviteApproved?.();
       }
     };
 
@@ -494,7 +532,7 @@ function CoOwnerInviteBlock({
       channel.unbind("co-owner-invite", handler);
       unsubscribeChannel(coOwnerInviteChannel);
     };
-  }, [coOwnerInviteChannel, videoTitle]);
+  }, [coOwnerInviteChannel, videoTitle, onCoOwnerInviteApproved]);
 
   const sendInvite = async () => {
     if (!canInvite) {
@@ -544,6 +582,7 @@ function CoOwnerInviteBlock({
     if (inv?.id) {
       setCoOwnerInviteChannel(`coowner-invite-${inv.id}`);
     }
+    await onDraftSaveNow?.();
   };
 
   if (!canInvite) {

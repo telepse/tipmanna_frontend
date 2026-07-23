@@ -200,7 +200,8 @@ export default function ContentOnlyPage() {
   const runPrivacyChecks = () => runPrivacyChecksFromForm(form, user);
 
   const videoLinks = form.watch("videoLinks") ?? [];
-  const coOwnerSubmitBlocked = useCoOwnerDraftSubmitBlocked(videoLinks);
+  const { blocked: coOwnerSubmitBlocked, refresh: refreshCoOwnerSubmit } =
+    useCoOwnerDraftSubmitBlocked(videoLinks);
 
   const onSubmit = async (values: NewEventFormData) => {
     if (!runPrivacyChecks()) {
@@ -221,6 +222,7 @@ export default function ContentOnlyPage() {
       const result = await newCreateEventAction({
         ...values,
         liveVideoOwnershipAnswer: resolveLiveVideoOwnershipAnswer(values),
+        submissionKind: "content_only",
       });
       console.log(result);
 
@@ -361,6 +363,8 @@ export default function ContentOnlyPage() {
           {step === 4 && (
             <EventContentPrivacyStep
               control={form.control as unknown as Control<NewEventFormData>}
+              onCoOwnerInviteApproved={() => void refreshCoOwnerSubmit()}
+              onDraftSaveNow={() => draftSave.saveNow()}
             />
           )}
 
