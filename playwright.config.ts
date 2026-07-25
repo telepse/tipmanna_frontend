@@ -19,5 +19,15 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI && !process.env.PLAYWRIGHT_FORCE_BUILD,
     timeout: 180_000,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(process.env.PLAYWRIGHT_CHANNEL
+          ? { channel: process.env.PLAYWRIGHT_CHANNEL as "chrome" }
+          : {}),
+      },
+    },
+  ],
 });

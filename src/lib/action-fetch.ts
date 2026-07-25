@@ -7,6 +7,8 @@
 /** Next.js extends fetch RequestInit — keep explicit for server-action caching */
 export type ServerActionFetchInit = RequestInit & {
   next?: { revalidate?: number | false; tags?: string[] };
+  /** Fresh AbortSignal.timeout per retry attempt when set (server-action fetch budget). */
+  perAttemptTimeoutMs?: number;
 };
 
 export type ActionResult<T> = {
@@ -145,6 +147,26 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function attemptFetchInit(
+  init: ServerActionFetchInit | undefined
+): RequestInit {
+  if (!init) return {};
+  const { perAttemptTimeoutMs, next: _next, ...rest } = init;
+  if (perAttemptTimeoutMs != null && perAttemptTimeoutMs > 0) {
+    const controller = new AbortController();
+    setTimeout(() => {
+      controller.abort(
+        new DOMException("The operation was aborted.", "AbortError")
+      );
+    }, perAttemptTimeoutMs);
+    return {
+      ...rest,
+      signal: controller.signal,
+    };
+  }
+  return rest as RequestInit;
+}
+
 async function fetchWithRetry(
   url: string,
   init: ServerActionFetchInit | undefined,
@@ -158,7 +180,7 @@ async function fetchWithRetry(
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const res = await fetch(url, init as RequestInit);
+      const res = await fetch(url, attemptFetchInit(init));
       const text = await res.text();
       let raw: unknown = null;
       if (text) {

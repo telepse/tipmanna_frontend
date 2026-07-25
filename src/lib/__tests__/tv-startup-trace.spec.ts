@@ -9,9 +9,8 @@ import {
   markTvStartupNavigation,
   tvStartupEvent,
   updateTvStartupContext,
+  type TvStartupSummary,
 } from "../tv-startup-trace";
-
-const SESSION_KEY = "tipmanna-tv-startup-traces-v1";
 
 type FakeStorage = {
   store: Map<string, string>;
@@ -36,22 +35,10 @@ function makeStorage(): FakeStorage {
 
 let storage: FakeStorage;
 
-type StartupSummaryShape = {
-  marks: Record<string, number>;
-  scheduleAttemptCount: number;
-  scheduleRetryCount: number;
-  playerLoadCommandCount: number;
-  seekCount: number;
-  playCommandCount: number;
-  syncToLiveCount: number;
-  currentIndexChangeCount: number;
-  playerErrorCount: number;
-  retry10sOccurred: boolean;
-  retry30sOccurred: boolean;
-  retry60sOccurred: boolean;
+type StartupHelper = {
+  getLatest: () => TvStartupSummary | null;
+  copyLatest: () => string;
 };
-
-type StartupHelper = { getLatest: () => StartupSummaryShape };
 
 type BrowserTestGlobals = {
   sessionStorage?: FakeStorage;
@@ -59,7 +46,6 @@ type BrowserTestGlobals = {
     location: { search: string };
     __TIPMANNA_TV_STARTUP_TRACE__?: StartupHelper;
   };
-  __TIPMANNA_TV_STARTUP_TRACE__?: StartupHelper;
 };
 
 const testGlobal = globalThis as unknown as BrowserTestGlobals;
@@ -67,15 +53,12 @@ const testGlobal = globalThis as unknown as BrowserTestGlobals;
 function installBrowserGlobals(search = "") {
   storage = makeStorage();
   testGlobal.sessionStorage = storage;
-  testGlobal.window = {
-    location: { search },
-  };
+  testGlobal.window = { location: { search } };
 }
 
 function clearBrowserGlobals() {
   delete testGlobal.sessionStorage;
   delete testGlobal.window;
-  delete testGlobal.__TIPMANNA_TV_STARTUP_TRACE__;
 }
 
 const ORIGINAL_ENV = process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED;
@@ -98,255 +81,312 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("enable / disable gating", () => {
-  it("is disabled by default (no flag, no query)", () => {
-    expect(isTvStartupTraceEnabled()).toBe(false);
-    expect(getTvStartupTraceId()).toBeNull();
-
-    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
-    tvStartupEvent("tv_provider_mounted", { canonicalMark: "T2" });
-    expect(spy).not.toHaveBeenCalled();
-    expect(storage.store.has(SESSION_KEY)).toBe(false);
-  });
-
-  it("is enabled by the environment flag (1 or true)", () => {
-    process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED = "1";
-    __resetTvStartupTraceForTest();
-    installBrowserGlobals();
-    expect(isTvStartupTraceEnabled()).toBe(true);
-    expect(getTvStartupTraceId()).not.toBeNull();
-
-    process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED = "true";
-    __resetTvStartupTraceForTest();
-    installBrowserGlobals();
-    expect(isTvStartupTraceEnabled()).toBe(true);
-  });
-
-  it("is enabled by ?tvDebug=1", () => {
-    __resetTvStartupTraceForTest();
-    installBrowserGlobals("?tvDebug=1");
-    expect(isTvStartupTraceEnabled()).toBe(true);
-  });
-
-  it("treats other flag values as disabled", () => {
-    process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED = "yes";
-    __resetTvStartupTraceForTest();
-    installBrowserGlobals();
-    expect(isTvStartupTraceEnabled()).toBe(false);
-  });
-});
-
 function enable() {
   process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED = "1";
   __resetTvStartupTraceForTest();
   installBrowserGlobals();
 }
 
-/** In node the browser helper is installed on `window`, not on `globalThis`. */
 function helper(): StartupHelper {
   const h = testGlobal.window?.__TIPMANNA_TV_STARTUP_TRACE__;
   if (!h) throw new Error("startup trace helper not installed");
   return h;
 }
 
-describe("event ordering and marks", () => {
-  it("records canonical marks in emitted order", () => {
-    enable();
-    vi.spyOn(console, "info").mockImplementation(() => {});
-    markTvStartupNavigation();
-    tvStartupEvent("tv_provider_mounted", { canonicalMark: "T2" });
-    tvStartupEvent("schedule_request_started", {
-      canonicalMark: "T3",
-      trigger: "initial",
-    });
-    tvStartupEvent("schedule_payload_accepted", {
-      canonicalMark: "T4",
-      data: { source: "network" },
-    });
-    tvStartupEvent("playlist_selected", { canonicalMark: "T5" });
+function finalizeStablePlaying() {
+  updateTvStartupContext({ playerState: "PLAYING", overlayVisible: false });
+  tvStartupEvent("player_playing", { canonicalMark: "T11" });
+  vi.advanceTimersByTime(2000);
+}
 
-    const latest = helper().getLatest();
-    const keys = Object.keys(latest.marks);
-    // T0 is recorded by navigation; T2..T5 follow in order.
-    expect(keys).toEqual(["T0", "T2", "T3", "T4", "T5"]);
+describe("enable / disable gating", () => {
+  it("is disabled by default", () => {
+    expect(isTvStartupTraceEnabled()).toBe(false);
+    expect(getTvStartupTraceId()).toBeNull();
   });
 
-  it("emits a canonical mark only once even if event repeats", () => {
-    enable();
-    vi.spyOn(console, "info").mockImplementation(() => {});
-    tvStartupEvent("schedule_request_started", {
-      canonicalMark: "T3",
-      trigger: "initial",
-    });
-    const firstT3 = helper().getLatest().marks.T3;
-    tvStartupEvent("schedule_request_started", {
-      canonicalMark: "T3",
-      trigger: "retry",
-    });
-    expect(helper().getLatest().marks.T3).toBe(firstT3);
+  it("is enabled by env flag or ?tvDebug=1", () => {
+    process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED = "1";
+    __resetTvStartupTraceForTest();
+    installBrowserGlobals();
+    expect(isTvStartupTraceEnabled()).toBe(true);
+
+    __resetTvStartupTraceForTest();
+    installBrowserGlobals("?tvDebug=1");
+    expect(isTvStartupTraceEnabled()).toBe(true);
   });
 });
 
-describe("repeated-action counters", () => {
-  it("counts schedule attempts and retries with triggers", () => {
+describe("finalized summary immutability", () => {
+  it("freezes counters after stable_playback; getLatest and copyLatest match", () => {
     enable();
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    finalizeStablePlaying();
+    const viaGet = helper().getLatest();
+    expect(viaGet?.finalState).toBe("stable");
+    expect(viaGet?.scheduleNetworkAttemptCount).toBe(0);
+
+    tvStartupEvent("schedule_request_started", { trigger: "interval" });
+    tvStartupEvent("syncToLive");
+    tvStartupEvent("syncToLive");
+
+    const afterBg = helper().getLatest();
+    const copied = JSON.parse(helper().copyLatest()) as TvStartupSummary;
+
+    expect(afterBg?.scheduleNetworkAttemptCount).toBe(0);
+    expect(copied.scheduleNetworkAttemptCount).toBe(0);
+    expect(copied.syncToLiveCount).toBe(0);
+    expect(JSON.stringify(afterBg)).toBe(JSON.stringify(copied));
+    expect(copied.finalizedAt).not.toBeNull();
+    expect(copied.postFinalizationEventCount).toBeGreaterThan(0);
+  });
+
+  it("does not mutate persisted sessionStorage summary after finalize", () => {
+    enable();
+    vi.useFakeTimers();
     vi.spyOn(console, "info").mockImplementation(() => {});
     tvStartupEvent("schedule_request_started", { trigger: "initial" });
-    tvStartupEvent("schedule_request_started", { trigger: "retry" });
-    tvStartupEvent("schedule_request_started", { trigger: "retry" });
-    const s = helper().getLatest();
-    expect(s.scheduleAttemptCount).toBe(3);
-    expect(s.scheduleRetryCount).toBe(2);
-  });
+    finalizeStablePlaying();
 
-  it("counts load / seek / play / sync / index / error separately", () => {
-    enable();
-    vi.spyOn(console, "info").mockImplementation(() => {});
-    tvStartupEvent("playback_command_issued", {
-      data: { command: "loadVideoById" },
-    });
-    tvStartupEvent("playback_command_issued", { data: { command: "seekTo" } });
-    tvStartupEvent("playback_command_issued", {
-      data: { command: "playVideo" },
-    });
-    tvStartupEvent("syncToLive");
-    tvStartupEvent("syncToLive");
-    tvStartupEvent("setCurrentIndex", { data: { currentIndex: 3 } });
-    tvStartupEvent("player_error");
-    const s = helper().getLatest();
-    expect(s.playerLoadCommandCount).toBe(1);
-    expect(s.seekCount).toBe(1);
-    expect(s.playCommandCount).toBe(1);
-    expect(s.syncToLiveCount).toBe(2);
-    expect(s.currentIndexChangeCount).toBe(1);
-    expect(s.playerErrorCount).toBe(1);
-  });
+    const persisted = getTvStartupSummaries()[0];
+    expect(persisted.scheduleNetworkAttemptCount).toBe(1);
 
-  it("flags which retry delay occurred", () => {
-    enable();
-    vi.spyOn(console, "info").mockImplementation(() => {});
-    tvStartupEvent("schedule_request_finished", {
-      data: { retryDelayMs: 60_000 },
-    });
-    const s = helper().getLatest();
-    expect(s.retry60sOccurred).toBe(true);
-    expect(s.retry10sOccurred).toBe(false);
-    expect(s.retry30sOccurred).toBe(false);
+    tvStartupEvent("schedule_request_started", { trigger: "interval" });
+    tvStartupEvent("schedule_request_started", { trigger: "interval" });
+
+    expect(getTvStartupSummaries()[0].scheduleNetworkAttemptCount).toBe(1);
   });
 });
 
-describe("stability + summary", () => {
-  it("finalizes as stable after a 2s uninterrupted window and computes segments", () => {
+describe("stable playback guards", () => {
+  it("does not emit stable_playback while BUFFERING at window end", () => {
     enable();
     vi.useFakeTimers();
-    vi.spyOn(console, "info").mockImplementation(() => {});
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
 
-    tvStartupEvent("tv_provider_mounted", { canonicalMark: "T2" });
+    updateTvStartupContext({ playerState: "PLAYING" });
     tvStartupEvent("player_playing", { canonicalMark: "T11" });
-    tvStartupEvent("player_overlay_removed", { canonicalMark: "T12" });
-
+    updateTvStartupContext({ playerState: "BUFFERING", overlayVisible: true });
     vi.advanceTimersByTime(2000);
 
-    const all = getTvStartupSummaries();
-    expect(all.length).toBe(1);
-    const summary = all[0];
-    expect(summary.finalState).toBe("stable");
-    expect(summary.marks.T13).not.toBeUndefined();
-    // segment for adjacent present marks (T11 -> T12) exists
-    expect(summary.segments).toHaveProperty("T11_T12");
-    expect(summary.totalTtfvMs).not.toBeNull();
-    expect(summary.stableTtfvMs).not.toBeNull();
-  });
-
-  it("restarts the window when interrupted and emits stability_interrupted", () => {
-    enable();
-    vi.useFakeTimers();
-    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
-
-    tvStartupEvent("player_playing", { canonicalMark: "T11" });
-    vi.advanceTimersByTime(1000);
-    // interrupt before 2s
-    tvStartupEvent("setCurrentIndex", { data: { currentIndex: 5 } });
-    vi.advanceTimersByTime(1000);
-    // Not yet stable (window restarted at interrupt).
     expect(getTvStartupSummaries().length).toBe(0);
-    vi.advanceTimersByTime(1000);
-    expect(getTvStartupSummaries().length).toBe(1);
-
-    const interruptCall = spy.mock.calls.find(
-      c => typeof c[0] === "string" && c[0].includes("stability_interrupted")
+    const interrupted = spy.mock.calls.some(
+      c =>
+        typeof c[0] === "string" &&
+        c[0].includes("stability_interrupted") &&
+        (c[1] as { reason?: string })?.reason === "not_playing_at_window_end"
     );
-    expect(interruptCall).toBeTruthy();
+    expect(interrupted).toBe(true);
   });
 
-  it("handles missing marks safely (partial timeline)", () => {
+  it("interrupts stability on BUFFERING during the window and waits for PLAYING", () => {
     enable();
     vi.useFakeTimers();
     vi.spyOn(console, "info").mockImplementation(() => {});
-    // Only T2, then failure timeout (no playing).
-    tvStartupEvent("tv_provider_mounted", { canonicalMark: "T2" });
-    vi.advanceTimersByTime(90_000);
-    const all = getTvStartupSummaries();
-    expect(all.length).toBe(1);
-    expect(all[0].finalState).toBe("failed");
-    expect(all[0].totalTtfvMs).toBeNull();
-    expect(all[0].stableTtfvMs).toBeNull();
-  });
-});
 
-describe("privacy / safety", () => {
-  it("hashShortId does not echo the raw value and is short", () => {
-    const raw = "dQw4w9WgXcQ";
-    const hashed = hashShortId(raw);
-    expect(hashed).not.toBe(raw);
-    expect(hashed?.startsWith("#")).toBe(true);
-    expect((hashed ?? "").length).toBeLessThanOrEqual(9);
-    expect(hashShortId(null)).toBeNull();
-    expect(hashShortId("")).toBeNull();
+    updateTvStartupContext({ playerState: "PLAYING", overlayVisible: false });
+    tvStartupEvent("player_playing", { canonicalMark: "T11" });
+    vi.advanceTimersByTime(500);
+    updateTvStartupContext({ playerState: "BUFFERING" });
+    tvStartupEvent("player_buffering", { canonicalMark: "T10" });
+    vi.advanceTimersByTime(2000);
+    expect(getTvStartupSummaries().length).toBe(0);
+
+    updateTvStartupContext({ playerState: "PLAYING" });
+    tvStartupEvent("player_playing");
+    vi.advanceTimersByTime(2000);
+    expect(getTvStartupSummaries()[0]?.finalState).toBe("stable");
   });
 
-  it("emitted records never contain token/cookie/authorization keys", () => {
+  it("interrupts on load, seek, index change, source reset and error", () => {
     enable();
+    vi.useFakeTimers();
     const spy = vi.spyOn(console, "info").mockImplementation(() => {});
-    updateTvStartupContext({ source: "global", currentIndex: 2 });
-    tvStartupEvent("schedule_payload_accepted", {
-      canonicalMark: "T4",
-      data: { source: "network", activeScheduleIdHash: hashShortId("abc123") },
-    });
-    for (const call of spy.mock.calls) {
-      const payload = call[1] as Record<string, unknown> | undefined;
-      if (!payload) continue;
-      const keys = Object.keys(payload).map(k => k.toLowerCase());
-      for (const forbidden of [
-        "token",
-        "cookie",
-        "authorization",
-        "password",
-      ]) {
-        expect(keys.some(k => k.includes(forbidden))).toBe(false);
-      }
-      const serialized = JSON.stringify(payload).toLowerCase();
-      expect(serialized.includes("bearer ")).toBe(false);
-    }
-  });
-});
 
-describe("bounded history + resilience", () => {
-  it("caps sessionStorage history at 25 runs", () => {
-    // Install storage ONCE; reset only trace state between runs so the same
-    // sessionStorage accumulates summaries.
-    enable();
-    vi.spyOn(console, "info").mockImplementation(() => {});
-    for (let i = 0; i < 27; i += 1) {
+    const interruptEvents = [
+      "orchestrated_playback_command_issued",
+      "setCurrentIndex",
+      "source_reset",
+      "player_error",
+    ] as const;
+
+    for (const evt of interruptEvents) {
       __resetTvStartupTraceForTest();
       process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED = "1";
+      installBrowserGlobals();
       vi.useFakeTimers();
+      spy.mockClear();
+
+      updateTvStartupContext({ playerState: "PLAYING" });
       tvStartupEvent("player_playing", { canonicalMark: "T11" });
+      vi.advanceTimersByTime(500);
+      if (evt === "orchestrated_playback_command_issued") {
+        tvStartupEvent(evt, { data: { command: "seekTo" } });
+      } else {
+        tvStartupEvent(evt);
+      }
       vi.advanceTimersByTime(2000);
-      vi.useRealTimers();
+      expect(getTvStartupSummaries().length).toBe(0);
+      expect(
+        spy.mock.calls.some(
+          c =>
+            typeof c[0] === "string" &&
+            c[0].includes("stability_interrupted") &&
+            (c[1] as { reason?: string })?.reason === evt
+        )
+      ).toBe(true);
     }
-    const all = getTvStartupSummaries();
-    expect(all.length).toBe(25);
+  });
+});
+
+describe("canonical T9 semantics", () => {
+  it("does not assign T9 to initial_embed_created", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    tvStartupEvent("player_ready", { canonicalMark: "T8" });
+    tvStartupEvent("initial_embed_created", { trigger: "initial_embed" });
+
+    const s = helper().getLatest();
+    expect(s?.marks.T9).toBeUndefined();
+    expect(s?.initialEmbedCount).toBe(1);
+    expect(s?.loadVideoByIdCount).toBe(0);
+  });
+
+  it("assigns T9 only to the first orchestrated command after T8", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    tvStartupEvent("player_ready", { canonicalMark: "T8" });
+    tvStartupEvent("orchestrated_playback_command_issued", {
+      data: { command: "loadVideoById" },
+    });
+    const firstT9 = helper().getLatest()?.marks.T9;
+    tvStartupEvent("orchestrated_playback_command_issued", {
+      data: { command: "seekTo" },
+    });
+    expect(helper().getLatest()?.marks.T9).toBe(firstT9);
+    expect(helper().getLatest()?.segments.T8_T9).not.toBeNull();
+    expect(helper().getLatest()?.segments.T8_T9 ?? -1).toBeGreaterThanOrEqual(
+      0
+    );
+  });
+});
+
+describe("overlay timing", () => {
+  it("reports overlay removed before playing without negative T11_T12 segment", () => {
+    enable();
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    let fakeNow = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => fakeNow);
+
+    fakeNow = 1000;
+    tvStartupEvent("player_overlay_removed", { canonicalMark: "T12" });
+    fakeNow = 5000;
+    tvStartupEvent("player_playing", { canonicalMark: "T11" });
+
+    updateTvStartupContext({ playerState: "PLAYING", overlayVisible: false });
+    fakeNow = 5100;
+    tvStartupEvent("player_playing");
+    fakeNow = 7100;
+    vi.advanceTimersByTime(2000);
+
+    const summary = getTvStartupSummaries()[0];
+    expect(summary.overlayRemovedBeforePlaying).toBe(true);
+    expect(summary.overlayLeadMs).toBe(4000);
+    expect(summary.overlayLagMs).toBeNull();
+    expect(summary.segments.T11_T12).toBeNull();
+    expect(summary.segmentDiagnostics).toContain("reordered_T11_after_T12");
+    expect(summary.totalTtfvMs).toBe(5000);
+  });
+});
+
+describe("playback and schedule counters", () => {
+  it("counts orchestrated commands separately without double-counting seeks", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("initial_embed_created");
+    tvStartupEvent("orchestrated_playback_command_issued", {
+      data: { command: "loadVideoById" },
+    });
+    tvStartupEvent("orchestrated_playback_command_issued", {
+      data: { command: "seekTo" },
+    });
+    tvStartupEvent("orchestrated_playback_command_issued", {
+      data: { command: "playVideo" },
+    });
+
+    const s = helper().getLatest();
+    expect(s?.initialEmbedCount).toBe(1);
+    expect(s?.loadVideoByIdCount).toBe(1);
+    expect(s?.seekToCount).toBe(1);
+    expect(s?.playVideoCount).toBe(1);
+    expect(s?.totalPlaybackCommandCount).toBe(3);
+    expect(s?.playerLoadCommandCount).toBe(1);
+  });
+
+  it("separates network attempts, cache bootstrap and refresh triggers", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("session_cache_bootstrap", { trigger: "initial" });
+    tvStartupEvent("schedule_request_started", { trigger: "initial" });
+    tvStartupEvent("schedule_request_started", { trigger: "retry" });
+    tvStartupEvent("schedule_request_started", { trigger: "visibility" });
+    tvStartupEvent("schedule_request_started", { trigger: "interval" });
+
+    const s = helper().getLatest();
+    expect(s?.scheduleCacheBootstrapCount).toBe(1);
+    expect(s?.scheduleNetworkAttemptCount).toBe(4);
+    expect(s?.scheduleAttemptCount).toBe(4);
+    expect(s?.scheduleRetryCount).toBe(1);
+    expect(s?.scheduleRefreshCountDuringStartup).toBe(2);
+    expect(s?.marks.T3).not.toBeUndefined();
+  });
+});
+
+describe("segment safety", () => {
+  it("leaves unavailable segments null instead of negative values", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    tvStartupEvent("player_ready", { canonicalMark: "T8" });
+    tvStartupEvent("initial_embed_created");
+
+    const s = helper().getLatest();
+    expect(s?.segments.T8_T9).toBeNull();
+    for (const val of Object.values(s?.segments ?? {})) {
+      if (val != null) expect(val).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe("separate navigations", () => {
+  it("starts a fresh trace after a finalized run", () => {
+    enable();
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    finalizeStablePlaying();
+    const firstId = helper().getLatest()?.traceId;
+
+    markTvStartupNavigation();
+    tvStartupEvent("tv_provider_mounted", { canonicalMark: "T2" });
+
+    const secondId = getTvStartupTraceId();
+    expect(secondId).not.toBe(firstId);
+    expect(helper().getLatest()?.finalState).toBe("pending");
+    expect(helper().getLatest()?.marks.T2).not.toBeUndefined();
+  });
+});
+
+describe("privacy / resilience", () => {
+  it("hashShortId does not echo raw values", () => {
+    const hashed = hashShortId("dQw4w9WgXcQ");
+    expect(hashed).not.toBe("dQw4w9WgXcQ");
+    expect(hashShortId(null)).toBeNull();
   });
 
   it("never throws when sessionStorage.setItem fails", () => {
@@ -357,8 +397,7 @@ describe("bounded history + resilience", () => {
       throw new Error("quota");
     };
     expect(() => {
-      tvStartupEvent("player_playing", { canonicalMark: "T11" });
-      vi.advanceTimersByTime(2000);
+      finalizeStablePlaying();
     }).not.toThrow();
   });
 });

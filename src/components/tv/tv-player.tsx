@@ -138,11 +138,9 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       });
       if (mountedVideoIdRef.current && !initialEmbedTracedRef.current) {
         initialEmbedTracedRef.current = true;
-        tvStartupEvent("playback_command_issued", {
-          canonicalMark: "T9",
+        tvStartupEvent("initial_embed_created", {
           trigger: "initial_embed",
           data: {
-            command: "initial_embed",
             videoIdHash: hashShortId(mountedVideoIdRef.current),
             startOffsetSeconds: 0,
           },

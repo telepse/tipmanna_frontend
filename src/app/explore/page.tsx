@@ -9,16 +9,31 @@ import { ExploreSsrBootStream } from "@/components/explore/explore-ssr-boot-stre
 import { getCommunityAccessStateAction } from "@/actions/communities";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 
+function exploreSearchParamsKey(
+  sp: Record<string, string | string[] | undefined>
+): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(sp)) {
+    if (typeof value === "string") params.set(key, value);
+    else if (Array.isArray(value)) {
+      for (const entry of value) params.append(key, entry);
+    }
+  }
+  return params.toString();
+}
+
 type PageProps = {
-  searchParams: Promise<{ tab?: string; joinCommunity?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export async function generateMetadata({
   searchParams,
 }: PageProps): Promise<Metadata> {
   const sp = await searchParams;
-  const joinId = sp.joinCommunity?.trim();
-  if (sp.tab !== "join" || !joinId) {
+  const joinRaw = sp.joinCommunity;
+  const joinId = (typeof joinRaw === "string" ? joinRaw : joinRaw?.[0] ?? "").trim();
+  const tab = typeof sp.tab === "string" ? sp.tab : sp.tab?.[0];
+  if (tab !== "join" || !joinId) {
     return {
       title: "Tipmanna TV — Explore",
       description:
@@ -55,6 +70,7 @@ export async function generateMetadata({
 
 export default async function ExplorePage({ searchParams }: PageProps) {
   const sp = await searchParams;
+  const searchParamsKey = exploreSearchParamsKey(sp);
   const websiteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -89,10 +105,10 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(exploreJsonLd) }}
       />
       <Suspense fallback={null}>
-        <ExploreSsrBootStream />
+        <ExploreSsrBootStream searchParamsKey={searchParamsKey} />
       </Suspense>
       <Suspense fallback={null}>
-        <ExploreDiscoverSeoGate tab={sp.tab} />
+        <ExploreDiscoverSeoGate tab={typeof sp.tab === "string" ? sp.tab : undefined} />
       </Suspense>
       <Suspense fallback={null}>
         <ExplorePageClient ssrBoot={null} />

@@ -220,23 +220,4 @@ export function wrapPaymentAnimation(
   };
 }
 
-export const playedAnimations = new Set<string>();
-
-const MAX_PLAYED_ENTRIES = 500;
-
-export function markPlayed(key: string): void {
-  playedAnimations.add(key);
-  if (playedAnimations.size > MAX_PLAYED_ENTRIES) {
-    const overflow = playedAnimations.size - MAX_PLAYED_ENTRIES;
-    let removed = 0;
-    for (const k of playedAnimations) {
-      if (removed >= overflow) break;
-      playedAnimations.delete(k);
-      removed++;
-    }
-  }
-}
-
-export function clearPlayedAnimations() {
-  playedAnimations.clear();
-}
+export { clearPlaybackKeyState as clearPlayedAnimations } from "@/lib/playback-key-lifecycle";

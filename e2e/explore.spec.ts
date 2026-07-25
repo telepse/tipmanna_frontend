@@ -35,7 +35,7 @@ test.describe("explore", () => {
 
     const state = await waitExploreFeedReady(page);
 
-    if (state === "scroll") {
+    if (state.state === "scroll") {
       const scroll = page.getByTestId("explore-feed-scroll");
       await scroll.evaluate(el => {
         el.scrollTop = el.scrollHeight;
@@ -56,7 +56,7 @@ test.describe("explore", () => {
   test("slide actions live inside active slide footer", async ({ page }) => {
     await gotoExplore(page);
     const state = await waitExploreFeedReady(page, 15_000);
-    if (state !== "scroll") {
+    if (state.state !== "scroll") {
       test.skip();
       return;
     }

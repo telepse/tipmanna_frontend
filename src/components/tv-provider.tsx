@@ -628,8 +628,7 @@ export default function GlobalTVProvider({
       videoId: req.videoId,
       startSeconds: req.startSeconds,
     };
-    tvStartupEvent("playback_command_issued", {
-      canonicalMark: "T9",
+    tvStartupEvent("orchestrated_playback_command_issued", {
       trigger: req.reason,
       data: {
         command: "loadVideoById",
@@ -766,7 +765,7 @@ export default function GlobalTVProvider({
               videoId,
               startSeconds: pos.offsetSeconds,
             };
-            tvStartupEvent("playback_command_issued", {
+            tvStartupEvent("orchestrated_playback_command_issued", {
               trigger: "syncToLive_coalesced_seek",
               data: {
                 command: "seekTo",
@@ -814,7 +813,7 @@ export default function GlobalTVProvider({
                 startSeconds: pos.offsetSeconds,
               }
             : null;
-          tvStartupEvent("playback_command_issued", {
+          tvStartupEvent("orchestrated_playback_command_issued", {
             trigger: "syncToLive_drift_seek",
             data: {
               command: "seekTo",
@@ -1171,7 +1170,6 @@ export default function GlobalTVProvider({
           typeof performance !== "undefined" ? performance.now() : Date.now();
         const usingDirectFetch = isTvDirectScheduleFetchEnabled();
         tvStartupEvent("schedule_request_started", {
-          canonicalMark: "T3",
           trigger: startupTrigger,
           data: {
             scheduleSource: fetchCommunityId ? "community" : "global",

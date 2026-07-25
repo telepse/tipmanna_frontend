@@ -7,11 +7,6 @@
  *
  * Enable with `NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED=1` (or `true`) or `?tvDebug=1`.
  * All output uses the single prefix `[TV_STARTUP_TRACE]`.
- *
- * This is intentionally separate from `tvDebugLog.ts` (existing `tvLoadMark` /
- * `tvTrace` marks are preserved and NOT renamed). Canonical marks here use the
- * `tv-startup:*` performance-mark namespace and a `canonicalMark` field so they
- * never collide with the existing internal `tv:T0..T6` labels.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -53,24 +48,38 @@ const PERFORMANCE_MARK_NAMES: Record<CanonicalMark, string> = {
 const LOG_PREFIX = "[TV_STARTUP_TRACE]";
 const SESSION_STORAGE_KEY = "tipmanna-tv-startup-traces-v1";
 const MAX_TRACE_HISTORY = 25;
+const MAX_EVENT_LOG = 200;
 const STABILITY_WINDOW_MS = 2_000;
-/** Safety net: if no stable playback within this window, emit `startup_failed`. */
 const STARTUP_FAILURE_TIMEOUT_MS = 90_000;
 
-/** Events that interrupt a pending stable-playback window (per spec). */
+/** Triggers counted as background schedule refreshes (not initial/retry network attempts). */
+const SCHEDULE_REFRESH_TRIGGERS = new Set([
+  "pusher",
+  "visibility",
+  "interval",
+  "boundary",
+  "sync_miss",
+  "source_change",
+  "manual",
+]);
+
+/** Events that interrupt a pending stable-playback window. */
 const STABILITY_INTERRUPT_EVENTS = new Set<string>([
+  "orchestrated_playback_command_issued",
   "loadVideoById",
   "setCurrentIndex",
   "source_reset",
   "player_error",
   "schedule_reset",
+  "player_buffering",
 ]);
+
+const ORCHESTRATED_COMMANDS = new Set(["loadVideoById", "seekTo", "playVideo"]);
 
 export type TvStartupEventOptions = {
   canonicalMark?: CanonicalMark;
   trigger?: string;
   reason?: string;
-  /** Extra non-sensitive fields. Never pass tokens, cookies, full IDs or titles. */
   data?: Record<string, unknown>;
 };
 
@@ -83,18 +92,31 @@ type TvStartupContext = {
   source?: string | null;
 };
 
-type TvStartupSummary = {
+export type TvStartupSummary = {
   traceId: string;
   startedAt: number;
+  finalizedAt: number | null;
   marks: Partial<Record<CanonicalMark, number>>;
-  segments: Record<string, number>;
+  segments: Record<string, number | null>;
+  segmentDiagnostics: string[];
   totalTtfvMs: number | null;
   stableTtfvMs: number | null;
+  overlayRemovedBeforePlaying: boolean | null;
+  overlayLeadMs: number | null;
+  overlayLagMs: number | null;
+  /** @deprecated alias — equals scheduleNetworkAttemptCount */
   scheduleAttemptCount: number;
+  scheduleNetworkAttemptCount: number;
+  scheduleCacheBootstrapCount: number;
   scheduleRetryCount: number;
+  scheduleRefreshCountDuringStartup: number;
+  /** @deprecated use loadVideoByIdCount */
   playerLoadCommandCount: number;
-  seekCount: number;
-  playCommandCount: number;
+  initialEmbedCount: number;
+  loadVideoByIdCount: number;
+  seekToCount: number;
+  playVideoCount: number;
+  totalPlaybackCommandCount: number;
   syncToLiveCount: number;
   currentIndexChangeCount: number;
   playerErrorCount: number;
@@ -105,14 +127,19 @@ type TvStartupSummary = {
   scheduleResponseSource: string | null;
   latestStage: string | null;
   finalState: "pending" | "stable" | "failed";
+  postFinalizationEventCount: number;
 };
 
 type TvStartupRun = {
   summary: TvStartupSummary;
+  frozenSummary: TvStartupSummary | null;
+  orchestratedT9Recorded: boolean;
+  firstNetworkScheduleRecorded: boolean;
   stabilityTimer: ReturnType<typeof setTimeout> | null;
   failureTimer: ReturnType<typeof setTimeout> | null;
   playingReached: boolean;
   finalized: boolean;
+  postFinalizationEvents: Array<Record<string, unknown>>;
 };
 
 let cachedEnabled: boolean | null = null;
@@ -121,7 +148,6 @@ let currentRun: TvStartupRun | null = null;
 let ambient: TvStartupContext = {};
 let helperInstalled = false;
 
-/** Ordered canonical marks for adjacent-segment computation. */
 const CANONICAL_ORDER: CanonicalMark[] = [
   "T0",
   "T1",
@@ -170,27 +196,17 @@ function safeRandomId(): string {
       return Array.from(buf, b => b.toString(16).padStart(2, "0")).join("");
     }
   } catch {
-    /* fall through to Math.random */
+    /* fall through */
   }
   return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 12)}`;
 }
 
-/**
- * Returns the correlation ID for this page load, or null when tracing is disabled.
- * Generated once and retained for the page lifetime. Safe random — never derived
- * from user data.
- */
 export function getTvStartupTraceId(): string | null {
   if (!isTvStartupTraceEnabled()) return null;
   if (!traceId) traceId = safeRandomId();
   return traceId;
 }
 
-/**
- * Non-reversible short token for correlating an ID across events without
- * exposing the full value. Deterministic within a run so the same video/schedule
- * ID produces the same token. Never used for security.
- */
 export function hashShortId(value: string | null | undefined): string | null {
   if (value == null || value === "") return null;
   let h = 0;
@@ -211,39 +227,71 @@ function nowMs(): number {
   return Date.now();
 }
 
+function createEmptySummary(id: string): TvStartupSummary {
+  return {
+    traceId: id,
+    startedAt: Date.now(),
+    finalizedAt: null,
+    marks: {},
+    segments: {},
+    segmentDiagnostics: [],
+    totalTtfvMs: null,
+    stableTtfvMs: null,
+    overlayRemovedBeforePlaying: null,
+    overlayLeadMs: null,
+    overlayLagMs: null,
+    scheduleAttemptCount: 0,
+    scheduleNetworkAttemptCount: 0,
+    scheduleCacheBootstrapCount: 0,
+    scheduleRetryCount: 0,
+    scheduleRefreshCountDuringStartup: 0,
+    playerLoadCommandCount: 0,
+    initialEmbedCount: 0,
+    loadVideoByIdCount: 0,
+    seekToCount: 0,
+    playVideoCount: 0,
+    totalPlaybackCommandCount: 0,
+    syncToLiveCount: 0,
+    currentIndexChangeCount: 0,
+    playerErrorCount: 0,
+    retry10sOccurred: false,
+    retry30sOccurred: false,
+    retry60sOccurred: false,
+    backendRebuildingOccurred: false,
+    scheduleResponseSource: null,
+    latestStage: null,
+    finalState: "pending",
+    postFinalizationEventCount: 0,
+  };
+}
+
+function resetForNewNavigation(): void {
+  if (currentRun?.stabilityTimer != null) {
+    clearTimeout(currentRun.stabilityTimer);
+  }
+  if (currentRun?.failureTimer != null) {
+    clearTimeout(currentRun.failureTimer);
+  }
+  currentRun = null;
+  traceId = null;
+  ambient = {};
+}
+
 function ensureRun(): TvStartupRun | null {
   if (!isTvStartupTraceEnabled()) return null;
   if (currentRun) return currentRun;
   const id = getTvStartupTraceId();
   if (!id) return null;
   currentRun = {
-    summary: {
-      traceId: id,
-      startedAt: Date.now(),
-      marks: {},
-      segments: {},
-      totalTtfvMs: null,
-      stableTtfvMs: null,
-      scheduleAttemptCount: 0,
-      scheduleRetryCount: 0,
-      playerLoadCommandCount: 0,
-      seekCount: 0,
-      playCommandCount: 0,
-      syncToLiveCount: 0,
-      currentIndexChangeCount: 0,
-      playerErrorCount: 0,
-      retry10sOccurred: false,
-      retry30sOccurred: false,
-      retry60sOccurred: false,
-      backendRebuildingOccurred: false,
-      scheduleResponseSource: null,
-      latestStage: null,
-      finalState: "pending",
-    },
+    summary: createEmptySummary(id),
+    frozenSummary: null,
+    orchestratedT9Recorded: false,
+    firstNetworkScheduleRecorded: false,
     stabilityTimer: null,
     failureTimer: null,
     playingReached: false,
     finalized: false,
+    postFinalizationEvents: [],
   };
   installBrowserHelper();
   currentRun.failureTimer = safeSetTimeout(() => {
@@ -274,7 +322,8 @@ function recordCanonicalMark(
   mark: CanonicalMark,
   at: number
 ) {
-  if (run.summary.marks[mark] != null) return; // emit-once
+  if (run.finalized) return;
+  if (run.summary.marks[mark] != null) return;
   run.summary.marks[mark] = at;
   run.summary.latestStage = mark;
   try {
@@ -286,17 +335,58 @@ function recordCanonicalMark(
   }
 }
 
+function maybeRecordOrchestratedT9(
+  run: TvStartupRun,
+  event: string,
+  opts: TvStartupEventOptions,
+  at: number
+) {
+  if (run.orchestratedT9Recorded) return;
+  if (event !== "orchestrated_playback_command_issued") return;
+  const command = opts.data?.command;
+  if (typeof command !== "string" || !ORCHESTRATED_COMMANDS.has(command))
+    return;
+  run.orchestratedT9Recorded = true;
+  recordCanonicalMark(run, "T9", at);
+}
+
+function maybeRecordFirstNetworkT3(
+  run: TvStartupRun,
+  event: string,
+  at: number
+) {
+  if (event !== "schedule_request_started") return;
+  if (run.firstNetworkScheduleRecorded) return;
+  run.firstNetworkScheduleRecorded = true;
+  recordCanonicalMark(run, "T3", at);
+}
+
+function syncLegacyCounterAliases(summary: TvStartupSummary) {
+  summary.scheduleAttemptCount = summary.scheduleNetworkAttemptCount;
+  summary.playerLoadCommandCount = summary.loadVideoByIdCount;
+}
+
 function updateCounters(
   run: TvStartupRun,
   event: string,
   opts: TvStartupEventOptions
 ) {
+  if (run.finalized) return;
   const s = run.summary;
   const data = opts.data ?? {};
+  const trigger = opts.trigger ?? "";
+
   switch (event) {
     case "schedule_request_started":
-      s.scheduleAttemptCount += 1;
-      if (opts.trigger === "retry") s.scheduleRetryCount += 1;
+      s.scheduleNetworkAttemptCount += 1;
+      if (trigger === "retry") s.scheduleRetryCount += 1;
+      if (SCHEDULE_REFRESH_TRIGGERS.has(trigger)) {
+        s.scheduleRefreshCountDuringStartup += 1;
+      }
+      syncLegacyCounterAliases(s);
+      break;
+    case "session_cache_bootstrap":
+      s.scheduleCacheBootstrapCount += 1;
       break;
     case "schedule_request_finished": {
       const delay = data.retryDelayMs;
@@ -311,20 +401,19 @@ function updateCounters(
       if (data.rebuilding === true) s.backendRebuildingOccurred = true;
       break;
     }
-    case "playback_command_issued": {
+    case "initial_embed_created":
+      s.initialEmbedCount += 1;
+      break;
+    case "orchestrated_playback_command_issued": {
       const command = data.command;
-      if (command === "loadVideoById" || command === "initial_embed") {
-        s.playerLoadCommandCount += 1;
-      } else if (command === "seekTo") {
-        s.seekCount += 1;
-      } else if (command === "playVideo") {
-        s.playCommandCount += 1;
-      }
+      if (typeof command !== "string") break;
+      s.totalPlaybackCommandCount += 1;
+      if (command === "loadVideoById") s.loadVideoByIdCount += 1;
+      else if (command === "seekTo") s.seekToCount += 1;
+      else if (command === "playVideo") s.playVideoCount += 1;
+      syncLegacyCounterAliases(s);
       break;
     }
-    case "seekTo":
-      s.seekCount += 1;
-      break;
     case "syncToLive":
       s.syncToLiveCount += 1;
       break;
@@ -339,53 +428,125 @@ function updateCounters(
   }
 }
 
+function isPlayingState(state: string | null | undefined): boolean {
+  return state === "PLAYING";
+}
+
+function clearStabilityTimer(run: TvStartupRun) {
+  if (run.stabilityTimer != null) {
+    clearTimeout(run.stabilityTimer);
+    run.stabilityTimer = null;
+  }
+}
+
 function handleStability(run: TvStartupRun, event: string) {
+  if (run.finalized) return;
+
   if (event === "player_playing") {
     if (!run.playingReached) run.playingReached = true;
     startStabilityWindow(run);
     return;
   }
-  // Only interrupt once playback has begun and a window is pending.
-  if (!run.playingReached || run.finalized) return;
-  const interrupt =
-    STABILITY_INTERRUPT_EVENTS.has(event) ||
-    (event === "playback_command_issued" && run.stabilityTimer != null);
-  if (interrupt && run.stabilityTimer != null) {
-    clearTimeout(run.stabilityTimer);
-    run.stabilityTimer = null;
+
+  if (!run.playingReached || run.stabilityTimer == null) return;
+
+  if (STABILITY_INTERRUPT_EVENTS.has(event)) {
+    clearStabilityTimer(run);
     emitEvent("stability_interrupted", { reason: event });
-    startStabilityWindow(run);
   }
 }
 
 function startStabilityWindow(run: TvStartupRun) {
   if (run.finalized) return;
-  if (run.stabilityTimer != null) clearTimeout(run.stabilityTimer);
+  clearStabilityTimer(run);
   run.stabilityTimer = safeSetTimeout(() => {
     run.stabilityTimer = null;
-    emitEvent("stable_playback", { canonicalMark: "T13" });
+    if (run.finalized) return;
+
+    const state = ambient.playerState ?? null;
+    if (!isPlayingState(state)) {
+      emitEvent("stability_interrupted", {
+        reason: "not_playing_at_window_end",
+        data: { playerState: state, overlayVisible: ambient.overlayVisible },
+      });
+      return;
+    }
+
+    emitEvent("stable_playback", {
+      canonicalMark: "T13",
+      data: {
+        playerState: state,
+        overlayVisible: ambient.overlayVisible,
+        currentIndex: ambient.currentIndex,
+      },
+    });
     finalizeRun("stable", "two_second_window_elapsed");
   }, STABILITY_WINDOW_MS);
 }
 
-function computeSummary(run: TvStartupRun) {
+function computeSummary(run: TvStartupRun): TvStartupSummary {
   const marks = run.summary.marks;
-  const segments: Record<string, number> = {};
+  const segments: Record<string, number | null> = {};
+  const diagnostics: string[] = [];
+
   for (let i = 1; i < CANONICAL_ORDER.length; i += 1) {
     const prev = CANONICAL_ORDER[i - 1];
     const cur = CANONICAL_ORDER[i];
     const a = marks[prev];
     const b = marks[cur];
-    if (a != null && b != null) segments[`${prev}_${cur}`] = b - a;
+    const key = `${prev}_${cur}`;
+    if (a == null || b == null) {
+      segments[key] = null;
+      if (a == null && b != null) {
+        diagnostics.push(`missing_${prev}_before_${cur}`);
+      }
+      continue;
+    }
+    if (b < a) {
+      segments[key] = null;
+      diagnostics.push(`reordered_${prev}_after_${cur}`);
+      continue;
+    }
+    segments[key] = b - a;
   }
-  run.summary.segments = segments;
+
   const playing = marks.T11 ?? null;
   const overlay = marks.T12 ?? null;
+
+  let overlayRemovedBeforePlaying: boolean | null = null;
+  let overlayLeadMs: number | null = null;
+  let overlayLagMs: number | null = null;
+
+  if (playing != null && overlay != null) {
+    if (overlay < playing) {
+      overlayRemovedBeforePlaying = true;
+      overlayLeadMs = playing - overlay;
+      overlayLagMs = null;
+    } else {
+      overlayRemovedBeforePlaying = false;
+      overlayLeadMs = null;
+      overlayLagMs = overlay - playing;
+    }
+  } else if (overlay != null && playing == null) {
+    overlayRemovedBeforePlaying = true;
+  }
+
+  run.summary.segments = segments;
+  run.summary.segmentDiagnostics = diagnostics;
   run.summary.totalTtfvMs =
     playing != null || overlay != null
       ? Math.max(playing ?? 0, overlay ?? 0)
       : null;
   run.summary.stableTtfvMs = marks.T13 ?? null;
+  run.summary.overlayRemovedBeforePlaying = overlayRemovedBeforePlaying;
+  run.summary.overlayLeadMs = overlayLeadMs;
+  run.summary.overlayLagMs = overlayLagMs;
+  syncLegacyCounterAliases(run.summary);
+  return run.summary;
+}
+
+function cloneSummary(summary: TvStartupSummary): TvStartupSummary {
+  return JSON.parse(JSON.stringify(summary)) as TvStartupSummary;
 }
 
 function persistSummary(summary: TvStartupSummary) {
@@ -398,35 +559,48 @@ function persistSummary(summary: TvStartupSummary) {
     while (list.length > MAX_TRACE_HISTORY) list.shift();
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(list));
   } catch {
-    /* quota / private mode — never throw */
+    /* quota / private mode */
   }
 }
 
 function finalizeRun(state: "stable" | "failed", reason: string): void {
   const run = currentRun;
   if (!run || run.finalized) return;
+
   run.finalized = true;
-  if (run.stabilityTimer != null) {
-    clearTimeout(run.stabilityTimer);
-    run.stabilityTimer = null;
-  }
+  clearStabilityTimer(run);
   if (run.failureTimer != null) {
     clearTimeout(run.failureTimer);
     run.failureTimer = null;
   }
+
   run.summary.finalState = state;
   if (state === "failed") {
-    emitEvent("startup_failed", {
+    logPostFinalizationEvent("startup_failed", {
       reason,
-      data: { latestStage: run.summary.latestStage },
+      latestStage: run.summary.latestStage,
     });
   }
+
   computeSummary(run);
-  persistSummary(run.summary);
+  run.summary.finalizedAt = Date.now();
+  run.summary.postFinalizationEventCount = run.postFinalizationEvents.length;
+  run.frozenSummary = cloneSummary(run.summary);
+  persistSummary(run.frozenSummary);
   logRaw("summary", {
-    ...run.summary,
+    ...run.frozenSummary,
     finalizeReason: reason,
   });
+}
+
+function getReadableSummary(): TvStartupSummary | null {
+  if (currentRun?.frozenSummary) return currentRun.frozenSummary;
+  if (currentRun) {
+    computeSummary(currentRun);
+    return cloneSummary(currentRun.summary);
+  }
+  const all = readAllSummaries();
+  return all.length ? all[all.length - 1] : null;
 }
 
 function logRaw(event: string, payload: Record<string, unknown>) {
@@ -437,13 +611,47 @@ function logRaw(event: string, payload: Record<string, unknown>) {
   }
 }
 
-/** Internal emit used by both public API and lifecycle timers (assumes enabled). */
+function logPostFinalizationEvent(
+  event: string,
+  payload: Record<string, unknown>
+) {
+  const run = currentRun;
+  if (!run) return;
+  run.postFinalizationEvents.push({ event, ...payload, ts: nowMs() });
+  if (run.postFinalizationEvents.length > MAX_EVENT_LOG) {
+    run.postFinalizationEvents.shift();
+  }
+  if (run.frozenSummary) {
+    run.frozenSummary.postFinalizationEventCount =
+      run.postFinalizationEvents.length;
+  }
+  logRaw(`post_finalization:${event}`, {
+    traceId: run.summary.traceId,
+    ...payload,
+  });
+}
+
 function emitEvent(event: string, opts: TvStartupEventOptions = {}): void {
   const run = ensureRun();
   if (!run) return;
+
   try {
     const at = nowMs();
-    if (opts.canonicalMark) recordCanonicalMark(run, opts.canonicalMark, at);
+
+    if (run.finalized) {
+      logPostFinalizationEvent(event, {
+        trigger: opts.trigger ?? null,
+        reason: opts.reason ?? null,
+        ...(opts.data ?? {}),
+      });
+      return;
+    }
+
+    if (opts.canonicalMark) {
+      recordCanonicalMark(run, opts.canonicalMark, at);
+    }
+    maybeRecordFirstNetworkT3(run, event, at);
+    maybeRecordOrchestratedT9(run, event, opts, at);
     updateCounters(run, event, opts);
 
     const record = {
@@ -470,10 +678,6 @@ function emitEvent(event: string, opts: TvStartupEventOptions = {}): void {
   }
 }
 
-/**
- * Public entry point. Emits one structured startup trace event.
- * No-op (single boolean check) when tracing is disabled.
- */
 export function tvStartupEvent(
   event: string,
   opts: TvStartupEventOptions = {}
@@ -482,22 +686,17 @@ export function tvStartupEvent(
   emitEvent(event, opts);
 }
 
-/**
- * Merge low-frequency ambient context (index, player/schedule/overlay state,
- * source) shared by subsequent events. No-op when disabled.
- */
 export function updateTvStartupContext(partial: TvStartupContext): void {
   if (!isTvStartupTraceEnabled()) return;
   ambient = { ...ambient, ...partial };
 }
 
-/** Convenience: emit navigation_start (T0) + html_response_start (T1) once. */
 export function markTvStartupNavigation(): void {
   if (!isTvStartupTraceEnabled()) return;
+  if (currentRun?.finalized) resetForNewNavigation();
   const run = ensureRun();
-  if (!run) return;
+  if (!run || run.finalized) return;
   if (run.summary.marks.T0 == null) {
-    // T0 is navigation origin; performance.now() elapsed is 0-based on it.
     recordCanonicalMark(run, "T0", 0);
     logRaw("navigation_start", {
       traceId: run.summary.traceId,
@@ -552,20 +751,10 @@ function installBrowserHelper() {
   if (helperInstalled || typeof window === "undefined") return;
   helperInstalled = true;
   const helper: TvStartupHelper = {
-    getLatest: () => {
-      // Prefer the in-flight run so analysts can read before finalize.
-      if (currentRun) {
-        computeSummary(currentRun);
-        return currentRun.summary;
-      }
-      const all = readAllSummaries();
-      return all.length ? all[all.length - 1] : null;
-    },
+    getLatest: () => getReadableSummary(),
     getAll: () => readAllSummaries(),
     copyLatest: () => {
-      const latest = currentRun
-        ? (computeSummary(currentRun), currentRun.summary)
-        : (readAllSummaries().slice(-1)[0] ?? null);
+      const latest = getReadableSummary();
       const json = JSON.stringify(latest, null, 2);
       try {
         navigator.clipboard?.writeText(json);
@@ -589,14 +778,10 @@ function installBrowserHelper() {
   }
 }
 
-/** Read persisted summaries (debug / QA export). */
 export function getTvStartupSummaries(): TvStartupSummary[] {
   return readAllSummaries();
 }
 
-/**
- * Test-only reset of module state. Not used by production code paths.
- */
 export function __resetTvStartupTraceForTest(): void {
   cachedEnabled = null;
   traceId = null;

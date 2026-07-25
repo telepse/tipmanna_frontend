@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-prefetch-cache";
+import { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
+import { E2E_FEED_BOOT } from "@/lib/e2e-explore-fixtures";
+import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
 
 export type ExploreSsrBootPayload = {
   items: any[];
@@ -38,4 +40,14 @@ export async function fetchExploreSsrBoot(): Promise<ExploreSsrBootPayload | nul
   } catch {
     return null;
   }
+}
+
+/** Dual-gated SSR boot: synthetic fixtures for E2E, live backend otherwise. */
+export async function resolveExploreSsrBoot(
+  searchParamsKey: string
+): Promise<ExploreSsrBootPayload | null> {
+  if (isExploreE2eFixturesEnabled(searchParamsKey)) {
+    return E2E_FEED_BOOT;
+  }
+  return fetchExploreSsrBoot();
 }

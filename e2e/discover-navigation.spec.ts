@@ -1,42 +1,23 @@
 import { test, expect } from "@playwright/test";
 import { gotoExplore } from "./helpers/goto-explore";
+import { discoverTagRow } from "./helpers/explore-filter-helpers";
+import { openExploreHeaderDiscoverSearch } from "./helpers/open-explore-discover-search";
+import { withE2eFixtures } from "./helpers/explore-test-fixtures";
+import { requireExploreNavigationReady } from "./helpers/wait-explore-feed-ready";
 
 /**
  * Unified Discover navigation journeys for the long-lived Explore session.
- * Covers: search = quick-panel only (no tab nav), the sheet X closes back to
- * the feed, the session shell keeps the feed mounted on non-feed surfaces, and
- * the dedicated /discover page hands standard clips off to the Explore reel.
  */
 test.describe("discover navigation", () => {
-  const openHeaderSearch = async (page: import("@playwright/test").Page) => {
-    await expect(
-      page
-        .getByTestId("explore-feed-scroll")
-        .or(page.getByText(/no clips available|sign in to browse/i))
-        .first()
-    ).toBeVisible({ timeout: 45_000 });
-
-    // Desktop viewport: mobile search wrapper is `sm:hidden`; target visible input.
-    const search = page.locator(
-      'input[placeholder="Search videos..."]:visible'
-    );
-    await expect(search).toBeVisible({ timeout: 30_000 });
-    await search.click();
-    await search.fill("music");
-    await search.press("Enter");
-  };
-
   test("search opens the quick panel over the feed without leaving /explore", async ({
     page,
   }) => {
-    await gotoExplore(page);
-    await openHeaderSearch(page);
+    await gotoExplore(page, withE2eFixtures("/explore"));
+    await openExploreHeaderDiscoverSearch(page);
 
-    // Quick panel (sheet) overlays the feed.
     await expect(page.getByRole("dialog", { name: "Discover" })).toBeVisible({
       timeout: 30_000,
     });
-    // Unified nav must NOT switch the user to the full Discover tab.
     await expect(page).toHaveURL(/\/explore(\?|$)/);
     expect(new URL(page.url()).searchParams.get("tab")).not.toBe("discover");
   });
@@ -44,76 +25,52 @@ test.describe("discover navigation", () => {
   test("the sheet X closes the quick panel and reveals the feed", async ({
     page,
   }) => {
-    await gotoExplore(page);
-    await openHeaderSearch(page);
+    await gotoExplore(page, withE2eFixtures("/explore"));
+    await openExploreHeaderDiscoverSearch(page);
 
     const dialog = page.getByRole("dialog", { name: "Discover" });
     await expect(dialog).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole("button", { name: "Close discover panel" }).click();
     await expect(dialog).not.toBeVisible();
-
-    // Feed is the active surface again.
-    await expect(
-      page
-        .getByTestId("explore-feed-scroll")
-        .or(page.getByText(/no clips available|sign in to browse/i))
-        .first()
-    ).toBeVisible({ timeout: 30_000 });
+    await requireExploreNavigationReady(page, 30_000);
   });
 
   test("session shell keeps the feed mounted on the Discover surface (no remount)", async ({
     page,
   }) => {
-    // The Discover surface renders alongside a mounted-but-hidden feed so the
-    // reel session (playback, caches, subscriptions) survives surface switches.
-    await gotoExplore(page, "/explore?tab=discover");
+    await gotoExplore(page, withE2eFixtures("/explore?tab=discover"));
     await expect(
       page.getByRole("heading", { name: "Spotlight" }).first()
     ).toBeVisible({
       timeout: 30_000,
     });
 
-    // Feed scroll container stays in the DOM even though Discover is active.
-    await expect(page.getByTestId("explore-feed-scroll")).toBeAttached();
+    await expect(page.getByTestId("explore-feed-shell")).toBeAttached();
   });
 
   test("dedicated Discover hands standard clips to the Explore reel", async ({
     page,
   }) => {
-    await page.goto("/discover");
+    await page.goto("/e2e/discover-explore-handoff");
 
     const card = page.getByTestId("discover-content-card").first();
-    if (!(await card.isVisible({ timeout: 10_000 }).catch(() => false))) {
-      test.skip(true, "No standard clips in catalog for this environment");
-      return;
-    }
-
+    await expect(card).toBeVisible({ timeout: 10_000 });
     await card.click();
-    // Handoff opens the clip in the Explore reel session, not a separate page.
     await expect(page).toHaveURL(/\/explore\?.*channel=/, { timeout: 15_000 });
   });
 
   test("rapid tag switch shows results for the last selected tag", async ({
     page,
   }) => {
-    await gotoExplore(page, "/explore?tab=discover");
+    await gotoExplore(page, withE2eFixtures("/explore?tab=discover"));
     await expect(page.getByRole("heading", { name: "Spotlight" })).toBeVisible({
       timeout: 30_000,
     });
 
-    const concertTag = page.getByRole("button", {
-      name: "Concert",
-      exact: true,
-    });
-    const comedyTag = page.getByRole("button", { name: "Comedy", exact: true });
-    if (!(await concertTag.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, "Tag chips not visible in Discover panel");
-      return;
-    }
-
-    await concertTag.click();
-    await comedyTag.click();
+    const row = discoverTagRow(page);
+    await row.getByRole("button", { name: "Concert", exact: true }).click();
+    await row.getByRole("button", { name: "Comedy", exact: true }).click();
 
     await expect(page.getByText("Results for 'Comedy'")).toBeVisible({
       timeout: 30_000,

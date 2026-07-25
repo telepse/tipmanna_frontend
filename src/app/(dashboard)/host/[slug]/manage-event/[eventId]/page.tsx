@@ -63,9 +63,6 @@ export default async function ManageEventDetailPage({ params }: Props) {
     host: { email: hostEmail },
   } = eventDetails as any;
 
-  console.log("eventDetails", eventDetails);
-  console.log("hostMessages", hostMessages);
-
   return (
     <ProtectedRoute>
       <EventDetailClient

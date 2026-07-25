@@ -22,6 +22,7 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 

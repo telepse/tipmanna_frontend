@@ -1,12 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { gotoExplore } from "./helpers/goto-explore";
-import { waitExploreFeedReady } from "./helpers/wait-explore-feed-ready";
+import { openExploreHeaderDiscoverSearch } from "./helpers/open-explore-discover-search";
+import {
+  E2E_JOIN_COMMUNITY_ID,
+  withE2eFixtures,
+} from "./helpers/explore-test-fixtures";
+import { requireExploreNavigationReady } from "./helpers/wait-explore-feed-ready";
 
 async function waitFeedReady(page: Page) {
-  const state = await waitExploreFeedReady(page, 60_000);
-  if (state !== "scroll") {
-    test.skip(true, "Feed scroll not available");
-  }
+  await requireExploreNavigationReady(page, 60_000);
 }
 
 async function expectFeedTab(page: Page, tab: string) {
@@ -35,7 +37,7 @@ test.describe("explore URL sync journeys", () => {
   test("feed sub-tab transitions sync URL immediately (10x)", async ({
     page,
   }) => {
-    await gotoExplore(page);
+    await gotoExplore(page, withE2eFixtures("/explore"));
     await waitFeedReady(page);
 
     for (let i = 0; i < 10; i++) {
@@ -56,7 +58,7 @@ test.describe("explore URL sync journeys", () => {
   test("rapid sub-tab clicks after hydration converge on final URL (10x)", async ({
     page,
   }) => {
-    await gotoExplore(page);
+    await gotoExplore(page, withE2eFixtures("/explore"));
     await waitFeedReady(page);
 
     for (let i = 0; i < 10; i++) {
@@ -70,7 +72,7 @@ test.describe("explore URL sync journeys", () => {
   });
 
   test("Trends → Start Community preserves feedTab (10x)", async ({ page }) => {
-    await gotoExplore(page);
+    await gotoExplore(page, withE2eFixtures("/explore"));
     await waitFeedReady(page);
 
     for (let i = 0; i < 10; i++) {
@@ -90,16 +92,10 @@ test.describe("explore URL sync journeys", () => {
   });
 
   test("Community sub-tab syncs URL when visible (10x)", async ({ page }) => {
-    await gotoExplore(page);
+    await gotoExplore(page, withE2eFixtures("/explore"));
     await waitFeedReady(page);
     const community = page.getByTestId("explore-subtab-community");
-    if (!(await community.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      test.skip(
-        true,
-        "Community sub-tab not visible (viewport or feature flag)"
-      );
-      return;
-    }
+    await expect(community).toBeVisible({ timeout: 5_000 });
 
     for (let i = 0; i < 10; i++) {
       await community.click();
@@ -112,16 +108,10 @@ test.describe("explore URL sync journeys", () => {
   test("Discover quick panel expand navigates client-side to tab=discover", async ({
     page,
   }) => {
-    await gotoExplore(page);
+    test.setTimeout(120_000);
+    await gotoExplore(page, withE2eFixtures("/explore"));
     await waitFeedReady(page);
-
-    const search = page.locator(
-      'input[placeholder="Search videos..."]:visible'
-    );
-    await expect(search).toBeVisible({ timeout: 30_000 });
-    await search.click();
-    await search.fill("music");
-    await search.press("Enter");
+    await openExploreHeaderDiscoverSearch(page);
 
     await expect(page.getByRole("dialog", { name: "Discover" })).toBeVisible({
       timeout: 30_000,
@@ -133,7 +123,7 @@ test.describe("explore URL sync journeys", () => {
     await expect(
       page.getByRole("heading", { name: "Spotlight" }).first()
     ).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("explore-feed-scroll")).toBeAttached();
+    await expect(page.getByTestId("explore-feed-shell")).toBeAttached();
 
     await page.getByTestId("explore-chrome-feed").click();
     await expect
@@ -141,27 +131,28 @@ test.describe("explore URL sync journeys", () => {
         timeout: 8_000,
       })
       .toBeNull();
-    await expect(page.getByTestId("explore-feed-scroll")).toBeVisible({
-      timeout: 15_000,
-    });
+    await requireExploreNavigationReady(page, 15_000);
   });
 
   test("Discover → Feed deep link restores feed shell", async ({ page }) => {
-    await gotoExplore(page, "/explore?tab=discover&feedTab=tv");
+    await gotoExplore(
+      page,
+      withE2eFixtures("/explore?tab=discover&feedTab=tv&e2eTv=1")
+    );
     await expect(
       page.getByRole("heading", { name: "Spotlight" }).first()
     ).toBeVisible({ timeout: 30_000 });
     await expectFeedTab(page, "tv");
     await page.getByTestId("explore-chrome-feed").click();
     await expectFeedTab(page, "tv");
-    await expect(page.getByRole("button", { name: "TV" })).toHaveClass(
+    await expect(page.getByTestId("explore-subtab-tv")).toHaveClass(
       /bg-white/,
       { timeout: 10_000 }
     );
   });
 
   test("browser back and forward restore sub-tab and URL", async ({ page }) => {
-    await gotoExplore(page);
+    await gotoExplore(page, withE2eFixtures("/explore"));
     await waitFeedReady(page);
 
     await page.getByTestId("explore-subtab-saves").click();
@@ -185,7 +176,7 @@ test.describe("explore URL sync journeys", () => {
     page,
   }) => {
     for (let i = 0; i < 10; i++) {
-      await gotoExplore(page, "/explore?feedTab=saves");
+      await gotoExplore(page, withE2eFixtures("/explore?feedTab=saves"));
       await expect(page.getByTestId("explore-subtab-saves")).toHaveClass(
         /bg-white/,
         { timeout: 15_000 }
@@ -195,13 +186,18 @@ test.describe("explore URL sync journeys", () => {
   });
 
   test("join community deep link preserves feedTab", async ({ page }) => {
-    const communityId = "11111111-1111-4111-8111-111111111111";
+    test.setTimeout(120_000);
     await gotoExplore(
       page,
-      `/explore?tab=join&joinCommunity=${communityId}&feedTab=tv`
+      withE2eFixtures(
+        `/explore?tab=join&joinCommunity=${E2E_JOIN_COMMUNITY_ID}&feedTab=tv&e2eTv=1`
+      ),
+      { waitUntil: "commit", timeout: 60_000 }
     );
     await expectMainTab(page, "join");
     await expectFeedTab(page, "tv");
-    await expect(page).toHaveURL(new RegExp(`joinCommunity=${communityId}`));
+    await expect(page).toHaveURL(
+      new RegExp(`joinCommunity=${E2E_JOIN_COMMUNITY_ID}`)
+    );
   });
 });

@@ -1,7 +1,7 @@
 import { ExploreSeoJsonLd } from "@/components/explore/explore-seo-jsonld";
 import { logExploreSsrBoot } from "@/lib/explore-observability";
 import {
-  fetchExploreSsrBoot,
+  resolveExploreSsrBoot,
   serializeExploreSsrBootScript,
 } from "@/lib/explore-ssr-boot";
 
@@ -10,11 +10,15 @@ import {
  * ExplorePageClient mounts immediately with ssrBoot=null; feed may consume
  * window.__EXPLORE_SSR_BOOT__ via takeExploreFeedBoot or client prefetch fallback.
  */
-export async function ExploreSsrBootStream() {
+export async function ExploreSsrBootStream({
+  searchParamsKey = "",
+}: {
+  searchParamsKey?: string;
+}) {
   const started = performance.now();
   let outcome: "ok" | "timeout" | "empty" | "error" = "error";
   try {
-    const ssrBoot = await fetchExploreSsrBoot();
+    const ssrBoot = await resolveExploreSsrBoot(searchParamsKey);
     const bootScript =
       ssrBoot?.items?.length && ssrBoot.items.length > 0
         ? serializeExploreSsrBootScript(ssrBoot)

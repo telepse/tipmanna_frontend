@@ -26,6 +26,7 @@ describe("postExploreFeedBatchAction fetch timeouts", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -50,9 +51,8 @@ describe("postExploreFeedBatchAction fetch timeouts", () => {
     );
 
     const resultPromise = postExploreFeedBatchAction([], undefined, 8);
-    await vi.advanceTimersByTimeAsync(
-      EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS + 400
-    );
+    await vi.advanceTimersByTimeAsync(EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(400);
     expect(fetchCalls).toBeGreaterThanOrEqual(2);
     expect(abortedAtStart.every(v => v === false)).toBe(true);
 

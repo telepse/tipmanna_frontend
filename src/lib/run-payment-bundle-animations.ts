@@ -1,10 +1,6 @@
 import type { RoomCharacter } from "@/types";
 import type { TipAnimationEvent } from "@/lib/animation-guard";
-import {
-  markPlayed,
-  playedAnimations,
-  wrapPaymentAnimation,
-} from "@/lib/wrapPaymentAnimation";
+import { wrapPaymentAnimation } from "@/lib/wrapPaymentAnimation";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
 import { resolveStyleCharactersForTip } from "@/lib/tip-animation-characters";
 import {
@@ -18,6 +14,14 @@ import {
   type RealtimeSurface,
 } from "@/lib/realtime-telemetry";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
+import {
+  getPlaybackKeyState,
+  reservePlaybackKey,
+} from "@/lib/playback-key-lifecycle";
+import type {
+  AnimationQueueTask,
+  EnqueueResult,
+} from "@/lib/animation-queue-core";
 
 /**
  * Shared payment path: Turbo/Galaxy companions for the bundle window, then
@@ -28,7 +32,7 @@ export function enqueuePaymentBundleForValidatedTip(options: {
   characterMap: Map<string, RoomCharacter>;
   /** Per-surface dedupe key, e.g. `${dedupeBase}-${name}` or `screen-${dedupeBase}-${name}`. */
   buildDedupeKey: (characterName: string) => string;
-  enqueue: (tasks: (() => Promise<void>)[]) => void;
+  enqueue: (tasks: AnimationQueueTask[]) => EnqueueResult;
   animationMount?: HTMLElement;
   surface?: RealtimeSurface;
 }): void {
@@ -60,62 +64,49 @@ export function enqueuePaymentBundleForValidatedTip(options: {
 
   startPaymentRewardOverlays(data, animationMount);
 
-  const paymentAnimations: (() => Promise<void>)[] = [];
+  const paymentAnimations: AnimationQueueTask[] = [];
   const characterCount = selectedCharacters.length;
 
   selectedCharacters.forEach((character, characterIndex) => {
     const key = buildDedupeKey(character.name);
-    tracePaymentAnimation({
-      stage: "playback_key_checked",
+    const traceMeta = {
       surface,
       eventId: data.eventId,
       bundleId: data.id,
       seq: data.seq,
-      playbackKey: key,
       characterName: character.name,
       styleName: character.styleName,
-    });
+    };
 
-    if (playedAnimations.has(key)) {
+    const existingState = getPlaybackKeyState(key);
+    if (existingState !== "unseen") {
       tracePaymentAnimation({
-        stage: "playback_key_duplicate",
-        surface,
-        eventId: data.eventId,
-        bundleId: data.id,
-        seq: data.seq,
+        stage:
+          existingState === "committed"
+            ? "playback_key_duplicate_committed"
+            : "playback_key_duplicate_reserved",
+        ...traceMeta,
         playbackKey: key,
-        characterName: character.name,
-        styleName: character.styleName,
+        previousState: existingState,
+        resultingState: existingState,
         result: "skipped",
       });
       return;
     }
 
-    markPlayed(key);
-    tracePaymentAnimation({
-      stage: "playback_key_marked",
-      surface,
-      eventId: data.eventId,
-      bundleId: data.id,
-      seq: data.seq,
-      playbackKey: key,
-      characterName: character.name,
-      styleName: character.styleName,
-      markPlayedTiming: "before_queue_acceptance",
-    });
+    if (!reservePlaybackKey(key, traceMeta)) {
+      return;
+    }
 
     const traceContext = {
-      surface,
-      eventId: data.eventId,
-      bundleId: data.id,
-      seq: data.seq,
+      ...traceMeta,
       playbackKey: key,
-      characterName: character.name,
-      styleName: character.styleName,
     };
 
-    paymentAnimations.push(
-      wrapPaymentAnimation(() => {
+    paymentAnimations.push({
+      playbackKey: key,
+      traceMeta,
+      run: wrapPaymentAnimation(() => {
         const segmentEnd = getSegmentEndMs(
           data.serverTs,
           data.playbackEndsAt,
@@ -126,18 +117,13 @@ export function enqueuePaymentBundleForValidatedTip(options: {
           return noopPaymentAnimationHandle();
         }
         return createAnimationFromStyle(character, "payment", animationMount);
-      }, traceContext)
-    );
+      }, traceContext),
+    });
 
     tracePaymentAnimation({
       stage: "playback_task_created",
-      surface,
-      eventId: data.eventId,
-      bundleId: data.id,
-      seq: data.seq,
+      ...traceMeta,
       playbackKey: key,
-      characterName: character.name,
-      styleName: character.styleName,
     });
   });
 

@@ -44,9 +44,16 @@ export type PaymentAnimationTraceStage =
   | "style_registry_unknown"
   | "empty_handle_returned"
   | "style_factory_created"
-  | "playback_key_checked"
-  | "playback_key_duplicate"
-  | "playback_key_marked"
+  | "playback_key_reservation_requested"
+  | "playback_key_reserved"
+  | "playback_key_duplicate_reserved"
+  | "playback_key_duplicate_committed"
+  | "playback_key_released_queue_disabled"
+  | "playback_key_released_queue_full"
+  | "playback_key_released_generation_abort"
+  | "playback_key_released_flush"
+  | "playback_key_committed_task_started"
+  | "create_message_request_correlated"
   | "playback_task_created"
   | "playback_task_offered_to_queue"
   | "queue_batch_offered"
@@ -115,7 +122,8 @@ export interface PaymentAnimationTracePayload {
   isOpen?: boolean;
   streamEnabled?: boolean;
   handlerBound?: boolean;
-  markPlayedTiming?: "before_queue_acceptance" | "after_queue_acceptance";
+  previousState?: string;
+  resultingState?: string;
   lookupStyleName?: string;
   registryKey?: string;
   factoryName?: string;

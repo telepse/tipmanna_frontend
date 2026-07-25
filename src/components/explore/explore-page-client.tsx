@@ -53,6 +53,7 @@ import {
   prefetchExploreSavesFeed,
   scheduleExploreFeedPrefetchIdle,
   seedExploreFeedBootFromSsr,
+  seedExploreE2eSavesBoot,
 } from "@/lib/explore-feed-prefetch-cache";
 import { measureExploreBoot } from "@/lib/web-vitals";
 import {
@@ -88,6 +89,12 @@ import {
   exploreStateAheadOfUrl,
 } from "@/lib/explore-url-sync-policy";
 import { commitExploreHistory } from "@/lib/explore-url-history";
+import {
+  E2E_DISCOVER_CONTENTS,
+  E2E_FEED_BOOT,
+  E2E_JOINED_MEMBERSHIP,
+} from "@/lib/e2e-explore-fixtures";
+import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import {
   getAllCharacterSets,
@@ -240,6 +247,7 @@ export default function ExplorePageClient({
     [liveSearchParamsKey]
   );
   const e2eTvSeed = liveUrlParams.get("e2eTv") === "1";
+  const e2eFixtures = isExploreE2eFixturesEnabled(liveUrlParams);
   const tabParam = liveUrlParams.get("tab");
   const sideChick = useSideChick();
   const sideChickLocked =
@@ -387,7 +395,12 @@ export default function ExplorePageClient({
   );
   const [joinedMemberships, setJoinedMemberships] = useState<
     JoinedMembershipRow[]
-  >([]);
+  >(() =>
+    typeof window !== "undefined" &&
+    isExploreE2eFixturesEnabled(new URLSearchParams(window.location.search))
+      ? [E2E_JOINED_MEMBERSHIP]
+      : []
+  );
   const [hostTvCommunities, setHostTvCommunities] = useState<{
     owned: TvCommunityBrief[];
     coCreator: TvCommunityBrief[];
@@ -402,8 +415,10 @@ export default function ExplorePageClient({
 
   useEffect(() => {
     if (!isSignedInExplore || !exploreUserId || !exploreAuthToken) {
-      setJoinedMemberships([]);
-      setHostTvCommunities({ owned: [], coCreator: [] });
+      if (!e2eFixtures) {
+        setJoinedMemberships([]);
+        setHostTvCommunities({ owned: [], coCreator: [] });
+      }
       return;
     }
     let cancelled = false;
@@ -443,7 +458,7 @@ export default function ExplorePageClient({
     return () => {
       cancelled = true;
     };
-  }, [exploreAuthToken, exploreUserRole, isSignedInExplore, exploreUserId]);
+  }, [exploreAuthToken, exploreUserRole, isSignedInExplore, exploreUserId, e2eFixtures]);
 
   const eligibleCommunityIdsForPrefetch = useMemo(
     () =>
@@ -474,6 +489,17 @@ export default function ExplorePageClient({
   const [trendCountry, setTrendCountry] = useState(
     () => initialFeedUrlStateFromKey(searchParamsKey).trendCountry
   );
+
+  useLayoutEffect(() => {
+    if (!e2eFixtures) return;
+    seedExploreFeedBootFromSsr(E2E_FEED_BOOT);
+    seedExploreE2eSavesBoot(E2E_FEED_BOOT);
+    setJoinedMemberships([E2E_JOINED_MEMBERSHIP]);
+    setContents(E2E_DISCOVER_CONTENTS);
+    setLatestContents(E2E_DISCOVER_CONTENTS);
+    setSpotlightContents(E2E_DISCOVER_CONTENTS);
+    catalogLoadedRef.current = true;
+  }, [e2eFixtures]);
 
   useEffect(() => {
     if (!e2eTvSeed) return;
@@ -790,6 +816,7 @@ export default function ExplorePageClient({
   useEffect(() => {
     if (feedSubTab !== "community") return;
     if (sideChickLocked) return;
+    if (e2eFixtures) return;
     if (communityFeedSelIds.length > 0) return;
     const eligible = joinedMemberships.filter(
       isEligibleForCommunityFeedDropdown
@@ -801,6 +828,7 @@ export default function ExplorePageClient({
     joinedMemberships,
     communityFeedSelIds.length,
     sideChickLocked,
+    e2eFixtures,
   ]);
 
   const tvExploreFilters = useMemo(
@@ -1175,14 +1203,16 @@ export default function ExplorePageClient({
       setMainTab("feed");
       setFeedSubTab("community");
       setCommunityFeedSelIds(next);
+      const nextFeedState = {
+        ...feedUrlStateRef.current,
+        feedSubTab: "community" as const,
+        communityFeedSelIds: next,
+      };
+      feedUrlStateRef.current = nextFeedState;
       commitExploreUrl(
         "community-selection",
         { tab: "feed", joinCommunityId: joinCommunityIdRef.current },
-        {
-          ...feedUrlStateRef.current,
-          feedSubTab: "community",
-          communityFeedSelIds: next,
-        }
+        nextFeedState
       );
     },
     [commitExploreUrl, setMainTab]

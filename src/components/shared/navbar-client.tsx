@@ -112,7 +112,7 @@ export default function NavbarClient() {
               prefetch={true}
               className={`hover:text-primary open_sans ${communityExploreActive ? "text-primary" : ""}`}
             >
-              Community
+              Communities
             </Link>
           ) : null}
           <button

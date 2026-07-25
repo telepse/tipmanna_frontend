@@ -23,6 +23,11 @@ import {
   verifyDomainOtpAction,
   getMyCommunitySubscriptionAction,
 } from "@/actions/communities";
+import {
+  E2E_JOIN_COMMUNITY_ID,
+  E2E_JOIN_FORM_PUBLIC,
+} from "@/lib/e2e-explore-fixtures";
+import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
 import { CommunitySubscribeSection } from "@/components/community/community-subscribe-section";
 
 const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
@@ -100,6 +105,15 @@ export function CommunityJoinPanel({
   const loadForm = useCallback(async () => {
     if (!communityId) return;
     setLoadingForm(true);
+    if (
+      typeof window !== "undefined" &&
+      isExploreE2eFixturesEnabled(window.location.search) &&
+      communityId === E2E_JOIN_COMMUNITY_ID
+    ) {
+      setForm(E2E_JOIN_FORM_PUBLIC);
+      setLoadingForm(false);
+      return;
+    }
     const res = await getCommunityAccessStateAction(communityId);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load community");

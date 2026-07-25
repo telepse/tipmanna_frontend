@@ -36,7 +36,8 @@ test.describe("Feed boot stability (backend path proof)", () => {
         await page.goto(`${baseURL}/explore`, {
           waitUntil: "domcontentloaded",
         });
-        state = await waitExploreFeedReady(page, 90_000);
+        const readiness = await waitExploreFeedReady(page, 90_000);
+        state = readiness.state;
         const skeletonVisible = await page
           .getByTestId("explore-feed-skeleton")
           .isVisible()

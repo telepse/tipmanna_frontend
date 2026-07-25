@@ -9,10 +9,10 @@ import {
   type ExploreFeedSessionKeyParams,
 } from "@/lib/explore-feed-session-cache";
 import type { ExploreSsrBootPayload } from "@/lib/explore-ssr-boot";
+import { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
 import { EXPLORE_FEED_PREFETCH_WAIT_TIMEOUT_MS } from "@/lib/explore-feed-fetch-timeout";
 
-/** Must match explore first-batch size (5–10). */
-export const EXPLORE_FEED_BOOT_COUNT = 8;
+export { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
 
 export type ExploreFeedPrefetchSnapshot = {
   items: any[];
@@ -150,6 +150,17 @@ export function seedExploreFeedBootFromSsr(
   if (!payload.items?.length) return;
   window.__EXPLORE_SSR_BOOT__ = payload;
   ready = {
+    items: payload.items,
+    seed: payload.seed,
+    bucketId: payload.bucketId,
+  };
+}
+
+/** E2E-only: deterministic saves-tab boot (requires dual fixture gate). */
+export function seedExploreE2eSavesBoot(payload: ExploreSsrBootPayload): void {
+  if (typeof window === "undefined") return;
+  if (!payload.items?.length) return;
+  savesReady = {
     items: payload.items,
     seed: payload.seed,
     bucketId: payload.bucketId,

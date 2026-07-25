@@ -3,7 +3,7 @@ import type { FullConfig } from "@playwright/test";
 const BACKEND_HEALTH_URL =
   process.env.PLAYWRIGHT_BACKEND_URL?.replace(/\/$/, "") ??
   process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/api\/v1\/?$/, "") ??
-  "http://127.0.0.1:9999";
+  "http://127.0.0.1:8000";
 
 const HEALTH_URL = `${BACKEND_HEALTH_URL}/health`;
 const POLL_MS = 1000;

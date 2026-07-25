@@ -1,5 +1,8 @@
 import { test, expect, type Page, type BrowserContext } from "@playwright/test";
-import { waitExploreFeedReady } from "./helpers/wait-explore-feed-ready";
+import {
+  waitExploreFeedReady,
+  requireExploreNavigationReady,
+} from "./helpers/wait-explore-feed-ready";
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
@@ -81,11 +84,8 @@ async function runSinglePath(
   try {
     await page.goto(`${BASE}/explore`, { waitUntil: "domcontentloaded" });
 
-    const feedState = await waitExploreFeedReady(page, 90_000);
-    if (feedState !== "scroll") {
-      firstDivergence = "feed-not-ready";
-      throw new Error("Feed scroll not available");
-    }
+    const feedState = await requireExploreNavigationReady(page, 90_000);
+    void feedState;
 
     await page.waitForTimeout(2000);
 
