@@ -10,6 +10,8 @@ export async function fetchTvScheduleClient(opts?: {
   query?: string;
   /** Diagnostic-only correlation id (see tv-startup-trace). Never required. */
   startupTraceId?: string | null;
+  /** One id per real schedule HTTP request (Phase A correlation). Never required. */
+  scheduleAttemptId?: string | null;
 }): Promise<
   | { success: true; data: TvScheduleFetchResult }
   | { success: false; error: string }
@@ -42,6 +44,9 @@ export async function fetchTvScheduleClient(opts?: {
   }
   if (opts?.startupTraceId?.trim()) {
     headers["X-TV-Startup-Trace-Id"] = opts.startupTraceId.trim();
+  }
+  if (opts?.scheduleAttemptId?.trim()) {
+    headers["X-TV-Schedule-Attempt-Id"] = opts.scheduleAttemptId.trim();
   }
 
   try {

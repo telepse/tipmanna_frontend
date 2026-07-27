@@ -20,6 +20,8 @@ import {
   getTvStartupTraceId,
   hashShortId,
   markTvStartupNavigation,
+  createScheduleAttemptId,
+  nextScheduleAttemptNumber,
   tvStartupEvent,
   updateTvStartupContext,
 } from "@/lib/tv-startup-trace";
@@ -48,7 +50,15 @@ import { fetchTvScheduleClient } from "@/lib/tv-schedule-client-fetch";
 import {
   isTvDirectScheduleFetchEnabled,
   isTvScheduleSwrEnabled,
+  isTvSingleStartupScheduleEnabled,
 } from "@/lib/tv-feature-flags";
+import {
+  resolveScheduleSourceChange,
+  resolveSessionCacheBootstrap,
+  shouldSuppressVisibilityScheduleRefresh,
+  snapshotPreNavigationScheduleCacheKeys,
+  tvScheduleSessionCacheKey,
+} from "@/lib/tv-single-startup-schedule";
 import {
   clearPersistedPaymentSnapshot,
   isPaymentPendingReturn,
@@ -102,22 +112,20 @@ function msToNextHalfDayBoundary(epochMs: number, nowMs: number): number {
   return TV_HALF_DAY_MS - mod;
 }
 function tvScheduleStorageKey(communityId: string | null) {
-  return communityId
-    ? `tipmanna-tv-schedule-v2-c/${communityId}`
-    : "tipmanna-tv-schedule-v2";
+  return tvScheduleSessionCacheKey(communityId);
 }
 
 function persistTvScheduleCache(
   body: unknown,
   etag: string | null,
-  communityId: string | null
+  communityId: string | null,
+  onWritten?: (cacheKey: string) => void
 ) {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(
-      tvScheduleStorageKey(communityId),
-      JSON.stringify({ body, etag, at: Date.now() })
-    );
+    const key = tvScheduleStorageKey(communityId);
+    sessionStorage.setItem(key, JSON.stringify({ body, etag, at: Date.now() }));
+    onWritten?.(key);
   } catch {
     /* quota / private mode */
   }
@@ -448,6 +456,15 @@ export default function GlobalTVProvider({
   const runCoalescedScheduleLoadRef = useRef(createTvScheduleLoadCoalescer());
   const scheduleEtagRef = useRef<string | null>(null);
   const scheduleSwrBootstrappedRef = useRef(false);
+  const preNavigationScheduleCacheKeysRef = useRef<Set<string>>(new Set());
+  const scheduleCacheWrittenThisNavRef = useRef<Set<string>>(new Set());
+  const prevScheduleSourceRef = useRef<string | null | undefined>(undefined);
+  const initialScheduleLoadScheduledRef = useRef(false);
+  const initialStartupInFlightRef = useRef(false);
+  const initialStartupCompleteRef = useRef(false);
+  const documentWasHiddenRef = useRef(
+    typeof document !== "undefined" && document.visibilityState === "hidden"
+  );
   const syncMissRef = useRef(0);
   const isReadyRef = useRef(false);
   const broadcastEpochRef = useRef<number | null>(null);
@@ -1050,9 +1067,22 @@ export default function GlobalTVProvider({
           }
           if (isTvScheduleSwrEnabled() && !scheduleSwrBootstrappedRef.current) {
             const cid = scheduleSourceCommunityIdRef.current;
+            const cacheKey = tvScheduleStorageKey(cid);
             const cached = readTvScheduleCache(cid);
-            if (cached) {
+            const bootstrapDecision = resolveSessionCacheBootstrap({
+              singleStartupEnabled: isTvSingleStartupScheduleEnabled(),
+              swrEnabled: true,
+              swrBootstrapped: scheduleSwrBootstrappedRef.current,
+              cacheKey,
+              hasValidCache: !!cached,
+              preNavigationCacheKeys: preNavigationScheduleCacheKeysRef.current,
+              cacheWrittenThisNavigation:
+                scheduleCacheWrittenThisNavRef.current,
+            });
+            if (bootstrapDecision.markSwrBootstrapped) {
               scheduleSwrBootstrappedRef.current = true;
+            }
+            if (bootstrapDecision.shouldBootstrap && cached) {
               scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
               applySchedulePayload(cached.body);
               setScheduleStale(true);
@@ -1118,7 +1148,9 @@ export default function GlobalTVProvider({
           }
           const cid = scheduleSourceCommunityIdRef.current;
           if (etag) scheduleEtagRef.current = etag;
-          persistTvScheduleCache(data, etag, cid);
+          persistTvScheduleCache(data, etag, cid, writtenKey => {
+            scheduleCacheWrittenThisNavRef.current.add(writtenKey);
+          });
           tvStartupEvent("schedule_payload_accepted", {
             canonicalMark: "T4",
             trigger: "network",
@@ -1169,9 +1201,13 @@ export default function GlobalTVProvider({
         const requestStartedAt =
           typeof performance !== "undefined" ? performance.now() : Date.now();
         const usingDirectFetch = isTvDirectScheduleFetchEnabled();
+        const scheduleAttemptId = createScheduleAttemptId();
+        const attemptNumber = nextScheduleAttemptNumber();
         tvStartupEvent("schedule_request_started", {
           trigger: startupTrigger,
           data: {
+            scheduleAttemptId,
+            attemptNumber,
             scheduleSource: fetchCommunityId ? "community" : "global",
             communityIdHash: hashShortId(fetchCommunityId),
             fetchMode: usingDirectFetch ? "direct_fetch" : "server_action",
@@ -1189,6 +1225,7 @@ export default function GlobalTVProvider({
             communityId: fetchCommunityId,
             ifNoneMatch: scheduleEtagRef.current,
             startupTraceId: getTvStartupTraceId(),
+            scheduleAttemptId,
           };
           const res = usingDirectFetch
             ? await fetchTvScheduleClient(scheduleOpts)
@@ -1212,6 +1249,8 @@ export default function GlobalTVProvider({
               trigger: startupTrigger,
               reason: "not_modified",
               data: {
+                scheduleAttemptId,
+                attemptNumber,
                 outcome: "304",
                 status: res.data.status ?? 304,
                 elapsedRequestMs: Math.round(finishedElapsed()),
@@ -1247,6 +1286,8 @@ export default function GlobalTVProvider({
             trigger: startupTrigger,
             reason: "success",
             data: {
+              scheduleAttemptId,
+              attemptNumber,
               outcome: "success",
               status: res.data.status ?? 200,
               elapsedRequestMs: Math.round(finishedElapsed()),
@@ -1307,6 +1348,8 @@ export default function GlobalTVProvider({
             trigger: startupTrigger,
             reason: "failure",
             data: {
+              scheduleAttemptId,
+              attemptNumber,
               outcome: "failure",
               elapsedRequestMs: Math.round(finishedElapsed()),
               fromCache: !!cached,
@@ -1389,6 +1432,14 @@ export default function GlobalTVProvider({
               void loadSchedule({ trigger: "retry" });
             }, delay);
           }
+        } finally {
+          if (
+            isTvSingleStartupScheduleEnabled() &&
+            startupTrigger === "initial"
+          ) {
+            initialStartupInFlightRef.current = false;
+            initialStartupCompleteRef.current = true;
+          }
         }
       });
     },
@@ -1429,6 +1480,26 @@ export default function GlobalTVProvider({
   }, [scheduleSourceCommunityId]);
 
   useEffect(() => {
+    if (isTvSingleStartupScheduleEnabled()) {
+      const decision = resolveScheduleSourceChange(
+        prevScheduleSourceRef.current,
+        scheduleSourceCommunityId
+      );
+      prevScheduleSourceRef.current = scheduleSourceCommunityId;
+      if (decision.action === "skip") return;
+      scheduleEtagRef.current = null;
+      tvTrace("schedule", "schedule_source_change", {
+        communityId: scheduleSourceCommunityId,
+        reason: decision.reason,
+      });
+      resetPlaybackForScheduleSourceChange();
+      void loadScheduleRef.current?.({
+        resetRetry: true,
+        trigger: "source_change",
+      });
+      return;
+    }
+
     scheduleEtagRef.current = null;
     tvTrace("schedule", "schedule_source_change", {
       communityId: scheduleSourceCommunityId,
@@ -1456,6 +1527,11 @@ export default function GlobalTVProvider({
   useEffect(() => {
     tvLoadMark("T2", { source: "TVProvider_mount" });
     markTvStartupNavigation();
+    if (isTvSingleStartupScheduleEnabled()) {
+      preNavigationScheduleCacheKeysRef.current =
+        snapshotPreNavigationScheduleCacheKeys();
+      scheduleCacheWrittenThisNavRef.current = new Set();
+    }
     updateTvStartupContext({
       source: scheduleSourceCommunityIdRef.current ? "community" : "global",
       scheduleReady: false,
@@ -1474,6 +1550,20 @@ export default function GlobalTVProvider({
   }, []);
 
   useEffect(() => {
+    if (!isTvSingleStartupScheduleEnabled()) return;
+    if (initialScheduleLoadScheduledRef.current) return;
+    initialScheduleLoadScheduledRef.current = true;
+    initialStartupInFlightRef.current = true;
+    void loadScheduleRef.current?.({ resetRetry: true, trigger: "initial" });
+    return () => {
+      if (scheduleRetryTimeoutRef.current) {
+        clearTimeout(scheduleRetryTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isTvSingleStartupScheduleEnabled()) return;
     void loadSchedule({ resetRetry: true, trigger: "initial" });
     return () => {
       if (scheduleRetryTimeoutRef.current) {
@@ -1494,7 +1584,24 @@ export default function GlobalTVProvider({
       tvTrace("navigation", "visibilitychange", {
         state: document.visibilityState,
       });
+      if (document.visibilityState === "hidden") {
+        documentWasHiddenRef.current = true;
+      }
       if (document.visibilityState === "visible") {
+        if (
+          shouldSuppressVisibilityScheduleRefresh({
+            singleStartupEnabled: isTvSingleStartupScheduleEnabled(),
+            visibilityState: document.visibilityState,
+            documentWasHidden: documentWasHiddenRef.current,
+            initialStartupInFlight: initialStartupInFlightRef.current,
+            initialStartupComplete: initialStartupCompleteRef.current,
+          })
+        ) {
+          tvTrace("navigation", "visibilitychange_suppressed", {
+            reason: "startup_guard",
+          });
+          return;
+        }
         tvStartupEvent("visibility_schedule_refresh", {
           trigger: "visibility",
         });

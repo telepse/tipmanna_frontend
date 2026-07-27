@@ -346,6 +346,39 @@ describe("playback and schedule counters", () => {
     expect(s?.scheduleRefreshCountDuringStartup).toBe(2);
     expect(s?.marks.T3).not.toBeUndefined();
   });
+
+  it("records schedule attempt ids and initial trigger on network starts", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("schedule_request_started", {
+      trigger: "initial",
+      data: { scheduleAttemptId: "attempt-1", attemptNumber: 1 },
+    });
+    tvStartupEvent("schedule_request_started", {
+      trigger: "interval",
+      data: { scheduleAttemptId: "attempt-2", attemptNumber: 2 },
+    });
+
+    const s = helper().getLatest();
+    expect(s?.initialScheduleAttemptId).toBe("attempt-1");
+    expect(s?.initialScheduleTrigger).toBe("initial");
+    expect(s?.scheduleAttemptIds).toEqual(["attempt-1", "attempt-2"]);
+    expect(s?.scheduleNetworkAttemptCount).toBe(2);
+  });
+
+  it("does not record attempt ids for session cache bootstrap", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("session_cache_bootstrap", { trigger: "initial" });
+
+    const s = helper().getLatest();
+    expect(s?.scheduleCacheBootstrapCount).toBe(1);
+    expect(s?.scheduleNetworkAttemptCount).toBe(0);
+    expect(s?.scheduleAttemptIds).toEqual([]);
+    expect(s?.initialScheduleAttemptId).toBeNull();
+  });
 });
 
 describe("segment safety", () => {

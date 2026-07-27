@@ -39,3 +39,15 @@ export function isTvStartupTraceFlagEnabled(): boolean {
     process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED === "1"
   );
 }
+
+/**
+ * Phase A — single intentional startup schedule network request.
+ * Default DISABLED. Set to `1` or `true` to enable; requires a frontend rebuild
+ * (`NEXT_PUBLIC_*` env vars are inlined at build time).
+ */
+export function isTvSingleStartupScheduleEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE === "true" ||
+    process.env.NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE === "1"
+  );
+}

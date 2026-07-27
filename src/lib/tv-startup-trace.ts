@@ -110,6 +110,12 @@ export type TvStartupSummary = {
   scheduleCacheBootstrapCount: number;
   scheduleRetryCount: number;
   scheduleRefreshCountDuringStartup: number;
+  /** First real HTTP schedule attempt id for this navigation (diagnostic). */
+  initialScheduleAttemptId: string | null;
+  /** All real HTTP schedule attempt ids for this navigation (diagnostic). */
+  scheduleAttemptIds: string[];
+  /** Trigger on the first real HTTP schedule attempt. */
+  initialScheduleTrigger: string | null;
   /** @deprecated use loadVideoByIdCount */
   playerLoadCommandCount: number;
   initialEmbedCount: number;
@@ -144,6 +150,7 @@ type TvStartupRun = {
 
 let cachedEnabled: boolean | null = null;
 let traceId: string | null = null;
+let scheduleAttemptCounter = 0;
 let currentRun: TvStartupRun | null = null;
 let ambient: TvStartupContext = {};
 let helperInstalled = false;
@@ -207,6 +214,21 @@ export function getTvStartupTraceId(): string | null {
   return traceId;
 }
 
+/** One opaque id per real schedule HTTP request (independent of trace enablement). */
+export function createScheduleAttemptId(): string {
+  return safeRandomId();
+}
+
+/** Monotonic attempt index within the current page navigation startup trace. */
+export function nextScheduleAttemptNumber(): number {
+  scheduleAttemptCounter += 1;
+  return scheduleAttemptCounter;
+}
+
+export function resetScheduleAttemptCounterForTests(): void {
+  scheduleAttemptCounter = 0;
+}
+
 export function hashShortId(value: string | null | undefined): string | null {
   if (value == null || value === "") return null;
   let h = 0;
@@ -245,6 +267,9 @@ function createEmptySummary(id: string): TvStartupSummary {
     scheduleCacheBootstrapCount: 0,
     scheduleRetryCount: 0,
     scheduleRefreshCountDuringStartup: 0,
+    initialScheduleAttemptId: null,
+    scheduleAttemptIds: [],
+    initialScheduleTrigger: null,
     playerLoadCommandCount: 0,
     initialEmbedCount: 0,
     loadVideoByIdCount: 0,
@@ -274,6 +299,7 @@ function resetForNewNavigation(): void {
   }
   currentRun = null;
   traceId = null;
+  scheduleAttemptCounter = 0;
   ambient = {};
 }
 
@@ -382,6 +408,16 @@ function updateCounters(
       if (trigger === "retry") s.scheduleRetryCount += 1;
       if (SCHEDULE_REFRESH_TRIGGERS.has(trigger)) {
         s.scheduleRefreshCountDuringStartup += 1;
+      }
+      {
+        const attemptId = data.scheduleAttemptId;
+        if (typeof attemptId === "string" && attemptId) {
+          s.scheduleAttemptIds.push(attemptId);
+          if (!s.initialScheduleAttemptId) {
+            s.initialScheduleAttemptId = attemptId;
+            s.initialScheduleTrigger = trigger || null;
+          }
+        }
       }
       syncLegacyCounterAliases(s);
       break;

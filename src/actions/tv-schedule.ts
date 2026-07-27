@@ -16,6 +16,8 @@ export async function fetchTvScheduleAction(opts?: {
   query?: string;
   /** Diagnostic-only correlation id (see tv-startup-trace). Never required. */
   startupTraceId?: string | null;
+  /** One id per real schedule HTTP request (Phase A correlation). Never required. */
+  scheduleAttemptId?: string | null;
 }): Promise<ActionResult<TvScheduleFetchResult>> {
   const base = (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(
     /\/$/,
@@ -41,6 +43,9 @@ export async function fetchTvScheduleAction(opts?: {
   }
   if (opts?.startupTraceId?.trim()) {
     headers["X-TV-Startup-Trace-Id"] = opts.startupTraceId.trim();
+  }
+  if (opts?.scheduleAttemptId?.trim()) {
+    headers["X-TV-Schedule-Attempt-Id"] = opts.scheduleAttemptId.trim();
   }
 
   try {
