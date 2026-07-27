@@ -25,16 +25,16 @@ describe("explore E2E fixtures gate", () => {
 
   it("query flag present + env disabled → fixtures off", () => {
     delete process.env.NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES;
-    expect(
-      isExploreE2eFixturesEnabled(new URLSearchParams("e2e=1"))
-    ).toBe(false);
+    expect(isExploreE2eFixturesEnabled(new URLSearchParams("e2e=1"))).toBe(
+      false
+    );
   });
 
   it("query flag present + env enabled → fixtures on", () => {
     vi.stubEnv("NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES", "1");
-    expect(
-      isExploreE2eFixturesEnabled(new URLSearchParams("e2e=1"))
-    ).toBe(true);
+    expect(isExploreE2eFixturesEnabled(new URLSearchParams("e2e=1"))).toBe(
+      true
+    );
     expect(isExploreE2eFixturesEnabled("tab=feed&e2e=1")).toBe(true);
   });
 

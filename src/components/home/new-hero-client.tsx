@@ -16,7 +16,6 @@ import { Paragraph } from "@/components/shared/paragraph";
 import { LocationPrompt } from "@/components/shared/location-prompt";
 import { CreateDialog } from "@/components/home/create-dialog";
 
-
 // Constants for better maintainability
 const PATHS = {
   leftPattern: "/patterns/hero_left_pattern.webp",
@@ -218,9 +217,9 @@ export default function HeroClient() {
           color="black"
           align="center"
         >
-          Grow an audience that doesn{"'"}t just watch - they take part. <br /> Tipmanna
-          turns content into realtime participation through <br /> live engagements,
-          shared moments, and visible supporter activity.
+          Grow an audience that doesn{"'"}t just watch - they take part. <br />{" "}
+          Tipmanna turns content into realtime participation through <br /> live
+          engagements, shared moments, and visible supporter activity.
         </Paragraph>
 
         {/* Render decorative icons */}
@@ -233,17 +232,15 @@ export default function HeroClient() {
 
         {/* CTA */}
         <div className="mt-4 flex flex-wrap gap-2">
-          
-
-            <Button
+          <Button
             type="button"
-              size={isMobile ? "sm" : "lg"}
-              aria-label="Create Channel"
-              aria-haspopup="dialog"
-              onClick={() => setOpenPopup(true)}
-            >
-              Create Channel
-            </Button>
+            size={isMobile ? "sm" : "lg"}
+            aria-label="Create Channel"
+            aria-haspopup="dialog"
+            onClick={() => setOpenPopup(true)}
+          >
+            Create Channel
+          </Button>
 
           <Link href="/tv">
             <Button
@@ -255,8 +252,6 @@ export default function HeroClient() {
               Watch Tipmanna TV <Tv aria-hidden="true" />
             </Button>
           </Link>
-
-          
         </div>
 
         <LocationPrompt
@@ -266,7 +261,7 @@ export default function HeroClient() {
           onClose={handleClosePrompt}
         />
 
-<CreateDialog
+        <CreateDialog
           openPopup={openPopup}
           setOpenPopup={setOpenPopup}
         />

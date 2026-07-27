@@ -18,13 +18,12 @@ export const NewTrustBadge = ({ label }: Props) => {
   });
 
   return (
-
-      <Paragraph
-        align="center"
-        size={isDesktopOrLaptop ? "sm" : "xs"}
-        className="bg-[#FFE9D6] px-2 py-1 rounded-md"
-      >
-        {label}
-      </Paragraph>
+    <Paragraph
+      align="center"
+      size={isDesktopOrLaptop ? "sm" : "xs"}
+      className="rounded-md bg-[#FFE9D6] px-2 py-1"
+    >
+      {label}
+    </Paragraph>
   );
 };

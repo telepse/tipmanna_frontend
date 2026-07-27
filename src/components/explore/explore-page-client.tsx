@@ -458,7 +458,13 @@ export default function ExplorePageClient({
     return () => {
       cancelled = true;
     };
-  }, [exploreAuthToken, exploreUserRole, isSignedInExplore, exploreUserId, e2eFixtures]);
+  }, [
+    exploreAuthToken,
+    exploreUserRole,
+    isSignedInExplore,
+    exploreUserId,
+    e2eFixtures,
+  ]);
 
   const eligibleCommunityIdsForPrefetch = useMemo(
     () =>

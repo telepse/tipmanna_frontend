@@ -31,7 +31,9 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const sp = await searchParams;
   const joinRaw = sp.joinCommunity;
-  const joinId = (typeof joinRaw === "string" ? joinRaw : joinRaw?.[0] ?? "").trim();
+  const joinId = (
+    typeof joinRaw === "string" ? joinRaw : (joinRaw?.[0] ?? "")
+  ).trim();
   const tab = typeof sp.tab === "string" ? sp.tab : sp.tab?.[0];
   if (tab !== "join" || !joinId) {
     return {
@@ -108,7 +110,9 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         <ExploreSsrBootStream searchParamsKey={searchParamsKey} />
       </Suspense>
       <Suspense fallback={null}>
-        <ExploreDiscoverSeoGate tab={typeof sp.tab === "string" ? sp.tab : undefined} />
+        <ExploreDiscoverSeoGate
+          tab={typeof sp.tab === "string" ? sp.tab : undefined}
+        />
       </Suspense>
       <Suspense fallback={null}>
         <ExplorePageClient ssrBoot={null} />

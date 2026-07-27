@@ -18,7 +18,7 @@ export default function NewTrustBadges() {
   // Memoized trust badges to prevent unnecessary re-renders
   const trustBadges = useMemo(
     () =>
-        NEW_TRUST_BADGES.map((item, index) => (
+      NEW_TRUST_BADGES.map((item, index) => (
         <NewTrustBadge
           key={`${item}-${index}`}
           label={item}

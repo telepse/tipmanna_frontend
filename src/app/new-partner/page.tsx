@@ -12,7 +12,7 @@ import Footer from "@/components/shared/footer";
 import Features from "@/components/home/features";
 import TippingBanner from "@/components/home/tipping-banner";
 import NewTrustBadges from "@/components/home/new-trust-badges";
-import {TheCoreShift} from "@/components/home/the-core-shift";
+import { TheCoreShift } from "@/components/home/the-core-shift";
 import TopEventsSection from "@/components/home/top-events-section";
 import TopContentsSection from "@/components/home/top-contents-section";
 import CharitiesSection from "@/components/home/charities-section";
@@ -101,8 +101,6 @@ export default function Home() {
           <TvHomePreviewSectionLazy />
 
           <PricingGrid />
-
-          
 
           <TippingBanner />
 

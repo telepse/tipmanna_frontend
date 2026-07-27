@@ -9,9 +9,7 @@ export async function openExploreHeaderDiscoverSearch(
 ) {
   await requireExploreNavigationReady(page, 60_000);
 
-  const search = page.locator(
-    'input[placeholder="Search videos..."]:visible'
-  );
+  const search = page.locator('input[placeholder="Search videos..."]:visible');
   await expect(search).toBeVisible({ timeout: 30_000 });
   await search.fill(term);
   await search.press("Enter");

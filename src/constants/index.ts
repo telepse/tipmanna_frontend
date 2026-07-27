@@ -117,8 +117,14 @@ export const TRUST_BADGES = [
 ];
 
 export const NEW_TRUST_BADGES = [
-  "Creators", "Charities", "Communities", "Faith Organisations", "Universities", "Sports Clubs", "Event Organisers"
-]
+  "Creators",
+  "Charities",
+  "Communities",
+  "Faith Organisations",
+  "Universities",
+  "Sports Clubs",
+  "Event Organisers",
+];
 
 export const PROFILE_CHARACTERS = [
   {

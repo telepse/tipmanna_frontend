@@ -32,7 +32,9 @@ export interface PaymentCharacterStylePreflightOutcome {
 export function validatePaymentCharacterStyle(
   character: StyleCharacter,
   context: PaymentCharacterStylePreflightContext
-): { accepted: true } | { accepted: false; rejection: PaymentCharacterStyleRejection } {
+):
+  | { accepted: true }
+  | { accepted: false; rejection: PaymentCharacterStyleRejection } {
   const playbackKey = context.buildPlaybackKey(character.name);
   const baseMeta = {
     surface: context.surface,

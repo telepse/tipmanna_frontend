@@ -67,6 +67,8 @@ describe("payment style preflight (Phase E3A)", () => {
     );
     expect(result.accepted).toHaveLength(0);
     expect(result.rejections).toHaveLength(2);
-    expect(result.rejections.every(r => r.reason === "unknown_style")).toBe(true);
+    expect(result.rejections.every(r => r.reason === "unknown_style")).toBe(
+      true
+    );
   });
 });

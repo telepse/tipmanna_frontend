@@ -18,7 +18,9 @@ import { wrapPaymentAnimation } from "@/lib/wrapPaymentAnimation";
 describe("wrapPaymentAnimation defensive unknown style (Phase E3A)", () => {
   it("does not report payment_double_cycle_completed when payment factory throws", async () => {
     const traces: string[] = [];
-    const { tracePaymentAnimation } = await import("@/lib/payment-animation-trace");
+    const { tracePaymentAnimation } = await import(
+      "@/lib/payment-animation-trace"
+    );
     vi.mocked(tracePaymentAnimation).mockImplementation(payload => {
       traces.push(payload.stage);
     });

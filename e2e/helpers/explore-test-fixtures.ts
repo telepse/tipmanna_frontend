@@ -30,8 +30,7 @@ export const EXPLORE_E2E_DATA_STRATEGY = {
     "Build with NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES=1 and navigate with ?e2e=1",
   emptyFeed:
     "Navigate without the dual gate; valid empty/fail-open terminal state",
-  discoverCatalog:
-    "Dual gate seeds discover contents for panel/Expand/tags",
+  discoverCatalog: "Dual gate seeds discover contents for panel/Expand/tags",
   communityJoin:
     "Dual gate seeds joined membership row; Join uses E2E_JOIN_COMMUNITY_ID deep link",
   requestsMocked:

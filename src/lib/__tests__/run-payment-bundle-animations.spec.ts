@@ -132,7 +132,9 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
     });
     const enqueue = (tasks: AnimationQueueTask[]) => queue.enqueue(tasks);
 
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValueOnce([invalidCharacter]);
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValueOnce([
+      invalidCharacter,
+    ]);
     enqueuePaymentBundleForValidatedTip({
       data: bundle,
       characterMap: new Map(),
