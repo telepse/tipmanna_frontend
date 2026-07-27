@@ -44,6 +44,12 @@ export type PaymentAnimationTraceStage =
   | "style_registry_unknown"
   | "empty_handle_returned"
   | "style_factory_created"
+  | "payment_character_style_preflight_started"
+  | "payment_character_style_preflight_accepted"
+  | "payment_character_rejected_unknown_style"
+  | "payment_bundle_style_preflight_completed"
+  | "payment_bundle_no_runnable_characters"
+  | "payment_character_factory_rejected_unknown_style"
   | "playback_key_reservation_requested"
   | "playback_key_reserved"
   | "playback_key_duplicate_reserved"
@@ -136,6 +142,10 @@ export interface PaymentAnimationTracePayload {
   maxBatchCount?: number;
   capturedGeneration?: number;
   currentGeneration?: number;
+  rejectedCount?: number;
+  runnableCount?: number;
+  playbackKeyState?: string;
+  reason?: string;
   channel?: string;
   eventName?: string;
   cluster?: string;

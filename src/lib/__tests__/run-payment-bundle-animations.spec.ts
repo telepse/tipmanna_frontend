@@ -19,8 +19,14 @@ vi.mock("@/lib/tip-animation-characters", () => ({
   resolveStyleCharactersForTip: vi.fn(),
 }));
 
+const createAnimationFromStyleMock = vi.fn(() => ({
+  start: vi.fn(),
+  stop: vi.fn(),
+  finished: Promise.resolve(),
+}));
+
 vi.mock("@/lib/factory-to-style", () => ({
-  createAnimationFromStyle: vi.fn(),
+  createAnimationFromStyle: () => createAnimationFromStyleMock(),
 }));
 
 vi.mock("@/lib/payment-playback-budget", () => ({
@@ -31,6 +37,12 @@ vi.mock("@/lib/payment-playback-budget", () => ({
     stop: vi.fn(),
     finished: Promise.resolve(),
   })),
+}));
+
+vi.mock("@/lib/wrapPaymentAnimation", () => ({
+  wrapPaymentAnimation: (factory: () => unknown) => async () => {
+    factory();
+  },
 }));
 
 import { resolveStyleCharactersForTip } from "@/lib/tip-animation-characters";
@@ -45,12 +57,18 @@ import {
   reservePlaybackKey,
 } from "@/lib/playback-key-lifecycle";
 
-const character: RoomCharacter = {
+const validCharacter: RoomCharacter = {
   id: "c1",
   name: "Heart",
   styleName: "Confetti",
   iconUrl: "/heart.png",
   price: 1,
+};
+
+const invalidCharacter = {
+  name: "Love",
+  styleName: "Confe",
+  iconUrl: "/love.png",
 };
 
 const bundle: TipAnimationEvent = {
@@ -79,10 +97,176 @@ async function waitFor(condition: () => boolean): Promise<void> {
   throw new Error("timeout");
 }
 
+describe("run-payment-bundle-animations E3A unknown style", () => {
+  beforeEach(() => {
+    clearPlaybackKeyState();
+    createAnimationFromStyleMock.mockClear();
+    vi.mocked(resolveStyleCharactersForTip).mockReset();
+  });
+
+  it("Test A — invalid Confe character is rejected before reservation", () => {
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([invalidCharacter]);
+    const enqueue = vi.fn(() => ({ accepted: true as const }));
+
+    const result = enqueuePaymentBundleForValidatedTip({
+      data: bundle,
+      characterMap: new Map(),
+      buildDedupeKey: (name: string) => `bundle-1-${name}`,
+      enqueue,
+      surface: "room_messages",
+    });
+
+    expect(result.rejectedCount).toBe(1);
+    expect(result.runnableCount).toBe(0);
+    expect(result.enqueued).toBe(false);
+    expect(result.rejections[0]?.reason).toBe("unknown_style");
+    expect(getPlaybackKeyState("bundle-1-Love")).toBe("unseen");
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(createAnimationFromStyleMock).not.toHaveBeenCalled();
+  });
+
+  it("Test B — corrected valid retry after invalid rejection", async () => {
+    const queue = createAnimationQueue({
+      eventId: "evt-1",
+      getEnabled: () => true,
+    });
+    const enqueue = (tasks: AnimationQueueTask[]) => queue.enqueue(tasks);
+
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValueOnce([invalidCharacter]);
+    enqueuePaymentBundleForValidatedTip({
+      data: bundle,
+      characterMap: new Map(),
+      buildDedupeKey: (name: string) => `retry-${name}`,
+      enqueue,
+      surface: "room_messages",
+    });
+    expect(getPlaybackKeyState("retry-Love")).toBe("unseen");
+
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValueOnce([
+      { name: "Love", styleName: "Confetti", iconUrl: "/love.png" },
+    ]);
+    enqueuePaymentBundleForValidatedTip({
+      data: bundle,
+      characterMap: new Map(),
+      buildDedupeKey: (name: string) => `retry-${name}`,
+      enqueue,
+      surface: "room_messages",
+    });
+
+    await waitFor(() => getPlaybackKeyState("retry-Love") === "committed");
+    expect(createAnimationFromStyleMock).toHaveBeenCalled();
+  });
+
+  it("Test C — mixed valid, invalid, valid characters queue two tasks in order", async () => {
+    const queue = createAnimationQueue({
+      eventId: "evt-1",
+      getEnabled: () => true,
+    });
+    const taskOrder: string[] = [];
+    const enqueue = (tasks: AnimationQueueTask[]) => {
+      taskOrder.push(...tasks.map(t => t.playbackKey));
+      return queue.enqueue(
+        tasks.map(t => ({
+          ...t,
+          run: async () => {
+            await t.run();
+          },
+        }))
+      );
+    };
+
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([
+      { name: "A", styleName: "Confetti", iconUrl: "/a.png" },
+      { name: "B", styleName: "Confe", iconUrl: "/b.png" },
+      { name: "C", styleName: "Burst", iconUrl: "/c.png" },
+    ]);
+
+    const result = enqueuePaymentBundleForValidatedTip({
+      data: bundle,
+      characterMap: new Map(),
+      buildDedupeKey: (name: string) => `mix-${name}`,
+      enqueue,
+      surface: "room_messages",
+    });
+
+    expect(result.runnableCount).toBe(2);
+    expect(result.rejectedCount).toBe(1);
+    expect(taskOrder).toEqual(["mix-A", "mix-C"]);
+    expect(getPlaybackKeyState("mix-B")).toBe("unseen");
+    await waitFor(
+      () =>
+        getPlaybackKeyState("mix-A") === "committed" &&
+        getPlaybackKeyState("mix-C") === "committed"
+    );
+    expect(createAnimationFromStyleMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("Test D — all invalid characters do not call queue", () => {
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([
+      { name: "A", styleName: "Confe", iconUrl: "/a.png" },
+      { name: "B", styleName: "Shock", iconUrl: "/b.png" },
+    ]);
+    const enqueue = vi.fn();
+
+    const result = enqueuePaymentBundleForValidatedTip({
+      data: bundle,
+      characterMap: new Map(),
+      buildDedupeKey: (name: string) => `all-bad-${name}`,
+      enqueue,
+    });
+
+    expect(result.enqueued).toBe(false);
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(getPlaybackKeyState("all-bad-A")).toBe("unseen");
+    expect(getPlaybackKeyState("all-bad-B")).toBe("unseen");
+  });
+
+  it("Test F — duplicate fan-out of invalid bundle never reserves keys", () => {
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([invalidCharacter]);
+    const enqueue = vi.fn();
+
+    enqueuePaymentBundleForValidatedTip({
+      data: bundle,
+      characterMap: new Map(),
+      buildDedupeKey: (name: string) => `fanout-${name}`,
+      enqueue,
+    });
+    enqueuePaymentBundleForValidatedTip({
+      data: bundle,
+      characterMap: new Map(),
+      buildDedupeKey: (name: string) => `fanout-${name}`,
+      enqueue,
+    });
+
+    expect(getPlaybackKeyState("fanout-Love")).toBe("unseen");
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("Test G — valid Confetti payment still reserves, enqueues and commits", async () => {
+    const queue = createAnimationQueue({
+      eventId: "evt-1",
+      getEnabled: () => true,
+    });
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([validCharacter]);
+
+    enqueuePaymentBundleForValidatedTip({
+      data: bundle,
+      characterMap: new Map([[validCharacter.name, validCharacter]]),
+      buildDedupeKey: (name: string) => `valid-${name}`,
+      enqueue: queue.enqueue.bind(queue),
+      surface: "room_messages",
+    });
+
+    await waitFor(() => getPlaybackKeyState("valid-Heart") === "committed");
+    expect(createAnimationFromStyleMock).toHaveBeenCalled();
+    expect(queue.getPendingCount()).toBe(0);
+  });
+});
+
 describe("run-payment-bundle-animations playback-key integration", () => {
   beforeEach(() => {
     clearPlaybackKeyState();
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([character]);
+    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([validCharacter]);
   });
 
   it("Test B — duplicate bundle delivery enqueues one task before first begins", async () => {
@@ -93,7 +277,7 @@ describe("run-payment-bundle-animations playback-key integration", () => {
     let runs = 0;
     const options = {
       data: bundle,
-      characterMap: new Map([[character.name, character]]),
+      characterMap: new Map([[validCharacter.name, validCharacter]]),
       buildDedupeKey: (name: string) => `dup-${name}`,
       enqueue: (tasks: AnimationQueueTask[]) => {
         const wrapped = tasks.map(t => ({
@@ -136,7 +320,7 @@ describe("run-payment-bundle-animations playback-key integration", () => {
 
     const options = {
       data: bundle,
-      characterMap: new Map([[character.name, character]]),
+      characterMap: new Map([[validCharacter.name, validCharacter]]),
       buildDedupeKey: (name: string) => `bundle-1-${name}`,
       enqueue,
       surface: "room_messages" as const,
@@ -167,7 +351,7 @@ describe("run-payment-bundle-animations playback-key integration", () => {
 
     enqueuePaymentBundleForValidatedTip({
       data: bundle,
-      characterMap: new Map([[character.name, character]]),
+      characterMap: new Map([[validCharacter.name, validCharacter]]),
       buildDedupeKey: (name: string) => `${bundle.id}-${name}`,
       enqueue: tasks => {
         roomRuns.push(...tasks.map(t => t.playbackKey));
@@ -178,7 +362,7 @@ describe("run-payment-bundle-animations playback-key integration", () => {
 
     enqueuePaymentBundleForValidatedTip({
       data: bundle,
-      characterMap: new Map([[character.name, character]]),
+      characterMap: new Map([[validCharacter.name, validCharacter]]),
       buildDedupeKey: (name: string) => `screen-${bundle.id}-${name}`,
       enqueue: tasks => {
         screenRuns.push(...tasks.map(t => t.playbackKey));

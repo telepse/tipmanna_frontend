@@ -22,6 +22,18 @@ import type {
   AnimationQueueTask,
   EnqueueResult,
 } from "@/lib/animation-queue-core";
+import {
+  preflightPaymentCharacterStyles,
+  type PaymentCharacterStyleRejection,
+} from "@/lib/payment-style-preflight";
+
+export interface PaymentBundleEnqueueResult {
+  runnableCount: number;
+  rejectedCount: number;
+  rejections: PaymentCharacterStyleRejection[];
+  enqueued: boolean;
+  enqueueResult?: EnqueueResult;
+}
 
 /**
  * Shared payment path: Turbo/Galaxy companions for the bundle window, then
@@ -35,7 +47,7 @@ export function enqueuePaymentBundleForValidatedTip(options: {
   enqueue: (tasks: AnimationQueueTask[]) => EnqueueResult;
   animationMount?: HTMLElement;
   surface?: RealtimeSurface;
-}): void {
+}): PaymentBundleEnqueueResult {
   const {
     data,
     characterMap,
@@ -45,8 +57,34 @@ export function enqueuePaymentBundleForValidatedTip(options: {
     surface = "unknown",
   } = options;
 
+  const emptyResult = (
+    rejections: PaymentCharacterStyleRejection[] = []
+  ): PaymentBundleEnqueueResult => ({
+    runnableCount: 0,
+    rejectedCount: rejections.length,
+    rejections,
+    enqueued: false,
+  });
+
   const selectedCharacters = resolveStyleCharactersForTip(data, characterMap);
-  if (!selectedCharacters.length) return;
+  if (!selectedCharacters.length) {
+    return emptyResult();
+  }
+
+  const { accepted: runnableCharacters, rejections } =
+    preflightPaymentCharacterStyles(selectedCharacters, {
+      eventId: data.eventId,
+      bundleId: data.id,
+      seq: data.seq,
+      surface,
+      buildPlaybackKey: buildDedupeKey,
+    });
+
+  const runnableNames = new Set(runnableCharacters.map(c => c.name));
+
+  if (!runnableCharacters.length) {
+    return emptyResult(rejections);
+  }
 
   logRealtimeTelemetry({
     event: "bundle_enqueue",
@@ -56,7 +94,7 @@ export function enqueuePaymentBundleForValidatedTip(options: {
     seq: data.seq,
     serverTs: data.serverTs,
     playbackEndsAt: data.playbackEndsAt,
-    characterCount: selectedCharacters.length,
+    characterCount: runnableCharacters.length,
     rewardTurbo: data.rewardTurbo,
     rewardGalaxy: data.rewardGalaxy,
     ts: Date.now(),
@@ -68,6 +106,10 @@ export function enqueuePaymentBundleForValidatedTip(options: {
   const characterCount = selectedCharacters.length;
 
   selectedCharacters.forEach((character, characterIndex) => {
+    if (!runnableNames.has(character.name)) {
+      return;
+    }
+
     const key = buildDedupeKey(character.name);
     const traceMeta = {
       surface,
@@ -127,15 +169,30 @@ export function enqueuePaymentBundleForValidatedTip(options: {
     });
   });
 
-  if (paymentAnimations.length > 0) {
-    tracePaymentAnimation({
-      stage: "playback_task_offered_to_queue",
-      surface,
-      eventId: data.eventId,
-      bundleId: data.id,
-      seq: data.seq,
-      taskCount: paymentAnimations.length,
-    });
-    enqueue(paymentAnimations);
+  if (paymentAnimations.length === 0) {
+    return {
+      runnableCount: 0,
+      rejectedCount: rejections.length,
+      rejections,
+      enqueued: false,
+    };
   }
+
+  tracePaymentAnimation({
+    stage: "playback_task_offered_to_queue",
+    surface,
+    eventId: data.eventId,
+    bundleId: data.id,
+    seq: data.seq,
+    taskCount: paymentAnimations.length,
+  });
+
+  const enqueueResult = enqueue(paymentAnimations);
+  return {
+    runnableCount: paymentAnimations.length,
+    rejectedCount: rejections.length,
+    rejections,
+    enqueued: enqueueResult.accepted,
+    enqueueResult,
+  };
 }

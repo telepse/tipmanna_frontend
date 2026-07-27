@@ -57,10 +57,26 @@ export type StyleCharacterInput = Pick<
 
 export type StyleCharacter = StyleCharacterInput;
 
+export class UnknownPaymentStyleError extends Error {
+  readonly styleName: string;
+  readonly characterName: string;
+
+  constructor(characterName: string, styleName: string) {
+    super(`Unknown payment animation style: ${styleName}`);
+    this.name = "UnknownPaymentStyleError";
+    this.characterName = characterName;
+    this.styleName = styleName;
+  }
+}
+
 const EMPTY_HANDLE: AnimationHandle = {
   stop: () => {},
   finished: Promise.resolve(),
 };
+
+export function isNoOpAnimationHandle(handle: AnimationHandle): boolean {
+  return handle === EMPTY_HANDLE;
+}
 
 type StyleFactory = (
   character: StyleCharacterInput,
@@ -169,8 +185,20 @@ export function createAnimationFromStyleName(
       lookupStyleName,
       mode,
       iconPresent: Boolean(character.iconUrl?.trim()),
-      result: "empty_handle",
+      result: mode === "payment" ? "payment_rejected" : "empty_handle",
     });
+    if (mode === "payment") {
+      tracePaymentAnimation({
+        stage: "payment_character_factory_rejected_unknown_style",
+        characterName: character.name,
+        styleName: character.styleName,
+        lookupStyleName,
+        mode,
+        reason: "unknown_style",
+        result: "rejected",
+      });
+      throw new UnknownPaymentStyleError(character.name, character.styleName);
+    }
     tracePaymentAnimation({
       stage: "empty_handle_returned",
       characterName: character.name,
@@ -185,6 +213,19 @@ export function createAnimationFromStyleName(
   const factory = ANIMATION_STYLE_REGISTRY[character.styleName];
   if (!factory) {
     animWarn(`Missing factory for style: ${character.styleName}`);
+    if (mode === "payment") {
+      tracePaymentAnimation({
+        stage: "payment_character_factory_rejected_unknown_style",
+        characterName: character.name,
+        styleName: character.styleName,
+        lookupStyleName,
+        registryKey,
+        mode,
+        reason: "unknown_style",
+        result: "rejected",
+      });
+      throw new UnknownPaymentStyleError(character.name, character.styleName);
+    }
     tracePaymentAnimation({
       stage: "empty_handle_returned",
       characterName: character.name,

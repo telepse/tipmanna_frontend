@@ -1,6 +1,7 @@
 import { AnimationHandle } from "@/types/animation.types";
 import { PAYMENT_WRAP } from "@/lib/animationContract";
 import { animWarn } from "@/lib/animationDebug";
+import { isNoOpAnimationHandle } from "@/lib/animation-style-registry";
 import {
   tracePaymentAnimation,
   tracePaymentAnimationError,
@@ -34,7 +35,7 @@ async function runSinglePaymentPlay(
   factory: () => AnimationHandle,
   cycleNumber: 1 | 2,
   ctx?: PaymentAnimationTraceContext
-): Promise<void> {
+): Promise<boolean> {
   tracePaymentAnimation({
     stage: "payment_cycle_started",
     cycleNumber,
@@ -74,7 +75,21 @@ async function runSinglePaymentPlay(
         styleName: ctx?.styleName,
         result: "invalid_handle",
       });
-      return;
+      return false;
+    }
+    if (isNoOpAnimationHandle(handle)) {
+      tracePaymentAnimation({
+        stage: "payment_character_factory_rejected_unknown_style",
+        cycleNumber,
+        surface: ctx?.surface,
+        bundleId: ctx?.bundleId,
+        playbackKey: ctx?.playbackKey,
+        characterName: ctx?.characterName,
+        styleName: ctx?.styleName,
+        reason: "unknown_style",
+        result: "rejected",
+      });
+      return false;
     }
     tracePaymentAnimation({
       stage: "animation_handle_returned",
@@ -95,7 +110,7 @@ async function runSinglePaymentPlay(
       characterName: ctx?.characterName,
       styleName: ctx?.styleName,
     });
-    return;
+    return false;
   }
 
   handle.start?.();
@@ -180,6 +195,7 @@ async function runSinglePaymentPlay(
       styleName: ctx?.styleName,
     });
   }
+  return true;
 }
 
 /**
@@ -193,10 +209,12 @@ export function wrapPaymentAnimation(
 ): () => Promise<void> {
   return async () => {
     try {
-      await runSinglePaymentPlay(factory, 1, traceContext);
+      const cycle1Ok = await runSinglePaymentPlay(factory, 1, traceContext);
+      if (!cycle1Ok) return;
       await sleep(PAYMENT_BETWEEN_CYCLES_GAP_MS);
       await sleep(PAYMENT_SECOND_CYCLE_BEAT_MS);
-      await runSinglePaymentPlay(factory, 2, traceContext);
+      const cycle2Ok = await runSinglePaymentPlay(factory, 2, traceContext);
+      if (!cycle2Ok) return;
       tracePaymentAnimation({
         stage: "payment_double_cycle_completed",
         surface: traceContext?.surface,
