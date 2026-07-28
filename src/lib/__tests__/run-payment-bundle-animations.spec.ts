@@ -17,6 +17,7 @@ vi.mock("@/lib/reward-overlays/mount-web-reward-layers", () => ({
 
 vi.mock("@/lib/tip-animation-characters", () => ({
   resolveStyleCharactersForTip: vi.fn(),
+  resolvePaymentCharactersForTip: vi.fn(),
 }));
 
 const createAnimationFromStyleMock = vi.fn(() => ({
@@ -45,7 +46,10 @@ vi.mock("@/lib/wrapPaymentAnimation", () => ({
   },
 }));
 
-import { resolveStyleCharactersForTip } from "@/lib/tip-animation-characters";
+import {
+  resolvePaymentCharactersForTip,
+  resolveStyleCharactersForTip,
+} from "@/lib/tip-animation-characters";
 import { enqueuePaymentBundleForValidatedTip } from "@/lib/run-payment-bundle-animations";
 import {
   createAnimationQueue,
@@ -70,6 +74,39 @@ const invalidCharacter = {
   styleName: "Confe",
   iconUrl: "/love.png",
 };
+
+const emptySummary = {
+  expectedCount: 1,
+  serverResolvedCount: 0,
+  localFallbackCount: 0,
+  runnableCount: 0,
+  rejectedCount: 0,
+  unresolvedCount: 0,
+  missingIconCount: 0,
+  entries: [],
+};
+
+function mockResolvedCharacters(
+  characters: Array<{ name: string; styleName: string; iconUrl: string }>
+) {
+  vi.mocked(resolvePaymentCharactersForTip).mockReturnValue({
+    characters,
+    summary: {
+      ...emptySummary,
+      expectedCount: characters.length,
+      runnableCount: characters.length,
+      localFallbackCount: characters.length,
+      entries: characters.map(c => ({
+        name: c.name,
+        outcome: "local_fallback" as const,
+        styleName: c.styleName,
+        iconUrl: c.iconUrl,
+        character: c,
+      })),
+    },
+  });
+  vi.mocked(resolveStyleCharactersForTip).mockReturnValue(characters);
+}
 
 const bundle: TipAnimationEvent = {
   id: "bundle-1",
@@ -101,11 +138,12 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
   beforeEach(() => {
     clearPlaybackKeyState();
     createAnimationFromStyleMock.mockClear();
+    vi.mocked(resolvePaymentCharactersForTip).mockReset();
     vi.mocked(resolveStyleCharactersForTip).mockReset();
   });
 
   it("Test A — invalid Confe character is rejected before reservation", () => {
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([invalidCharacter]);
+    mockResolvedCharacters([invalidCharacter]);
     const enqueue = vi.fn(() => ({ accepted: true as const }));
 
     const result = enqueuePaymentBundleForValidatedTip({
@@ -132,6 +170,10 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
     });
     const enqueue = (tasks: AnimationQueueTask[]) => queue.enqueue(tasks);
 
+    vi.mocked(resolvePaymentCharactersForTip).mockReturnValueOnce({
+      characters: [invalidCharacter],
+      summary: { ...emptySummary, expectedCount: 1, entries: [] },
+    });
     vi.mocked(resolveStyleCharactersForTip).mockReturnValueOnce([
       invalidCharacter,
     ]);
@@ -144,7 +186,7 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
     });
     expect(getPlaybackKeyState("retry-Love")).toBe("unseen");
 
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValueOnce([
+    mockResolvedCharacters([
       { name: "Love", styleName: "Confetti", iconUrl: "/love.png" },
     ]);
     enqueuePaymentBundleForValidatedTip({
@@ -177,7 +219,7 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
       );
     };
 
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([
+    mockResolvedCharacters([
       { name: "A", styleName: "Confetti", iconUrl: "/a.png" },
       { name: "B", styleName: "Confe", iconUrl: "/b.png" },
       { name: "C", styleName: "Burst", iconUrl: "/c.png" },
@@ -204,7 +246,7 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
   });
 
   it("Test D — all invalid characters do not call queue", () => {
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([
+    mockResolvedCharacters([
       { name: "A", styleName: "Confe", iconUrl: "/a.png" },
       { name: "B", styleName: "Shock", iconUrl: "/b.png" },
     ]);
@@ -224,7 +266,7 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
   });
 
   it("Test F — duplicate fan-out of invalid bundle never reserves keys", () => {
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([invalidCharacter]);
+    mockResolvedCharacters([invalidCharacter]);
     const enqueue = vi.fn();
 
     enqueuePaymentBundleForValidatedTip({
@@ -249,7 +291,7 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
       eventId: "evt-1",
       getEnabled: () => true,
     });
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([validCharacter]);
+    mockResolvedCharacters([validCharacter]);
 
     enqueuePaymentBundleForValidatedTip({
       data: bundle,
@@ -268,7 +310,7 @@ describe("run-payment-bundle-animations E3A unknown style", () => {
 describe("run-payment-bundle-animations playback-key integration", () => {
   beforeEach(() => {
     clearPlaybackKeyState();
-    vi.mocked(resolveStyleCharactersForTip).mockReturnValue([validCharacter]);
+    mockResolvedCharacters([validCharacter]);
   });
 
   it("Test B — duplicate bundle delivery enqueues one task before first begins", async () => {

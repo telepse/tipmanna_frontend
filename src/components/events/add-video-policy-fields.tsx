@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { useSelector } from "react-redux";
-import { toast } from "react-toastify";
 import {
   FormControl,
   FormField,
@@ -20,13 +19,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { createVideoCoOwnerInviteAction } from "@/actions/events";
-import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
-import {
-  coOwnerStatusIndicatorClass,
-  useCoOwnerInviteStatus,
-} from "@/hooks/use-coowner-invite-status";
-import { mapCoOwnerInviteErrors } from "@/lib/coowner-invite-error.util";
+import { useCoOwnerDraftFields } from "@/hooks/use-coowner-draft-fields";
+import type { CoOwnerDraftSlice } from "@/lib/form-draft-utils";
 import type { RootState } from "@/redux/store";
 import type { AddVideoFormValues } from "./add-video-form";
 import {
@@ -45,8 +39,10 @@ type Props = {
   videoTitle: string;
   variant?: "create" | "default";
   coOwnerPolicyMode?: "full" | "ownerOnly";
-  onCoOwnerInviteApproved?: () => void;
+  onCoOwnerInvitePending?: (inviteId: string) => void;
   onDraftSaveNow?: () => void | Promise<void>;
+  onRefreshSubmitReadiness?: () => void;
+  refreshToken?: number;
 };
 
 /** Ownership + co-owner policy block for single-video add forms (modals). */
@@ -55,8 +51,10 @@ export function AddVideoPolicyFields({
   videoTitle,
   variant = "default",
   coOwnerPolicyMode = "full",
-  onCoOwnerInviteApproved,
+  onCoOwnerInvitePending,
   onDraftSaveNow,
+  onRefreshSubmitReadiness,
+  refreshToken = 0,
 }: Props) {
   const user = useSelector((s: RootState) => s.auth.user);
   const hostTier =
@@ -66,112 +64,48 @@ export function AddVideoPolicyFields({
   const canInvite =
     hostTier === "HOST_PREMIUM" || hostTier === "HOST_COMMUNITY";
   const allowCoOwned = coOwnerPolicyMode === "full";
-
-  const [coName, setCoName] = useState("");
-  const [coEmail, setCoEmail] = useState("");
-  const [coPct, setCoPct] = useState(25);
-  const [invitePending, setInvitePending] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<{
-    email?: string;
-    name?: string;
-  }>({});
-  const [coOwnerInviteChannel, setCoOwnerInviteChannel] = useState<
-    string | null
-  >(null);
-
-  useEffect(() => {
-    if (!coOwnerInviteChannel) return;
-    const channel = subscribeChannel(coOwnerInviteChannel);
-    if (!channel) return;
-
-    const handler = (data: { status?: string }) => {
-      if (data?.status === "approved") {
-        toast.success(`Co-owner approved: ${videoTitle}`);
-        setCoOwnerInviteChannel(null);
-        onCoOwnerInviteApproved?.();
-      }
-    };
-
-    channel.bind("co-owner-invite", handler);
-    return () => {
-      channel.unbind("co-owner-invite", handler);
-      unsubscribeChannel(coOwnerInviteChannel);
-    };
-  }, [coOwnerInviteChannel, videoTitle, onCoOwnerInviteApproved]);
-
-  useEffect(() => {
-    const key = form.getValues("coOwnerDraftKey");
-    if (!key?.trim()) {
-      form.setValue(
-        "coOwnerDraftKey",
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `draft-${Date.now()}`
-      );
-    }
-  }, [form]);
+  const isCreate = variant === "create";
 
   const ownershipAnswer = form.watch("ownershipAnswer");
   const draftKey = form.watch("coOwnerDraftKey");
-  const inviteStatus = useCoOwnerInviteStatus(draftKey, coEmail);
-  const isCreate = variant === "create";
+  const coOwner = form.watch("coOwner");
+  const youtubeLink = form.watch("url");
+
+  const {
+    name,
+    email,
+    pct,
+    setName,
+    setEmail,
+    setPct,
+    readOnlyInvite,
+    pending,
+    fieldErrors,
+    sendInvite,
+    statusIndicatorClass,
+    inviteStatusLabel,
+  } = useCoOwnerDraftFields({
+    draftKey,
+    ownershipAnswer,
+    coOwner,
+    setCoOwner: (values: CoOwnerDraftSlice) =>
+      form.setValue("coOwner", values, { shouldDirty: true }),
+    setDraftKey: key =>
+      form.setValue("coOwnerDraftKey", key, { shouldDirty: true }),
+    videoTitle,
+    youtubeLink: youtubeLink ?? "",
+    canInvite,
+    onCoOwnerInvitePending,
+    onDraftSaveNow,
+    onRefreshSubmitReadiness,
+    refreshToken,
+  });
 
   useEffect(() => {
     if (!allowCoOwned && ownershipAnswer === "no") {
       form.setValue("ownershipAnswer", "yes");
     }
   }, [allowCoOwned, ownershipAnswer, form]);
-
-  const sendInvite = async () => {
-    if (!canInvite) {
-      toast.error(
-        "Upgrade to Host Premium or Host Community to invite co-owners."
-      );
-      return;
-    }
-    const dk = form.getValues("coOwnerDraftKey")?.trim();
-    if (!user?.id || !dk) {
-      toast.error("Missing session or draft id");
-      return;
-    }
-    if (!coEmail.trim()) {
-      toast.error("Co-owner email is required");
-      return;
-    }
-    if (!coName.trim()) {
-      toast.error("Co-owner legal name is required");
-      return;
-    }
-    setInvitePending(true);
-    setFieldErrors({});
-    const res = await createVideoCoOwnerInviteAction({
-      draftKey: dk,
-      coOwnerName: coName.trim() || "Co-owner",
-      coOwnerEmail: coEmail.trim(),
-      payoutPercentBp: Math.round(coPct * 100),
-      contentTitle: form.getValues("title")?.trim() || "",
-      youtubeLink: form.getValues("url")?.trim() || "",
-    });
-    setInvitePending(false);
-    if (!res.success) {
-      const mapped = mapCoOwnerInviteErrors(
-        res.validationBody,
-        res.message ?? undefined
-      );
-      if (Object.keys(mapped).length > 0) {
-        setFieldErrors(mapped);
-      } else {
-        toast.error(res.message ?? "Invite failed");
-      }
-      return;
-    }
-    const inv = (res.data as { invite?: { id?: string } })?.invite;
-    toast.success("Invite sent — co-owner must approve via email");
-    if (inv?.id) {
-      setCoOwnerInviteChannel(`coowner-invite-${inv.id}`);
-    }
-    await onDraftSaveNow?.();
-  };
 
   return (
     <div
@@ -219,7 +153,7 @@ export function AddVideoPolicyFields({
                     isCreate ? CREATE_FORM_SELECT_TRIGGER_CLASS : undefined
                   }
                 >
-                  <SelectValue />
+                  <SelectValue placeholder="Select" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent
@@ -252,75 +186,79 @@ export function AddVideoPolicyFields({
         )}
       />
 
-      {allowCoOwned && ownershipAnswer === "no" ? (
-        <div className="space-y-2 rounded-md border border-white/20 bg-black/20 p-3">
-          <p className="text-sm font-medium text-white/90">
-            Invite co-owner (draft {draftKey?.slice(0, 8)}…)
-          </p>
-          <Input
-            placeholder="Co-owner legal name"
-            className={`${CREATE_FORM_INPUT_CLASS} ${fieldErrors.name ? "border-destructive" : ""}`}
-            value={coName}
-            onChange={e => {
-              setCoName(e.target.value);
-              if (fieldErrors.name) {
-                setFieldErrors(prev => ({ ...prev, name: undefined }));
-              }
-            }}
-          />
-          {fieldErrors.name ? (
-            <p className="text-destructive text-xs">{fieldErrors.name}</p>
-          ) : null}
-          <Input
-            placeholder="Co-owner email"
-            type="email"
-            className={`${CREATE_FORM_INPUT_CLASS} ${coOwnerStatusIndicatorClass(inviteStatus)} ${fieldErrors.email ? "border-destructive" : ""}`}
-            value={coEmail}
-            onChange={e => {
-              setCoEmail(e.target.value);
-              if (fieldErrors.email) {
-                setFieldErrors(prev => ({ ...prev, email: undefined }));
-              }
-            }}
-          />
-          {fieldErrors.email ? (
-            <p className="text-destructive text-xs">{fieldErrors.email}</p>
-          ) : null}
-          {inviteStatus ? (
-            <p
-              className={`text-xs ${
-                inviteStatus === "approved"
-                  ? "text-green-400"
-                  : inviteStatus === "pending"
-                    ? "text-amber-400"
-                    : "text-red-400"
-              }`}
-            >
-              Co-owner status: {inviteStatus}
+      {ownershipAnswer === "no" && allowCoOwned ? (
+        <div className="space-y-2">
+          {!canInvite ? (
+            <p className="text-destructive text-sm">
+              Host Premium or Host Community required to invite co-owners.
             </p>
-          ) : null}
-          <div className="flex items-center gap-2">
-            <FormLabel className={`shrink-0 ${CREATE_FORM_LABEL_CLASS}`}>
-              Co-owner share % (of 100%)
-            </FormLabel>
-            <Input
-              type="number"
-              className={`w-24 ${CREATE_FORM_INPUT_CLASS}`}
-              min={1}
-              max={100}
-              value={coPct}
-              onChange={e => setCoPct(Number(e.target.value))}
-            />
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            className="bg-white text-black hover:bg-white/80"
-            disabled={invitePending}
-            onClick={() => void sendInvite()}
-          >
-            {invitePending ? "Sending…" : "Send invite email"}
-          </Button>
+          ) : (
+            <>
+              <Input
+                placeholder="Co-owner legal name"
+                className={`${isCreate ? CREATE_FORM_INPUT_CLASS : ""} ${fieldErrors.name ? "border-destructive" : ""}`}
+                value={name}
+                readOnly={readOnlyInvite}
+                onChange={e => setName(e.target.value)}
+              />
+              {fieldErrors.name ? (
+                <p className="text-destructive text-xs">{fieldErrors.name}</p>
+              ) : null}
+              <Input
+                placeholder="Co-owner email"
+                type="email"
+                className={`${isCreate ? CREATE_FORM_INPUT_CLASS : ""} ${statusIndicatorClass} ${fieldErrors.email ? "border-destructive" : ""}`}
+                value={email}
+                readOnly={readOnlyInvite}
+                onChange={e => setEmail(e.target.value)}
+              />
+              {fieldErrors.email ? (
+                <p className="text-destructive text-xs">{fieldErrors.email}</p>
+              ) : null}
+              {inviteStatusLabel ? (
+                <p
+                  className={`text-xs ${
+                    inviteStatusLabel === "approved"
+                      ? "text-green-600"
+                      : inviteStatusLabel === "pending"
+                        ? "text-amber-600"
+                        : "text-red-600"
+                  }`}
+                >
+                  Co-owner status: {inviteStatusLabel}
+                </p>
+              ) : null}
+              <div className="flex items-center gap-2">
+                <FormLabel
+                  className={isCreate ? CREATE_FORM_LABEL_CLASS : undefined}
+                >
+                  Co-owner share %
+                </FormLabel>
+                <Input
+                  type="number"
+                  className={cn(
+                    "w-24",
+                    isCreate ? CREATE_FORM_INPUT_CLASS : ""
+                  )}
+                  min={1}
+                  max={100}
+                  value={pct}
+                  readOnly={readOnlyInvite}
+                  onChange={e => setPct(Number(e.target.value))}
+                />
+              </div>
+              {readOnlyInvite ? null : (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => void sendInvite()}
+                >
+                  {pending ? "Sending…" : "Send invite email"}
+                </Button>
+              )}
+            </>
+          )}
         </div>
       ) : null}
     </div>

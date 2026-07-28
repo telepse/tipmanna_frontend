@@ -1,8 +1,4 @@
-import {
-  ANIMATION_DURATION,
-  PAYMENT_WRAP,
-  type AnimationHandle,
-} from "@/lib/animationContract";
+import { PAYMENT_WRAP, type AnimationHandle } from "@/lib/animationContract";
 
 /** Match {@link wrapPaymentAnimation} gaps — sourced from {@link PAYMENT_WRAP}. */
 export const PAYMENT_BETWEEN_CYCLES_GAP_MS = PAYMENT_WRAP.betweenCyclesMs;
@@ -14,7 +10,7 @@ export const PAYMENT_SECOND_CYCLE_BEAT_MS = PAYMENT_WRAP.secondCycleBeatMs;
  */
 export function paymentBundleMsPerCharacter(): number {
   return (
-    2 * ANIMATION_DURATION.payment.max +
+    2 * PAYMENT_WRAP.safetyTimeoutMs +
     PAYMENT_BETWEEN_CYCLES_GAP_MS +
     PAYMENT_SECOND_CYCLE_BEAT_MS
   );

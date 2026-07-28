@@ -1,0 +1,90 @@
+﻿[playwright globalSetup] Backend healthy at http://localhost:8000/health
+
+Running 10 tests using 1 worker
+
+node.exe : (node:16388) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:16388) Wa... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16388) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (16.0s)
+(node:35828) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35828) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  2 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (10.2s)
+(node:34432) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:34432) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  3 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (7.3s)
+(node:21652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  4 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (8.1s)
+(node:21164) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21164) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  5 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (7.8s)
+(node:31916) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:31916) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  6 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (10.1s)
+(node:4152) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:4152) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x   7 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (18.6s)
+(node:23852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:23852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  8 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (12.7s)
+(node:11976) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11976) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  9 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (8.6s)
+(node:32244) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:32244) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 10 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (9.0s)
+
+
+  1) [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeAttached[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('explore-feed-scroll')
+    Expected: attached
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeAttached" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('explore-feed-scroll')[22m
+
+
+      14 |     await page.getByTestId("explore-subtab-tv").click();
+      15 |     await expect(page.getByTestId("explore-feed-shell")).toBeAttached();
+    > 16 |     await expect(page.getByTestId("explore-feed-scroll")).toBeAttached();
+         |                                                           ^
+      17 |     await expect(page.getByTestId("explore-feed-shell")).toHaveClass(/hidden/);
+      18 |     await expect(page.getByTestId("explore-feed-scroll")).not.toBeVisible();
+      19 |   });
+        at C:\Users\Elite\Documents\Tipmanna\TIPMANNA - LOCAL\frontend\e2e\explore-tv-session.spec.ts:16:59
+
+    Error Context: test-results\explore-tv-session-explore-2345e--while-TV-sub-tab-is-active-chromium-repeat6\error-context.md
+
+  1 failed
+    [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active 
+  9 passed (2.9m)

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 
 // Third-party imports
 import { Control, useForm, type Resolver } from "react-hook-form";
@@ -29,13 +29,18 @@ import { getFormErrors } from "@/lib/getFormErrors";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { EventFormHelpButton } from "@/components/events/event-form-help-button";
 import { EventContentPrivacyStep } from "@/components/events/event-content-privacy-step";
-import { useFormDraftAutosave } from "@/hooks/use-form-draft-autosave";
-import { DraftSaveIndicator } from "@/components/events/draft-save-indicator";
 import { useFormDraftRestore } from "@/hooks/use-form-draft-restore";
 import { deleteFormDraftAction } from "@/actions/form-drafts";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
 import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
 import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
+import { useCoOwnerPusherApprovalRefresh } from "@/hooks/use-coowner-pusher-approval-refresh";
+import { CoOwnerDraftLifecycleProvider } from "@/providers/co-owner-draft-lifecycle-provider";
+import {
+  useWizardDraftAutosave,
+  WizardDraftAutosaveProvider,
+  WizardDraftSaveIndicator,
+} from "@/providers/wizard-draft-autosave-provider";
 import {
   runPrivacyChecksFromForm,
   resolveLiveVideoOwnershipAnswer,
@@ -45,6 +50,10 @@ export default function EventOnlyPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [pendingCoOwnerInviteIds, setPendingCoOwnerInviteIds] = useState<
+    string[]
+  >([]);
+  const [coOwnerRefreshToken, setCoOwnerRefreshToken] = useState(0);
 
   const { push } = useAppRouter();
 
@@ -196,8 +205,24 @@ export default function EventOnlyPage() {
   const runPrivacyChecks = () => runPrivacyChecksFromForm(form, user);
 
   const videoLinks = form.watch("videoLinks") ?? [];
-  const { blocked: coOwnerSubmitBlocked, refresh: refreshCoOwnerSubmit } =
-    useCoOwnerDraftSubmitBlocked(videoLinks);
+  const {
+    blocked: coOwnerSubmitBlocked,
+    checking: coOwnerSubmitChecking,
+    refresh: refreshCoOwnerSubmit,
+  } = useCoOwnerDraftSubmitBlocked(videoLinks);
+
+  useCoOwnerPusherApprovalRefresh({
+    draftKeys: videoLinks
+      .filter(v => v.ownershipAnswer === "no")
+      .map(v => v.coOwnerDraftKey),
+    extraInviteIds: pendingCoOwnerInviteIds,
+    onApproved: () => {
+      void refreshCoOwnerSubmit();
+      setCoOwnerRefreshToken(t => t + 1);
+    },
+  });
+
+  const coOwnerSubmitDisabled = coOwnerSubmitBlocked || coOwnerSubmitChecking;
 
   const onSubmit = async (values: NewEventFormData) => {
     if (!runPrivacyChecks()) {
@@ -276,15 +301,6 @@ export default function EventOnlyPage() {
     }
   }, [user, form]);
 
-  const draftSave = useFormDraftAutosave(form.watch(), {
-    kind: "event_only",
-    step,
-    title: form.watch("eventName") || "Event draft",
-    enabled: user?.role === "HOST",
-    draftId,
-    onDraftId: setDraftId,
-  });
-
   const { restoring: draftRestoring } = useFormDraftRestore(form, {
     kind: "event_only",
     enabled: user?.role === "HOST",
@@ -307,109 +323,134 @@ export default function EventOnlyPage() {
       }}
     >
       <AddEventBanner title="Create new event" />
-      {user?.role === "HOST" ? (
-        <div className="container mx-auto px-4 pt-2">
-          <DraftSaveIndicator
-            saving={draftSave.saving}
-            lastSavedAt={draftSave.lastSavedAt}
-            onSaveNow={() => void draftSave.saveNow()}
-          />
-        </div>
-      ) : null}
-      <div className="mt-2 flex justify-end px-4">
-        <EventFormHelpButton sourceForm="event_only" />
-      </div>
+      <CoOwnerDraftLifecycleProvider draftRestoring={draftRestoring}>
+        <WizardDraftAutosaveProvider
+          form={form}
+          kind="event_only"
+          step={step}
+          title={form.watch("eventName") || "Event draft"}
+          draftId={draftId}
+          onDraftId={setDraftId}
+          hostEnabled={user?.role === "HOST"}
+        >
+          {user?.role === "HOST" ? (
+            <div className="container mx-auto px-4 pt-2">
+              <WizardDraftSaveIndicator />
+            </div>
+          ) : null}
+          <div className="mt-2 flex justify-end px-4">
+            <EventFormHelpButton sourceForm="event_only" />
+          </div>
 
-      <div className="mini-wrapper space-y-6 p-4 sm:p-6">
-        {draftRestoring ? (
-          <p className="text-muted-foreground text-center text-sm">
-            Restoring draft…
-          </p>
-        ) : null}
-        <NewStepIndicator step={step} />
+          <div className="mini-wrapper space-y-6 p-4 sm:p-6">
+            {draftRestoring ? (
+              <p className="text-muted-foreground text-center text-sm">
+                Restoring draft…
+              </p>
+            ) : null}
+            <NewStepIndicator step={step} />
 
-        <Form {...form}>
-          {step === 1 && (
-            <EventAmountInfo
-              control={form.control as unknown as Control<NewEventFormData>}
-            />
-          )}
-          {step === 2 && (
-            <HostEventInfo
-              control={form.control as unknown as Control<NewEventFormData>}
-            />
-          )}
-
-          {step === 3 && (
-            <div className="w-full">
-              {user &&
-              role === "HOST" &&
-              !requiresVerification &&
-              !isExistingHost ? (
-                <OrganiserEventRoomInfo control={form.control as any} />
-              ) : (
-                <EventSignInForm
-                  role={role as any}
-                  tag={tag as string}
-                  onNext={nextStep}
+            <Form {...form}>
+              {step === 1 && (
+                <EventAmountInfo
+                  control={form.control as unknown as Control<NewEventFormData>}
                 />
               )}
-            </div>
-          )}
+              {step === 2 && (
+                <HostEventInfo
+                  control={form.control as unknown as Control<NewEventFormData>}
+                />
+              )}
 
-          {step === 4 && (
-            <EventContentPrivacyStep
-              control={form.control as unknown as Control<NewEventFormData>}
-              onCoOwnerInviteApproved={() => void refreshCoOwnerSubmit()}
-              onDraftSaveNow={() => draftSave.saveNow()}
-            />
-          )}
+              {step === 3 && (
+                <div className="w-full">
+                  {user &&
+                  role === "HOST" &&
+                  !requiresVerification &&
+                  !isExistingHost ? (
+                    <OrganiserEventRoomInfo control={form.control as any} />
+                  ) : (
+                    <EventSignInForm
+                      role={role as any}
+                      tag={tag as string}
+                      onNext={nextStep}
+                    />
+                  )}
+                </div>
+              )}
 
-          <div className="flex flex-wrap justify-center gap-4">
-            {step > 1 && (
-              <button
-                type="button"
-                onClick={prevStep}
-                className="cursor-pointer rounded-full bg-black hover:bg-black/80"
-              >
-                <CircleArrowLeft className="size-8 text-white" />
-              </button>
-            )}
+              {step === 4 && (
+                <EventContentPrivacyStepWithAutosave
+                  control={form.control as unknown as Control<NewEventFormData>}
+                  onCoOwnerInvitePending={inviteId =>
+                    setPendingCoOwnerInviteIds(prev =>
+                      prev.includes(inviteId) ? prev : [...prev, inviteId]
+                    )
+                  }
+                  onRefreshSubmitReadiness={() => void refreshCoOwnerSubmit()}
+                  coOwnerRefreshToken={coOwnerRefreshToken}
+                />
+              )}
 
-            {step < 4 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="cursor-pointer rounded-full bg-black hover:bg-black/80"
-              >
-                <CircleArrowRight className="size-8 text-white" />
-              </button>
-            ) : (
-              <>
-                {user && !isExistingHost && !requiresVerification && (
-                  <Button
+              <div className="flex flex-wrap justify-center gap-4">
+                {step > 1 && (
+                  <button
                     type="button"
-                    size="lg"
-                    disabled={isLoading || coOwnerSubmitBlocked}
-                    onClick={form.handleSubmit(onSubmit)}
+                    onClick={prevStep}
+                    className="cursor-pointer rounded-full bg-black hover:bg-black/80"
                   >
-                    {isLoading ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="size-4 animate-spin" /> Submitting
-                        for approval...
-                      </span>
-                    ) : coOwnerSubmitBlocked ? (
-                      <span>Awaiting co-owner approval</span>
-                    ) : (
-                      <span>Submit for approval</span>
-                    )}
-                  </Button>
+                    <CircleArrowLeft className="size-8 text-white" />
+                  </button>
                 )}
-              </>
-            )}
+
+                {step < 4 ? (
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className="cursor-pointer rounded-full bg-black hover:bg-black/80"
+                  >
+                    <CircleArrowRight className="size-8 text-white" />
+                  </button>
+                ) : (
+                  <>
+                    {user && !isExistingHost && !requiresVerification && (
+                      <Button
+                        type="button"
+                        size="lg"
+                        disabled={isLoading || coOwnerSubmitDisabled}
+                        onClick={form.handleSubmit(onSubmit)}
+                      >
+                        {isLoading ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="size-4 animate-spin" />{" "}
+                            Submitting for approval...
+                          </span>
+                        ) : coOwnerSubmitDisabled ? (
+                          <span>Awaiting co-owner approval</span>
+                        ) : (
+                          <span>Submit for approval</span>
+                        )}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </Form>
           </div>
-        </Form>
-      </div>
+        </WizardDraftAutosaveProvider>
+      </CoOwnerDraftLifecycleProvider>
     </div>
+  );
+}
+
+function EventContentPrivacyStepWithAutosave(
+  props: Omit<ComponentProps<typeof EventContentPrivacyStep>, "onDraftSaveNow">
+) {
+  const { saveNow } = useWizardDraftAutosave();
+  return (
+    <EventContentPrivacyStep
+      {...props}
+      onDraftSaveNow={() => void saveNow()}
+    />
   );
 }

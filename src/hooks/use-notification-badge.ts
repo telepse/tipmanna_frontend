@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { getNotificationsUnreadCountAction } from "@/actions/notifications";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { getAuthToken, getDeviceKey } from "@/lib/getAuthToken";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel";
@@ -14,6 +15,11 @@ export function useNotificationBadge() {
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
+    if (isExploreE2eFixturesActiveOnClient()) {
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
     const role = user?.role?.toUpperCase();
     setLoading(true);
     const token = getAuthToken();

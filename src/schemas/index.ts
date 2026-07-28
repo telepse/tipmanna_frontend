@@ -189,6 +189,13 @@ export const newEventSchema = z.object({
         ownershipAnswer: z.enum(["yes", "no"]).optional(),
         onYoutubeChannelSlot: z.number().int().optional().nullable(),
         isOnHostYoutube: z.boolean().optional(),
+        coOwner: z
+          .object({
+            name: z.string().optional(),
+            email: z.string().optional(),
+            payoutPercent: z.number().min(1).max(100).optional(),
+          })
+          .optional(),
       })
     )
     .optional(),

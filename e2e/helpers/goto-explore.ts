@@ -7,7 +7,8 @@ export async function gotoExplore(
   options?: Parameters<Page["goto"]>[1]
 ) {
   return page.goto(path, {
-    waitUntil: "domcontentloaded",
+    waitUntil: "commit",
+    timeout: 60_000,
     ...options,
   });
 }

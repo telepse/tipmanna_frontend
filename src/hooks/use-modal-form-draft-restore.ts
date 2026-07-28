@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import type { UseFormReturn } from "react-hook-form";
+import { useEffect, useRef, useState } from "react";
+import type { DefaultValues, UseFormReturn } from "react-hook-form";
+import type { AddVideoFormValues } from "@/components/events/add-video-form";
 import { toast } from "react-toastify";
 import {
   getFormDraftAction,
@@ -12,14 +13,14 @@ import {
   mergeModalDraftPayload,
   modalDraftStorageKey,
 } from "@/lib/form-draft-utils";
-import type { AddVideoFormValues } from "@/components/events/add-video-form";
 
 type Options = {
-  kind: Extract<FormDraftKind, "community_video" | "room_add_video">;
+  kind: FormDraftKind;
   targetId: string;
   enabled?: boolean;
   form: UseFormReturn<AddVideoFormValues>;
   draftId: string | null;
+  seedDraftId?: string | null;
   onDraftId: (id: string | null) => void;
 };
 
@@ -30,30 +31,41 @@ export function useModalFormDraftRestore({
   enabled = true,
   form,
   draftId,
+  seedDraftId,
   onDraftId,
 }: Options) {
   const restoredRef = useRef(false);
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
-    if (!enabled || !targetId?.trim() || restoredRef.current) return;
+    if (!enabled || !targetId?.trim() || restoredRef.current) {
+      setRestoring(false);
+      return;
+    }
 
     const storageKey = modalDraftStorageKey(kind, targetId);
     const storedId =
+      seedDraftId?.trim() ??
       draftId ??
       (typeof window !== "undefined"
         ? sessionStorage.getItem(storageKey)
         : null);
-    if (!storedId?.trim()) return;
+    if (!storedId?.trim()) {
+      setRestoring(false);
+      return;
+    }
 
     restoredRef.current = true;
+    setRestoring(true);
     void getFormDraftAction(storedId).then(res => {
+      setRestoring(false);
       if (!res.success || !res.data) return;
       const draft = res.data;
       if (draft.kind !== kind) return;
       const merged = mergeModalDraftPayload(
         draft.payloadJson,
         draft.policyJson
-      );
+      ) as DefaultValues<AddVideoFormValues>;
       form.reset(merged);
       onDraftId(draft.id);
       if (typeof window !== "undefined") {
@@ -61,7 +73,9 @@ export function useModalFormDraftRestore({
       }
       toast.success("Draft restored");
     });
-  }, [enabled, targetId, kind, form, draftId, onDraftId]);
+  }, [enabled, targetId, kind, form, draftId, seedDraftId, onDraftId]);
+
+  return { restoring };
 }
 
 export async function clearModalFormDraft(

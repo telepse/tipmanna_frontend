@@ -17,16 +17,12 @@ import { SCREEN_BACKGROUNDS } from "@/lib/backgrounds";
 import { formatWithCommas, toSentenceCase } from "@/lib/utils";
 import { TipUsageDisclosure } from "@/types/tipusagedisclosure.types";
 import { RoomCharacter } from "@/types";
-import { TipAnimationEvent } from "@/lib/animation-guard";
 import { useWakeLock } from "@/hooks/use-wake-lock";
-import { useAnimationQueue } from "@/hooks/use-animation-queue";
 import { useScreenDetection } from "@/hooks/use-screen-detection";
-import { animLog } from "@/lib/animationDebug";
-import { enqueuePaymentBundleForValidatedTip } from "@/lib/run-payment-bundle-animations";
+import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { preloadPaymentAnimationAssetsForCharacters } from "@/lib/preload-payment-animations";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { Performer } from "@/types/performer.types";
-import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 
 function getLightboxVideoSrc(bg: string): string {
@@ -95,13 +91,6 @@ export const ScreenDisplay = ({
 
   const { isLandscape, isMobile, isDesktop } = useScreenDetection();
   const { isSupported: isWakeLockSupported } = useWakeLock({ enabled: isOpen });
-  const { enqueue } = useAnimationQueue({
-    eventId,
-    enabled: isOpen,
-    surface: "screen_display",
-  });
-
-  useGlobalTipStream({ eventId, enabled: isOpen, surface: "screen_display" });
 
   const prevOpenRef = useRef(isOpen);
   useEffect(() => {
@@ -175,18 +164,18 @@ export const ScreenDisplay = ({
     prevOpenRef.current = isOpen;
   }, [isOpen, eventId]);
 
-  const characterMap = useMemo(() => {
-    const map = new Map<string, RoomCharacter>();
-    if (tippingCharacters) {
-      for (const c of tippingCharacters) {
-        map.set(c.name, c);
-      }
-    }
-    return map;
-  }, [tippingCharacters]);
+  const safeTippingCharacters = useMemo(
+    () => (Array.isArray(tippingCharacters) ? tippingCharacters : []),
+    [tippingCharacters]
+  );
 
-  const characterMapRef = useRef(characterMap);
-  characterMapRef.current = characterMap;
+  usePaymentAnimationPlayer({
+    eventId,
+    characters: safeTippingCharacters,
+    enabled: isOpen,
+    playbackKeyPrefix: "screen-",
+    surface: "screen_display",
+  });
 
   useEffect(() => {
     if (!tippingCharacters?.length) return;
@@ -249,38 +238,6 @@ export const ScreenDisplay = ({
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [isOpen, router]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !isOpen) return;
-
-    const handleValidatedTip = (e: Event) => {
-      const data = (e as CustomEvent<TipAnimationEvent>).detail;
-      tracePaymentAnimation({
-        stage: "validated_tip_listener_received",
-        surface: "screen_display",
-        eventId: data.eventId,
-        bundleId: data.id,
-        seq: data.seq,
-        isOpen: true,
-        streamEnabled: true,
-        queueEnabled: true,
-      });
-      animLog("NEW TIP PAYLOAD", data);
-
-      const dedupeKeyBase = data.id ?? `${data.eventId}-${data.serverTs}`;
-      enqueuePaymentBundleForValidatedTip({
-        data,
-        characterMap: characterMapRef.current,
-        buildDedupeKey: name => `screen-${dedupeKeyBase}-${name}`,
-        enqueue,
-        surface: "screen_display",
-      });
-    };
-
-    window.addEventListener("validated-tip", handleValidatedTip);
-    return () =>
-      window.removeEventListener("validated-tip", handleValidatedTip);
-  }, [isOpen, enqueue]);
 
   const [animateTip, setAnimateTip] = useState(false);
 

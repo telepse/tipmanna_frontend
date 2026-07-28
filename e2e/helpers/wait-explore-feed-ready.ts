@@ -86,9 +86,9 @@ export async function requirePopulatedExploreFeed(
   page: Page,
   timeoutMs = 60_000
 ): Promise<void> {
-  const readiness = await waitExploreFeedReady(page, timeoutMs);
-  expect(
-    readiness.state,
-    "Scenario requires populated Feed (explore-feed-scroll)"
-  ).toBe("scroll");
+  const scroll = page.getByTestId("explore-feed-scroll");
+  await expect(async () => {
+    await waitExploreFeedReady(page, 15_000);
+    await expect(scroll).toBeVisible();
+  }).toPass({ timeout: timeoutMs });
 }

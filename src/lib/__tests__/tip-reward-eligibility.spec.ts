@@ -74,10 +74,17 @@ describe("reward icon fill helpers", () => {
     expect(isTurboIconFilled(3, r)).toBe(true);
   });
 
-  it("fills galaxy sparkles per £10 toward £50", () => {
-    const r = computeTipRewardEligibility(["Rose"], chars, 5);
-    expect(r.totalGbp).toBe(10);
-    expect(isGalaxyIconFilled(0, r)).toBe(true);
-    expect(isGalaxyIconFilled(1, r)).toBe(false);
+  it("fills galaxy icon at £50 threshold (GALAXY_ICON_COUNT=1)", () => {
+    const partial = computeTipRewardEligibility(["Rose"], chars, 5);
+    expect(partial.totalGbp).toBe(10);
+    expect(isGalaxyIconFilled(0, partial)).toBe(false);
+
+    const unlocked = computeTipRewardEligibility(
+      ["Rose", "Rose", "Rose", "Rose", "Rose"],
+      chars,
+      5
+    );
+    expect(unlocked.totalGbp).toBe(50);
+    expect(isGalaxyIconFilled(0, unlocked)).toBe(true);
   });
 });

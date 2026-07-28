@@ -9,6 +9,7 @@ import type { NewEventFormData } from "@/schemas";
 import {
   splitDraftPayload,
   splitModalDraftPayload,
+  type DraftResumeOrigin,
 } from "@/lib/form-draft-utils";
 
 type Options = {
@@ -20,6 +21,9 @@ type Options = {
   onDraftId?: (id: string) => void;
   /** event = multi-step create pages; modal = AddVideoForm flat shape */
   payloadKind?: "event" | "modal";
+  /** community id or event id for modal draft resume */
+  modalTargetId?: string;
+  resumeOrigin?: DraftResumeOrigin;
 };
 
 export type FormDraftSaveState = {
@@ -39,6 +43,8 @@ export function useFormDraftAutosave(
     draftId,
     onDraftId,
     payloadKind = "event",
+    modalTargetId,
+    resumeOrigin,
   }: Options
 ) {
   const draftIdRef = useRef<string | null>(draftId ?? null);
@@ -53,12 +59,26 @@ export function useFormDraftAutosave(
   }, [draftId]);
 
   const persistDraft = useCallback(async () => {
-    const { payloadJson, policyJson } =
+    const { payloadJson, policyJson: rawPolicy } =
       payloadKind === "modal"
         ? splitModalDraftPayload(
             payload as import("@/components/events/add-video-form").AddVideoFormValues
           )
         : splitDraftPayload(payload as NewEventFormData);
+
+    const policyJson =
+      payloadKind === "modal" && modalTargetId?.trim()
+        ? {
+            ...rawPolicy,
+            modal: {
+              ...(
+                rawPolicy as import("@/lib/form-draft-utils").FormDraftPolicyJson
+              ).modal,
+              targetId: modalTargetId.trim(),
+              ...(resumeOrigin ? { origin: resumeOrigin } : {}),
+            },
+          }
+        : rawPolicy;
 
     setSaveState(s => ({ ...s, saving: true }));
     try {
@@ -95,7 +115,16 @@ export function useFormDraftAutosave(
         saveError: "Could not save draft",
       }));
     }
-  }, [payload, kind, step, title, onDraftId, payloadKind]);
+  }, [
+    payload,
+    kind,
+    step,
+    title,
+    onDraftId,
+    payloadKind,
+    modalTargetId,
+    resumeOrigin,
+  ]);
 
   useEffect(() => {
     if (!enabled) return;

@@ -1,0 +1,423 @@
+﻿
+> frontend@0.1.0 build
+> next build --turbopack
+
+node.exe : [@serwist/next] WARNING: You are using '@serwist/next' with `next dev --turbopack`, but it doesn't support 
+Turbopack. Do one of the following:
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([@serwist/next]... the following::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+- Set `disable` to `process.env.NODE_ENV !== "production"`.
+
+- Use webpack by running `next dev --webpack` instead of `next dev --turbopack`.
+
+- Migrate to '@serwist/turbopack' which has experimental support for Turbopack. See 
+https://serwist.pages.dev/docs/next/turbo for more information.
+
+- Migrate to configurator mode which has support for Turbopack. See https://serwist.pages.dev/docs/next/config for 
+more information. 
+
+Follow https://github.com/serwist/serwist/issues/54 for progress on Serwist + Turbopack. You can also suppress this 
+warning by setting SERWIST_SUPPRESS_TURBOPACK_WARNING=1.
+
+   Γû▓ Next.js 15.5.7 (Turbopack)
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ Γ£ô Finished writing to disk in 2.2s
+ Γ£ô Compiled successfully in 38.1s
+   Linting and checking validity of types ...
+
+./src/app/(dashboard)/layout.tsx
+6:10  Warning: 'AppSidebar' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(event)/event-and-content/page.tsx
+59:9  Warning: 'token' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(event)/room/[id]/page.tsx
+18:15  Warning: 'Message' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/community/side-chick/[communityId]/page.tsx
+44:34  Warning: 'requiresVerification' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/success/page.tsx
+324:6  Warning: React Hook useEffect has a missing dependency: 'isAuthenticated'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/app/tipper/[username]/page.tsx
+16:10  Warning: 'Content' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/app-sidebar.tsx
+24:3  Warning: 'Handshake' is defined but never used.  @typescript-eslint/no-unused-vars
+25:3  Warning: 'Sparkles' is defined but never used.  @typescript-eslint/no-unused-vars
+110:9  Warning: 'isFreezed' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+112:9  Warning: 'showCoOwnerNav' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+113:9  Warning: 'videoRequestsUiOn' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/auth/tipper-email-otp-sign-in-dialog.tsx
+1:1  Warning: Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any').
+
+./src/components/co-owner/co-owner-approved-badge.tsx
+65:27  Warning: React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked.  react-hooks/exhaustive-deps
+
+./src/components/community/community-hub-client.tsx
+45:7  Warning: 'EXPLORE_COMMUNITY_HUB_HREF' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+205:10  Warning: 'signInReturnTo' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+548:9  Warning: 'canCreateCommunity' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/community/community-join-panel.tsx
+7:8  Warning: 'Cookies' is defined but never used.  @typescript-eslint/no-unused-vars
+63:3  Warning: 'signInRedirectPath' is defined but never used.  @typescript-eslint/no-unused-vars
+65:9  Warning: 'router' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/community-tv-adjustment-host-tab.tsx
+83:6  Warning: React Hook useCallback has a missing dependency: 'authToken'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/dashboard/community-tv-enforcement-host-tab.tsx
+359:25  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/dashboard/community-tv-host-client.tsx
+141:6  Warning: React Hook useCallback has an unnecessary dependency: 'base'. Either exclude it or remove the dependency array.  react-hooks/exhaustive-deps
+211:6  Warning: React Hook useCallback has a missing dependency: 'authToken'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+257:6  Warning: React Hook useCallback has a missing dependency: 'authToken'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+285:6  Warning: React Hook useCallback has a missing dependency: 'authToken'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/dashboard/community-tv-program-report-host-tab.tsx
+119:6  Warning: React Hook useCallback has a missing dependency: 'authToken'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+368:6  Warning: React Hook useCallback has a missing dependency: 'authToken'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/dashboard/event-room-videos-modal.tsx
+106:3  Warning: 'eventName' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/host-community-client.tsx
+9:21  Warning: 'useRouter' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/host-subscription-panel.tsx
+30:9  Warning: 'userId' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+97:9  Warning: 'checkout' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/host-subscription-pricing-panel.tsx
+23:9  Warning: 'user' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/settings-client.tsx
+155:9  Warning: 'userType' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/sidebar-wrapper.tsx
+3:10  Warning: 'useCallback' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/venue-display-client.tsx
+6:10  Warning: 'Tabs' is defined but never used.  @typescript-eslint/no-unused-vars
+6:16  Warning: 'TabsTrigger' is defined but never used.  @typescript-eslint/no-unused-vars
+6:29  Warning: 'TabsList' is defined but never used.  @typescript-eslint/no-unused-vars
+6:39  Warning: 'TabsContent' is defined but never used.  @typescript-eslint/no-unused-vars
+15:10  Warning: 'tabType' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+15:19  Warning: 'setTabType' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+19:16  Warning: 'ongoing' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+19:25  Warning: 'notStarted' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/dashboard/venue-event-card.tsx
+72:3  Warning: 'hostName' is defined but never used.  @typescript-eslint/no-unused-vars
+109:6  Warning: React Hook useEffect has a missing dependency: 'fetchSessions'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+124:10  Warning: 'showLatest' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+125:10  Warning: 'hideProgressAmount' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/add-performers-modal.tsx
+34:3  Warning: 'isHost' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/add-projects-modal.tsx
+34:3  Warning: 'isHost' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/add-video-policy-fields.tsx
+55:3  Warning: 'videoTitle' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/channel-client.tsx
+67:3  Warning: 'getTotalAmountTippedByTipper' is defined but never used.  @typescript-eslint/no-unused-vars
+69:10  Warning: 'getTippedEventsForTipper' is defined but never used.  @typescript-eslint/no-unused-vars
+70:10  Warning: 'getAllCausesAction' is defined but never used.  @typescript-eslint/no-unused-vars
+173:7  Warning: 'coalesceNumber' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+193:9  Warning: The 'baseTipSets' conditional could make the dependencies of useMemo Hook (at line 208) change on every render. To fix this, wrap the initialization of 'baseTipSets' in its own useMemo() Hook.  react-hooks/exhaustive-deps
+754:9  Warning: 'authToken' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/content-client.tsx
+65:3  Warning: 'getTotalAmountTippedByTipper' is defined but never used.  @typescript-eslint/no-unused-vars
+67:10  Warning: 'getTippedEventsForTipper' is defined but never used.  @typescript-eslint/no-unused-vars
+68:10  Warning: 'getAllCausesAction' is defined but never used.  @typescript-eslint/no-unused-vars
+171:7  Warning: 'coalesceNumber' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+191:9  Warning: The 'baseTipSets' conditional could make the dependencies of useMemo Hook (at line 219) change on every render. To fix this, wrap the initialization of 'baseTipSets' in its own useMemo() Hook.  react-hooks/exhaustive-deps
+775:9  Warning: 'authToken' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/content-room-settings.tsx
+28:3  Warning: 'isCohost' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/copy-link-button.tsx
+9:10  Warning: 'copied' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/create-visitor-onload.tsx
+64:16  Warning: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/creator-event-room-info.tsx
+625:25  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+626:23  Warning: 'input' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+639:23  Warning: 'cb' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+649:25  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+650:23  Warning: 'input' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+663:23  Warning: 'cb' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/event-content-privacy-step.tsx
+66:9  Warning: The 'videoLinks' logical expression could make the dependencies of useEffect Hook (at line 221) change on every render. To fix this, wrap the initialization of 'videoLinks' in its own useMemo() Hook.  react-hooks/exhaustive-deps
+91:6  Warning: React Hook useEffect has a missing dependency: 'videoLinks'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+479:3  Warning: 'videoTitle' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/event-dialog.tsx
+46:3  Warning: 'hostName' is defined but never used.  @typescript-eslint/no-unused-vars
+86:9  Warning: 'timeZone' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+143:14  Warning: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/event-info.tsx
+64:9  Warning: 'shareUrl' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+78:14  Warning: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/event-performers-modal.tsx
+29:3  Warning: 'isHost' is defined but never used.  @typescript-eslint/no-unused-vars
+30:3  Warning: 'eventId' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/event-progress-bar.tsx
+15:3  Warning: 'eventId' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/event-screen-settings.tsx
+106:3  Warning: 'activeSession' is defined but never used.  @typescript-eslint/no-unused-vars
+127:9  Warning: 'handleCreateSession' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+154:9  Warning: 'handleSetActiveSession' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+340:10  Warning: 'enabled' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/event-user.tsx
+35:26  Warning: 'updateTipper' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/event-video-type-tag-picker.tsx
+29:3  Warning: 'inheritLabel' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+30:3  Warning: 'inheritSuffix' is defined but never used.  @typescript-eslint/no-unused-vars
+34:9  Warning: 'inheritSelected' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/host-event-and-content-info.tsx
+601:19  Warning: 'thumbnail' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/invite-modal.tsx
+36:37  Warning: 'onClose' is defined but never used.  @typescript-eslint/no-unused-vars
+36:46  Warning: 'onSuccess' is defined but never used.  @typescript-eslint/no-unused-vars
+39:10  Warning: 'openSignIn' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/message-header.tsx
+8:20  Warning: 'Pin' is defined but never used.  @typescript-eslint/no-unused-vars
+13:10  Warning: 'EventRating' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/new-performers-modal.tsx
+29:3  Warning: 'isHost' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/open-dialog.tsx
+3:33  Warning: 'DialogHeader' is defined but never used.  @typescript-eslint/no-unused-vars
+3:47  Warning: 'DialogTitle' is defined but never used.  @typescript-eslint/no-unused-vars
+4:10  Warning: 'RadioGroup' is defined but never used.  @typescript-eslint/no-unused-vars
+4:22  Warning: 'RadioGroupItem' is defined but never used.  @typescript-eslint/no-unused-vars
+5:10  Warning: 'Label' is defined but never used.  @typescript-eslint/no-unused-vars
+8:10  Warning: 'Input' is defined but never used.  @typescript-eslint/no-unused-vars
+17:45  Warning: 'isHost' is defined but never used.  @typescript-eslint/no-unused-vars
+17:53  Warning: 'eventId' is defined but never used.  @typescript-eslint/no-unused-vars
+18:20  Warning: 'setSelected' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+19:9  Warning: 'router' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+24:9  Warning: 'handleProceed' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/organiser-event-and-content-room-info.tsx
+887:25  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+888:23  Warning: 'input' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+901:23  Warning: 'cb' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+911:25  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+912:23  Warning: 'input' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+925:23  Warning: 'cb' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/organiser-event-room-info.tsx
+976:25  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+977:23  Warning: 'input' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+990:23  Warning: 'cb' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+1000:25  Warning: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+1001:23  Warning: 'input' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+1014:23  Warning: 'cb' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/playback-preview.tsx
+26:11  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/events/tip-display.tsx
+21:10  Warning: 'textTipActive' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/tip-drawer.tsx
+38:33  Warning: 'DRAWER_Z_INDEX' is defined but never used.  @typescript-eslint/no-unused-vars
+246:10  Warning: 'showDefaultPayButton' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+602:9  Warning: 'handleDefaultPayButton' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/events/tip-section.tsx
+81:3  Warning: 'sectionCtaLabel' is defined but never used.  @typescript-eslint/no-unused-vars
+150:9  Warning: 'openTextDraft' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+150:26  Warning: 'character' is defined but never used.  @typescript-eslint/no-unused-vars
+150:45  Warning: 'context' is defined but never used.  @typescript-eslint/no-unused-vars
+253:9  Warning: 'showEditMessageLink' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/home/create-dialog.tsx
+370:6  Warning: React Hook useEffect has a missing dependency: 'handleHostVideoSubmit'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/home/new-hero-client.tsx
+10:10  Warning: 'Asterisk' is defined but never used.  @typescript-eslint/no-unused-vars
+10:20  Warning: 'Search' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/home/new-trust-badge.tsx
+3:8  Warning: 'Image' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/host/event-detail-client.tsx
+66:3  Warning: 'deleteHostEventDetailsAction' is defined but never used.  @typescript-eslint/no-unused-vars
+403:9  Warning: 'addReportEmail' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/tv/playlist-table.tsx
+335:21  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/tv/programs-panel.tsx
+3:10  Warning: 'useEffect' is defined but never used.  @typescript-eslint/no-unused-vars
+3:21  Warning: 'useState' is defined but never used.  @typescript-eslint/no-unused-vars
+10:10  Warning: 'getDiscoveryProgramsAction' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/tv/top-communities-panel.tsx
+10:10  Warning: 'Community' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/tv/tv-express-buttons.tsx
+8:24  Warning: 'Search' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/tv/tv-interactive-shell.tsx
+104:7  Warning: 'UpcomingProgramsPanel' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/tv/tv-playlist-preview.tsx
+315:21  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/tv/tv-right-section.tsx
+290:17  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/video-feature/video-feature-card-banner.tsx
+217:5  Warning: React Hook useCallback has a missing dependency: 'analyticsChannel'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/hooks/use-form-draft-autosave.ts
+113:6  Warning: React Hook useCallback has a missing dependency: 'modalTargetId'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/hooks/use-pusher-tracking.ts
+243:16  Warning: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/lib/action-fetch.ts
+154:38  Warning: '_next' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/lib/global-tv-presence-hub.ts
+148:27  Warning: '_options' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/lib/web-vitals.ts
+10:7  Warning: 'CUSTOM_MARKS' is assigned a value but only used as a type.  @typescript-eslint/no-unused-vars
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+   Collecting page data ...
+   Generating static pages (0/32) ...
+   Generating static pages (8/32) 
+   Generating static pages (16/32) 
+   Generating static pages (24/32) 
+ Γ£ô Generating static pages (32/32)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                      Size  First Load JS  Revalidate  Expire
+Γöî ╞Æ /                                         26.4 kB         552 kB
+Γö£ Γùï /_not-found                                   0 B         202 kB
+Γö£ ╞Æ /api/auth/session                             0 B            0 B
+Γö£ ╞Æ /api/dev/backend-path-proof                   0 B            0 B
+Γö£ ╞Æ /api/perf-vitals                              0 B            0 B
+Γö£ ╞Æ /api/pusher/auth                              0 B            0 B
+Γö£ Γùï /audit                                        0 B         202 kB
+Γö£ ╞Æ /c/[communityId]/program/[enforcementId]      0 B         242 kB
+Γö£ ╞Æ /channel/[eventId]                        36.8 kB         691 kB
+Γö£ ╞Æ /co-owner/invite/[token]                  2.43 kB         205 kB
+Γö£ ╞Æ /co-owner/payouts                         2.58 kB         205 kB
+Γö£ ╞Æ /cocreator/accept/[token]                 2.07 kB         204 kB
+Γö£ Γùï /community                                    0 B         202 kB
+Γö£ ╞Æ /community/[id]/join                        533 B         203 kB
+Γö£ ╞Æ /community/invite/[token]                 2.03 kB         204 kB
+Γö£ ╞Æ /community/side-chick/[communityId]       32.9 kB         257 kB
+Γö£ Γùï /content-only                               39 kB         450 kB
+Γö£ ╞Æ /content/[eventId]                        46.3 kB         700 kB
+Γö£ Γùï /create-account                           16.7 kB         275 kB
+Γö£ ╞Æ /discover                                     0 B         261 kB
+Γö£ ╞Æ /discover/[category]                          0 B         261 kB
+Γö£ Γùï /e2e/discover-explore-handoff             7.71 kB         260 kB
+Γö£ Γùï /e2e/discover-live-routing                12.4 kB         257 kB
+Γö£ Γùï /e2e/explore-reel-layout                  4.11 kB         206 kB
+Γö£ Γùï /e2e/tips-drawer                          20.6 kB         223 kB
+Γö£ Γùï /event-and-content                        27.2 kB         454 kB
+Γö£ Γùï /event-only                               18.8 kB         455 kB
+Γö£ ╞Æ /explore                                  39.4 kB         288 kB
+Γö£ Γùï /forgot-password                          2.38 kB         261 kB
+Γö£ ╞Æ /host/[slug]                              3.72 kB         479 kB
+Γö£ ╞Æ /host/[slug]/community-analytics          2.88 kB         306 kB
+Γö£ ╞Æ /host/[slug]/community-customization      1.86 kB         305 kB
+Γö£ ╞Æ /host/[slug]/community-display            2.64 kB         306 kB
+Γö£ ╞Æ /host/[slug]/community-payouts            2.88 kB         306 kB
+Γö£ ╞Æ /host/[slug]/community-sends               1.5 kB         305 kB
+Γö£ ╞Æ /host/[slug]/community-tv                 26.8 kB         330 kB
+Γö£ ╞Æ /host/[slug]/host-community               29.3 kB         476 kB
+Γö£ ╞Æ /host/[slug]/host-fees                    2.25 kB         306 kB
+Γö£ ╞Æ /host/[slug]/host-premium                 15.7 kB         327 kB
+Γö£ ╞Æ /host/[slug]/manage-event                 2.71 kB         485 kB
+Γö£ ╞Æ /host/[slug]/manage-event/[eventId]       26.9 kB         330 kB
+Γö£ ╞Æ /host/[slug]/notifications                3.32 kB         307 kB
+Γö£ ╞Æ /host/[slug]/profile                      15.3 kB         319 kB
+Γö£ ╞Æ /host/[slug]/reports                       171 kB         474 kB
+Γö£ ╞Æ /host/[slug]/revenue                      3.16 kB         307 kB
+Γö£ ╞Æ /host/[slug]/settings                     17.4 kB         329 kB
+Γö£ ╞Æ /host/[slug]/tip-customization/[eventId]  4.34 kB         317 kB
+Γö£ ╞Æ /host/[slug]/top-tippers                   2.3 kB         315 kB
+Γö£ ╞Æ /host/[slug]/top-tippers/[tipperId]       1.24 kB         305 kB
+Γö£ ╞Æ /host/[slug]/venue-display                29.2 kB         344 kB
+Γö£ ╞Æ /host/[slug]/video-co-owners              2.55 kB         306 kB
+Γö£ ╞Æ /host/[slug]/video-requests               8.81 kB         312 kB
+Γö£ Γùï /invite                                   1.86 kB         204 kB
+Γö£ Γùï /join                                     13.3 kB         272 kB
+Γö£ ╞Æ /join-host/[hostName]                     7.59 kB         210 kB
+Γö£ Γùï /modal                                    11.3 kB         270 kB
+Γö£ ╞Æ /new-partner                                12 kB         552 kB
+Γö£ Γùï /offline                                      0 B         202 kB
+Γö£ ╞Æ /partner                                    12 kB         552 kB
+Γö£ Γùï /password-reset-successful                 6.2 kB         208 kB
+Γö£ ╞Æ /program/[enforcementId]                      0 B         242 kB
+Γö£ Γùï /reset-password                           2.65 kB         261 kB
+Γö£ ╞Æ /restricted/[communityId]                     0 B         202 kB
+Γö£ Γùï /robots.txt                                   0 B            0 B
+Γö£ ╞Æ /room/[id]                                    0 B         690 kB
+Γö£ ╞Æ /room/[id]/screen                             0 B         690 kB
+Γö£ Γùï /sign-in                                  6.93 kB         281 kB
+Γö£ Γùï /sitemap.xml                                  0 B            0 B          1h      1y
+Γö£ Γùï /success                                  17.2 kB         219 kB
+Γö£ ╞Æ /tipper/[username]                        41.8 kB         503 kB
+Γö£ ╞Æ /tv                                        171 kB         709 kB
+Γö£ Γùï /verify-email                             6.87 kB         209 kB
+Γö£ ╞Æ /video-sitemap.xml                            0 B            0 B
+Γö£ ╞Æ /visitor/[username]                       40.6 kB         517 kB
+Γöö Γùï /wallet/verify                            1.77 kB         204 kB
++ First Load JS shared by all                  239 kB
+  Γö£ chunks/05dc6a87e2881674.js                12.6 kB
+  Γö£ chunks/0698a86294ebff95.js                13.8 kB
+  Γö£ chunks/6d0a9133c612c913.js                  59 kB
+  Γö£ chunks/6f0fc6566c9be452.js                18.5 kB
+  Γö£ chunks/a6bfec9a0aad5c70.js                11.3 kB
+  Γö£ chunks/d7dabadf1e8a079a.js                17.7 kB
+  Γö£ chunks/e12d54a9cfa0e76e.js                12.3 kB
+  Γö£ chunks/b689d87528f1c323.css               34.9 kB
+  Γöö other shared chunks (total)               59.2 kB
+
+
+╞Æ Middleware                                  43.7 kB
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

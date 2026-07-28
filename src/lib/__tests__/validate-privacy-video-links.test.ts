@@ -96,4 +96,18 @@ describe("validatePrivacyVideoLinks", () => {
     });
     expect(ok).toBe(true);
   });
+
+  it("does not block default co-owned video in sync validator (approval checked at submit)", () => {
+    const ok = validatePrivacyVideoLinks({
+      links: [
+        {
+          url: "https://youtube.com/watch?v=abc",
+          isDefault: true,
+          ownershipAnswer: "no",
+        } as never,
+      ],
+      hostSubscriptionTier: "HOST_PREMIUM",
+    });
+    expect(ok).toBe(true);
+  });
 });

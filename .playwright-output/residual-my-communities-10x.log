@@ -1,0 +1,141 @@
+﻿[playwright globalSetup] Backend healthy at http://localhost:8000/health
+
+Running 1 test using 1 worker
+
+node.exe : (node:17024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:17024) Wa... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:17024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[single-path-proof] SUMMARY [
+  {
+    "run": 1,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 2,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 4,
+    "backForwardOk": false
+  },
+  {
+    "run": 3,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 4,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 2,
+    "backForwardOk": false
+  },
+  {
+    "run": 5,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 6,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 2,
+    "backForwardOk": false
+  },
+  {
+    "run": 7,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 8,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 9,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 10,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 2,
+    "backForwardOk": false
+  }
+]
+  x  1 [chromium] ΓÇ║ e2e\single-path-my-communities-proof.spec.ts:202:7 ΓÇ║ single-path My Communities proof ΓÇ║ Feed ΓåÆ My Communities ├ù10 fresh contexts (1.4m)
+
+
+  1) [chromium] ΓÇ║ e2e\single-path-my-communities-proof.spec.ts:202:7 ΓÇ║ single-path My Communities proof ΓÇ║ Feed ΓåÆ My Communities ├ù10 fresh contexts 
+
+    Error: Expected 10/10, got 0/10
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m10[39m
+    Received: [31m0[39m
+
+      229 |
+      230 |     const passCount = results.filter(r => r.pass).length;
+    > 231 |     expect(passCount, `Expected 10/10, got ${passCount}/10`).toBe(10);
+          |                                                              ^
+      232 |   });
+      233 | });
+      234 |
+        at C:\Users\Elite\Documents\Tipmanna\TIPMANNA - LOCAL\frontend\e2e\single-path-my-communities-proof.spec.ts:231:62
+
+    Error Context: test-results\single-path-my-communities-3e8c2-munities-├ù10-fresh-contexts-chromium\error-context.md
+
+  1 failed
+    [chromium] ΓÇ║ e2e\single-path-my-communities-proof.spec.ts:202:7 ΓÇ║ single-path My Communities proof ΓÇ║ Feed ΓåÆ My Communities ├ù10 fresh contexts 

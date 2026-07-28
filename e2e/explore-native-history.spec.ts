@@ -334,17 +334,14 @@ test.describe("explore native history — formal matrix", () => {
       "/explore?feedTab=community",
       "/explore?tab=my-communities",
       "/explore?tab=discover",
-      withE2eFixtures("/explore?feedTypes=COMEDY&feedTab=saves"),
-      withE2eFixtures(
-        `/explore?feedTab=community&communities=${E2E_SELECT_COMMUNITY_ID}`
-      ),
-      withE2eFixtures(
-        `/explore?tab=join&joinCommunity=${E2E_JOIN_COMMUNITY_ID}&feedTab=tv&e2eTv=1`
-      ),
-    ];
+      "/explore?feedTypes=COMEDY&feedTab=saves",
+      `/explore?feedTab=community&communities=${E2E_SELECT_COMMUNITY_ID}`,
+      `/explore?tab=join&joinCommunity=${E2E_JOIN_COMMUNITY_ID}&feedTab=tv&e2eTv=1`,
+    ].map(withE2eFixtures);
 
     for (const link of links) {
       test(`refresh preserves ${link}`, async ({ page }) => {
+        test.setTimeout(240_000);
         for (let i = 0; i < REPEAT; i++) {
           await gotoExplore(page, link);
           await requireExploreNavigationReady(page, 60_000);

@@ -17,7 +17,7 @@ describe("mergeDraftPayload coOwnerDraftKey", () => {
     expect(merged.videoLinks?.[0]?.coOwnerDraftKey).toBe(savedKey);
   });
 
-  it("does not generate a UUID when policy key is missing", () => {
+  it("leaves key empty when policy key is missing (mint deferred to lifecycle)", () => {
     const merged = mergeDraftPayload(
       {
         videoLinks: [{ url: "https://youtube.com/watch?v=abc", title: "T" }],
@@ -28,6 +28,33 @@ describe("mergeDraftPayload coOwnerDraftKey", () => {
     );
 
     expect(merged.videoLinks?.[0]?.coOwnerDraftKey).toBe("");
+  });
+
+  it("round-trips nested coOwner policy slice", () => {
+    const merged = mergeDraftPayload(
+      {
+        videoLinks: [{ url: "https://youtube.com/watch?v=abc", title: "T" }],
+      },
+      {
+        videoLinks: [
+          {
+            ownershipAnswer: "no",
+            coOwnerDraftKey: "draft-1",
+            coOwner: {
+              name: "Jane",
+              email: "jane@example.com",
+              payoutPercent: 30,
+            },
+          },
+        ],
+      }
+    );
+
+    expect(merged.videoLinks?.[0]?.coOwner).toEqual({
+      name: "Jane",
+      email: "jane@example.com",
+      payoutPercent: 30,
+    });
   });
 
   it("never replaces an existing valid key from policy with a new value", () => {

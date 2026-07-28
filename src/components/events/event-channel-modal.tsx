@@ -16,7 +16,8 @@ import {
 } from "@/actions/events";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { Check, Copy } from "lucide-react";
 import {
   AddVideoForm,
@@ -37,6 +38,8 @@ interface ChannelModalProps {
   liveVideoLink: string;
   /** Parent event.eventType — shown next to “Same as event type” for video theme */
   eventEventType?: string;
+  seedDraftId?: string | null;
+  resumeSurface?: DraftResumeOrigin["surface"];
 }
 
 export const EventChannelModal = ({
@@ -48,6 +51,8 @@ export const EventChannelModal = ({
   frameId,
   liveVideoLink,
   eventEventType,
+  seedDraftId,
+  resumeSurface = "event_channel_modal",
 }: ChannelModalProps) => {
   void frameId;
   const [loading, setLoading] = useState(false);
@@ -61,6 +66,7 @@ export const EventChannelModal = ({
   const [updatingDefault, setUpdatingDefault] = useState(false);
 
   const router = useRouter();
+  const pathname = usePathname();
 
   const onSubmit = async (values: AddVideoFormValues) => {
     try {
@@ -165,7 +171,13 @@ export const EventChannelModal = ({
             kind: "room_add_video",
             targetId: eventId,
             enabled: isHost,
+            resumeOrigin: {
+              surface: resumeSurface,
+              pathname: pathname ?? `/room/${eventId}`,
+              targetId: eventId,
+            },
           }}
+          seedDraftId={seedDraftId ?? modalDraftId}
           belowSubmit={
             <>
               <div className="text-sm">{liveVideoLink}</div>

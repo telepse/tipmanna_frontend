@@ -3,6 +3,12 @@ import { PAYMENT_WRAP } from "@/lib/animationContract";
 import { animWarn } from "@/lib/animationDebug";
 import { isNoOpAnimationHandle } from "@/lib/animation-style-registry";
 import {
+  derivePaymentCharacterPlaybackResult,
+  shouldAttemptCycleTwo,
+  type PaymentCycleOutcome,
+  type PaymentCharacterPlaybackResult,
+} from "@/lib/payment-animation-outcomes";
+import {
   tracePaymentAnimation,
   tracePaymentAnimationError,
 } from "@/lib/payment-animation-trace";
@@ -31,11 +37,55 @@ export interface PaymentAnimationTraceContext {
   styleName?: string;
 }
 
+export type { PaymentCycleOutcome, PaymentCharacterPlaybackResult };
+
+function traceCycleFinished(
+  outcome: PaymentCycleOutcome,
+  cycleNumber: 1 | 2,
+  ctx?: PaymentAnimationTraceContext
+): void {
+  tracePaymentAnimation({
+    stage: "payment_cycle_finished",
+    cycleNumber,
+    cycleOutcome: outcome,
+    surface: ctx?.surface,
+    eventId: ctx?.eventId,
+    bundleId: ctx?.bundleId,
+    seq: ctx?.seq,
+    playbackKey: ctx?.playbackKey,
+    characterName: ctx?.characterName,
+    styleName: ctx?.styleName,
+    result: outcome,
+  });
+}
+
+function traceCharacterPlaybackFinished(
+  result: PaymentCharacterPlaybackResult,
+  cycle1: PaymentCycleOutcome,
+  cycle2: PaymentCycleOutcome | null,
+  ctx?: PaymentAnimationTraceContext
+): void {
+  tracePaymentAnimation({
+    stage: "payment_character_playback_finished",
+    playbackResult: result,
+    cycle1Outcome: cycle1,
+    cycle2Outcome: cycle2 ?? undefined,
+    surface: ctx?.surface,
+    eventId: ctx?.eventId,
+    bundleId: ctx?.bundleId,
+    seq: ctx?.seq,
+    playbackKey: ctx?.playbackKey,
+    characterName: ctx?.characterName,
+    styleName: ctx?.styleName,
+    result,
+  });
+}
+
 async function runSinglePaymentPlay(
   factory: () => AnimationHandle,
   cycleNumber: 1 | 2,
   ctx?: PaymentAnimationTraceContext
-): Promise<boolean> {
+): Promise<PaymentCycleOutcome> {
   tracePaymentAnimation({
     stage: "payment_cycle_started",
     cycleNumber,
@@ -75,7 +125,8 @@ async function runSinglePaymentPlay(
         styleName: ctx?.styleName,
         result: "invalid_handle",
       });
-      return false;
+      traceCycleFinished("invalid_handle", cycleNumber, ctx);
+      return "invalid_handle";
     }
     if (isNoOpAnimationHandle(handle)) {
       tracePaymentAnimation({
@@ -89,7 +140,8 @@ async function runSinglePaymentPlay(
         reason: "unknown_style",
         result: "rejected",
       });
-      return false;
+      traceCycleFinished("noop_or_skipped", cycleNumber, ctx);
+      return "noop_or_skipped";
     }
     tracePaymentAnimation({
       stage: "animation_handle_returned",
@@ -110,7 +162,8 @@ async function runSinglePaymentPlay(
       characterName: ctx?.characterName,
       styleName: ctx?.styleName,
     });
-    return false;
+    traceCycleFinished("factory_failed", cycleNumber, ctx);
+    return "factory_failed";
   }
 
   handle.start?.();
@@ -154,6 +207,7 @@ async function runSinglePaymentPlay(
       handle.finished.then(() => "finished" as const),
       timeoutPromise,
     ]);
+
     if (winner === "finished") {
       tracePaymentAnimation({
         stage: "animation_finished_resolved",
@@ -168,7 +222,22 @@ async function runSinglePaymentPlay(
         clearTimeout(timeoutId);
         timeoutId = undefined;
       }
+      tracePaymentAnimation({
+        stage: "payment_cycle_completed",
+        cycleNumber,
+        surface: ctx?.surface,
+        bundleId: ctx?.bundleId,
+        playbackKey: ctx?.playbackKey,
+        characterName: ctx?.characterName,
+        styleName: ctx?.styleName,
+        result: "completed",
+      });
+      traceCycleFinished("completed", cycleNumber, ctx);
+      return "completed";
     }
+
+    traceCycleFinished("timed_out", cycleNumber, ctx);
+    return "timed_out";
   } catch (err) {
     tracePaymentAnimation({
       stage: "animation_finished_rejected",
@@ -180,22 +249,13 @@ async function runSinglePaymentPlay(
       styleName: ctx?.styleName,
       errorMessage: err instanceof Error ? err.message : String(err),
     });
-    // swallow to protect queue
+    traceCycleFinished("finished_rejected", cycleNumber, ctx);
+    return "finished_rejected";
   } finally {
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
     }
-    tracePaymentAnimation({
-      stage: "payment_cycle_completed",
-      cycleNumber,
-      surface: ctx?.surface,
-      bundleId: ctx?.bundleId,
-      playbackKey: ctx?.playbackKey,
-      characterName: ctx?.characterName,
-      styleName: ctx?.styleName,
-    });
   }
-  return true;
 }
 
 /**
@@ -208,24 +268,44 @@ export function wrapPaymentAnimation(
   traceContext?: PaymentAnimationTraceContext
 ): () => Promise<void> {
   return async () => {
+    let cycle1: PaymentCycleOutcome = "factory_failed";
+    let cycle2: PaymentCycleOutcome | null = null;
+
     try {
-      const cycle1Ok = await runSinglePaymentPlay(factory, 1, traceContext);
-      if (!cycle1Ok) return;
-      await sleep(PAYMENT_BETWEEN_CYCLES_GAP_MS);
-      await sleep(PAYMENT_SECOND_CYCLE_BEAT_MS);
-      const cycle2Ok = await runSinglePaymentPlay(factory, 2, traceContext);
-      if (!cycle2Ok) return;
-      tracePaymentAnimation({
-        stage: "payment_double_cycle_completed",
-        surface: traceContext?.surface,
-        eventId: traceContext?.eventId,
-        bundleId: traceContext?.bundleId,
-        seq: traceContext?.seq,
-        playbackKey: traceContext?.playbackKey,
-        characterName: traceContext?.characterName,
-        styleName: traceContext?.styleName,
-        result: "ok",
-      });
+      cycle1 = await runSinglePaymentPlay(factory, 1, traceContext);
+
+      if (shouldAttemptCycleTwo(cycle1)) {
+        await sleep(PAYMENT_BETWEEN_CYCLES_GAP_MS);
+        await sleep(PAYMENT_SECOND_CYCLE_BEAT_MS);
+        cycle2 = await runSinglePaymentPlay(factory, 2, traceContext);
+      }
+
+      const playbackResult = derivePaymentCharacterPlaybackResult(
+        cycle1,
+        cycle2
+      );
+
+      if (playbackResult === "completed") {
+        tracePaymentAnimation({
+          stage: "payment_double_cycle_completed",
+          surface: traceContext?.surface,
+          eventId: traceContext?.eventId,
+          bundleId: traceContext?.bundleId,
+          seq: traceContext?.seq,
+          playbackKey: traceContext?.playbackKey,
+          characterName: traceContext?.characterName,
+          styleName: traceContext?.styleName,
+          result: "completed",
+          playbackResult,
+        });
+      }
+
+      traceCharacterPlaybackFinished(
+        playbackResult,
+        cycle1,
+        cycle2,
+        traceContext
+      );
     } catch (err) {
       tracePaymentAnimationError("payment_cycle_failed", err, {
         surface: traceContext?.surface,
@@ -234,6 +314,12 @@ export function wrapPaymentAnimation(
         characterName: traceContext?.characterName,
         styleName: traceContext?.styleName,
       });
+      traceCharacterPlaybackFinished(
+        derivePaymentCharacterPlaybackResult(cycle1, cycle2),
+        cycle1,
+        cycle2,
+        traceContext
+      );
     }
   };
 }

@@ -1,25 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import {
-  SetStateAction,
-  Dispatch,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { SetStateAction, Dispatch, useEffect, useMemo, useState } from "react";
 
 import { sendMessageAction } from "@/actions/messages";
 import { MessageHeader } from "./message-header";
 import { ChatContainer } from "./chat-container";
 import { Message, RoomCharacter } from "@/types";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
-import { TipAnimationEvent } from "@/lib/animation-guard";
-import { animLog } from "@/lib/animationDebug";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import { clearPendingTipBroadcast } from "@/lib/payment-origin";
-import { useAnimationQueue } from "@/hooks/use-animation-queue";
+import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { Pin } from "lucide-react";
 
 interface Performer {
@@ -72,21 +63,11 @@ export const RoomMessages = ({
   const safeProjects = Array.isArray(projects) ? projects : [];
   const safeChannels = Array.isArray(channels) ? channels : [];
 
-  const { enqueue } = useAnimationQueue({
+  usePaymentAnimationPlayer({
     eventId,
+    characters: safeTippingCharacters,
     surface: "room_messages",
   });
-
-  const characterMap = useMemo(() => {
-    const map = new Map<string, RoomCharacter>();
-    for (const c of safeTippingCharacters) {
-      if (c?.name) map.set(c.name, c);
-    }
-    return map;
-  }, [safeTippingCharacters]);
-
-  const characterMapRef = useRef(characterMap);
-  characterMapRef.current = characterMap;
 
   useEffect(() => {
     const container = document.getElementById("chat-container");
@@ -169,51 +150,12 @@ export const RoomMessages = ({
       }
     };
 
-    const handleNewTip = (data: TipAnimationEvent) => {
-      tracePaymentAnimation({
-        stage: "validated_tip_listener_received",
-        surface: "room_messages",
-        eventId: data.eventId,
-        bundleId: data.id,
-        seq: data.seq,
-      });
-      animLog("[RoomMessages] validated-tip received", {
-        id: data.id,
-        seq: data.seq,
-        styles: data.selectedTips,
-      });
-
-      animLog("NEW TIP PAYLOAD", data);
-
-      const dedupeKeyBase = data.id ?? `${data.eventId}-${data.serverTs}`;
-      void import("@/lib/run-payment-bundle-animations").then(
-        ({ enqueuePaymentBundleForValidatedTip }) => {
-          enqueuePaymentBundleForValidatedTip({
-            data,
-            characterMap: characterMapRef.current,
-            buildDedupeKey: name => `${dedupeKeyBase}-${name}`,
-            enqueue,
-            surface: "room_messages",
-          });
-        }
-      );
-
-      animLog("[RoomMessages] queuing payment bundle");
-    };
-
-    const handleValidatedTip = (e: Event) => {
-      const data = (e as CustomEvent<TipAnimationEvent>).detail;
-      handleNewTip(data);
-    };
-    window.addEventListener("validated-tip", handleValidatedTip);
-
     window.addEventListener("tip:dropped", handler);
 
     return () => {
       window.removeEventListener("tip:dropped", handler);
-      window.removeEventListener("validated-tip", handleValidatedTip);
     };
-  }, [eventId, enqueue]);
+  }, [eventId]);
 
   const [showPinnedPerformers, setShowPinnedPerformers] = useState(false);
 

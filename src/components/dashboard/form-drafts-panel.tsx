@@ -2,12 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import {
   deleteFormDraftAction,
+  getFormDraftAction,
   listFormDraftsAction,
   type FormDraftSummary,
 } from "@/actions/form-drafts";
+import {
+  type FormDraftPolicyJson,
+  isModalDraftRecoverable,
+  modalDraftStorageKey,
+} from "@/lib/form-draft-utils";
+import { buildCreateDialogResumeUrl } from "@/hooks/use-create-dialog-resume";
 
 const kindHref: Record<string, string> = {
   content_only: "/content-only",
@@ -18,6 +27,10 @@ const kindHref: Record<string, string> = {
 export function FormDraftsPanel() {
   const [drafts, setDrafts] = useState<FormDraftSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resumingId, setResumingId] = useState<string | null>(null);
+  const params = useParams();
+  const router = useRouter();
+  const hostSlug = typeof params?.slug === "string" ? params.slug : undefined;
 
   useEffect(() => {
     void listFormDraftsAction().then(res => {
@@ -27,6 +40,77 @@ export function FormDraftsPanel() {
       }
     });
   }, []);
+
+  const resumeModalDraft = async (draft: FormDraftSummary) => {
+    if (!hostSlug) return;
+    setResumingId(draft.id);
+    try {
+      const res = await getFormDraftAction(draft.id);
+      if (!res.success || !res.data) {
+        toast.error("Could not load draft");
+        return;
+      }
+      const policy = (res.data.policyJson ?? {}) as FormDraftPolicyJson;
+      if (!isModalDraftRecoverable(policy)) {
+        toast.error(
+          "This draft can't be reopened automatically. Delete it or start a new video."
+        );
+        return;
+      }
+
+      const origin = policy.modal?.origin;
+      const targetId =
+        origin?.targetId?.trim() ?? policy.modal?.targetId?.trim();
+      if (!targetId) {
+        toast.error(
+          "This draft can't be reopened automatically. Delete it or start a new video."
+        );
+        return;
+      }
+
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          modalDraftStorageKey(draft.kind, targetId),
+          draft.id
+        );
+      }
+
+      if (origin?.surface === "create_dialog" && origin.pathname) {
+        router.push(
+          buildCreateDialogResumeUrl({
+            pathname: origin.pathname,
+            modalDraftId: draft.id,
+            targetId,
+            hostTab: origin.hostTab,
+            draftKind: draft.kind,
+          })
+        );
+        return;
+      }
+
+      if (
+        origin?.surface === "host_community" ||
+        (draft.kind === "community_video" && !origin)
+      ) {
+        router.push(
+          `/host/${encodeURIComponent(hostSlug)}/host-community?communityId=${encodeURIComponent(targetId)}&modalDraftId=${encodeURIComponent(draft.id)}`
+        );
+        return;
+      }
+
+      if (
+        origin?.surface === "event_channel_modal" ||
+        origin?.surface === "content_room_settings" ||
+        (draft.kind === "room_add_video" && !origin)
+      ) {
+        router.push(
+          `/room/${encodeURIComponent(targetId)}?openAddVideo=1&modalDraftId=${encodeURIComponent(draft.id)}`
+        );
+      }
+    } finally {
+      setResumingId(null);
+    }
+  };
 
   if (loading || drafts.length === 0) return null;
 
@@ -50,13 +134,6 @@ export function FormDraftsPanel() {
                 Step {draft.step} · Updated{" "}
                 {new Date(draft.updatedAt).toLocaleDateString()}
               </p>
-              {(draft.kind === "community_video" ||
-                draft.kind === "room_add_video") && (
-                <p className="text-muted-foreground text-xs">
-                  Resume from the add-video dialog in your dashboard or event
-                  room.
-                </p>
-              )}
             </div>
             <div className="flex gap-2">
               {kindHref[draft.kind] ? (
@@ -70,6 +147,16 @@ export function FormDraftsPanel() {
                   >
                     Resume
                   </Link>
+                </Button>
+              ) : draft.kind === "community_video" ||
+                draft.kind === "room_add_video" ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={resumingId === draft.id || !hostSlug}
+                  onClick={() => void resumeModalDraft(draft)}
+                >
+                  {resumingId === draft.id ? "Opening…" : "Resume"}
                 </Button>
               ) : null}
               <Button

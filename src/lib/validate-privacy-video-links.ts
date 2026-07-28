@@ -66,12 +66,6 @@ export function validatePrivacyVideoLinks({
       );
       return false;
     }
-    if (v.isDefault && v.ownershipAnswer === "no") {
-      toast.error(
-        "A video awaiting co-owner approval cannot be the default video"
-      );
-      return false;
-    }
     if (
       v.ownershipAnswer === "no" &&
       tier !== "HOST_PREMIUM" &&

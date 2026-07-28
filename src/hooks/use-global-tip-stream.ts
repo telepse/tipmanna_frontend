@@ -6,6 +6,9 @@ import { createTipGuard, type TipAnimationEvent } from "@/lib/animation-guard";
 import { animLog } from "@/lib/animationDebug";
 import { logRealtimeTelemetry } from "@/lib/realtime-telemetry";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
+import { isSingleTipStreamBrokerEnabled } from "@/lib/single-tip-stream-broker-flag";
+import { registerTipStreamConsumer } from "@/lib/shared-tip-stream-broker";
+import { useGlobalTipStreamOwnedByProvider } from "@/providers/global-tip-stream-provider";
 import type { Channel } from "pusher-js";
 
 /**
@@ -55,6 +58,7 @@ export function useGlobalTipStream(
   options: UseGlobalTipStreamOptions = {}
 ): void {
   const { eventId, enabled = true, surface = "global_tip_stream" } = options;
+  const ownedByProvider = useGlobalTipStreamOwnedByProvider();
 
   /** Keep filter hot without tearing down Pusher bind/unsubscribe on every swipe. */
   const eventIdRef = useRef(eventId);
@@ -62,6 +66,19 @@ export function useGlobalTipStream(
 
   useEffect(() => {
     if (typeof window === "undefined" || !enabled) return;
+
+    if (isSingleTipStreamBrokerEnabled()) {
+      if (ownedByProvider) {
+        tracePaymentAnimation({
+          stage: "fan_out_duplicate_prevented",
+          surface,
+          eventId: eventIdRef.current,
+          result: "provider_owns_stream",
+        });
+        return;
+      }
+      return registerTipStreamConsumer({ eventId, surface });
+    }
 
     const channel = acquireGlobalLiveTvChannel();
     if (!channel) return;
@@ -206,5 +223,5 @@ export function useGlobalTipStream(
       });
       releaseGlobalLiveTvChannel();
     };
-  }, [enabled, surface]);
+  }, [enabled, surface, ownedByProvider, eventId]);
 }

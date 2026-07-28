@@ -2,10 +2,9 @@ import type { RoomCharacter } from "@/types";
 import type { TipAnimationEvent } from "@/lib/animation-guard";
 import { wrapPaymentAnimation } from "@/lib/wrapPaymentAnimation";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
-import { resolveStyleCharactersForTip } from "@/lib/tip-animation-characters";
+import { resolvePaymentCharactersForTip } from "@/lib/tip-animation-characters";
 import {
   getSegmentEndMs,
-  noopPaymentAnimationHandle,
   shouldSkipPaymentSegment,
 } from "@/lib/payment-playback-budget";
 import { startPaymentRewardOverlays } from "@/lib/reward-overlays/mount-web-reward-layers";
@@ -26,6 +25,7 @@ import {
   preflightPaymentCharacterStyles,
   type PaymentCharacterStyleRejection,
 } from "@/lib/payment-style-preflight";
+import type { PaymentBundleResolutionSummary } from "@/lib/payment-character-resolution";
 
 export interface PaymentBundleEnqueueResult {
   runnableCount: number;
@@ -33,6 +33,7 @@ export interface PaymentBundleEnqueueResult {
   rejections: PaymentCharacterStyleRejection[];
   enqueued: boolean;
   enqueueResult?: EnqueueResult;
+  resolutionSummary?: PaymentBundleResolutionSummary;
 }
 
 /**
@@ -58,17 +59,20 @@ export function enqueuePaymentBundleForValidatedTip(options: {
   } = options;
 
   const emptyResult = (
-    rejections: PaymentCharacterStyleRejection[] = []
+    rejections: PaymentCharacterStyleRejection[] = [],
+    resolutionSummary?: PaymentBundleResolutionSummary
   ): PaymentBundleEnqueueResult => ({
     runnableCount: 0,
     rejectedCount: rejections.length,
     rejections,
     enqueued: false,
+    resolutionSummary,
   });
 
-  const selectedCharacters = resolveStyleCharactersForTip(data, characterMap);
+  const { characters: selectedCharacters, summary: resolutionSummary } =
+    resolvePaymentCharactersForTip(data, characterMap);
   if (!selectedCharacters.length) {
-    return emptyResult();
+    return emptyResult([], resolutionSummary);
   }
 
   const { accepted: runnableCharacters, rejections } =
@@ -82,8 +86,11 @@ export function enqueuePaymentBundleForValidatedTip(options: {
 
   const runnableNames = new Set(runnableCharacters.map(c => c.name));
 
+  resolutionSummary.rejectedCount = rejections.length;
+  resolutionSummary.runnableCount = runnableCharacters.length;
+
   if (!runnableCharacters.length) {
-    return emptyResult(rejections);
+    return emptyResult(rejections, resolutionSummary);
   }
 
   logRealtimeTelemetry({
@@ -103,7 +110,9 @@ export function enqueuePaymentBundleForValidatedTip(options: {
   startPaymentRewardOverlays(data, animationMount);
 
   const paymentAnimations: AnimationQueueTask[] = [];
-  const characterCount = selectedCharacters.length;
+  const characterCount =
+    resolutionSummary.expectedCount ||
+    (data.selectedTips?.length ?? selectedCharacters.length);
 
   selectedCharacters.forEach((character, characterIndex) => {
     if (!runnableNames.has(character.name)) {
@@ -145,22 +154,46 @@ export function enqueuePaymentBundleForValidatedTip(options: {
       playbackKey: key,
     };
 
-    paymentAnimations.push({
-      playbackKey: key,
-      traceMeta,
-      run: wrapPaymentAnimation(() => {
-        const segmentEnd = getSegmentEndMs(
-          data.serverTs,
-          data.playbackEndsAt,
-          characterIndex,
-          characterCount
-        );
-        if (shouldSkipPaymentSegment(Date.now(), segmentEnd)) {
-          return noopPaymentAnimationHandle();
-        }
-        return createAnimationFromStyle(character, "payment", animationMount);
-      }, traceContext),
-    });
+    const segmentEnd = getSegmentEndMs(
+      data.serverTs,
+      data.playbackEndsAt,
+      characterIndex,
+      characterCount
+    );
+
+    if (shouldSkipPaymentSegment(Date.now(), segmentEnd)) {
+      tracePaymentAnimation({
+        stage: "payment_segment_budget_skipped",
+        ...traceMeta,
+        playbackKey: key,
+        cycleOutcome: "noop_or_skipped",
+        result: "skipped",
+      });
+
+      paymentAnimations.push({
+        playbackKey: key,
+        traceMeta,
+        run: async () => {
+          tracePaymentAnimation({
+            stage: "payment_character_playback_finished",
+            ...traceMeta,
+            playbackKey: key,
+            cycle1Outcome: "noop_or_skipped",
+            playbackResult: "skipped",
+            result: "skipped",
+          });
+        },
+      });
+    } else {
+      paymentAnimations.push({
+        playbackKey: key,
+        traceMeta,
+        run: wrapPaymentAnimation(
+          () => createAnimationFromStyle(character, "payment", animationMount),
+          traceContext
+        ),
+      });
+    }
 
     tracePaymentAnimation({
       stage: "playback_task_created",
@@ -175,6 +208,7 @@ export function enqueuePaymentBundleForValidatedTip(options: {
       rejectedCount: rejections.length,
       rejections,
       enqueued: false,
+      resolutionSummary,
     };
   }
 
@@ -194,5 +228,6 @@ export function enqueuePaymentBundleForValidatedTip(options: {
     rejections,
     enqueued: enqueueResult.accepted,
     enqueueResult,
+    resolutionSummary,
   };
 }

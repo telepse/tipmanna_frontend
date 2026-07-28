@@ -18,3 +18,9 @@ export function isExploreE2eFixturesEnabled(
       : urlParams;
   return isExploreE2eFixturesEnvEnabled() && params.get("e2e") === "1";
 }
+
+/** Client-only dual-gate check for skipping non-routing background API calls in E2E. */
+export function isExploreE2eFixturesActiveOnClient(): boolean {
+  if (typeof window === "undefined") return false;
+  return isExploreE2eFixturesEnabled(window.location.search);
+}

@@ -8,7 +8,7 @@ import type { UseFormReturn } from "react-hook-form";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import SignInDialog from "@/components/auth/sign-in-dialog";
 import { useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { toast } from "react-toastify";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -50,6 +50,8 @@ import {
   CREATE_FORM_SELECT_TRIGGER_CLASS,
 } from "@/lib/create-form-theme";
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
+import { useCreateDialogResume } from "@/hooks/use-create-dialog-resume";
+import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { Button } from "@/components/ui/button";
 import { isHostRole } from "@/lib/is-host-role";
 import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
@@ -91,6 +93,7 @@ export const CreateDialog = ({
 }: Props) => {
   const { push } = useAppRouter();
   const router = useRouter();
+  const pathname = usePathname();
   const user = useSelector((s: RootState) => s.auth.user);
 
   const [selected, setSelected] = useState<string>("");
@@ -121,6 +124,23 @@ export const CreateDialog = ({
     communityFeatureOn &&
     !forceTypePicker &&
     (isHostFromRedux || hostSessionActive);
+
+  useCreateDialogResume({
+    openCreateDialog: () => setOpenPopup(true),
+    setHostTab,
+    setTargetId,
+    setModalDraftId,
+  });
+
+  const modalResumeOrigin: DraftResumeOrigin | undefined =
+    targetId && showHostCreateFlow
+      ? {
+          surface: "create_dialog",
+          pathname: pathname ?? "/",
+          targetId,
+          hostTab,
+        }
+      : undefined;
 
   useEffect(() => {
     if (!openPopup) {
@@ -668,15 +688,18 @@ export const CreateDialog = ({
                               kind: "community_video",
                               targetId,
                               enabled: true,
+                              resumeOrigin: modalResumeOrigin,
                             }
                           : hostTab === "event" && targetId
                             ? {
                                 kind: "room_add_video",
                                 targetId,
                                 enabled: true,
+                                resumeOrigin: modalResumeOrigin,
                               }
                             : undefined
                       }
+                      seedDraftId={modalDraftId}
                     />
                   ) : (
                     <p className="mt-4 text-sm text-white/55">

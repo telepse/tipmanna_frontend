@@ -1,98 +1,216 @@
-import type { TipAnimationEvent } from "@/lib/animation-guard";
+import type {
+  TipAnimationEvent,
+  ResolvedTipCharacter,
+} from "@/lib/animation-guard";
 import type { RoomCharacter } from "@/types";
-import {
-  isKnownAnimationStyleName,
-  type StyleCharacter,
-} from "@/lib/animation-style-registry";
+import type { StyleCharacter } from "@/lib/animation-style-registry";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
+import {
+  buildRunnableCharacter,
+  countResolutionSummary,
+  lookupLocalRoomCharacter,
+  resolveCharacterIconUrl,
+  styleRequiresCharacterIcon,
+  type CharacterResolutionEntry,
+  type CharacterResolutionOutcome,
+  type PaymentBundleResolutionSummary,
+} from "@/lib/payment-character-resolution";
+import { isKnownAnimationStyleName } from "@/lib/animation-style-registry";
 
-function traceLocalMapResolution(
+function indexServerEntriesByName(
+  resolvedTips: ResolvedTipCharacter[] | undefined
+): Map<string, ResolvedTipCharacter[]> {
+  const byName = new Map<string, ResolvedTipCharacter[]>();
+  for (const entry of resolvedTips ?? []) {
+    const list = byName.get(entry.name) ?? [];
+    list.push(entry);
+    byName.set(entry.name, list);
+  }
+  return byName;
+}
+
+function takeServerEntry(
+  byName: Map<string, ResolvedTipCharacter[]>,
+  name: string
+): ResolvedTipCharacter | undefined {
+  const list = byName.get(name);
+  if (!list?.length) return undefined;
+  return list.shift();
+}
+
+function resolveFromLocal(
   data: TipAnimationEvent,
+  name: string,
   characterMap: Map<string, RoomCharacter>
-): StyleCharacter[] {
+): CharacterResolutionEntry | null {
+  const local = lookupLocalRoomCharacter(name, characterMap);
+  if (!local?.styleName) {
+    tracePaymentAnimation({
+      stage: "local_character_unresolved",
+      eventId: data.eventId,
+      bundleId: data.id,
+      characterName: name,
+      localMapLookupName: name,
+      chosenSource: "unresolved",
+    });
+    return null;
+  }
+
   tracePaymentAnimation({
-    stage: "local_map_fallback_started",
+    stage: "local_character_matched",
     eventId: data.eventId,
     bundleId: data.id,
-    seq: data.seq,
+    characterName: name,
+    localMapLookupName: name,
+    localStyleName: local.styleName,
+    styleName: local.styleName,
+    iconPresent: Boolean(local.iconUrl?.trim()),
+    chosenSource: "local",
   });
 
-  const result = (data.selectedTips || [])
-    .map(name => {
-      const local = characterMap.get(name);
-      if (local) {
-        tracePaymentAnimation({
-          stage: "local_character_matched",
-          eventId: data.eventId,
-          bundleId: data.id,
-          characterName: name,
-          localMapLookupName: name,
-          localStyleName: local.styleName,
-          styleName: local.styleName,
-          iconPresent: Boolean(local.iconUrl?.trim()),
-          chosenSource: "local",
-        });
-        return {
-          name: local.name,
-          iconUrl: local.iconUrl,
-          styleName: local.styleName,
-        };
-      }
+  const character: StyleCharacter = {
+    name: local.name,
+    iconUrl: local.iconUrl,
+    styleName: local.styleName,
+  };
+
+  return {
+    name,
+    outcome: "local_fallback",
+    styleName: local.styleName,
+    iconUrl: local.iconUrl,
+    character,
+  };
+}
+
+function finalizeResolutionEntry(
+  data: TipAnimationEvent,
+  name: string,
+  outcome: CharacterResolutionOutcome,
+  styleName: string | null,
+  iconUrl: string,
+  character?: StyleCharacter
+): CharacterResolutionEntry {
+  if (outcome === "server_resolved") {
+    tracePaymentAnimation({
+      stage: "resolved_tips_path_selected",
+      eventId: data.eventId,
+      bundleId: data.id,
+      characterName: name,
+      serverStyleName: styleName ?? undefined,
+      styleName: styleName ?? undefined,
+      iconPresent: Boolean(iconUrl?.trim()),
+      chosenSource: "server",
+    });
+  }
+
+  return {
+    name,
+    outcome,
+    styleName,
+    iconUrl,
+    character,
+  };
+}
+
+function resolveOneSelectedCharacter(
+  data: TipAnimationEvent,
+  name: string,
+  characterMap: Map<string, RoomCharacter>,
+  serverByName: Map<string, ResolvedTipCharacter[]>
+): CharacterResolutionEntry {
+  const serverEntry = takeServerEntry(serverByName, name);
+
+  if (serverEntry) {
+    const styleName = serverEntry.styleName;
+    if (!styleName || !isKnownAnimationStyleName(styleName)) {
       tracePaymentAnimation({
-        stage: "local_character_unresolved",
+        stage: "resolved_tips_rejected_unknown_style",
         eventId: data.eventId,
         bundleId: data.id,
         characterName: name,
-        localMapLookupName: name,
-        chosenSource: "unresolved",
+        serverStyleName: styleName,
+        styleName: styleName ?? undefined,
       });
-      return undefined;
-    })
-    .filter((c): c is StyleCharacter => Boolean(c));
+      const local = resolveFromLocal(data, name, characterMap);
+      if (local) return local;
+      return finalizeResolutionEntry(
+        data,
+        name,
+        "invalid_style",
+        styleName,
+        serverEntry.iconUrl ?? ""
+      );
+    }
 
-  traceResolutionOutcome(data, result, "local_map");
-  return result;
-}
+    const iconUrl = resolveCharacterIconUrl(
+      name,
+      styleName,
+      serverEntry.iconUrl,
+      characterMap
+    );
 
-function traceResolutionOutcome(
-  data: TipAnimationEvent,
-  result: StyleCharacter[],
-  source: string
-): void {
-  const expected = data.selectedTips?.length ?? 0;
-  if (!result.length) {
-    tracePaymentAnimation({
-      stage: "character_resolution_empty",
-      eventId: data.eventId,
-      bundleId: data.id,
-      result: source,
-    });
-  } else if (result.length !== expected) {
-    tracePaymentAnimation({
-      stage: "character_resolution_partial",
-      eventId: data.eventId,
-      bundleId: data.id,
-      result: source,
-      taskCount: result.length,
-    });
-  } else {
-    tracePaymentAnimation({
-      stage: "character_resolution_completed",
-      eventId: data.eventId,
-      bundleId: data.id,
-      result: source,
-      taskCount: result.length,
-    });
+    if (styleRequiresCharacterIcon(styleName) && !iconUrl) {
+      tracePaymentAnimation({
+        stage: "resolved_tips_rejected_missing_icon",
+        eventId: data.eventId,
+        bundleId: data.id,
+        characterName: name,
+        serverStyleName: styleName,
+        styleName,
+        iconPresent: false,
+      });
+      const local = resolveFromLocal(data, name, characterMap);
+      if (local) return local;
+      return finalizeResolutionEntry(
+        data,
+        name,
+        "missing_required_icon",
+        styleName,
+        iconUrl
+      );
+    }
+
+    const character: StyleCharacter = {
+      name: serverEntry.name,
+      iconUrl,
+      styleName,
+    };
+
+    return finalizeResolutionEntry(
+      data,
+      name,
+      "server_resolved",
+      styleName,
+      iconUrl,
+      character
+    );
   }
+
+  const local = resolveFromLocal(data, name, characterMap);
+  if (local) return local;
+
+  tracePaymentAnimation({
+    stage: "local_character_unresolved",
+    eventId: data.eventId,
+    bundleId: data.id,
+    characterName: name,
+    localMapLookupName: name,
+    chosenSource: "unresolved",
+  });
+
+  return finalizeResolutionEntry(data, name, "unresolved_character", null, "");
 }
 
-/**
- * Prefer server `resolvedTips`; fall back to event character map (same as pre-enrichment behavior).
- */
-export function resolveStyleCharactersForTip(
+export interface PaymentCharacterResolutionResult {
+  characters: StyleCharacter[];
+  summary: PaymentBundleResolutionSummary;
+}
+
+export function resolvePaymentCharactersForTip(
   data: TipAnimationEvent,
   characterMap: Map<string, RoomCharacter>
-): StyleCharacter[] {
+): PaymentCharacterResolutionResult {
   tracePaymentAnimation({
     stage: "character_resolution_started",
     eventId: data.eventId,
@@ -101,64 +219,93 @@ export function resolveStyleCharactersForTip(
     selectedTips: data.selectedTips,
   });
 
-  const fromMap = (): StyleCharacter[] =>
-    traceLocalMapResolution(data, characterMap);
+  const selectedTips = data.selectedTips ?? [];
+  const serverByName = indexServerEntriesByName(data.resolvedTips);
+  const entries: CharacterResolutionEntry[] = selectedTips.map(name =>
+    resolveOneSelectedCharacter(data, name, characterMap, serverByName)
+  );
 
-  if (!data.resolvedTips?.length) return fromMap();
+  const characters = entries
+    .map(buildRunnableCharacter)
+    .filter((c): c is StyleCharacter => Boolean(c));
 
-  const fromResolved: StyleCharacter[] = [];
-  for (const r of data.resolvedTips) {
-    if (!r.styleName || !isKnownAnimationStyleName(r.styleName)) {
-      tracePaymentAnimation({
-        stage: "resolved_tips_rejected_unknown_style",
-        eventId: data.eventId,
-        bundleId: data.id,
-        characterName: r.name,
-        serverStyleName: r.styleName,
-        styleName: r.styleName ?? undefined,
-      });
-      return fromMap();
-    }
-    const iconUrl = r.iconUrl || characterMap.get(r.name)?.iconUrl || "";
-    if (!iconUrl && r.styleName !== "Confetti") {
-      tracePaymentAnimation({
-        stage: "resolved_tips_rejected_missing_icon",
-        eventId: data.eventId,
-        bundleId: data.id,
-        characterName: r.name,
-        serverStyleName: r.styleName,
-        styleName: r.styleName,
-        iconPresent: false,
-      });
-      return fromMap();
-    }
+  const partialCounts = countResolutionSummary(entries);
+  const summary: PaymentBundleResolutionSummary = {
+    expectedCount: selectedTips.length,
+    ...partialCounts,
+    runnableCount: characters.length,
+    rejectedCount: 0,
+    entries,
+  };
+
+  if (!characters.length) {
     tracePaymentAnimation({
-      stage: "resolved_tips_path_selected",
+      stage: "character_resolution_empty",
       eventId: data.eventId,
       bundleId: data.id,
-      characterName: r.name,
-      serverStyleName: r.styleName,
-      styleName: r.styleName,
-      iconPresent: Boolean(iconUrl?.trim()),
-      chosenSource: "server",
+      expectedCount: summary.expectedCount,
+      unresolvedCount: summary.unresolvedCount,
+      missingIconCount: summary.missingIconCount,
+      result: "empty",
     });
-    fromResolved.push({
-      name: r.name,
-      iconUrl,
-      styleName: r.styleName,
+  } else if (characters.length !== selectedTips.length) {
+    tracePaymentAnimation({
+      stage: "character_resolution_partial",
+      eventId: data.eventId,
+      bundleId: data.id,
+      expectedCount: summary.expectedCount,
+      runnableCount: summary.runnableCount,
+      unresolvedCount: summary.unresolvedCount,
+      missingIconCount: summary.missingIconCount,
+      serverResolvedCount: summary.serverResolvedCount,
+      localFallbackCount: summary.localFallbackCount,
+      result: "partial",
+    });
+  } else {
+    tracePaymentAnimation({
+      stage: "character_resolution_completed",
+      eventId: data.eventId,
+      bundleId: data.id,
+      expectedCount: summary.expectedCount,
+      runnableCount: summary.runnableCount,
+      serverResolvedCount: summary.serverResolvedCount,
+      localFallbackCount: summary.localFallbackCount,
+      result: "completed",
     });
   }
 
-  if (fromResolved.length !== (data.selectedTips?.length ?? 0)) {
+  tracePaymentAnimation({
+    stage: "payment_bundle_resolution_summary",
+    eventId: data.eventId,
+    bundleId: data.id,
+    seq: data.seq,
+    expectedCount: summary.expectedCount,
+    serverResolvedCount: summary.serverResolvedCount,
+    localFallbackCount: summary.localFallbackCount,
+    runnableCount: summary.runnableCount,
+    rejectedCount: summary.rejectedCount,
+    unresolvedCount: summary.unresolvedCount,
+    missingIconCount: summary.missingIconCount,
+  });
+
+  return { characters, summary };
+}
+
+/**
+ * Backward-compatible helper returning runnable characters only.
+ */
+export function resolveStyleCharactersForTip(
+  data: TipAnimationEvent,
+  characterMap: Map<string, RoomCharacter>
+): StyleCharacter[] {
+  if (!data.resolvedTips?.length) {
     tracePaymentAnimation({
-      stage: "resolved_tips_rejected_length_mismatch",
+      stage: "local_map_fallback_started",
       eventId: data.eventId,
       bundleId: data.id,
-      taskCount: fromResolved.length,
+      seq: data.seq,
     });
-    return fromMap();
   }
 
-  traceResolutionOutcome(data, fromResolved, "server_resolved");
-  return fromResolved;
+  return resolvePaymentCharactersForTip(data, characterMap).characters;
 }

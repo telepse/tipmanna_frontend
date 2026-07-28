@@ -14,6 +14,7 @@ export {
 type LinkSlice = {
   ownershipAnswer?: string | null;
   coOwnerDraftKey?: string | null;
+  isDefault?: boolean;
 };
 
 /** Returns an error message when co-owned videos lack an approved invite. */
@@ -36,8 +37,17 @@ export async function validateCoOwnerDraftsForSubmit(
     const invites = (res.data as { invites?: { status: string }[] } | null)
       ?.invites;
     const readiness = evaluateCoOwnerSubmitReadiness(invites);
-    if (readiness.blocked && readiness.reason) {
-      return coOwnerBlockReasonMessage(readiness.reason);
+    if (readiness.blocked) {
+      if (
+        link.isDefault &&
+        (readiness.reason === "has_pending" ||
+          readiness.reason === "missing_approved")
+      ) {
+        return coOwnerBlockReasonMessage("default_awaiting_approval");
+      }
+      if (readiness.reason) {
+        return coOwnerBlockReasonMessage(readiness.reason);
+      }
     }
   }
   return null;

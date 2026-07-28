@@ -16,6 +16,8 @@ export interface UsePaymentAnimationPlayerOptions {
   /** When set, payment overlays append here instead of document.body (e.g. TV scaled viewport). */
   animationMount?: RefObject<HTMLElement | null>;
   surface?: import("@/lib/realtime-telemetry").RealtimeSurface;
+  /** Prepended to each playback key (e.g. Screen Display uses `screen-`). */
+  playbackKeyPrefix?: string;
 }
 
 /**
@@ -28,6 +30,7 @@ export function usePaymentAnimationPlayer({
   enabled = true,
   animationMount,
   surface = "payment_player",
+  playbackKeyPrefix = "",
 }: UsePaymentAnimationPlayerOptions): void {
   const eventIdRef = useRef(eventId);
   eventIdRef.current = eventId;
@@ -53,6 +56,9 @@ export function usePaymentAnimationPlayer({
   const characterMapRef = useRef(characterMap);
   characterMapRef.current = characterMap;
 
+  const playbackKeyPrefixRef = useRef(playbackKeyPrefix);
+  playbackKeyPrefixRef.current = playbackKeyPrefix;
+
   useEffect(() => {
     if (typeof window === "undefined" || !enabled) return;
 
@@ -77,10 +83,11 @@ export function usePaymentAnimationPlayer({
       });
 
       const dedupeKeyBase = data.id ?? `${data.eventId}-${data.serverTs}`;
+      const prefix = playbackKeyPrefixRef.current;
       enqueuePaymentBundleForValidatedTip({
         data,
         characterMap: characterMapRef.current,
-        buildDedupeKey: name => `${dedupeKeyBase}-${name}`,
+        buildDedupeKey: name => `${prefix}${dedupeKeyBase}-${name}`,
         enqueue: enqueueRef.current,
         animationMount: animationMountRef.current?.current ?? undefined,
         surface,

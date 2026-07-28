@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { EventChannelModal } from "./event-channel-modal";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
@@ -48,9 +49,18 @@ export const ContentRoomSettings = ({
   eventEventType?: string;
   onClose: () => void;
 }) => {
+  const searchParams = useSearchParams();
+  const seedModalDraftId = searchParams.get("modalDraftId");
   const [channelModalOpen, setChannelModalOpen] = useState(false);
   const [performersModalOpen, setPerformersModalOpen] = useState(false);
   const [projectsModalOpen, setProjectsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("openAddVideo") === "1" && isHost) {
+      setChannelModalOpen(true);
+    }
+  }, [searchParams, isHost]);
+
   const sections: SectionItem[] = [
     {
       title: "Drop message in event room",
@@ -139,6 +149,8 @@ export const ContentRoomSettings = ({
             frameId={frameId}
             liveVideoLink={liveVideoLink}
             eventEventType={eventEventType}
+            seedDraftId={seedModalDraftId}
+            resumeSurface="content_room_settings"
           />
 
           <AddPerformersModal

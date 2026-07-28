@@ -85,7 +85,10 @@ export type PaymentAnimationTraceStage =
   | "animation_safety_timeout"
   | "animation_stop_invoked"
   | "payment_cycle_completed"
+  | "payment_cycle_finished"
   | "payment_cycle_failed"
+  | "payment_character_playback_finished"
+  | "payment_segment_budget_skipped"
   | "payment_double_cycle_completed"
   | "animation_dom_mount_attempt"
   | "animation_dom_mounted"
@@ -146,6 +149,10 @@ export interface PaymentAnimationTracePayload {
   runnableCount?: number;
   playbackKeyState?: string;
   reason?: string;
+  cycleOutcome?: string;
+  playbackResult?: string;
+  cycle1Outcome?: string;
+  cycle2Outcome?: string;
   channel?: string;
   eventName?: string;
   cluster?: string;

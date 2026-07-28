@@ -35,6 +35,21 @@ export interface TipAnimationEvent {
 
 export type TipGuardRejectReason = "stale" | "duplicate_seq" | "duplicate_ts";
 
+let sharedTipGuard: ReturnType<typeof createTipGuard> | null = null;
+
+/** One guard instance per browser tab when the single-stream broker is active. */
+export function getSharedTipGuard(): ReturnType<typeof createTipGuard> {
+  if (!sharedTipGuard) {
+    sharedTipGuard = createTipGuard({ surface: "global_tip_stream" });
+  }
+  return sharedTipGuard;
+}
+
+/** Test-only reset for isolated broker/guard specs. */
+export function resetSharedTipGuardForTests(): void {
+  sharedTipGuard = null;
+}
+
 export function createTipGuard(options?: { surface?: RealtimeSurface }) {
   const surface = options?.surface ?? "unknown";
   const lastSeqByEvent = new Map<string, number>();

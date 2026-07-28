@@ -1,5 +1,6 @@
 "use client";
 
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { getDeviceKey } from "@/lib/getAuthToken";
 import {
   notifyPwaPreferenceRefresh,
@@ -16,6 +17,7 @@ export type PwaPreferenceRecord = PwaPreferenceSnapshot & {
 };
 
 export async function fetchPwaPreference(): Promise<PwaPreferenceRecord | null> {
+  if (isExploreE2eFixturesActiveOnClient()) return null;
   const deviceKey = getDeviceKey();
   const res = await fetch(
     `${apiBase()}/pwa/preference?deviceKey=${encodeURIComponent(deviceKey)}`
@@ -31,6 +33,7 @@ export async function upsertPwaPreference(
   status: string,
   opts?: { incrementPayment?: boolean; incrementDismiss?: boolean }
 ): Promise<PwaPreferenceRecord | null> {
+  if (isExploreE2eFixturesActiveOnClient()) return null;
   const deviceKey = getDeviceKey();
   const res = await fetch(`${apiBase()}/pwa/preference`, {
     method: "PUT",

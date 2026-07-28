@@ -2,7 +2,8 @@ export type CoOwnerBlockReason =
   | "missing_draft_key"
   | "status_fetch_failed"
   | "missing_approved"
-  | "has_pending";
+  | "has_pending"
+  | "default_awaiting_approval";
 
 export type CoOwnerSubmitReadiness = {
   blocked: boolean;
@@ -40,5 +41,7 @@ export function coOwnerBlockReasonMessage(reason: CoOwnerBlockReason): string {
       return "Co-owner must approve the email invite before you can submit";
     case "has_pending":
       return "All co-owner invites must be approved before submitting";
+    case "default_awaiting_approval":
+      return "A video awaiting co-owner approval cannot be the default video";
   }
 }

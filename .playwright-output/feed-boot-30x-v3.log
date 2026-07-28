@@ -1,0 +1,798 @@
+﻿[playwright globalSetup] Backend healthy at http://localhost:8000/health
+
+Running 2 tests using 1 worker
+
+node.exe : (node:5564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:5564) War... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:5564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[feed-boot-stability-proof] SUMMARY {"pass":3,"fail":17,"minMs":1589,"medianMs":1650,"maxMs":1802,"failures":[{"run":1,"kind":"fresh","state":"fail","bootMs":2000,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253305349,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253305379,"outcome":"finished","finishedAt":1785253305381},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253305403,"outcome":"failed","abortedAt":1785253305406,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":5,"kind":"fresh","state":"fail","bootMs":1488,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253318020,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253318052,"outcome":"failed","abortedAt":1785253318053,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253318078,"outcome":"failed","abortedAt":1785253318078,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED"},{"run":6,"kind":"fresh","state":"fail","bootMs":1382,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253320563,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253320587,"outcome":"finished","finishedAt":1785253320587},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253320612,"outcome":"failed","abortedAt":1785253320750,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":7,"kind":"fresh","state":"fail","bootMs":1693,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253322918,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253322946,"outcome":"finished","finishedAt":1785253322947},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253322974,"outcome":"failed","abortedAt":1785253322974,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":8,"kind":"fresh","state":"fail","bootMs":1583,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253325841,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253325873,"outcome":"finished","finishedAt":1785253325874},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253325898,"outcome":"failed","abortedAt":1785253326028,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":9,"kind":"fresh","state":"fail","bootMs":1298,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253328590,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253328614,"outcome":"finished","finishedAt":1785253328615},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253328640,"outcome":"failed","abortedAt":1785253328641,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":10,"kind":"fresh","state":"fail","bootMs":1262,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253331062,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253331089,"outcome":"finished","finishedAt":1785253331089},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253331111,"outcome":"failed","abortedAt":1785253331112,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":11,"kind":"fresh","state":"fail","bootMs":1558,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253333448,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253333478,"outcome":"finished","finishedAt":1785253333479},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253333504,"outcome":"failed","abortedAt":1785253333509,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":12,"kind":"fresh","state":"fail","bootMs":1700,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253336107,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253336138,"outcome":"failed","abortedAt":1785253336139,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253336162,"outcome":"failed","abortedAt":1785253336163,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED"},{"run":13,"kind":"fresh","state":"fail","bootMs":1377,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253338982,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253339015,"outcome":"finished","finishedAt":1785253339015},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253339043,"outcome":"failed","abortedAt":1785253339177,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":14,"kind":"fresh","state":"fail","bootMs":1668,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253341354,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253341382,"outcome":"finished","finishedAt":1785253341382},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253341409,"outcome":"failed","abortedAt":1785253341409,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":15,"kind":"fresh","state":"fail","bootMs":1502,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253344240,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253344275,"outcome":"failed","abortedAt":1785253344276,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253344301,"outcome":"failed","abortedAt":1785253344306,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED"},{"run":16,"kind":"fresh","state":"fail","bootMs":1809,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253346940,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253346975,"outcome":"failed","abortedAt":1785253346990,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253347007,"outcome":"finished","finishedAt":1785253347135}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":17,"kind":"fresh","state":"fail","bootMs":2791,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253350672,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253350745,"outcome":"failed","abortedAt":1785253350778,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253350804,"outcome":"finished","finishedAt":1785253351040}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":18,"kind":"fresh","state":"fail","bootMs":1514,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253353802,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253353835,"outcome":"failed","abortedAt":1785253353842,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253353870,"outcome":"failed","abortedAt":1785253353875,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED"},{"run":19,"kind":"fresh","state":"fail","bootMs":1726,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253356445,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253356472,"outcome":"failed","abortedAt":1785253356472,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253356502,"outcome":"failed","abortedAt":1785253356666,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED"},{"run":20,"kind":"fresh","state":"fail","bootMs":1570,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253359681,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253359745,"outcome":"failed","abortedAt":1785253359767,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253359783,"outcome":"failed","abortedAt":1785253359787,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED"}],"rscAbortsAccepted":0}
+  x  1 [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:107:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 20 fresh contexts reach Feed readiness (57.6s)
+(node:31632) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:31632) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[feed-boot-stability-proof] SUMMARY {"pass":1,"fail":9,"minMs":1797,"medianMs":1797,"maxMs":1797,"failures":[{"run":2,"kind":"refresh","state":"fail","bootMs":856,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253364784,"abortedAt":1785253364784,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253364786,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253365406,"outcome":"failed","abortedAt":1785253365732,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":3,"kind":"refresh","state":"fail","bootMs":949,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253365732,"abortedAt":1785253365732,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253365732,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253366226,"outcome":"failed","abortedAt":1785253366588,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":4,"kind":"refresh","state":"fail","bootMs":798,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253366588,"abortedAt":1785253366588,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253366589,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253367070,"outcome":"failed","abortedAt":1785253367401,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":5,"kind":"refresh","state":"fail","bootMs":764,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253367401,"abortedAt":1785253367401,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253367402,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253367873,"outcome":"failed","abortedAt":1785253368150,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":6,"kind":"refresh","state":"fail","bootMs":715,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253368150,"abortedAt":1785253368150,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253368162,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253368616,"outcome":"failed","abortedAt":1785253368860,"failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253368778,"outcome":"finished","finishedAt":1785253368788}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":7,"kind":"refresh","state":"fail","bootMs":822,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253368860,"abortedAt":1785253368860,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253368876,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253369344,"outcome":"failed","abortedAt":1785253369706,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":8,"kind":"refresh","state":"fail","bootMs":730,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253369706,"abortedAt":1785253369706,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253369706,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253370188,"outcome":"failed","abortedAt":1785253370461,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":9,"kind":"refresh","state":"fail","bootMs":827,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253370461,"abortedAt":1785253370461,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253370466,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253370944,"outcome":"failed","abortedAt":1785253371240,"failureText":"net::ERR_ABORTED"}],"error":"RSC hard failure: net::ERR_ABORTED"},{"run":10,"kind":"refresh","state":"fail","bootMs":705,"rscRecords":[{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253371240,"abortedAt":1785253371240,"outcome":"failed","failureText":"net::ERR_ABORTED"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253371244,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253371742,"outcome":"pending"},{"url":"http://localhost:3000/explore?e2e=1","startedAt":1785253371819,"outcome":"finished","finishedAt":1785253371819}],"error":"RSC hard failure: net::ERR_ABORTED"}],"rscAbortsAccepted":0}
+  x  2 [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:124:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 10 persistent refreshes reach Feed readiness (10.2s)
+
+
+  1) [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:107:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 20 fresh contexts reach Feed readiness 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  -   1[39m
+    [31m+ Received  + 467[39m
+
+    [32m- Array [][39m
+    [31m+ Array [[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 2000,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253305349,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253305381,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253305379,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253305406,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253305403,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 1,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1488,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253318020,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253318053,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253318052,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253318078,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253318078,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 5,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1382,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253320563,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253320587,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253320587,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253320750,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253320612,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 6,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1693,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253322918,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253322947,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253322946,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253322974,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253322974,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 7,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1583,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253325841,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253325874,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253325873,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253326028,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253325898,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 8,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1298,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253328590,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253328615,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253328614,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253328641,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253328640,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 9,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1262,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253331062,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253331089,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253331089,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253331112,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253331111,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 10,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1558,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253333448,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253333479,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253333478,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253333509,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253333504,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 11,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1700,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253336107,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253336139,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253336138,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253336163,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253336162,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 12,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1377,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253338982,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253339015,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253339015,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253339177,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253339043,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 13,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1668,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253341354,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253341382,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253341382,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253341409,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253341409,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 14,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1502,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253344240,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253344276,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253344275,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253344306,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253344301,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 15,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1809,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253346940,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253346990,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253346975,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253347135,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253347007,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 16,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 2791,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253350672,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253350778,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253350745,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253351040,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253350804,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 17,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1514,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253353802,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253353842,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253353835,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253353875,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253353870,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 18,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1726,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253356445,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253356472,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253356472,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253356666,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253356502,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 19,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 1570,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED; net::ERR_ABORTED",[39m
+    [31m+     "kind": "fresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253359681,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253359767,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253359745,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253359787,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253359783,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 20,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+ ][39m
+
+      119 |
+      120 |     summarize(results);
+    > 121 |     expect(results.filter(r => r.state === "fail")).toEqual([]);
+          |                                                     ^
+      122 |   });
+      123 |
+      124 |   test("10 persistent refreshes reach Feed readiness", async () => {
+        at C:\Users\Elite\Documents\Tipmanna\TIPMANNA - LOCAL\frontend\e2e\feed-boot-stability-proof.spec.ts:121:53
+
+    Error Context: test-results\feed-boot-stability-proof--c0fd1-ntexts-reach-Feed-readiness-chromium\error-context.md
+
+  2) [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:124:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 10 persistent refreshes reach Feed readiness 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  -   1[39m
+    [31m+ Received  + 264[39m
+
+    [32m- Array [][39m
+    [31m+ Array [[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 856,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253364784,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253364784,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253364786,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253365732,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253365406,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 2,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 949,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253365732,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253365732,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253365732,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253366588,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253366226,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 3,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 798,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253366588,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253366588,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253366589,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253367401,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253367070,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 4,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 764,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253367401,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253367401,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253367402,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253368150,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253367873,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 5,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 715,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253368150,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253368150,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253368162,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253368860,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253368616,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253368788,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253368778,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 6,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 822,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253368860,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253368860,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253368876,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253369706,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253369344,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 7,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 730,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253369706,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253369706,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253369706,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253370461,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253370188,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 8,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 827,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253370461,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253370461,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253370466,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253371240,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253370944,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 9,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+   Object {[39m
+    [31m+     "bootMs": 705,[39m
+    [31m+     "error": "RSC hard failure: net::ERR_ABORTED",[39m
+    [31m+     "kind": "refresh",[39m
+    [31m+     "rscRecords": Array [[39m
+    [31m+       Object {[39m
+    [31m+         "abortedAt": 1785253371240,[39m
+    [31m+         "failureText": "net::ERR_ABORTED",[39m
+    [31m+         "outcome": "failed",[39m
+    [31m+         "startedAt": 1785253371240,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253371244,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "outcome": "pending",[39m
+    [31m+         "startedAt": 1785253371742,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+       Object {[39m
+    [31m+         "finishedAt": 1785253371819,[39m
+    [31m+         "outcome": "finished",[39m
+    [31m+         "startedAt": 1785253371819,[39m
+    [31m+         "url": "http://localhost:3000/explore?e2e=1",[39m
+    [31m+       },[39m
+    [31m+     ],[39m
+    [31m+     "run": 10,[39m
+    [31m+     "state": "fail",[39m
+    [31m+   },[39m
+    [31m+ ][39m
+
+      138 |
+      139 |     summarize(results);
+    > 140 |     expect(results.filter(r => r.state === "fail")).toEqual([]);
+          |                                                     ^
+      141 |   });
+      142 | });
+      143 |
+        at C:\Users\Elite\Documents\Tipmanna\TIPMANNA - LOCAL\frontend\e2e\feed-boot-stability-proof.spec.ts:140:53
+
+    Error Context: test-results\feed-boot-stability-proof--b1ad3-reshes-reach-Feed-readiness-chromium\error-context.md
+
+  2 failed
+    [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:107:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 20 fresh contexts reach Feed readiness 
+    [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:124:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 10 persistent refreshes reach Feed readiness 

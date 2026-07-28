@@ -6,7 +6,12 @@ import { toast } from "react-toastify";
 import { Plus, Copy, Check, Mail, Users, UserX, Banknote } from "lucide-react";
 import { useSelector } from "react-redux";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
 import { Button } from "@/components/ui/button";
@@ -35,6 +40,7 @@ import {
   type AddVideoFormValues,
 } from "@/components/events/add-video-form";
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
+import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
 import {
   acceptPayoutSettlementAction,
@@ -430,6 +436,8 @@ function SendCard({ item }: { item: BankItem }) {
 
 export function HostCommunityClient() {
   const params = useParams();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
@@ -653,6 +661,18 @@ export function HostCommunityClient() {
     if (!communityFeatureOn) return;
     void loadMemberships();
   }, [loadMemberships]);
+
+  useEffect(() => {
+    const communityId = searchParams.get("communityId");
+    const draftId = searchParams.get("modalDraftId");
+    if (communityId) {
+      setSelectedId(communityId);
+    }
+    if (draftId) {
+      setModalDraftId(draftId);
+      setAddOpen(true);
+    }
+  }, [searchParams]);
 
   const loadActivationRequests = useCallback(async () => {
     if (!authUser || !authToken) return;
@@ -1985,7 +2005,13 @@ export function HostCommunityClient() {
                     kind: "community_video",
                     targetId: selected.id,
                     enabled: true,
+                    resumeOrigin: {
+                      surface: "host_community",
+                      pathname: pathname ?? `/host/${hostSlug}/host-community`,
+                      targetId: selected.id,
+                    } satisfies DraftResumeOrigin,
                   }}
+                  seedDraftId={modalDraftId}
                 />
               )}
             </DialogContent>

@@ -21,7 +21,7 @@ import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
 import { EventDialog } from "./event-dialog";
 import { getEventStatus } from "@/lib/utils";
-import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
+import { GlobalTipStreamProvider } from "@/providers/global-tip-stream-provider";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { InviteModal } from "./invite-modal";
@@ -385,8 +385,6 @@ export const EventRoomClient = ({
     }
   }, [eventId]);
 
-  useGlobalTipStream({ eventId, surface: "event_room" });
-
   const markDialogAsSeen = () => {
     localStorage.setItem(`seenEventDialog-${eventId}`, "true");
     setHasSeenDialog(true);
@@ -450,125 +448,130 @@ export const EventRoomClient = ({
   };
 
   return (
-    <EventPusherProvider
+    <GlobalTipStreamProvider
       eventId={eventId}
-      onAmountUpdated={handleAmountUpdated}
-      onLatestTipUpdated={handleLatestTipUpdated}
-      onSessionActivated={handleSessionActivated}
-      onScreenSettingsUpdated={handleScreenSettingsUpdated}
-      onNewChatMessage={handleNewChatMessage}
+      surface="event_room"
     >
-      <main className="relative flex h-[100svh] flex-col overflow-hidden">
-        <SaveEventId eventId={eventId} />
+      <EventPusherProvider
+        eventId={eventId}
+        onAmountUpdated={handleAmountUpdated}
+        onLatestTipUpdated={handleLatestTipUpdated}
+        onSessionActivated={handleSessionActivated}
+        onScreenSettingsUpdated={handleScreenSettingsUpdated}
+        onNewChatMessage={handleNewChatMessage}
+      >
+        <main className="relative flex h-[100svh] flex-col overflow-hidden">
+          <SaveEventId eventId={eventId} />
 
-        {inviteStatus === "invalid" && (
-          <InviteModal
-            open={showInviteSignIn}
-            onClose={() => setShowInviteSignIn(false)}
-            onSuccess={handleInviteAfterLogin}
-          />
-        )}
-
-        <EventHeader
-          eventId={eventId}
-          eventName={eventName}
-          organizationName={organizationName}
-          eventDate={eventDate}
-          startTime={startTime}
-          endTime={endTime}
-          liveVideoLink={liveVideoUrl}
-          defaultAdminVideo={defaultAdminVideo}
-          amountToRaise={amountToRaise}
-          amountRaised={currentAmountRaised}
-          iTipped={iTipped}
-          eventUrl={eventUrl}
-          numOfTips={currentNumOfTips}
-          active_users={active_users}
-          eventCode={eventCode}
-          eventSlug={eventSlug}
-          fullName={fullName}
-          username={username}
-          backgroundUrl={screenSettings.eventBackground}
-          hideProgressBarAmount={screenSettings.hideProgressBarAmount}
-          showLatestAmount={screenSettings.showLatestAmount}
-          latestTipAmount={currentLatestTipAmount}
-          tippingCharacters={tipStripCharacters}
-          tipUsageDisclosure={screenSettings.tipUsageDisclosure}
-          liveFullscreen={liveFullscreen}
-          setLiveFullscreen={setLiveFullscreen}
-          onToggleFullscreen={setLiveFullscreen}
-          frameId={defaultChannel?.id}
-          channels={safeChannels}
-          status={status}
-          venueLocation={venueLocation}
-          totalAttendees={totalAttendees}
-          openDrawer={openDrawer}
-          setOpenDrawer={setOpenDrawer}
-          characterSets={footerCharacterSets}
-          performers={screenSettings.performers}
-          currentSessionAmountToRaise={currentSessionAmountToRaise}
-          forceScreenOpen={forceScreenOpen}
-        />
-
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          <RoomMessages
-            eventId={eventId}
-            eventName={eventName}
-            hostName={hostName}
-            organizationName={organizationName}
-            messages={liveMessages}
-            tippingCharacters={tipStripCharacters}
-            iTipped={iTipped}
-            channels={safeChannels}
-            frameId={defaultChannel?.id}
-            isEventOwner={isEventOwner}
-            liveVideoLink={liveVideoLink}
-            performers={screenSettings.performers}
-            projects={projects}
-            contributionType={contributionType}
-            eventEventType={eventEventType}
-          />
-        </div>
-
-        <div
-          ref={footerAnchorRef}
-          className="w-full flex-shrink-0"
-        >
-          <StripeProvider
-            enabled={enableStripe}
-            tippingCharacters={tipStripCharacters}
-          >
-            <EventFooter
-              eventId={eventId}
-              tippingCharacters={tipStripCharacters}
-              characterSets={footerCharacterSets}
-              performers={performers}
-              textTipUnitPrice={tipTextUnitPrice}
-              sectionCtaLabel={tipSectionCtaLabel}
-              payLabel={tipPayLabel}
-              tipQuoteContext={tipQuoteCtx}
-            />
-          </StripeProvider>
-        </div>
-
-        {status === "Not started" &&
-          eventDate &&
-          !liveFullscreen &&
-          !hasSeenDialog && (
-            <EventDialog
-              eventId={eventId}
-              eventName={eventName}
-              eventDate={eventDate}
-              startTime={startTime}
-              endTime={endTime}
-              venueLocation={venueLocation}
-              organizationName={organizationName}
-              hostName={fullName}
-              totalAttendees={totalAttendees}
-              onClose={markDialogAsSeen}
+          {inviteStatus === "invalid" && (
+            <InviteModal
+              open={showInviteSignIn}
+              onClose={() => setShowInviteSignIn(false)}
+              onSuccess={handleInviteAfterLogin}
             />
           )}
-      </main>
-    </EventPusherProvider>
+
+          <EventHeader
+            eventId={eventId}
+            eventName={eventName}
+            organizationName={organizationName}
+            eventDate={eventDate}
+            startTime={startTime}
+            endTime={endTime}
+            liveVideoLink={liveVideoUrl}
+            defaultAdminVideo={defaultAdminVideo}
+            amountToRaise={amountToRaise}
+            amountRaised={currentAmountRaised}
+            iTipped={iTipped}
+            eventUrl={eventUrl}
+            numOfTips={currentNumOfTips}
+            active_users={active_users}
+            eventCode={eventCode}
+            eventSlug={eventSlug}
+            fullName={fullName}
+            username={username}
+            backgroundUrl={screenSettings.eventBackground}
+            hideProgressBarAmount={screenSettings.hideProgressBarAmount}
+            showLatestAmount={screenSettings.showLatestAmount}
+            latestTipAmount={currentLatestTipAmount}
+            tippingCharacters={tipStripCharacters}
+            tipUsageDisclosure={screenSettings.tipUsageDisclosure}
+            liveFullscreen={liveFullscreen}
+            setLiveFullscreen={setLiveFullscreen}
+            onToggleFullscreen={setLiveFullscreen}
+            frameId={defaultChannel?.id}
+            channels={safeChannels}
+            status={status}
+            venueLocation={venueLocation}
+            totalAttendees={totalAttendees}
+            openDrawer={openDrawer}
+            setOpenDrawer={setOpenDrawer}
+            characterSets={footerCharacterSets}
+            performers={screenSettings.performers}
+            currentSessionAmountToRaise={currentSessionAmountToRaise}
+            forceScreenOpen={forceScreenOpen}
+          />
+
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <RoomMessages
+              eventId={eventId}
+              eventName={eventName}
+              hostName={hostName}
+              organizationName={organizationName}
+              messages={liveMessages}
+              tippingCharacters={tipStripCharacters}
+              iTipped={iTipped}
+              channels={safeChannels}
+              frameId={defaultChannel?.id}
+              isEventOwner={isEventOwner}
+              liveVideoLink={liveVideoLink}
+              performers={screenSettings.performers}
+              projects={projects}
+              contributionType={contributionType}
+              eventEventType={eventEventType}
+            />
+          </div>
+
+          <div
+            ref={footerAnchorRef}
+            className="w-full flex-shrink-0"
+          >
+            <StripeProvider
+              enabled={enableStripe}
+              tippingCharacters={tipStripCharacters}
+            >
+              <EventFooter
+                eventId={eventId}
+                tippingCharacters={tipStripCharacters}
+                characterSets={footerCharacterSets}
+                performers={performers}
+                textTipUnitPrice={tipTextUnitPrice}
+                sectionCtaLabel={tipSectionCtaLabel}
+                payLabel={tipPayLabel}
+                tipQuoteContext={tipQuoteCtx}
+              />
+            </StripeProvider>
+          </div>
+
+          {status === "Not started" &&
+            eventDate &&
+            !liveFullscreen &&
+            !hasSeenDialog && (
+              <EventDialog
+                eventId={eventId}
+                eventName={eventName}
+                eventDate={eventDate}
+                startTime={startTime}
+                endTime={endTime}
+                venueLocation={venueLocation}
+                organizationName={organizationName}
+                hostName={fullName}
+                totalAttendees={totalAttendees}
+                onClose={markDialogAsSeen}
+              />
+            )}
+        </main>
+      </EventPusherProvider>
+    </GlobalTipStreamProvider>
   );
 };

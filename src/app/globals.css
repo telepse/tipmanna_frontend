@@ -596,7 +596,7 @@ p {
   }
 }
 
-#icon-shake-overlay {
+.icon-shake-overlay {
   position: fixed;
   inset: 0;
   inset: 0;
@@ -610,7 +610,7 @@ p {
   animation: overlay-fade 6000ms ease-out forwards;
 }
 
-#icon-shake-overlay .shake-icon {
+.icon-shake-overlay .shake-icon {
   position: absolute;
   width: 100px;
   height: 100px;
@@ -623,18 +623,18 @@ p {
 }
 
 /* Full-screen mode */
-#icon-shake-overlay.fullscreen {
+.icon-shake-overlay.fullscreen {
   position: fixed;
 }
 
 /* Scoped (container-bound) mode */
-#icon-shake-overlay.scoped {
+.icon-shake-overlay.scoped {
   position: absolute;
 }
 
 /* Glow source */
-#icon-shake-overlay::before,
-#icon-shake-overlay::after {
+.icon-shake-overlay::before,
+.icon-shake-overlay::after {
   pointer-events: none;
   z-index: 0;
 }
@@ -643,7 +643,7 @@ p {
   z-index: 1;
 }
 
-#icon-shake-overlay[data-glow="bottom"]::before {
+.icon-shake-overlay[data-glow="bottom"]::before {
   bottom: -30%;
   background: radial-gradient(
     ellipse at center,
@@ -653,7 +653,7 @@ p {
   );
 }
 
-#icon-shake-overlay[data-glow="top"]::before {
+.icon-shake-overlay[data-glow="top"]::before {
   top: -30%;
   background: radial-gradient(
     ellipse at center,
@@ -664,7 +664,7 @@ p {
 }
 
 /* Light streaks */
-#icon-shake-overlay::after {
+.icon-shake-overlay::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -679,7 +679,7 @@ p {
   opacity: 0.4;
 }
 
-#icon-shake-overlay::before {
+.icon-shake-overlay::before {
   content: "";
   position: absolute;
   left: 50%;

@@ -1,0 +1,112 @@
+﻿[playwright globalSetup] Backend healthy at http://localhost:8000/health
+
+Running 20 tests using 1 worker
+
+node.exe : (node:35284) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:35284) Wa... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35284) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (31.9s)
+(node:29320) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:29320) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  2 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (30.6s)
+(node:23596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:23596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  3 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (22.9s)
+(node:28144) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:28144) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  4 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (34.1s)
+(node:772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  5 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (26.9s)
+(node:36652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  6 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (20.4s)
+(node:33444) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:33444) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  7 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (16.7s)
+(node:19748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:19748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  8 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (18.3s)
+(node:25292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:25292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  9 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (19.2s)
+(node:26480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:26480) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 10 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (22.0s)
+(node:21704) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21704) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 11 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (17.8s)
+(node:24536) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:24536) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 12 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (17.5s)
+(node:2588) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2588) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 13 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (16.5s)
+(node:14748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 14 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (16.1s)
+(node:16568) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16568) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 15 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (15.8s)
+(node:23128) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:23128) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 16 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (16.2s)
+(node:35808) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35808) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 17 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (15.5s)
+(node:31268) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:31268) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 18 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (15.0s)
+(node:4708) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:4708) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 19 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (16.5s)
+(node:30392) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:30392) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 20 [chromium] ΓÇ║ e2e\explore-native-history.spec.ts:343:11 ΓÇ║ explore native history ΓÇö formal matrix ΓÇ║ deep-link refresh grid ΓÇ║ refresh preserves /explore?feedTab=saves&e2e=1 (15.3s)
+
+  20 passed (8.1m)

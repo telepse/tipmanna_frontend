@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 // Third-party imports
 import { Settings, Pin } from "lucide-react";
@@ -66,10 +67,17 @@ export const MessageHeader = ({
   const backgroundClass = !isScrolled ? "bg-white" : "bg-black/50";
 
   const [modalOpen, setModalOpen] = useState(false);
+  const searchParams = useSearchParams();
 
   const { user, tag } = useSelector((state: RootState) => state.auth);
 
   const eventOwner = isEventOwner === user?.id || tag === "COHOST";
+
+  useEffect(() => {
+    if (searchParams.get("openAddVideo") === "1" && eventOwner) {
+      setModalOpen(true);
+    }
+  }, [searchParams, eventOwner]);
 
   return (
     <div

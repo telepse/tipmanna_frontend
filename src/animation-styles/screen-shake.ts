@@ -32,14 +32,10 @@ export function screenShakeStyle(options: ScreenShakeOptions): AnimationHandle {
   const isFullscreenMount =
     mount === document.body || mount === document.documentElement;
 
-  // :white_check_mark: RESTORED: single instance enforcement
-  const existing = mount.querySelector("#icon-shake-overlay");
-  if (existing) existing.remove();
-
+  // Per-instance overlay — do not remove other concurrent instances.
   const overlay = document.createElement("div");
-
-  // :white_check_mark: RESTORED: overlay ID for CSS + dedupe
-  overlay.id = "icon-shake-overlay";
+  overlay.id = `icon-shake-overlay-${Math.random().toString(36).slice(2, 11)}`;
+  overlay.classList.add("icon-shake-overlay");
 
   Object.assign(overlay.style, {
     // Full-document mount must stay `fixed` and must not coerce `body` to
@@ -159,9 +155,9 @@ export function screenShakeStyle(options: ScreenShakeOptions): AnimationHandle {
   function stop() {
     const elapsed = performance.now() - startTime;
 
-    // :white_check_mark: KEEP survivability rule
     if (!isPreview && elapsed < MIN_PAYMENT_LIFETIME) return;
 
+    if (stopped) return;
     stopped = true;
     cleanup();
   }

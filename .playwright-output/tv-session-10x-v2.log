@@ -1,0 +1,125 @@
+﻿[playwright globalSetup] Backend healthy at http://localhost:8000/health
+
+Running 40 tests using 1 worker
+
+node.exe : (node:35796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:35796) Wa... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (6.9s)
+  -   2 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  x   3 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (17.1s)
+(node:32032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:32032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  -   4 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:19852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:19852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  5 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (4.7s)
+  -   6 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok  7 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (13.0s)
+  -   8 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:14428) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:14428) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  9 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (4.9s)
+  -  10 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok 11 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (12.9s)
+  -  12 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:33620) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:33620) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 13 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (5.1s)
+  -  14 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok 15 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (12.8s)
+  -  16 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:20384) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:20384) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 17 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (4.5s)
+  -  18 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok 19 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (13.0s)
+  -  20 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:22600) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:22600) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 21 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (4.8s)
+  -  22 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok 23 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (12.7s)
+  -  24 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:34112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:34112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 25 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (4.9s)
+  -  26 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok 27 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (13.0s)
+  -  28 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:35560) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35560) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 29 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (4.6s)
+  -  30 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok 31 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (13.1s)
+  -  32 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:22932) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:22932) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 33 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (4.6s)
+  -  34 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok 35 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (16.5s)
+  -  36 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+(node:24460) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:24460) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 37 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:5:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (4.6s)
+  -  38 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:21:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  ok 39 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (12.4s)
+  -  40 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:101:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+
+
+  1) [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('explore-tv-watch').first()
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for getByTestId('explore-tv-watch').first()[22m
+
+
+      81 |
+      82 |     const watch = page.getByTestId("explore-tv-watch").first();
+    > 83 |     await expect(watch).toBeVisible({ timeout: 15_000 });
+         |                         ^
+      84 |     await watch.click();
+      85 |
+      86 |     await expect(page.getByTestId("explore-subtab-trends")).toHaveClass(
+        at C:\Users\Elite\Documents\Tipmanna\TIPMANNA - LOCAL\frontend\e2e\explore-tv-session.spec.ts:83:25
+
+    Error Context: test-results\explore-tv-session-explore-0cd3d-s-reel-without-remount-hang-chromium\error-context.md
+
+  1 failed
+    [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:73:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang 
+  20 skipped
+  19 passed (3.9m)

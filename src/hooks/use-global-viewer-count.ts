@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import type { UserInfo, PusherTrackingHook } from "@/types/tracking.types";
 import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import {
   globalTvPresenceTrackActivity,
   subscribeGlobalTvPresence,
@@ -49,6 +50,7 @@ export const usePusherTrackingGlobalTV = ({
   );
 
   useEffect(() => {
+    if (isExploreE2eFixturesActiveOnClient()) return undefined;
     if (!tvId || !joinUser.id?.trim()) return undefined;
 
     return subscribeGlobalTvPresence({
@@ -60,6 +62,7 @@ export const usePusherTrackingGlobalTV = ({
   }, [tvId, joinUser.id]);
 
   useEffect(() => {
+    if (isExploreE2eFixturesActiveOnClient()) return undefined;
     if (!tvId || !joinUser.id?.trim()) return undefined;
 
     void trackActivity("viewing_tv");
