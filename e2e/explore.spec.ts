@@ -15,16 +15,52 @@ test.describe("explore", () => {
     await expect(discoverHeading).not.toBeVisible();
   });
 
-  test("first paint includes SSR default feed boot or visible slide", async ({
+  test.describe("SSR boot contracts", () => {
+    test("shell contract at document commit (10x)", async ({ page }) => {
+      for (let i = 0; i < 10; i += 1) {
+        const response = await gotoExplore(page);
+        expect(response?.status()).toBe(200);
+        const html = await page.content();
+        expect(html.length).toBeGreaterThan(500);
+        expect(html).not.toMatch(/Explore ran into a problem/i);
+        expect(html).toMatch(/Tipmanna TV — Explore/i);
+        expect(
+          html.includes("ExplorePageClient") ||
+            html.includes("explore-chrome-feed") ||
+            html.includes("explore-feed-shell") ||
+            html.includes("Search videos")
+        ).toBeTruthy();
+      }
+    });
+
+    test("stream contract resolves to terminal feed (10x)", async ({ page }) => {
+      for (let i = 0; i < 10; i += 1) {
+        await gotoExplore(page);
+        await waitExploreFeedReady(page, 60_000);
+        await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible();
+        await expect(
+          page
+            .getByTestId("explore-feed-scroll")
+            .or(page.getByText(/no clips available|sign in to browse/i))
+            .first()
+        ).toBeVisible({ timeout: 15_000 });
+        await expect(
+          page.getByText("Explore ran into a problem")
+        ).not.toBeVisible();
+      }
+    });
+  });
+
+  test("first paint shell is valid before streamed boot completes", async ({
     page,
   }) => {
     const response = await gotoExplore(page);
     expect(response?.ok()).toBeTruthy();
     const html = await page.content();
-    const hadInlineBoot =
-      html.includes("__EXPLORE_SSR_BOOT__") ||
-      html.includes("data-explore-slide");
-    expect(hadInlineBoot).toBeTruthy();
+    expect(html).toMatch(/Tipmanna TV — Explore/i);
+    expect(html.length).toBeGreaterThan(200);
+    await waitExploreFeedReady(page, 60_000);
+    await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible();
   });
 
   test("feed scrolls and shows video shell or empty state", async ({

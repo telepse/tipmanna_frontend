@@ -93,6 +93,7 @@ import {
   E2E_DISCOVER_CONTENTS,
   E2E_FEED_BOOT,
   E2E_JOINED_MEMBERSHIP,
+  E2E_TV_HANDOFF,
 } from "@/lib/e2e-explore-fixtures";
 import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
@@ -508,24 +509,26 @@ export default function ExplorePageClient({
   }, [e2eFixtures]);
 
   useEffect(() => {
-    if (!e2eTvSeed) return;
+    if (!e2eFixtures || !e2eTvSeed) return;
     seedExploreTvPrefetch({
       ongoing: [
         {
-          channel: {
-            id: "e2e-tv-video",
-            eventId: "e2e-tv-event",
-            url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            title: "E2E TV Programme",
-            liveStatus: "NOT_LIVE",
-          },
+          channel: E2E_TV_HANDOFF.currentProgramme.channel,
+          startsAt: E2E_TV_HANDOFF.currentProgramme.startsAt,
+          endsAt: E2E_TV_HANDOFF.currentProgramme.endsAt,
         },
       ],
-      upcoming: [],
+      upcoming: [
+        {
+          channel: E2E_TV_HANDOFF.nextProgramme.channel,
+          startsAt: E2E_TV_HANDOFF.nextProgramme.startsAt,
+          endsAt: E2E_TV_HANDOFF.nextProgramme.endsAt,
+        },
+      ],
       ongoingLabel: "On air now",
       upcomingLabel: "Next 12 hours",
     });
-  }, [e2eTvSeed]);
+  }, [e2eFixtures, e2eTvSeed]);
 
   useEffect(() => {
     if (tab !== "feed") return;

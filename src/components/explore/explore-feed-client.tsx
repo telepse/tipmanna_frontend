@@ -33,7 +33,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
 
 import {
-  getContentChannelAction,
   getExploreChannelMetricsAction,
   postExploreFeedBatchAction,
   type ExploreChannelMetrics,
@@ -87,9 +86,11 @@ import {
   trackTvVideoStart,
 } from "@/lib/tvAnalytics";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
+import { resolveExploreOpenChannelRow } from "@/lib/explore-open-channel-row";
 import {
   scrollExploreFeedToIndex,
   getExploreSlideStepPx,
+  resolveExploreFeedScrollIndex,
 } from "@/lib/explore-feed-open";
 import { cn } from "@/lib/utils";
 import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
@@ -1072,13 +1073,6 @@ export const ExploreFeedClient = forwardRef<
       return;
     }
 
-    const mayBeRestricted = Boolean(active?.community?.id);
-    if (!mayBeRestricted) {
-      setBaseMetrics(null);
-      setMetricsRestrictedCommunity(null);
-      return;
-    }
-
     let cancelled = false;
     const probeTimer = window.setTimeout(() => {
       void (async () => {
@@ -1102,6 +1096,11 @@ export const ExploreFeedClient = forwardRef<
           }
           setMetricsRestrictedCommunity(null);
           setBaseMetrics(d as ExploreChannelMetrics);
+          setItems(prev =>
+            prev.map(it =>
+              String(it.id) === rawId ? { ...it, metrics: d } : it
+            )
+          );
         } else {
           setBaseMetrics(null);
           setMetricsRestrictedCommunity(null);
@@ -1333,7 +1332,7 @@ export const ExploreFeedClient = forwardRef<
 
   const executeOpenInExplore = useCallback(
     async (target: ExploreFeedOpenTarget) => {
-      const { videoId, eventId, channelSnapshot } = target;
+      const { videoId, channelSnapshot } = target;
       const snapshotLiveStatus =
         channelSnapshot &&
         typeof channelSnapshot === "object" &&
@@ -1351,53 +1350,36 @@ export const ExploreFeedClient = forwardRef<
 
       const existingIdx = itemsRef.current.findIndex(i => i.id === videoId);
       if (existingIdx >= 0) {
-        setScrollSyncEpoch(e => e + 1);
-        return;
-      }
-
-      const snap =
-        channelSnapshot &&
-        typeof channelSnapshot === "object" &&
-        String(channelSnapshot.id ?? "") === String(videoId) &&
-        typeof channelSnapshot.url === "string" &&
-        channelSnapshot.url.trim() !== "";
-
-      if (snap) {
-        const row = channelSnapshot as any;
-        if (row.liveStatus === "UPCOMING") {
-          openingVideoIdRef.current = null;
-          return;
+        const existing = itemsRef.current[existingIdx];
+        const needsEnrichment =
+          !metricsFromFeedItem(existing) ||
+          typeof existing?.event?.amountToRaise !== "number";
+        if (needsEnrichment) {
+          const enriched = await resolveExploreOpenChannelRow(target);
+          if (myGen !== openGenerationRef.current) return;
+          if (enriched) {
+            setItems(prev => {
+              if (myGen !== openGenerationRef.current) return prev;
+              const idx = prev.findIndex(i => i.id === videoId);
+              if (idx < 0) return prev;
+              const next = [...prev];
+              next[idx] = { ...prev[idx], ...enriched };
+              return next;
+            });
+          }
         }
-        setItems(prev => {
-          if (myGen !== openGenerationRef.current) return prev;
-          if (openingVideoIdRef.current !== videoId) return prev;
-          if (prev.some(i => i.id === videoId)) return prev;
-          const ai = activeIndexRef.current;
-          const insertAt = Math.min(ai + 1, prev.length);
-          const next = [...prev];
-          next.splice(insertAt, 0, row);
-          return next;
-        });
-        if (myGen !== openGenerationRef.current) return;
-        if (openingVideoIdRef.current !== videoId) return;
+        openingVideoIdRef.current = videoId;
         setScrollSyncEpoch(e => e + 1);
         return;
       }
 
-      const res = await getContentChannelAction(eventId);
+      const row = await resolveExploreOpenChannelRow(target);
       if (myGen !== openGenerationRef.current) return;
-      if (!res.success || !Array.isArray(res.data)) {
+      if (!row) {
         openingVideoIdRef.current = null;
         return;
       }
-      const row = res.data.find((c: any) => c?.id === videoId);
-      if (
-        !row ||
-        (typeof row.restricted === "boolean" && row.restricted) ||
-        typeof row.url !== "string" ||
-        !row.url.trim() ||
-        row.liveStatus === "UPCOMING"
-      ) {
+      if (row.liveStatus === "UPCOMING") {
         openingVideoIdRef.current = null;
         return;
       }
@@ -1556,7 +1538,16 @@ export const ExploreFeedClient = forwardRef<
 
     if (endOfFeedRef.current) return;
     const len = itemsRef.current.length;
-    if (len === 0 || activeIndex < len - EXPLORE_NEAR_END_SLOTS) {
+    const scrollIndex = resolveExploreFeedScrollIndex(
+      scrollRef.current,
+      len,
+      activeIndexRef.current
+    );
+    if (scrollIndex !== activeIndexRef.current) {
+      activeIndexRef.current = scrollIndex;
+      setActiveIndex(prev => (prev === scrollIndex ? prev : scrollIndex));
+    }
+    if (len === 0 || scrollIndex < len - EXPLORE_NEAR_END_SLOTS) {
       paginationFailCountRef.current = 0;
       return;
     }
@@ -1571,7 +1562,7 @@ export const ExploreFeedClient = forwardRef<
       phase: "request",
       feedMode,
       itemCount: len,
-      activeIndex,
+      activeIndex: scrollIndex,
     });
 
     void (async () => {
@@ -1598,7 +1589,11 @@ export const ExploreFeedClient = forwardRef<
             reason: "transient",
           });
           const curLen = itemsRef.current.length;
-          const idx = activeIndexRef.current;
+          const idx = resolveExploreFeedScrollIndex(
+            scrollRef.current,
+            curLen,
+            activeIndexRef.current
+          );
           const stillNearEnd =
             curLen > 0 && idx >= curLen - EXPLORE_NEAR_END_SLOTS;
           if (stillNearEnd) {
@@ -1635,6 +1630,17 @@ export const ExploreFeedClient = forwardRef<
         }
 
         if (batch.length === 0) {
+          if (feedMode === "saves") {
+            const backoffMs = computePaginationBackoffMs(1);
+            logExplorePagination({
+              phase: "retry",
+              feedMode,
+              itemCount: itemsRef.current.length,
+              backoffMs,
+              reason: "saves_empty_batch",
+            });
+            schedulePaginationRetry(backoffMs);
+          }
           return;
         }
 
@@ -1678,6 +1684,19 @@ export const ExploreFeedClient = forwardRef<
         });
       } finally {
         loadingMoreRef.current = false;
+        const root = scrollRef.current;
+        const curLen = itemsRef.current.length;
+        if (root && curLen > 0) {
+          const synced = resolveExploreFeedScrollIndex(
+            root,
+            curLen,
+            activeIndexRef.current
+          );
+          if (synced !== activeIndexRef.current) {
+            activeIndexRef.current = synced;
+            setActiveIndex(prev => (prev === synced ? prev : synced));
+          }
+        }
       }
     })();
   }, [
@@ -1685,6 +1704,7 @@ export const ExploreFeedClient = forwardRef<
     fetchBatch,
     feedMode,
     feedQueryKey,
+    items.length,
     paginationRetryEpoch,
     feedSurfaceActive,
     schedulePaginationRetry,
@@ -1695,7 +1715,11 @@ export const ExploreFeedClient = forwardRef<
     const tryResumePagination = () => {
       if (endOfFeedRef.current) return;
       const len = itemsRef.current.length;
-      const idx = activeIndexRef.current;
+      const idx = resolveExploreFeedScrollIndex(
+        scrollRef.current,
+        len,
+        activeIndexRef.current
+      );
       if (len === 0 || idx < len - EXPLORE_NEAR_END_SLOTS) return;
       paginationFailCountRef.current = 0;
       logExplorePagination({

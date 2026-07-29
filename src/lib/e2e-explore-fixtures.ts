@@ -83,3 +83,29 @@ export const E2E_JOIN_FORM_PUBLIC = {
   defaultMonths: 1,
   subscriptionFeeGbp: null,
 };
+
+/** Deterministic TV schedule for dual-gated handoff tests (`?e2e=1&e2eTv=1`). */
+export const E2E_TV_HANDOFF = {
+  currentProgramme: {
+    channel: {
+      id: "e2e-tv-current",
+      eventId: "e2e-tv-event-current",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title: "E2E TV Current Programme",
+      liveStatus: "NOT_LIVE",
+    },
+    startsAt: "2020-01-01T12:00:00.000Z",
+    endsAt: "2099-01-01T12:05:00.000Z",
+  },
+  nextProgramme: {
+    channel: {
+      id: "e2e-tv-next",
+      eventId: "e2e-tv-event-next",
+      url: "https://www.youtube.com/watch?v=9bZkp7q19f0",
+      title: "E2E TV Next Programme",
+      liveStatus: "NOT_LIVE",
+    },
+    startsAt: "2099-01-01T12:05:00.000Z",
+    endsAt: "2099-01-01T13:00:00.000Z",
+  },
+};

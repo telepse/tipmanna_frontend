@@ -31,7 +31,7 @@ import type { ProgramBootstrap } from "@/lib/program-types";
 import { buildContentSharePath } from "@/lib/public-video-url";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { extractYoutubeID, getYoutubeThumbnail } from "@/lib/extractYoutubeID";
-import { formatProgramScheduleDisplay, trimTitle } from "@/lib/utils";
+import {  formatProgramScheduleWithTimezone, trimTitle } from "@/lib/utils";
 
 function formatDuration(totalSec: number) {
   const m = Math.floor(totalSec / 60);
@@ -150,8 +150,7 @@ export function ProgramLanding({
             <p className="text-sm">
               <span className="font-medium">Scheduled:</span>{" "}
               <span className="text-muted-foreground">
-                {formatProgramScheduleDisplay(program.scheduledAt)} (
-                {PROGRAM_DISPLAY_TIMEZONE})
+                {formatProgramScheduleWithTimezone(program.scheduledAt)}
               </span>
             </p>
 

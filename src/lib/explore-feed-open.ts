@@ -21,6 +21,21 @@ export function getExploreSlideStepPx(scrollRoot: HTMLElement): number {
   return h > 0 ? h : scrollRoot.clientHeight;
 }
 
+/** Derive the active reel index from scroll position (pagination near-end source of truth). */
+export function resolveExploreFeedScrollIndex(
+  scrollRoot: HTMLElement | null,
+  itemCount: number,
+  fallbackIndex = 0
+): number {
+  if (!scrollRoot || itemCount <= 0) return fallbackIndex;
+  const h = getExploreSlideStepPx(scrollRoot);
+  if (h <= 0) return fallbackIndex;
+  return Math.min(
+    itemCount - 1,
+    Math.max(0, Math.round(scrollRoot.scrollTop / h))
+  );
+}
+
 export function scrollExploreFeedToIndex(
   scrollRoot: HTMLElement,
   index: number,

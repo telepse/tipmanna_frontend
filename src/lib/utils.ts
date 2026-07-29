@@ -374,6 +374,39 @@ export function formatProgramScheduleDisplay(date: string | Date): string {
   });
 }
 
+export function formatProgramScheduleWithTimezone(
+  date: string | Date,
+  timeZone = PROGRAM_DISPLAY_TIMEZONE,
+  label = "UK",
+): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+
+  if (Number.isNaN(d.getTime())) return "";
+
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(d)
+    .replace(/\s?(AM|PM)/, "$1");
+
+  const day = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "long",
+  }).format(d);
+
+  const datePart = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(d);
+
+  return `${time} (${label}), ${day}, ${datePart}`;
+}
+
 export function formatWithCommas(value: number) {
   if (value === null || value === undefined) return "";
   return new Intl.NumberFormat("en-US").format(Number(value));
