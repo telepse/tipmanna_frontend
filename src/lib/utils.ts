@@ -390,7 +390,7 @@ export function formatProgramScheduleWithTimezone(
     hour12: true,
   })
     .format(d)
-    .replace(/\s?(AM|PM)/, "$1");
+    .replace(/\s?(am|pm)/i, (_, period) => period.toUpperCase());
 
   const day = new Intl.DateTimeFormat("en-GB", {
     timeZone,
