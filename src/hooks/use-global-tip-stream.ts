@@ -67,16 +67,17 @@ export function useGlobalTipStream(
   useEffect(() => {
     if (typeof window === "undefined" || !enabled) return;
 
+    if (ownedByProvider) {
+      tracePaymentAnimation({
+        stage: "fan_out_duplicate_prevented",
+        surface,
+        eventId: eventIdRef.current,
+        result: "provider_owns_stream",
+      });
+      return;
+    }
+
     if (isSingleTipStreamBrokerEnabled()) {
-      if (ownedByProvider) {
-        tracePaymentAnimation({
-          stage: "fan_out_duplicate_prevented",
-          surface,
-          eventId: eventIdRef.current,
-          result: "provider_owns_stream",
-        });
-        return;
-      }
       return registerTipStreamConsumer({ eventId, surface });
     }
 

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import type { RealtimeSurface } from "@/lib/realtime-telemetry";
+import { registerLegacyTipStreamProducer } from "@/lib/legacy-tip-stream-producer";
 import { isSingleTipStreamBrokerEnabled } from "@/lib/single-tip-stream-broker-flag";
 import { registerTipStreamConsumer } from "@/lib/shared-tip-stream-broker";
 
@@ -22,8 +23,10 @@ export interface GlobalTipStreamProviderProps {
 }
 
 /**
- * Page-level owner for the shared tip-animation stream. Nested providers do not
- * create a second Pusher producer; nested `useGlobalTipStream` calls become no-ops.
+ * Page-level owner for the tip-animation stream. Registers exactly one producer:
+ * broker path when enabled, legacy/fallback path when explicitly disabled.
+ * Nested providers do not create a second Pusher producer; nested
+ * `useGlobalTipStream` calls become no-ops.
  */
 export function GlobalTipStreamProvider({
   eventId,
@@ -32,13 +35,16 @@ export function GlobalTipStreamProvider({
   children,
 }: GlobalTipStreamProviderProps) {
   const parent = useContext(GlobalTipStreamContext);
-  const shouldOwn =
-    enabled && isSingleTipStreamBrokerEnabled() && !parent.streamOwned;
+  const shouldOwn = enabled && !parent.streamOwned;
+  const brokerEnabled = isSingleTipStreamBrokerEnabled();
 
   useEffect(() => {
     if (!shouldOwn || typeof window === "undefined") return;
-    return registerTipStreamConsumer({ eventId, surface });
-  }, [shouldOwn, eventId, surface]);
+    if (brokerEnabled) {
+      return registerTipStreamConsumer({ eventId, surface });
+    }
+    return registerLegacyTipStreamProducer({ eventId, surface });
+  }, [shouldOwn, brokerEnabled, eventId, surface]);
 
   return (
     <GlobalTipStreamContext.Provider

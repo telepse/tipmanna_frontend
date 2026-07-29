@@ -833,6 +833,7 @@ export const ExploreFeedClient = forwardRef<
   const [savedContents, setSavedContents] = useState<any[]>([]);
   const [saveBusy, setSaveBusy] = useState(false);
   const [scrollSyncEpoch, setScrollSyncEpoch] = useState(0);
+  const [paginationScrollEpoch, setPaginationScrollEpoch] = useState(0);
   const [paginationRetryEpoch, setPaginationRetryEpoch] = useState(0);
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
 
@@ -1309,7 +1310,12 @@ export const ExploreFeedClient = forwardRef<
       if (h <= 0) return;
       const idx = Math.min(itemsRef.current.length - 1, Math.max(0, index));
       scrollExploreFeedToIndex(root, idx, behavior);
+      activeIndexRef.current = idx;
       setActiveIndex(prev => (prev === idx ? prev : idx));
+      const len = itemsRef.current.length;
+      if (len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS) {
+        setPaginationScrollEpoch(e => e + 1);
+      }
     },
     []
   );
@@ -1706,6 +1712,7 @@ export const ExploreFeedClient = forwardRef<
     feedQueryKey,
     items.length,
     paginationRetryEpoch,
+    paginationScrollEpoch,
     feedSurfaceActive,
     schedulePaginationRetry,
   ]);
@@ -1758,16 +1765,18 @@ export const ExploreFeedClient = forwardRef<
       raf = 0;
       const len = itemsRef.current.length;
       if (len === 0) return;
-      const slide = root.querySelector(
-        "[data-explore-slide]"
-      ) as HTMLElement | null;
-      const h = slide?.getBoundingClientRect().height ?? 0;
-      if (h <= 0) return;
-      const idx = Math.min(
-        len - 1,
-        Math.max(0, Math.round(root.scrollTop / h))
+      const idx = resolveExploreFeedScrollIndex(
+        root,
+        len,
+        activeIndexRef.current
       );
-      setActiveIndex(prev => (prev === idx ? prev : idx));
+      if (idx !== activeIndexRef.current) {
+        activeIndexRef.current = idx;
+        setActiveIndex(prev => (prev === idx ? prev : idx));
+      }
+      if (len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS) {
+        setPaginationScrollEpoch(e => e + 1);
+      }
     };
 
     const onScroll = () => {

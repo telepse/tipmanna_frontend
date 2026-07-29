@@ -27,15 +27,18 @@ let boundHandler: ((data: TipAnimationEvent) => void) | null = null;
 
 /** Instrumentation counters for E4 verification specs. */
 export const tipStreamBrokerMetrics = {
+  producerMode: "broker" as const,
   rawReceiptCount: 0,
   guardDecisionCount: 0,
   publicationCount: 0,
   bindCount: 0,
+  consumerCount: 0,
   reset(): void {
     this.rawReceiptCount = 0;
     this.guardDecisionCount = 0;
     this.publicationCount = 0;
     this.bindCount = 0;
+    this.consumerCount = 0;
   },
 };
 
@@ -230,6 +233,7 @@ export function registerTipStreamConsumer(options: {
     eventId: options.eventId,
     surface: options.surface,
   });
+  tipStreamBrokerMetrics.consumerCount = consumers.size;
 
   if (consumerRefCount === 0) {
     attachSharedTipStream();
@@ -238,6 +242,7 @@ export function registerTipStreamConsumer(options: {
 
   return () => {
     consumers.delete(id);
+    tipStreamBrokerMetrics.consumerCount = consumers.size;
     consumerRefCount = Math.max(0, consumerRefCount - 1);
     if (consumerRefCount === 0) {
       detachSharedTipStream();

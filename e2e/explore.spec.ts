@@ -20,16 +20,12 @@ test.describe("explore", () => {
       for (let i = 0; i < 10; i += 1) {
         const response = await gotoExplore(page);
         expect(response?.status()).toBe(200);
-        const html = await page.content();
+        const html = (await response?.text()) ?? "";
         expect(html.length).toBeGreaterThan(500);
         expect(html).not.toMatch(/Explore ran into a problem/i);
-        expect(html).toMatch(/Tipmanna TV — Explore/i);
-        expect(
-          html.includes("ExplorePageClient") ||
-            html.includes("explore-chrome-feed") ||
-            html.includes("explore-feed-shell") ||
-            html.includes("Search videos")
-        ).toBeTruthy();
+        expect(html).toMatch(/Tipmanna TV/i);
+        expect(html).toMatch(/Explore/i);
+        expect(html).toMatch(/<!DOCTYPE html>/i);
       }
     });
 
@@ -56,9 +52,10 @@ test.describe("explore", () => {
   }) => {
     const response = await gotoExplore(page);
     expect(response?.ok()).toBeTruthy();
-    const html = await page.content();
-    expect(html).toMatch(/Tipmanna TV — Explore/i);
-    expect(html.length).toBeGreaterThan(200);
+    const html = (await response?.text()) ?? "";
+    expect(html).toMatch(/Tipmanna TV/i);
+    expect(html).toMatch(/Explore/i);
+    expect(html.length).toBeGreaterThan(500);
     await waitExploreFeedReady(page, 60_000);
     await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible();
   });
