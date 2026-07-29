@@ -18,13 +18,12 @@ export default function TopCommunities({
   communities,
   showWhenEmpty = false,
 }: Props) {
+  const pathname = usePathname();
+  const isPartnerPage = pathname.includes("/partner");
+
   if (communities.length === 0 && !showWhenEmpty) {
     return null;
   }
-
-  const pathname = usePathname();
-
-  const isPartnerPage = pathname.includes("/partner");
 
   return (
     <section
