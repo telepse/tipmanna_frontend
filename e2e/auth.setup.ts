@@ -31,7 +31,7 @@ setup("authenticate disposable tipper account", async ({ page }) => {
   const otpSecret = process.env.PLAYWRIGHT_TIPPER_OTP_SECRET;
   if (otpSecret) {
     // Project-specific OTP helper hook — supply secret via CI only.
-    await page.getByLabel(/email/i).fill(email);
+    await page.getByLabel(/email/i).fill(email as string);
     await page.getByRole("button", { name: /continue|send code|sign in/i }).click();
     setup.skip(true, "Wire OTP entry against staging auth helper");
   } else {
