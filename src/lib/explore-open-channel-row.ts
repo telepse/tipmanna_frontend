@@ -46,9 +46,10 @@ export async function resolveExploreOpenChannelRow(
     }
   } else if (channelSnapshot && isPlayableChannelRow(channelSnapshot)) {
     row = { ...channelSnapshot };
-    if (apiRow && !apiRow.restricted && apiRow.event) {
+    const snap = apiRow as Record<string, unknown> | null;
+    if (snap && snap.restricted !== true && snap.event) {
       row = mergeExploreChannelRows(
-        { event: apiRow.event as Record<string, unknown> },
+        { event: snap.event as Record<string, unknown> },
         row
       );
     }
