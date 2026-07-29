@@ -56,7 +56,6 @@ import {
 } from "@/components/ui/tooltip";
 import {
   isLiveStreamContent,
-  resolveDiscoverContentTarget,
 } from "@/lib/discover-content-routing";
 
 const CONTENT_CARD_MIN = "min-w-[220px] sm:min-w-[270px] flex-shrink-0";
@@ -144,9 +143,8 @@ export interface DiscoverPanelProps {
   /** Inline Discover preview for this content id is hidden while Explore plays it from Discover. */
   suppressInlinePlaybackContentId?: string | null;
   /**
-   * Routing surface:
-   * - `discovery` (.com): live → `/channel/:eventId`; clips → `/content/:eventId`
-   * - `exploreTab` (.tv sheet/tab): live → `/channel/:eventId` (never reel); clips → reel when `onPlayInExplore` is set
+   * Routing surface (telemetry). Playback always targets Explore when
+   * `onPlayInExplore` is provided.
    */
   surface?: "discovery" | "exploreTab";
 }
@@ -327,51 +325,46 @@ export function DiscoverPanel({
 
   const { push, prefetch } = useAppRouter();
 
-  const goToChannel = useCallback(
-    (eventId: string) => {
-      const href = `/content/${eventId}`;
-      prefetch(href);
-      push(href);
-    },
-    [push, prefetch]
-  );
+  // Legacy /content and /channel navigation — disabled; Discover clips open in Explore.
+  // const goToChannel = useCallback(
+  //   (eventId: string) => {
+  //     const href = `/content/${eventId}`;
+  //     prefetch(href);
+  //     push(href);
+  //   },
+  //   [push, prefetch]
+  // );
+  //
+  // const openLiveStreamContent = useCallback(
+  //   (content: Content) => {
+  //     const eventId = content.event?.id;
+  //     if (!eventId) return;
+  //     const href = `/channel/${eventId}`;
+  //     prefetch(href);
+  //     push(href);
+  //   },
+  //   [push, prefetch]
+  // );
 
-  const openLiveStreamContent = useCallback(
+  const playContentInExplore = useCallback(
     (content: Content) => {
+      if (!onPlayInExplore) return;
       const eventId = content.event?.id;
       if (!eventId) return;
-      const href = `/channel/${eventId}`;
-      prefetch(href);
-      push(href);
+      onPlayInExplore({
+        videoId: content.id,
+        eventId,
+        channelSnapshot: content as unknown as Record<string, unknown>,
+      });
     },
-    [push, prefetch]
+    [onPlayInExplore]
   );
 
   const openDiscoverContent = useCallback(
     (content: Content) => {
-      const target = resolveDiscoverContentTarget(
-        content,
-        surface,
-        Boolean(onPlayInExplore)
-      );
-      if (target === "channel") {
-        openLiveStreamContent(content);
-        return;
-      }
-      if (target === "explore-reel" && onPlayInExplore) {
-        const eventId = content.event?.id;
-        if (!eventId) return;
-        onPlayInExplore({
-          videoId: content.id,
-          eventId,
-          channelSnapshot: content as unknown as Record<string, unknown>,
-        });
-        return;
-      }
-      if (!content.event?.id) return;
-      goToChannel(content.event.id);
+      playContentInExplore(content);
     },
-    [surface, onPlayInExplore, goToChannel, openLiveStreamContent]
+    [playContentInExplore]
   );
 
   const resolveContentClick = useCallback(
@@ -441,18 +434,19 @@ export function DiscoverPanel({
         return;
       }
       if (item.kind === "livestream") {
-        window.open(
-          `/channel/${item.stream.eventId}`,
-          "_blank",
-          "noopener,noreferrer"
-        );
+        playContentInExplore({
+          id: item.stream.id,
+          title: item.stream.title,
+          url: "",
+          event: { id: item.stream.eventId },
+        });
         return;
       }
       const href = exploreCommunityJoinHref(item.community.id);
       prefetch(href);
       push(href);
     },
-    [resolveContentClick, prefetch, push]
+    [resolveContentClick, prefetch, push, playContentInExplore]
   );
 
   const selectedTagLabel = useMemo(
@@ -855,14 +849,21 @@ export function DiscoverPanel({
                             renderItem={stream => {
                               const idx = searchIdx++;
                               return (
-                                <Link
-                                  href={`/channel/${stream.eventId}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
                                   data-testid="discover-live-stream-card"
                                   data-search-index={idx}
+                                  onClick={() =>
+                                    playContentInExplore({
+                                      id: stream.id,
+                                      title: stream.title,
+                                      url: "",
+                                      liveStatus: stream.liveStatus,
+                                      event: { id: stream.eventId },
+                                    })
+                                  }
                                   className={cn(
-                                    "relative block",
+                                    "relative block text-left",
                                     CONTENT_CARD_MIN,
                                     idx === activeSearchIndex &&
                                       "ring-primary rounded-md ring-2"
@@ -894,7 +895,7 @@ export function DiscoverPanel({
                                       </span>
                                     </div>
                                   </div>
-                                </Link>
+                                </button>
                               );
                             }}
                           />
@@ -1301,7 +1302,7 @@ export function DiscoverPanel({
                         key={content.id}
                         data-testid="discover-live-stream-card"
                         className={cn("relative", CONTENT_CARD_MIN)}
-                        onClick={() => openLiveStreamContent(content)}
+                        onClick={() => resolveContentClick(content)}
                       >
                         {content.liveLabel ? (
                           <span className="bg-destructive absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold text-white uppercase">
@@ -1317,6 +1318,7 @@ export function DiscoverPanel({
                             suppressInlinePlaybackContentId={
                               suppressInlinePlaybackContentId
                             }
+                            disableInlinePlayback={disableInlinePlaybackForHandoff}
                             className="aspect-video w-64 rounded-md sm:w-80"
                           />
 

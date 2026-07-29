@@ -10,19 +10,16 @@ export function isLiveStreamContent(content: {
 /**
  * Where a discover-panel card click should navigate.
  *
- * Product rule (architecture consolidation): standard videos clicked anywhere
- * in Discovery — quick panel, expanded Discover tab, or the dedicated Discover
- * page — always play inside the long-lived ExploreFeedClient session. The
- * `surface` is retained for callers/telemetry but no longer gates playback;
- * any surface that provides a play handler reuses Explore playback. Live
- * streams continue to open their dedicated channel destination.
+ * Product rule: when Explore playback is wired, every clip (including live
+ * streams) opens in the long-lived ExploreFeedClient session. Legacy `/content`
+ * and `/channel` navigation is disabled in the panel when a play handler exists.
  */
 export function resolveDiscoverContentTarget(
   content: { liveStatus?: string | null },
   _surface: DiscoverSurface,
   hasPlayInExplore: boolean
 ): "channel" | "content" | "explore-reel" {
-  if (isLiveStreamContent(content)) return "channel";
   if (hasPlayInExplore) return "explore-reel";
+  if (isLiveStreamContent(content)) return "channel";
   return "content";
 }

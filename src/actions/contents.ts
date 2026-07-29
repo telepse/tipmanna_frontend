@@ -10,11 +10,12 @@ import { DISCOVERY_PROGRAMS_DISPLAY_LIMIT } from "@/lib/discover-programs";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import { serverAuthHeaders } from "@/lib/server-auth";
 
-/** Discover/catalog rails must always hit the live API (not Next Data Cache). */
+/** Discover/catalog rails — cached with short revalidation for SSR performance. */
 const DISCOVER_CATALOG_GET: ServerActionFetchInit = {
   method: "GET",
   headers: { "Content-Type": "application/json" },
-  cache: "no-store",
+  cache: "force-cache",
+  next: { revalidate: 30 },
 };
 
 // -------- Get latest contents -------- //

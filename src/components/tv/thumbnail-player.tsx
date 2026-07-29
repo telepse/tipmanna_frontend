@@ -48,10 +48,13 @@ export const ThumbnailPlayer = ({
         <button
           type="button"
           className="relative block w-full cursor-pointer border-0 bg-transparent p-0 text-left"
-          onClick={() => {
-            if (!disableInlinePlayback) {
-              setPlay(true);
+          onClick={e => {
+            if (disableInlinePlayback) {
+              // Parent card handles Explore handoff.
+              return;
             }
+            e.stopPropagation();
+            setPlay(true);
           }}
           aria-label="Play video preview"
         >

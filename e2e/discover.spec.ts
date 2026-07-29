@@ -1,17 +1,19 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("discover live routing", () => {
-  test("live stream cards navigate to channel room (fixture page)", async ({
+  test("live stream cards open in Explore reel (fixture page)", async ({
     page,
   }) => {
     await page.goto("/e2e/discover-live-routing");
     const card = page.getByTestId("discover-live-stream-card");
     await expect(card).toBeVisible();
     await card.click();
-    await expect(page).toHaveURL(/\/channel\/e2e-live-event/);
+    await expect(page).toHaveURL(/\/explore\?.*channel=e2e-live-channel/, {
+      timeout: 15_000,
+    });
   });
 
-  test("live stream cards navigate to channel room on discover", async ({
+  test("live stream cards open in Explore on discover page", async ({
     page,
   }) => {
     await page.goto("/discover");
@@ -28,6 +30,6 @@ test.describe("discover live routing", () => {
     }
 
     await card.click();
-    await expect(page).toHaveURL(/\/channel\//, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/explore\?.*channel=/, { timeout: 15_000 });
   });
 });

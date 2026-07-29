@@ -1,6 +1,8 @@
 "use client";
 
 import { DiscoverPanel } from "@/components/tv/discover-panel";
+import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
+import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 
 const fixtureLive = {
   id: "e2e-live-channel",
@@ -12,10 +14,21 @@ const fixtureLive = {
 
 /** Isolated page for Playwright discover live routing tests. */
 export default function E2eDiscoverLiveRoutingPage() {
+  const navigateToExploreVideo = useNavigateToExploreVideo();
+
+  const handlePlayInExplore = (target: ExploreFeedOpenTarget) => {
+    navigateToExploreVideo({
+      id: target.videoId,
+      event: { id: target.eventId },
+      ...(target.channelSnapshot ?? {}),
+    });
+  };
+
   return (
     <main className="min-h-screen p-4">
       <DiscoverPanel
         surface="discovery"
+        onPlayInExplore={handlePlayInExplore}
         contents={[]}
         latestContents={[]}
         mostTippedContents={[]}

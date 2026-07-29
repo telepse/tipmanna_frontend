@@ -135,14 +135,12 @@ test.describe("runtime regression hunt", () => {
       await expect(page.getByTestId("explore-feed-scroll")).toHaveCount(1);
     });
 
-    test("fixture live routing still uses channel destination", async ({
-      page,
-    }) => {
+    test("fixture live routing opens in Explore reel", async ({ page }) => {
       await page.goto("/e2e/discover-live-routing");
       const card = page.getByTestId("discover-live-stream-card");
       await expect(card).toBeVisible({ timeout: 15_000 });
       await card.click();
-      await expect(page).toHaveURL(/\/channel\/e2e-live-event/);
+      await expect(page).toHaveURL(/\/explore\?.*channel=e2e-live-channel/);
     });
   });
 

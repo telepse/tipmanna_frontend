@@ -1,25 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-import {
-  getAllFeaturedContentsAction,
-  getDiscoveryProgramsAction,
-  getLatestContents,
-  getLiveStreamContents,
-  getMostTippedContents,
-  getRecommendedContents,
-  getSpotlightContents,
-} from "@/actions/contents";
-import { getCommunityExploreCatalogAction } from "@/actions/communities";
-import { getAllTopTippers } from "@/actions/events";
 import { DiscoverPanel } from "@/components/tv/discover-panel";
 import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
-import { normalizeListPayload } from "@/lib/list-response-normalizer";
-import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 
@@ -55,75 +41,6 @@ export function DiscoverPageClient({
   const searchParams = useSearchParams();
   const initialSearchTerm = searchParams.get("q")?.trim() ?? "";
   const navigateToExploreVideo = useNavigateToExploreVideo();
-
-  const [contents, setContents] = useState(initialContents);
-  const [latestContents, setLatestContents] = useState(initialLatest);
-  const [spotlightContents, setSpotlightContents] = useState(initialSpotlight);
-  const [recommendedContents, setRecommendedContents] =
-    useState(initialRecommended);
-  const [mostTippedContents, setMostTippedContents] =
-    useState(initialMostTipped);
-  const [programs, setPrograms] = useState(initialPrograms);
-  const [liveStreams, setLiveStreams] = useState(initialLiveStreams);
-  const [tippers, setTippers] = useState(initialTippers);
-  const [topCommunities, setTopCommunities] = useState(initialTopCommunities);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setCatalogLoading(true);
-    void (async () => {
-      try {
-        const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, commRes] =
-          await Promise.all([
-            getAllFeaturedContentsAction(),
-            getLatestContents(),
-            getSpotlightContents(),
-            getRecommendedContents(),
-            getMostTippedContents(),
-            getLiveStreamContents(),
-            getDiscoveryProgramsAction(),
-            getAllTopTippers(),
-            getCommunityExploreCatalogAction(),
-          ]);
-        if (cancelled) return;
-
-        if (feat.success) setContents(normalizeListPayload(feat.data));
-        if (lat.success) setLatestContents(normalizeListPayload(lat.data));
-        if (spot.success)
-          setSpotlightContents(normalizeListPayload(spot.data));
-        if (rec.success)
-          setRecommendedContents(normalizeListPayload(rec.data));
-        if (most.success)
-          setMostTippedContents(normalizeListPayload(most.data));
-        if (progRes.success)
-          setPrograms(
-            takeRecentDiscoveryPrograms(normalizeListPayload(progRes.data))
-          );
-        if (tipRes.success) setTippers(normalizeListPayload(tipRes.data));
-
-        if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {
-          const ls = liveRes.data as LiveStreams;
-          setLiveStreams({
-            upcoming: Array.isArray(ls.upcoming) ? ls.upcoming : [],
-            live: Array.isArray(ls.live) ? ls.live : [],
-            recentlyEnded: Array.isArray(ls.recentlyEnded)
-              ? ls.recentlyEnded
-              : [],
-          });
-        }
-
-        if (commRes.success && Array.isArray(commRes.data?.topByTips)) {
-          setTopCommunities(commRes.data.topByTips);
-        }
-      } finally {
-        if (!cancelled) setCatalogLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handlePlayInExplore = (target: ExploreFeedOpenTarget) => {
     navigateToExploreVideo({
@@ -171,17 +88,17 @@ export function DiscoverPageClient({
         <DiscoverPanel
           surface="discovery"
           onPlayInExplore={handlePlayInExplore}
-          contents={contents}
-          latestContents={latestContents}
-          spotlightContents={spotlightContents}
-          recommendedContents={recommendedContents}
-          mostTippedContents={mostTippedContents}
-          programs={programs}
-          liveStreams={liveStreams}
-          tippers={tippers}
-          topCommunities={topCommunities}
+          contents={initialContents}
+          latestContents={initialLatest}
+          spotlightContents={initialSpotlight}
+          recommendedContents={initialRecommended}
+          mostTippedContents={initialMostTipped}
+          programs={initialPrograms}
+          liveStreams={initialLiveStreams}
+          tippers={initialTippers}
+          topCommunities={initialTopCommunities}
           initialSearchTerm={initialSearchTerm}
-          catalogLoading={catalogLoading}
+          catalogLoading={false}
           className="space-y-6"
         />
       </div>
