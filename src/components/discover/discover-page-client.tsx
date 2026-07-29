@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { DiscoverPanel } from "@/components/tv/discover-panel";
 import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 
 type LiveStreams = {
@@ -39,8 +41,14 @@ export function DiscoverPageClient({
   initialTopCommunities = [],
 }: Props) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialSearchTerm = searchParams.get("q")?.trim() ?? "";
   const navigateToExploreVideo = useNavigateToExploreVideo();
+
+  useEffect(() => {
+    router.prefetch("/explore");
+    prefetchExploreFeedInitial();
+  }, [router]);
 
   const handlePlayInExplore = (target: ExploreFeedOpenTarget) => {
     navigateToExploreVideo({

@@ -27,6 +27,7 @@ import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 import { ThumbnailPlayer } from "./thumbnail-player";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
+import { warmExploreVideoHandoff } from "@/lib/explore-video-navigation";
 import {
   discoverySearchAction,
   type DiscoverySearchResult,
@@ -360,6 +361,20 @@ export function DiscoverPanel({
     [onPlayInExplore]
   );
 
+  const warmContentForExplore = useCallback(
+    (content: Content) => {
+      if (!onPlayInExplore) return;
+      const eventId = content.event?.id;
+      if (!eventId || !content.url?.trim()) return;
+      warmExploreVideoHandoff({
+        videoId: content.id,
+        eventId,
+        channelSnapshot: content as unknown as Record<string, unknown>,
+      });
+    },
+    [onPlayInExplore]
+  );
+
   const openDiscoverContent = useCallback(
     (content: Content) => {
       playContentInExplore(content);
@@ -512,6 +527,7 @@ export function DiscoverPanel({
     <div
       key={content.id}
       data-testid="discover-content-card"
+      onPointerEnter={() => warmContentForExplore(content)}
       onClick={() => resolveContentClick(content)}
       className={cn(
         "relative flex cursor-pointer gap-1 rounded-md border-2 bg-gray-200",
@@ -979,6 +995,7 @@ export function DiscoverPanel({
                   {tagResults.map(content => (
                     <div
                       key={content.id}
+                      onPointerEnter={() => warmContentForExplore(content)}
                       onClick={() => resolveContentClick(content)}
                       className={cn(
                         "cursor-pointer bg-black/10",
@@ -1302,6 +1319,7 @@ export function DiscoverPanel({
                         key={content.id}
                         data-testid="discover-live-stream-card"
                         className={cn("relative", CONTENT_CARD_MIN)}
+                        onPointerEnter={() => warmContentForExplore(content)}
                         onClick={() => resolveContentClick(content)}
                       >
                         {content.liveLabel ? (
@@ -1377,6 +1395,7 @@ export function DiscoverPanel({
                 itemMinClassName={CONTENT_CARD_MIN}
                 renderItem={content => (
                   <div
+                    onPointerEnter={() => warmContentForExplore(content)}
                     onClick={() => resolveContentClick(content)}
                     className={cn(
                       "cursor-pointer rounded-md bg-gray-200",

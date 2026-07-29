@@ -15,6 +15,18 @@ function isPlayableChannelRow(row: unknown): row is Record<string, unknown> {
   return true;
 }
 
+/** Sync fast path: Discover list rows already include url + event for playback. */
+export function buildExploreOpenRowFromSnapshot(
+  target: ExploreFeedOpenTarget
+): Record<string, unknown> | null {
+  const { videoId, channelSnapshot } = target;
+  if (!channelSnapshot || !isPlayableChannelRow(channelSnapshot)) return null;
+  return {
+    ...channelSnapshot,
+    id: videoId,
+  };
+}
+
 /**
  * Resolve a Discover handoff into a full explore reel row: playable url, event
  * tipping fields, and engagement metrics (same shape as explore feed batches).
@@ -24,10 +36,23 @@ export async function resolveExploreOpenChannelRow(
 ): Promise<Record<string, unknown> | null> {
   const { videoId, eventId, channelSnapshot } = target;
 
+  const snapshotPlayable =
+    channelSnapshot != null && isPlayableChannelRow(channelSnapshot);
+
   let apiRow: Record<string, unknown> | null = null;
-  const res = await getContentChannelAction(eventId);
-  if (res.success && Array.isArray(res.data)) {
-    const found = res.data.find(
+  const [channelRes, metricsRes] = await Promise.all([
+    snapshotPlayable
+      ? Promise.resolve(null)
+      : getContentChannelAction(eventId),
+    getExploreChannelMetricsAction(videoId),
+  ]);
+
+  if (
+    channelRes &&
+    channelRes.success &&
+    Array.isArray(channelRes.data)
+  ) {
+    const found = channelRes.data.find(
       (c: unknown) =>
         c &&
         typeof c === "object" &&
@@ -57,8 +82,8 @@ export async function resolveExploreOpenChannelRow(
 
   if (!row) return null;
 
-  const metricsRes = await getExploreChannelMetricsAction(videoId);
   if (
+    metricsRes &&
     metricsRes.success &&
     metricsRes.data &&
     typeof metricsRes.data === "object" &&

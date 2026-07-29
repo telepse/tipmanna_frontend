@@ -6,9 +6,8 @@ import { useRouter } from "next/navigation";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import {
   buildExploreVideoHref,
-  stashExploreChannelSnapshot,
+  warmExploreVideoHandoff,
 } from "@/lib/explore-video-navigation";
-import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 
 export type TvExploreContentRow = {
   id: string;
@@ -33,9 +32,10 @@ export function useNavigateToExploreVideo() {
         channelSnapshot: content as Record<string, unknown>,
       };
 
-      stashExploreChannelSnapshot(videoId, target.channelSnapshot ?? {});
-      prefetchExploreFeedInitial();
-      router.push(buildExploreVideoHref(target));
+      warmExploreVideoHandoff(target);
+      const href = buildExploreVideoHref(target);
+      router.prefetch(href);
+      router.push(href);
     },
     [router]
   );

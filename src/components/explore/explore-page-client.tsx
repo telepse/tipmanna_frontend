@@ -47,7 +47,7 @@ import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import {
   exploreOpenTargetFromUrl,
   exploreVideoHandoffKeyFromUrl,
-  stashExploreChannelSnapshot,
+  warmExploreVideoHandoff,
 } from "@/lib/explore-video-navigation";
 import {
   prefetchExploreCommunityFeed,
@@ -973,12 +973,16 @@ export default function ExplorePageClient({
     (target: ExploreFeedOpenTarget) => {
       pendingExploreOpenRef.current = target;
       setSuppressDiscoverInlineContentId(target.videoId);
-      stashExploreChannelSnapshot(
-        target.videoId,
-        target.channelSnapshot ?? {}
-      );
+      warmExploreVideoHandoff(target);
       setDiscoverSheetOpen(false);
       navigateFeedSubTab("trends");
+
+      const client = exploreFeedRef.current;
+      if (client) {
+        pendingExploreOpenRef.current = null;
+        void client.openInExplore(target);
+        return;
+      }
       setExploreOpenNonce(n => n + 1);
     },
     [navigateFeedSubTab]
@@ -1024,9 +1028,7 @@ export default function ExplorePageClient({
       raf = requestAnimationFrame(kick);
     };
 
-    raf = requestAnimationFrame(() => {
-      raf = requestAnimationFrame(kick);
-    });
+    kick();
 
     return () => {
       alive = false;
@@ -1127,6 +1129,7 @@ export default function ExplorePageClient({
 
   const openDiscoverSheet = useCallback(() => {
     setDiscoverSheetOpen(true);
+    prefetchExploreFeedInitial();
     if (!catalogLoadedRef.current) {
       catalogLoadedRef.current = true;
       void loadExploreCatalog();

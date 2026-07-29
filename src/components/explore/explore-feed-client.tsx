@@ -86,7 +86,7 @@ import {
   trackTvVideoStart,
 } from "@/lib/tvAnalytics";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import { resolveExploreOpenChannelRow } from "@/lib/explore-open-channel-row";
+import { resolveExploreOpenChannelRow, buildExploreOpenRowFromSnapshot } from "@/lib/explore-open-channel-row";
 import {
   scrollExploreFeedToIndex,
   getExploreSlideStepPx,
@@ -1356,14 +1356,16 @@ export const ExploreFeedClient = forwardRef<
 
       const existingIdx = itemsRef.current.findIndex(i => i.id === videoId);
       if (existingIdx >= 0) {
+        openingVideoIdRef.current = videoId;
+        setScrollSyncEpoch(e => e + 1);
         const existing = itemsRef.current[existingIdx];
         const needsEnrichment =
           !metricsFromFeedItem(existing) ||
           typeof existing?.event?.amountToRaise !== "number";
         if (needsEnrichment) {
-          const enriched = await resolveExploreOpenChannelRow(target);
-          if (myGen !== openGenerationRef.current) return;
-          if (enriched) {
+          void resolveExploreOpenChannelRow(target).then(enriched => {
+            if (myGen !== openGenerationRef.current) return;
+            if (!enriched) return;
             setItems(prev => {
               if (myGen !== openGenerationRef.current) return prev;
               const idx = prev.findIndex(i => i.id === videoId);
@@ -1372,10 +1374,36 @@ export const ExploreFeedClient = forwardRef<
               next[idx] = { ...prev[idx], ...enriched };
               return next;
             });
-          }
+          });
         }
-        openingVideoIdRef.current = videoId;
+        return;
+      }
+
+      const snapshotRow = buildExploreOpenRowFromSnapshot(target);
+      if (snapshotRow) {
+        setItems(prev => {
+          if (myGen !== openGenerationRef.current) return prev;
+          if (openingVideoIdRef.current !== videoId) return prev;
+          if (prev.some(i => i.id === videoId)) return prev;
+          const ai = activeIndexRef.current;
+          const insertAt = Math.min(ai + 1, prev.length);
+          const next = [...prev];
+          next.splice(insertAt, 0, snapshotRow);
+          return next;
+        });
         setScrollSyncEpoch(e => e + 1);
+        void resolveExploreOpenChannelRow(target).then(enriched => {
+          if (myGen !== openGenerationRef.current) return;
+          if (!enriched) return;
+          setItems(prev => {
+            if (myGen !== openGenerationRef.current) return prev;
+            const idx = prev.findIndex(i => i.id === videoId);
+            if (idx < 0) return prev;
+            const next = [...prev];
+            next[idx] = { ...prev[idx], ...enriched };
+            return next;
+          });
+        });
         return;
       }
 

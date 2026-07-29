@@ -1,4 +1,5 @@
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
+import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 
 const SNAPSHOT_KEY_PREFIX = "tipmanna:explore-channel-snapshot:";
 
@@ -53,6 +54,15 @@ export function buildExploreVideoHref(target: ExploreFeedOpenTarget): string {
   params.set("channel", target.videoId.trim());
   params.set("eventId", target.eventId.trim());
   return `/explore?${params.toString()}`;
+}
+
+/** Warm feed boot + session snapshot before navigation or in-session handoff. */
+export function warmExploreVideoHandoff(target: ExploreFeedOpenTarget): void {
+  stashExploreChannelSnapshot(
+    target.videoId,
+    target.channelSnapshot ?? {}
+  );
+  prefetchExploreFeedInitial();
 }
 
 export function exploreOpenTargetFromUrl(
