@@ -143,7 +143,7 @@ export function ProgramLanding({
 
         <div className="space-y-4 px-4 py-6">
           <div className="space-y-0.5">
-            <h1 className="text-2xl font-semibold line-clamp-2">
+            <h1 className="text-2xl font-semibold line-clamp-3 sm:line-clamp-none">
               {isMobile ? trimTitle(program.title, 40) : program.title}
             </h1>
 

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
-import { runServerFetch } from "@/lib/action-fetch";
+import { runServerFetch, type ServerActionFetchInit } from "@/lib/action-fetch";
 import {
   EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS,
   EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS,
@@ -9,18 +9,18 @@ import {
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import { serverAuthHeaders } from "@/lib/server-auth";
 
+/** Discover/catalog rails must always hit the live API (not Next Data Cache). */
+const DISCOVER_CATALOG_GET: ServerActionFetchInit = {
+  method: "GET",
+  headers: { "Content-Type": "application/json" },
+  cache: "no-store",
+};
+
 // -------- Get latest contents -------- //
 export async function getLatestContents() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/latest`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "force-cache",
-      next: { revalidate: 30 },
-    },
+    DISCOVER_CATALOG_GET,
     "getLatestContents",
     raw => normalizeListPayload(raw)
   );
@@ -30,14 +30,7 @@ export async function getLatestContents() {
 export async function getMostTippedContents() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/most-tipped`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "force-cache",
-      next: { revalidate: 30 },
-    },
+    DISCOVER_CATALOG_GET,
     "getMostTippedContents"
   );
 }
@@ -99,14 +92,7 @@ export async function unsaveChannelVideo(
 export async function getAllFeaturedContentsAction() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/featured`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "force-cache",
-      next: { revalidate: 30 },
-    },
+    DISCOVER_CATALOG_GET,
     "getAllFeaturedContentsAction",
     raw => normalizeListPayload(raw)
   );
@@ -115,12 +101,7 @@ export async function getAllFeaturedContentsAction() {
 export async function getSpotlightContents() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/spotlight`,
-    {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      cache: "force-cache",
-      next: { revalidate: 30 },
-    },
+    DISCOVER_CATALOG_GET,
     "getSpotlightContents"
   );
 }
@@ -128,12 +109,7 @@ export async function getSpotlightContents() {
 export async function getRecommendedContents() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/recommended`,
-    {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      cache: "force-cache",
-      next: { revalidate: 30 },
-    },
+    DISCOVER_CATALOG_GET,
     "getRecommendedContents"
   );
 }
@@ -141,12 +117,7 @@ export async function getRecommendedContents() {
 export async function getLiveStreamContents() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/live-streams`,
-    {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      cache: "force-cache",
-      next: { revalidate: 30 },
-    },
+    DISCOVER_CATALOG_GET,
     "getLiveStreamContents"
   );
 }
@@ -257,12 +228,7 @@ export async function discoverySearchAction(
 export async function getDiscoveryProgramsAction() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery`,
-    {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      cache: "force-cache",
-      next: { revalidate: 60 },
-    },
+    DISCOVER_CATALOG_GET,
     "getDiscoveryProgramsAction"
   );
 }
