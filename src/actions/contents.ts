@@ -18,12 +18,29 @@ const DISCOVER_CATALOG_GET: ServerActionFetchInit = {
   next: { revalidate: 30 },
 };
 
+/** Discover panel latest rail only — always fresh (no HTTP cache). */
+const DISCOVER_PANEL_LATEST_GET: ServerActionFetchInit = {
+  method: "GET",
+  headers: { "Content-Type": "application/json" },
+  cache: "no-store",
+};
+
 // -------- Get latest contents -------- //
 export async function getLatestContents() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/latest`,
     DISCOVER_CATALOG_GET,
     "getLatestContents",
+    raw => normalizeListPayload(raw)
+  );
+}
+
+/** Latest contents for DiscoverPanel only (uncached). */
+export async function getDiscoverPanelLatestContents() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/latest`,
+    DISCOVER_PANEL_LATEST_GET,
+    "getDiscoverPanelLatestContents",
     raw => normalizeListPayload(raw)
   );
 }

@@ -3,7 +3,7 @@ import { cache } from "react";
 import {
   getAllFeaturedContentsAction,
   getDiscoveryProgramsAction,
-  getLatestContents,
+  getDiscoverPanelLatestContents,
   getLiveStreamContents,
   getMostTippedContents,
   getRecommendedContents,
@@ -37,7 +37,7 @@ async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
   const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, commRes] =
     await Promise.all([
       getAllFeaturedContentsAction(),
-      getLatestContents(),
+      getDiscoverPanelLatestContents(),
       getSpotlightContents(),
       getRecommendedContents(),
       getMostTippedContents(),

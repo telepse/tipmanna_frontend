@@ -16,7 +16,7 @@ import dynamic from "next/dynamic";
 import {
   getAllFeaturedContentsAction,
   getDiscoveryProgramsAction,
-  getLatestContents,
+  getDiscoverPanelLatestContents,
   getLiveStreamContents,
   getMostTippedContents,
   getSpotlightContents,
@@ -507,28 +507,26 @@ export default function ExplorePageClient({
     setLatestContents(E2E_DISCOVER_CONTENTS);
     setSpotlightContents(E2E_DISCOVER_CONTENTS);
     catalogLoadedRef.current = true;
-  }, [e2eFixtures]);
-
-  useEffect(() => {
-    if (!e2eFixtures || !e2eTvSeed) return;
-    seedExploreTvPrefetch({
-      ongoing: [
-        {
-          channel: E2E_TV_HANDOFF.currentProgramme.channel,
-          startsAt: E2E_TV_HANDOFF.currentProgramme.startsAt,
-          endsAt: E2E_TV_HANDOFF.currentProgramme.endsAt,
-        },
-      ],
-      upcoming: [
-        {
-          channel: E2E_TV_HANDOFF.nextProgramme.channel,
-          startsAt: E2E_TV_HANDOFF.nextProgramme.startsAt,
-          endsAt: E2E_TV_HANDOFF.nextProgramme.endsAt,
-        },
-      ],
-      ongoingLabel: "On air now",
-      upcomingLabel: "Next 12 hours",
-    });
+    if (e2eTvSeed) {
+      seedExploreTvPrefetch({
+        ongoing: [
+          {
+            channel: E2E_TV_HANDOFF.currentProgramme.channel,
+            startsAt: E2E_TV_HANDOFF.currentProgramme.startsAt,
+            endsAt: E2E_TV_HANDOFF.currentProgramme.endsAt,
+          },
+        ],
+        upcoming: [
+          {
+            channel: E2E_TV_HANDOFF.nextProgramme.channel,
+            startsAt: E2E_TV_HANDOFF.nextProgramme.startsAt,
+            endsAt: E2E_TV_HANDOFF.nextProgramme.endsAt,
+          },
+        ],
+        ongoingLabel: "On air now",
+        upcomingLabel: "Next 12 hours",
+      });
+    }
   }, [e2eFixtures, e2eTvSeed]);
 
   useEffect(() => {
@@ -1058,7 +1056,7 @@ export default function ExplorePageClient({
         commRes,
       ] = await Promise.all([
         getAllFeaturedContentsAction(),
-        getLatestContents(),
+        getDiscoverPanelLatestContents(),
         getSpotlightContents(),
         getRecommendedContents(),
         getMostTippedContents(),
