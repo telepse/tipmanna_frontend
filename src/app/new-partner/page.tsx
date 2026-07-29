@@ -6,17 +6,16 @@ import Image from "next/image";
 
 // Local imports
 import { NavbarShell } from "@/components/shared/navbar-shell";
-import { NewHeroServer } from "@/components/home/new-hero-server";
+import { HeroServer } from "@/components/home/hero-server";
 import { LazySlider } from "@/components/home/lazy-slider";
 import Footer from "@/components/shared/footer";
 import Features from "@/components/home/features";
 import TippingBanner from "@/components/home/tipping-banner";
-import NewTrustBadges from "@/components/home/new-trust-badges";
-import { TheCoreShift } from "@/components/home/the-core-shift";
+import TrustBadges from "@/components/home/trust-badges";
 import TopEventsSection from "@/components/home/top-events-section";
 import TopContentsSection from "@/components/home/top-contents-section";
-import CharitiesSection from "@/components/home/charities-section";
-import TestimonialsLazy from "@/components/home/testimonials-lazy";
+// import CharitiesSection from "@/components/home/charities-section";
+// import TestimonialsLazy from "@/components/home/testimonials-lazy";
 import TopCommunitiesSection from "@/components/home/top-communities-section";
 import KeyStatsLazy from "@/components/home/key-stats-lazy";
 import FAQs from "@/components/home/faqs";
@@ -25,6 +24,18 @@ import PricingGrid from "@/components/home/pricing-grid";
 
 // Lib imports
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
+import { WhoIsTipmannaFor } from "@/components/home/who-is-tipmanna-for";
+import { TheCoreShift } from "@/components/home/the-core-shift";
+import { ContentToGrowth } from "@/components/home/content-to-growth";
+import { DiscoverSection } from "@/components/home/discover-section";
+import { SupportHappensInTheMoment } from "@/components/home/support-happens-in-the-moment";
+import ScheduledTvProgramsSection from "@/components/home/scheduled-tv-programs-section";
+import { AlreadyWatching } from "@/components/home/already-watching";
+import { ContinousEngagement } from "@/components/home/continuous-engagement";
+import { NewHeroServer } from "@/components/home/new-hero-server";
+import NewTrustBadges from "@/components/home/new-trust-badges";
+import NewTippingBanner from "@/components/home/new-tipping-banner";
+import NewPricingGrid from "@/components/home/pricing-grid";
 
 function DataSection({ children }: { children: ReactNode }) {
   return <section className="contents">{children}</section>;
@@ -79,6 +90,7 @@ export default function Home() {
       <LazySlider />
       <NewTrustBadges />
       <TheCoreShift />
+      <ContentToGrowth />
 
       <DataSection>
         <section
@@ -96,16 +108,25 @@ export default function Home() {
             aria-hidden
           />
 
-          <Features />
+          <div className="bg-secondary/10">
+            <Features />
+
+            <TopContentsSection />
+            <TopEventsSection />
+          </div>
+
+          <DiscoverSection />
 
           <TvHomePreviewSectionLazy />
+          <ScheduledTvProgramsSection />
+          <ContinousEngagement />
+          <SupportHappensInTheMoment />
 
-          <PricingGrid />
+          <NewTippingBanner />
 
-          <TippingBanner />
+          <WhoIsTipmannaFor />
 
-          <TopContentsSection />
-          <TopEventsSection />
+          <NewPricingGrid />
         </section>
       </DataSection>
 
@@ -113,11 +134,11 @@ export default function Home() {
         <TopCommunitiesSection />
       </DataSection>
 
-      <DataSection>
+      {/* <DataSection>
         <TestimonialsLazy />
-      </DataSection>
+      </DataSection> */}
 
-      <DataSection>
+      {/* <DataSection>
         <section
           className="relative min-h-[50vh]"
           aria-label="Charities"
@@ -135,11 +156,13 @@ export default function Home() {
             <CharitiesSection />
           </div>
         </section>
-      </DataSection>
+      </DataSection> */}
 
       <DataSection>
         <KeyStatsLazy />
       </DataSection>
+
+      <AlreadyWatching />
 
       <FAQs />
 

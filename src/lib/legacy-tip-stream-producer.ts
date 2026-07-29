@@ -1,8 +1,5 @@
 import type { Channel } from "pusher-js";
-import {
-  createTipGuard,
-  type TipAnimationEvent,
-} from "@/lib/animation-guard";
+import { createTipGuard, type TipAnimationEvent } from "@/lib/animation-guard";
 import { animLog } from "@/lib/animationDebug";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import {

@@ -1,0 +1,51 @@
+import { CONTENT_TO_GROWTH_STEPS } from "@/constants";
+import { Badge } from "../shared/badge";
+import { Title } from "../shared/title";
+import { Paragraph } from "../shared/paragraph";
+
+export const ContentToGrowth = () => {
+  return (
+    <section
+      className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat lg:mt-12"
+      style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
+    >
+      <div className="wrapper section flex flex-col items-center">
+        <Badge title="How it works" />
+
+        <Title
+          align="center"
+          size="lg"
+        >
+          From content to growth <br /> in{" "}
+          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+            three steps
+          </span>{" "}
+        </Title>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-8">
+          {CONTENT_TO_GROWTH_STEPS.map((item, index) => (
+            <div
+              key={index}
+              className="border-primary bg-secondary/10 space-y-4 rounded-2xl border-2 px-4 py-6 shadow lg:py-12"
+            >
+              <h2 className="text-secondary/30 text-4xl font-bold sm:text-5xl">
+                0{index + 1}
+              </h2>
+
+              <div className="space-y-2">
+                <Paragraph
+                  size="xl"
+                  weight="bold"
+                  className="text-primary"
+                >
+                  {item.title}
+                </Paragraph>
+                <Paragraph size="sm">{item.content}</Paragraph>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};

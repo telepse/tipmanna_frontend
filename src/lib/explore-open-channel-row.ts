@@ -41,17 +41,11 @@ export async function resolveExploreOpenChannelRow(
 
   let apiRow: Record<string, unknown> | null = null;
   const [channelRes, metricsRes] = await Promise.all([
-    snapshotPlayable
-      ? Promise.resolve(null)
-      : getContentChannelAction(eventId),
+    snapshotPlayable ? Promise.resolve(null) : getContentChannelAction(eventId),
     getExploreChannelMetricsAction(videoId),
   ]);
 
-  if (
-    channelRes &&
-    channelRes.success &&
-    Array.isArray(channelRes.data)
-  ) {
+  if (channelRes && channelRes.success && Array.isArray(channelRes.data)) {
     const found = channelRes.data.find(
       (c: unknown) =>
         c &&

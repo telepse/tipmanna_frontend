@@ -1,9 +1,23 @@
 import {
   Calendar,
+  CloudUpload,
+  Earth,
+  GraduationCap,
+  Headset,
+  Heart,
+  House,
+  MessageSquare,
+  Mic,
+  MonitorUp,
+  Share2,
+  Sprout,
   Target,
+  TicketPercent,
   TrendingUp,
   Trophy,
   Users,
+  UsersRound,
+  Volleyball,
   Wallet,
 } from "lucide-react";
 
@@ -20,23 +34,184 @@ export const HERO_IMAGES = [
   "/heros/image_4.webp",
 ];
 
+export const CONTINUOUS_ENGAGEMENT_SLIDES = [
+  {
+    image: "/heros/image_1.webp",
+    title: "Creators",
+    alt: "Creators publishing content on Tipmanna",
+  },
+  {
+    image: "/heros/image_2.webp",
+    title: "Events",
+    alt: "Live audience engagement during an event",
+  },
+  {
+    image: "/heros/image_3.webp",
+    title: "Communities",
+    alt: "Community growth through shared experiences",
+  },
+  {
+    image: "/heros/image_4.webp",
+    title: "Tipmanna TV",
+    alt: "Continuous engagement across Tipmanna TV",
+  },
+];
+
+export const CONTENT_TO_GROWTH_STEPS = [
+  {
+    title: "Create",
+    content:
+      "Your channel is where everything starts. Every piece of content opens your world.",
+  },
+  {
+    title: "Engage",
+    content:
+      "Viewers don't just watch - they react, comment, and participate in real time.",
+  },
+  {
+    title: "Grow",
+    content:
+      "Build returning audiences through shared experiences and visible participation.",
+  },
+];
+
+export const WHAT_YOU_CREATE = [
+  {
+    icon: Mic,
+    label: "Create",
+    className: "bg-white text-black",
+    iconClassName: "text-primary",
+  },
+  {
+    icon: CloudUpload,
+    label: "Upload",
+    className: "bg-black text-white",
+  },
+  {
+    icon: Share2,
+    label: "Share",
+    className: "bg-black text-white",
+  },
+  {
+    icon: UsersRound,
+    label: "Reach new audiences",
+    className: "bg-black text-white",
+  },
+  {
+    icon: Sprout,
+    label: "Grow",
+    className: "bg-white text-black",
+    iconClassName: "text-primary",
+  },
+];
+
+export const DISCOVER_FEATURES = [
+  {
+    title: "Creator Channel",
+    content:
+      "Creator channel gives every creator and organisation a place to add videos or live events and grow their audience",
+    cardClassName: "bg-gradient-to-r from-[#FFFFFF] to-[#F57D11]",
+    titleClassName: "bg-[#F8AC68]",
+  },
+  {
+    title: "TV Explore",
+    content:
+      "TV Explore helps people explore contents, discover creators, communities, live events, and experiences",
+    cardClassName: "bg-gradient-to-r from-[#FFFFFF] to-[#703601]",
+    titleClassName: "bg-[#E5DAD0]",
+  },
+  {
+    title: "Tipmanna TV",
+    content:
+      "Tipmanna TV brings explore to life through 24/7 content broadcast, scheduled programs, and shared experiences",
+    cardClassName: "bg-gradient-to-r from-[#FFFFFF] to-[#F57D11]",
+    titleClassName: "bg-[#FDE8D5]",
+  },
+];
+
+export const LIVE_ACTIVITY_FEATURES = [
+  {
+    icon: Heart,
+    label: "Live reactions",
+    className: "text-destructive",
+    fill: true,
+  },
+  {
+    icon: MessageSquare,
+    label: "Comments & conversation",
+    className: "text-primary",
+  },
+  {
+    icon: Headset,
+    label: "Supporter activity",
+    className: "text-violet-700",
+  },
+  {
+    icon: MonitorUp,
+    label: "Shared viewing experiences",
+    className: "text-cyan-700",
+  },
+  {
+    icon: UsersRound,
+    label: "Event participation moments",
+    className: "text-primary",
+  },
+];
+
+export const ALREADY_WATCHING_FEATURES = [
+  {
+    title: "Viewers",
+    content: "become participants",
+    className: "border-white bg-primary",
+    txtColor: "black",
+  },
+  {
+    title: "Participation",
+    content: "builds connection",
+    className: "border-primary bg-primary/50",
+    txtColor: "white",
+  },
+  {
+    title: "Connection",
+    content: "become lasting",
+    className: "border-white bg-primary",
+    txtColor: "black",
+  },
+];
+
 export const FEATURES = [
   {
-    icon: "/icons/charity.png",
-    title: "Create Content.",
-    content: `Upload videos, stream live, and grow your audience through channels, Explore, and Tipmanna TV. Every piece of content becomes an opportunity to be discovered, shared, and experienced by new supporters.`,
+    icon: Mic,
+    title: "Creators",
+    content: `Build an audience that watches, participates, and supports.`,
   },
   {
-    icon: "/icons/performance.png",
-    title: "Turn Viewers Into Participants.",
-    content:
-      "Most platforms stop at views. Tipmanna helps audiences engage in realtime through comments, reactions, supporter participation, livestream experiences, and shared community moments.",
+    icon: Earth,
+    title: "Charities",
+    content: "Turn supporters into an active community around your mission.",
   },
   {
-    icon: "/icons/calendar.png",
-    title: "Build More Than An Audience.",
+    icon: TicketPercent,
+    title: "Events Organisers",
+    content: "Keep engagement alive before, during, and after every event.",
+  },
+  {
+    icon: House,
+    title: "Communities",
     content:
-      "Turn attention into community, and community into recurring engagement. Tipmanna combines content, TV, memberships, livestreams, and supporter participation into one connected ecosystem.",
+      "Create a home for your members with content, conversations, and shared experiences..",
+  },
+  {
+    icon: GraduationCap,
+    title: "Schools & Universities",
+    content:
+      "Bring students together around events, programs, and campus life.",
+  },
+  {
+    icon: Volleyball,
+    title: "Sports & Faith Groups",
+    content:
+      "Keep your supporters connected beyond match day or gathering day.",
   },
 ];
 
@@ -54,69 +229,60 @@ export const PRICING: {
   {
     name: "Free",
     price: "£0",
-    desc: "Perfect for getting started.",
-    btnText: "Create free",
+    desc: "Start creating and building your audience.",
+    btnText: "Start free",
     tier: "free",
     features: [
-      "Upload videos",
-      "Create channels",
-      "Join communties",
-      "Appear in discovery",
-      "Receive supporter participation",
+      "Create your channel",
+      "Upload videos and livestreams",
+      "Share events",
+      "Appear in explore and discovery",
+      "Receive tips and supporter participation",
+      "Join communities",
       "Monthly payouts",
     ],
   },
   {
-    name: "Premium",
+    name: "Growth",
     price: "£19.99",
-    desc: "For serious creators and organisers.",
+    desc: "Grow engagement and build recurring relationships.",
     discountPrice: "£49.99",
-    btnText: "Upgrade to Premium",
+    btnText: "Upgrade to Growth",
     tier: "premium",
     features: [
       "Everything in Free",
       "Advanced analytics",
-      "Custom engagement experiences",
-      "Membership features",
-      "Enhanced discovery",
-      "Creator tools",
+      "Enhanced discovery opportunities",
       "Program promotion requests",
+      "Custom engagement experiences",
       "Co-owner management",
+      "Creator growth tools",
+      "Priority feature access",
     ],
   },
   {
     name: "Community",
     price: "£99.99",
-    desc: "Operate your own media network.",
+    desc: "Run your own community media network.",
     discountPrice: "",
     btnText: "Launch Community TV",
     tier: "community",
     features: [
       "Everything in Premium",
-      "Community TV",
-      "Membership subscriptions",
-      "Private community ecosystem",
+      "Community TV Channel",
+      "Community memberships",
+      "Private community spaces",
       "Program scheduling",
       "Community branding",
+      "Broadcast messaging",
       "Community analytics",
-      "Broadcast tools",
+      "Co-creator management",
       "Instant payouts",
     ],
   },
 ];
 
 export const TRUST_BADGES = [
-  {
-    icon: "/logos/fr.png",
-    label: "Fundraiser",
-  },
-  {
-    icon: "/logos/gdpr.png",
-    label: "Data Privacy",
-  },
-];
-
-export const NEW_TRUST_BADGES = [
   "Creators",
   "Charities",
   "Communities",

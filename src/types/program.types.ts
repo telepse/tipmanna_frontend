@@ -6,3 +6,16 @@ export type Program = {
   communityName: string;
   landingUrl: string;
 };
+
+export type DiscoveryProgram = {
+  id: string;
+  title: string;
+  scheduledAt: string;
+  durationSec?: number;
+  status?: string;
+  programStatus: string;
+  imageUrl: string | null;
+  landingUrl: string;
+  communityId: string | null;
+  communityName: string;
+};

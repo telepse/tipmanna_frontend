@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, AudioLines, EyeIcon, MessageCircle, UsersRound } from "lucide-react";
+import {
+  ArrowRight,
+  AudioLines,
+  EyeIcon,
+  MessageCircle,
+  UsersRound,
+} from "lucide-react";
 import { trimTitle } from "@/lib/utils";
 import { useTV } from "@/components/tv-provider";
 import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";
@@ -310,7 +316,8 @@ export function TvPlaylistPreview({
                   </span>
                   <span className={metricItemClass}>
                     <EyeIcon className="size-3 shrink-0" />
-                    {encounterCount} <span className="inline sm:hidden">seen</span>
+                    {encounterCount}{" "}
+                    <span className="inline sm:hidden">seen</span>
                   </span>
                 </p>
               </div>

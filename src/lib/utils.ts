@@ -377,7 +377,7 @@ export function formatProgramScheduleDisplay(date: string | Date): string {
 export function formatProgramScheduleWithTimezone(
   date: string | Date,
   timeZone = PROGRAM_DISPLAY_TIMEZONE,
-  label = "UK",
+  label = "UK"
 ): string {
   const d = typeof date === "string" ? new Date(date) : date;
 

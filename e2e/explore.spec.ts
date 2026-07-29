@@ -29,11 +29,15 @@ test.describe("explore", () => {
       }
     });
 
-    test("stream contract resolves to terminal feed (10x)", async ({ page }) => {
+    test("stream contract resolves to terminal feed (10x)", async ({
+      page,
+    }) => {
       for (let i = 0; i < 10; i += 1) {
         await gotoExplore(page);
         await waitExploreFeedReady(page, 60_000);
-        await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible();
+        await expect(
+          page.getByTestId("explore-feed-skeleton")
+        ).not.toBeVisible();
         await expect(
           page
             .getByTestId("explore-feed-scroll")

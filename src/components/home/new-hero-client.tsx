@@ -1,20 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // Third-party imports
 import { Button } from "@/components/ui/button";
 import { Asterisk, Search, Sparkles, Tv } from "lucide-react";
-import { useMediaQuery } from "react-responsive";
 
 // Local imports
 import { Title } from "@/components/shared/title";
 import { Paragraph } from "@/components/shared/paragraph";
 import { LocationPrompt } from "@/components/shared/location-prompt";
-import { CreateDialog } from "@/components/home/create-dialog";
+import Link from "next/link";
+import { useMediaQuery } from "react-responsive";
+import { CreateDialog } from "./create-dialog";
 
 // Constants for better maintainability
 const PATHS = {
@@ -112,26 +112,26 @@ export default function HeroClient() {
       aria-labelledby="hero-headline"
     >
       {/* Left Vector */}
-      <div className="pointer-events-none absolute -top-10 left-0 h-full w-1/3">
+      <div className="pointer-events-none absolute top-10 left-0 h-full w-1/3">
         <Image
           src={PATHS.leftPattern}
           alt="Decorative left background pattern"
           fill
           priority
-          className="object-contain object-left"
+          className="object-cover object-left"
           quality={85} // Reduced quality for background images
           sizes="33vw" // Proper sizing for responsive images
         />
       </div>
 
       {/* Right Vector */}
-      <div className="pointer-events-none absolute -top-10 right-0 h-full w-1/3">
+      <div className="pointer-events-none absolute top-10 right-0 h-full w-1/3">
         <Image
           src={PATHS.rightPattern}
           alt="Decorative right background pattern"
           fill
           priority
-          className="object-contain object-right"
+          className="object-cover object-right"
           quality={85}
           sizes="33vw"
         />
@@ -148,7 +148,7 @@ export default function HeroClient() {
       />
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center gap-4 px-4 py-20 text-center sm:gap-6">
+      <div className="relative z-10 flex flex-col items-center gap-4 px-4 py-20 text-center sm:gap-6">
         {/* Badge */}
         <div
           className="border-primary open_sans inline-flex items-center gap-2 rounded-full border px-4 py-3 text-xs font-medium sm:text-sm"
@@ -172,13 +172,14 @@ export default function HeroClient() {
             size="lg"
             className="mt-6 inline-flex items-center"
           >
-            <span>Turn viewers</span>
+            <span>Turn viewers</span>{" "}
           </Title>
         </h1>
 
         {/* Subheadline */}
-        <div className="flex items-center gap-2">
+        <div className="-mt-4 flex items-center gap-2">
           <Title size="lg">into</Title>
+
           <Title
             size="lg"
             color="primary"
@@ -216,10 +217,22 @@ export default function HeroClient() {
           size="sm"
           color="black"
           align="center"
+          className="relative -mt-4"
         >
-          Grow an audience that doesn{"'"}t just watch - they take part. <br />{" "}
-          Tipmanna turns content into realtime participation through <br /> live
-          engagements, shared moments, and visible supporter activity.
+          <div className="relative leading-relaxed">
+            Grow an audience that doesn&apos;t watch - they take part.{" "}
+            <br className="hidden lg:block" /> Tipmanna turns content into
+            realtime participation through <br className="hidden lg:block" />{" "}
+            live engagements, shared moments, and visible supporter activity.{" "}
+            <Image
+              src="/icons/flash.png"
+              alt="Flash"
+              width={50}
+              height={50}
+              sizes="64px"
+              className="absolute top-2 -right-12 size-10 rotate-[30deg] object-contain opacity-50 sm:-right-22 sm:size-16"
+            />
+          </div>
         </Paragraph>
 
         {/* Render decorative icons */}
@@ -231,13 +244,13 @@ export default function HeroClient() {
         </div>
 
         {/* CTA */}
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 flex gap-2">
           <Button
-            type="button"
             size={isMobile ? "sm" : "lg"}
-            aria-label="Create Channel"
+            aria-label="Explore Contents"
             aria-haspopup="dialog"
             onClick={() => setOpenPopup(true)}
+            className="flex-1 shrink-0"
           >
             Create Channel
           </Button>
@@ -245,11 +258,11 @@ export default function HeroClient() {
           <Link href="/tv">
             <Button
               size={isMobile ? "sm" : "lg"}
-              className="bg-black"
               aria-label="Watch TV"
               aria-haspopup="dialog"
+              className="flex-1 shrink-0 bg-black"
             >
-              Watch Tipmanna TV <Tv aria-hidden="true" />
+              Watch TIpmanna TV <Tv aria-hidden="true" />
             </Button>
           </Link>
         </div>

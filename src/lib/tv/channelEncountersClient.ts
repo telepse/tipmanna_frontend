@@ -17,13 +17,15 @@ type ChannelMetricsBatchResponse = {
 
 function parseRowMetrics(metrics: unknown): TvChannelRowMetrics | null {
   if (!metrics || typeof metrics !== "object") return null;
-  if ("restricted" in metrics && (metrics as { restricted?: boolean }).restricted) {
+  if (
+    "restricted" in metrics &&
+    (metrics as { restricted?: boolean }).restricted
+  ) {
     return null;
   }
   const row = metrics as { encounters?: unknown; comments?: unknown };
   return {
-    encounters:
-      typeof row.encounters === "number" ? row.encounters : 0,
+    encounters: typeof row.encounters === "number" ? row.encounters : 0,
     comments: typeof row.comments === "number" ? row.comments : 0,
   };
 }

@@ -9,6 +9,9 @@ import { TvLooper } from "@/components/tv/tv-looper";
 import TVProvider, { useTV } from "@/components/tv-provider";
 import type { RoomCharacter } from "@/types";
 import { Button } from "@/components/ui/button";
+import { Badge } from "../shared/badge";
+import { Title } from "../shared/title";
+import { Paragraph } from "../shared/paragraph";
 
 function TvPreviewPlayer({
   characters,
@@ -34,7 +37,7 @@ function TvPreviewPlayer({
           </button>
         </div>
       ) : null}
-      <div className="relative overflow-hidden rounded-xl border bg-black/5 p-2 md:p-4">
+      <div className="bg-secondary/10 relative overflow-hidden rounded-2xl p-2 md:p-6">
         <TvLooper
           characters={characters}
           playerLayout={isNarrow ? "compact" : "wide"}
@@ -131,12 +134,32 @@ export default function TvHomePreviewSection() {
   return (
     <section
       ref={sectionRef}
-      className="border-border/60 bg-background w-full border-t py-10 md:py-14"
+      className="wrapper section mt-6 flex flex-col items-center lg:mt-12"
       aria-labelledby="tv-home-heading"
     >
-      <div className="mx-auto max-w-6xl px-4 md:px-6">
+      <Badge title="Audience" />
+
+      <div className="flex flex-col items-center space-y-2">
+        <Title
+          size="lg"
+          align="center"
+        >
+          Your audience doesn&apos;t just watch <br />{" "}
+          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+            they take part
+          </span>
+        </Title>
+
+        <Paragraph align="center">
+          Tipmanna turns viewing into live participation. Supporters react{" "}
+          <br className="hidden sm:block" /> comment, and engage as content
+          happens - not after.
+        </Paragraph>
+      </div>
+
+      <div className="mx-auto w-full max-w-6xl px-4 md:px-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-          <div>
+          <div className="space-y-1">
             <h2
               id="tv-home-heading"
               className="text-xl font-semibold tracking-tight md:text-2xl"

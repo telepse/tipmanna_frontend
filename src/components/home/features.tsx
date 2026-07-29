@@ -1,26 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 // Third-party imports
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { ArrowBigRight, Plus } from "lucide-react";
 
 // Import Swiper React components
 import { SwiperSlide } from "swiper/react";
 import { Pagination, Autoplay, A11y } from "swiper/modules";
 
-// Import Swiper styles
-import "swiper/css";
-import "swiper/css/pagination";
-import "swiper/css/a11y";
-
 // Local imports
 import { Paragraph } from "@/components/shared/paragraph";
 import { Title } from "@/components/shared/title";
 import { Badge } from "@/components/shared/badge";
-import { FEATURES } from "@/constants";
+import { FEATURES, WHAT_YOU_CREATE } from "@/constants";
 import { FeatureCard } from "./feature-card";
 import { CreateDialog } from "./create-dialog";
 
@@ -61,10 +56,11 @@ export default function Features() {
           align="center"
           size="lg"
         >
+          Everything starts with <br className="hidden lg:block" /> what
+          you&nbsp;{" "}
           <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-            Upload videos.{" "}
+            create.{" "}
           </span>{" "}
-          Go live. Build your community.
         </Title>
       </h2>
       <Paragraph
@@ -72,10 +68,28 @@ export default function Features() {
         color="muted"
         className="-mt-2"
       >
-        Grow your audience, create shared experiences, and{" "}
-        <br className="hidden sm:block" /> earn through supporter participation,
-        memberships, and community engagement.
+        Your channel is where participation begins.{" "}
+        <br className="hidden sm:block" /> Upload videos, or go live, share!{" "}
+        <br />
+        Build moments people return for.
       </Paragraph>
+
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {WHAT_YOU_CREATE.map((item, index) => (
+          <Fragment key={index}>
+            <div
+              className={`flex items-center gap-2 rounded-full border border-black px-4 py-2 text-xs sm:text-sm ${item.className}`}
+            >
+              <item.icon className={`size-4 ${item.iconClassName}`} />
+              {item.label}
+            </div>
+
+            {index < WHAT_YOU_CREATE.length - 1 && (
+              <ArrowBigRight className="size-4" />
+            )}
+          </Fragment>
+        ))}
+      </div>
 
       <Button
         size="lg"
@@ -83,66 +97,12 @@ export default function Features() {
         onClick={() => setOpenPopup(true)}
       >
         Create your channel{" "}
-        <Plus className="bg-primary size-5 rounded p-1 text-black" />
       </Button>
 
       <CreateDialog
         openPopup={openPopup}
         setOpenPopup={setOpenPopup}
       />
-
-      {/* ✅ Swiper for small/medium, Grid for large */}
-      <div
-        className="mt-6 min-h-[200px] w-full lg:hidden"
-        ref={ref}
-      >
-        {visible ? (
-          <Swiper
-            slidesPerView={3}
-            spaceBetween={30}
-            loop
-            centeredSlides
-            autoplay={{ delay: 5000 }}
-            pagination={{ clickable: true }}
-            modules={[Pagination, Autoplay, A11y]}
-            a11y={{
-              prevSlideMessage: "Previous feature",
-              nextSlideMessage: "Next feature",
-              firstSlideMessage: "This is the first feature",
-              lastSlideMessage: "This is the last feature",
-              paginationBulletMessage: "Go to feature {{index}}",
-            }}
-            breakpoints={{
-              0: { slidesPerView: 1 },
-              768: { slidesPerView: 1, spaceBetween: 20 },
-              1024: { slidesPerView: 3, spaceBetween: 30 },
-            }}
-            className="lg:hidden"
-          >
-            {FEATURES.map((item, index) => (
-              <SwiperSlide key={index}>
-                <FeatureCard
-                  icon={item.icon}
-                  title={item.title}
-                  content={item.content}
-                />
-              </SwiperSlide>
-            ))}
-          </Swiper>
-        ) : null}
-      </div>
-
-      {/* Static grid for large screens */}
-      <div className="mt-6 hidden grid-cols-3 gap-6 lg:grid">
-        {FEATURES.map((item, index) => (
-          <FeatureCard
-            key={index}
-            icon={item.icon}
-            title={item.title}
-            content={item.content}
-          />
-        ))}
-      </div>
     </section>
   );
 }

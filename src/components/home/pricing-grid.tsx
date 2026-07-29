@@ -13,9 +13,9 @@ import { SwiperSlide } from "swiper/react";
 import { Pagination, Autoplay, A11y } from "swiper/modules";
 
 // Import Swiper styles
-import "swiper/css";
-import "swiper/css/pagination";
-import "swiper/css/a11y";
+// import "swiper/css";
+// import "swiper/css/pagination";
+// import "swiper/css/a11y";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -35,7 +35,7 @@ function hostDashboardSlug(user: RootState["auth"]["user"]): string | null {
   return user.username ?? null;
 }
 
-export default function PricingGrid() {
+export default function NewPricingGrid() {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -133,8 +133,8 @@ export default function PricingGrid() {
         color="muted"
         className="-mt-2"
       >
-        Start for free, build your audience, and unlock more powerful tools as
-        your community grows.
+        Launch your channel, grow participation, and unlock more powerful tools
+        as your audience grows.
       </Paragraph>
 
       <div

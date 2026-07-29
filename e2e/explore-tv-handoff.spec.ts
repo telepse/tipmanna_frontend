@@ -8,9 +8,12 @@ test.describe("Explore TV handoff", () => {
     let pass = 0;
     for (let i = 0; i < 20; i += 1) {
       await gotoExplore(page, withE2eFixtures("/explore?feedTab=tv&e2eTv=1"));
-      await expect(page.getByTestId("explore-subtab-tv")).toHaveClass(/bg-white/, {
-        timeout: 15_000,
-      });
+      await expect(page.getByTestId("explore-subtab-tv")).toHaveClass(
+        /bg-white/,
+        {
+          timeout: 15_000,
+        }
+      );
 
       const watch = page.getByTestId("explore-tv-watch").first();
       await expect(watch).toBeVisible({ timeout: 15_000 });
@@ -35,11 +38,16 @@ test.describe("Explore TV handoff", () => {
     page,
   }) => {
     await gotoExplore(page, "/explore?feedTab=tv");
-    await expect(page.getByTestId("explore-subtab-tv")).toHaveClass(/bg-white/, {
-      timeout: 15_000,
-    });
+    await expect(page.getByTestId("explore-subtab-tv")).toHaveClass(
+      /bg-white/,
+      {
+        timeout: 15_000,
+      }
+    );
     const watch = page.getByTestId("explore-tv-watch");
-    const empty = page.getByText(/no programmes|nothing scheduled|no schedule/i);
+    const empty = page.getByText(
+      /no programmes|nothing scheduled|no schedule/i
+    );
     await expect(watch.or(empty).first()).toBeVisible({ timeout: 30_000 });
   });
 });

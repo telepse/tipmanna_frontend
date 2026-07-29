@@ -25,14 +25,18 @@ setup("authenticate disposable tipper account", async ({ page }) => {
   setup.skip(!email, "PLAYWRIGHT_TIPPER_EMAIL is required");
 
   await page.goto("/explore");
-  await page.getByRole("button", { name: /Not signed in|Guest|Signed in/i }).click();
+  await page
+    .getByRole("button", { name: /Not signed in|Guest|Signed in/i })
+    .click();
   await expect(page.getByRole("dialog")).toBeVisible({ timeout: 15_000 });
 
   const otpSecret = process.env.PLAYWRIGHT_TIPPER_OTP_SECRET;
   if (otpSecret) {
     // Project-specific OTP helper hook — supply secret via CI only.
     await page.getByLabel(/email/i).fill(email as string);
-    await page.getByRole("button", { name: /continue|send code|sign in/i }).click();
+    await page
+      .getByRole("button", { name: /continue|send code|sign in/i })
+      .click();
     setup.skip(true, "Wire OTP entry against staging auth helper");
   } else {
     setup.skip(

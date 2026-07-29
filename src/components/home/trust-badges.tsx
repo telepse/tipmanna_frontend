@@ -3,14 +3,14 @@ import { useMemo } from "react";
 // Local imports
 import { TRUST_BADGES } from "@/constants";
 import { Paragraph } from "@/components/shared/paragraph";
-import { TrustBadge } from "./trust-badge";
+import { NewTrustBadge } from "./new-trust-badge";
 
 // Constants for better maintainability
 const SECTION_STYLES = {
   background: "#F5F5F5",
   spacing: {
-    mobile: "gap-6",
-    desktop: "lg:gap-12",
+    mobile: "gap-2",
+    desktop: "lg:gap-4",
   },
 } as const;
 
@@ -19,10 +19,9 @@ export default function TrustBadges() {
   const trustBadges = useMemo(
     () =>
       TRUST_BADGES.map((item, index) => (
-        <TrustBadge
-          key={`${item.label}-${index}`}
-          icon={item.icon}
-          label={item.label}
+        <NewTrustBadge
+          key={`${item}-${index}`}
+          label={item}
         />
       )),
     []
@@ -30,17 +29,16 @@ export default function TrustBadges() {
 
   return (
     <section
-      className="section bg-[#F5F5F5]"
+      className="section"
       aria-labelledby="trust-badges-heading"
       role="region"
     >
       <h2 id="trust-badges-title">
         <Paragraph
           align="center"
-          size="lg"
-          weight="bold"
+          size="sm"
         >
-          Trusted and compliant
+          Trusted by people who bring others together
         </Paragraph>
       </h2>
 

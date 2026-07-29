@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 // Local imports
-import { NEW_TRUST_BADGES } from "@/constants";
+import { TRUST_BADGES } from "@/constants";
 import { Paragraph } from "@/components/shared/paragraph";
 import { NewTrustBadge } from "./new-trust-badge";
 
@@ -9,8 +9,8 @@ import { NewTrustBadge } from "./new-trust-badge";
 const SECTION_STYLES = {
   background: "#F5F5F5",
   spacing: {
-    mobile: "gap-6",
-    desktop: "lg:gap-12",
+    mobile: "gap-2",
+    desktop: "lg:gap-4",
   },
 } as const;
 
@@ -18,7 +18,7 @@ export default function NewTrustBadges() {
   // Memoized trust badges to prevent unnecessary re-renders
   const trustBadges = useMemo(
     () =>
-      NEW_TRUST_BADGES.map((item, index) => (
+      TRUST_BADGES.map((item, index) => (
         <NewTrustBadge
           key={`${item}-${index}`}
           label={item}
@@ -37,7 +37,6 @@ export default function NewTrustBadges() {
         <Paragraph
           align="center"
           size="sm"
-          weight="bold"
         >
           Trusted by people who bring others together
         </Paragraph>

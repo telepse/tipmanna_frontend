@@ -58,10 +58,7 @@ export function buildExploreVideoHref(target: ExploreFeedOpenTarget): string {
 
 /** Warm feed boot + session snapshot before navigation or in-session handoff. */
 export function warmExploreVideoHandoff(target: ExploreFeedOpenTarget): void {
-  stashExploreChannelSnapshot(
-    target.videoId,
-    target.channelSnapshot ?? {}
-  );
+  stashExploreChannelSnapshot(target.videoId, target.channelSnapshot ?? {});
   prefetchExploreFeedInitial();
 }
 

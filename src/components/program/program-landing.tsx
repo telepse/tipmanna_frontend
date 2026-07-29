@@ -31,7 +31,7 @@ import type { ProgramBootstrap } from "@/lib/program-types";
 import { buildContentSharePath } from "@/lib/public-video-url";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { extractYoutubeID, getYoutubeThumbnail } from "@/lib/extractYoutubeID";
-import {  formatProgramScheduleWithTimezone, trimTitle } from "@/lib/utils";
+import { formatProgramScheduleWithTimezone, trimTitle } from "@/lib/utils";
 
 function formatDuration(totalSec: number) {
   const m = Math.floor(totalSec / 60);
@@ -143,7 +143,7 @@ export function ProgramLanding({
 
         <div className="space-y-4 px-4 py-6">
           <div className="space-y-0.5">
-            <h1 className="text-2xl font-semibold line-clamp-3 sm:line-clamp-none">
+            <h1 className="line-clamp-3 text-2xl font-semibold sm:line-clamp-none">
               {program.title}
             </h1>
 
@@ -182,15 +182,16 @@ export function ProgramLanding({
 
             <div className="flex gap-2">
               <div className="flex-1 sm:flex-none">
-              <SetReminderButton
-                programTitle={program.title}
-                scheduledAt={program.scheduledAt}
-                offsetOptions={program.reminderConfig.options}
-                defaultOffset={program.reminderConfig.defaultOffset}
-                enforcementId={communityId ? program.id : undefined}
-                globalEnforcementId={communityId ? undefined : program.id}
-                communityId={communityId}
-              /></div>
+                <SetReminderButton
+                  programTitle={program.title}
+                  scheduledAt={program.scheduledAt}
+                  offsetOptions={program.reminderConfig.options}
+                  defaultOffset={program.reminderConfig.defaultOffset}
+                  enforcementId={communityId ? program.id : undefined}
+                  globalEnforcementId={communityId ? undefined : program.id}
+                  communityId={communityId}
+                />
+              </div>
 
               <Button
                 type="button"

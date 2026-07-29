@@ -6,7 +6,9 @@ import { getImpactInNumbersAction } from "@/actions/home";
 
 // Local imports
 import { StatCard } from "./stat-card";
-import { KeyStat } from "@/types/keystat.types";
+import { KeyStat, KeyStatLastWeek } from "@/types/keystat.types";
+import { formatWithCommas } from "@/lib/utils";
+import { Badge } from "../shared/badge";
 
 interface Props {
   stats: KeyStat;
@@ -14,13 +16,42 @@ interface Props {
 
 export const revalidate = 30;
 
+function defaultKeyStatLastWeek(): KeyStatLastWeek {
+  return {
+    totalTipsReceived: 0,
+    successfulTransactions: 0,
+    activeYoutubeLinks: 0,
+    communitiesCreated: 0,
+    totalEncounters: 0,
+  };
+}
+
 function defaultKeyStat(): KeyStat {
   return {
     totalTipsReceived: 0,
     successfulTransactions: 0,
     uniqueTippersAndVisitors: 0,
     activeYoutubeLinks: 0,
+    communitiesCreated: 0,
+    totalEncounters: 0,
     contentViews: 0,
+    lastWeek: defaultKeyStatLastWeek(),
+  };
+}
+
+function normalizeKeyStatLastWeek(raw: unknown): KeyStatLastWeek {
+  const o = raw as Record<string, unknown> | null;
+  const base = defaultKeyStatLastWeek();
+  if (!o || typeof o !== "object") return base;
+  const n = (v: unknown): number =>
+    typeof v === "number" && Number.isFinite(v) ? v : 0;
+
+  return {
+    totalTipsReceived: n(o.totalTipsReceived),
+    successfulTransactions: n(o.successfulTransactions),
+    activeYoutubeLinks: n(o.activeYoutubeLinks),
+    communitiesCreated: n(o.communitiesCreated),
+    totalEncounters: n(o.totalEncounters),
   };
 }
 
@@ -55,8 +86,20 @@ function normalizeKeyStat(raw: unknown): KeyStat {
     successfulTransactions: n(o.successfulTransactions),
     uniqueTippersAndVisitors,
     activeYoutubeLinks,
+    communitiesCreated: n(o.communitiesCreated),
+    totalEncounters: n(o.totalEncounters),
     contentViews,
+    lastWeek: normalizeKeyStatLastWeek(o.lastWeek),
   };
+}
+
+function weeklySubtitle(
+  delta: number | undefined,
+  isMoney?: boolean
+): string | undefined {
+  if (delta == null || delta <= 0) return undefined;
+  const formatted = formatWithCommas(delta);
+  return isMoney ? `+£${formatted} last week` : `+${formatted} last week`;
 }
 
 export default function KeyStats({ stats }: Props) {
@@ -81,6 +124,11 @@ export default function KeyStats({ stats }: Props) {
   return (
     <section className="bg-[#FFFAF6] py-12">
       <div className="wrapper p-4">
+        <Badge
+          title="Our Impact
+        
+        "
+        />
         <div className="grid grid-cols-12 gap-4 sm:gap-6 lg:gap-12">
           <div className="bg-primary section relative col-span-full rounded-2xl text-white lg:col-span-5">
             <span className="border-primary open_sans z-10 inline-flex w-fit items-center gap-2 rounded-full border bg-black/50 px-4 py-3 text-xs font-medium sm:text-sm">
@@ -123,28 +171,43 @@ export default function KeyStats({ stats }: Props) {
 
           <div className="relative col-span-full grid grid-cols-2 gap-4 sm:grid-cols-2 sm:gap-6 lg:col-span-7">
             <StatCard
-              label="Tips Received"
+              label={`(${liveStats.successfulTransactions}) Supporter Participation`}
               value={liveStats.totalTipsReceived}
+              subtitle={weeklySubtitle(
+                liveStats.lastWeek.totalTipsReceived,
+                true
+              )}
               isMoney
             />
             <StatCard
+              label="Videos Published"
+              value={liveStats.activeYoutubeLinks}
+              subtitle={weeklySubtitle(liveStats.lastWeek.activeYoutubeLinks)}
+            />
+            <StatCard
+              label="Communities Created"
+              value={liveStats.communitiesCreated}
+              subtitle={weeklySubtitle(liveStats.lastWeek.communitiesCreated)}
+            />
+            <StatCard
+              label="TV Total Plays"
+              value={liveStats.totalEncounters}
+              subtitle={weeklySubtitle(liveStats.lastWeek.totalEncounters)}
+            />
+
+            {/* <StatCard
               label="Transactions"
               value={liveStats.successfulTransactions}
-            />
-            {/* <StatCard
-              label="Active tippers + visitors"
-              value={liveStats.uniqueTippersAndVisitors}
+              subtitle={weeklySubtitle(
+                liveStats.lastWeek.successfulTransactions
+              )}
             /> */}
-            <StatCard
+
+            {/* <StatCard
               label="Content views"
               subtitle="Watched 10 secs"
               value={liveStats.contentViews}
-            />
-            <StatCard
-              label="Contents added"
-              subtitle=""
-              value={liveStats.activeYoutubeLinks}
-            />
+            /> */}
 
             <Image
               src="/icons/flash.png"

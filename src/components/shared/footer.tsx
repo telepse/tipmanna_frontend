@@ -80,8 +80,9 @@ export default function Footer() {
               size="xs"
               color="muted"
             >
-              Enabling content-driven fundraising for charities,
-              <br /> content creators, and event organisers.
+              Realtime Community Media Infrastructure
+              <br /> Turning content into participation — and participation into
+              shared experience.
             </Paragraph>
 
             <div className="text-muted-foreground flex flex-wrap gap-2 text-sm sm:mt-4 lg:mt-0">
@@ -102,8 +103,7 @@ export default function Footer() {
               <Mail /> hello@tipmanna.tv
             </span>
             <span className="flex gap-2 sm:mt-12 lg:mt-0">
-              <MapPin /> 190 Corporation St, Birmingham, <br /> B4 6QD, United
-              Kingdom
+              <MapPin /> Birmingham, United Kingdom
             </span>
           </div>
         </div>
@@ -234,6 +234,14 @@ export default function Footer() {
                 />
               </div>
             </div>
+
+            <Paragraph
+              size="xs"
+              weight="bold"
+              className="racing_sans_one text-primary mt-12"
+            >
+              Watch. Participate. Support. Belong.
+            </Paragraph>
           </div>
         </div>
       </div>

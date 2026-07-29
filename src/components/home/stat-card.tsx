@@ -34,19 +34,22 @@ export const StatCard = ({
       </h2>
       <Paragraph
         align="center"
-        size={isDesktopOrLaptop ? "lg" : "sm"}
+        size={isDesktopOrLaptop ? "sm" : "sm"}
         color="muted"
       >
         {label}
       </Paragraph>
-      <Paragraph
-        align="center"
-        size="xs"
-        color="muted"
-        className="text-[10px]"
-      >
-        {subtitle}
-      </Paragraph>
+      <div className="flex w-full justify-center">
+        {subtitle ? (
+          <Paragraph
+            align="center"
+            size="xs"
+            className="bg-success/20 text-success w-fit rounded-full px-2 py-1 text-[10px]"
+          >
+            {subtitle}
+          </Paragraph>
+        ) : null}
+      </div>
     </div>
   );
 };

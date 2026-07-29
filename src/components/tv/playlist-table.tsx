@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, AudioLines, EyeIcon, MessageCircle, UsersRound } from "lucide-react";
+import {
+  ArrowRight,
+  AudioLines,
+  EyeIcon,
+  MessageCircle,
+  UsersRound,
+} from "lucide-react";
 import { trimTitle } from "@/lib/utils";
 import { useTV } from "../tv-provider";
 import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";

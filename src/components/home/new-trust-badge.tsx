@@ -21,7 +21,8 @@ export const NewTrustBadge = ({ label }: Props) => {
     <Paragraph
       align="center"
       size={isDesktopOrLaptop ? "sm" : "xs"}
-      className="rounded-md bg-[#FFE9D6] px-2 py-1"
+      weight="medium"
+      className="bg-secondary/50 rounded-md px-2 py-1"
     >
       {label}
     </Paragraph>

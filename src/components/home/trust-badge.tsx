@@ -9,32 +9,22 @@ import { useMediaQuery } from "react-responsive";
 import { Paragraph } from "@/components/shared/paragraph";
 
 interface Props {
-  icon: string;
   label: string;
 }
 
-export const TrustBadge = ({ icon, label }: Props) => {
+export const NewTrustBadge = ({ label }: Props) => {
   const isDesktopOrLaptop = useMediaQuery({
     query: "(min-width: 1224px)",
   });
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <Image
-        src={icon}
-        alt={label}
-        width={50}
-        height={50}
-        className="size-12 rounded-full bg-black/10 object-contain grayscale"
-      />
-
-      <Paragraph
-        align="center"
-        size={isDesktopOrLaptop ? "sm" : "xs"}
-        weight="medium"
-      >
-        {label}
-      </Paragraph>
-    </div>
+    <Paragraph
+      align="center"
+      size={isDesktopOrLaptop ? "sm" : "xs"}
+      weight="medium"
+      className="bg-secondary/50 rounded-md px-2 py-1"
+    >
+      {label}
+    </Paragraph>
   );
 };

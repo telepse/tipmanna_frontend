@@ -5,9 +5,7 @@ import {
   readExploreHistoryMetrics,
   resetExploreHistoryMetrics,
 } from "./helpers/explore-native-history-instrumentation";
-import {
-  requireExploreNavigationReady,
-} from "./helpers/wait-explore-feed-ready";
+import { requireExploreNavigationReady } from "./helpers/wait-explore-feed-ready";
 import { withE2eFixtures } from "./helpers/explore-test-fixtures";
 
 const REPEAT = 10;
@@ -43,9 +41,9 @@ test.describe("My Communities navigation proof", () => {
         await expect
           .poll(() => sp(page.url()).get("tab"), { timeout: 5_000 })
           .toBe("my-communities");
-        await expect(page.getByTestId("explore-chrome-start-community")).toHaveClass(
-          /bg-white|text-white|shadow/
-        );
+        await expect(
+          page.getByTestId("explore-chrome-start-community")
+        ).toHaveClass(/bg-white|text-white|shadow/);
 
         const afterClick = await readExploreHistoryMetrics(page);
         expect(afterClick.pushState).toBe(1);

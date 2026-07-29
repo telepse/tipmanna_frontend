@@ -10,7 +10,9 @@ async function scrollFeedToIndex(
 ): Promise<number> {
   const scroll = page.getByTestId("explore-feed-scroll");
   return scroll.evaluate(async (el, targetIndex) => {
-    const slide = el.querySelector("[data-explore-slide]") as HTMLElement | null;
+    const slide = el.querySelector(
+      "[data-explore-slide]"
+    ) as HTMLElement | null;
     const h = slide?.getBoundingClientRect().height ?? el.clientHeight;
     if (h <= 0) return -1;
     el.scrollTop = targetIndex * h;
@@ -66,15 +68,16 @@ test.describe("Explore feed pagination", () => {
 
     for (let round = 0; round < 2; round += 1) {
       await scrollFeedNearEnd(page, slideCount);
-      const reachedNearEnd = await page.getByTestId("explore-feed-scroll").evaluate(
-        (el, target) => {
-          const slide = el.querySelector("[data-explore-slide]") as HTMLElement | null;
+      const reachedNearEnd = await page
+        .getByTestId("explore-feed-scroll")
+        .evaluate((el, target) => {
+          const slide = el.querySelector(
+            "[data-explore-slide]"
+          ) as HTMLElement | null;
           const h = slide?.getBoundingClientRect().height ?? el.clientHeight;
           if (h <= 0) return false;
           return Math.round(el.scrollTop / h) >= target;
-        },
-        nearEndIndex(slideCount)
-      );
+        }, nearEndIndex(slideCount));
       expect(reachedNearEnd).toBe(true);
       await expect(async () => {
         const count = await page.locator("[data-explore-slide]").count();
@@ -86,16 +89,23 @@ test.describe("Explore feed pagination", () => {
     // Boot batch + two continuation batches.
     expect(slideCount).toBeGreaterThanOrEqual(bootCount + 4);
 
-    const requestPhases = paginationLogs.filter(l => l.includes('"phase":"request"'));
+    const requestPhases = paginationLogs.filter(l =>
+      l.includes('"phase":"request"')
+    );
     expect(requestPhases.length).toBeGreaterThanOrEqual(2);
 
-    const successPhases = paginationLogs.filter(l => l.includes('"phase":"success"'));
+    const successPhases = paginationLogs.filter(l =>
+      l.includes('"phase":"success"')
+    );
     expect(successPhases.length).toBeGreaterThanOrEqual(2);
   });
 
   test("fourth batch loads after third near-end crossing", async ({ page }) => {
     test.setTimeout(300_000);
-    test.skip(true, "Optional stress case; primary three-batch contract is canonical");
+    test.skip(
+      true,
+      "Optional stress case; primary three-batch contract is canonical"
+    );
 
     await page.goto("/explore");
     const ready = await waitExploreFeedReady(page, 60_000);

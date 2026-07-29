@@ -55,9 +55,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  isLiveStreamContent,
-} from "@/lib/discover-content-routing";
+import { isLiveStreamContent } from "@/lib/discover-content-routing";
 
 const CONTENT_CARD_MIN = "min-w-[220px] sm:min-w-[270px] flex-shrink-0";
 const PROGRAM_CARD_MIN = "min-w-[160px] sm:min-w-[220px] flex-shrink-0";
@@ -1336,7 +1334,9 @@ export function DiscoverPanel({
                             suppressInlinePlaybackContentId={
                               suppressInlinePlaybackContentId
                             }
-                            disableInlinePlayback={disableInlinePlaybackForHandoff}
+                            disableInlinePlayback={
+                              disableInlinePlaybackForHandoff
+                            }
                             className="aspect-video w-64 rounded-md sm:w-80"
                           />
 

@@ -86,7 +86,10 @@ import {
   trackTvVideoStart,
 } from "@/lib/tvAnalytics";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import { resolveExploreOpenChannelRow, buildExploreOpenRowFromSnapshot } from "@/lib/explore-open-channel-row";
+import {
+  resolveExploreOpenChannelRow,
+  buildExploreOpenRowFromSnapshot,
+} from "@/lib/explore-open-channel-row";
 import {
   scrollExploreFeedToIndex,
   getExploreSlideStepPx,

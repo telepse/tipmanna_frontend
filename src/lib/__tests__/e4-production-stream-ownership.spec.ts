@@ -110,10 +110,7 @@ function addRoomConsumer(eventId: string, enabled = true): () => void {
   return () => window.removeEventListener("validated-tip", handler);
 }
 
-function addScreenConsumer(
-  eventId: string,
-  screenOpen: boolean
-): () => void {
+function addScreenConsumer(eventId: string, screenOpen: boolean): () => void {
   const handler = (e: Event) => {
     if (!screenOpen) return;
     const data = (e as CustomEvent<TipAnimationEvent>).detail;
@@ -239,23 +236,26 @@ describe("E4 production stream ownership correction", () => {
       ["unset", undefined],
       ["true", "true"],
       ["false", "false"],
-    ])("flag=%s: one raw producer and one publication fan out to room and screen", (_label, flag) => {
-      setProductionEnv(flag);
-      const unregisterProducer = registerEventRoomProducer("evt-1");
-      const unregisterRoom = addRoomConsumer("evt-1");
-      const unregisterScreen = addScreenConsumer("evt-1", true);
+    ])(
+      "flag=%s: one raw producer and one publication fan out to room and screen",
+      (_label, flag) => {
+        setProductionEnv(flag);
+        const unregisterProducer = registerEventRoomProducer("evt-1");
+        const unregisterRoom = addRoomConsumer("evt-1");
+        const unregisterScreen = addScreenConsumer("evt-1", true);
 
-      emitTipAnimation?.(makeTip({ seq: 10 }));
+        emitTipAnimation?.(makeTip({ seq: 10 }));
 
-      expect(pusherBindCount).toBe(1);
-      expect(validatedTipEvents()).toHaveLength(1);
-      expect(roomListenerInvocations).toHaveLength(1);
-      expect(screenListenerInvocations).toHaveLength(1);
+        expect(pusherBindCount).toBe(1);
+        expect(validatedTipEvents()).toHaveLength(1);
+        expect(roomListenerInvocations).toHaveLength(1);
+        expect(screenListenerInvocations).toHaveLength(1);
 
-      unregisterScreen();
-      unregisterRoom();
-      unregisterProducer();
-    });
+        unregisterScreen();
+        unregisterRoom();
+        unregisterProducer();
+      }
+    );
   });
 
   describe("Test E — Screen closed", () => {

@@ -2,36 +2,29 @@ import Image from "next/image";
 
 // Local imports
 import { Paragraph } from "@/components/shared/paragraph";
+import { LucideIcon } from "lucide-react";
 
 interface Props {
-  icon: string;
+  icon: LucideIcon;
   title: string;
   content: string;
 }
 
-export const FeatureCard = ({ icon, title, content }: Props) => {
+export const FeatureCard = ({ icon: Icon, title, content }: Props) => {
   return (
-    <div className="border-primary flex flex-col items-center gap-2 rounded-2xl border p-6">
-      <Image
-        src={icon}
-        alt={title}
-        width={50}
-        height={50}
-        className="bg-secondary/20 size-12 rounded-md object-contain p-2"
-      />
+    <div className="flex flex-col items-start gap-2 rounded-2xl p-6">
+      <Icon className="size-12" />
 
       <Paragraph
-        size="lg"
+        size="xl"
         weight="bold"
-        align="center"
       >
         {title}
       </Paragraph>
       <Paragraph
-        align="center"
         size="sm"
         color="muted"
-        className="text-[14px]"
+        className="text-[14px] italic"
       >
         {content}
       </Paragraph>

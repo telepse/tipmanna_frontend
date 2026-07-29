@@ -1,5 +1,8 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
+// Local imports
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
 import { Badge } from "@/components/shared/badge";
@@ -19,34 +22,38 @@ export default function TopCommunities({
     return null;
   }
 
+  const pathname = usePathname();
+
+  const isPartnerPage = pathname.includes("/partner");
+
   return (
     <section
       className="wrapper section items-center py-12"
       aria-labelledby="top-communities-heading"
     >
-      <Badge title="Tipmanna Community" />
+      {/* <Badge title="Tipmanna Community" /> */}
 
       <h2
         id="top-communities-heading"
         className="w-full"
       >
         <Title
-          align="center"
+          // align="center"
           size="lg"
         >
-          Host{" "}
+          Featured{" "}
           <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-            community
+            communities
           </span>
         </Title>
       </h2>
-      <Paragraph
+      {/* <Paragraph
         align="center"
         color="muted"
         className="-mt-2"
       >
         Ranked by total tips across approved bank videos.
-      </Paragraph>
+      </Paragraph> */}
 
       <div className="mt-6 w-full">
         {communities.length === 0 ? (
@@ -61,6 +68,18 @@ export default function TopCommunities({
           <ExploreTopCommunitiesGrid communities={communities} />
         )}
       </div>
+
+      {isPartnerPage && (
+        <div className="border-primary self-start border-l-2 p-4">
+          <Paragraph weight="bold">
+            Start with content. Grow participation. Build a community.
+          </Paragraph>
+          <Paragraph size="sm">
+            Tipmanna grows with you - from your first video to your own
+            community-powered media network.
+          </Paragraph>
+        </div>
+      )}
     </section>
   );
 }
