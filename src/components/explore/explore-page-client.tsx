@@ -35,6 +35,7 @@ import {
   type CommunityExploreCatalogRow,
 } from "@/actions/communities";
 import { cn } from "@/lib/utils";
+import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 import {
   buildTvPickerOptionsForUser,
   type TvCommunityBrief,
@@ -46,6 +47,7 @@ import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import {
   exploreOpenTargetFromUrl,
   exploreVideoHandoffKeyFromUrl,
+  stashExploreChannelSnapshot,
 } from "@/lib/explore-video-navigation";
 import {
   prefetchExploreCommunityFeed,
@@ -72,7 +74,6 @@ import {
   type ExploreMainTab,
   expandDiscoverTabIntent,
   openPanelFromExpandedIntent,
-  playInExploreIntent,
   searchIntent,
 } from "@/lib/discover-navigation-state";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
@@ -972,16 +973,15 @@ export default function ExplorePageClient({
     (target: ExploreFeedOpenTarget) => {
       pendingExploreOpenRef.current = target;
       setSuppressDiscoverInlineContentId(target.videoId);
-      const intent = playInExploreIntent();
-      if (intent.closePanel) setDiscoverSheetOpen(false);
-      if (!sideChickLocked) {
-        navigateFeedSubTab("trends");
-      } else if (intent.tab) {
-        navigateMainTab(intent.tab);
-      }
+      stashExploreChannelSnapshot(
+        target.videoId,
+        target.channelSnapshot ?? {}
+      );
+      setDiscoverSheetOpen(false);
+      navigateFeedSubTab("trends");
       setExploreOpenNonce(n => n + 1);
     },
-    [navigateMainTab, navigateFeedSubTab, sideChickLocked]
+    [navigateFeedSubTab]
   );
 
   useLayoutEffect(() => {
@@ -1003,6 +1003,8 @@ export default function ExplorePageClient({
   /** Runs after Feed subtree commits so refs/layout exist; restores pending target if aborted before open (Strict Mode / cancel). */
   useLayoutEffect(() => {
     if (tab !== "feed" && tab !== "community") return;
+    // Discovery handoffs always target the Trends reel; wait until TV chrome is hidden.
+    if (feedSubTab === "tv") return;
     const target = pendingExploreOpenRef.current;
     if (!target) return;
     pendingExploreOpenRef.current = null;
@@ -1033,7 +1035,7 @@ export default function ExplorePageClient({
         pendingExploreOpenRef.current = target;
       }
     };
-  }, [tab, exploreOpenNonce]);
+  }, [tab, feedSubTab, exploreOpenNonce]);
 
   const loadExploreCatalog = useCallback(async () => {
     setCatalogLoading(true);
@@ -1097,7 +1099,9 @@ export default function ExplorePageClient({
         });
       }
       setPrograms(
-        progRes.success ? normalizeListPayload<any>(progRes.data) : []
+        progRes.success
+          ? takeRecentDiscoveryPrograms(normalizeListPayload<any>(progRes.data))
+          : []
       );
       setTippers(tipRes.success ? normalizeListPayload<any>(tipRes.data) : []);
       setTipperEvents(

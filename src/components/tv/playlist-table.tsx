@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, AudioLines, EyeIcon, UsersRound } from "lucide-react";
+import { ArrowRight, AudioLines, EyeIcon, MessageCircle, UsersRound } from "lucide-react";
 import { trimTitle } from "@/lib/utils";
 import { useTV } from "../tv-provider";
 import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";
@@ -14,7 +14,10 @@ import {
   type WallClockLabelMode,
 } from "@/lib/tv/playlistDisplay";
 import { CommentDrawer } from "@/components/events/comment-drawer";
-import { fetchTvChannelEncountersBatch } from "@/lib/tv/channelEncountersClient";
+import {
+  fetchTvChannelMetricsBatch,
+  type TvChannelRowMetrics,
+} from "@/lib/tv/channelEncountersClient";
 import type { RoomCharacter } from "@/types";
 
 const UUID_RE =
@@ -112,8 +115,8 @@ export default function PlaylistTable({
   const [commentDrawerTarget, setCommentDrawerTarget] =
     useState<CommentDrawerTarget | null>(null);
 
-  const [encountersByChannelId, setEncountersByChannelId] = useState<
-    Record<string, number>
+  const [metricsByChannelId, setMetricsByChannelId] = useState<
+    Record<string, TvChannelRowMetrics>
   >({});
 
   /** Schedule list always follows live broadcast order (not local playback). */
@@ -129,7 +132,7 @@ export default function PlaylistTable({
     [variant, forceGlobalTimes, list, activeBatchRotationStart]
   );
 
-  const channelsMissingEncounters = useMemo(() => {
+  const channelsMissingMetrics = useMemo(() => {
     const missing = new Set<string>();
     for (const rowIndex of orderedIndices) {
       const item = list[rowIndex];
@@ -141,7 +144,10 @@ export default function PlaylistTable({
       ) {
         continue;
       }
-      if (typeof item.channel?.encounters !== "number") {
+      const hasEncounters = typeof item.channel?.encounters === "number";
+      const hasComments =
+        typeof (item.channel as { comments?: unknown })?.comments === "number";
+      if (!hasEncounters || !hasComments) {
         missing.add(channelId);
       }
     }
@@ -149,36 +155,41 @@ export default function PlaylistTable({
   }, [orderedIndices, list]);
 
   useEffect(() => {
-    const seeded: Record<string, number> = {};
+    const seeded: Record<string, TvChannelRowMetrics> = {};
     for (const rowIndex of orderedIndices) {
       const item = list[rowIndex];
       const channelId = item?.channel?.id;
+      if (typeof channelId !== "string") continue;
+      const channel = item?.channel as
+        | { encounters?: number; comments?: number }
+        | undefined;
       if (
-        typeof channelId === "string" &&
-        typeof item?.channel?.encounters === "number"
+        typeof channel?.encounters === "number" ||
+        typeof channel?.comments === "number"
       ) {
-        seeded[channelId] = item.channel.encounters;
+        seeded[channelId] = {
+          encounters: channel?.encounters ?? 0,
+          comments: channel?.comments ?? 0,
+        };
       }
     }
-    setEncountersByChannelId(seeded);
+    setMetricsByChannelId(seeded);
   }, [orderedIndices, list]);
 
   useEffect(() => {
-    if (channelsMissingEncounters.length === 0) return;
+    if (channelsMissingMetrics.length === 0) return;
 
     let cancelled = false;
     void (async () => {
-      const fetched = await fetchTvChannelEncountersBatch(
-        channelsMissingEncounters
-      );
+      const fetched = await fetchTvChannelMetricsBatch(channelsMissingMetrics);
       if (cancelled || Object.keys(fetched).length === 0) return;
-      setEncountersByChannelId(prev => ({ ...prev, ...fetched }));
+      setMetricsByChannelId(prev => ({ ...prev, ...fetched }));
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [channelsMissingEncounters]);
+  }, [channelsMissingMetrics]);
 
   if (!list.length) return null;
 
@@ -267,10 +278,15 @@ export default function PlaylistTable({
 
           const channelId =
             typeof item.channel?.id === "string" ? item.channel.id : "";
-          const encounterCount =
-            (channelId ? encountersByChannelId[channelId] : undefined) ??
-            item.channel.encounters ??
+          const channelMetrics = channelId
+            ? metricsByChannelId[channelId]
+            : undefined;
+          const channelComments =
+            channelMetrics?.comments ??
+            (item.channel as { comments?: number })?.comments ??
             0;
+          const encounterCount =
+            channelMetrics?.encounters ?? item.channel.encounters ?? 0;
 
           return (
             <div
@@ -305,6 +321,10 @@ export default function PlaylistTable({
                   <span className={metricItemClass}>
                     <UsersRound className="size-3 shrink-0" />
                     {item.channel.numOfTips || 0} tips
+                  </span>
+                  <span className={metricItemClass}>
+                    <MessageCircle className="size-3 shrink-0" />
+                    {channelComments}
                   </span>
                   <span className={metricItemClass}>
                     <EyeIcon className="size-3 shrink-0" />

@@ -126,6 +126,10 @@ import {
   getStatusColor,
   trimTitle,
 } from "@/lib/utils";
+import {
+  DISCOVERY_PROGRAMS_DISPLAY_LIMIT,
+  takeRecentDiscoveryPrograms,
+} from "@/lib/discover-programs";
 import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useMediaQuery } from "react-responsive";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
@@ -361,10 +365,11 @@ export function TvInteractiveShell({
   useEffect(() => {
     const loadPrograms = async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery`
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery?limit=${DISCOVERY_PROGRAMS_DISPLAY_LIMIT}`
       );
       const data = await res.json();
-      setPrograms(data as any[]);
+      const list = Array.isArray(data) ? data : [];
+      setPrograms(takeRecentDiscoveryPrograms(list));
     };
 
     loadPrograms();

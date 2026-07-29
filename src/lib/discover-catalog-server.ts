@@ -12,6 +12,7 @@ import {
 import { getCommunityExploreCatalogAction } from "@/actions/communities";
 import { getAllTopTippers } from "@/actions/events";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
+import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 
 export type DiscoverCatalog = {
   contents: unknown[];
@@ -61,7 +62,7 @@ async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
     spotlight: normalizeListPayload(spot.data),
     recommended: normalizeListPayload(rec.data),
     mostTipped: normalizeListPayload(most.data),
-    programs: normalizeListPayload(progRes.data),
+    programs: takeRecentDiscoveryPrograms(normalizeListPayload(progRes.data)),
     liveStreams: {
       upcoming: Array.isArray(liveData?.upcoming) ? liveData!.upcoming : [],
       live: Array.isArray(liveData?.live) ? liveData!.live : [],

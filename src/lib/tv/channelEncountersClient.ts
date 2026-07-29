@@ -1,14 +1,37 @@
+export type TvChannelRowMetrics = {
+  encounters: number;
+  comments: number;
+};
+
 type ChannelMetricsBatchResponse = {
   metrics?: Record<
     string,
-    { encounters?: number; restricted?: boolean } | { restricted: true }
+    | {
+        encounters?: number;
+        comments?: number;
+        restricted?: boolean;
+      }
+    | { restricted: true }
   >;
 };
 
-/** Client-side batch encounter lookup for TV playlist preview rows. */
-export async function fetchTvChannelEncountersBatch(
+function parseRowMetrics(metrics: unknown): TvChannelRowMetrics | null {
+  if (!metrics || typeof metrics !== "object") return null;
+  if ("restricted" in metrics && (metrics as { restricted?: boolean }).restricted) {
+    return null;
+  }
+  const row = metrics as { encounters?: unknown; comments?: unknown };
+  return {
+    encounters:
+      typeof row.encounters === "number" ? row.encounters : 0,
+    comments: typeof row.comments === "number" ? row.comments : 0,
+  };
+}
+
+/** Client-side batch metrics lookup for TV playlist / schedule rows. */
+export async function fetchTvChannelMetricsBatch(
   channelIds: string[]
-): Promise<Record<string, number>> {
+): Promise<Record<string, TvChannelRowMetrics>> {
   const base = (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(
     /\/$/,
     ""
@@ -26,18 +49,25 @@ export async function fetchTvChannelEncountersBatch(
     if (!res.ok) return {};
 
     const json = (await res.json()) as ChannelMetricsBatchResponse;
-    const out: Record<string, number> = {};
+    const out: Record<string, TvChannelRowMetrics> = {};
     for (const [channelId, metrics] of Object.entries(json.metrics ?? {})) {
-      if (
-        metrics &&
-        !("restricted" in metrics && metrics.restricted) &&
-        typeof metrics.encounters === "number"
-      ) {
-        out[channelId] = metrics.encounters;
-      }
+      const parsed = parseRowMetrics(metrics);
+      if (parsed) out[channelId] = parsed;
     }
     return out;
   } catch {
     return {};
   }
+}
+
+/** @deprecated Prefer {@link fetchTvChannelMetricsBatch}. */
+export async function fetchTvChannelEncountersBatch(
+  channelIds: string[]
+): Promise<Record<string, number>> {
+  const batch = await fetchTvChannelMetricsBatch(channelIds);
+  const out: Record<string, number> = {};
+  for (const [channelId, metrics] of Object.entries(batch)) {
+    out[channelId] = metrics.encounters;
+  }
+  return out;
 }

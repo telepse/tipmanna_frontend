@@ -19,6 +19,7 @@ import { getAllTopTippers } from "@/actions/events";
 import { DiscoverPanel } from "@/components/tv/discover-panel";
 import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
+import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 
@@ -96,7 +97,9 @@ export function DiscoverPageClient({
         if (most.success)
           setMostTippedContents(normalizeListPayload(most.data));
         if (progRes.success)
-          setPrograms(normalizeListPayload(progRes.data));
+          setPrograms(
+            takeRecentDiscoveryPrograms(normalizeListPayload(progRes.data))
+          );
         if (tipRes.success) setTippers(normalizeListPayload(tipRes.data));
 
         if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {

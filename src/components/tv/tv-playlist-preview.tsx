@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, AudioLines, EyeIcon, UsersRound } from "lucide-react";
+import { ArrowRight, AudioLines, EyeIcon, MessageCircle, UsersRound } from "lucide-react";
 import { trimTitle } from "@/lib/utils";
 import { useTV } from "@/components/tv-provider";
 import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";
@@ -11,7 +11,10 @@ import {
   wallClockStartMsForScheduleIndex,
 } from "@/lib/tv/playlistDisplay";
 import { CommentDrawer } from "@/components/events/comment-drawer";
-import { fetchTvChannelEncountersBatch } from "@/lib/tv/channelEncountersClient";
+import {
+  fetchTvChannelMetricsBatch,
+  type TvChannelRowMetrics,
+} from "@/lib/tv/channelEncountersClient";
 import type { RoomCharacter } from "@/types";
 
 const UUID_RE =
@@ -142,7 +145,7 @@ export function TvPlaylistPreview({
   const [commentDrawerTarget, setCommentDrawerTarget] =
     useState<CommentDrawerTarget | null>(null);
 
-  const previewChannelsMissingEncounters = useMemo(() => {
+  const previewChannelsMissingMetrics = useMemo(() => {
     const missing = new Set<string>();
     for (const originalIndex of previewIndices) {
       const item =
@@ -157,51 +160,61 @@ export function TvPlaylistPreview({
       ) {
         continue;
       }
-      if (typeof item.channel?.encounters !== "number") {
+      const hasEncounters = typeof item.channel?.encounters === "number";
+      const hasComments =
+        typeof (item.channel as { comments?: unknown })?.comments === "number";
+      if (!hasEncounters || !hasComments) {
         missing.add(channelId);
       }
     }
     return [...missing];
   }, [previewIndices, items, currentIndex, playingItemOverride]);
 
-  const [encountersByChannelId, setEncountersByChannelId] = useState<
-    Record<string, number>
+  const [metricsByChannelId, setMetricsByChannelId] = useState<
+    Record<string, TvChannelRowMetrics>
   >({});
 
   useEffect(() => {
-    const seeded: Record<string, number> = {};
+    const seeded: Record<string, TvChannelRowMetrics> = {};
     for (const originalIndex of previewIndices) {
       const item =
         originalIndex === currentIndex && playingItemOverride
           ? playingItemOverride
           : items[originalIndex];
       const channelId = item?.channel?.id;
+      if (typeof channelId !== "string") continue;
+      const channel = item?.channel as
+        | { encounters?: number; comments?: number }
+        | undefined;
       if (
-        typeof channelId === "string" &&
-        typeof item?.channel?.encounters === "number"
+        typeof channel?.encounters === "number" ||
+        typeof channel?.comments === "number"
       ) {
-        seeded[channelId] = item.channel.encounters;
+        seeded[channelId] = {
+          encounters: channel?.encounters ?? 0,
+          comments: channel?.comments ?? 0,
+        };
       }
     }
-    setEncountersByChannelId(seeded);
+    setMetricsByChannelId(seeded);
   }, [previewIndices, items, currentIndex, playingItemOverride]);
 
   useEffect(() => {
-    if (previewChannelsMissingEncounters.length === 0) return;
+    if (previewChannelsMissingMetrics.length === 0) return;
 
     let cancelled = false;
     void (async () => {
-      const fetched = await fetchTvChannelEncountersBatch(
-        previewChannelsMissingEncounters
+      const fetched = await fetchTvChannelMetricsBatch(
+        previewChannelsMissingMetrics
       );
       if (cancelled || Object.keys(fetched).length === 0) return;
-      setEncountersByChannelId(prev => ({ ...prev, ...fetched }));
+      setMetricsByChannelId(prev => ({ ...prev, ...fetched }));
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [previewChannelsMissingEncounters]);
+  }, [previewChannelsMissingMetrics]);
 
   const openCommentDrawer = (
     item: Parameters<typeof resolveCommentDrawerTarget>[0]
@@ -250,10 +263,15 @@ export function TvPlaylistPreview({
 
           const channelId =
             typeof item.channel?.id === "string" ? item.channel.id : "";
-          const encounterCount =
-            (channelId ? encountersByChannelId[channelId] : undefined) ??
-            item.channel.encounters ??
+          const channelMetrics = channelId
+            ? metricsByChannelId[channelId]
+            : undefined;
+          const channelComments =
+            channelMetrics?.comments ??
+            (item.channel as { comments?: number })?.comments ??
             0;
+          const encounterCount =
+            channelMetrics?.encounters ?? item.channel.encounters ?? 0;
 
           return (
             <div
@@ -287,8 +305,12 @@ export function TvPlaylistPreview({
                     {item.channel.numOfTips || 0} tips
                   </span>
                   <span className={metricItemClass}>
+                    <MessageCircle className="size-3 shrink-0" />
+                    {channelComments}
+                  </span>
+                  <span className={metricItemClass}>
                     <EyeIcon className="size-3 shrink-0" />
-                    {encounterCount} seen
+                    {encounterCount} <span className="inline sm:hidden">seen</span>
                   </span>
                 </p>
               </div>

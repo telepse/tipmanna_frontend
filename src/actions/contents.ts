@@ -6,6 +6,7 @@ import {
   EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS,
   EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS,
 } from "@/lib/explore-feed-fetch-timeout";
+import { DISCOVERY_PROGRAMS_DISPLAY_LIMIT } from "@/lib/discover-programs";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import { serverAuthHeaders } from "@/lib/server-auth";
 
@@ -225,11 +226,15 @@ export async function discoverySearchAction(
   );
 }
 
-export async function getDiscoveryProgramsAction() {
+export async function getDiscoveryProgramsAction(
+  limit = DISCOVERY_PROGRAMS_DISPLAY_LIMIT
+) {
+  const bounded = Math.max(1, Math.min(40, limit));
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/programs/discovery?limit=${bounded}`,
     DISCOVER_CATALOG_GET,
-    "getDiscoveryProgramsAction"
+    "getDiscoveryProgramsAction",
+    raw => normalizeListPayload(raw)
   );
 }
 

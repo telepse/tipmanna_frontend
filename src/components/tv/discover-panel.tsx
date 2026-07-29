@@ -21,6 +21,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { cn, formatProgramScheduleDisplay, trimTitle } from "@/lib/utils";
+import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 
 // Local imports
 import { ThumbnailPlayer } from "./thumbnail-player";
@@ -465,6 +466,10 @@ export function DiscoverPanel({
   const recommendedContentsRef = useRef<HTMLDivElement>(null);
   const mostTippedContentsRef = useRef<HTMLDivElement>(null);
   const programsRef = useRef<HTMLDivElement>(null);
+  const recentPrograms = useMemo(
+    () => takeRecentDiscoveryPrograms(programs),
+    [programs]
+  );
   const liveStreamsRef = useRef<HTMLDivElement>(null);
 
   const resolvedSpotlight =
@@ -1214,14 +1219,14 @@ export function DiscoverPanel({
               className="scrollbar-none hide__scrollbar overflow-x-auto"
             >
               <div className="flex gap-4">
-                {catalogLoading && programs.length === 0 ? (
+                {catalogLoading && recentPrograms.length === 0 ? (
                   carouselSkeleton
-                ) : programs.length === 0 ? (
+                ) : recentPrograms.length === 0 ? (
                   <p className="text-muted-foreground text-sm">
                     No active programs right now.
                   </p>
                 ) : (
-                  programs.map(program => (
+                  recentPrograms.map(program => (
                     <Link
                       key={program.id}
                       href={program.landingUrl ?? `/program/${program.id}`}
@@ -1259,7 +1264,7 @@ export function DiscoverPanel({
                 )}
               </div>
             </div>
-            {programs.length > 0 ? (
+            {recentPrograms.length > 0 ? (
               <button
                 type="button"
                 onClick={() => scrollNext(programsRef)}
