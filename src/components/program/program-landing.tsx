@@ -148,7 +148,7 @@ export function ProgramLanding({
             </h1>
 
             <p className="text-sm">
-              <span className="font-medium">Scheduled:</span>{" "}
+              <span className="font-medium">Time:</span>{" "}
               <span className="text-muted-foreground">
                 {formatProgramScheduleWithTimezone(program.scheduledAt)}
               </span>
@@ -181,6 +181,7 @@ export function ProgramLanding({
             </Button>
 
             <div className="flex gap-2">
+              <div className="flex-1 sm:flex-none">
               <SetReminderButton
                 programTitle={program.title}
                 scheduledAt={program.scheduledAt}
@@ -189,7 +190,7 @@ export function ProgramLanding({
                 enforcementId={communityId ? program.id : undefined}
                 globalEnforcementId={communityId ? undefined : program.id}
                 communityId={communityId}
-              />
+              /></div>
 
               <Button
                 type="button"
