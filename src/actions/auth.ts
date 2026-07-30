@@ -1,6 +1,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
+import { serverAuthHeaders } from "@/lib/server-auth";
 
 // -------- Register host -------- //
 export async function registerHostAction(values: {
@@ -314,5 +315,40 @@ export async function updateHostAction(
       cache: "no-store",
     },
     "updateHostAction"
+  );
+}
+
+export async function getHostProfileAction(token?: string | null) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/host-profile`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostProfileAction"
+  );
+}
+
+export async function updateHostProfileAction(
+  values: {
+    profileAccountType?: "INDIVIDUAL" | "ORGANIZATION";
+    individualProfile?: Record<string, unknown>;
+    organisationProfile?: Record<string, unknown>;
+  },
+  token?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/host-profile`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await serverAuthHeaders(token)),
+      },
+      body: JSON.stringify(values),
+      cache: "no-store",
+    },
+    "updateHostProfileAction"
   );
 }

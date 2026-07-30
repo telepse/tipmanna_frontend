@@ -126,6 +126,13 @@ export type TvStartupSummary = {
   syncToLiveCount: number;
   currentIndexChangeCount: number;
   playerErrorCount: number;
+  /** Phase C0 — counts by YouTube error code string key. */
+  youtubeErrorCodeCounts: Record<string, number>;
+  startupRecoveryCount: number;
+  startupRecoveryCapReached: boolean;
+  prePlaySeekSuppressedCount: number;
+  duplicateLoadSuppressedCount: number;
+  failedStartupTargetCount: number;
   retry10sOccurred: boolean;
   retry30sOccurred: boolean;
   retry60sOccurred: boolean;
@@ -279,6 +286,12 @@ function createEmptySummary(id: string): TvStartupSummary {
     syncToLiveCount: 0,
     currentIndexChangeCount: 0,
     playerErrorCount: 0,
+    youtubeErrorCodeCounts: {},
+    startupRecoveryCount: 0,
+    startupRecoveryCapReached: false,
+    prePlaySeekSuppressedCount: 0,
+    duplicateLoadSuppressedCount: 0,
+    failedStartupTargetCount: 0,
     retry10sOccurred: false,
     retry30sOccurred: false,
     retry60sOccurred: false,
@@ -458,6 +471,31 @@ function updateCounters(
       break;
     case "player_error":
       s.playerErrorCount += 1;
+      {
+        const code = data.youtubeErrorCode;
+        if (typeof code === "number" && Number.isFinite(code)) {
+          const key = String(code);
+          s.youtubeErrorCodeCounts[key] =
+            (s.youtubeErrorCodeCounts[key] ?? 0) + 1;
+        }
+      }
+      break;
+    case "youtube_error_classified":
+      break;
+    case "startup_error_recovery_started":
+      s.startupRecoveryCount += 1;
+      break;
+    case "startup_recovery_cap_reached":
+      s.startupRecoveryCapReached = true;
+      break;
+    case "startup_error_target_skipped":
+      s.failedStartupTargetCount += 1;
+      break;
+    case "pre_play_drift_seek_suppressed":
+      s.prePlaySeekSuppressedCount += 1;
+      break;
+    case "duplicate_pre_play_load_suppressed":
+      s.duplicateLoadSuppressedCount += 1;
       break;
     default:
       break;

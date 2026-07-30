@@ -47,8 +47,8 @@ import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import {
   exploreOpenTargetFromUrl,
   exploreVideoHandoffKeyFromUrl,
-  warmExploreVideoHandoff,
 } from "@/lib/explore-video-navigation";
+import { warmExploreVideoHandoff } from "@/lib/explore-video-handoff-warm";
 import {
   prefetchExploreCommunityFeed,
   prefetchExploreFeedInitial,

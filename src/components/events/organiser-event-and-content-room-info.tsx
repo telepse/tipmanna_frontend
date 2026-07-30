@@ -38,6 +38,7 @@ import { RootState } from "@/redux/store";
 import { NewEventFormData } from "@/schemas";
 import { toast } from "react-toastify";
 import { setCredentials } from "@/features/auth-slice";
+import { getLockedCustomerType } from "@/lib/locked-customer-type";
 
 interface Props {
   control: Control<NewEventFormData>;
@@ -100,6 +101,7 @@ type HostUser = {
   numOfEvents?: number;
   individualLegalFirstName?: string;
   individualLegalLastName?: string;
+  lockedCustomerType?: "INDIVIDUAL" | "ORGANIZATION" | null;
 };
 
 export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
@@ -148,10 +150,17 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
   const [fullName, setFullName] = useState(user?.fullName);
   const dispatch = useDispatch();
   const hasCreatedBefore = ((user as HostUser)?.numOfEvents ?? 0) > 0;
+  const lockedCustomerType = getLockedCustomerType(user as HostUser);
 
   useEffect(() => {
     setFullName(user?.fullName);
   }, [user]);
+
+  useEffect(() => {
+    if (lockedCustomerType) {
+      setValue("customerType", lockedCustomerType);
+    }
+  }, [lockedCustomerType, setValue]);
 
   useEffect(() => {
     // Use the flattened fields from the user object
@@ -357,6 +366,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
                     <RadioGroupItem
                       value="INDIVIDUAL"
                       id="individual"
+                      disabled={lockedCustomerType === "ORGANIZATION"}
                     />{" "}
                     <Label htmlFor="individual">Individual</Label>
                   </div>
@@ -365,10 +375,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
                     <RadioGroupItem
                       value="ORGANIZATION"
                       id="organisation"
-                      disabled={
-                        Boolean((user as HostUser)?.individualLegalFirstName) &&
-                        Boolean((user as HostUser)?.individualLegalLastName)
-                      }
+                      disabled={lockedCustomerType === "INDIVIDUAL"}
                     />{" "}
                     <Label htmlFor="organisation">Organisation</Label>
                   </div>

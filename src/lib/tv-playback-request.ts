@@ -3,7 +3,9 @@ export type TvPlaybackRequestReason =
   | "syncToLive"
   | "loadLocal"
   | "enforcement"
-  | "error_reload";
+  | "error_reload"
+  | "startup_error_recovery"
+  | "startup_error_advance";
 
 export type TvPlaybackRequest = {
   reason: TvPlaybackRequestReason;

@@ -27,7 +27,7 @@ import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 import { ThumbnailPlayer } from "./thumbnail-player";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import { warmExploreVideoHandoff } from "@/lib/explore-video-navigation";
+import { warmExploreVideoHandoff } from "@/lib/explore-video-handoff-warm";
 import {
   discoverySearchAction,
   type DiscoverySearchResult,

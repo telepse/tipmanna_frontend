@@ -147,6 +147,8 @@ export const WebTvLooper = ({
     applyPendingAudioRestore,
     unregisterTvPlayer,
     reloadCurrentPlaybackAt,
+    handleStartupPlayerError,
+    notifyStartupPlayerPlaying,
     scheduleSourceCommunityId,
   } = useTV();
 
@@ -586,26 +588,14 @@ export const WebTvLooper = ({
     onVideoEnd();
   };
 
-  const handlePlayerError = () => {
-    const p = playerRef.current;
-    tvStartupEvent("player_error", {
-      trigger: "youtube_onError",
-      data: { mode, surface: "web-tv-looper" },
-    });
-    if (!p?.isReady()) return;
+  const handlePlayerError = (youtubeErrorCode: number) => {
     console.error(
-      "[TvLooper] Playback error reload attempt",
+      "[WebTvLooper] Playback error",
       current?.id,
-      effectivePlayerUrl
+      "code:",
+      youtubeErrorCode
     );
-    if (!effectivePlayerUrl) return;
-    if (videoErrorReloadsRef.current >= 1) return;
-    videoErrorReloadsRef.current += 1;
-    if (mode === "GLOBAL") {
-      goLive();
-      return;
-    }
-    reloadCurrentPlaybackAt(Math.max(0, p.getCurrentTime()));
+    handleStartupPlayerError(youtubeErrorCode);
   };
 
   useEffect(() => {
@@ -1354,6 +1344,7 @@ export const WebTvLooper = ({
               onPlay={() => {
                 setIsPlayerLoading(false);
                 setIsPlaying(true);
+                notifyStartupPlayerPlaying();
                 applyPendingPlaybackRestore();
                 applyPendingAudioRestore();
                 const dur = playerRef.current?.getDuration() ?? 0;

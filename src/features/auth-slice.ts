@@ -14,6 +14,7 @@ export type HostUser = {
   individualLegalFirstName?: string | null;
   individualLegalLastName?: string | null;
   organizationName?: string | null;
+  lockedCustomerType?: "INDIVIDUAL" | "ORGANIZATION" | null;
 };
 
 export type TipperUser = {

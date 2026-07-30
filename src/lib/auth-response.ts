@@ -12,6 +12,7 @@ export type AuthUserPayload = {
   individualLegalFirstName?: string | null;
   individualLegalLastName?: string | null;
   organizationName?: string | null;
+  lockedCustomerType?: "INDIVIDUAL" | "ORGANIZATION" | null;
   anonymous?: boolean;
   hostSubscriptionTier?: "NONE" | "HOST_PREMIUM" | "HOST_COMMUNITY";
 };
@@ -44,6 +45,11 @@ function pickUser(
     individualLegalFirstName: raw.individualLegalFirstName ?? null,
     individualLegalLastName: raw.individualLegalLastName ?? null,
     organizationName: raw.organizationName ?? null,
+    lockedCustomerType:
+      raw.lockedCustomerType === "INDIVIDUAL" ||
+      raw.lockedCustomerType === "ORGANIZATION"
+        ? raw.lockedCustomerType
+        : null,
     anonymous: raw.anonymous,
     ...(role === "HOST"
       ? {

@@ -53,9 +53,17 @@ export async function getHostEventsSummaryAction(token?: string | null) {
 }
 
 // -------- Get host events -------- //
-export async function getHostEventsAction(token?: string | null) {
+export async function getHostEventsAction(
+  token?: string | null,
+  options?: { limit?: number; page?: number }
+) {
+  const params = new URLSearchParams();
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
+  const query = params.toString();
+
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/me`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/me${query ? `?${query}` : ""}`,
     {
       method: "GET",
       headers: await serverAuthHeaders(token),

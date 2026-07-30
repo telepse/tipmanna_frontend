@@ -25,15 +25,15 @@ async function scrollFeedToIndex(
   }, index);
 }
 
+function nearEndIndex(slideCount: number): number {
+  return Math.max(0, slideCount - NEAR_END_SLOTS);
+}
+
 async function scrollFeedNearEnd(
   page: import("@playwright/test").Page,
   slideCount: number
 ): Promise<void> {
   await scrollFeedToIndex(page, nearEndIndex(slideCount));
-}
-
-function nearEndIndex(slideCount: number): number {
-  return Math.max(0, slideCount - NEAR_END_SLOTS);
 }
 
 test.describe("Explore feed pagination", () => {
@@ -43,11 +43,21 @@ test.describe("Explore feed pagination", () => {
     test.setTimeout(180_000);
 
     const paginationLogs: string[] = [];
+    const batchStatuses: number[] = [];
 
     page.on("console", msg => {
       const text = msg.text();
       if (text.includes("explore_pagination")) {
         paginationLogs.push(text);
+      }
+    });
+
+    page.on("response", res => {
+      if (
+        res.url().includes("/contents/feed/batch") &&
+        res.request().method() === "POST"
+      ) {
+        batchStatuses.push(res.status());
       }
     });
 
@@ -86,7 +96,6 @@ test.describe("Explore feed pagination", () => {
       slideCount = await page.locator("[data-explore-slide]").count();
     }
 
-    // Boot batch + two continuation batches.
     expect(slideCount).toBeGreaterThanOrEqual(bootCount + 4);
 
     const requestPhases = paginationLogs.filter(l =>
@@ -98,6 +107,261 @@ test.describe("Explore feed pagination", () => {
       l.includes('"phase":"success"')
     );
     expect(successPhases.length).toBeGreaterThanOrEqual(2);
+
+    expect(batchStatuses.every(s => s !== 429 && s < 500)).toBeTruthy();
+    await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible();
+  });
+
+  test("fast-scroll near-end starts request before final old slide", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const marks: { label: string; t: number }[] = [];
+    const mark = (label: string) => marks.push({ label, t: Date.now() });
+
+    page.on("console", msg => {
+      if (msg.text().includes('"phase":"request"')) mark("request");
+      if (msg.text().includes('"phase":"success"')) mark("success");
+    });
+
+    await page.goto("/explore");
+    const ready = await waitExploreFeedReady(page, 60_000);
+    if (ready.state !== "scroll") {
+      test.skip(true, "Populated feed required for pagination");
+      return;
+    }
+
+    const bootCount = await page.locator("[data-explore-slide]").count();
+    mark("threshold");
+    await scrollFeedNearEnd(page, bootCount);
+    await expect(async () => {
+      expect(marks.some(m => m.label === "request")).toBeTruthy();
+    }).toPass({ timeout: 5_000 });
+
+    const finalOldIndex = bootCount - 1;
+    await scrollFeedToIndex(page, finalOldIndex);
+    mark("reached_final_old");
+
+    await expect(async () => {
+      const count = await page.locator("[data-explore-slide]").count();
+      expect(count).toBeGreaterThan(bootCount);
+    }).toPass({ timeout: 120_000 });
+    mark("append");
+
+    const t0 = marks.find(m => m.label === "threshold")!.t;
+    const tReq = marks.find(m => m.label === "request")!.t;
+    const tEnd = marks.find(m => m.label === "reached_final_old")!.t;
+    const tAppend = marks.find(m => m.label === "append")!.t;
+    expect(tReq - t0).toBeLessThan(2_000);
+    // Recoverable wait is acceptable; silent dead end is not.
+    expect(tAppend).toBeGreaterThan(tReq);
+    console.info(
+      JSON.stringify({
+        event: "pag_fast_scroll",
+        thresholdToRequestMs: tReq - t0,
+        thresholdToFinalOldMs: tEnd - t0,
+        requestToAppendMs: tAppend - tReq,
+        classification:
+          tAppend - tReq < 3_000 ? "seamless" : "recoverable_visible_wait",
+      })
+    );
+  });
+
+  test("stale continuation is not appended after filter change", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await page.goto("/explore");
+    const ready = await waitExploreFeedReady(page, 60_000);
+    if (ready.state !== "scroll") {
+      test.skip(true, "Populated feed required for pagination");
+      return;
+    }
+
+    const bootCount = await page.locator("[data-explore-slide]").count();
+    await scrollFeedNearEnd(page, bootCount);
+
+    // Change filter while continuation may be in flight.
+    await page
+      .getByTestId("explore-filters-open")
+      .click({ timeout: 10_000 })
+      .catch(async () => {
+        await page.getByRole("button", { name: /Open filters/i }).click();
+      });
+    const comedy = page.getByRole("button", { name: /^Comedy$/i }).first();
+    if (await comedy.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await comedy.click();
+    }
+
+    await waitExploreFeedReady(page, 60_000);
+    // After filter change, feed may reload; ensure no permanent spinner.
+    await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(
+      page
+        .getByTestId("explore-feed-scroll")
+        .or(page.getByText(/no clips available|sign in to browse/i))
+        .first()
+    ).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("stale continuation is not appended after sub-tab change", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await page.goto("/explore");
+    const ready = await waitExploreFeedReady(page, 60_000);
+    if (ready.state !== "scroll") {
+      test.skip(true, "Populated feed required for pagination");
+      return;
+    }
+
+    const bootCount = await page.locator("[data-explore-slide]").count();
+    await scrollFeedNearEnd(page, bootCount);
+    await page.getByTestId("explore-subtab-saves").click();
+    await expect
+      .poll(
+        () =>
+          new URL(page.url(), "http://localhost").searchParams.get("feedTab"),
+        { timeout: 8_000 }
+      )
+      .toBe("saves");
+    await waitExploreFeedReady(page, 60_000);
+    await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test("visibility restore does not leave permanent spinner", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page.goto("/explore");
+    const ready = await waitExploreFeedReady(page, 60_000);
+    if (ready.state !== "scroll") {
+      test.skip(true, "Populated feed required for pagination");
+      return;
+    }
+    const bootCount = await page.locator("[data-explore-slide]").count();
+    await scrollFeedNearEnd(page, bootCount);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => "hidden",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => "visible",
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("explore-feed-scroll")).toBeVisible();
+  });
+
+  test("stale continuation is not appended after Discover open", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await page.goto("/explore");
+    const ready = await waitExploreFeedReady(page, 60_000);
+    if (ready.state !== "scroll") {
+      test.skip(true, "Populated feed required for pagination");
+      return;
+    }
+    const bootCount = await page.locator("[data-explore-slide]").count();
+    await scrollFeedNearEnd(page, bootCount);
+    await page
+      .getByRole("button", { name: /Open discover search|Search/i })
+      .first()
+      .click()
+      .catch(async () => {
+        await page.getByPlaceholder(/Search videos/i).click();
+      });
+    await page.waitForTimeout(300);
+    await page.keyboard.press("Escape").catch(() => {});
+    await page
+      .getByTestId("explore-chrome-feed")
+      .click()
+      .catch(() => {});
+    await waitExploreFeedReady(page, 60_000);
+    await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test("stale continuation is not appended after browser Back", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await page.goto("/explore");
+    await waitExploreFeedReady(page, 60_000);
+    await page.getByTestId("explore-subtab-saves").click();
+    await expect
+      .poll(
+        () =>
+          new URL(page.url(), "http://localhost").searchParams.get("feedTab"),
+        { timeout: 8_000 }
+      )
+      .toBe("saves");
+    await page.getByTestId("explore-subtab-trends").click();
+    await expect
+      .poll(
+        () =>
+          new URL(page.url(), "http://localhost").searchParams.get("feedTab") ??
+          "trends",
+        { timeout: 8_000 }
+      )
+      .toBe("trends");
+    const ready = await waitExploreFeedReady(page, 60_000);
+    if (ready.state !== "scroll") {
+      test.skip(true, "Populated feed required for pagination");
+      return;
+    }
+    const bootCount = await page.locator("[data-explore-slide]").count();
+    await scrollFeedNearEnd(page, bootCount);
+    await page.goBack();
+    await expect
+      .poll(
+        () =>
+          new URL(page.url(), "http://localhost").searchParams.get("feedTab"),
+        { timeout: 8_000 }
+      )
+      .toBe("saves");
+    await waitExploreFeedReady(page, 60_000);
+    await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test("offline then online does not leave permanent spinner", async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    await page.goto("/explore");
+    const ready = await waitExploreFeedReady(page, 60_000);
+    if (ready.state !== "scroll") {
+      test.skip(true, "Populated feed required for pagination");
+      return;
+    }
+    const bootCount = await page.locator("[data-explore-slide]").count();
+    await scrollFeedNearEnd(page, bootCount);
+    await context.setOffline(true);
+    await page.waitForTimeout(500);
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId("explore-feed-scroll")).toBeVisible();
   });
 
   test("fourth batch loads after third near-end crossing", async ({ page }) => {

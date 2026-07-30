@@ -51,3 +51,14 @@ export function isTvSingleStartupScheduleEnabled(): boolean {
     process.env.NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE === "1"
   );
 }
+
+/**
+ * Phase C0 — startup player error recovery and pre-play seek containment.
+ * Default DISABLED. Requires a frontend rebuild (`NEXT_PUBLIC_*`).
+ */
+export function isTvStartupPlaybackGuardEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_STARTUP_PLAYBACK_GUARD === "true" ||
+    process.env.NEXT_PUBLIC_TV_STARTUP_PLAYBACK_GUARD === "1"
+  );
+}

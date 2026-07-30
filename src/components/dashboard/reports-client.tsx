@@ -51,13 +51,11 @@ export const ReportsClient = () => {
   const params = useParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const [tabType, setTabType] = useState<
-    "events" | "transactions" | "reports" | "video"
+    "events" | "transaction" | "reports" | "video"
   >("events");
 
   const { events, transactions } = useReportsAndAnalytics();
   const { summary: payoutSummary } = useHostPayoutSummary();
-
-  console.log(events, transactions);
 
   const {
     totalEarnings,
@@ -186,7 +184,7 @@ export const ReportsClient = () => {
       <Tabs
         value={tabType}
         onValueChange={val =>
-          setTabType(val as "events" | "transactions" | "reports" | "video")
+          setTabType(val as "events" | "transaction" | "reports" | "video")
         }
         className="space-y-4 sm:space-y-6"
       >
@@ -275,7 +273,6 @@ export const ReportsClient = () => {
                   <Calendar />{" "}
                   {showDateRange ? "Hide Date Range" : "Select Date Range"}
                 </Button>
-                .
                 <Button
                   type="button"
                   variant="outline"

@@ -9,12 +9,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 
 // Local imports
 import { AddEventBanner } from "@/components/banners/add-event-banner";
 import { newEventSchema, NewEventFormData } from "@/schemas";
 import { RootState } from "@/redux/store";
+import type { AppDispatch } from "@/redux/store";
+import type { HostUser } from "@/features/auth-slice";
 import { ApiError } from "@/types";
 import { CircleArrowLeft, CircleArrowRight, Loader2 } from "lucide-react";
 import { ContentAmountInfo } from "@/components/events/content-amount-info";
@@ -44,6 +46,7 @@ import {
   runPrivacyChecksFromForm,
   resolveLiveVideoOwnershipAnswer,
 } from "@/lib/validate-privacy-video-links";
+import { syncHostAuthFromCreateEventResponse } from "@/lib/sync-host-auth-after-submission";
 
 export default function ContentOnlyPage() {
   const [step, setStep] = useState(1);
@@ -54,8 +57,10 @@ export default function ContentOnlyPage() {
   >([]);
   const [coOwnerRefreshToken, setCoOwnerRefreshToken] = useState(0);
   const { push } = useAppRouter();
+  const dispatch = useDispatch<AppDispatch>();
 
   const user = useSelector((state: RootState) => state.auth.user);
+  const token = useSelector((state: RootState) => state.auth.token);
   const requiresVerification = useSelector(
     (state: RootState) => state.auth.requiresVerification
   );
@@ -266,6 +271,15 @@ export default function ContentOnlyPage() {
       }
 
       toast.success("Content created successfully");
+
+      if (user?.role === "HOST") {
+        syncHostAuthFromCreateEventResponse(
+          dispatch,
+          user as HostUser,
+          token,
+          result.data
+        );
+      }
 
       if (draftId) {
         void deleteFormDraftAction(draftId);

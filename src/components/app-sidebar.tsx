@@ -47,6 +47,8 @@ import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel
 import { getNotificationsUnreadCountAction } from "@/actions/notifications";
 import { cn } from "@/lib/utils";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { usePayoutProfileGuard } from "@/hooks/use-payout-profile-guard";
+import { IncompleteProfilePayoutModal } from "@/components/dashboard/incomplete-profile-payout-modal";
 
 interface Props {
   numOfEvents: number;
@@ -59,6 +61,13 @@ export function AppSidebar({ numOfEvents }: Props) {
   const pathname = usePathname();
   const [notifUnread, setNotifUnread] = useState(0);
   const { hasActivePremium } = useHostPlanCapabilities();
+  const {
+    guardPayoutNavigation,
+    modalOpen: payoutModalOpen,
+    setModalOpen: setPayoutModalOpen,
+    profileLabel,
+    profileAccountType,
+  } = usePayoutProfileGuard();
 
   const role = user?.role;
   const hostSubscriptionTier =
@@ -210,6 +219,8 @@ export function AppSidebar({ numOfEvents }: Props) {
     },
   ];
 
+  const payoutNavTitles = new Set(["Revenue & Payouts", "Community payouts"]);
+
   return (
     <Sidebar className="bg-white">
       <SidebarContent>
@@ -229,6 +240,14 @@ export function AppSidebar({ numOfEvents }: Props) {
                         item.freezed || item.plan === false ? "#" : item.url
                       }
                       target={item.target}
+                      onClick={event => {
+                        if (
+                          payoutNavTitles.has(item.title) &&
+                          !guardPayoutNavigation(event)
+                        ) {
+                          return;
+                        }
+                      }}
                       className={cn(
                         "flex w-full items-center gap-2",
                         item.freezed || item.plan === false
@@ -319,6 +338,13 @@ export function AppSidebar({ numOfEvents }: Props) {
           </div>
         </div>
       </SidebarContent>
+
+      <IncompleteProfilePayoutModal
+        open={payoutModalOpen}
+        onOpenChange={setPayoutModalOpen}
+        settingsUrl={`/host/${eventSlug}/settings?tab=${profileAccountType === "ORGANIZATION" ? "organisation_profile" : "individual_profile"}`}
+        profileLabel={profileLabel}
+      />
     </Sidebar>
   );
 }

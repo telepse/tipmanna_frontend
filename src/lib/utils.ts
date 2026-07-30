@@ -192,26 +192,27 @@ export const getEventStats = (events: Event[]) => {
     (acc, event) => {
       const eventDateTime = new Date(event.eventDate);
 
-      // Parse start & end times
-      const [startHours, startMinutes] = event.startTime.split(":").map(Number);
-      const [endHours, endMinutes] = event.endTime.split(":").map(Number);
+      if (event.startTime && event.endTime) {
+        const [startHours, startMinutes] = event.startTime
+          .split(":")
+          .map(Number);
+        const [endHours, endMinutes] = event.endTime.split(":").map(Number);
 
-      const startDateTime = new Date(eventDateTime);
-      startDateTime.setHours(startHours, startMinutes, 0, 0);
+        const startDateTime = new Date(eventDateTime);
+        startDateTime.setHours(startHours, startMinutes, 0, 0);
 
-      const endDateTime = new Date(eventDateTime);
-      endDateTime.setHours(endHours, endMinutes, 0, 0);
+        const endDateTime = new Date(eventDateTime);
+        endDateTime.setHours(endHours, endMinutes, 0, 0);
 
-      // Handle overnight events
-      if (endDateTime < startDateTime) {
-        endDateTime.setDate(endDateTime.getDate() + 1);
-      }
+        if (endDateTime < startDateTime) {
+          endDateTime.setDate(endDateTime.getDate() + 1);
+        }
 
-      // Count active and completed events
-      if (now >= startDateTime && now <= endDateTime) {
-        acc.activeEvents++;
-      } else if (now > endDateTime) {
-        acc.completedEvents++;
+        if (now >= startDateTime && now <= endDateTime) {
+          acc.activeEvents++;
+        } else if (now > endDateTime) {
+          acc.completedEvents++;
+        }
       }
 
       // Total raised amount

@@ -379,6 +379,32 @@ describe("playback and schedule counters", () => {
     expect(s?.scheduleAttemptIds).toEqual([]);
     expect(s?.initialScheduleAttemptId).toBeNull();
   });
+
+  it("records Phase C0 guard counters and youtube error codes", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("player_error", {
+      data: { youtubeErrorCode: 101, videoIdHash: "h1" },
+    });
+    tvStartupEvent("player_error", {
+      data: { youtubeErrorCode: 101, videoIdHash: "h2" },
+    });
+    tvStartupEvent("pre_play_drift_seek_suppressed", { trigger: "sync" });
+    tvStartupEvent("duplicate_pre_play_load_suppressed", { trigger: "sync" });
+    tvStartupEvent("startup_error_recovery_started", { trigger: "permanent" });
+    tvStartupEvent("startup_error_target_skipped", { trigger: "skip" });
+    tvStartupEvent("startup_recovery_cap_reached", { reason: "cap" });
+
+    const s = helper().getLatest();
+    expect(s?.youtubeErrorCodeCounts).toEqual({ "101": 2 });
+    expect(s?.prePlaySeekSuppressedCount).toBe(1);
+    expect(s?.duplicateLoadSuppressedCount).toBe(1);
+    expect(s?.startupRecoveryCount).toBe(1);
+    expect(s?.failedStartupTargetCount).toBe(1);
+    expect(s?.startupRecoveryCapReached).toBe(true);
+    expect(s?.playerErrorCount).toBe(2);
+  });
 });
 
 describe("segment safety", () => {

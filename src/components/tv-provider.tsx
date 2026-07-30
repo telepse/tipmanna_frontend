@@ -51,7 +51,22 @@ import {
   isTvDirectScheduleFetchEnabled,
   isTvScheduleSwrEnabled,
   isTvSingleStartupScheduleEnabled,
+  isTvStartupPlaybackGuardEnabled,
 } from "@/lib/tv-feature-flags";
+import {
+  classifyStartupPlayerError,
+  classifyYoutubeErrorKind,
+  createStartupPlaybackGuardState,
+  findNextEligibleScheduleIndex,
+  markInitialCommandIssued,
+  markStartupFirstPlay,
+  MAX_STARTUP_PLAYER_RECOVERIES,
+  resetStartupPlaybackGuardState,
+  resolvePositionSkippingFailedTargets,
+  shouldSuppressDuplicatePrePlayLoad,
+  shouldSuppressPrePlayDriftSeek,
+  type StartupPlaybackGuardState,
+} from "@/lib/tv-startup-playback-guard";
 import {
   resolveScheduleSourceChange,
   resolveSessionCacheBootstrap,
@@ -278,6 +293,11 @@ type TVContextType = {
   /** Reload the current orchestrated video at a time (error recovery from looper). */
   reloadCurrentPlaybackAt: (startSeconds: number) => void;
 
+  /** Phase C0 — YouTube onError (numeric code) from TvLooper. */
+  handleStartupPlayerError: (youtubeErrorCode: number) => void;
+  /** Phase C0 — first successful PLAYING notification from looper. */
+  notifyStartupPlayerPlaying: () => void;
+
   /** Community TV: load `/communities/:id/tv/schedule`; null = Tipmanna global. */
   scheduleSourceCommunityId: string | null;
   setScheduleSourceCommunityId: (id: string | null) => void;
@@ -345,6 +365,8 @@ function createFallbackTvContext(): TVContextType {
     applyPendingAudioRestore: noop,
     unregisterTvPlayer: noop,
     reloadCurrentPlaybackAt: noop,
+    handleStartupPlayerError: noop,
+    notifyStartupPlayerPlaying: noop,
     scheduleSourceCommunityId: null,
     setScheduleSourceCommunityId: noop,
     scheduleError: false,
@@ -465,6 +487,12 @@ export default function GlobalTVProvider({
   const documentWasHiddenRef = useRef(
     typeof document !== "undefined" && document.visibilityState === "hidden"
   );
+  const startupPlaybackGuardRef = useRef<StartupPlaybackGuardState>(
+    createStartupPlaybackGuardState()
+  );
+  const inFlightOrchestratedVideoIdRef = useRef<string | null>(null);
+  const legacyVideoErrorReloadsRef = useRef(0);
+  const lastOrchestratedCommandRef = useRef<string | null>(null);
   const syncMissRef = useRef(0);
   const isReadyRef = useRef(false);
   const broadcastEpochRef = useRef<number | null>(null);
@@ -533,6 +561,9 @@ export default function GlobalTVProvider({
     pendingAudioRestoreRef.current = null;
     scheduleSwrBootstrappedRef.current = false;
     paymentPlaybackRestoreRef.current = null;
+    resetStartupPlaybackGuardState(startupPlaybackGuardRef.current);
+    inFlightOrchestratedVideoIdRef.current = null;
+    legacyVideoErrorReloadsRef.current = 0;
   }, []);
 
   useEffect(() => {
@@ -621,6 +652,31 @@ export default function GlobalTVProvider({
       scheduleIndex: req.scheduleIndex,
     });
 
+    const guard = startupPlaybackGuardRef.current;
+    const player = playerRef.current;
+    if (
+      shouldSuppressDuplicatePrePlayLoad({
+        guardEnabled: isTvStartupPlaybackGuardEnabled(),
+        firstPlayReached: guard.firstPlayReached,
+        req,
+        orchestrated: orchestratedPlaybackRef.current,
+        playerState: null,
+        inFlightVideoId: inFlightOrchestratedVideoIdRef.current,
+      })
+    ) {
+      tvStartupEvent("duplicate_pre_play_load_suppressed", {
+        trigger: req.reason,
+        data: {
+          videoIdHash: hashShortId(req.videoId),
+          startOffsetSeconds: req.startSeconds,
+          currentIndex: currentIndexRef.current,
+          recoveryCount: guard.startupRecoveryCount,
+          recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
+        },
+      });
+      return false;
+    }
+
     if (isSameOrchestratedPlayback(orchestratedPlaybackRef.current, req)) {
       tvTrace("playback", "requestPlayback_skipped", {
         reason: "unchanged",
@@ -630,7 +686,6 @@ export default function GlobalTVProvider({
       return false;
     }
 
-    const player = playerRef.current;
     if (!player?.isReady()) {
       pendingPlaybackRequestRef.current = req;
       tvTrace("playback", "requestPlayback_deferred", {
@@ -645,6 +700,14 @@ export default function GlobalTVProvider({
       videoId: req.videoId,
       startSeconds: req.startSeconds,
     };
+    inFlightOrchestratedVideoIdRef.current = req.videoId;
+    lastOrchestratedCommandRef.current = "loadVideoById";
+    if (isTvStartupPlaybackGuardEnabled()) {
+      markInitialCommandIssued(guard);
+      if (guard.phase === "initial_command_issued") {
+        guard.phase = "buffering_before_first_play";
+      }
+    }
     tvStartupEvent("orchestrated_playback_command_issued", {
       trigger: req.reason,
       data: {
@@ -653,6 +716,7 @@ export default function GlobalTVProvider({
         startOffsetSeconds: req.startSeconds,
         muted: player.isMuted?.() ?? null,
         currentIndex: currentIndexRef.current,
+        firstPlayReached: guard.firstPlayReached,
       },
     });
     pendingAudioRestoreRef.current = prepareMutedLoadForAutoplay(player, true);
@@ -679,6 +743,91 @@ export default function GlobalTVProvider({
     },
     [requestPlayback]
   );
+
+  const advanceToNextEligibleStartupTarget = useCallback(
+    (failedVideoId: string | null) => {
+      const guard = startupPlaybackGuardRef.current;
+      if (failedVideoId) {
+        guard.failedVideoIds.add(failedVideoId);
+        tvStartupEvent("startup_error_target_skipped", {
+          trigger: "startup_error_recovery",
+          data: {
+            videoIdHash: hashShortId(failedVideoId),
+            failedStartupTargetCount: guard.failedVideoIds.size,
+          },
+        });
+      }
+
+      const fromIdx = currentIndexRef.current;
+      const nextIdx = findNextEligibleScheduleIndex(
+        items,
+        fromIdx,
+        guard.failedVideoIds,
+        extractYoutubeID
+      );
+      if (nextIdx == null) {
+        guard.phase = "failed";
+        guard.startupRecoveryCapReached = true;
+        tvStartupEvent("startup_recovery_cap_reached", {
+          reason: "no_eligible_target",
+          data: {
+            recoveryCount: guard.startupRecoveryCount,
+            recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
+          },
+        });
+        return;
+      }
+
+      lastSyncedIndex.current = nextIdx;
+      setCurrentIndex(nextIdx);
+      currentIndexRef.current = nextIdx;
+
+      const item = items[nextIdx];
+      const videoId = item ? extractYoutubeID(item.channel?.url) : null;
+      if (!videoId) return;
+
+      let startSeconds = item.seekBaseSeconds ?? 0;
+      if (
+        broadcastEpoch != null &&
+        totalDuration > 0 &&
+        modeRef.current === "GLOBAL"
+      ) {
+        const livePos = resolveBroadcastPosition(
+          items,
+          broadcastEpoch,
+          totalDuration,
+          getNow()
+        );
+        if (livePos.scheduleIndex === nextIdx) {
+          startSeconds = livePos.offsetSeconds;
+        }
+      }
+
+      requestPlayback({
+        reason: "startup_error_advance",
+        videoId,
+        startSeconds,
+        scheduleIndex: nextIdx,
+      });
+    },
+    [items, requestPlayback, broadcastEpoch, totalDuration, getNow]
+  );
+
+  const notifyStartupPlayerPlaying = useCallback(() => {
+    if (!isTvStartupPlaybackGuardEnabled()) return;
+    const guard = startupPlaybackGuardRef.current;
+    if (markStartupFirstPlay(guard)) {
+      inFlightOrchestratedVideoIdRef.current = null;
+      tvStartupEvent("first_play_guard_released", {
+        trigger: "player_playing",
+        data: {
+          pendingLiveOffsetSeconds: guard.pendingLiveOffsetSeconds,
+          pendingLiveScheduleIndex: guard.pendingLiveScheduleIndex,
+          startupRecoveryCount: guard.startupRecoveryCount,
+        },
+      });
+    }
+  }, []);
 
   const syncToLive = useCallback(() => {
     tvStartupEvent("syncToLive", {
@@ -728,46 +877,69 @@ export default function GlobalTVProvider({
       getNow()
     );
 
-    if (!pos.item) {
+    const guard = startupPlaybackGuardRef.current;
+    let effectivePos = pos;
+    if (
+      isTvStartupPlaybackGuardEnabled() &&
+      !guard.firstPlayReached &&
+      guard.failedVideoIds.size > 0
+    ) {
+      const skipped = resolvePositionSkippingFailedTargets(
+        pos,
+        items,
+        guard.failedVideoIds,
+        extractYoutubeID
+      );
+      effectivePos = {
+        ...pos,
+        scheduleIndex: skipped.scheduleIndex,
+        offsetSeconds: skipped.offsetSeconds,
+        item: (skipped.item ?? pos.item) as ScheduleItem | null,
+      };
+    }
+
+    if (!effectivePos.item) {
       tvTrace("playback", "syncToLive_no_item", {
-        loopPosition: pos.loopPosition,
+        loopPosition: effectivePos.loopPosition,
       });
       return;
     }
 
-    const isNotice = pos.item.segmentKind === "notice";
-    if (!isNotice && !pos.item.channel?.url) return;
+    const isNotice = effectivePos.item.segmentKind === "notice";
+    if (!isNotice && !effectivePos.item.channel?.url) return;
 
     tvTrace("playback", "syncToLive", {
       mode: modeRef.current,
       currentIndex: currentIndexRef.current,
       lastSyncedIndex: lastSyncedIndex.current,
-      offsetSeconds: pos.offsetSeconds,
-      scheduleIndex: pos.scheduleIndex,
-      segmentKind: pos.item.segmentKind,
-      itemId: pos.item.id,
+      offsetSeconds: effectivePos.offsetSeconds,
+      scheduleIndex: effectivePos.scheduleIndex,
+      segmentKind: effectivePos.item.segmentKind,
+      itemId: effectivePos.item.id,
     });
 
     logTV("broadcast_sync", {
       mode: modeRef.current,
       currentIndex: currentIndexRef.current,
-      offsetSeconds: pos.offsetSeconds,
-      scheduleIndex: pos.scheduleIndex,
+      offsetSeconds: effectivePos.offsetSeconds,
+      scheduleIndex: effectivePos.scheduleIndex,
     });
 
     setLastLivePosition({
-      scheduleIndex: pos.scheduleIndex,
-      offsetSeconds: pos.offsetSeconds,
-      loopPosition: pos.loopPosition,
-      totalDuration: pos.totalDuration,
+      scheduleIndex: effectivePos.scheduleIndex,
+      offsetSeconds: effectivePos.offsetSeconds,
+      loopPosition: effectivePos.loopPosition,
+      totalDuration: effectivePos.totalDuration,
     });
 
-    if (pos.scheduleIndex !== lastSyncedIndex.current) {
-      lastSyncedIndex.current = pos.scheduleIndex;
-      setCurrentIndex(pos.scheduleIndex);
+    if (effectivePos.scheduleIndex !== lastSyncedIndex.current) {
+      lastSyncedIndex.current = effectivePos.scheduleIndex;
+      setCurrentIndex(effectivePos.scheduleIndex);
 
       if (!isNotice) {
-        const videoId = extractYoutubeID(pos.item.channel.url);
+        const channelUrl = effectivePos.item.channel?.url;
+        if (!channelUrl) return;
+        const videoId = extractYoutubeID(channelUrl);
         if (videoId) {
           const sameVideo =
             orchestratedPlaybackRef.current?.videoId === videoId &&
@@ -775,70 +947,94 @@ export default function GlobalTVProvider({
           if (sameVideo) {
             tvTrace("playback", "syncToLive_coalesced_seek", {
               videoId,
-              offsetSeconds: pos.offsetSeconds,
-              scheduleIndex: pos.scheduleIndex,
+              offsetSeconds: effectivePos.offsetSeconds,
+              scheduleIndex: effectivePos.scheduleIndex,
             });
             orchestratedPlaybackRef.current = {
               videoId,
-              startSeconds: pos.offsetSeconds,
+              startSeconds: effectivePos.offsetSeconds,
             };
             tvStartupEvent("orchestrated_playback_command_issued", {
               trigger: "syncToLive_coalesced_seek",
               data: {
                 command: "seekTo",
                 videoIdHash: hashShortId(videoId),
-                startOffsetSeconds: pos.offsetSeconds,
-                currentIndex: pos.scheduleIndex,
+                startOffsetSeconds: effectivePos.offsetSeconds,
+                currentIndex: effectivePos.scheduleIndex,
               },
             });
-            player.seekTo(pos.offsetSeconds, false);
+            lastOrchestratedCommandRef.current = "seekTo";
+            player.seekTo(effectivePos.offsetSeconds, false);
           } else {
             requestPlayback({
               reason: "syncToLive",
               videoId,
-              startSeconds: pos.offsetSeconds,
-              scheduleIndex: pos.scheduleIndex,
+              startSeconds: effectivePos.offsetSeconds,
+              scheduleIndex: effectivePos.scheduleIndex,
             });
           }
         }
       } else {
         tvTrace("playback", "syncToLive_notice_pause", {
-          scheduleIndex: pos.scheduleIndex,
+          scheduleIndex: effectivePos.scheduleIndex,
         });
         player.pause();
       }
     } else if (!isNotice) {
-      const videoId = extractYoutubeID(pos.item.channel.url);
+      const channelUrl = effectivePos.item.channel?.url;
+      if (!channelUrl) return;
+      const videoId = extractYoutubeID(channelUrl);
       const orchestrated = orchestratedPlaybackRef.current;
       if (videoId && (!orchestrated || orchestrated.videoId !== videoId)) {
         requestPlayback({
           reason: "syncToLive",
           videoId,
-          startSeconds: pos.offsetSeconds,
-          scheduleIndex: pos.scheduleIndex,
+          startSeconds: effectivePos.offsetSeconds,
+          scheduleIndex: effectivePos.scheduleIndex,
         });
       } else {
         const actual = player.getCurrentTime();
-        if (Math.abs(actual - pos.offsetSeconds) > DRIFT_THRESHOLD_S) {
-          tvTrace("playback", "syncToLive_drift_seek", {
-            actual,
-            target: pos.offsetSeconds,
-          });
-          orchestratedPlaybackRef.current = orchestratedPlaybackRef.current
-            ? {
-                ...orchestratedPlaybackRef.current,
-                startSeconds: pos.offsetSeconds,
-              }
-            : null;
-          tvStartupEvent("orchestrated_playback_command_issued", {
-            trigger: "syncToLive_drift_seek",
-            data: {
-              command: "seekTo",
-              startOffsetSeconds: pos.offsetSeconds,
-              currentIndex: pos.scheduleIndex,
-            },
-          });
-          player.seekTo(pos.offsetSeconds, false);
+        if (Math.abs(actual - effectivePos.offsetSeconds) > DRIFT_THRESHOLD_S) {
+          if (
+            shouldSuppressPrePlayDriftSeek({
+              guardEnabled: isTvStartupPlaybackGuardEnabled(),
+              firstPlayReached: guard.firstPlayReached,
+              isDriftCorrection: true,
+            })
+          ) {
+            guard.pendingLiveOffsetSeconds = effectivePos.offsetSeconds;
+            guard.pendingLiveScheduleIndex = effectivePos.scheduleIndex;
+            tvStartupEvent("pre_play_drift_seek_suppressed", {
+              trigger: "syncToLive_drift_seek",
+              data: {
+                actual,
+                targetOffsetSeconds: effectivePos.offsetSeconds,
+                currentIndex: effectivePos.scheduleIndex,
+                firstPlayReached: guard.firstPlayReached,
+              },
+            });
+          } else {
+            tvTrace("playback", "syncToLive_drift_seek", {
+              actual,
+              target: effectivePos.offsetSeconds,
+            });
+            orchestratedPlaybackRef.current = orchestratedPlaybackRef.current
+              ? {
+                  ...orchestratedPlaybackRef.current,
+                  startSeconds: effectivePos.offsetSeconds,
+                }
+              : null;
+            tvStartupEvent("orchestrated_playback_command_issued", {
+              trigger: "syncToLive_drift_seek",
+              data: {
+                command: "seekTo",
+                startOffsetSeconds: effectivePos.offsetSeconds,
+                currentIndex: effectivePos.scheduleIndex,
+              },
+            });
+            lastOrchestratedCommandRef.current = "seekTo";
+            player.seekTo(effectivePos.offsetSeconds, false);
+          }
         }
       }
     }
@@ -1704,6 +1900,145 @@ export default function GlobalTVProvider({
 
   const goLive = enterGlobalMode;
 
+  const handleStartupPlayerError = useCallback(
+    (youtubeErrorCode: number) => {
+      const player = playerRef.current;
+      const failedVideoId =
+        orchestratedPlaybackRef.current?.videoId ??
+        (items[currentIndexRef.current]
+          ? extractYoutubeID(
+              (items[currentIndexRef.current] as ScheduleItem).channel?.url
+            )
+          : null);
+
+      tvStartupEvent("player_error", {
+        trigger: "youtube_onError",
+        data: {
+          youtubeErrorCode,
+          videoIdHash: hashShortId(failedVideoId),
+          currentIndex: currentIndexRef.current,
+          firstPlayReached: startupPlaybackGuardRef.current.firstPlayReached,
+          startupRecoveryCount:
+            startupPlaybackGuardRef.current.startupRecoveryCount,
+          commandBeforeError: lastOrchestratedCommandRef.current,
+        },
+      });
+
+      inFlightOrchestratedVideoIdRef.current = null;
+
+      if (!isTvStartupPlaybackGuardEnabled()) {
+        if (!player?.isReady()) return;
+        if (!failedVideoId) return;
+        if (legacyVideoErrorReloadsRef.current >= 1) return;
+        legacyVideoErrorReloadsRef.current += 1;
+        if (modeRef.current === "GLOBAL") {
+          enterGlobalMode();
+        } else {
+          reloadCurrentPlaybackAt(Math.max(0, player.getCurrentTime()));
+        }
+        return;
+      }
+
+      const guard = startupPlaybackGuardRef.current;
+      const errorKind = classifyYoutubeErrorKind(youtubeErrorCode);
+      tvStartupEvent("youtube_error_classified", {
+        trigger: "youtube_onError",
+        data: {
+          youtubeErrorCode,
+          errorKind,
+          videoIdHash: hashShortId(failedVideoId),
+          currentIndex: currentIndexRef.current,
+          firstPlayReached: guard.firstPlayReached,
+          recoveryCount: guard.startupRecoveryCount,
+          recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
+        },
+      });
+
+      const decision = classifyStartupPlayerError({
+        youtubeErrorCode,
+        videoId: failedVideoId,
+        firstPlayReached: guard.firstPlayReached,
+        startupRecoveryCount: guard.startupRecoveryCount,
+        failedVideoIds: guard.failedVideoIds,
+        transientRetriedVideoIds: guard.transientRetriedVideoIds,
+      });
+
+      if (decision.action === "legacy_per_video") {
+        if (!player?.isReady()) return;
+        if (!failedVideoId) return;
+        if (legacyVideoErrorReloadsRef.current >= 1) return;
+        legacyVideoErrorReloadsRef.current += 1;
+        if (modeRef.current === "GLOBAL") {
+          enterGlobalMode();
+        } else {
+          reloadCurrentPlaybackAt(Math.max(0, player.getCurrentTime()));
+        }
+        return;
+      }
+
+      if (decision.action === "skip_failed_target") {
+        advanceToNextEligibleStartupTarget(null);
+        return;
+      }
+
+      if (decision.action === "cap_reached") {
+        guard.phase = "failed";
+        guard.startupRecoveryCapReached = true;
+        tvStartupEvent("startup_recovery_cap_reached", {
+          reason: decision.reason,
+          data: {
+            youtubeErrorCode,
+            recoveryCount: guard.startupRecoveryCount,
+            recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
+          },
+        });
+        return;
+      }
+
+      guard.startupRecoveryCount += 1;
+      tvStartupEvent("startup_error_recovery_started", {
+        trigger: decision.reason,
+        data: {
+          youtubeErrorCode,
+          recoveryDecision: decision.action,
+          videoIdHash: hashShortId(failedVideoId),
+          recoveryCount: guard.startupRecoveryCount,
+          recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
+        },
+      });
+
+      if (decision.action === "advance_next") {
+        advanceToNextEligibleStartupTarget(failedVideoId);
+        return;
+      }
+
+      if (decision.action === "retry_once") {
+        if (failedVideoId) {
+          guard.transientRetriedVideoIds.add(failedVideoId);
+        }
+        if (modeRef.current === "GLOBAL") {
+          lastSyncedIndex.current = -1;
+          syncToLive();
+        } else if (player?.isReady() && failedVideoId) {
+          requestPlayback({
+            reason: "startup_error_recovery",
+            videoId: failedVideoId,
+            startSeconds: Math.max(0, player.getCurrentTime()),
+            scheduleIndex: currentIndexRef.current,
+          });
+        }
+      }
+    },
+    [
+      items,
+      enterGlobalMode,
+      reloadCurrentPlaybackAt,
+      syncToLive,
+      requestPlayback,
+      advanceToNextEligibleStartupTarget,
+    ]
+  );
+
   const switchToLocal = useCallback(() => {
     const idx = currentIndexRef.current;
     setSchedulePlayingSlot({ scope: "active", rowIndex: idx });
@@ -2321,6 +2656,8 @@ export default function GlobalTVProvider({
         applyPendingAudioRestore,
         unregisterTvPlayer,
         reloadCurrentPlaybackAt,
+        handleStartupPlayerError,
+        notifyStartupPlayerPlaying,
 
         ongoingCollection,
         upcomingCollection,

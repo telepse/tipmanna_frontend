@@ -276,3 +276,18 @@ export async function getHostVideoAnalyticsAction(
     "getHostVideoAnalyticsAction"
   );
 }
+
+export async function getHostStatsAction(
+  hostId: string,
+  token?: string | null
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/stats`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostStatsAction"
+  );
+}

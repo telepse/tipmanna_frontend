@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { EventChannelModal } from "./event-channel-modal";
+import { EventRoomDropMessageModal } from "./event-room-drop-message-modal";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { AddProjectsModal } from "./add-projects-modal";
@@ -52,6 +53,7 @@ export const ContentRoomSettings = ({
   const searchParams = useSearchParams();
   const seedModalDraftId = searchParams.get("modalDraftId");
   const [channelModalOpen, setChannelModalOpen] = useState(false);
+  const [dropMessageModalOpen, setDropMessageModalOpen] = useState(false);
   const [performersModalOpen, setPerformersModalOpen] = useState(false);
   const [projectsModalOpen, setProjectsModalOpen] = useState(false);
 
@@ -65,7 +67,7 @@ export const ContentRoomSettings = ({
     {
       title: "Drop message in event room",
       // icon: <Settings className="size-5" />,
-      onClick: () => console.log("Open Drop Message"),
+      onClick: () => setDropMessageModalOpen(true),
       show: isHost,
     },
     // {
@@ -140,6 +142,12 @@ export const ContentRoomSettings = ({
           </div>
 
           {/* 🎬 Event Channel Sub-Modal */}
+          <EventRoomDropMessageModal
+            open={dropMessageModalOpen}
+            onClose={() => setDropMessageModalOpen(false)}
+            eventId={eventId}
+          />
+
           <EventChannelModal
             open={channelModalOpen}
             onClose={() => setChannelModalOpen(false)}

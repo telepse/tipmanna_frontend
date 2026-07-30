@@ -7,19 +7,12 @@ import { useParams } from "next/navigation";
 // Third-party imports
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
-import {
-  Calendar,
-  Copy,
-  Target,
-  TrendingUp,
-  Trophy,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { Calendar, Copy, TrendingUp, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // Local imports
 import type { HostPayoutSummaryBlock } from "@/actions/host-payouts";
+import type { HostStatsSummary } from "@/hooks/useHostStats";
 import { EventStatCard } from "./event-stat-card";
 import { RecentEventCard } from "./recent-event-card";
 import { PayoutSummaryCard } from "./payout-summary-card";
@@ -27,24 +20,27 @@ import { AchievementCard } from "./achievement-card";
 import { RootState } from "@/redux/store";
 import { GenerateQrButton } from "./generate-qr-button";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
-import { getEventStats } from "@/lib/utils";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
-
-type Event = {
-  id: string;
-  eventName: string;
-  eventDate: string;
-  numOfTips: number;
-  amountRaised: number;
-};
+import { ACHIEVEMENTS } from "@/constants";
+import type { Event } from "@/types";
+import { usePayoutProfileGuard } from "@/hooks/use-payout-profile-guard";
+import { IncompleteProfilePayoutModal } from "@/components/dashboard/incomplete-profile-payout-modal";
 
 interface Props {
-  events: [];
+  events: Event[];
+  stats: HostStatsSummary | null;
   payoutSummary?: HostPayoutSummaryBlock | null;
 }
 
-export const HostStats = ({ events, payoutSummary }: Props) => {
+export const HostStats = ({ events, stats, payoutSummary }: Props) => {
   const user = useSelector((state: RootState) => state.auth.user);
+  const {
+    guardPayoutNavigation,
+    modalOpen: payoutModalOpen,
+    setModalOpen: setPayoutModalOpen,
+    profileLabel,
+    profileAccountType,
+  } = usePayoutProfileGuard();
   const params = useParams();
   const eventSlug =
     typeof params?.slug === "string"
@@ -72,23 +68,26 @@ export const HostStats = ({ events, payoutSummary }: Props) => {
     `/join-host/${eventSlug}?eventCode=${encodeURIComponent(String(eventCode))}`
   );
 
-  const { totalEventsCreated, totalAmountRaised, numOfTips } =
-    getEventStats(events);
-  const earnings: number = Number((totalAmountRaised * 0.7).toFixed(2));
+  const totalEventsCreated = stats?.totalEventsCreated ?? 0;
+  const totalAttendeesReached = stats?.totalAttendeesReached ?? 0;
+  const numOfTips = stats?.totalTips ?? 0;
+  const totalAmountRaised = stats?.totalTipsEarned ?? 0;
+  const earnings = Number((totalAmountRaised * 0.7).toFixed(2));
 
-  const achievements = [
+  const achievementChecks = [
     totalEventsCreated >= 1,
-    numOfTips >= 200,
-    totalEventsCreated >= 10,
+    totalAttendeesReached >= 1000,
+    totalEventsCreated >= 25,
   ];
 
   const progress =
-    (achievements.filter(Boolean).length / achievements.length) * 100;
+    (achievementChecks.filter(Boolean).length / achievementChecks.length) * 100;
 
-  const metCount = achievements.filter(Boolean).length;
-  const totalCount = achievements.length;
-
+  const metCount = achievementChecks.filter(Boolean).length;
+  const totalCount = achievementChecks.length;
   const fractionProgress = `${metCount}/${totalCount}`;
+
+  const recentEvents = events.slice(0, 5);
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -150,15 +149,21 @@ export const HostStats = ({ events, payoutSummary }: Props) => {
           </div>
 
           <div className="space-y-6">
-            {events.map((event: Event) => (
-              <RecentEventCard
-                key={event!.id}
-                eventName={event!.eventName}
-                eventDate={event!.eventDate}
-                numOfTips={event!.numOfTips}
-                amountRaised={event!.amountRaised}
-              />
-            ))}
+            {recentEvents.length > 0 ? (
+              recentEvents.map(event => (
+                <RecentEventCard
+                  key={event.id}
+                  eventName={event.eventName}
+                  eventDate={event.eventDate}
+                  numOfTips={event.numOfTips}
+                  amountRaised={event.amountRaised}
+                />
+              ))
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                No events yet. Your recent events will appear here.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -188,29 +193,19 @@ export const HostStats = ({ events, payoutSummary }: Props) => {
             />
           </div>
 
-          <AchievementCard
-            title="First Channel"
-            subtitle="Hosted your first channel"
-            icon={Trophy}
-            iconColor="#f57d11"
-            met={totalEventsCreated >= 1}
-          />
-
-          <AchievementCard
-            title="200+ Tips"
-            subtitle="Reached over 200 total tips"
-            icon={Users}
-            iconColor="#04802E"
-            met={numOfTips >= 200}
-          />
-
-          <AchievementCard
-            title="Event Master"
-            subtitle="Hosted 10+ successful events"
-            icon={Target}
-            iconColor="#7AADCC"
-            met={totalEventsCreated >= 10}
-          />
+          {ACHIEVEMENTS.map((achievement, index) => {
+            const Icon = achievement.icon;
+            return (
+              <AchievementCard
+                key={achievement.title}
+                title={achievement.title}
+                subtitle={achievement.subtitle}
+                icon={Icon}
+                iconColor={achievement.iconColor}
+                met={achievementChecks[index] ?? false}
+              />
+            );
+          })}
         </div>
 
         {/* Payout summary */}
@@ -234,7 +229,12 @@ export const HostStats = ({ events, payoutSummary }: Props) => {
               subLabel={`Event tips: ${formatGbpMinor(payoutSummary?.receivedByBranch.eventTipsMinor ?? 0)} · Community: ${formatGbpMinor(payoutSummary?.receivedByBranch.communitySubscriptionMinor ?? 0)}`}
             />
 
-            <Link href={`/host/${eventSlug}/revenue`}>
+            <Link
+              href={`/host/${eventSlug}/revenue`}
+              onClick={event => {
+                if (!guardPayoutNavigation(event)) return;
+              }}
+            >
               <Button
                 size="lg"
                 className="w-full"
@@ -254,6 +254,12 @@ export const HostStats = ({ events, payoutSummary }: Props) => {
           </div>
         </div>
       </div>
+      <IncompleteProfilePayoutModal
+        open={payoutModalOpen}
+        onOpenChange={setPayoutModalOpen}
+        settingsUrl={`/host/${eventSlug}/settings?tab=${profileAccountType === "ORGANIZATION" ? "organisation_profile" : "individual_profile"}`}
+        profileLabel={profileLabel}
+      />
     </div>
   );
 };

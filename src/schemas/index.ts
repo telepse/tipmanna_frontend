@@ -1,5 +1,7 @@
 import * as z from "zod";
 
+import { isUkCountry } from "@/lib/is-uk-country";
+
 // const eventCodeRegex = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
 
 /* --------------------------------
@@ -337,43 +339,113 @@ export const profileFormSchema = z.object({
 
 export const GenderTypeEnum = z.enum(["MALE", "FEMALE"]);
 
-export const individualProfileFormSchema = z.object({
-  firstName: z.string().min(2, "First name is required"),
-  lastName: z.string().min(2, "Last name is required"),
-  homeAddress: z.string().min(2, "Home address is required"),
-  city: z.string().min(2, "City is required"),
-  state: z.string().min(2, "State or county is required"),
-  postalCode: z.string().min(2, "Postal code is required"),
-  niNumber: z.string().min(2, "National insurance number is required"),
-  dateOfBirth: z.string().min(2, "Date of birth is required"),
-  gender: GenderTypeEnum.or(z.literal("")),
-  accountName: z.string().min(2, "Account name must be same as legal name"),
-  accountNumber: z.string().min(2, "Account number is required"),
-  sortCode: z.string().min(2, "Sort code is required"),
-});
+const isoDateString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
+  .refine(value => !Number.isNaN(Date.parse(value)), "Enter a valid date");
 
-export const organisationProfileFormSchema = z.object({
-  registeredCompanyName: z
-    .string()
-    .min(2, "Registered company name is required"),
-  companyRegistrationNumber: z
-    .string()
-    .min(2, "Company registration number is required"),
-  registeredAddress: z.string().min(2, "Registered address"),
-  uniqueTaxpayerReference: z
-    .string()
-    .min(2, "Unique tax payer reference is required"),
-  vatRegistrationNumber: z.string().min(2, "VAT registration number"),
-  invoice: z.string().min(2, "Invoice is required"),
-  accountName: z
-    .string()
-    .min(2, "Business account name must be same as legal name"),
-  accountNumber: z.string().min(2, "Business account number is required"),
-  sortCode: z.string().min(2, "Business sort code is required"),
-  businessBankAccountDetails: z
-    .string()
-    .min(2, "Business bank account details is required"),
-});
+export const individualProfileFormSchema = z
+  .object({
+    firstName: z.string().min(2, "First name is required"),
+    lastName: z.string().min(2, "Last name is required"),
+    homeAddress: z.string().min(2, "Home address is required"),
+    city: z.string().min(2, "City is required"),
+    state: z.string().min(2, "State or county is required"),
+    postalCode: z.string().min(2, "Postal code is required"),
+    country: z.string().min(2, "Country is required"),
+    niNumber: z.string().optional(),
+    passportNumber: z.string().optional(),
+    additionalTaxIdentification: z.string().optional(),
+    dateOfBirth: isoDateString,
+    gender: GenderTypeEnum.or(z.literal("")),
+    accountName: z.string().min(2, "Account name must match your legal name"),
+    accountNumber: z.string().min(2, "Account number is required"),
+    sortCode: z.string().min(2, "Sort code is required"),
+  })
+  .superRefine((data, ctx) => {
+    if (isUkCountry(data.country)) {
+      if (!data.niNumber?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["niNumber"],
+          message: "National insurance number is required for UK residents",
+        });
+      }
+      return;
+    }
+
+    if (!data.passportNumber?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["passportNumber"],
+        message: "Passport number is required for non-UK residents",
+      });
+    }
+
+    if (!data.additionalTaxIdentification?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["additionalTaxIdentification"],
+        message:
+          "Additional tax identification detail for your country is required",
+      });
+    }
+  });
+
+export const organisationProfileFormSchema = z
+  .object({
+    registeredCompanyName: z
+      .string()
+      .min(2, "Registered company name is required"),
+    companyRegistrationNumber: z
+      .string()
+      .min(2, "Company registration number is required"),
+    registeredAddress: z.string().min(2, "Registered address is required"),
+    city: z.string().min(2, "City is required"),
+    state: z.string().min(2, "State or county is required"),
+    postalCode: z.string().min(2, "Postal code is required"),
+    country: z.string().min(2, "Country is required"),
+    dateOfBirth: isoDateString,
+    uniqueTaxpayerReference: z.string().optional(),
+    additionalTaxIdentification: z.string().optional(),
+    vatRegistrationNumber: z.string().optional(),
+    invoice: z.string().min(2, "Invoice is required"),
+    accountName: z
+      .string()
+      .min(2, "Account name must match your registered company name"),
+    accountNumber: z.string().min(2, "Account number is required"),
+    sortCode: z.string().min(2, "Sort code is required"),
+  })
+  .superRefine((data, ctx) => {
+    if (isUkCountry(data.country)) {
+      if (!data.uniqueTaxpayerReference?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["uniqueTaxpayerReference"],
+          message:
+            "Unique taxpayer reference (UTR) is required for UK addresses",
+        });
+      }
+      return;
+    }
+
+    if (!data.uniqueTaxpayerReference?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["uniqueTaxpayerReference"],
+        message: "Tax identification for your country is required",
+      });
+    }
+
+    if (!data.additionalTaxIdentification?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["additionalTaxIdentification"],
+        message:
+          "Additional tax identification detail for your country is required",
+      });
+    }
+  });
 
 export const paymentFormSchema = z.object({
   bankName: z.string().min(2, "Bank name is required"),
