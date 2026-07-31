@@ -2,9 +2,12 @@
  * Temporary final-gate pagination probe (not for commit).
  * Usage: node .playwright-output/pagination-profile.mjs
  */
-const BACKEND =
+const backendRoot =
   process.env.PLAYWRIGHT_BACKEND_URL?.replace(/\/$/, "") ??
-  "http://127.0.0.1:8000/api/v1";
+  "http://127.0.0.1:8000";
+const BACKEND = backendRoot.endsWith("/api/v1")
+  ? backendRoot
+  : `${backendRoot}/api/v1`;
 const TRACE_ID = process.env.PAG_PROFILE_TRACE ?? `pag-profile-${Date.now()}`;
 
 function pct(sorted, p) {
@@ -96,13 +99,16 @@ async function profileContinuations(n = 30) {
   };
 }
 
-/** Overlap probe: abort attempt 1 early, start attempt 2 immediately. */
 async function overlapProbe() {
   const trace = `${TRACE_ID}-overlap`;
-  const exclude = ["00000000-0000-4000-8000-000000000001"];
-  const attempt1 = continuationBatch(exclude, "", 1, 500);
-  await new Promise(r => setTimeout(r, 50));
-  const attempt2 = continuationBatch(exclude, "", 2, 30_000);
+  let seed = "";
+  const boot = await continuationBatch([], "", 0, 30_000);
+  if (boot.seed) seed = boot.seed;
+  const exclude = boot.items.map(i => i.id).filter(Boolean);
+  if (exclude.length === 0) exclude.push("boot-fallback");
+  const attempt1 = continuationBatch(exclude, seed, 1, 800);
+  await new Promise(r => setTimeout(r, 100));
+  const attempt2 = continuationBatch(exclude, seed, 2, 30_000);
   const [a1, a2] = await Promise.all([attempt1, attempt2]);
   return {
     traceId: trace,
@@ -115,6 +121,7 @@ async function overlapProbe() {
       ms: a2.ms,
       ok: a2.ok,
       status: a2.status,
+      itemCount: a2.items?.length ?? 0,
     },
     note: "Check backend logs for explore_batch_stage overlapWithPriorAttempt:true on attempt 2",
   };

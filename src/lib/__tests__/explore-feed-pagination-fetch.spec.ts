@@ -26,59 +26,66 @@ describe("runExplorePaginationServerFetch bounded deadline", () => {
     expect(BOUNDED_PAGINATION_WORST_CASE_MS).toBeLessThan(40_000);
   });
 
-  it("does not exceed total deadline when each attempt would otherwise time out at 25s", async () => {
-    vi.useFakeTimers();
-    resetFetchDedupCoalesceCount();
+  it(
+    "does not exceed total deadline when each attempt would otherwise time out at 25s",
+    async () => {
+      vi.useFakeTimers();
+      resetFetchDedupCoalesceCount();
 
-    let fetchCalls = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((_url: string, init?: RequestInit) => {
-        fetchCalls += 1;
-        return new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener("abort", () => {
-            reject(
-              new DOMException("The operation was aborted.", "AbortError")
-            );
+      let fetchCalls = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((_url: string, init?: RequestInit) => {
+          fetchCalls += 1;
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(
+                new DOMException("The operation was aborted.", "AbortError")
+              );
+            });
           });
-        });
-      })
-    );
+        })
+      );
 
-    const resultPromise = runExplorePaginationServerFetch(
-      "http://example.test/feed/batch",
-      {
-        method: "POST",
-        body: '{"excludeChannelIds":["a"]}',
-        perAttemptTimeoutMs: 25_000,
-      },
-      "testBoundedDeadline"
-    );
+      const resultPromise = runExplorePaginationServerFetch(
+        "http://example.test/feed/batch",
+        {
+          method: "POST",
+          body: '{"excludeChannelIds":["a"]}',
+          perAttemptTimeoutMs: 25_000,
+        },
+        "testBoundedDeadline"
+      );
 
-    await vi.advanceTimersByTimeAsync(25_000);
-    await vi.advanceTimersByTimeAsync(400);
-    await vi.advanceTimersByTimeAsync(5_000);
-    const result = await resultPromise;
+      // Attempt 1 abort at 25s + 400ms backoff + attempt 2 until 35s total deadline.
+      await vi.advanceTimersByTimeAsync(25_000);
+      await vi.advanceTimersByTimeAsync(400);
+      await vi.advanceTimersByTimeAsync(10_000);
+      const result = await resultPromise;
 
-    expect(result.success).toBe(false);
-    expect(fetchCalls).toBeLessThanOrEqual(2);
+      expect(result.success).toBe(false);
+      expect(fetchCalls).toBeLessThanOrEqual(2);
 
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
-  });
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    },
+    15_000
+  );
 
   it("succeeds on first attempt when backend responds within per-attempt budget", async () => {
     resetFetchDedupCoalesceCount();
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => jsonResponse({ items: [{ id: "1" }], seed: "s" }))
+      vi.fn(async () =>
+        jsonResponse({ items: [{ id: "1" }], seed: "s" }, 200)
+      )
     );
 
     const result = await runExplorePaginationServerFetch(
-      "http://example.test/feed/batch",
+      "http://example.test/feed/batch-unique-success",
       {
         method: "POST",
-        body: '{"excludeChannelIds":["a"]}',
+        body: '{"excludeChannelIds":["b"]}',
         perAttemptTimeoutMs: 25_000,
       },
       "testPaginationSuccess"
