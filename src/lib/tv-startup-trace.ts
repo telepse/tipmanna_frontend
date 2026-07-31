@@ -133,6 +133,13 @@ export type TvStartupSummary = {
   prePlaySeekSuppressedCount: number;
   duplicateLoadSuppressedCount: number;
   failedStartupTargetCount: number;
+  /** Phase C1 — initial embed offset (integer seconds). */
+  initialEmbedStartOffsetSeconds: number | null;
+  initialEmbedUsedResolvedTarget: boolean;
+  initialEmbedTargetMatchedFirstSync: boolean;
+  initialReloadAvoided: boolean;
+  initialEmbedStaleReason: string | null;
+  initialEmbedGenerationCount: number;
   retry10sOccurred: boolean;
   retry30sOccurred: boolean;
   retry60sOccurred: boolean;
@@ -292,6 +299,12 @@ function createEmptySummary(id: string): TvStartupSummary {
     prePlaySeekSuppressedCount: 0,
     duplicateLoadSuppressedCount: 0,
     failedStartupTargetCount: 0,
+    initialEmbedStartOffsetSeconds: null,
+    initialEmbedUsedResolvedTarget: false,
+    initialEmbedTargetMatchedFirstSync: false,
+    initialReloadAvoided: false,
+    initialEmbedStaleReason: null,
+    initialEmbedGenerationCount: 0,
     retry10sOccurred: false,
     retry30sOccurred: false,
     retry60sOccurred: false,
@@ -374,6 +387,17 @@ function recordCanonicalMark(
   }
 }
 
+function maybeRecordInitialEmbedT9(
+  run: TvStartupRun,
+  event: string,
+  at: number
+) {
+  if (run.orchestratedT9Recorded) return;
+  if (event !== "initial_live_offset_embed_confirmed") return;
+  run.orchestratedT9Recorded = true;
+  recordCanonicalMark(run, "T9", at);
+}
+
 function maybeRecordOrchestratedT9(
   run: TvStartupRun,
   event: string,
@@ -452,6 +476,45 @@ function updateCounters(
     }
     case "initial_embed_created":
       s.initialEmbedCount += 1;
+      if (typeof data.startupGeneration === "number") {
+        s.initialEmbedGenerationCount = Math.max(
+          s.initialEmbedGenerationCount,
+          data.startupGeneration
+        );
+      }
+      if (data.targetWasResolved === true) {
+        s.initialEmbedUsedResolvedTarget = true;
+      }
+      {
+        const off = data.startOffsetSeconds;
+        if (typeof off === "number" && Number.isFinite(off)) {
+          s.initialEmbedStartOffsetSeconds = off;
+        }
+      }
+      break;
+    case "initial_live_offset_embed_committed":
+      break;
+    case "initial_live_offset_embed_confirmed":
+      if (data.targetWasResolved === true) {
+        s.initialEmbedUsedResolvedTarget = true;
+      }
+      {
+        const off = data.startOffsetSeconds;
+        if (typeof off === "number" && Number.isFinite(off)) {
+          s.initialEmbedStartOffsetSeconds = off;
+        }
+      }
+      break;
+    case "initial_embed_target_matched_first_sync":
+      s.initialEmbedTargetMatchedFirstSync = true;
+      break;
+    case "initial_embed_target_stale":
+      if (typeof data.reason === "string") {
+        s.initialEmbedStaleReason = data.reason;
+      }
+      break;
+    case "initial_reload_avoided":
+      s.initialReloadAvoided = true;
       break;
     case "orchestrated_playback_command_issued": {
       const command = data.command;
@@ -725,6 +788,7 @@ function emitEvent(event: string, opts: TvStartupEventOptions = {}): void {
       recordCanonicalMark(run, opts.canonicalMark, at);
     }
     maybeRecordFirstNetworkT3(run, event, at);
+    maybeRecordInitialEmbedT9(run, event, at);
     maybeRecordOrchestratedT9(run, event, opts, at);
     updateCounters(run, event, opts);
 

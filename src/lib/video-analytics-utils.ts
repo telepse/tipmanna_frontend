@@ -43,28 +43,25 @@ const emptyOverviewStats: VideoOverviewPerSurfaceStats = {
 export function getVideoOverviewPerSurfaceStats(
   rows: VideoOverviewApiRow[]
 ): VideoOverviewPerSurfaceStats {
-  return rows.reduce<VideoOverviewPerSurfaceStats>(
-    (acc, row) => {
-      const w =
-        typeof row.totalWatchDuration === "number" ? row.totalWatchDuration : 0;
-      return {
-        totalWatchDuration: acc.totalWatchDuration + w,
-        totalNumberOfPayments:
-          acc.totalNumberOfPayments + (row.totalNumberOfPayments ?? 0),
-        totalNumberOfUsers:
-          acc.totalNumberOfUsers + (row.totalNumberOfUsers ?? 0),
-        uniqueVideoCount: acc.uniqueVideoCount + (row.uniqueVideoCount ?? 0),
-        mobileActors: acc.mobileActors + (row.mobileActors ?? 0),
-        desktopActors: acc.desktopActors + (row.desktopActors ?? 0),
-        shareCount: acc.shareCount + (row.shareCount ?? 0),
-        commentCount: acc.commentCount + (row.commentCount ?? 0),
-        saveCount: acc.saveCount + (row.saveCount ?? 0),
-        encounterCount: acc.encounterCount + (row.encounterCount ?? 0),
-        completeCount: acc.completeCount + (row.completeCount ?? 0),
-      };
-    },
-    emptyOverviewStats
-  );
+  return rows.reduce<VideoOverviewPerSurfaceStats>((acc, row) => {
+    const w =
+      typeof row.totalWatchDuration === "number" ? row.totalWatchDuration : 0;
+    return {
+      totalWatchDuration: acc.totalWatchDuration + w,
+      totalNumberOfPayments:
+        acc.totalNumberOfPayments + (row.totalNumberOfPayments ?? 0),
+      totalNumberOfUsers:
+        acc.totalNumberOfUsers + (row.totalNumberOfUsers ?? 0),
+      uniqueVideoCount: acc.uniqueVideoCount + (row.uniqueVideoCount ?? 0),
+      mobileActors: acc.mobileActors + (row.mobileActors ?? 0),
+      desktopActors: acc.desktopActors + (row.desktopActors ?? 0),
+      shareCount: acc.shareCount + (row.shareCount ?? 0),
+      commentCount: acc.commentCount + (row.commentCount ?? 0),
+      saveCount: acc.saveCount + (row.saveCount ?? 0),
+      encounterCount: acc.encounterCount + (row.encounterCount ?? 0),
+      completeCount: acc.completeCount + (row.completeCount ?? 0),
+    };
+  }, emptyOverviewStats);
 }
 
 export const HOST_OVERVIEW_SURFACES = [

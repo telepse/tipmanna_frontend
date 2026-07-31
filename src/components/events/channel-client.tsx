@@ -809,7 +809,7 @@ export const ChannelClient = ({
                 <p
                   className={`border-muted-foreground rounded-md border p-1 text-[10px] sm:text-sm ${openPlaylist ? "bg-primary text-black" : "text-muted-foreground"}`}
                 >
-                  Host:{" "}
+                  Creator:{" "}
                   <span
                     className="cursor-pointer underline"
                     onClick={e => {
@@ -1056,7 +1056,7 @@ export const ChannelClient = ({
               {/* Playlist container wrapper */}
               <div className="relative flex max-h-[300px] w-[255px] flex-col gap-2 rounded-md shadow-lg sm:max-h-[450px] sm:w-[350px]">
                 <p className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2 p-2 text-center text-[10px] whitespace-nowrap text-black sm:text-xs">
-                  Host:{" "}
+                  Creator:{" "}
                   <span
                     className="cursor-pointer"
                     onClick={e => {

@@ -5,7 +5,7 @@ import {
   ArrowRight,
   AudioLines,
   EyeIcon,
-  MessageCircle,
+  MessageCircleMore,
   UsersRound,
 } from "lucide-react";
 import { trimTitle } from "@/lib/utils";
@@ -92,11 +92,17 @@ type Props = {
   tippingCharacters?: RoomCharacter[];
 };
 
+const isNoticeItemClass = "bg-black text-white";
+
 const airTimeBadgeClass =
   "text-muted-foreground shrink-0 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]";
+const airTimeBadgeNoticeItemClass =
+  "text-white/80 shrink-0 rounded border border-white/80 bg-black px-1 py-0.5 text-[9.5px] lg:text-[8px] text-white/80";
 const metricRowClass =
   "text-muted-foreground flex min-w-0 flex-nowrap items-center gap-1 text-[8px] font-semibold";
-const metricItemClass = "flex shrink-0 items-center gap-1 whitespace-nowrap";
+const metricItemClass = "flex shrink-0 items-center gap-0.5 whitespace-nowrap";
+const metricNoticeItemClass =
+  "flex shrink-0 items-center gap-0.5 whitespace-nowrap text-white/80";
 
 export default function PlaylistTable({
   showTimes,
@@ -294,6 +300,10 @@ export default function PlaylistTable({
           const encounterCount =
             channelMetrics?.encounters ?? item.channel.encounters ?? 0;
 
+          const isNoticeItem =
+            item?.channel?.title?.startsWith("Program Start") ||
+            item?.channel?.title?.startsWith("Program End");
+
           return (
             <div
               key={item.id || liveIndex}
@@ -306,7 +316,7 @@ export default function PlaylistTable({
                   onSelectChannel(rowIndex);
                 }
               }}
-              className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary z-10 -mt-2 scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} ${showAired ? "opacity-80" : ""}`}
+              className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary z-10 -mt-2 scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} ${showAired ? "opacity-80" : ""} ${isNoticeItem ? "bg-black text-white" : "bg-white text-black"}`}
             >
               <div
                 className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
@@ -320,33 +330,54 @@ export default function PlaylistTable({
 
                 <p className={metricRowClass}>
                   {effectiveShowTimes && startLabel ? (
-                    <span className={airTimeBadgeClass}>
+                    <span
+                      className={
+                        isNoticeItem
+                          ? airTimeBadgeNoticeItemClass
+                          : airTimeBadgeClass
+                      }
+                    >
                       {showAired ? `Aired ${startLabel}` : startLabel}
                     </span>
                   ) : null}
-                  <span className={metricItemClass}>
+                  <span
+                    className={
+                      isNoticeItem ? metricNoticeItemClass : metricItemClass
+                    }
+                  >
+                    <MessageCircleMore className="size-3 shrink-0" />
+                    {channelComments}
+                  </span>
+                  <span
+                    className={
+                      isNoticeItem ? metricNoticeItemClass : metricItemClass
+                    }
+                  >
                     <UsersRound className="size-3 shrink-0" />
                     {item.channel.numOfTips || 0} tips
                   </span>
-                  <span className={metricItemClass}>
-                    <MessageCircle className="size-3 shrink-0" />
-                    {channelComments}
-                  </span>
-                  <span className={metricItemClass}>
+
+                  <span
+                    className={
+                      isNoticeItem ? metricNoticeItemClass : metricItemClass
+                    }
+                  >
                     <EyeIcon className="size-3 shrink-0" />
                     {encounterCount} seen
                   </span>
                 </p>
               </div>
 
-              <div className="flex shrink-0 flex-col items-end justify-end gap-1">
+              <div
+                className={`flex shrink-0 flex-col items-end justify-end gap-1 rounded-md border px-0.5 py-0.25 shadow-lg ${isNoticeItem ? "border-white/50" : "border-gray-300"}`}
+                onClick={e => {
+                  e.stopPropagation();
+                  openCommentDrawer(item);
+                }}
+              >
                 <button
                   type="button"
-                  className="flex items-center gap-[0.5px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
-                  onClick={e => {
-                    e.stopPropagation();
-                    openCommentDrawer(item);
-                  }}
+                  className={`flex items-center gap-[0.5px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline ${isNoticeItem ? "outline-white/50" : "outline-gray-400"}`}
                 >
                   <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
                     <span className="text-[8px] sm:text-[7px]">
@@ -368,7 +399,9 @@ export default function PlaylistTable({
                     </span>
                   </span>
 
-                  <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[6px]">
+                  <p
+                    className={`w-fit rounded-md px-1 py-0.5 text-[8px] lg:text-[6px] ${isNoticeItem ? "bg-gray-500 text-white/80" : "bg-gray-200 text-black"}`}
+                  >
                     {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
                   </p>
                 </div>

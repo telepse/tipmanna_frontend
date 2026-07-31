@@ -153,6 +153,8 @@ test.describe("Explore feed pagination", () => {
     const tEnd = marks.find(m => m.label === "reached_final_old")!.t;
     const tAppend = marks.find(m => m.label === "append")!.t;
     expect(tReq - t0).toBeLessThan(2_000);
+    // Bounded pagination deadline — must not approach legacy ~60s stack.
+    expect(tAppend - tReq).toBeLessThan(40_000);
     // Recoverable wait is acceptable; silent dead end is not.
     expect(tAppend).toBeGreaterThan(tReq);
     console.info(

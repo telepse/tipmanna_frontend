@@ -792,7 +792,7 @@ export function TvInteractiveShell({
                           onClick={() => setActiveTab("playlist")}
                           className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs break-keep whitespace-nowrap outline ${
                             activeTab === "playlist"
-                              ? "bg-black text-white"
+                              ? "bg-primary text-black"
                               : "border border-black bg-white text-black"
                           }`}
                         >
@@ -801,7 +801,7 @@ export function TvInteractiveShell({
                         <button
                           type="button"
                           onClick={() => setActiveTab("programs")}
-                          className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] whitespace-nowrap outline ${activeTab === "programs" ? "bg-black text-white" : "border border-black bg-white text-black"}`}
+                          className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] whitespace-nowrap outline ${activeTab === "programs" ? "bg-primary text-black" : "border border-black bg-white text-black"}`}
                         >
                           TV Programs
                         </button>
@@ -811,7 +811,7 @@ export function TvInteractiveShell({
                           onClick={() => setActiveTab("tips")}
                           className={`flex shrink-0 items-center gap-1 rounded-md px-1 text-xs whitespace-nowrap outline ${
                             activeTab === "tips"
-                              ? "bg-black text-white"
+                              ? "bg-primary text-black"
                               : "bg-white text-black"
                           }`}
                         >

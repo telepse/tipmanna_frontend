@@ -146,6 +146,44 @@ export async function deleteHostEventDetailsAction({
   );
 }
 
+export interface EventReportRecipientPayload {
+  id: string;
+  email: string;
+  enabled: boolean;
+}
+
+export interface SendHostEventReportPayload {
+  sendToHost?: boolean;
+  cohosts: EventReportRecipientPayload[];
+  performers: EventReportRecipientPayload[];
+}
+
+export async function sendHostEventReportAction({
+  hostId,
+  eventId,
+  token,
+  payload,
+}: {
+  hostId: string;
+  eventId: string;
+  token?: string | null;
+  payload: SendHostEventReportPayload;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/send-report`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? await serverAuthHeaders(token) : {}),
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+    "sendHostEventReportAction"
+  );
+}
+
 // -------- Post host event message -------- /
 
 export interface PostHostEventMessagePayload {

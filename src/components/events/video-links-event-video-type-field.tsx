@@ -24,6 +24,7 @@ export function VideoLinksEventVideoTypeField({
     <FormField
       control={control}
       name={`videoLinks.${index}.eventVideoType`}
+      rules={{ required: true }}
       render={({ field }) => (
         <FormItem>
           <FormLabel className="text-xs font-medium text-white/80">

@@ -432,34 +432,35 @@ export const CommentDrawer = ({
           <div className="sticky top-0 z-10 shrink-0 bg-white">
             {/* Top Bar */}
             <div className="relative border-b">
-              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <div className="flex items-end justify-between p-4">
                 {/* Left side metrics */}
-                <div className="flex items-end gap-4">
-                  <div className="flex flex-col">
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
                     <span className="text-sm font-semibold text-black">
                       Comments {commentCountLabel}
-                    </span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-400">
-                    Likes {likeCountLabel}
+                    </span> <span className="text-[10px] text-muted-foreground/50 font-semibold">
+                    Comment likes {likeCountLabel}
                   </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+                   
+                  <span>Saves {resolvedSaveCount}</span>
+                    &middot;
+                    <span>Shares {resolvedShareCount}</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setReportOpen(v => !v)}
-                  >
-                    Report
-                  </Button>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setReportOpen(v => !v)} className="outline outline-primary text-xs px-2 py-1 rounded-md">
+Report
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsCommentDrawerOpen(false)}
-                    className="rounded-full p-2 hover:bg-gray-100"
+                    className="rounded-full p-1 hover:bg-gray-100"
                   >
-                    <X className="text-muted-foreground h-7 w-7" />
+                    <X className="text-muted-foreground size-6" />
                   </button>
                 </div>
               </div>
@@ -523,22 +524,30 @@ export const CommentDrawer = ({
                     </span>
                     <span>·</span>
                     <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
-                    <span>·</span>
-                    <span>Saves {resolvedSaveCount}</span>
-                    <span>·</span>
-                    <span>Shares {resolvedShareCount}</span>
                   </>
                 )}
               </p>
               {channelMeta ? (
+                <div className="flex flex-col gap-1">
                 <p className="text-muted-foreground text-[11px]">
-                  {channelMeta.eventVideoType} · {channelMeta.contentLanguage} ·{" "}
-                  {channelMeta.contentCountry} · added{" "}
-                  {new Date(channelMeta.createdAt).toLocaleDateString()}
-                  {channelMeta.communityName
+                   · {channelMeta.contentLanguage} ·{" "}
+                  {channelMeta.contentCountry}
+                  
+                  
+                </p>
+
+                <p className="text-muted-foreground text-[11px]">
+                  Created:  {new Date(channelMeta.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric"})}
+                </p>
+
+                <p className="text-muted-foreground text-[11px]">
+                Community: {channelMeta.communityName
                     ? ` · ${channelMeta.communityName}`
                     : ""}
                 </p>
+                
+                <p className="w-fit bg-gray-200">{channelMeta.eventVideoType}</p>
+                </div>
               ) : null}
             </div>
 
@@ -741,7 +750,7 @@ export const CommentDrawer = ({
         open={descOpen}
         onOpenChange={setDescOpen}
       >
-        <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-h-[80vh] overflow-y-auto z-[99999999]">
           <DialogHeader>
             <DialogTitle>{resolvedTitle || "Video description"}</DialogTitle>
           </DialogHeader>

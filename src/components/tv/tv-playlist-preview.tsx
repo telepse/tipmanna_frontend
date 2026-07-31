@@ -5,7 +5,7 @@ import {
   ArrowRight,
   AudioLines,
   EyeIcon,
-  MessageCircle,
+  MessageCircleMore,
   UsersRound,
 } from "lucide-react";
 import { trimTitle } from "@/lib/utils";
@@ -132,7 +132,8 @@ export function TvPlaylistPreview({
     "text-muted-foreground shrink-0 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]";
   const metricRowClass =
     "text-muted-foreground flex min-w-0 flex-nowrap items-center gap-1 text-[8px] font-semibold";
-  const metricItemClass = "flex shrink-0 items-center gap-1 whitespace-nowrap";
+  const metricItemClass =
+    "flex shrink-0 items-center gap-0.5 whitespace-nowrap";
 
   const pickTimeLabel = (originalIndex: number) => {
     if (!showTimes || broadcastEpoch == null || !totalDuration) return "";
@@ -307,14 +308,15 @@ export function TvPlaylistPreview({
                     <span className={airTimeBadgeClass}>{startLabel}</span>
                   ) : null}
                   <span className={metricItemClass}>
-                    <UsersRound className="size-3 shrink-0" />
-                    {item.channel.numOfTips || 0} tips
-                  </span>
-                  <span className={metricItemClass}>
-                    <MessageCircle className="size-3 shrink-0" />
+                    <MessageCircleMore className="size-3 shrink-0" />
                     {channelComments}
                   </span>
                   <span className={metricItemClass}>
+                    <UsersRound className="size-3 shrink-0" />
+                    {item.channel.numOfTips || 0} tips
+                  </span>
+
+                  <span className={`${metricItemClass} `}>
                     <EyeIcon className="size-3 shrink-0" />
                     {encounterCount}{" "}
                     <span className="inline sm:hidden">seen</span>
@@ -322,14 +324,16 @@ export function TvPlaylistPreview({
                 </p>
               </div>
 
-              <div className="flex shrink-0 flex-col items-end justify-end gap-1">
+              <div
+                className="bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-0.5 px-1 py-0.5 shadow-2xl"
+                onClick={e => {
+                  e.stopPropagation();
+                  openCommentDrawer(item);
+                }}
+              >
                 <button
                   type="button"
-                  className="flex items-center gap-[0.5px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
-                  onClick={e => {
-                    e.stopPropagation();
-                    openCommentDrawer(item);
-                  }}
+                  className="flex items-center gap-[0.25px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
                 >
                   <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
                     <span className="text-[8px] sm:text-[7px]">
@@ -339,7 +343,7 @@ export function TvPlaylistPreview({
                   </span>
                 </button>
 
-                <div className="flex w-fit items-center gap-1">
+                <div className="flex w-fit items-center gap-0.5">
                   <span className="flex items-center gap-0.5 text-[9px]">
                     <img
                       src={flagUrl}
@@ -351,7 +355,7 @@ export function TvPlaylistPreview({
                     </span>
                   </span>
 
-                  <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[8px] text-black lg:text-[6px]">
+                  <p className="w-[50px] rounded-md bg-gray-200 px-1 py-0.25 text-[8px] text-black lg:text-[6px] text-center">
                     {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
                   </p>
                 </div>

@@ -30,11 +30,16 @@ export function spinStyle({
 
   const startTime = performance.now();
   let stopped = false;
-  let firstFrameCommitted = false;
+  let finalized = false;
 
   const rafs = new Set<number>();
-  const anchors: number[] = [];
+  const timers = new Set<ReturnType<typeof setTimeout>>();
   const nodes: HTMLElement[] = [];
+
+  let resolveFinished!: () => void;
+  const finished = new Promise<void>(resolve => {
+    resolveFinished = resolve;
+  });
 
   /* ───────────── Overlay (Tier-Correct) ───────────── */
 
@@ -58,6 +63,34 @@ export function spinStyle({
     t < 0.85 ? Math.pow(t / 0.85, 1.25) : 1;
 
   const paymentEnergy = (t: number) => (t < 0.9 ? Math.pow(t / 0.9, 0.92) : 1);
+
+  function finish(): void {
+    if (finalized) return;
+    finalized = true;
+    stopped = true;
+
+    timers.forEach(id => clearTimeout(id));
+    timers.clear();
+    rafs.forEach(cancelAnimationFrame);
+    rafs.clear();
+
+    nodes.forEach(n => {
+      if (n.isConnected) n.remove();
+    });
+    nodes.length = 0;
+
+    if (overlay.isConnected) overlay.remove();
+
+    resolveFinished();
+  }
+
+  function scheduleTimer(fn: () => void, ms: number): void {
+    const id = setTimeout(() => {
+      timers.delete(id);
+      fn();
+    }, ms);
+    timers.add(id);
+  }
 
   /* ───────────── Spawn ───────────── */
 
@@ -83,8 +116,6 @@ export function spinStyle({
 
     function animate(now: number) {
       if (stopped) return;
-
-      firstFrameCommitted = true;
 
       const elapsed = now - startTime;
       const t = Math.min(elapsed / TOTAL, 1);
@@ -124,8 +155,6 @@ export function spinStyle({
       if (t < 1) {
         const id = requestAnimationFrame(animate);
         rafs.add(id);
-      } else {
-        img.remove();
       }
     }
 
@@ -137,44 +166,25 @@ export function spinStyle({
 
   /* ───────────── Temporal Anchor ───────────── */
 
-  anchors.push(window.setTimeout(() => {}, TOTAL * 0.6));
-
-  /* ───────────── Cleanup ───────────── */
-
-  function cleanup() {
-    if (stopped) return;
-    stopped = true;
-    rafs.forEach(cancelAnimationFrame);
-    anchors.forEach(clearTimeout);
-    nodes.forEach(n => n.remove());
-    overlay.remove();
-  }
-
-  /* ───────────── Finished Promise ───────────── */
-
-  const finished = new Promise<void>(resolve => {
-    const check = () => {
-      if (firstFrameCommitted && performance.now() - startTime >= TOTAL) {
-        cleanup();
-        resolve();
-      } else {
-        requestAnimationFrame(check);
-      }
-    };
-    check();
-  });
+  scheduleTimer(() => {}, TOTAL * 0.6);
 
   /* ───────────── Stop ───────────── */
 
-  function stop() {
-    if (stopped) return;
+  function stop(): void {
+    if (finalized) return;
 
-    if (!isPreview) {
-      if (!firstFrameCommitted) return;
-      if (performance.now() - startTime < MIN_PAYMENT_LIFETIME) return;
+    if (isPreview) {
+      finish();
+      return;
     }
 
-    cleanup();
+    const elapsed = performance.now() - startTime;
+    if (elapsed < MIN_PAYMENT_LIFETIME) {
+      scheduleTimer(finish, MIN_PAYMENT_LIFETIME - elapsed);
+      return;
+    }
+
+    finish();
   }
 
   return { stop, finished };

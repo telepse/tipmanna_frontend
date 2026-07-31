@@ -12,7 +12,17 @@ export const EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS = 10_000;
  * at 10s only forces a wasted retry cycle and a slower reschedule. Give
  * continuation fetches enough headroom to complete on the first attempt.
  */
-export const EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS = 20_000;
+/** Per-attempt ceiling for continuation fetches (measured p95 ~25s). */
+export const EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS = 25_000;
+
+/**
+ * Total wall-clock budget for one pagination server-action cycle.
+ * Primary attempt + at most one controlled retry share this budget.
+ */
+export const EXPLORE_FEED_PAGINATION_TOTAL_DEADLINE_MS = 35_000;
+
+/** Primary + one controlled retry for clearly retryable failures only. */
+export const EXPLORE_FEED_PAGINATION_MAX_ATTEMPTS = 2;
 
 /** Max wait for in-flight boot prefetch before proceeding to direct fetch. */
 export const EXPLORE_FEED_PREFETCH_WAIT_TIMEOUT_MS = 10_000;

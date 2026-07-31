@@ -6,6 +6,7 @@ import {
   EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS,
   EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS,
 } from "@/lib/explore-feed-fetch-timeout";
+import { runExplorePaginationServerFetch } from "@/lib/explore-feed-pagination-fetch";
 import { DISCOVERY_PROGRAMS_DISPLAY_LIMIT } from "@/lib/discover-programs";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import { serverAuthHeaders } from "@/lib/server-auth";
@@ -341,23 +342,47 @@ export async function postExploreFeedBatchAction(
     body.communityIds = opts.communityIds.slice(0, 50);
   }
 
-  // Continuation (pagination) fetches carry excludeChannelIds and always miss
-  // the backend default-feed cache, so they legitimately take longer than the
-  // boot fail-open budget. Boot (no excludes) keeps the tight fail-open cap.
-  const fetchTimeoutMs =
-    excludeChannelIds.length > 0
-      ? EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS
-      : EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS;
+  const isContinuation = excludeChannelIds.length > 0;
+  const fetchTimeoutMs = isContinuation
+    ? EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS
+    : EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS;
+
+  const fetchInit = {
+    method: "POST" as const,
+    headers: await serverAuthHeaders(authToken),
+    body: JSON.stringify(body),
+    cache: "no-store" as const,
+    perAttemptTimeoutMs: fetchTimeoutMs,
+  };
+
+  if (isContinuation) {
+    return runExplorePaginationServerFetch<ExploreFeedBatchData>(
+      `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/feed/batch`,
+      fetchInit,
+      "postExploreFeedBatchAction",
+      raw => {
+        const o = raw as Record<string, unknown>;
+        const items = o.items;
+        const seedVal = o.seed;
+        return {
+          items: Array.isArray(items) ? items : [],
+          seed: typeof seedVal === "string" ? seedVal : "",
+          savesFeedEligible:
+            typeof o.savesFeedEligible === "boolean"
+              ? o.savesFeedEligible
+              : undefined,
+          savesFeedReason:
+            o.savesFeedReason === "auth" || o.savesFeedReason === "min_saves"
+              ? o.savesFeedReason
+              : undefined,
+        };
+      }
+    );
+  }
 
   return runServerFetch<ExploreFeedBatchData>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/feed/batch`,
-    {
-      method: "POST",
-      headers: await serverAuthHeaders(authToken),
-      body: JSON.stringify(body),
-      cache: "no-store",
-      perAttemptTimeoutMs: fetchTimeoutMs,
-    },
+    fetchInit,
     "postExploreFeedBatchAction",
     raw => {
       const o = raw as Record<string, unknown>;

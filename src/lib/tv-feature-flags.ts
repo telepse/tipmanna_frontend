@@ -62,3 +62,15 @@ export function isTvStartupPlaybackGuardEnabled(): boolean {
     process.env.NEXT_PUBLIC_TV_STARTUP_PLAYBACK_GUARD === "1"
   );
 }
+
+/**
+ * Phase C1 — initial live-offset YouTube iframe embed at schedule-resolved offset.
+ * Default DISABLED. Requires a frontend rebuild (`NEXT_PUBLIC_*`).
+ * Independent from Phase C0 playback guard.
+ */
+export function isTvInitialLiveOffsetEmbedEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_INITIAL_LIVE_OFFSET_EMBED === "true" ||
+    process.env.NEXT_PUBLIC_TV_INITIAL_LIVE_OFFSET_EMBED === "1"
+  );
+}

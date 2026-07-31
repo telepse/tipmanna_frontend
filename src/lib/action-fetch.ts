@@ -167,20 +167,67 @@ function attemptFetchInit(
   return rest as RequestInit;
 }
 
+export type ServerFetchRetryOptions = {
+  /** Override default 4 attempts (pagination uses 2). */
+  maxAttempts?: number;
+  /** Shared wall-clock budget across all attempts in one cycle. */
+  totalDeadlineMs?: number;
+};
+
+function remainingDeadlineMs(
+  startedAt: number,
+  totalDeadlineMs: number | undefined
+): number | undefined {
+  if (totalDeadlineMs == null || totalDeadlineMs <= 0) return undefined;
+  return Math.max(0, totalDeadlineMs - (Date.now() - startedAt));
+}
+
+function perAttemptBudgetMs(
+  init: ServerActionFetchInit | undefined,
+  remainingMs: number | undefined
+): number | undefined {
+  const configured = init?.perAttemptTimeoutMs;
+  if (remainingMs == null) return configured;
+  if (configured == null || configured <= 0) return remainingMs;
+  return Math.min(configured, remainingMs);
+}
+
 async function fetchWithRetry(
   url: string,
   init: ServerActionFetchInit | undefined,
   context: string,
-  mapSuccess?: (raw: unknown) => unknown
+  mapSuccess?: (raw: unknown) => unknown,
+  retryOpts?: ServerFetchRetryOptions
 ): Promise<ActionResult<unknown>> {
-  const maxAttempts = 4;
+  const maxAttempts = retryOpts?.maxAttempts ?? 4;
+  const totalDeadlineMs = retryOpts?.totalDeadlineMs;
+  const startedAt = Date.now();
   const method = init?.method ?? "GET";
   let lastResult: ActionResult<unknown> =
     makeActionFailResult("Request failed");
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const remaining = remainingDeadlineMs(startedAt, totalDeadlineMs);
+    if (totalDeadlineMs != null && remaining != null && remaining <= 0) {
+      logFetchFailure({
+        context,
+        url,
+        method,
+        attempt,
+        maxAttempts,
+        reason: "Pagination total deadline exhausted",
+        willRetry: false,
+      });
+      return makeActionFailResult("Request timed out (total deadline)");
+    }
+
+    const attemptInit: ServerActionFetchInit = {
+      ...(init ?? {}),
+      perAttemptTimeoutMs: perAttemptBudgetMs(init, remaining),
+    };
+
     try {
-      const res = await fetch(url, attemptFetchInit(init));
+      const res = await fetch(url, attemptFetchInit(attemptInit));
       const text = await res.text();
       let raw: unknown = null;
       if (text) {
@@ -203,7 +250,11 @@ async function fetchWithRetry(
         }
       }
 
-      if (res.status === 429 && attempt < maxAttempts - 1) {
+      if (
+        res.status === 429 &&
+        attempt < maxAttempts - 1 &&
+        (remainingDeadlineMs(startedAt, totalDeadlineMs) ?? 1) > 0
+      ) {
         const retryAfter = res.headers.get("Retry-After");
         const delayMs = retryAfter
           ? Math.min(30_000, parseInt(retryAfter, 10) * 1000 || 1000)
@@ -226,7 +277,10 @@ async function fetchWithRetry(
 
       if (!res.ok) {
         const msg = errorMessageFromBody(raw, `Request failed (${res.status})`);
-        const willRetry = res.status >= 500 && attempt < maxAttempts - 1;
+        const willRetry =
+          res.status >= 500 &&
+          attempt < maxAttempts - 1 &&
+          (remainingDeadlineMs(startedAt, totalDeadlineMs) ?? 1) > 0;
         const retryDelayMs = willRetry ? 400 * 2 ** attempt : undefined;
         logFetchFailure({
           context,
@@ -257,7 +311,9 @@ async function fetchWithRetry(
         : e instanceof Error
           ? e.message
           : "Network error — check your connection";
-      const willRetry = attempt < maxAttempts - 1;
+      const willRetry =
+        attempt < maxAttempts - 1 &&
+        (remainingDeadlineMs(startedAt, totalDeadlineMs) ?? 1) > 0;
       const retryDelayMs = willRetry ? 400 * 2 ** attempt : undefined;
       logFetchFailure({
         context,
@@ -290,7 +346,8 @@ export async function runServerFetch<T = unknown>(
   url: string,
   init: ServerActionFetchInit | undefined,
   context: string,
-  mapSuccess?: (raw: unknown) => T
+  mapSuccess?: (raw: unknown) => T,
+  retryOpts?: ServerFetchRetryOptions
 ): Promise<ActionResult<T>> {
   const key = requestDedupeKey(url, init);
   const existing = inflightRequests.get(key);
@@ -303,7 +360,8 @@ export async function runServerFetch<T = unknown>(
     url,
     init,
     context,
-    mapSuccess as ((raw: unknown) => unknown) | undefined
+    mapSuccess as ((raw: unknown) => unknown) | undefined,
+    retryOpts
   ).finally(() => {
     inflightRequests.delete(key);
   });

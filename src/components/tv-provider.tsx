@@ -51,8 +51,17 @@ import {
   isTvDirectScheduleFetchEnabled,
   isTvScheduleSwrEnabled,
   isTvSingleStartupScheduleEnabled,
+  isTvInitialLiveOffsetEmbedEnabled,
   isTvStartupPlaybackGuardEnabled,
 } from "@/lib/tv-feature-flags";
+import {
+  buildProvisionalInitialTarget,
+  isInitialTargetStillValid,
+  isStaleStartupGeneration,
+  shouldSkipInitialReload,
+  type CommittedInitialEmbed,
+  type InitialTvPlaybackTarget,
+} from "@/lib/tv-initial-live-offset-embed";
 import {
   classifyStartupPlayerError,
   classifyYoutubeErrorKind,
@@ -298,6 +307,23 @@ type TVContextType = {
   /** Phase C0 — first successful PLAYING notification from looper. */
   notifyStartupPlayerPlaying: () => void;
 
+  /** Phase C1 — provisional target for initial live-offset embed (read-only). */
+  initialPlaybackTarget: InitialTvPlaybackTarget | null;
+  /** Phase C1 — stable key generation for startup embed remounts. */
+  startupEmbedGeneration: number;
+
+  /** Phase C1 — TvPlayer reports committed iframe target at mount. */
+  onInitialLiveOffsetEmbedCommitted: (payload: {
+    videoId: string;
+    startOffsetSeconds: number;
+    selectedIndex: number;
+    startupGeneration: number;
+  }) => void;
+  /** Phase C1 — confirm embed target at onReady (T9). */
+  onInitialLiveOffsetEmbedConfirmed: (payload: {
+    startupGeneration: number;
+  }) => void;
+
   /** Community TV: load `/communities/:id/tv/schedule`; null = Tipmanna global. */
   scheduleSourceCommunityId: string | null;
   setScheduleSourceCommunityId: (id: string | null) => void;
@@ -367,6 +393,10 @@ function createFallbackTvContext(): TVContextType {
     reloadCurrentPlaybackAt: noop,
     handleStartupPlayerError: noop,
     notifyStartupPlayerPlaying: noop,
+    initialPlaybackTarget: null,
+    startupEmbedGeneration: 1,
+    onInitialLiveOffsetEmbedCommitted: noop,
+    onInitialLiveOffsetEmbedConfirmed: noop,
     scheduleSourceCommunityId: null,
     setScheduleSourceCommunityId: noop,
     scheduleError: false,
@@ -493,6 +523,11 @@ export default function GlobalTVProvider({
   const inFlightOrchestratedVideoIdRef = useRef<string | null>(null);
   const legacyVideoErrorReloadsRef = useRef(0);
   const lastOrchestratedCommandRef = useRef<string | null>(null);
+  const startupGenerationRef = useRef(1);
+  const provisionalInitialTargetRef = useRef<InitialTvPlaybackTarget | null>(
+    null
+  );
+  const committedInitialEmbedRef = useRef<CommittedInitialEmbed | null>(null);
   const syncMissRef = useRef(0);
   const isReadyRef = useRef(false);
   const broadcastEpochRef = useRef<number | null>(null);
@@ -517,6 +552,9 @@ export default function GlobalTVProvider({
       scheduleSourceCommunityIdRef.current = id;
       return id;
     });
+  const [initialPlaybackTarget, setInitialPlaybackTarget] =
+    useState<InitialTvPlaybackTarget | null>(null);
+  const [startupEmbedGeneration, setStartupEmbedGeneration] = useState(1);
 
   const setScheduleSourceCommunityId = useCallback((id: string | null) => {
     scheduleSourceCommunityIdRef.current = id;
@@ -564,6 +602,11 @@ export default function GlobalTVProvider({
     resetStartupPlaybackGuardState(startupPlaybackGuardRef.current);
     inFlightOrchestratedVideoIdRef.current = null;
     legacyVideoErrorReloadsRef.current = 0;
+    startupGenerationRef.current += 1;
+    setStartupEmbedGeneration(startupGenerationRef.current);
+    provisionalInitialTargetRef.current = null;
+    committedInitialEmbedRef.current = null;
+    setInitialPlaybackTarget(null);
   }, []);
 
   useEffect(() => {
@@ -674,6 +717,34 @@ export default function GlobalTVProvider({
           recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
         },
       });
+      return false;
+    }
+
+    if (
+      shouldSkipInitialReload(
+        committedInitialEmbedRef.current,
+        req,
+        guard.firstPlayReached,
+        performance.now(),
+        isTvInitialLiveOffsetEmbedEnabled()
+      )
+    ) {
+      tvStartupEvent("initial_embed_target_matched_first_sync", {
+        trigger: req.reason,
+        data: {
+          videoIdHash: hashShortId(req.videoId),
+          startOffsetSeconds: req.startSeconds,
+          currentIndex: currentIndexRef.current,
+        },
+      });
+      tvStartupEvent("initial_reload_avoided", {
+        trigger: req.reason,
+        data: {
+          videoIdHash: hashShortId(req.videoId),
+          startOffsetSeconds: req.startSeconds,
+        },
+      });
+      lastSyncedIndex.current = req.scheduleIndex ?? currentIndexRef.current;
       return false;
     }
 
@@ -828,6 +899,109 @@ export default function GlobalTVProvider({
       });
     }
   }, []);
+
+  const onInitialLiveOffsetEmbedCommitted = useCallback(
+    (payload: {
+      videoId: string;
+      startOffsetSeconds: number;
+      selectedIndex: number;
+      startupGeneration: number;
+    }) => {
+      if (!isTvInitialLiveOffsetEmbedEnabled()) return;
+      if (
+        isStaleStartupGeneration(
+          payload.startupGeneration,
+          startupGenerationRef.current
+        )
+      ) {
+        return;
+      }
+      if (modeRef.current !== "GLOBAL") return;
+
+      const committed: CommittedInitialEmbed = {
+        videoId: payload.videoId,
+        startOffsetSeconds: payload.startOffsetSeconds,
+        selectedIndex: payload.selectedIndex,
+        startupGeneration: payload.startupGeneration,
+        committedAtPerformanceMs: performance.now(),
+      };
+      committedInitialEmbedRef.current = committed;
+      orchestratedPlaybackRef.current = {
+        videoId: payload.videoId,
+        startSeconds: payload.startOffsetSeconds,
+      };
+      inFlightOrchestratedVideoIdRef.current = payload.videoId;
+      lastOrchestratedCommandRef.current = "initial_embed";
+
+      if (isTvStartupPlaybackGuardEnabled()) {
+        const guard = startupPlaybackGuardRef.current;
+        markInitialCommandIssued(guard);
+        if (guard.phase === "initial_command_issued") {
+          guard.phase = "buffering_before_first_play";
+        }
+      }
+
+      lastSyncedIndex.current = payload.selectedIndex;
+      currentIndexRef.current = payload.selectedIndex;
+
+      tvStartupEvent("initial_live_offset_embed_committed", {
+        trigger: "iframe_mount",
+        data: {
+          videoIdHash: hashShortId(payload.videoId),
+          startOffsetSeconds: payload.startOffsetSeconds,
+          selectedIndex: payload.selectedIndex,
+          startupGeneration: payload.startupGeneration,
+          targetWasResolved: true,
+        },
+      });
+    },
+    []
+  );
+
+  const onInitialLiveOffsetEmbedConfirmed = useCallback(
+    (payload: { startupGeneration: number }) => {
+      if (!isTvInitialLiveOffsetEmbedEnabled()) return;
+      const committed = committedInitialEmbedRef.current;
+      if (
+        !committed ||
+        isStaleStartupGeneration(
+          payload.startupGeneration,
+          startupGenerationRef.current
+        )
+      ) {
+        return;
+      }
+
+      const provisional = provisionalInitialTargetRef.current;
+      const valid = isInitialTargetStillValid(
+        provisional,
+        committed,
+        startupGenerationRef.current
+      );
+
+      if (!valid) {
+        tvStartupEvent("initial_embed_target_stale", {
+          reason: "target_changed_before_ready",
+          data: {
+            videoIdHash: hashShortId(committed.videoId),
+            startupGeneration: payload.startupGeneration,
+          },
+        });
+        return;
+      }
+
+      tvStartupEvent("initial_live_offset_embed_confirmed", {
+        trigger: "youtube_onReady",
+        data: {
+          videoIdHash: hashShortId(committed.videoId),
+          startOffsetSeconds: committed.startOffsetSeconds,
+          targetWasResolved: true,
+          startupGeneration: payload.startupGeneration,
+        },
+      });
+    },
+    []
+  );
 
   const syncToLive = useCallback(() => {
     tvStartupEvent("syncToLive", {
@@ -1102,6 +1276,11 @@ export default function GlobalTVProvider({
       activeScheduleIdRef.current = sid;
       orchestratedPlaybackRef.current = null;
       pendingPlaybackRequestRef.current = null;
+      if (!startupPlaybackGuardRef.current.firstPlayReached) {
+        committedInitialEmbedRef.current = null;
+        provisionalInitialTargetRef.current = null;
+        setInitialPlaybackTarget(null);
+      }
     }
 
     setItems(data.items ?? []);
@@ -1186,6 +1365,37 @@ export default function GlobalTVProvider({
           ),
         },
       });
+
+      if (
+        isTvInitialLiveOffsetEmbedEnabled() &&
+        modeRef.current === "GLOBAL" &&
+        !paymentActiveRef.current &&
+        liveItem &&
+        liveItem.segmentKind !== "notice" &&
+        liveItem.channel?.url
+      ) {
+        const videoId = extractYoutubeID(liveItem.channel.url);
+        if (videoId) {
+          const revision =
+            (data.scheduleRevisions?.ongoing as string | number | undefined) ??
+            (data.activeScheduleId as string | undefined) ??
+            null;
+          const target = buildProvisionalInitialTarget({
+            startupGeneration: startupGenerationRef.current,
+            source: scheduleSourceCommunityIdRef.current
+              ? "community"
+              : "global",
+            sourceCommunityId: scheduleSourceCommunityIdRef.current,
+            scheduleRevision: revision,
+            selectedIndex: live.scheduleIndex,
+            videoId,
+            startOffsetSeconds: live.offsetSeconds,
+            resolvedAtPerformanceMs: performance.now(),
+          });
+          provisionalInitialTargetRef.current = target;
+          setInitialPlaybackTarget(target);
+        }
+      }
     }
 
     const oc =
@@ -2658,6 +2868,10 @@ export default function GlobalTVProvider({
         reloadCurrentPlaybackAt,
         handleStartupPlayerError,
         notifyStartupPlayerPlaying,
+        initialPlaybackTarget,
+        startupEmbedGeneration,
+        onInitialLiveOffsetEmbedCommitted,
+        onInitialLiveOffsetEmbedConfirmed,
 
         ongoingCollection,
         upcomingCollection,

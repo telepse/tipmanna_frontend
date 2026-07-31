@@ -88,6 +88,22 @@ type Props = {
    * When true, react-youtube videoId is fixed at mount; provider drives loads via ref.load() only.
    */
   externallyControlled?: boolean;
+  /** Phase C1 — embed-time start offset (playerVars.start). Fixed at mount. */
+  initialStartSeconds?: number;
+  /** Phase C1 — startup embed generation for stale callback rejection. */
+  startupGeneration?: number;
+  initialSelectedIndex?: number;
+  embedSource?: "global" | "community";
+  embedReason?: string;
+  targetWasResolved?: boolean;
+  enableLiveOffsetEmbed?: boolean;
+  onInitialEmbedCommitted?: (payload: {
+    videoId: string;
+    startOffsetSeconds: number;
+    selectedIndex: number;
+    startupGeneration: number;
+  }) => void;
+  onInitialEmbedConfirmed?: (payload: { startupGeneration: number }) => void;
 };
 
 const TvPlayer = forwardRef<TvPlayerRef, Props>(
@@ -109,6 +125,15 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       containFill,
       onVideoAspectInfo,
       externallyControlled = false,
+      initialStartSeconds = 0,
+      startupGeneration = 1,
+      initialSelectedIndex = 0,
+      embedSource = "global",
+      embedReason = "cold_start",
+      targetWasResolved = false,
+      enableLiveOffsetEmbed = false,
+      onInitialEmbedCommitted,
+      onInitialEmbedConfirmed,
     },
     ref
   ) => {
@@ -122,7 +147,11 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const mountedVideoIdRef = useRef<string | undefined>(
       extractYoutubeID(videoUrl) ?? undefined
     );
+    const mountedStartSecondsRef = useRef(
+      enableLiveOffsetEmbed ? Math.max(0, Math.floor(initialStartSeconds)) : 0
+    );
     const initialEmbedTracedRef = useRef(false);
+    const initialEmbedCommittedRef = useRef(false);
 
     /**
      * Diagnostic-only (no behaviour change): record player mount + earliest
@@ -139,13 +168,33 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       if (mountedVideoIdRef.current && !initialEmbedTracedRef.current) {
         initialEmbedTracedRef.current = true;
         tvStartupEvent("initial_embed_created", {
-          trigger: "initial_embed",
+          trigger: enableLiveOffsetEmbed ? "live_offset_embed" : "initial_embed",
           data: {
             videoIdHash: hashShortId(mountedVideoIdRef.current),
-            startOffsetSeconds: 0,
+            startOffsetSeconds: mountedStartSecondsRef.current,
+            startupGeneration,
+            source: embedSource,
+            reason: embedReason,
+            targetWasResolved: enableLiveOffsetEmbed && targetWasResolved,
           },
         });
       }
+
+      if (
+        enableLiveOffsetEmbed &&
+        mountedVideoIdRef.current &&
+        !initialEmbedCommittedRef.current &&
+        onInitialEmbedCommitted
+      ) {
+        initialEmbedCommittedRef.current = true;
+        onInitialEmbedCommitted({
+          videoId: mountedVideoIdRef.current,
+          startOffsetSeconds: mountedStartSecondsRef.current,
+          selectedIndex: initialSelectedIndex,
+          startupGeneration,
+        });
+      }
+
       if (!isTvStartupTraceEnabled()) return;
 
       const w = window as unknown as { YT?: { Player?: unknown } };
@@ -179,7 +228,16 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         clearInterval(id);
         clearTimeout(stop);
       };
-    }, [externallyControlled]);
+    }, [
+      externallyControlled,
+      enableLiveOffsetEmbed,
+      startupGeneration,
+      embedSource,
+      embedReason,
+      targetWasResolved,
+      initialSelectedIndex,
+      onInitialEmbedCommitted,
+    ]);
 
     const beginProgrammaticPlayback = useCallback(() => {
       suppressUserIntentUntilRef.current =
@@ -299,9 +357,12 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         playerVars: getYoutubePlayerVarsChromeless({
           autoplay: autoplay,
           mute: true,
+          start: enableLiveOffsetEmbed
+            ? mountedStartSecondsRef.current
+            : undefined,
         }) as Record<string, string | number>,
       }),
-      [cover, containFill, miniPlayerActive, autoplay]
+      [cover, containFill, miniPlayerActive, autoplay, enableLiveOffsetEmbed]
     );
 
     useLayoutEffect(() => {
@@ -377,6 +438,10 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               trigger: "youtube_onReady",
               data: { externallyControlled },
             });
+
+            if (enableLiveOffsetEmbed && onInitialEmbedConfirmed) {
+              onInitialEmbedConfirmed({ startupGeneration });
+            }
 
             syncMuteFromPlayer(event.target);
             onReady?.();

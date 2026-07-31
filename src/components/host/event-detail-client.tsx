@@ -66,6 +66,7 @@ import {
   deleteHostEventDetailsAction,
   deleteHostEventMessageAction,
   postHostEventMessageAction,
+  sendHostEventReportAction,
   updateHostEventDetailsAction,
 } from "@/actions/host";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
@@ -156,7 +157,8 @@ interface EventFormValues {
   eventMessage: string;
   hostEmail: string;
   reportRecipients: ReportRecipient[];
-  performerReportRecipients: ReportRecipient[]; // add this
+  performerReportRecipients: ReportRecipient[];
+  sendReportToHost: boolean;
 }
 
 interface HostMessage {
@@ -330,6 +332,7 @@ export const EventDetailClient = ({
         email: performer.email ?? "",
         enabled: true,
       })),
+      sendReportToHost: true,
     },
   });
 
@@ -415,6 +418,7 @@ export const EventDetailClient = ({
 
   const [isSaving, setIsSaving] = useState(false);
   const [isPostingMessage, setIsPostingMessage] = useState(false);
+  const [isSendingReport, setIsSendingReport] = useState(false);
 
   const [hostMessages, setHostMessages] =
     useState<HostMessage[]>(initialHostMessages);
@@ -509,6 +513,59 @@ export const EventDetailClient = ({
       );
     } finally {
       setIsPostingMessage(false);
+    }
+  };
+
+  const handleSendReport = async () => {
+    const values = form.getValues();
+    const hasHostRecipient =
+      values.sendReportToHost && values.hostEmail.trim().length > 0;
+    const hasCohostRecipient = values.reportRecipients.some(
+      recipient => recipient.enabled && recipient.email.trim().length > 0
+    );
+    const hasPerformerRecipient = values.performerReportRecipients.some(
+      recipient => recipient.enabled && recipient.email.trim().length > 0
+    );
+
+    if (!hasHostRecipient && !hasCohostRecipient && !hasPerformerRecipient) {
+      toast.error("Enable at least one recipient with a valid email.");
+      return;
+    }
+
+    setIsSendingReport(true);
+
+    try {
+      const result = await sendHostEventReportAction({
+        hostId: user.id,
+        eventId,
+        token,
+        payload: {
+          sendToHost: values.sendReportToHost,
+          cohosts: values.reportRecipients,
+          performers: values.performerReportRecipients,
+        },
+      });
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error ?? "Failed to send report.");
+      }
+
+      const payload = result.data as {
+        sent?: number;
+        transactionCount?: number;
+      };
+      const sentCount = payload.sent ?? 0;
+      const transactionCount = payload.transactionCount ?? 0;
+
+      toast.success(
+        `Report sent to ${sentCount} recipient${sentCount === 1 ? "" : "s"} (${transactionCount} transaction${transactionCount === 1 ? "" : "s"}).`
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send report."
+      );
+    } finally {
+      setIsSendingReport(false);
     }
   };
 
@@ -1581,31 +1638,50 @@ export const EventDetailClient = ({
             <div className="bg-card space-y-6 rounded-md border p-6">
               <div className="space-y-1">
                 <h5 className="text-xl font-semibold">Generate report</h5>
-                <p className="text-sm">Available from </p>
+                <p className="text-muted-foreground text-sm">
+                  {hasEventEnded
+                    ? "Send a CSV transaction report for this event (same data as Reports & Insights → Transactions)."
+                    : "Reports can be sent after the event ends."}
+                </p>
               </div>
 
               <div className="space-y-2">
                 <h5 className="text-xl font-semibold">Host</h5>
 
-                <FormField
-                  control={form.control}
-                  name="hostEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold">
-                        Email Address
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          className="bg-gray-100"
-                          disabled
-                          {...field}
+                <div className="flex items-end justify-between gap-4 rounded-md p-4">
+                  <FormField
+                    control={form.control}
+                    name="hostEmail"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel className="text-sm font-semibold">
+                          Email Address
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            className="bg-gray-100"
+                            disabled
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sendReportToHost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               {form.watch("reportRecipients").length > 0 && (
@@ -1711,22 +1787,17 @@ export const EventDetailClient = ({
               <div className="flex justify-end">
                 <Button
                   type="button"
-                  onClick={() => {
-                    console.log(
-                      "Sending report to host:",
-                      form.getValues("hostEmail")
-                    );
-                    console.log(
-                      "Sending report to co-hosts:",
-                      form.getValues("reportRecipients")
-                    );
-                    console.log(
-                      "Sending report:",
-                      form.getValues("performerReportRecipients")
-                    );
-                  }}
+                  onClick={() => void handleSendReport()}
+                  disabled={isSendingReport || !hasEventEnded}
                 >
-                  Send Report
+                  {isSendingReport ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Report"
+                  )}
                 </Button>
               </div>
             </div>

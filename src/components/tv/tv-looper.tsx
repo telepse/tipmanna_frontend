@@ -105,6 +105,9 @@ import {
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import { tvTrace } from "@/lib/tvDebugLog";
 import { tvStartupEvent } from "@/lib/tv-startup-trace";
+import { isTvInitialLiveOffsetEmbedEnabled } from "@/lib/tv-feature-flags";
+import { resolveBroadcastPosition } from "@/lib/tv/broadcastEngine";
+import { computeInitialEmbedPosition } from "@/lib/tv-initial-live-offset-embed";
 import { unmuteWithUserGesture } from "@/lib/tv-autoplay";
 
 /**
@@ -163,6 +166,13 @@ export const TvLooper = ({
     handleStartupPlayerError,
     notifyStartupPlayerPlaying,
     scheduleSourceCommunityId,
+    initialPlaybackTarget,
+    startupEmbedGeneration,
+    broadcastEpoch,
+    totalDuration,
+    getSyncedNow,
+    onInitialLiveOffsetEmbedCommitted,
+    onInitialLiveOffsetEmbedConfirmed,
   } = useTV();
 
   const openEngageDrawer = onEngage ?? onContinueCommentToTip;
@@ -244,6 +254,77 @@ export const TvLooper = ({
     (isNotice ? lastPlayableUrlRef.current || bootstrapPlayableUrl : "");
 
   const playbackUrl = candidate && extractYoutubeID(candidate) ? candidate : "";
+
+  const liveOffsetEmbed = useMemo(() => {
+    if (
+      !isTvInitialLiveOffsetEmbedEnabled() ||
+      !initialPlaybackTarget ||
+      mode !== "GLOBAL" ||
+      isNotice ||
+      !broadcastEpoch ||
+      !totalDuration ||
+      !items.length
+    ) {
+      return null;
+    }
+    return computeInitialEmbedPosition({
+      t6Index: initialPlaybackTarget.selectedIndex,
+      t6OffsetSeconds: initialPlaybackTarget.startOffsetSeconds,
+      t6ResolvedAtPerformanceMs:
+        initialPlaybackTarget.resolvedAtPerformanceMs,
+      items,
+      broadcastEpoch,
+      totalDuration,
+      nowMs: getSyncedNow(),
+      performanceNowMs:
+        typeof performance !== "undefined" ? performance.now() : Date.now(),
+      extractVideoId: extractYoutubeID,
+      resolvePosition: (scheduleItems, epoch, total, now) => {
+        const pos = resolveBroadcastPosition(
+          scheduleItems as Parameters<typeof resolveBroadcastPosition>[0],
+          epoch,
+          total,
+          now
+        );
+        return {
+          scheduleIndex: pos.scheduleIndex,
+          offsetSeconds: pos.offsetSeconds,
+        };
+      },
+    });
+  }, [
+    initialPlaybackTarget,
+    mode,
+    isNotice,
+    broadcastEpoch,
+    totalDuration,
+    items,
+    getSyncedNow,
+  ]);
+
+  const enableLiveOffsetEmbed = Boolean(
+    liveOffsetEmbed &&
+      liveOffsetEmbed.videoId === extractYoutubeID(playbackUrl)
+  );
+
+  const effectiveEmbedPlaybackUrl = useMemo(() => {
+    if (!liveOffsetEmbed || mode !== "GLOBAL" || isNotice) return playbackUrl;
+    const item = items[liveOffsetEmbed.selectedIndex] as
+      | { channel?: { url?: string } }
+      | undefined;
+    const url = item?.channel?.url;
+    if (url && extractYoutubeID(url) === liveOffsetEmbed.videoId) return url;
+    return playbackUrl;
+  }, [liveOffsetEmbed, mode, isNotice, items, playbackUrl]);
+
+  const enableLiveOffsetEmbedFinal = Boolean(
+    liveOffsetEmbed &&
+      liveOffsetEmbed.videoId === extractYoutubeID(effectiveEmbedPlaybackUrl)
+  );
+
+  const playerEmbedKey = enableLiveOffsetEmbedFinal
+    ? `tv-embed-gen-${startupEmbedGeneration}`
+    : "tv-player";
 
   useEffect(() => {
     tvTrace("playback", "playbackUrl_change", {
@@ -1261,10 +1342,31 @@ export const TvLooper = ({
           ) : playbackUrl ? (
             <TvPlayer
               ref={playerRef as React.Ref<import("./tv-player").TvPlayerRef>}
-              key="tv-player"
-              videoUrl={playbackUrl}
+              key={playerEmbedKey}
+              videoUrl={effectiveEmbedPlaybackUrl}
               externallyControlled
               autoplay
+              enableLiveOffsetEmbed={enableLiveOffsetEmbedFinal}
+              initialStartSeconds={
+                enableLiveOffsetEmbedFinal
+                  ? liveOffsetEmbed!.startOffsetSeconds
+                  : 0
+              }
+              startupGeneration={startupEmbedGeneration}
+              initialSelectedIndex={
+                enableLiveOffsetEmbedFinal
+                  ? liveOffsetEmbed!.selectedIndex
+                  : 0
+              }
+              embedSource={
+                scheduleSourceCommunityId ? "community" : "global"
+              }
+              embedReason={
+                liveOffsetEmbed?.rolledOver ? "rollover_at_embed" : "cold_start"
+              }
+              targetWasResolved={enableLiveOffsetEmbedFinal}
+              onInitialEmbedCommitted={onInitialLiveOffsetEmbedCommitted}
+              onInitialEmbedConfirmed={onInitialLiveOffsetEmbedConfirmed}
               onReady={() => {
                 setIsPlayerLoading(false);
 

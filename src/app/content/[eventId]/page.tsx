@@ -33,6 +33,7 @@ interface ContentData {
   createdAt?: string;
   restricted?: boolean;
   isDefault?: boolean;
+  coOwnerNames?: string[];
   event: {
     hostName: string;
     id?: string;
@@ -65,11 +66,16 @@ export async function generateMetadata({
   >;
   const list = Array.isArray(res.data) ? res.data : [];
   const videoRes = pickContentForPage(list, initialChannelId);
+  console.log("videoRes", videoRes);
+
+
+  const videoHasCoOwner = videoRes?.coOwnerNames?.length && videoRes?.coOwnerNames?.length > 0;
+
   const pageUrl = buildContentShareUrl({
     eventId,
     channelId: initialChannelId ?? undefined,
   });
-  const title = `Watch "${videoRes?.title}" by ${videoRes?.event.hostName} 🎬 💎`;
+  const title = `Watch "${videoRes?.title}" by ${videoHasCoOwner ? videoRes?.coOwnerNames?.join(", ") : videoRes?.event.hostName} 🎬 💎`;
   const description = `Watch this video on Tipmanna and join the experience through comments, reactions, and realtime supporter engagement.`;
 
   return {
@@ -209,6 +215,8 @@ export default async function ContentPage({ params, searchParams }: Props) {
           uploadDate: primary.createdAt,
         })
       : null;
+
+    console.log("primary", primary);
 
   return (
     <>

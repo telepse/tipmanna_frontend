@@ -405,6 +405,36 @@ describe("playback and schedule counters", () => {
     expect(s?.startupRecoveryCapReached).toBe(true);
     expect(s?.playerErrorCount).toBe(2);
   });
+
+  it("records Phase C1 embed summary fields and T9 at confirm", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("player_ready", { canonicalMark: "T8" });
+    tvStartupEvent("initial_embed_created", {
+      data: {
+        startOffsetSeconds: 120,
+        targetWasResolved: true,
+        startupGeneration: 1,
+      },
+    });
+    tvStartupEvent("initial_live_offset_embed_confirmed", {
+      data: {
+        startOffsetSeconds: 120,
+        targetWasResolved: true,
+        startupGeneration: 1,
+      },
+    });
+    tvStartupEvent("initial_reload_avoided", { trigger: "syncToLive" });
+
+    const s = helper().getLatest();
+    expect(s?.marks.T9).not.toBeUndefined();
+    expect(s?.initialEmbedStartOffsetSeconds).toBe(120);
+    expect(s?.initialEmbedUsedResolvedTarget).toBe(true);
+    expect(s?.initialReloadAvoided).toBe(true);
+    expect(s?.segments.T8_T9).not.toBeNull();
+    expect(s?.segments.T8_T9 ?? -1).toBeGreaterThanOrEqual(0);
+  });
 });
 
 describe("segment safety", () => {
