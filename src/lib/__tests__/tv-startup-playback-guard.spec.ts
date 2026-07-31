@@ -38,6 +38,8 @@ describe("classifyStartupPlayerError", () => {
   const base = {
     videoId: "abc123",
     firstPlayReached: false,
+    stablePlaybackReached: false,
+    stabilityGuardEnabled: false,
     startupRecoveryCount: 0,
     failedVideoIds: new Set<string>(),
     transientRetriedVideoIds: new Set<string>(),
@@ -49,18 +51,30 @@ describe("classifyStartupPlayerError", () => {
         ...base,
         youtubeErrorCode: 100,
         firstPlayReached: true,
+        stablePlaybackReached: false,
+        stabilityGuardEnabled: false,
       }).action
     ).toBe("legacy_per_video");
   });
 
   it("advances on permanent content errors", () => {
-    const d = classifyStartupPlayerError({ ...base, youtubeErrorCode: 101 });
+    const d = classifyStartupPlayerError({
+      ...base,
+      youtubeErrorCode: 101,
+      stablePlaybackReached: false,
+      stabilityGuardEnabled: false,
+    });
     expect(d.action).toBe("advance_next");
     expect(d.reason).toBe("permanent_content_error");
   });
 
   it("retries once for transient errors", () => {
-    const d = classifyStartupPlayerError({ ...base, youtubeErrorCode: 5 });
+    const d = classifyStartupPlayerError({
+      ...base,
+      youtubeErrorCode: 5,
+      stablePlaybackReached: false,
+      stabilityGuardEnabled: false,
+    });
     expect(d.action).toBe("retry_once");
     expect(d.reason).toBe("transient_player_error");
   });
@@ -69,6 +83,8 @@ describe("classifyStartupPlayerError", () => {
     const d = classifyStartupPlayerError({
       ...base,
       youtubeErrorCode: 5,
+      stablePlaybackReached: false,
+      stabilityGuardEnabled: false,
       transientRetriedVideoIds: new Set(["abc123"]),
     });
     expect(d.action).toBe("advance_next");
@@ -78,6 +94,8 @@ describe("classifyStartupPlayerError", () => {
     const d = classifyStartupPlayerError({
       ...base,
       youtubeErrorCode: 100,
+      stablePlaybackReached: false,
+      stabilityGuardEnabled: false,
       failedVideoIds: new Set(["abc123"]),
     });
     expect(d.action).toBe("skip_failed_target");
@@ -87,13 +105,20 @@ describe("classifyStartupPlayerError", () => {
     const d = classifyStartupPlayerError({
       ...base,
       youtubeErrorCode: 5,
+      stablePlaybackReached: false,
+      stabilityGuardEnabled: false,
       startupRecoveryCount: MAX_STARTUP_PLAYER_RECOVERIES,
     });
     expect(d.action).toBe("cap_reached");
   });
 
   it("uses conservative single retry for unknown codes", () => {
-    const d = classifyStartupPlayerError({ ...base, youtubeErrorCode: 42 });
+    const d = classifyStartupPlayerError({
+      ...base,
+      youtubeErrorCode: 42,
+      stablePlaybackReached: false,
+      stabilityGuardEnabled: false,
+    });
     expect(d.action).toBe("retry_once");
     expect(d.reason).toBe("unknown_error_code");
   });

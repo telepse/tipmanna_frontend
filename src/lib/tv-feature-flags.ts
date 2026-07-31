@@ -74,3 +74,21 @@ export function isTvInitialLiveOffsetEmbedEnabled(): boolean {
     process.env.NEXT_PUBLIC_TV_INITIAL_LIVE_OFFSET_EMBED === "1"
   );
 }
+
+/**
+ * Phase C0.1 — extend startup error/recovery containment until T13 stable playback.
+ * Default DISABLED. Requires C0 playback guard enabled. Requires frontend rebuild.
+ */
+export function isTvStartupStabilityGuardEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_STARTUP_STABILITY_GUARD === "true" ||
+    process.env.NEXT_PUBLIC_TV_STARTUP_STABILITY_GUARD === "1"
+  );
+}
+
+/** C0.1 is only active when both C0 and the stability flag are enabled. */
+export function isTvStartupStabilityGuardActive(): boolean {
+  return (
+    isTvStartupPlaybackGuardEnabled() && isTvStartupStabilityGuardEnabled()
+  );
+}

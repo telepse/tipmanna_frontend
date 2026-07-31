@@ -153,6 +153,15 @@ export type TvStartupSummary = {
   scheduleAttemptTriggerById: Record<string, string>;
   /** Diagnostic — ordered schedule request triggers for this navigation. */
   scheduleRequestTriggers: string[];
+  /** Phase C0.1 — stability guard released at T13 or terminal failure. */
+  startupStabilityGuardReleased: boolean;
+  startupStabilityGuardReleaseReason:
+    | "stable_playback"
+    | "terminal_failure"
+    | null;
+  postFirstPlayPreStableErrorCount: number;
+  preStableSeekSuppressedCount: number;
+  preStableCorrectiveSeekCount: number;
   retry10sOccurred: boolean;
   retry30sOccurred: boolean;
   retry60sOccurred: boolean;
@@ -181,6 +190,19 @@ let scheduleAttemptCounter = 0;
 let currentRun: TvStartupRun | null = null;
 let ambient: TvStartupContext = {};
 let helperInstalled = false;
+let stablePlaybackListener: (() => void) | null = null;
+
+export function setTvStartupStablePlaybackListener(
+  listener: (() => void) | null
+): void {
+  stablePlaybackListener = listener;
+}
+
+/** Finalize trace as failed (e.g. C0.1 terminal startup failure before timeout). */
+export function tvStartupFinalizeFailed(reason: string): void {
+  if (!isTvStartupTraceEnabled()) return;
+  finalizeRun("failed", reason);
+}
 
 const CANONICAL_ORDER: CanonicalMark[] = [
   "T0",
@@ -323,6 +345,11 @@ function createEmptySummary(id: string): TvStartupSummary {
     firstBufferingRelativeToPlaying: null,
     scheduleAttemptTriggerById: {},
     scheduleRequestTriggers: [],
+    startupStabilityGuardReleased: false,
+    startupStabilityGuardReleaseReason: null,
+    postFirstPlayPreStableErrorCount: 0,
+    preStableSeekSuppressedCount: 0,
+    preStableCorrectiveSeekCount: 0,
     retry10sOccurred: false,
     retry30sOccurred: false,
     retry60sOccurred: false,
@@ -598,6 +625,30 @@ function updateCounters(
     case "duplicate_pre_play_load_suppressed":
       s.duplicateLoadSuppressedCount += 1;
       break;
+    case "startup_stability_guard_activated":
+      break;
+    case "post_first_play_pre_stable_error":
+      s.postFirstPlayPreStableErrorCount += 1;
+      break;
+    case "pre_stable_drift_seek_suppressed":
+      s.preStableSeekSuppressedCount += 1;
+      break;
+    case "pre_stable_corrective_seek_issued":
+      s.preStableCorrectiveSeekCount += 1;
+      break;
+    case "startup_stability_guard_released": {
+      s.startupStabilityGuardReleased = true;
+      const releaseReason = data.releaseReason ?? opts.reason;
+      if (
+        releaseReason === "stable_playback" ||
+        releaseReason === "terminal_failure"
+      ) {
+        s.startupStabilityGuardReleaseReason = releaseReason;
+      }
+      break;
+    }
+    case "startup_terminal_failure":
+      break;
     default:
       break;
   }
@@ -655,6 +706,11 @@ function startStabilityWindow(run: TvStartupRun) {
         currentIndex: ambient.currentIndex,
       },
     });
+    try {
+      stablePlaybackListener?.();
+    } catch {
+      /* never let listener break trace */
+    }
     finalizeRun("stable", "two_second_window_elapsed");
   }, STABILITY_WINDOW_MS);
 }
@@ -970,6 +1026,7 @@ export function getTvStartupSummaries(): TvStartupSummary[] {
 export function __resetTvStartupTraceForTest(): void {
   cachedEnabled = null;
   traceId = null;
+  stablePlaybackListener = null;
   if (currentRun?.stabilityTimer != null)
     clearTimeout(currentRun.stabilityTimer);
   if (currentRun?.failureTimer != null) clearTimeout(currentRun.failureTimer);

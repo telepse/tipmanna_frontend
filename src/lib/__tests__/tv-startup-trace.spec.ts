@@ -516,6 +516,34 @@ describe("playback and schedule counters", () => {
     expect(s?.firstBufferingRelativeToPlaying).toBe("after");
     expect(s?.segmentDiagnostics).toContain("reordered_T10_after_T11");
   });
+
+  it("records C0.1 stability guard summary fields", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("startup_stability_guard_activated", {
+      trigger: "player_playing",
+    });
+    tvStartupEvent("post_first_play_pre_stable_error", {
+      data: { youtubeErrorCode: 150 },
+    });
+    tvStartupEvent("pre_stable_drift_seek_suppressed", {
+      trigger: "syncToLive_drift_seek",
+    });
+    tvStartupEvent("pre_stable_corrective_seek_issued", {
+      trigger: "syncToLive_drift_seek",
+    });
+    tvStartupEvent("startup_stability_guard_released", {
+      data: { releaseReason: "stable_playback" },
+    });
+
+    const s = helper().getLatest();
+    expect(s?.postFirstPlayPreStableErrorCount).toBe(1);
+    expect(s?.preStableSeekSuppressedCount).toBe(1);
+    expect(s?.preStableCorrectiveSeekCount).toBe(1);
+    expect(s?.startupStabilityGuardReleased).toBe(true);
+    expect(s?.startupStabilityGuardReleaseReason).toBe("stable_playback");
+  });
 });
 
 describe("segment safety", () => {

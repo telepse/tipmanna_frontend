@@ -52,6 +52,8 @@ export interface TvPlayerRef {
   setVolume: (volume: number) => void;
   getCurrentTime: () => number;
   getDuration: () => number;
+  /** Current YouTube player state name (PLAYING, BUFFERING, …) or null. */
+  getPlayerState: () => string | null;
   /**
    * @param notifyUserSeek When true, emits `onUserSeek` (user intent). Sync / drift correction must pass false.
    */
@@ -314,6 +316,11 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         setVolume: (vol: number) => playerRef.current?.setVolume(vol),
         getCurrentTime: () => playerRef.current?.getCurrentTime() ?? 0,
         getDuration: () => playerRef.current?.getDuration() ?? 0,
+        getPlayerState: () => {
+          const p = playerRef.current;
+          if (!p || typeof p.getPlayerState !== "function") return null;
+          return ytStateName(p.getPlayerState() as number);
+        },
         seekTo: (time: number, notifyUserSeek?: boolean) => {
           if (notifyUserSeek) {
             onUserSeek?.(time);
