@@ -137,9 +137,22 @@ export type TvStartupSummary = {
   initialEmbedStartOffsetSeconds: number | null;
   initialEmbedUsedResolvedTarget: boolean;
   initialEmbedTargetMatchedFirstSync: boolean;
+  /** Phase C1.1 — confirmed by any valid route (sync or first-PLAYING fallback). */
+  initialEmbedTargetConfirmed: boolean;
   initialReloadAvoided: boolean;
+  initialEmbedSuccessTrigger:
+    | "first_sync_request_playback"
+    | "first_sync_same_index"
+    | "first_playing_fallback"
+    | null;
   initialEmbedStaleReason: string | null;
   initialEmbedGenerationCount: number;
+  /** Phase C1.1 — first T10 relative to first T11 (canonical marks unchanged). */
+  firstBufferingRelativeToPlaying: "before" | "after" | null;
+  /** Diagnostic — trigger per schedule HTTP attempt id. */
+  scheduleAttemptTriggerById: Record<string, string>;
+  /** Diagnostic — ordered schedule request triggers for this navigation. */
+  scheduleRequestTriggers: string[];
   retry10sOccurred: boolean;
   retry30sOccurred: boolean;
   retry60sOccurred: boolean;
@@ -302,9 +315,14 @@ function createEmptySummary(id: string): TvStartupSummary {
     initialEmbedStartOffsetSeconds: null,
     initialEmbedUsedResolvedTarget: false,
     initialEmbedTargetMatchedFirstSync: false,
+    initialEmbedTargetConfirmed: false,
     initialReloadAvoided: false,
+    initialEmbedSuccessTrigger: null,
     initialEmbedStaleReason: null,
     initialEmbedGenerationCount: 0,
+    firstBufferingRelativeToPlaying: null,
+    scheduleAttemptTriggerById: {},
+    scheduleRequestTriggers: [],
     retry10sOccurred: false,
     retry30sOccurred: false,
     retry60sOccurred: false,
@@ -446,10 +464,16 @@ function updateCounters(
       if (SCHEDULE_REFRESH_TRIGGERS.has(trigger)) {
         s.scheduleRefreshCountDuringStartup += 1;
       }
+      if (trigger) {
+        s.scheduleRequestTriggers.push(trigger);
+      }
       {
         const attemptId = data.scheduleAttemptId;
         if (typeof attemptId === "string" && attemptId) {
           s.scheduleAttemptIds.push(attemptId);
+          if (trigger) {
+            s.scheduleAttemptTriggerById[attemptId] = trigger;
+          }
           if (!s.initialScheduleAttemptId) {
             s.initialScheduleAttemptId = attemptId;
             s.initialScheduleTrigger = trigger || null;
@@ -507,6 +531,20 @@ function updateCounters(
       break;
     case "initial_embed_target_matched_first_sync":
       s.initialEmbedTargetMatchedFirstSync = true;
+      break;
+    case "initial_embed_target_confirmed": {
+      s.initialEmbedTargetConfirmed = true;
+      const successTrigger = data.trigger;
+      if (
+        successTrigger === "first_sync_request_playback" ||
+        successTrigger === "first_sync_same_index" ||
+        successTrigger === "first_playing_fallback"
+      ) {
+        s.initialEmbedSuccessTrigger = successTrigger;
+      }
+      break;
+    }
+    case "initial_embed_success_rejected":
       break;
     case "initial_embed_target_stale":
       if (typeof data.reason === "string") {
@@ -668,8 +706,17 @@ function computeSummary(run: TvStartupRun): TvStartupSummary {
     overlayRemovedBeforePlaying = true;
   }
 
+  const buffering = marks.T10 ?? null;
+  let firstBufferingRelativeToPlaying: "before" | "after" | null = null;
+  if (buffering != null && playing != null) {
+    firstBufferingRelativeToPlaying =
+      buffering < playing ? "before" : "after";
+  }
+
   run.summary.segments = segments;
   run.summary.segmentDiagnostics = diagnostics;
+  run.summary.firstBufferingRelativeToPlaying =
+    firstBufferingRelativeToPlaying;
   run.summary.totalTtfvMs =
     playing != null || overlay != null
       ? Math.max(playing ?? 0, overlay ?? 0)

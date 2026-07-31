@@ -7,14 +7,22 @@ import {
   vi,
 } from "vitest";
 import { ANIMATION_DURATION, PAYMENT_WRAP } from "@/lib/animationContract";
-import { spinStyle } from "@/animation-styles/spin";
+import {
+  SPIN_LIFECYCLE_VERSION,
+  spinStyle,
+} from "@/animation-styles/spin";
+import { createAnimationFromStyle } from "@/lib/factory-to-style";
 import { wrapPaymentAnimation } from "@/lib/wrapPaymentAnimation";
 import { createAnimationQueue } from "@/lib/animation-queue-core";
 import { clearPlaybackKeyState } from "@/lib/playback-key-lifecycle";
+import type { RoomCharacter } from "@/types";
+
+const traceMock = vi.fn();
 
 vi.mock("@/lib/payment-animation-trace", () => ({
-  tracePaymentAnimation: vi.fn(),
+  tracePaymentAnimation: (...args: unknown[]) => traceMock(...args),
   tracePaymentAnimationError: vi.fn(),
+  isPaymentAnimationTraceEnabled: () => true,
 }));
 
 vi.mock("@/lib/animationDebug", () => ({
@@ -25,6 +33,14 @@ vi.mock("@/lib/animationDebug", () => ({
 const PAYMENT_TOTAL = ANIMATION_DURATION.payment.default;
 const PAYMENT_MIN_LIFETIME = PAYMENT_TOTAL * 0.9;
 const SAFETY_TIMEOUT_MS = PAYMENT_WRAP.safetyTimeoutMs;
+const CYCLE_GAP =
+  PAYMENT_WRAP.betweenCyclesMs + PAYMENT_WRAP.secondCycleBeatMs;
+
+const SPIN_CHARACTER: Pick<RoomCharacter, "name" | "iconUrl" | "styleName"> = {
+  name: "Chicken",
+  iconUrl: "/icons/chicken.png",
+  styleName: "Spin",
+};
 
 type StubElement = {
   tagName: string;
@@ -68,12 +84,15 @@ function createStubElement(tag: string): StubElement {
 }
 
 function setupDom(): { body: StubBody; overlays: () => StubElement[] } {
-  const body: StubBody = { children: [], appendChild(child: StubElement) {
-    child.parentNode = body as unknown as StubElement;
-    child.isConnected = true;
-    body.children.push(child);
-    return child;
-  } };
+  const body: StubBody = {
+    children: [],
+    appendChild(child: StubElement) {
+      child.parentNode = body as unknown as StubElement;
+      child.isConnected = true;
+      body.children.push(child);
+      return child;
+    },
+  };
 
   vi.stubGlobal(
     "document",
@@ -128,34 +147,52 @@ function flushRaf(now = performance.now()): void {
 
 function createSpinPayment() {
   return spinStyle({
-    icons: ["/icons/burger.png"],
+    icons: [SPIN_CHARACTER.iconUrl],
     mode: "payment",
   });
 }
 
-describe("Spin payment animation lifecycle (Phase E6A)", () => {
+function registrySpinPayment() {
+  return createAnimationFromStyle(SPIN_CHARACTER, "payment");
+}
+
+function spinTraces(): Array<{ stage: string; [k: string]: unknown }> {
+  return traceMock.mock.calls.map(
+    (call: unknown[]) => call[0] as { stage: string; [k: string]: unknown }
+  );
+}
+
+describe("Spin payment animation lifecycle (Phase E6A v3)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     setupDom();
     setupRaf();
-    vi.clearAllMocks();
+    traceMock.mockClear();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
 
-  describe("Test A — natural payment completion", () => {
-    it("resolves finished at intended duration, cleans DOM, exactly once", async () => {
+  describe("Test A — direct natural completion", () => {
+    it("schedules natural timer, resolves at TOTAL, cleans DOM once", async () => {
       const { overlays } = setupDom();
       const handle = createSpinPayment();
       flushRaf(0);
 
       expect(overlays()).toHaveLength(1);
+      expect(
+        spinTraces().some(t => t.stage === "spin_natural_timer_scheduled")
+      ).toBe(true);
+      expect(
+        spinTraces().find(t => t.stage === "spin_natural_timer_scheduled")
+          ?.delayMs
+      ).toBe(PAYMENT_TOTAL);
 
       let settled = false;
-      const done = handle.finished.then(() => {
+      void handle.finished.then(() => {
         settled = true;
       });
 
@@ -163,34 +200,80 @@ describe("Spin payment animation lifecycle (Phase E6A)", () => {
       expect(settled).toBe(false);
 
       await vi.advanceTimersByTimeAsync(1);
-      await done;
+      await handle.finished;
 
       expect(settled).toBe(true);
       expect(overlays()).toHaveLength(0);
+      expect(
+        spinTraces().filter(t => t.stage === "spin_finish_resolved")
+      ).toHaveLength(1);
+      expect(
+        spinTraces().find(t => t.stage === "spin_finish_entered")?.reason
+      ).toBe("natural");
       expect(PAYMENT_TOTAL).toBeLessThan(SAFETY_TIMEOUT_MS);
     });
   });
 
-  describe("Test B — explicit stop", () => {
-    it("settles finished, cleans DOM, repeated stop is safe", async () => {
-      const { overlays } = setupDom();
-      const handle = createSpinPayment();
+  describe("Test B — real registry path", () => {
+    it("createAnimationFromStyle resolves naturally before safety timeout", async () => {
+      setupDom();
+      const handle = registrySpinPayment();
       flushRaf(0);
 
-      await vi.advanceTimersByTimeAsync(PAYMENT_MIN_LIFETIME);
+      expect(typeof handle.stop).toBe("function");
+      expect(typeof handle.finished?.then).toBe("function");
 
-      handle.stop();
-      await handle.finished;
+      const pending = handle.finished;
+      await vi.advanceTimersByTimeAsync(PAYMENT_TOTAL);
+      await pending;
 
-      expect(overlays()).toHaveLength(0);
-
-      expect(() => handle.stop()).not.toThrow();
-      await expect(handle.finished).resolves.toBeUndefined();
+      expect(PAYMENT_TOTAL).toBeLessThan(SAFETY_TIMEOUT_MS);
     });
   });
 
-  describe("Test C — stop before minimum lifetime", () => {
-    it("schedules finish at minimum-lifetime boundary without safety timeout", async () => {
+  describe("Test C — real E3C wrapper path", () => {
+    it("wrapPaymentAnimation with registry factory completes two cycles", async () => {
+      setupDom();
+      const e3cTraces: Array<{ stage: string; [k: string]: unknown }> = [];
+      traceMock.mockImplementation(payload => {
+        e3cTraces.push(payload as (typeof e3cTraces)[number]);
+      });
+
+      const run = wrapPaymentAnimation(
+        () => registrySpinPayment(),
+        {
+          characterName: SPIN_CHARACTER.name,
+          styleName: SPIN_CHARACTER.styleName,
+          playbackKey: "bundle-1-Chicken",
+        }
+      );
+
+      const pending = run();
+      await vi.advanceTimersByTimeAsync(
+        PAYMENT_TOTAL + CYCLE_GAP + PAYMENT_TOTAL
+      );
+      await pending;
+
+      expect(e3cTraces.some(t => t.stage === "animation_safety_timeout")).toBe(
+        false
+      );
+      expect(
+        e3cTraces.filter(
+          t => t.stage === "payment_cycle_finished" && t.cycleOutcome === "completed"
+        )
+      ).toHaveLength(2);
+      expect(
+        e3cTraces.find(t => t.stage === "payment_character_playback_finished")
+          ?.playbackResult
+      ).toBe("completed");
+      expect(
+        e3cTraces.some(t => t.stage === "payment_double_cycle_completed")
+      ).toBe(true);
+    });
+  });
+
+  describe("Test D — early stop", () => {
+    it("deferred finalizer settles at min lifetime and cancels natural timer", async () => {
       const { overlays } = setupDom();
       const handle = createSpinPayment();
       flushRaf(0);
@@ -204,12 +287,40 @@ describe("Spin payment animation lifecycle (Phase E6A)", () => {
       await handle.finished;
 
       expect(overlays()).toHaveLength(0);
+      expect(
+        spinTraces().find(t => t.stage === "spin_finish_entered")?.reason
+      ).toBe("deferred_stop");
       expect(PAYMENT_MIN_LIFETIME).toBeLessThan(SAFETY_TIMEOUT_MS);
     });
   });
 
-  describe("Test D — natural finish and stop race", () => {
-    it("finalizer runs once and promise resolves once", async () => {
+  describe("Test E — stop after minimum lifetime", () => {
+    it("immediate finalization cancels natural timer", async () => {
+      const { overlays } = setupDom();
+      const handle = createSpinPayment();
+      flushRaf(0);
+
+      await vi.advanceTimersByTimeAsync(PAYMENT_MIN_LIFETIME);
+      handle.stop();
+      await handle.finished;
+
+      expect(overlays()).toHaveLength(0);
+      expect(
+        spinTraces().find(t => t.stage === "spin_finish_entered")?.reason
+      ).toBe("stop");
+      expect(
+        spinTraces().filter(t => t.stage === "spin_finish_resolved")
+      ).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(PAYMENT_TOTAL);
+      expect(
+        spinTraces().filter(t => t.stage === "spin_finish_resolved")
+      ).toHaveLength(1);
+    });
+  });
+
+  describe("Test F — natural/stop race", () => {
+    it("one finalizer execution and one promise resolution", async () => {
       setupDom();
       const handle = createSpinPayment();
       flushRaf(0);
@@ -225,11 +336,14 @@ describe("Spin payment animation lifecycle (Phase E6A)", () => {
       await handle.finished;
 
       expect(resolveCount).toBe(1);
+      expect(
+        spinTraces().filter(t => t.stage === "spin_finish_resolved")
+      ).toHaveLength(1);
     });
   });
 
-  describe("Test E — two simultaneous instances", () => {
-    it("instances finish independently without DOM collision", async () => {
+  describe("Test G — simultaneous instances", () => {
+    it("independent natural timers and invocation-scoped cleanup", async () => {
       const { body, overlays } = setupDom();
 
       const handleA = spinStyle({
@@ -251,7 +365,7 @@ describe("Spin payment animation lifecycle (Phase E6A)", () => {
       expect(overlays()).toHaveLength(1);
       expect(body.children).toHaveLength(1);
 
-      await vi.advanceTimersByTimeAsync(PAYMENT_TOTAL);
+      await vi.advanceTimersByTimeAsync(PAYMENT_TOTAL - PAYMENT_MIN_LIFETIME);
       await handleB.finished;
 
       expect(overlays()).toHaveLength(0);
@@ -259,53 +373,13 @@ describe("Spin payment animation lifecycle (Phase E6A)", () => {
     });
   });
 
-  describe("Test F — E3C integration", () => {
-    it("wrapPaymentAnimation completes two cycles without safety timeout", async () => {
-      setupDom();
-      const traces: Array<{ stage: string; [k: string]: unknown }> = [];
-      const { tracePaymentAnimation } = await import(
-        "@/lib/payment-animation-trace"
-      );
-      vi.mocked(tracePaymentAnimation).mockImplementation(payload => {
-        traces.push(payload as (typeof traces)[number]);
-      });
-
-      const run = wrapPaymentAnimation(() => createSpinPayment(), {
-        characterName: "Burger",
-        styleName: "Spin",
-        playbackKey: "bundle-1-Burger",
-      });
-
-      const pending = run();
-      const cycleGap =
-        PAYMENT_WRAP.betweenCyclesMs + PAYMENT_WRAP.secondCycleBeatMs;
-
-      await vi.advanceTimersByTimeAsync(PAYMENT_TOTAL + cycleGap + PAYMENT_TOTAL);
-      await pending;
-
-      expect(traces.some(t => t.stage === "animation_safety_timeout")).toBe(
-        false
-      );
-      expect(
-        traces.filter(t => t.stage === "payment_cycle_finished" && t.cycleOutcome === "completed")
-      ).toHaveLength(2);
-      expect(
-        traces.find(t => t.stage === "payment_character_playback_finished")
-          ?.playbackResult
-      ).toBe("completed");
-      expect(traces.some(t => t.stage === "payment_double_cycle_completed")).toBe(
-        true
-      );
-    });
-  });
-
-  describe("Test G — queue continuation", () => {
-    it("Spin completes naturally and next character starts without safety timeout", async () => {
+  describe("Test H — queue continuation", () => {
+    it("Spin finishes naturally and queue drains without safety timeout", async () => {
       setupDom();
       clearPlaybackKeyState();
 
       let spinStarted = false;
-      let burstStarted = false;
+      let nextStarted = false;
 
       const queue = createAnimationQueue({
         eventId: "evt-1",
@@ -315,7 +389,7 @@ describe("Spin payment animation lifecycle (Phase E6A)", () => {
 
       queue.enqueue([
         {
-          playbackKey: "bundle-1-Burger",
+          playbackKey: "bundle-1-Chicken",
           run: wrapPaymentAnimation(() => {
             spinStarted = true;
             return createSpinPayment();
@@ -324,34 +398,47 @@ describe("Spin payment animation lifecycle (Phase E6A)", () => {
         {
           playbackKey: "bundle-2-Heart",
           run: wrapPaymentAnimation(() => {
-            burstStarted = true;
+            nextStarted = true;
             return createSpinPayment();
           }),
         },
       ]);
 
-      const cycleGap =
-        PAYMENT_WRAP.betweenCyclesMs + PAYMENT_WRAP.secondCycleBeatMs;
-      const oneCharacterMs = PAYMENT_TOTAL * 2 + cycleGap;
-
+      const oneCharacterMs = PAYMENT_TOTAL * 2 + CYCLE_GAP;
       await vi.advanceTimersByTimeAsync(oneCharacterMs * 2);
       await vi.runAllTimersAsync();
+
       expect(spinStarted).toBe(true);
-      expect(burstStarted).toBe(true);
+      expect(nextStarted).toBe(true);
       expect(queue.getPendingCount()).toBe(0);
-      expect(PAYMENT_TOTAL).toBeLessThan(SAFETY_TIMEOUT_MS);
       expect(oneCharacterMs * 2).toBeLessThan(SAFETY_TIMEOUT_MS * 4);
     });
   });
 
-  describe("Test H — surface-key regression", () => {
-    it("playback keys remain surface-scoped strings", () => {
-      const roomKey = "bundle-abc-Burger";
-      const screenKey = "screen-bundle-abc-Burger";
+  describe("Test I — production-mode branch", () => {
+    it("schedules natural timer when NODE_ENV is production", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      setupDom();
+      traceMock.mockClear();
 
-      expect(roomKey).toBe("bundle-abc-Burger");
-      expect(screenKey).toBe("screen-bundle-abc-Burger");
-      expect(roomKey).not.toBe(screenKey);
+      const handle = createSpinPayment();
+      flushRaf(0);
+
+      expect(
+        spinTraces().some(t => t.stage === "spin_natural_timer_scheduled")
+      ).toBe(true);
+      expect(spinTraces().every(t => t.spinLifecycleVersion === SPIN_LIFECYCLE_VERSION)).toBe(
+        true
+      );
+
+      await vi.advanceTimersByTimeAsync(PAYMENT_TOTAL);
+      await handle.finished;
+    });
+  });
+
+  describe("Lifecycle version marker", () => {
+    it("exports e6a-v3 marker constant", () => {
+      expect(SPIN_LIFECYCLE_VERSION).toBe("e6a-v3");
     });
   });
 });

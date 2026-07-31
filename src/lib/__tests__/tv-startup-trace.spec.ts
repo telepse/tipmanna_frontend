@@ -435,6 +435,87 @@ describe("playback and schedule counters", () => {
     expect(s?.segments.T8_T9).not.toBeNull();
     expect(s?.segments.T8_T9 ?? -1).toBeGreaterThanOrEqual(0);
   });
+
+  it("records C1.1 confirmed fields and sync trigger separately from matched-first-sync", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("initial_embed_target_confirmed", {
+      trigger: "first_playing_fallback",
+      data: {
+        trigger: "first_playing_fallback",
+        startupGeneration: 1,
+        source: "global",
+        currentIndex: 0,
+        expectedOffsetSeconds: 104,
+        currentLiveOffsetSeconds: 104,
+        driftSeconds: 0,
+      },
+    });
+    tvStartupEvent("initial_reload_avoided", {
+      trigger: "first_playing_fallback",
+    });
+
+    const s = helper().getLatest();
+    expect(s?.initialEmbedTargetConfirmed).toBe(true);
+    expect(s?.initialEmbedSuccessTrigger).toBe("first_playing_fallback");
+    expect(s?.initialReloadAvoided).toBe(true);
+    expect(s?.initialEmbedTargetMatchedFirstSync).toBe(false);
+  });
+
+  it("sets matched-first-sync only for sync-based confirmation events", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("initial_embed_target_confirmed", {
+      data: { trigger: "first_sync_same_index" },
+    });
+    tvStartupEvent("initial_embed_target_matched_first_sync", {
+      trigger: "first_sync_same_index",
+    });
+    tvStartupEvent("initial_reload_avoided", {
+      trigger: "first_sync_same_index",
+    });
+
+    const s = helper().getLatest();
+    expect(s?.initialEmbedTargetConfirmed).toBe(true);
+    expect(s?.initialEmbedSuccessTrigger).toBe("first_sync_same_index");
+    expect(s?.initialEmbedTargetMatchedFirstSync).toBe(true);
+    expect(s?.initialReloadAvoided).toBe(true);
+  });
+
+  it("records scheduleRequestTriggers and scheduleAttemptTriggerById", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("schedule_request_started", {
+      trigger: "initial",
+      data: { scheduleAttemptId: "attempt-1" },
+    });
+    tvStartupEvent("schedule_request_started", {
+      trigger: "pusher",
+      data: { scheduleAttemptId: "attempt-2" },
+    });
+
+    const s = helper().getLatest();
+    expect(s?.scheduleRequestTriggers).toEqual(["initial", "pusher"]);
+    expect(s?.scheduleAttemptTriggerById).toEqual({
+      "attempt-1": "initial",
+      "attempt-2": "pusher",
+    });
+  });
+
+  it("computes firstBufferingRelativeToPlaying diagnostic", () => {
+    enable();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    tvStartupEvent("player_playing", { canonicalMark: "T11" });
+    tvStartupEvent("player_buffering", { canonicalMark: "T10" });
+
+    const s = helper().getLatest();
+    expect(s?.firstBufferingRelativeToPlaying).toBe("after");
+    expect(s?.segmentDiagnostics).toContain("reordered_T10_after_T11");
+  });
 });
 
 describe("segment safety", () => {

@@ -3,8 +3,9 @@
  *
  * Continuation batches bypass the default-feed cache and measured p95 latency
  * approaches the per-attempt ceiling. A single pagination cycle uses one total
- * wall-clock budget with at most one controlled retry — not independent full
- * timeout budgets per attempt (which could stack to ~60s).
+ * wall-clock budget with exactly one server-action attempt per cycle.
+ * Recoverable retries are scheduled by the Feed UI after cooldown — not
+ * overlapping immediate server-action retries (which abandoned backend work).
  */
 import {
   runServerFetch,

@@ -99,6 +99,10 @@ export type PaymentAnimationTraceStage =
   | "animation_dom_cleanup_started"
   | "animation_dom_cleanup_completed"
   | "pusher_runtime_identity"
+  | "spin_factory_entered"
+  | "spin_natural_timer_scheduled"
+  | "spin_finish_entered"
+  | "spin_finish_resolved"
   | string;
 
 export interface PaymentAnimationTracePayload {

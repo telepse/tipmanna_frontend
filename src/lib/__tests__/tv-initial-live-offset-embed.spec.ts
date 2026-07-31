@@ -91,6 +91,8 @@ describe("shouldSkipInitialReload", () => {
     selectedIndex: 0,
     startupGeneration: 1,
     committedAtPerformanceMs: 1000,
+    source: "global" as const,
+    sourceCommunityId: null,
   };
 
   it("skips redundant syncToLive within tolerance", () => {
@@ -164,6 +166,8 @@ describe("stale generation and target validity", () => {
       selectedIndex: 0,
       startupGeneration: 1,
       committedAtPerformanceMs: 200,
+      source: "global" as const,
+      sourceCommunityId: null,
     };
     expect(isInitialTargetStillValid(provisional, committed, 1)).toBe(true);
   });
@@ -177,6 +181,8 @@ describe("matchesCommittedInitialEmbed", () => {
       selectedIndex: 0,
       startupGeneration: 1,
       committedAtPerformanceMs: 1000,
+      source: "global" as const,
+      sourceCommunityId: null,
     };
     expect(matchesCommittedInitialEmbed(committed, "v1", 12, 3000)).toBe(true);
   });

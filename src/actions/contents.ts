@@ -5,6 +5,7 @@ import { runServerFetch, type ServerActionFetchInit } from "@/lib/action-fetch";
 import {
   EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS,
   EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS,
+  EXPLORE_FEED_PAGINATION_TOTAL_DEADLINE_MS,
 } from "@/lib/explore-feed-fetch-timeout";
 import { runExplorePaginationServerFetch } from "@/lib/explore-feed-pagination-fetch";
 import { DISCOVERY_PROGRAMS_DISPLAY_LIMIT } from "@/lib/discover-programs";
@@ -344,7 +345,7 @@ export async function postExploreFeedBatchAction(
 
   const isContinuation = excludeChannelIds.length > 0;
   const fetchTimeoutMs = isContinuation
-    ? EXPLORE_FEED_PAGINATION_FETCH_TIMEOUT_MS
+    ? EXPLORE_FEED_PAGINATION_TOTAL_DEADLINE_MS
     : EXPLORE_FEED_CLIENT_FETCH_TIMEOUT_MS;
 
   const fetchInit = {

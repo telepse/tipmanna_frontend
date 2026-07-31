@@ -56,10 +56,14 @@ import {
 } from "@/lib/tv-feature-flags";
 import {
   buildProvisionalInitialTarget,
+  canRecordInitialEmbedSuccess,
+  evaluateInitialEmbedSuccess,
   isInitialTargetStillValid,
   isStaleStartupGeneration,
+  isSyncBasedInitialEmbedSuccessTrigger,
   shouldSkipInitialReload,
   type CommittedInitialEmbed,
+  type InitialEmbedSuccessTrigger,
   type InitialTvPlaybackTarget,
 } from "@/lib/tv-initial-live-offset-embed";
 import {
@@ -528,6 +532,11 @@ export default function GlobalTVProvider({
     null
   );
   const committedInitialEmbedRef = useRef<CommittedInitialEmbed | null>(null);
+  const initialEmbedSuccessRecordedGenerationRef = useRef<number | null>(null);
+  const prePlayReplacementLoadIssuedRef = useRef(false);
+  const prePlayExecutedSeekIssuedRef = useRef(false);
+  const initialEmbedMarkedStaleRef = useRef(false);
+  const lastEmbedSuccessRejectionReasonRef = useRef<string | null>(null);
   const syncMissRef = useRef(0);
   const isReadyRef = useRef(false);
   const broadcastEpochRef = useRef<number | null>(null);
@@ -606,6 +615,11 @@ export default function GlobalTVProvider({
     setStartupEmbedGeneration(startupGenerationRef.current);
     provisionalInitialTargetRef.current = null;
     committedInitialEmbedRef.current = null;
+    initialEmbedSuccessRecordedGenerationRef.current = null;
+    prePlayReplacementLoadIssuedRef.current = false;
+    prePlayExecutedSeekIssuedRef.current = false;
+    initialEmbedMarkedStaleRef.current = false;
+    lastEmbedSuccessRejectionReasonRef.current = null;
     setInitialPlaybackTarget(null);
   }, []);
 
@@ -687,6 +701,140 @@ export default function GlobalTVProvider({
     playerRef.current = null;
   }, []);
 
+  const markPrePlayExecutedSeekIfNeeded = useCallback(() => {
+    if (
+      !startupPlaybackGuardRef.current.firstPlayReached &&
+      isTvInitialLiveOffsetEmbedEnabled()
+    ) {
+      prePlayExecutedSeekIssuedRef.current = true;
+    }
+  }, []);
+
+  const recordInitialEmbedSuccessOnce = useCallback(
+    (
+      trigger: InitialEmbedSuccessTrigger,
+      opts?: {
+        liveVideoId?: string;
+        liveScheduleIndex?: number;
+        liveOffsetSeconds?: number;
+      }
+    ): boolean => {
+      if (!isTvInitialLiveOffsetEmbedEnabled()) return false;
+
+      const committed = committedInitialEmbedRef.current;
+      if (!committed) return false;
+
+      const activeGen = startupGenerationRef.current;
+      if (
+        !canRecordInitialEmbedSuccess(
+          initialEmbedSuccessRecordedGenerationRef.current,
+          activeGen,
+          committed.startupGeneration
+        )
+      ) {
+        return false;
+      }
+
+      const communityId = scheduleSourceCommunityIdRef.current;
+      const source = communityId ? "community" : "global";
+
+      let liveVideoId = opts?.liveVideoId ?? null;
+      let liveScheduleIndex = opts?.liveScheduleIndex ?? null;
+      let liveOffsetSeconds = opts?.liveOffsetSeconds ?? null;
+
+      if (
+        liveVideoId == null ||
+        liveScheduleIndex == null ||
+        liveOffsetSeconds == null
+      ) {
+        if (broadcastEpoch && items.length > 0 && totalDuration > 0) {
+          const pos = resolveBroadcastPosition(
+            items,
+            broadcastEpoch,
+            totalDuration,
+            getNow()
+          );
+          liveVideoId =
+            liveVideoId ??
+            (pos.item?.channel?.url
+              ? extractYoutubeID(pos.item.channel.url)
+              : null);
+          liveScheduleIndex = liveScheduleIndex ?? pos.scheduleIndex;
+          liveOffsetSeconds = liveOffsetSeconds ?? pos.offsetSeconds;
+        }
+      }
+
+      const evaluation = evaluateInitialEmbedSuccess({
+        committedTarget: committed,
+        activeStartupGeneration: activeGen,
+        currentSource: source,
+        currentCommunityId: communityId,
+        currentVideoId: liveVideoId,
+        currentScheduleIndex: liveScheduleIndex,
+        currentLiveOffsetSeconds: liveOffsetSeconds,
+        nowPerformanceMs: performance.now(),
+        replacementLoadIssued: prePlayReplacementLoadIssuedRef.current,
+        prePlaySeekExecuted: prePlayExecutedSeekIssuedRef.current,
+        initialTargetMarkedStale: initialEmbedMarkedStaleRef.current,
+        c1Enabled: true,
+      });
+
+      if (!evaluation.success) {
+        if (lastEmbedSuccessRejectionReasonRef.current !== evaluation.reason) {
+          lastEmbedSuccessRejectionReasonRef.current = evaluation.reason;
+          tvStartupEvent("initial_embed_success_rejected", {
+            trigger,
+            reason: evaluation.reason,
+            data: {
+              startupGeneration: activeGen,
+              videoIdHash: hashShortId(committed.videoId),
+              currentIndex: liveScheduleIndex,
+            },
+          });
+        }
+        return false;
+      }
+
+      initialEmbedSuccessRecordedGenerationRef.current = activeGen;
+
+      tvStartupEvent("initial_embed_target_confirmed", {
+        trigger,
+        data: {
+          trigger,
+          startupGeneration: activeGen,
+          source,
+          currentIndex: liveScheduleIndex,
+          videoIdHash: hashShortId(committed.videoId),
+          expectedOffsetSeconds: evaluation.expectedOffsetSeconds,
+          currentLiveOffsetSeconds: liveOffsetSeconds,
+          driftSeconds: evaluation.driftSeconds,
+        },
+      });
+
+      if (isSyncBasedInitialEmbedSuccessTrigger(trigger)) {
+        tvStartupEvent("initial_embed_target_matched_first_sync", {
+          trigger,
+          data: {
+            videoIdHash: hashShortId(committed.videoId),
+            startOffsetSeconds: liveOffsetSeconds,
+            currentIndex: liveScheduleIndex,
+          },
+        });
+      }
+
+      tvStartupEvent("initial_reload_avoided", {
+        trigger,
+        data: {
+          videoIdHash: hashShortId(committed.videoId),
+          startOffsetSeconds: liveOffsetSeconds,
+        },
+      });
+
+      return true;
+    },
+    [items, broadcastEpoch, totalDuration, getNow]
+  );
+
   const requestPlayback = useCallback((req: TvPlaybackRequest): boolean => {
     tvTrace("playback", "requestPlayback", {
       reason: req.reason,
@@ -729,20 +877,10 @@ export default function GlobalTVProvider({
         isTvInitialLiveOffsetEmbedEnabled()
       )
     ) {
-      tvStartupEvent("initial_embed_target_matched_first_sync", {
-        trigger: req.reason,
-        data: {
-          videoIdHash: hashShortId(req.videoId),
-          startOffsetSeconds: req.startSeconds,
-          currentIndex: currentIndexRef.current,
-        },
-      });
-      tvStartupEvent("initial_reload_avoided", {
-        trigger: req.reason,
-        data: {
-          videoIdHash: hashShortId(req.videoId),
-          startOffsetSeconds: req.startSeconds,
-        },
+      recordInitialEmbedSuccessOnce("first_sync_request_playback", {
+        liveVideoId: req.videoId,
+        liveScheduleIndex: req.scheduleIndex ?? currentIndexRef.current,
+        liveOffsetSeconds: req.startSeconds,
       });
       lastSyncedIndex.current = req.scheduleIndex ?? currentIndexRef.current;
       return false;
@@ -773,6 +911,12 @@ export default function GlobalTVProvider({
     };
     inFlightOrchestratedVideoIdRef.current = req.videoId;
     lastOrchestratedCommandRef.current = "loadVideoById";
+    if (
+      !guard.firstPlayReached &&
+      isTvInitialLiveOffsetEmbedEnabled()
+    ) {
+      prePlayReplacementLoadIssuedRef.current = true;
+    }
     if (isTvStartupPlaybackGuardEnabled()) {
       markInitialCommandIssued(guard);
       if (guard.phase === "initial_command_issued") {
@@ -793,7 +937,7 @@ export default function GlobalTVProvider({
     pendingAudioRestoreRef.current = prepareMutedLoadForAutoplay(player, true);
     player.load(req.videoId, req.startSeconds);
     return true;
-  }, []);
+  }, [recordInitialEmbedSuccessOnce]);
 
   const flushPendingPlaybackRequest = useCallback(() => {
     const pending = pendingPlaybackRequestRef.current;
@@ -885,20 +1029,24 @@ export default function GlobalTVProvider({
   );
 
   const notifyStartupPlayerPlaying = useCallback(() => {
-    if (!isTvStartupPlaybackGuardEnabled()) return;
-    const guard = startupPlaybackGuardRef.current;
-    if (markStartupFirstPlay(guard)) {
-      inFlightOrchestratedVideoIdRef.current = null;
-      tvStartupEvent("first_play_guard_released", {
-        trigger: "player_playing",
-        data: {
-          pendingLiveOffsetSeconds: guard.pendingLiveOffsetSeconds,
-          pendingLiveScheduleIndex: guard.pendingLiveScheduleIndex,
-          startupRecoveryCount: guard.startupRecoveryCount,
-        },
-      });
+    if (isTvStartupPlaybackGuardEnabled()) {
+      const guard = startupPlaybackGuardRef.current;
+      if (markStartupFirstPlay(guard)) {
+        inFlightOrchestratedVideoIdRef.current = null;
+        tvStartupEvent("first_play_guard_released", {
+          trigger: "player_playing",
+          data: {
+            pendingLiveOffsetSeconds: guard.pendingLiveOffsetSeconds,
+            pendingLiveScheduleIndex: guard.pendingLiveScheduleIndex,
+            startupRecoveryCount: guard.startupRecoveryCount,
+          },
+        });
+      }
     }
-  }, []);
+    if (isTvInitialLiveOffsetEmbedEnabled()) {
+      recordInitialEmbedSuccessOnce("first_playing_fallback");
+    }
+  }, [recordInitialEmbedSuccessOnce]);
 
   const onInitialLiveOffsetEmbedCommitted = useCallback(
     (payload: {
@@ -918,14 +1066,25 @@ export default function GlobalTVProvider({
       }
       if (modeRef.current !== "GLOBAL") return;
 
+      const provisional = provisionalInitialTargetRef.current;
       const committed: CommittedInitialEmbed = {
         videoId: payload.videoId,
         startOffsetSeconds: payload.startOffsetSeconds,
         selectedIndex: payload.selectedIndex,
         startupGeneration: payload.startupGeneration,
         committedAtPerformanceMs: performance.now(),
+        source:
+          provisional?.source ??
+          (scheduleSourceCommunityIdRef.current ? "community" : "global"),
+        sourceCommunityId:
+          provisional?.sourceCommunityId ??
+          scheduleSourceCommunityIdRef.current,
       };
       committedInitialEmbedRef.current = committed;
+      prePlayReplacementLoadIssuedRef.current = false;
+      prePlayExecutedSeekIssuedRef.current = false;
+      initialEmbedMarkedStaleRef.current = false;
+      lastEmbedSuccessRejectionReasonRef.current = null;
       orchestratedPlaybackRef.current = {
         videoId: payload.videoId,
         startSeconds: payload.startOffsetSeconds,
@@ -980,6 +1139,7 @@ export default function GlobalTVProvider({
       );
 
       if (!valid) {
+        initialEmbedMarkedStaleRef.current = true;
         tvStartupEvent("initial_embed_target_stale", {
           reason: "target_changed_before_ready",
           data: {
@@ -1138,6 +1298,7 @@ export default function GlobalTVProvider({
               },
             });
             lastOrchestratedCommandRef.current = "seekTo";
+            markPrePlayExecutedSeekIfNeeded();
             player.seekTo(effectivePos.offsetSeconds, false);
           } else {
             requestPlayback({
@@ -1167,6 +1328,19 @@ export default function GlobalTVProvider({
           scheduleIndex: effectivePos.scheduleIndex,
         });
       } else {
+        if (
+          isTvInitialLiveOffsetEmbedEnabled() &&
+          !guard.firstPlayReached &&
+          videoId &&
+          orchestrated?.videoId === videoId
+        ) {
+          recordInitialEmbedSuccessOnce("first_sync_same_index", {
+            liveVideoId: videoId,
+            liveScheduleIndex: effectivePos.scheduleIndex,
+            liveOffsetSeconds: effectivePos.offsetSeconds,
+          });
+        }
+
         const actual = player.getCurrentTime();
         if (Math.abs(actual - effectivePos.offsetSeconds) > DRIFT_THRESHOLD_S) {
           if (
@@ -1207,12 +1381,21 @@ export default function GlobalTVProvider({
               },
             });
             lastOrchestratedCommandRef.current = "seekTo";
+            markPrePlayExecutedSeekIfNeeded();
             player.seekTo(effectivePos.offsetSeconds, false);
           }
         }
       }
     }
-  }, [broadcastEpoch, items, totalDuration, getNow, requestPlayback]);
+  }, [
+    broadcastEpoch,
+    items,
+    totalDuration,
+    getNow,
+    requestPlayback,
+    recordInitialEmbedSuccessOnce,
+    markPrePlayExecutedSeekIfNeeded,
+  ]);
 
   const maybeSyncToLive = useCallback(
     (source: string) => {

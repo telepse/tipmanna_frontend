@@ -7,7 +7,7 @@ import {
   selectFeedTypeFilter,
 } from "./helpers/explore-filter-helpers";
 import { gotoExplore } from "./helpers/goto-explore";
-import { openExploreDiscoverSearch } from "./helpers/open-explore-discover-search";
+import { openExploreHeaderDiscoverSearch } from "./helpers/open-explore-discover-search";
 import {
   E2E_JOIN_COMMUNITY_ID,
   E2E_SELECT_COMMUNITY_ID,
@@ -129,7 +129,7 @@ test.describe("signed-in explore matrix", () => {
   test("Discover open/close and return to Feed", async ({ page }) => {
     await gotoSignedInExplore(page, "/explore");
     await requirePopulatedExploreFeed(page, 60_000);
-    await openExploreDiscoverSearch(page);
+    await openExploreHeaderDiscoverSearch(page);
     const tag = discoverTagRow(page).first();
     if (await tag.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await tag.click();
@@ -193,7 +193,7 @@ test.describe("signed-in explore matrix", () => {
     page,
   }) => {
     await gotoSignedInExplore(page, "/explore");
-    const ready = await requirePopulatedExploreFeed(page, 60_000);
+    const ready = await waitExploreFeedReady(page, 60_000);
     if (ready.state !== "scroll") {
       test.skip(true, "Populated feed required");
       return;

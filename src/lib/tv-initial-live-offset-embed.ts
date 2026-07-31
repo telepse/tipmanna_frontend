@@ -29,7 +29,54 @@ export type CommittedInitialEmbed = {
   selectedIndex: number;
   startupGeneration: number;
   committedAtPerformanceMs: number;
+  source: "global" | "community";
+  sourceCommunityId: string | null;
 };
+
+export type InitialEmbedSuccessTrigger =
+  | "first_sync_request_playback"
+  | "first_sync_same_index"
+  | "first_playing_fallback";
+
+export type InitialEmbedSuccessRejectionReason =
+  | "no_committed_target"
+  | "stale_generation"
+  | "source_mismatch"
+  | "community_mismatch"
+  | "video_mismatch"
+  | "index_mismatch"
+  | "offset_mismatch"
+  | "replacement_load_issued"
+  | "pre_play_seek_executed"
+  | "initial_target_stale"
+  | "c1_disabled";
+
+export type InitialEmbedSuccessEvaluationInput = {
+  committedTarget: CommittedInitialEmbed | null;
+  activeStartupGeneration: number;
+  currentSource: "global" | "community";
+  currentCommunityId: string | null;
+  currentVideoId: string | null;
+  currentScheduleIndex: number | null;
+  currentLiveOffsetSeconds: number | null;
+  nowPerformanceMs: number;
+  replacementLoadIssued: boolean;
+  prePlaySeekExecuted: boolean;
+  initialTargetMarkedStale: boolean;
+  c1Enabled: boolean;
+  toleranceSeconds?: number;
+};
+
+export type InitialEmbedSuccessEvaluation =
+  | {
+      success: true;
+      expectedOffsetSeconds: number;
+      driftSeconds: number;
+    }
+  | {
+      success: false;
+      reason: InitialEmbedSuccessRejectionReason;
+    };
 
 export type ScheduleItemForEmbed = {
   duration?: number;
@@ -175,6 +222,18 @@ export function isInitialTargetStillValid(
   );
 }
 
+/** Elapsed-aware expected offset from a committed initial embed. */
+export function computeExpectedCommittedOffsetSeconds(
+  committed: CommittedInitialEmbed,
+  nowPerformanceMs: number
+): number {
+  const elapsedSec = Math.max(
+    0,
+    (nowPerformanceMs - committed.committedAtPerformanceMs) / 1000
+  );
+  return committed.startOffsetSeconds + elapsedSec;
+}
+
 /**
  * Compare sync request against committed initial embed, accounting for clock
  * progression since the iframe was created.
@@ -188,10 +247,119 @@ export function matchesCommittedInitialEmbed(
 ): boolean {
   if (!committed) return false;
   if (committed.videoId !== syncVideoId) return false;
-  const elapsedSec =
-    (performanceNowMs - committed.committedAtPerformanceMs) / 1000;
-  const expectedOffset = committed.startOffsetSeconds + Math.max(0, elapsedSec);
+  const expectedOffset = computeExpectedCommittedOffsetSeconds(
+    committed,
+    performanceNowMs
+  );
   return Math.abs(syncOffsetSeconds - expectedOffset) <= toleranceSeconds;
+}
+
+/** Whether success may be recorded once for the active startup generation. */
+export function canRecordInitialEmbedSuccess(
+  alreadyRecordedForGeneration: number | null,
+  activeStartupGeneration: number,
+  committedStartupGeneration: number
+): boolean {
+  if (!canRecordInitialEmbedSuccessGeneration(alreadyRecordedForGeneration, activeStartupGeneration)) {
+    return false;
+  }
+  return !isStaleStartupGeneration(
+    committedStartupGeneration,
+    activeStartupGeneration
+  );
+}
+
+export function canRecordInitialEmbedSuccessGeneration(
+  alreadyRecordedForGeneration: number | null,
+  activeStartupGeneration: number
+): boolean {
+  return alreadyRecordedForGeneration !== activeStartupGeneration;
+}
+
+/** Whether sync-based confirmation should set matched-first-sync. */
+export function isSyncBasedInitialEmbedSuccessTrigger(
+  trigger: InitialEmbedSuccessTrigger
+): boolean {
+  return (
+    trigger === "first_sync_request_playback" ||
+    trigger === "first_sync_same_index"
+  );
+}
+
+/**
+ * Pure evaluation for C1.1 success confirmation (no React, no trace counters).
+ */
+export function evaluateInitialEmbedSuccess(
+  input: InitialEmbedSuccessEvaluationInput
+): InitialEmbedSuccessEvaluation {
+  if (!input.c1Enabled) {
+    return { success: false, reason: "c1_disabled" };
+  }
+  const committed = input.committedTarget;
+  if (!committed) {
+    return { success: false, reason: "no_committed_target" };
+  }
+  if (
+    isStaleStartupGeneration(
+      committed.startupGeneration,
+      input.activeStartupGeneration
+    )
+  ) {
+    return { success: false, reason: "stale_generation" };
+  }
+  if (input.initialTargetMarkedStale) {
+    return { success: false, reason: "initial_target_stale" };
+  }
+  if (input.replacementLoadIssued) {
+    return { success: false, reason: "replacement_load_issued" };
+  }
+  if (input.prePlaySeekExecuted) {
+    return { success: false, reason: "pre_play_seek_executed" };
+  }
+  if (committed.source !== input.currentSource) {
+    return { success: false, reason: "source_mismatch" };
+  }
+  const committedCommunity = committed.sourceCommunityId ?? null;
+  const currentCommunity = input.currentCommunityId ?? null;
+  if (committedCommunity !== currentCommunity) {
+    return { success: false, reason: "community_mismatch" };
+  }
+  if (
+    input.currentVideoId == null ||
+    committed.videoId !== input.currentVideoId
+  ) {
+    return { success: false, reason: "video_mismatch" };
+  }
+  if (
+    input.currentScheduleIndex == null ||
+    committed.selectedIndex !== input.currentScheduleIndex
+  ) {
+    return { success: false, reason: "index_mismatch" };
+  }
+  if (
+    input.currentLiveOffsetSeconds == null ||
+    !Number.isFinite(input.currentLiveOffsetSeconds)
+  ) {
+    return { success: false, reason: "offset_mismatch" };
+  }
+
+  const expectedOffsetSeconds = computeExpectedCommittedOffsetSeconds(
+    committed,
+    input.nowPerformanceMs
+  );
+  const driftSeconds = Math.abs(
+    input.currentLiveOffsetSeconds - expectedOffsetSeconds
+  );
+  const tolerance = input.toleranceSeconds ?? INITIAL_EMBED_SYNC_TOLERANCE_S;
+  if (driftSeconds > tolerance) {
+    return { success: false, reason: "offset_mismatch" };
+  }
+
+  return {
+    success: true,
+    expectedOffsetSeconds,
+    driftSeconds,
+  };
 }
 
 /** Whether requestPlayback should skip as redundant first reload (C1 clean path). */

@@ -27,7 +27,7 @@ describe("runExplorePaginationServerFetch bounded deadline", () => {
   });
 
   it(
-    "does not exceed total deadline when each attempt would otherwise time out at 25s",
+    "uses exactly one fetch attempt per pagination cycle on timeout",
     async () => {
       vi.useFakeTimers();
       resetFetchDedupCoalesceCount();
@@ -52,19 +52,16 @@ describe("runExplorePaginationServerFetch bounded deadline", () => {
         {
           method: "POST",
           body: '{"excludeChannelIds":["a"]}',
-          perAttemptTimeoutMs: 25_000,
+          perAttemptTimeoutMs: 35_000,
         },
         "testBoundedDeadline"
       );
 
-      // Attempt 1 abort at 25s + 400ms backoff + attempt 2 until 35s total deadline.
-      await vi.advanceTimersByTimeAsync(25_000);
-      await vi.advanceTimersByTimeAsync(400);
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(35_000);
       const result = await resultPromise;
 
       expect(result.success).toBe(false);
-      expect(fetchCalls).toBeLessThanOrEqual(2);
+      expect(fetchCalls).toBe(1);
 
       vi.useRealTimers();
       vi.unstubAllGlobals();
