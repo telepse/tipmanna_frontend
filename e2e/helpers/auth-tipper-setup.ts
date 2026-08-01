@@ -14,6 +14,7 @@ export type VerificationCodeFetchResult = {
   method: "static-otp" | "backend-helper" | "none";
   backendHost: string | null;
   httpStatus?: number;
+  reason?: string;
   error?: string;
 };
 
@@ -59,6 +60,7 @@ export async function fetchE2eVerificationCode(
   }
 
   let lastStatus: number | undefined;
+  let lastReason: string | undefined;
   for (let i = 0; i < 15; i++) {
     try {
       const res = await fetch(url, {
@@ -66,6 +68,17 @@ export async function fetchE2eVerificationCode(
         signal: AbortSignal.timeout(5_000),
       });
       lastStatus = res.status;
+      let reason: string | undefined;
+      try {
+        const payload = (await res.clone().json()) as {
+          error?: { reason?: string };
+        };
+        reason = payload.error?.reason;
+      } catch {
+        /* non-json */
+      }
+      if (reason) lastReason = reason;
+
       if (res.ok) {
         const data = (await res.json()) as { code?: string };
         if (typeof data.code === "string" && /^\d{6}$/.test(data.code)) {
@@ -81,6 +94,7 @@ export async function fetchE2eVerificationCode(
           method: "backend-helper",
           backendHost,
           httpStatus: res.status,
+          reason: lastReason,
           error: "verification code absent in helper response",
         };
       }
@@ -90,10 +104,11 @@ export async function fetchE2eVerificationCode(
           method: "backend-helper",
           backendHost,
           httpStatus: res.status,
+          reason: lastReason,
           error:
             res.status === 403
-              ? "helper unavailable (forbidden — check staging secret alignment)"
-              : "helper unavailable (not found — check deployment flags/allowlist)",
+              ? `helper forbidden (${lastReason ?? "check staging secret alignment"})`
+              : `helper not found (${lastReason ?? "check deployment flags/allowlist"})`,
         };
       }
     } catch {
@@ -107,6 +122,7 @@ export async function fetchE2eVerificationCode(
     method: "backend-helper",
     backendHost,
     httpStatus: lastStatus,
+    reason: lastReason,
     error: "verification code absent after polling helper",
   };
 }

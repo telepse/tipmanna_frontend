@@ -268,7 +268,8 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const onMuteChangeRef = useRef(onMuteChange);
     onMuteChangeRef.current = onMuteChange;
 
-    const syncMuteFromPlayer = useCallback((target?: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const syncMuteFromPlayer = useCallback((target?: any) => {
+      // eslint-disable-line @typescript-eslint/no-explicit-any
       const p = target ?? playerRef.current;
       if (!p || typeof p.isMuted !== "function") return;
       onMuteChangeRef.current?.(p.isMuted());
