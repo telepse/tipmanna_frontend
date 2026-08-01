@@ -260,7 +260,12 @@ export function canRecordInitialEmbedSuccess(
   activeStartupGeneration: number,
   committedStartupGeneration: number
 ): boolean {
-  if (!canRecordInitialEmbedSuccessGeneration(alreadyRecordedForGeneration, activeStartupGeneration)) {
+  if (
+    !canRecordInitialEmbedSuccessGeneration(
+      alreadyRecordedForGeneration,
+      activeStartupGeneration
+    )
+  ) {
     return false;
   }
   return !isStaleStartupGeneration(

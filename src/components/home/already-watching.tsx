@@ -30,12 +30,14 @@ export const AlreadyWatching = () => {
             <Paragraph
               size="lg"
               weight="bold"
+              align="center"
               className={`text-${item.txtColor}`}
             >
               {item.title}
             </Paragraph>
             <Paragraph
               size="sm"
+              align="center"
               className={`text-${item.txtColor}`}
             >
               {item.content}

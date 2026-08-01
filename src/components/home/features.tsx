@@ -56,8 +56,7 @@ export default function Features() {
           align="center"
           size="lg"
         >
-          Everything starts with <br className="hidden lg:block" /> what
-          you&nbsp;{" "}
+          Everything starts with <br className="hidden lg:block" /> what you{" "}
           <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
             create.{" "}
           </span>{" "}
@@ -93,7 +92,7 @@ export default function Features() {
 
       <Button
         size="lg"
-        className="w-fit bg-black hover:bg-black/80"
+        className="shadow-primary mt-8 w-fit border bg-white text-black shadow hover:bg-black/80 hover:text-white"
         onClick={() => setOpenPopup(true)}
       >
         Create your channel{" "}

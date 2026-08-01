@@ -40,9 +40,9 @@ const baseInput = (
 
 describe("computeExpectedCommittedOffsetSeconds", () => {
   it("advances offset by elapsed seconds since commit", () => {
-    expect(
-      computeExpectedCommittedOffsetSeconds(baseCommitted(), 5000)
-    ).toBe(104);
+    expect(computeExpectedCommittedOffsetSeconds(baseCommitted(), 5000)).toBe(
+      104
+    );
   });
 });
 
@@ -157,9 +157,9 @@ describe("isSyncBasedInitialEmbedSuccessTrigger", () => {
     expect(
       isSyncBasedInitialEmbedSuccessTrigger("first_sync_request_playback")
     ).toBe(true);
-    expect(isSyncBasedInitialEmbedSuccessTrigger("first_playing_fallback")).toBe(
-      false
-    );
+    expect(
+      isSyncBasedInitialEmbedSuccessTrigger("first_playing_fallback")
+    ).toBe(false);
   });
 });
 

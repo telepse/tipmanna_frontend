@@ -11,6 +11,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { isTvStartupStabilityGuardActive } from "./tv-feature-flags";
+
 export type CanonicalMark =
   | "T0"
   | "T1"
@@ -159,6 +161,8 @@ export type TvStartupSummary = {
     | "stable_playback"
     | "terminal_failure"
     | null;
+  /** Phase C0.1a — elapsed ms when startup_stability_guard_released was recorded. */
+  startupStabilityGuardReleasedAtMs: number | null;
   postFirstPlayPreStableErrorCount: number;
   preStableSeekSuppressedCount: number;
   preStableCorrectiveSeekCount: number;
@@ -190,12 +194,81 @@ let scheduleAttemptCounter = 0;
 let currentRun: TvStartupRun | null = null;
 let ambient: TvStartupContext = {};
 let helperInstalled = false;
-let stablePlaybackListener: (() => void) | null = null;
+export type StartupStabilityGuardReleaseReason =
+  | "stable_playback"
+  | "terminal_failure";
 
+export type StartupStabilityGuardReleaseCallback = (opts: {
+  reason: StartupStabilityGuardReleaseReason;
+  startupGeneration?: number;
+}) => void;
+
+let stabilityGuardReleaseCallback: StartupStabilityGuardReleaseCallback | null =
+  null;
+let getActiveStartupGeneration: (() => number | undefined) | null = null;
+let stabilityGuardReleasedForRun = false;
+
+/** Provider registers functional guard release (mark stable/terminal). */
+export function setTvStartupStabilityGuardReleaseCallback(
+  callback: StartupStabilityGuardReleaseCallback | null,
+  readActiveStartupGeneration?: (() => number | undefined) | null
+): void {
+  stabilityGuardReleaseCallback = callback;
+  getActiveStartupGeneration = readActiveStartupGeneration ?? null;
+}
+
+/**
+ * Phase C0.1a — idempotent stability-guard release for the active startup run.
+ * Emits `startup_stability_guard_released` and summary fields before finalization.
+ */
+export function releaseStartupStabilityGuardOnce(opts: {
+  reason: StartupStabilityGuardReleaseReason;
+  startupGeneration?: number;
+}): boolean {
+  const run = currentRun;
+  if (!run || run.finalized || stabilityGuardReleasedForRun) return false;
+
+  if (opts.startupGeneration != null && getActiveStartupGeneration) {
+    const active = getActiveStartupGeneration();
+    if (active != null && opts.startupGeneration !== active) {
+      return false;
+    }
+  }
+
+  stabilityGuardReleasedForRun = true;
+  const at = nowMs();
+
+  try {
+    stabilityGuardReleaseCallback?.({
+      reason: opts.reason,
+      startupGeneration: opts.startupGeneration,
+    });
+  } catch {
+    /* never let callback break trace */
+  }
+
+  emitEvent("startup_stability_guard_released", {
+    trigger: opts.reason,
+    data: {
+      releaseReason: opts.reason,
+      releasedAtMs: at,
+      startupGeneration: opts.startupGeneration ?? null,
+    },
+  });
+  return true;
+}
+
+/** @deprecated C0.1a — use setTvStartupStabilityGuardReleaseCallback */
 export function setTvStartupStablePlaybackListener(
   listener: (() => void) | null
 ): void {
-  stablePlaybackListener = listener;
+  if (listener == null) {
+    stabilityGuardReleaseCallback = null;
+    return;
+  }
+  stabilityGuardReleaseCallback = () => {
+    listener();
+  };
 }
 
 /** Finalize trace as failed (e.g. C0.1 terminal startup failure before timeout). */
@@ -347,6 +420,7 @@ function createEmptySummary(id: string): TvStartupSummary {
     scheduleRequestTriggers: [],
     startupStabilityGuardReleased: false,
     startupStabilityGuardReleaseReason: null,
+    startupStabilityGuardReleasedAtMs: null,
     postFirstPlayPreStableErrorCount: 0,
     preStableSeekSuppressedCount: 0,
     preStableCorrectiveSeekCount: 0,
@@ -372,6 +446,7 @@ function resetForNewNavigation(): void {
   traceId = null;
   scheduleAttemptCounter = 0;
   ambient = {};
+  stabilityGuardReleasedForRun = false;
 }
 
 function ensureRun(): TvStartupRun | null {
@@ -638,12 +713,18 @@ function updateCounters(
       break;
     case "startup_stability_guard_released": {
       s.startupStabilityGuardReleased = true;
-      const releaseReason = data.releaseReason ?? opts.reason;
+      const releaseReason = data.releaseReason ?? opts.trigger ?? opts.reason;
       if (
         releaseReason === "stable_playback" ||
         releaseReason === "terminal_failure"
       ) {
         s.startupStabilityGuardReleaseReason = releaseReason;
+      }
+      {
+        const releasedAt = data.releasedAtMs;
+        if (typeof releasedAt === "number" && Number.isFinite(releasedAt)) {
+          s.startupStabilityGuardReleasedAtMs = releasedAt;
+        }
       }
       break;
     }
@@ -698,6 +779,10 @@ function startStabilityWindow(run: TvStartupRun) {
       return;
     }
 
+    if (isTvStartupStabilityGuardActive()) {
+      releaseStartupStabilityGuardOnce({ reason: "stable_playback" });
+    }
+
     emitEvent("stable_playback", {
       canonicalMark: "T13",
       data: {
@@ -706,11 +791,6 @@ function startStabilityWindow(run: TvStartupRun) {
         currentIndex: ambient.currentIndex,
       },
     });
-    try {
-      stablePlaybackListener?.();
-    } catch {
-      /* never let listener break trace */
-    }
     finalizeRun("stable", "two_second_window_elapsed");
   }, STABILITY_WINDOW_MS);
 }
@@ -765,14 +845,12 @@ function computeSummary(run: TvStartupRun): TvStartupSummary {
   const buffering = marks.T10 ?? null;
   let firstBufferingRelativeToPlaying: "before" | "after" | null = null;
   if (buffering != null && playing != null) {
-    firstBufferingRelativeToPlaying =
-      buffering < playing ? "before" : "after";
+    firstBufferingRelativeToPlaying = buffering < playing ? "before" : "after";
   }
 
   run.summary.segments = segments;
   run.summary.segmentDiagnostics = diagnostics;
-  run.summary.firstBufferingRelativeToPlaying =
-    firstBufferingRelativeToPlaying;
+  run.summary.firstBufferingRelativeToPlaying = firstBufferingRelativeToPlaying;
   run.summary.totalTtfvMs =
     playing != null || overlay != null
       ? Math.max(playing ?? 0, overlay ?? 0)
@@ -803,6 +881,38 @@ function persistSummary(summary: TvStartupSummary) {
   }
 }
 
+function validateStabilityReleaseBeforeFinalize(
+  run: TvStartupRun,
+  state: "stable" | "failed"
+): void {
+  if (!isTvStartupStabilityGuardActive()) return;
+
+  const s = run.summary;
+  const released = s.startupStabilityGuardReleased;
+  const releaseReason = s.startupStabilityGuardReleaseReason;
+
+  if (released !== (releaseReason != null)) {
+    s.segmentDiagnostics.push("stability_release_inconsistent_state");
+  }
+  if (!released) {
+    s.segmentDiagnostics.push("stability_release_missing_before_finalization");
+  }
+  if (
+    state === "stable" &&
+    releaseReason != null &&
+    releaseReason !== "stable_playback"
+  ) {
+    s.segmentDiagnostics.push("stability_release_wrong_reason_for_stable");
+  }
+  if (
+    state === "failed" &&
+    releaseReason != null &&
+    releaseReason !== "terminal_failure"
+  ) {
+    s.segmentDiagnostics.push("stability_release_wrong_reason_for_failure");
+  }
+}
+
 function finalizeRun(state: "stable" | "failed", reason: string): void {
   const run = currentRun;
   if (!run || run.finalized) return;
@@ -815,6 +925,7 @@ function finalizeRun(state: "stable" | "failed", reason: string): void {
   }
 
   run.summary.finalState = state;
+  validateStabilityReleaseBeforeFinalize(run, state);
   if (state === "failed") {
     logPostFinalizationEvent("startup_failed", {
       reason,
@@ -1026,7 +1137,9 @@ export function getTvStartupSummaries(): TvStartupSummary[] {
 export function __resetTvStartupTraceForTest(): void {
   cachedEnabled = null;
   traceId = null;
-  stablePlaybackListener = null;
+  stabilityGuardReleaseCallback = null;
+  getActiveStartupGeneration = null;
+  stabilityGuardReleasedForRun = false;
   if (currentRun?.stabilityTimer != null)
     clearTimeout(currentRun.stabilityTimer);
   if (currentRun?.failureTimer != null) clearTimeout(currentRun.failureTimer);

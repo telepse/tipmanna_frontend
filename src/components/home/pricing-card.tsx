@@ -41,16 +41,16 @@ export const PricingCard = ({
   return (
     <div className="border-primary flex flex-col items-center gap-2 rounded-2xl border p-6">
       <Paragraph
-        size="lg"
+        size="xl"
         weight="bold"
         className="uppercase"
       >
         {name}
       </Paragraph>
       <Paragraph
-        size="sm"
         weight="bold"
         color="muted"
+        align="center"
       >
         {desc}
       </Paragraph>

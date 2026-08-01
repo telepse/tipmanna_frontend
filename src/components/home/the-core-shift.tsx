@@ -4,7 +4,7 @@ import { Badge } from "../shared/badge";
 
 export const TheCoreShift = () => {
   return (
-    <section className="mt-6 bg-gradient-to-r from-[#FFECDB] to-[#FF7900] px-4 py-6 lg:mt-12">
+    <section className="mt-6 min-h-[80vh] bg-gradient-to-r from-[#FFECDB] to-[#FF7900] px-4 py-6 lg:mt-12">
       <div className="wrapper section">
         <section className="relative grid grid-cols-1 items-end gap-4 rounded-2xl bg-cover bg-center bg-no-repeat bg-blend-multiply lg:grid-cols-2 lg:gap-8">
           <div className="space-y-4">
@@ -12,19 +12,25 @@ export const TheCoreShift = () => {
 
             <Title
               size="lg"
-              className="inline-flex items-center"
+              className=""
             >
-              Attention doesn&apos;t <br /> build connection <br />{" "}
-              participation does
+              <span>Attention doesn&apos;t</span> <br /> build connection <br />{" "}
+              <span className="bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+                participation
+              </span>{" "}
+              does
             </Title>
 
-            <Paragraph>
+            <Paragraph
+              weight="bold"
+              className="leading-relaxed"
+            >
               Tipmanna is built on one idea: <br /> turn attention into
               participation
             </Paragraph>
           </div>
 
-          <div className="border-primary max-w-md space-y-4 justify-self-end rounded-2xl border-2 bg-white p-4">
+          <div className="border-primary max-w-md space-y-4 justify-self-end rounded-2xl border-2 bg-[#FFF7F0] p-4">
             <div className="space-y-2">
               <Paragraph
                 size="lg"
@@ -36,8 +42,10 @@ export const TheCoreShift = () => {
               <Paragraph color="muted">Attention fades quickly.</Paragraph>
             </div>
 
-            <div className="border-primary rounded-2xl border p-4 text-sm">
-              But when people participate, everything changes.{" "}
+            <div className="border-primary rounded-2xl border bg-white p-4 text-sm">
+              <span className="font-semibold">
+                But when people participate, everything changes.
+              </span>{" "}
               <br className="hidden lg:block" /> They react. They engage. They
               feel part of it. And <br className="hidden lg:block" /> when
               people feel part of something, they return.

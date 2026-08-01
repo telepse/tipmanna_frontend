@@ -139,7 +139,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     },
     ref
   ) => {
-    const playerRef = useRef<YT.Player | null>(null);
+    const playerRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
     const readyRef = useRef(false);
     const pendingLoadRef = useRef<{ videoId: string; start: number } | null>(
       null
@@ -170,7 +170,9 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       if (mountedVideoIdRef.current && !initialEmbedTracedRef.current) {
         initialEmbedTracedRef.current = true;
         tvStartupEvent("initial_embed_created", {
-          trigger: enableLiveOffsetEmbed ? "live_offset_embed" : "initial_embed",
+          trigger: enableLiveOffsetEmbed
+            ? "live_offset_embed"
+            : "initial_embed",
           data: {
             videoIdHash: hashShortId(mountedVideoIdRef.current),
             startOffsetSeconds: mountedStartSecondsRef.current,
@@ -266,7 +268,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const onMuteChangeRef = useRef(onMuteChange);
     onMuteChangeRef.current = onMuteChange;
 
-    const syncMuteFromPlayer = useCallback((target?: YT.Player | null) => {
+    const syncMuteFromPlayer = useCallback((target?: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       const p = target ?? playerRef.current;
       if (!p || typeof p.isMuted !== "function") return;
       onMuteChangeRef.current?.(p.isMuted());

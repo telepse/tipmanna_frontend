@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 // Local imports
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
-import { Badge } from "@/components/shared/badge";
 import { Paragraph } from "@/components/shared/paragraph";
 import { Title } from "@/components/shared/title";
+import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 
 interface Props {
   communities: CommunityExploreCatalogRow[];
@@ -20,8 +20,11 @@ export default function TopCommunities({
 }: Props) {
   const pathname = usePathname();
   const isPartnerPage = pathname.includes("/partner");
+  const featuredCommunities = communities.filter(
+    c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem)
+  );
 
-  if (communities.length === 0 && !showWhenEmpty) {
+  if (featuredCommunities.length === 0 && !showWhenEmpty) {
     return null;
   }
 
@@ -55,7 +58,7 @@ export default function TopCommunities({
       </Paragraph> */}
 
       <div className="mt-6 w-full">
-        {communities.length === 0 ? (
+        {featuredCommunities.length === 0 ? (
           <Paragraph
             align="center"
             color="muted"
@@ -64,7 +67,7 @@ export default function TopCommunities({
             creators grow their banks.
           </Paragraph>
         ) : (
-          <ExploreTopCommunitiesGrid communities={communities} />
+          <ExploreTopCommunitiesGrid communities={featuredCommunities} />
         )}
       </div>
 

@@ -438,22 +438,26 @@ export const CommentDrawer = ({
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm font-semibold text-black">
                       Comments {commentCountLabel}
-                    </span> <span className="text-[10px] text-muted-foreground/50 font-semibold">
-                    Comment likes {likeCountLabel}
-                  </span>
+                    </span>{" "}
+                    <span className="text-muted-foreground/50 text-[10px] font-semibold">
+                      Comment likes {likeCountLabel}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
-                   
-                  <span>Saves {resolvedSaveCount}</span>
+                  <div className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
+                    <span>Saves {resolvedSaveCount}</span>
                     &middot;
                     <span>Shares {resolvedShareCount}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setReportOpen(v => !v)} className="outline outline-primary text-xs px-2 py-1 rounded-md">
-Report
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(v => !v)}
+                    className="outline-primary rounded-md px-2 py-1 text-xs outline"
+                  >
+                    Report
                   </button>
                   <button
                     type="button"
@@ -529,24 +533,29 @@ Report
               </p>
               {channelMeta ? (
                 <div className="flex flex-col gap-1">
-                <p className="text-muted-foreground text-[11px]">
-                   · {channelMeta.contentLanguage} ·{" "}
-                  {channelMeta.contentCountry}
-                  
-                  
-                </p>
+                  <p className="text-muted-foreground text-[11px]">
+                    · {channelMeta.contentLanguage} ·{" "}
+                    {channelMeta.contentCountry}
+                  </p>
 
-                <p className="text-muted-foreground text-[11px]">
-                  Created:  {new Date(channelMeta.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric"})}
-                </p>
+                  <p className="text-muted-foreground text-[11px]">
+                    Created:{" "}
+                    {new Date(channelMeta.createdAt).toLocaleDateString(
+                      "en-US",
+                      { month: "short", day: "numeric", year: "numeric" }
+                    )}
+                  </p>
 
-                <p className="text-muted-foreground text-[11px]">
-                Community: {channelMeta.communityName
-                    ? ` · ${channelMeta.communityName}`
-                    : ""}
-                </p>
-                
-                <p className="w-fit bg-gray-200">{channelMeta.eventVideoType}</p>
+                  <p className="text-muted-foreground text-[11px]">
+                    Community:{" "}
+                    {channelMeta.communityName
+                      ? ` · ${channelMeta.communityName}`
+                      : ""}
+                  </p>
+
+                  <p className="w-fit bg-gray-200">
+                    {channelMeta.eventVideoType}
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -750,7 +759,7 @@ Report
         open={descOpen}
         onOpenChange={setDescOpen}
       >
-        <DialogContent className="max-h-[80vh] overflow-y-auto z-[99999999]">
+        <DialogContent className="z-[99999999] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{resolvedTitle || "Video description"}</DialogTitle>
           </DialogHeader>

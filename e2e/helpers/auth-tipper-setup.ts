@@ -1,33 +1,114 @@
 /**
  * Staging/local Playwright tipper authentication helpers.
- * Never log returned codes or tokens.
+ * Never log returned codes, tokens, emails or secrets.
  */
-const backendBase =
-  process.env.PLAYWRIGHT_BACKEND_URL?.replace(/\/$/, "") ??
-  "http://127.0.0.1:8000";
+import {
+  assertPlaywrightBackendAligned,
+  hostnameFromUrl,
+} from "./playwright-backend-config";
 
-export async function fetchE2eVerificationCode(
-  email: string
-): Promise<string | null> {
-  if (process.env.TIPMANNA_E2E_AUTH_CODE !== "1") {
-    const staticCode = process.env.PLAYWRIGHT_TIPPER_OTP_SECRET?.trim();
-    if (staticCode && /^\d{6}$/.test(staticCode)) return staticCode;
-    return null;
+const E2E_HELPER_HEADER = "x-tipmanna-e2e-auth-secret";
+
+export type VerificationCodeFetchResult = {
+  code: string | null;
+  method: "static-otp" | "backend-helper" | "none";
+  backendHost: string | null;
+  httpStatus?: number;
+  error?: string;
+};
+
+function backendRootForAuth(): string {
+  const resolution = assertPlaywrightBackendAligned();
+
+  if (!resolution.ok) {
+    throw new Error(
+      `Playwright backend configuration is invalid: ${resolution.reason}`
+    );
   }
 
-  const url = `${backendBase}/api/v1/auth/e2e/verification-code?email=${encodeURIComponent(email)}`;
+  return resolution.backendRoot;
+}
+
+export async function fetchE2eVerificationCode(
+  _email: string
+): Promise<VerificationCodeFetchResult> {
+  const backendHost = hostnameFromUrl(backendRootForAuth());
+
+  if (process.env.TIPMANNA_E2E_AUTH_CODE !== "1") {
+    const staticCode = process.env.PLAYWRIGHT_TIPPER_OTP_SECRET?.trim();
+    if (staticCode && /^\d{6}$/.test(staticCode)) {
+      return {
+        code: staticCode,
+        method: "static-otp",
+        backendHost,
+      };
+    }
+    return {
+      code: null,
+      method: "none",
+      backendHost,
+      error: "helper disabled and no static OTP configured",
+    };
+  }
+
+  const url = `${backendRootForAuth()}/api/v1/auth/e2e/verification-code?email=${encodeURIComponent(_email)}`;
+  const headers: Record<string, string> = {};
+  const helperSecret = process.env.PLAYWRIGHT_E2E_AUTH_HELPER_SECRET?.trim();
+  if (helperSecret) {
+    headers[E2E_HELPER_HEADER] = helperSecret;
+  }
+
+  let lastStatus: number | undefined;
   for (let i = 0; i < 15; i++) {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
-    if (res.ok) {
-      const data = (await res.json()) as { code?: string };
-      if (typeof data.code === "string" && /^\d{6}$/.test(data.code)) {
-        return data.code;
+    try {
+      const res = await fetch(url, {
+        headers,
+        signal: AbortSignal.timeout(5_000),
+      });
+      lastStatus = res.status;
+      if (res.ok) {
+        const data = (await res.json()) as { code?: string };
+        if (typeof data.code === "string" && /^\d{6}$/.test(data.code)) {
+          return {
+            code: data.code,
+            method: "backend-helper",
+            backendHost,
+            httpStatus: res.status,
+          };
+        }
+        return {
+          code: null,
+          method: "backend-helper",
+          backendHost,
+          httpStatus: res.status,
+          error: "verification code absent in helper response",
+        };
       }
-      return null;
+      if (res.status === 403 || res.status === 404) {
+        return {
+          code: null,
+          method: "backend-helper",
+          backendHost,
+          httpStatus: res.status,
+          error:
+            res.status === 403
+              ? "helper unavailable (forbidden — check staging secret alignment)"
+              : "helper unavailable (not found — check deployment flags/allowlist)",
+        };
+      }
+    } catch {
+      /* retry */
     }
     await new Promise(r => setTimeout(r, 1_000));
   }
-  return null;
+
+  return {
+    code: null,
+    method: "backend-helper",
+    backendHost,
+    httpStatus: lastStatus,
+    error: "verification code absent after polling helper",
+  };
 }
 
 export async function fillOtpInputs(
@@ -44,4 +125,21 @@ export async function fillOtpInputs(
     return;
   }
   await page.locator(".react-otp-input input").first().fill(code);
+}
+
+export function reportAuthEnvPresence(): Record<string, "SET" | "MISSING"> {
+  const keys = [
+    "PLAYWRIGHT_AUTH_E2E",
+    "PLAYWRIGHT_BASE_URL",
+    "PLAYWRIGHT_BACKEND_URL",
+    "PLAYWRIGHT_TIPPER_EMAIL",
+    "PLAYWRIGHT_TIPPER_OTP_SECRET",
+    "TIPMANNA_E2E_AUTH_CODE",
+    "PLAYWRIGHT_E2E_AUTH_HELPER_SECRET",
+  ] as const;
+  const out = {} as Record<(typeof keys)[number], "SET" | "MISSING">;
+  for (const key of keys) {
+    out[key] = process.env[key]?.trim() ? "SET" : "MISSING";
+  }
+  return out;
 }

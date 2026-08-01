@@ -1,33 +1,28 @@
 import type { FullConfig } from "@playwright/test";
 
-const BACKEND_HEALTH_URL =
-  process.env.PLAYWRIGHT_BACKEND_URL?.replace(/\/$/, "") ??
-  process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/api\/v1\/?$/, "") ??
-  "http://127.0.0.1:8000";
+import {
+  assertPlaywrightBackendAligned,
+  hostnameFromUrl,
+  resolvePlaywrightBackendRoot,
+} from "./helpers/playwright-backend-config";
 
-const HEALTH_URL = `${BACKEND_HEALTH_URL}/health`;
 const POLL_MS = 1000;
 const MAX_WAIT_MS = 60_000;
 
-async function waitForBackendHealth(): Promise<void> {
-  if (process.env.PLAYWRIGHT_SKIP_BACKEND_HEALTH === "true") {
-    console.warn(
-      "[playwright globalSetup] Skipping backend health check (PLAYWRIGHT_SKIP_BACKEND_HEALTH=true)"
-    );
-    return;
-  }
-
+async function waitForBackendHealth(backendRoot: string): Promise<void> {
+  const healthUrl = `${backendRoot.replace(/\/$/, "")}/health`;
+  const backendHost = hostnameFromUrl(backendRoot) ?? backendRoot;
   const started = Date.now();
   let lastError = "";
 
   while (Date.now() - started < MAX_WAIT_MS) {
     try {
-      const res = await fetch(HEALTH_URL, {
+      const res = await fetch(healthUrl, {
         signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
         console.info(
-          `[playwright globalSetup] Backend healthy at ${HEALTH_URL}`
+          `[playwright globalSetup] Backend healthy host=${backendHost}`
         );
         return;
       }
@@ -38,12 +33,61 @@ async function waitForBackendHealth(): Promise<void> {
     await new Promise(r => setTimeout(r, POLL_MS));
   }
 
-  console.warn(
-    `[playwright globalSetup] Backend not healthy at ${HEALTH_URL} after ${MAX_WAIT_MS}ms (${lastError}). ` +
-      "Real-route Explore tests may skip or fail. Start the backend or set PLAYWRIGHT_SKIP_BACKEND_HEALTH=true for fixture-only runs."
+  throw new Error(
+    `[playwright globalSetup] backend unreachable host=${backendHost} (${lastError})`
   );
 }
 
+async function probeHelperAvailability(backendRoot: string): Promise<void> {
+  if (process.env.TIPMANNA_E2E_AUTH_CODE !== "1") return;
+
+  const backendHost = hostnameFromUrl(backendRoot) ?? backendRoot;
+  const headers: Record<string, string> = {};
+  const helperSecret = process.env.PLAYWRIGHT_E2E_AUTH_HELPER_SECRET?.trim();
+  if (helperSecret) {
+    headers["x-tipmanna-e2e-auth-secret"] = helperSecret;
+  }
+
+  try {
+    const res = await fetch(
+      `${backendRoot}/api/v1/auth/e2e/verification-code?email=probe%40invalid.example`,
+      { headers, signal: AbortSignal.timeout(5_000) }
+    );
+    if (res.status === 404 || res.status === 403) {
+      console.info(
+        `[playwright globalSetup] Helper probe host=${backendHost} status=${res.status}`
+      );
+      return;
+    }
+    console.info(
+      `[playwright globalSetup] Helper probe host=${backendHost} status=${res.status}`
+    );
+  } catch (e) {
+    console.warn(
+      `[playwright globalSetup] Helper probe failed host=${backendHost} (${e instanceof Error ? e.message : String(e)})`
+    );
+  }
+}
+
 export default async function globalSetup(_config: FullConfig): Promise<void> {
-  await waitForBackendHealth();
+  if (process.env.PLAYWRIGHT_SKIP_BACKEND_HEALTH === "true") {
+    console.warn(
+      "[playwright globalSetup] Skipping backend health check (PLAYWRIGHT_SKIP_BACKEND_HEALTH=true)"
+    );
+    return;
+  }
+
+  const frontendHost = hostnameFromUrl(process.env.PLAYWRIGHT_BASE_URL);
+  const resolved = resolvePlaywrightBackendRoot();
+  if (!resolved.ok) {
+    throw new Error(`[playwright globalSetup] ${resolved.reason}`);
+  }
+
+  console.info(
+    `[playwright globalSetup] frontendHost=${frontendHost ?? "default-local"} backendHost=${hostnameFromUrl(resolved.backendRoot) ?? resolved.backendRoot}`
+  );
+
+  assertPlaywrightBackendAligned();
+  await waitForBackendHealth(resolved.backendRoot);
+  await probeHelperAvailability(resolved.backendRoot);
 }

@@ -39,7 +39,7 @@ export const StatCard = ({
       >
         {label}
       </Paragraph>
-      <div className="flex w-full justify-center">
+      <div className="mt-2 flex w-full justify-center">
         {subtitle ? (
           <Paragraph
             align="center"

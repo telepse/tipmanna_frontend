@@ -28,9 +28,9 @@ describe("normalizeEmbedStartSeconds", () => {
 
 describe("clampOffsetToItem", () => {
   it("respects seek base and duration", () => {
-    expect(
-      clampOffsetToItem(500, { duration: 120, seekBaseSeconds: 10 })
-    ).toBe(129);
+    expect(clampOffsetToItem(500, { duration: 120, seekBaseSeconds: 10 })).toBe(
+      129
+    );
   });
 });
 

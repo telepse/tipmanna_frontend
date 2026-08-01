@@ -257,8 +257,7 @@ export const WebTvLooper = ({
     return computeInitialEmbedPosition({
       t6Index: initialPlaybackTarget.selectedIndex,
       t6OffsetSeconds: initialPlaybackTarget.startOffsetSeconds,
-      t6ResolvedAtPerformanceMs:
-        initialPlaybackTarget.resolvedAtPerformanceMs,
+      t6ResolvedAtPerformanceMs: initialPlaybackTarget.resolvedAtPerformanceMs,
       items,
       broadcastEpoch,
       totalDuration,
@@ -290,8 +289,7 @@ export const WebTvLooper = ({
   ]);
 
   const enableLiveOffsetEmbed = Boolean(
-    liveOffsetEmbed &&
-      liveOffsetEmbed.videoId === extractYoutubeID(playbackUrl)
+    liveOffsetEmbed && liveOffsetEmbed.videoId === extractYoutubeID(playbackUrl)
   );
 
   const effectiveEmbedPlaybackUrl = useMemo(() => {
@@ -1403,13 +1401,9 @@ export const WebTvLooper = ({
               }
               startupGeneration={startupEmbedGeneration}
               initialSelectedIndex={
-                enableLiveOffsetEmbedFinal
-                  ? liveOffsetEmbed!.selectedIndex
-                  : 0
+                enableLiveOffsetEmbedFinal ? liveOffsetEmbed!.selectedIndex : 0
               }
-              embedSource={
-                scheduleSourceCommunityId ? "community" : "global"
-              }
+              embedSource={scheduleSourceCommunityId ? "community" : "global"}
               embedReason={
                 liveOffsetEmbed?.rolledOver ? "rollover_at_embed" : "cold_start"
               }

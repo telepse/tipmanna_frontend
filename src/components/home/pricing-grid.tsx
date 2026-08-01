@@ -122,7 +122,7 @@ export default function NewPricingGrid() {
           align="center"
           size="lg"
         >
-          Free to start, premium features later with{" "}
+          Free to start, growth features later with{" "}
           <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
             scalable pricing
           </span>{" "}

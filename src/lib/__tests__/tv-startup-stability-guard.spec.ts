@@ -176,12 +176,8 @@ describe("startup lifecycle phases", () => {
 describe("isStartupStabilityContainmentActive", () => {
   it("is active only when both flags on and not terminal/stable", () => {
     const guard = createStartupPlaybackGuardState();
-    expect(
-      isStartupStabilityContainmentActive(true, true, guard)
-    ).toBe(true);
+    expect(isStartupStabilityContainmentActive(true, true, guard)).toBe(true);
     markStartupStablePlayback(guard);
-    expect(
-      isStartupStabilityContainmentActive(true, true, guard)
-    ).toBe(false);
+    expect(isStartupStabilityContainmentActive(true, true, guard)).toBe(false);
   });
 });

@@ -121,14 +121,14 @@ export default function Home() {
           <ScheduledTvProgramsSection />
           <ContinousEngagement />
           <SupportHappensInTheMoment />
-
-          <NewTippingBanner />
-
-          <WhoIsTipmannaFor />
-
-          <NewPricingGrid />
         </section>
       </DataSection>
+
+      <NewTippingBanner />
+
+      <WhoIsTipmannaFor />
+
+      <NewPricingGrid />
 
       <DataSection>
         <TopCommunitiesSection />

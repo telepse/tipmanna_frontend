@@ -3,10 +3,6 @@
 
 import { useRef } from "react";
 
-// Import Swiper styles
-import "swiper/css";
-import "swiper/css/pagination";
-
 // Local imports
 import { Badge } from "@/components/shared/badge";
 import { Title } from "@/components/shared/title";
@@ -20,13 +16,17 @@ interface Props {
 export default function TopContents({ contents }: Props) {
   const topContentsRef = useRef<HTMLDivElement>(null);
 
+  console.log("contents", contents);
+
   return (
     <section className="wrapper section py-12">
       <div className="flex flex-col">
-        <Badge title="Contents" />
         <h2 id="top-events-heading">
           <Title size="lg">
-            Top <span className="text-primary">contents</span>
+            Top{" "}
+            <span className="bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+              contents
+            </span>
           </Title>
         </h2>
       </div>
@@ -54,7 +54,7 @@ export default function TopContents({ contents }: Props) {
                 username={content.event.username}
                 amountRaised={content.event.amountRaised}
                 numOfTips={content.event.numOfTips}
-                eventDate={content.createdAt}
+                numOfEncounters={content.metrics?.encounters ?? 0}
                 startTime={content.event.startTime}
                 endTime={content.event.endTime}
                 duration={content.durationSeconds}
@@ -90,7 +90,7 @@ export default function TopContents({ contents }: Props) {
                 username={content.event.username}
                 amountRaised={content.event.amountRaised}
                 numOfTips={content.event.numOfTips}
-                eventDate={content.createdAt}
+                numOfEncounters={content.metrics?.encounters ?? 0}
                 startTime={content.event.startTime}
                 endTime={content.event.endTime}
                 duration={content.durationSeconds}

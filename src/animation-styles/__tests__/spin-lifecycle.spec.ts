@@ -1,16 +1,6 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANIMATION_DURATION, PAYMENT_WRAP } from "@/lib/animationContract";
-import {
-  SPIN_LIFECYCLE_VERSION,
-  spinStyle,
-} from "@/animation-styles/spin";
+import { SPIN_LIFECYCLE_VERSION, spinStyle } from "@/animation-styles/spin";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
 import { wrapPaymentAnimation } from "@/lib/wrapPaymentAnimation";
 import { createAnimationQueue } from "@/lib/animation-queue-core";
@@ -33,8 +23,7 @@ vi.mock("@/lib/animationDebug", () => ({
 const PAYMENT_TOTAL = ANIMATION_DURATION.payment.default;
 const PAYMENT_MIN_LIFETIME = PAYMENT_TOTAL * 0.9;
 const SAFETY_TIMEOUT_MS = PAYMENT_WRAP.safetyTimeoutMs;
-const CYCLE_GAP =
-  PAYMENT_WRAP.betweenCyclesMs + PAYMENT_WRAP.secondCycleBeatMs;
+const CYCLE_GAP = PAYMENT_WRAP.betweenCyclesMs + PAYMENT_WRAP.secondCycleBeatMs;
 
 const SPIN_CHARACTER: Pick<RoomCharacter, "name" | "iconUrl" | "styleName"> = {
   name: "Chicken",
@@ -94,23 +83,17 @@ function setupDom(): { body: StubBody; overlays: () => StubElement[] } {
     },
   };
 
-  vi.stubGlobal(
-    "document",
-    {
-      createElement: (tag: string) => createStubElement(tag),
-      body,
-    } as unknown as Document
-  );
+  vi.stubGlobal("document", {
+    createElement: (tag: string) => createStubElement(tag),
+    body,
+  } as unknown as Document);
 
-  vi.stubGlobal(
-    "window",
-    {
-      innerWidth: 1024,
-      innerHeight: 768,
-      setTimeout: globalThis.setTimeout.bind(globalThis),
-      clearTimeout: globalThis.clearTimeout.bind(globalThis),
-    } as unknown as Window & typeof globalThis
-  );
+  vi.stubGlobal("window", {
+    innerWidth: 1024,
+    innerHeight: 768,
+    setTimeout: globalThis.setTimeout.bind(globalThis),
+    clearTimeout: globalThis.clearTimeout.bind(globalThis),
+  } as unknown as Window & typeof globalThis);
 
   return {
     body,
@@ -239,14 +222,11 @@ describe("Spin payment animation lifecycle (Phase E6A v3)", () => {
         e3cTraces.push(payload as (typeof e3cTraces)[number]);
       });
 
-      const run = wrapPaymentAnimation(
-        () => registrySpinPayment(),
-        {
-          characterName: SPIN_CHARACTER.name,
-          styleName: SPIN_CHARACTER.styleName,
-          playbackKey: "bundle-1-Chicken",
-        }
-      );
+      const run = wrapPaymentAnimation(() => registrySpinPayment(), {
+        characterName: SPIN_CHARACTER.name,
+        styleName: SPIN_CHARACTER.styleName,
+        playbackKey: "bundle-1-Chicken",
+      });
 
       const pending = run();
       await vi.advanceTimersByTimeAsync(
@@ -259,7 +239,9 @@ describe("Spin payment animation lifecycle (Phase E6A v3)", () => {
       );
       expect(
         e3cTraces.filter(
-          t => t.stage === "payment_cycle_finished" && t.cycleOutcome === "completed"
+          t =>
+            t.stage === "payment_cycle_finished" &&
+            t.cycleOutcome === "completed"
         )
       ).toHaveLength(2);
       expect(
@@ -427,9 +409,11 @@ describe("Spin payment animation lifecycle (Phase E6A v3)", () => {
       expect(
         spinTraces().some(t => t.stage === "spin_natural_timer_scheduled")
       ).toBe(true);
-      expect(spinTraces().every(t => t.spinLifecycleVersion === SPIN_LIFECYCLE_VERSION)).toBe(
-        true
-      );
+      expect(
+        spinTraces().every(
+          t => t.spinLifecycleVersion === SPIN_LIFECYCLE_VERSION
+        )
+      ).toBe(true);
 
       await vi.advanceTimersByTimeAsync(PAYMENT_TOTAL);
       await handle.finished;

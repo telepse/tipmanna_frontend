@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { motion, useReducedMotion } from "framer-motion";
 import { Title } from "../shared/title";
 import { Paragraph } from "../shared/paragraph";
+import { Badge } from "../shared/badge";
 
 export default function NewTippingBanner() {
   const shouldReduceMotion = useReducedMotion();
@@ -37,6 +38,8 @@ export default function NewTippingBanner() {
           as you enjoy.
         </Paragraph>
       </div>
+
+      <Badge title="Ways people support" />
 
       <section
         className="section relative mt-8 min-h-[60vh] rounded-2xl bg-cover bg-center bg-no-repeat bg-blend-multiply"

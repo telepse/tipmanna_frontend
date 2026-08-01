@@ -2,11 +2,11 @@ import { useState } from "react";
 import Image from "next/image";
 
 // Third-party imports
-import { Play, Users } from "lucide-react";
+import { Eye, Play, Users } from "lucide-react";
 
 // Local imports
 import { Paragraph } from "@/components/shared/paragraph";
-import { cn, formatDate, formatWithCommas } from "@/lib/utils";
+import { cn, formatWithCommas } from "@/lib/utils";
 import Link from "next/link";
 
 function formatTime(seconds: number) {
@@ -27,7 +27,7 @@ interface Props {
   username: string;
   amountRaised: number;
   numOfTips: number;
-  eventDate: string;
+  numOfEncounters?: number;
   startTime: string;
   endTime: string;
   duration: number;
@@ -43,7 +43,7 @@ export const TopContentCard = ({
   username,
   amountRaised,
   numOfTips,
-  eventDate,
+  numOfEncounters = 0,
   duration,
 }: Props) => {
   const [loadingEventId] = useState<string | null>(null);
@@ -94,14 +94,11 @@ export const TopContentCard = ({
           )}
         >
           <span className="flex items-center gap-1 text-xs whitespace-nowrap">
-            Host: {(fullName || "Host").split(" ")[0]}{" "}
+            Creator: {(fullName || "Host").split(" ")[0]}{" "}
             <span className="text-primary">
               @{(username || "—").substring(0, 9)}
               {(username || "").length > 7 ? "..." : ""}
             </span>
-          </span>
-          <span className="text-muted-foreground flex gap-1 text-xs whitespace-nowrap">
-            <Users className="size-4" /> {numOfTips} Tips
           </span>
         </Paragraph>
 
@@ -111,9 +108,18 @@ export const TopContentCard = ({
               Duration: {formatTime(duration)}
             </span>
 
-            <span className="text-muted-foreground flex items-center gap-2 text-xs">
-              Created: {formatDate(eventDate)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground flex items-center gap-0.5 text-[10px] whitespace-nowrap">
+                <Users className="size-3" /> {numOfTips} Tips
+              </span>
+              <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+                <Eye
+                  className="size-3"
+                  aria-hidden
+                />
+                {numOfEncounters} seen
+              </span>
+            </div>
           </div>
 
           <span className="text-primary border-primary flex items-center gap-2 rounded-md border px-2 py-1">

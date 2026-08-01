@@ -8,8 +8,8 @@ import { useMediaQuery } from "react-responsive";
 import { Button } from "@/components/ui/button";
 
 // Import Swiper styles
-import "swiper/css";
-import "swiper/css/pagination";
+// import "swiper/css";
+// import "swiper/css/pagination";
 
 // Local imports
 import { Badge } from "@/components/shared/badge";
@@ -56,10 +56,12 @@ export default function TopEvents({ events = [] }: Props) {
     <section className="wrapper section py-12">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <Badge title="Events" />
           <h2 id="top-events-heading">
             <Title size="lg">
-              Top <span className="text-primary">events</span>
+              Top{" "}
+              <span className="bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+                live events
+              </span>
             </Title>
           </h2>
         </div>

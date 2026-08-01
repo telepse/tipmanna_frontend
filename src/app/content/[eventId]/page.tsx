@@ -68,8 +68,8 @@ export async function generateMetadata({
   const videoRes = pickContentForPage(list, initialChannelId);
   console.log("videoRes", videoRes);
 
-
-  const videoHasCoOwner = videoRes?.coOwnerNames?.length && videoRes?.coOwnerNames?.length > 0;
+  const videoHasCoOwner =
+    videoRes?.coOwnerNames?.length && videoRes?.coOwnerNames?.length > 0;
 
   const pageUrl = buildContentShareUrl({
     eventId,
@@ -216,7 +216,7 @@ export default async function ContentPage({ params, searchParams }: Props) {
         })
       : null;
 
-    console.log("primary", primary);
+  console.log("primary", primary);
 
   return (
     <>

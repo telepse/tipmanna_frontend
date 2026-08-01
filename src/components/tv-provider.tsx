@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -24,7 +25,8 @@ import {
   nextScheduleAttemptNumber,
   tvStartupEvent,
   updateTvStartupContext,
-  setTvStartupStablePlaybackListener,
+  releaseStartupStabilityGuardOnce,
+  setTvStartupStabilityGuardReleaseCallback,
   tvStartupFinalizeFailed,
 } from "@/lib/tv-startup-trace";
 import {
@@ -726,7 +728,7 @@ export default function GlobalTVProvider({
     }
   }, []);
 
-  const releaseStartupStabilityGuard = useCallback(
+  const applyStartupStabilityGuardRelease = useCallback(
     (releaseReason: "stable_playback" | "terminal_failure") => {
       const guard = startupPlaybackGuardRef.current;
       if (releaseReason === "stable_playback") {
@@ -734,23 +736,6 @@ export default function GlobalTVProvider({
       } else {
         markStartupTerminalFailure(guard);
       }
-
-      if (!isTvStartupStabilityGuardActive()) return;
-
-      tvStartupEvent("startup_stability_guard_released", {
-        trigger: releaseReason,
-        data: {
-          releaseReason,
-          recoveryCount: guard.startupRecoveryCount,
-          failedTargetCount: guard.failedVideoIds.size,
-          preStableSeekSuppressedCount:
-            preStableSeekSuppressedCountRef.current,
-          preStableCorrectiveSeekCount:
-            preStableCorrectiveSeekCountRef.current,
-          firstPlayReached: guard.firstPlayReached,
-          stablePlaybackReached: guard.stablePlaybackReached,
-        },
-      });
     },
     []
   );
@@ -888,117 +873,120 @@ export default function GlobalTVProvider({
     [items, broadcastEpoch, totalDuration, getNow]
   );
 
-  const requestPlayback = useCallback((req: TvPlaybackRequest): boolean => {
-    if (isOrchestrationBlockedByTerminalFailure()) {
-      tvTrace("playback", "requestPlayback_blocked", {
-        reason: "terminal_startup_failure",
-        videoId: req.videoId,
-      });
-      return false;
-    }
+  const requestPlayback = useCallback(
+    (req: TvPlaybackRequest): boolean => {
+      if (isOrchestrationBlockedByTerminalFailure()) {
+        tvTrace("playback", "requestPlayback_blocked", {
+          reason: "terminal_startup_failure",
+          videoId: req.videoId,
+        });
+        return false;
+      }
 
-    tvTrace("playback", "requestPlayback", {
-      reason: req.reason,
-      videoId: req.videoId,
-      startSeconds: req.startSeconds,
-      scheduleIndex: req.scheduleIndex,
-    });
-
-    const guard = startupPlaybackGuardRef.current;
-    const player = playerRef.current;
-    if (
-      shouldSuppressDuplicatePrePlayLoad({
-        guardEnabled: isTvStartupPlaybackGuardEnabled(),
-        firstPlayReached: guard.firstPlayReached,
-        req,
-        orchestrated: orchestratedPlaybackRef.current,
-        playerState: null,
-        inFlightVideoId: inFlightOrchestratedVideoIdRef.current,
-      })
-    ) {
-      tvStartupEvent("duplicate_pre_play_load_suppressed", {
-        trigger: req.reason,
-        data: {
-          videoIdHash: hashShortId(req.videoId),
-          startOffsetSeconds: req.startSeconds,
-          currentIndex: currentIndexRef.current,
-          recoveryCount: guard.startupRecoveryCount,
-          recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
-        },
-      });
-      return false;
-    }
-
-    if (
-      shouldSkipInitialReload(
-        committedInitialEmbedRef.current,
-        req,
-        guard.firstPlayReached,
-        performance.now(),
-        isTvInitialLiveOffsetEmbedEnabled()
-      )
-    ) {
-      recordInitialEmbedSuccessOnce("first_sync_request_playback", {
-        liveVideoId: req.videoId,
-        liveScheduleIndex: req.scheduleIndex ?? currentIndexRef.current,
-        liveOffsetSeconds: req.startSeconds,
-      });
-      lastSyncedIndex.current = req.scheduleIndex ?? currentIndexRef.current;
-      return false;
-    }
-
-    if (isSameOrchestratedPlayback(orchestratedPlaybackRef.current, req)) {
-      tvTrace("playback", "requestPlayback_skipped", {
-        reason: "unchanged",
+      tvTrace("playback", "requestPlayback", {
+        reason: req.reason,
         videoId: req.videoId,
         startSeconds: req.startSeconds,
+        scheduleIndex: req.scheduleIndex,
       });
-      return false;
-    }
 
-    if (!player?.isReady()) {
-      pendingPlaybackRequestRef.current = req;
-      tvTrace("playback", "requestPlayback_deferred", {
-        reason: "player_not_ready",
-        videoId: req.videoId,
-      });
-      return false;
-    }
-
-    pendingPlaybackRequestRef.current = null;
-    orchestratedPlaybackRef.current = {
-      videoId: req.videoId,
-      startSeconds: req.startSeconds,
-    };
-    inFlightOrchestratedVideoIdRef.current = req.videoId;
-    lastOrchestratedCommandRef.current = "loadVideoById";
-    if (
-      !guard.firstPlayReached &&
-      isTvInitialLiveOffsetEmbedEnabled()
-    ) {
-      prePlayReplacementLoadIssuedRef.current = true;
-    }
-    if (isTvStartupPlaybackGuardEnabled()) {
-      markInitialCommandIssued(guard);
-      if (guard.phase === "initial_command_issued") {
-        guard.phase = "buffering_before_first_play";
+      const guard = startupPlaybackGuardRef.current;
+      const player = playerRef.current;
+      if (
+        shouldSuppressDuplicatePrePlayLoad({
+          guardEnabled: isTvStartupPlaybackGuardEnabled(),
+          firstPlayReached: guard.firstPlayReached,
+          req,
+          orchestrated: orchestratedPlaybackRef.current,
+          playerState: null,
+          inFlightVideoId: inFlightOrchestratedVideoIdRef.current,
+        })
+      ) {
+        tvStartupEvent("duplicate_pre_play_load_suppressed", {
+          trigger: req.reason,
+          data: {
+            videoIdHash: hashShortId(req.videoId),
+            startOffsetSeconds: req.startSeconds,
+            currentIndex: currentIndexRef.current,
+            recoveryCount: guard.startupRecoveryCount,
+            recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
+          },
+        });
+        return false;
       }
-    }
-    tvStartupEvent("orchestrated_playback_command_issued", {
-      trigger: req.reason,
-      data: {
-        command: "loadVideoById",
-        videoIdHash: hashShortId(req.videoId),
-        startOffsetSeconds: req.startSeconds,
-        muted: player.isMuted?.() ?? null,
-        currentIndex: currentIndexRef.current,
-        firstPlayReached: guard.firstPlayReached,
-      },
-    });
-    pendingAudioRestoreRef.current = prepareMutedLoadForAutoplay(player, true);
-    player.load(req.videoId, req.startSeconds);
-    return true;
-  }, [recordInitialEmbedSuccessOnce, isOrchestrationBlockedByTerminalFailure]);
+
+      if (
+        shouldSkipInitialReload(
+          committedInitialEmbedRef.current,
+          req,
+          guard.firstPlayReached,
+          performance.now(),
+          isTvInitialLiveOffsetEmbedEnabled()
+        )
+      ) {
+        recordInitialEmbedSuccessOnce("first_sync_request_playback", {
+          liveVideoId: req.videoId,
+          liveScheduleIndex: req.scheduleIndex ?? currentIndexRef.current,
+          liveOffsetSeconds: req.startSeconds,
+        });
+        lastSyncedIndex.current = req.scheduleIndex ?? currentIndexRef.current;
+        return false;
+      }
+
+      if (isSameOrchestratedPlayback(orchestratedPlaybackRef.current, req)) {
+        tvTrace("playback", "requestPlayback_skipped", {
+          reason: "unchanged",
+          videoId: req.videoId,
+          startSeconds: req.startSeconds,
+        });
+        return false;
+      }
+
+      if (!player?.isReady()) {
+        pendingPlaybackRequestRef.current = req;
+        tvTrace("playback", "requestPlayback_deferred", {
+          reason: "player_not_ready",
+          videoId: req.videoId,
+        });
+        return false;
+      }
+
+      pendingPlaybackRequestRef.current = null;
+      orchestratedPlaybackRef.current = {
+        videoId: req.videoId,
+        startSeconds: req.startSeconds,
+      };
+      inFlightOrchestratedVideoIdRef.current = req.videoId;
+      lastOrchestratedCommandRef.current = "loadVideoById";
+      if (!guard.firstPlayReached && isTvInitialLiveOffsetEmbedEnabled()) {
+        prePlayReplacementLoadIssuedRef.current = true;
+      }
+      if (isTvStartupPlaybackGuardEnabled()) {
+        markInitialCommandIssued(guard);
+        if (guard.phase === "initial_command_issued") {
+          guard.phase = "buffering_before_first_play";
+        }
+      }
+      tvStartupEvent("orchestrated_playback_command_issued", {
+        trigger: req.reason,
+        data: {
+          command: "loadVideoById",
+          videoIdHash: hashShortId(req.videoId),
+          startOffsetSeconds: req.startSeconds,
+          muted: player.isMuted?.() ?? null,
+          currentIndex: currentIndexRef.current,
+          firstPlayReached: guard.firstPlayReached,
+        },
+      });
+      pendingAudioRestoreRef.current = prepareMutedLoadForAutoplay(
+        player,
+        true
+      );
+      player.load(req.videoId, req.startSeconds);
+      return true;
+    },
+    [recordInitialEmbedSuccessOnce, isOrchestrationBlockedByTerminalFailure]
+  );
 
   const flushPendingPlaybackRequest = useCallback(() => {
     const pending = pendingPlaybackRequestRef.current;
@@ -1052,10 +1040,7 @@ export default function GlobalTVProvider({
             recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
           },
         });
-        if (
-          isTvStartupStabilityGuardActive() &&
-          !guard.stablePlaybackReached
-        ) {
+        if (isTvStartupStabilityGuardActive() && !guard.stablePlaybackReached) {
           if (markStartupTerminalFailure(guard)) {
             tvStartupEvent("startup_terminal_failure", {
               reason: "no_eligible_target",
@@ -1065,7 +1050,10 @@ export default function GlobalTVProvider({
                 failedTargetCount: guard.failedVideoIds.size,
               },
             });
-            releaseStartupStabilityGuard("terminal_failure");
+            releaseStartupStabilityGuardOnce({
+              reason: "terminal_failure",
+              startupGeneration: startupGenerationRef.current,
+            });
             tvStartupFinalizeFailed("no_eligible_startup_target");
           }
         } else {
@@ -1115,7 +1103,6 @@ export default function GlobalTVProvider({
       totalDuration,
       getNow,
       isOrchestrationBlockedByTerminalFailure,
-      releaseStartupStabilityGuard,
     ]
   );
 
@@ -2633,7 +2620,10 @@ export default function GlobalTVProvider({
                 lifecyclePhase,
               },
             });
-            releaseStartupStabilityGuard("terminal_failure");
+            releaseStartupStabilityGuardOnce({
+              reason: "terminal_failure",
+              startupGeneration: startupGenerationRef.current,
+            });
             tvStartupFinalizeFailed("startup_recovery_cap_reached");
           }
         } else {
@@ -2685,20 +2675,31 @@ export default function GlobalTVProvider({
       requestPlayback,
       advanceToNextEligibleStartupTarget,
       isOrchestrationBlockedByTerminalFailure,
-      releaseStartupStabilityGuard,
     ]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isTvStartupStabilityGuardActive()) {
-      setTvStartupStablePlaybackListener(null);
+      setTvStartupStabilityGuardReleaseCallback(null);
       return;
     }
-    setTvStartupStablePlaybackListener(() => {
-      releaseStartupStabilityGuard("stable_playback");
-    });
-    return () => setTvStartupStablePlaybackListener(null);
-  }, [releaseStartupStabilityGuard]);
+    setTvStartupStabilityGuardReleaseCallback(
+      ({ reason, startupGeneration }) => {
+        if (
+          startupGeneration != null &&
+          isStaleStartupGeneration(
+            startupGeneration,
+            startupGenerationRef.current
+          )
+        ) {
+          return;
+        }
+        applyStartupStabilityGuardRelease(reason);
+      },
+      () => startupGenerationRef.current
+    );
+    return () => setTvStartupStabilityGuardReleaseCallback(null);
+  }, [applyStartupStabilityGuardRelease]);
 
   const switchToLocal = useCallback(() => {
     const idx = currentIndexRef.current;

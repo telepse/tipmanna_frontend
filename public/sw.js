@@ -1,2 +1,3884 @@
-(()=>{"use strict";let e,t,a,s={googleAnalytics:"googleAnalytics",precache:"precache-v2",prefix:"serwist",runtime:"runtime",suffix:"undefined"!=typeof registration?registration.scope:""},r=e=>[s.prefix,e,s.suffix].filter(e=>e&&e.length>0).join("-"),n={updateDetails:e=>{var t=t=>{let a=e[t];"string"==typeof a&&(s[t]=a)};for(let e of Object.keys(s))t(e)},getGoogleAnalyticsName:e=>e||r(s.googleAnalytics),getPrecacheName:e=>e||r(s.precache),getRuntimeName:e=>e||r(s.runtime)};var i=class extends Error{details;constructor(e,t){super(((e,...t)=>{let a=e;return t.length>0&&(a+=` :: ${JSON.stringify(t)}`),a})(e,t)),this.name=e,this.details=t}};function c(e){return new Promise(t=>setTimeout(t,e))}let o=new Set;function l(e,t){let a=new URL(e);for(let e of t)a.searchParams.delete(e);return a.href}async function h(e,t,a,s){let r=l(t.url,a);if(t.url===r)return e.match(t,s);let n={...s,ignoreSearch:!0};for(let i of(await e.keys(t,n)))if(r===l(i.url,a))return e.match(i,s)}var u=class{promise;resolve;reject;constructor(){this.promise=new Promise((e,t)=>{this.resolve=e,this.reject=t})}};let d=async()=>{for(let e of o)await e()},m="-precache-",f=async(e,t=m)=>{let a=(await self.caches.keys()).filter(a=>a.includes(t)&&a.includes(self.registration.scope)&&a!==e);return await Promise.all(a.map(e=>self.caches.delete(e))),a},g=(e,t)=>{let a=t();return e.waitUntil(a),a},p=(e,t)=>t.some(t=>e instanceof t),w=new WeakMap,y=new WeakMap,_=new WeakMap,b={get(e,t,a){if(e instanceof IDBTransaction){if("done"===t)return w.get(e);if("store"===t)return a.objectStoreNames[1]?void 0:a.objectStore(a.objectStoreNames[0])}return v(e[t])},set:(e,t,a)=>(e[t]=a,!0),has:(e,t)=>e instanceof IDBTransaction&&("done"===t||"store"===t)||t in e};function v(e){if(e instanceof IDBRequest){let t=new Promise((t,a)=>{let s=()=>{e.removeEventListener("success",r),e.removeEventListener("error",n)},r=()=>{t(v(e.result)),s()},n=()=>{a(e.error),s()};e.addEventListener("success",r),e.addEventListener("error",n)});return _.set(t,e),t}if(y.has(e))return y.get(e);let s=function(e){if("function"==typeof e)return(a||(a=[IDBCursor.prototype.advance,IDBCursor.prototype.continue,IDBCursor.prototype.continuePrimaryKey])).includes(e)?function(...t){return e.apply(x(this),t),v(this.request)}:function(...t){return v(e.apply(x(this),t))};return(e instanceof IDBTransaction&&function(e){if(w.has(e))return;let t=new Promise((t,a)=>{let s=()=>{e.removeEventListener("complete",r),e.removeEventListener("error",n),e.removeEventListener("abort",n)},r=()=>{t(),s()},n=()=>{a(e.error||new DOMException("AbortError","AbortError")),s()};e.addEventListener("complete",r),e.addEventListener("error",n),e.addEventListener("abort",n)});w.set(e,t)}(e),p(e,t||(t=[IDBDatabase,IDBObjectStore,IDBIndex,IDBCursor,IDBTransaction])))?new Proxy(e,b):e}(e);return s!==e&&(y.set(e,s),_.set(s,e)),s}let x=e=>_.get(e);function E(e,t,{blocked:a,upgrade:s,blocking:r,terminated:n}={}){let i=indexedDB.open(e,t),c=v(i);return s&&i.addEventListener("upgradeneeded",e=>{s(v(i.result),e.oldVersion,e.newVersion,v(i.transaction),e)}),a&&i.addEventListener("blocked",e=>a(e.oldVersion,e.newVersion,e)),c.then(e=>{n&&e.addEventListener("close",()=>n()),r&&e.addEventListener("versionchange",e=>r(e.oldVersion,e.newVersion,e))}).catch(()=>{}),c}let R=["get","getKey","getAll","getAllKeys","count"],q=["put","add","delete","clear"],S=new Map;function D(e,t){if(!(e instanceof IDBDatabase&&!(t in e)&&"string"==typeof t))return;if(S.get(t))return S.get(t);let a=t.replace(/FromIndex$/,""),s=t!==a,r=q.includes(a);if(!(a in(s?IDBIndex:IDBObjectStore).prototype)||!(r||R.includes(a)))return;let n=async function(e,...t){let n=this.transaction(e,r?"readwrite":"readonly"),i=n.store;return s&&(i=i.index(t.shift())),(await Promise.all([i[a](...t),r&&n.done]))[0]};return S.set(t,n),n}b=(e=>({...e,get:(t,a,s)=>D(t,a)||e.get(t,a,s),has:(t,a)=>!!D(t,a)||e.has(t,a)}))(b);let N=["continue","continuePrimaryKey","advance"],T={},C=new WeakMap,P=new WeakMap,k={get(e,t){if(!N.includes(t))return e[t];let a=T[t];return a||(a=T[t]=function(...e){C.set(this,P.get(this)[t](...e))}),a}};async function*A(...e){let t=this;if(t instanceof IDBCursor||(t=await t.openCursor(...e)),!t)return;let a=new Proxy(t,k);for(P.set(a,t),_.set(a,x(t));t;)yield a,t=await (C.get(a)||t.continue()),C.delete(a)}function I(e,t){return t===Symbol.asyncIterator&&p(e,[IDBIndex,IDBObjectStore,IDBCursor])||"iterate"===t&&p(e,[IDBIndex,IDBObjectStore])}b=(e=>({...e,get:(t,a,s)=>I(t,a)?A:e.get(t,a,s),has:(t,a)=>I(t,a)||e.has(t,a)}))(b);let L=async(t,a)=>{let s=null;if(t.url&&(s=new URL(t.url).origin),s!==self.location.origin)throw new i("cross-origin-copy-response",{origin:s});let r=t.clone(),n={headers:new Headers(r.headers),status:r.status,statusText:r.statusText},c=a?a(n):n,o=!function(){if(void 0===e){let t=new Response("");if("body"in t)try{new Response(t.body),e=!0}catch{e=!1}e=!1}return e}()?await r.blob():r.body;return new Response(o,c)},U="requests",F="queueName";var O=class{_db=null;async addEntry(e){let t=(await this.getDb()).transaction(U,"readwrite",{durability:"relaxed"});await t.store.add(e),await t.done}async getFirstEntryId(){return(await (await this.getDb()).transaction(U).store.openCursor())?.value.id}async getAllEntriesByQueueName(e){return await (await this.getDb()).getAllFromIndex(U,F,IDBKeyRange.only(e))||[]}async getEntryCountByQueueName(e){return(await this.getDb()).countFromIndex(U,F,IDBKeyRange.only(e))}async deleteEntry(e){await (await this.getDb()).delete(U,e)}async getFirstEntryByQueueName(e){return await this.getEndEntryFromIndex(IDBKeyRange.only(e),"next")}async getLastEntryByQueueName(e){return await this.getEndEntryFromIndex(IDBKeyRange.only(e),"prev")}async getEndEntryFromIndex(e,t){return(await (await this.getDb()).transaction(U).store.index(F).openCursor(e,t))?.value}async getDb(){return this._db||(this._db=await E("serwist-background-sync",3,{upgrade:this._upgradeDb})),this._db}_upgradeDb(e,t){t>0&&t<3&&e.objectStoreNames.contains(U)&&e.deleteObjectStore(U),e.createObjectStore(U,{autoIncrement:!0,keyPath:"id"}).createIndex(F,F,{unique:!1})}},B=class{_queueName;_queueDb;constructor(e){this._queueName=e,this._queueDb=new O}async pushEntry(e){delete e.id,e.queueName=this._queueName,await this._queueDb.addEntry(e)}async unshiftEntry(e){let t=await this._queueDb.getFirstEntryId();t?e.id=t-1:delete e.id,e.queueName=this._queueName,await this._queueDb.addEntry(e)}async popEntry(){return this._removeEntry(await this._queueDb.getLastEntryByQueueName(this._queueName))}async shiftEntry(){return this._removeEntry(await this._queueDb.getFirstEntryByQueueName(this._queueName))}async getAll(){return await this._queueDb.getAllEntriesByQueueName(this._queueName)}async size(){return await this._queueDb.getEntryCountByQueueName(this._queueName)}async deleteEntry(e){await this._queueDb.deleteEntry(e)}async _removeEntry(e){return e&&await this.deleteEntry(e.id),e}};let M=["method","referrer","referrerPolicy","mode","credentials","cache","redirect","integrity","keepalive"];var K=class e{_requestData;static async fromRequest(t){let a={url:t.url,headers:{}};for(let e of("GET"!==t.method&&(a.body=await t.clone().arrayBuffer()),t.headers.forEach((e,t)=>{a.headers[t]=e}),M))void 0!==t[e]&&(a[e]=t[e]);return new e(a)}constructor(e){"navigate"===e.mode&&(e.mode="same-origin"),this._requestData=e}toObject(){let e=Object.assign({},this._requestData);return e.headers=Object.assign({},this._requestData.headers),e.body&&(e.body=e.body.slice(0)),e}toRequest(){return new Request(this._requestData.url,this._requestData)}clone(){return new e(this.toObject())}};let W="serwist-background-sync",j=new Set,$=e=>{let t={request:new K(e.requestData).toRequest(),timestamp:e.timestamp};return e.metadata&&(t.metadata=e.metadata),t};var H=class{_name;_onSync;_maxRetentionTime;_queueStore;_forceSyncFallback;_syncInProgress=!1;_requestsAddedDuringSync=!1;constructor(e,{forceSyncFallback:t,onSync:a,maxRetentionTime:s}={}){if(j.has(e))throw new i("duplicate-queue-name",{name:e});j.add(e),this._name=e,this._onSync=a||this.replayRequests,this._maxRetentionTime=s||10080,this._forceSyncFallback=!!t,this._queueStore=new B(this._name),this._addSyncListener()}get name(){return this._name}async pushRequest(e){await this._addRequest(e,"push")}async unshiftRequest(e){await this._addRequest(e,"unshift")}async popRequest(){return this._removeRequest("pop")}async shiftRequest(){return this._removeRequest("shift")}async getAll(){let e=await this._queueStore.getAll(),t=Date.now(),a=[];for(let s of e){let e=60*this._maxRetentionTime*1e3;t-s.timestamp>e?await this._queueStore.deleteEntry(s.id):a.push($(s))}return a}async size(){return await this._queueStore.size()}async _addRequest({request:e,metadata:t,timestamp:a=Date.now()},s){let r={requestData:(await K.fromRequest(e.clone())).toObject(),timestamp:a};switch(t&&(r.metadata=t),s){case"push":await this._queueStore.pushEntry(r);break;case"unshift":await this._queueStore.unshiftEntry(r)}this._syncInProgress?this._requestsAddedDuringSync=!0:await this.registerSync()}async _removeRequest(e){let t,a=Date.now();switch(e){case"pop":t=await this._queueStore.popEntry();break;case"shift":t=await this._queueStore.shiftEntry()}if(t){let s=60*this._maxRetentionTime*1e3;return a-t.timestamp>s?this._removeRequest(e):$(t)}}async replayRequests(){let e;for(;e=await this.shiftRequest();)try{await fetch(e.request.clone())}catch{throw await this.unshiftRequest(e),new i("queue-replay-failed",{name:this._name})}}async registerSync(){if("sync"in self.registration&&!this._forceSyncFallback)try{await self.registration.sync.register(`${W}:${this._name}`)}catch(e){}}_addSyncListener(){"sync"in self.registration&&!this._forceSyncFallback?self.addEventListener("sync",e=>{if(e.tag===`${W}:${this._name}`){let t=async()=>{let t;this._syncInProgress=!0;try{await this._onSync({queue:this})}catch(e){if(e instanceof Error)throw e}finally{this._requestsAddedDuringSync&&!(t&&!e.lastChance)&&await this.registerSync(),this._syncInProgress=!1,this._requestsAddedDuringSync=!1}};e.waitUntil(t())}}):this._onSync({queue:this})}static get _queueNames(){return j}},G=class{_queue;constructor(e,t){this._queue=new H(e,t)}async fetchDidFail({request:e}){await this._queue.pushRequest({request:e})}};let Q={cacheWillUpdate:async({response:e})=>200===e.status||0===e.status?e:null};function V(e){return"string"==typeof e?new Request(e):e}var z=class{event;request;url;params;_cacheKeys={};_strategy;_handlerDeferred;_extendLifetimePromises;_plugins;_pluginStateMap;constructor(e,t){for(let a of(this.event=t.event,this.request=t.request,t.url&&(this.url=t.url,this.params=t.params),this._strategy=e,this._handlerDeferred=new u,this._extendLifetimePromises=[],this._plugins=[...e.plugins],this._pluginStateMap=new Map,this._plugins))this._pluginStateMap.set(a,{});this.event.waitUntil(this._handlerDeferred.promise)}async fetch(e){let{event:t}=this,a=V(e),s=await this.getPreloadResponse();if(s)return s;let r=this.hasCallback("fetchDidFail")?a.clone():null;try{for(let e of this.iterateCallbacks("requestWillFetch"))a=await e({request:a.clone(),event:t})}catch(e){if(e instanceof Error)throw new i("plugin-error-request-will-fetch",{thrownErrorMessage:e.message})}let n=a.clone();try{let e;for(let s of(e=await fetch(a,"navigate"===a.mode?void 0:this._strategy.fetchOptions),this.iterateCallbacks("fetchDidSucceed")))e=await s({event:t,request:n,response:e});return e}catch(e){throw r&&await this.runCallbacks("fetchDidFail",{error:e,event:t,originalRequest:r.clone(),request:n.clone()}),e}}async fetchAndCachePut(e){let t=await this.fetch(e),a=t.clone();return this.waitUntil(this.cachePut(e,a)),t}async cacheMatch(e){let t,a=V(e),{cacheName:s,matchOptions:r}=this._strategy,n=await this.getCacheKey(a,"read"),i={...r,cacheName:s};for(let e of(t=await caches.match(n,i),this.iterateCallbacks("cachedResponseWillBeUsed")))t=await e({cacheName:s,matchOptions:r,cachedResponse:t,request:n,event:this.event})||void 0;return t}async cachePut(e,t){let a=V(e);await c(0);let s=await this.getCacheKey(a,"write");if(!t)throw new i("cache-put-with-no-response",{url:new URL(String(s.url),location.href).href.replace(RegExp(`^${location.origin}`),"")});let r=await this._ensureResponseSafeToCache(t);if(!r)return!1;let{cacheName:n,matchOptions:o}=this._strategy,l=await self.caches.open(n),u=this.hasCallback("cacheDidUpdate"),m=u?await h(l,s.clone(),["__WB_REVISION__"],o):null;try{await l.put(s,u?r.clone():r)}catch(e){if(e instanceof Error)throw"QuotaExceededError"===e.name&&await d(),e}for(let e of this.iterateCallbacks("cacheDidUpdate"))await e({cacheName:n,oldResponse:m,newResponse:r.clone(),request:s,event:this.event});return!0}async getCacheKey(e,t){let a=`${e.url} | ${t}`;if(!this._cacheKeys[a]){let s=e;for(let e of this.iterateCallbacks("cacheKeyWillBeUsed"))s=V(await e({mode:t,request:s,event:this.event,params:this.params}));this._cacheKeys[a]=s}return this._cacheKeys[a]}hasCallback(e){for(let t of this._strategy.plugins)if(e in t)return!0;return!1}async runCallbacks(e,t){for(let a of this.iterateCallbacks(e))await a(t)}*iterateCallbacks(e){for(let t of this._strategy.plugins)if("function"==typeof t[e]){let a=this._pluginStateMap.get(t),s=s=>{let r={...s,state:a};return t[e](r)};yield s}}waitUntil(e){return this._extendLifetimePromises.push(e),e}async doneWaiting(){let e;for(;e=this._extendLifetimePromises.shift();)await e}destroy(){this._handlerDeferred.resolve(null)}async getPreloadResponse(){if(this.event instanceof FetchEvent&&"navigate"===this.event.request.mode&&"preloadResponse"in this.event)try{let e=await this.event.preloadResponse;if(e)return e}catch(e){return}}async _ensureResponseSafeToCache(e){let t=e,a=!1;for(let e of this.iterateCallbacks("cacheWillUpdate"))if(t=await e({request:this.request,response:t,event:this.event})||void 0,a=!0,!t)break;return!a&&t&&200!==t.status&&(t=void 0),t}},J=class{cacheName;plugins;fetchOptions;matchOptions;constructor(e={}){this.cacheName=n.getRuntimeName(e.cacheName),this.plugins=e.plugins||[],this.fetchOptions=e.fetchOptions,this.matchOptions=e.matchOptions}handle(e){let[t]=this.handleAll(e);return t}handleAll(e){e instanceof FetchEvent&&(e={event:e,request:e.request});let t=e.event,a="string"==typeof e.request?new Request(e.request):e.request,s=new z(this,e.url?{event:t,request:a,url:e.url,params:e.params}:{event:t,request:a}),r=this._getResponse(s,a,t);return[r,this._awaitComplete(r,s,a,t)]}async _getResponse(e,t,a){let s;await e.runCallbacks("handlerWillStart",{event:a,request:t});try{if(s=await this._handle(t,e),void 0===s||"error"===s.type)throw new i("no-response",{url:t.url})}catch(r){if(r instanceof Error){for(let n of e.iterateCallbacks("handlerDidError"))if(void 0!==(s=await n({error:r,event:a,request:t})))break}if(!s)throw r}for(let r of e.iterateCallbacks("handlerWillRespond"))s=await r({event:a,request:t,response:s});return s}async _awaitComplete(e,t,a,s){let r,n;try{r=await e}catch{}try{await t.runCallbacks("handlerDidRespond",{event:s,request:a,response:r}),await t.doneWaiting()}catch(e){e instanceof Error&&(n=e)}if(await t.runCallbacks("handlerDidComplete",{event:s,request:a,response:r,error:n}),t.destroy(),n)throw n}},X=class extends J{_networkTimeoutSeconds;constructor(e={}){super(e),this.plugins.some(e=>"cacheWillUpdate"in e)||this.plugins.unshift(Q),this._networkTimeoutSeconds=e.networkTimeoutSeconds||0}async _handle(e,t){let a,s=[],r=[];if(this._networkTimeoutSeconds){let{id:n,promise:i}=this._getTimeoutPromise({request:e,logs:s,handler:t});a=n,r.push(i)}let n=this._getNetworkPromise({timeoutId:a,request:e,logs:s,handler:t});r.push(n);let c=await t.waitUntil((async()=>await t.waitUntil(Promise.race(r))||await n)());if(!c)throw new i("no-response",{url:e.url});return c}_getTimeoutPromise({request:e,logs:t,handler:a}){let s;return{promise:new Promise(t=>{s=setTimeout(async()=>{t(await a.cacheMatch(e))},1e3*this._networkTimeoutSeconds)}),id:s}}async _getNetworkPromise({timeoutId:e,request:t,logs:a,handler:s}){let r,n;try{n=await s.fetchAndCachePut(t)}catch(e){e instanceof Error&&(r=e)}return e&&clearTimeout(e),(r||!n)&&(n=await s.cacheMatch(t)),n}},Y=class extends J{_networkTimeoutSeconds;constructor(e={}){super(e),this._networkTimeoutSeconds=e.networkTimeoutSeconds||0}async _handle(e,t){let a,s;try{let a=[t.fetch(e)];if(this._networkTimeoutSeconds){let e=c(1e3*this._networkTimeoutSeconds);a.push(e)}if(!(s=await Promise.race(a)))throw Error(`Timed out the network response after ${this._networkTimeoutSeconds} seconds.`)}catch(e){e instanceof Error&&(a=e)}if(!s)throw new i("no-response",{url:e.url,error:a});return s}};let Z=e=>e&&"object"==typeof e?e:{handle:e};var ee=class{handler;match;method;catchHandler;constructor(e,t,a="GET"){this.handler=Z(t),this.match=e,this.method=a}setCatchHandler(e){this.catchHandler=Z(e)}},et=class e extends J{_fallbackToNetwork;static defaultPrecacheCacheabilityPlugin={cacheWillUpdate:async({response:e})=>!e||e.status>=400?null:e};static copyRedirectedCacheableResponsesPlugin={cacheWillUpdate:async({response:e})=>e.redirected?await L(e):e};constructor(t={}){t.cacheName=n.getPrecacheName(t.cacheName),super(t),this._fallbackToNetwork=!1!==t.fallbackToNetwork,this.plugins.push(e.copyRedirectedCacheableResponsesPlugin)}async _handle(e,t){let a=await t.getPreloadResponse();if(a)return a;let s=await t.cacheMatch(e);return s||(t.event&&"install"===t.event.type?await this._handleInstall(e,t):await this._handleFetch(e,t))}async _handleFetch(e,t){let a,s=t.params||{};if(this._fallbackToNetwork){let r=s.integrity,n=e.integrity,i=!n||n===r;a=await t.fetch(new Request(e,{integrity:"no-cors"!==e.mode?n||r:void 0})),r&&i&&"no-cors"!==e.mode&&(this._useDefaultCacheabilityPluginIfNeeded(),await t.cachePut(e,a.clone()))}else throw new i("missing-precache-entry",{cacheName:this.cacheName,url:e.url});return a}async _handleInstall(e,t){this._useDefaultCacheabilityPluginIfNeeded();let a=await t.fetch(e);if(!await t.cachePut(e,a.clone()))throw new i("bad-precaching-response",{url:e.url,status:a.status});return a}_useDefaultCacheabilityPluginIfNeeded(){let t=null,a=0;for(let[s,r]of this.plugins.entries())r!==e.copyRedirectedCacheableResponsesPlugin&&(r===e.defaultPrecacheCacheabilityPlugin&&(t=s),r.cacheWillUpdate&&a++);0===a?this.plugins.push(e.defaultPrecacheCacheabilityPlugin):a>1&&null!==t&&this.plugins.splice(t,1)}},ea=class extends ee{_allowlist;_denylist;constructor(e,{allowlist:t=[/./],denylist:a=[]}={}){super(e=>this._match(e),e),this._allowlist=t,this._denylist=a}_match({url:e,request:t}){if(t&&"navigate"!==t.mode)return!1;let a=e.pathname+e.search;for(let e of this._denylist)if(e.test(a))return!1;return!!this._allowlist.some(e=>e.test(a))}},es=class extends ee{constructor(e,t,a){super(({url:t})=>{let a=e.exec(t.href);if(a)return t.origin!==location.origin&&0!==a.index?void 0:a.slice(1)},t,a)}};let er=e=>{if(!e)throw new i("add-to-cache-list-unexpected-type",{entry:e});if("string"==typeof e){let t=new URL(e,location.href);return{cacheKey:t.href,url:t.href}}let{revision:t,url:a}=e;if(!a)throw new i("add-to-cache-list-unexpected-type",{entry:e});if(!t){let e=new URL(a,location.href);return{cacheKey:e.href,url:e.href}}let s=new URL(a,location.href),r=new URL(a,location.href);return s.searchParams.set("__WB_REVISION__",t),{cacheKey:s.href,url:r.href}};var en=class{updatedURLs=[];notUpdatedURLs=[];handlerWillStart=async({request:e,state:t})=>{t&&(t.originalRequest=e)};cachedResponseWillBeUsed=async({event:e,state:t,cachedResponse:a})=>{if("install"===e.type&&t?.originalRequest&&t.originalRequest instanceof Request){let e=t.originalRequest.url;a?this.notUpdatedURLs.push(e):this.updatedURLs.push(e)}return a}};let ei=async(e,t,a)=>{let s=t.map((e,t)=>({index:t,item:e})),r=async e=>{let t=[];for(;;){let r=s.pop();if(!r)return e(t);let n=await a(r.item);t.push({result:n,index:r.index})}},n=Array.from({length:e},()=>new Promise(r));return(await Promise.all(n)).flat().sort((e,t)=>e.index<t.index?-1:1).map(e=>e.result)};"undefined"!=typeof navigator&&/^((?!chrome|android).)*safari/i.test(navigator.userAgent);let ec="cache-entries",eo=e=>{let t=new URL(e,location.href);return t.hash="",t.href};var el=class{_cacheName;_db=null;constructor(e){this._cacheName=e}_getId(e){return`${this._cacheName}|${eo(e)}`}_upgradeDb(e){let t=e.createObjectStore(ec,{keyPath:"id"});t.createIndex("cacheName","cacheName",{unique:!1}),t.createIndex("timestamp","timestamp",{unique:!1})}_upgradeDbAndDeleteOldDbs(e){this._upgradeDb(e),this._cacheName&&function(e,{blocked:t}={}){let a=indexedDB.deleteDatabase(e);t&&a.addEventListener("blocked",e=>t(e.oldVersion,e)),v(a).then(()=>void 0)}(this._cacheName)}async setTimestamp(e,t){e=eo(e);let a={id:this._getId(e),cacheName:this._cacheName,url:e,timestamp:t},s=(await this.getDb()).transaction(ec,"readwrite",{durability:"relaxed"});await s.store.put(a),await s.done}async getTimestamp(e){return(await (await this.getDb()).get(ec,this._getId(e)))?.timestamp}async expireEntries(e,t){let a=await (await this.getDb()).transaction(ec,"readwrite").store.index("timestamp").openCursor(null,"prev"),s=[],r=0;for(;a;){let n=a.value;n.cacheName===this._cacheName&&(e&&n.timestamp<e||t&&r>=t?(a.delete(),s.push(n.url)):r++),a=await a.continue()}return s}async getDb(){return this._db||(this._db=await E("serwist-expiration",1,{upgrade:this._upgradeDbAndDeleteOldDbs.bind(this)})),this._db}},eh=class{_isRunning=!1;_rerunRequested=!1;_maxEntries;_maxAgeSeconds;_matchOptions;_cacheName;_timestampModel;constructor(e,t={}){this._maxEntries=t.maxEntries,this._maxAgeSeconds=t.maxAgeSeconds,this._matchOptions=t.matchOptions,this._cacheName=e,this._timestampModel=new el(e)}async expireEntries(){if(this._isRunning){this._rerunRequested=!0;return}this._isRunning=!0;let e=this._maxAgeSeconds?Date.now()-1e3*this._maxAgeSeconds:0,t=await this._timestampModel.expireEntries(e,this._maxEntries),a=await self.caches.open(this._cacheName);for(let e of t)await a.delete(e,this._matchOptions);this._isRunning=!1,this._rerunRequested&&(this._rerunRequested=!1,this.expireEntries())}async updateTimestamp(e){await this._timestampModel.setTimestamp(e,Date.now())}async isURLExpired(e){if(!this._maxAgeSeconds)return!1;let t=await this._timestampModel.getTimestamp(e),a=Date.now()-1e3*this._maxAgeSeconds;return void 0===t||t<a}async delete(){this._rerunRequested=!1,await this._timestampModel.expireEntries(1/0)}},eu=class{_config;_cacheExpirations;constructor(e={}){var t;this._config=e,this._cacheExpirations=new Map,this._config.maxAgeFrom||(this._config.maxAgeFrom="last-fetched"),this._config.purgeOnQuotaError&&(t=()=>this.deleteCacheAndMetadata(),o.add(t))}_getCacheExpiration(e){if(e===n.getRuntimeName())throw new i("expire-custom-caches-only");let t=this._cacheExpirations.get(e);return t||(t=new eh(e,this._config),this._cacheExpirations.set(e,t)),t}cachedResponseWillBeUsed({event:e,cacheName:t,request:a,cachedResponse:s}){if(!s)return null;let r=this._isResponseDateFresh(s),n=this._getCacheExpiration(t),i="last-used"===this._config.maxAgeFrom,c=(async()=>{i&&await n.updateTimestamp(a.url),await n.expireEntries()})();try{e.waitUntil(c)}catch{}return r?s:null}_isResponseDateFresh(e){if("last-used"===this._config.maxAgeFrom)return!0;let t=Date.now();if(!this._config.maxAgeSeconds)return!0;let a=this._getDateHeaderTimestamp(e);return null===a||a>=t-1e3*this._config.maxAgeSeconds}_getDateHeaderTimestamp(e){if(!e.headers.has("date"))return null;let t=new Date(e.headers.get("date")).getTime();return Number.isNaN(t)?null:t}async cacheDidUpdate({cacheName:e,request:t}){let a=this._getCacheExpiration(e);await a.updateTimestamp(t.url),await a.expireEntries()}async deleteCacheAndMetadata(){for(let[e,t]of this._cacheExpirations)await self.caches.delete(e),await t.delete();this._cacheExpirations=new Map}};let ed=/^\/(\w+\/)?collect/,em=({serwist:e,cacheName:t,...a})=>{let s=n.getGoogleAnalyticsName(t),r=new G("serwist-google-analytics",{maxRetentionTime:2880,onSync:(e=>async({queue:t})=>{let a;for(;a=await t.shiftRequest();){let{request:s,timestamp:r}=a,n=new URL(s.url);try{let t="POST"===s.method?new URLSearchParams(await s.clone().text()):n.searchParams,a=r-(Number(t.get("qt"))||0),i=Date.now()-a;if(t.set("qt",String(i)),e.parameterOverrides)for(let a of Object.keys(e.parameterOverrides)){let s=e.parameterOverrides[a];t.set(a,s)}"function"==typeof e.hitFilter&&e.hitFilter.call(null,t),await fetch(new Request(n.origin+n.pathname,{body:t.toString(),method:"POST",mode:"cors",credentials:"omit",headers:{"Content-Type":"text/plain"}}))}catch(e){throw await t.unshiftRequest(a),e}}})(a)});for(let t of[new ee(({url:e})=>"www.googletagmanager.com"===e.hostname&&"/gtm.js"===e.pathname,new X({cacheName:s}),"GET"),new ee(({url:e})=>"www.google-analytics.com"===e.hostname&&"/analytics.js"===e.pathname,new X({cacheName:s}),"GET"),new ee(({url:e})=>"www.googletagmanager.com"===e.hostname&&"/gtag/js"===e.pathname,new X({cacheName:s}),"GET"),...(e=>{let t=({url:e})=>"www.google-analytics.com"===e.hostname&&ed.test(e.pathname),a=new Y({plugins:[e]});return[new ee(t,a,"GET"),new ee(t,a,"POST")]})(r)])e.registerRoute(t)};var ef=class{_fallbackUrls;_serwist;constructor({fallbackUrls:e,serwist:t}){this._fallbackUrls=e,this._serwist=t}async handlerDidError(e){for(let t of this._fallbackUrls)if("string"==typeof t){let e=await this._serwist.matchPrecache(t);if(void 0!==e)return e}else if(t.matcher(e)){let e=await this._serwist.matchPrecache(t.url);if(void 0!==e)return e}}};let eg=async(e,t)=>{try{if(206===t.status)return t;let a=e.headers.get("range");if(!a)throw new i("no-range-header");let s=(e=>{let t=e.trim().toLowerCase();if(!t.startsWith("bytes="))throw new i("unit-must-be-bytes",{normalizedRangeHeader:t});if(t.includes(","))throw new i("single-range-only",{normalizedRangeHeader:t});let a=/(\d*)-(\d*)/.exec(t);if(!a||!(a[1]||a[2]))throw new i("invalid-range-values",{normalizedRangeHeader:t});return{start:""===a[1]?void 0:Number(a[1]),end:""===a[2]?void 0:Number(a[2])}})(a),r=await t.blob(),n=((e,t,a)=>{let s,r,n=e.size;if(a&&a>n||t&&t<0)throw new i("range-not-satisfiable",{size:n,end:a,start:t});return void 0!==t&&void 0!==a?(s=t,r=a+1):void 0!==t&&void 0===a?(s=t,r=n):void 0!==a&&void 0===t&&(s=n-a,r=n),{start:s,end:r}})(r,s.start,s.end),c=r.slice(n.start,n.end),o=c.size,l=new Response(c,{status:206,statusText:"Partial Content",headers:t.headers});return l.headers.set("Content-Length",String(o)),l.headers.set("Content-Range",`bytes ${n.start}-${n.end-1}/${r.size}`),l}catch(e){return new Response("",{status:416,statusText:"Range Not Satisfiable"})}};var ep=class{cachedResponseWillBeUsed=async({request:e,cachedResponse:t})=>t&&e.headers.has("range")?await eg(e,t):t},ew=class extends J{async _handle(e,t){let a,s=await t.cacheMatch(e);if(s);else try{s=await t.fetchAndCachePut(e)}catch(e){e instanceof Error&&(a=e)}if(!s)throw new i("no-response",{url:e.url,error:a});return s}},ey=class extends J{constructor(e={}){super(e),this.plugins.some(e=>"cacheWillUpdate"in e)||this.plugins.unshift(Q)}async _handle(e,t){let a,s=t.fetchAndCachePut(e).catch(()=>{});t.waitUntil(s);let r=await t.cacheMatch(e);if(r);else try{r=await s}catch(e){e instanceof Error&&(a=e)}if(!r)throw new i("no-response",{url:e.url,error:a});return r}},e_=class extends ee{constructor(e,t){super(({request:a})=>{let s=e.getUrlsToPrecacheKeys();for(let r of function*(e,{directoryIndex:t="index.html",ignoreURLParametersMatching:a=[/^utm_/,/^fbclid$/],cleanURLs:s=!0,urlManipulation:r}={}){let n=new URL(e,location.href);n.hash="",yield n.href;let i=((e,t=[])=>{for(let a of[...e.searchParams.keys()])t.some(e=>e.test(a))&&e.searchParams.delete(a);return e})(n,a);if(yield i.href,t&&i.pathname.endsWith("/")){let e=new URL(i.href);e.pathname+=t,yield e.href}if(s){let e=new URL(i.href);e.pathname+=".html",yield e.href}if(r)for(let e of r({url:n}))yield e.href}(a.url,t)){let t=s.get(r);if(t)return{cacheKey:t,integrity:e.getIntegrityForPrecacheKey(t)}}},e.precacheStrategy)}},eb=class{_precacheController;constructor({precacheController:e}){this._precacheController=e}cacheKeyWillBeUsed=async({request:e,params:t})=>{let a=t?.cacheKey||this._precacheController.getPrecacheKeyForUrl(e.url);return a?new Request(a,{headers:e.headers}):e}},ev=class{_urlsToCacheKeys=new Map;_urlsToCacheModes=new Map;_cacheKeysToIntegrities=new Map;_concurrentPrecaching;_precacheStrategy;_routes;_defaultHandlerMap;_catchHandler;_requestRules;constructor({precacheEntries:e,precacheOptions:t,skipWaiting:a=!1,importScripts:s,navigationPreload:r=!1,cacheId:i,clientsClaim:c=!1,runtimeCaching:o,offlineAnalyticsConfig:l,disableDevLogs:h=!1,fallbacks:u,requestRules:d}={}){var m,g;let{precacheStrategyOptions:p,precacheRouteOptions:w,precacheMiscOptions:y}=((e,t={})=>{let{cacheName:a,plugins:s=[],fetchOptions:r,matchOptions:i,fallbackToNetwork:c,directoryIndex:o,ignoreURLParametersMatching:l,cleanURLs:h,urlManipulation:u,cleanupOutdatedCaches:d,concurrency:m=10,navigateFallback:f,navigateFallbackAllowlist:g,navigateFallbackDenylist:p}=t??{};return{precacheStrategyOptions:{cacheName:n.getPrecacheName(a),plugins:[...s,new eb({precacheController:e})],fetchOptions:r,matchOptions:i,fallbackToNetwork:c},precacheRouteOptions:{directoryIndex:o,ignoreURLParametersMatching:l,cleanURLs:h,urlManipulation:u},precacheMiscOptions:{cleanupOutdatedCaches:d,concurrency:m,navigateFallback:f,navigateFallbackAllowlist:g,navigateFallbackDenylist:p}}})(this,t);if(this._concurrentPrecaching=y.concurrency,this._precacheStrategy=new et(p),this._routes=new Map,this._defaultHandlerMap=new Map,this._requestRules=d,this.handleInstall=this.handleInstall.bind(this),this.handleActivate=this.handleActivate.bind(this),this.handleFetch=this.handleFetch.bind(this),this.handleCache=this.handleCache.bind(this),s&&s.length>0&&self.importScripts(...s),r&&self.registration?.navigationPreload&&self.addEventListener("activate",e=>{e.waitUntil(self.registration.navigationPreload.enable().then(()=>{}))}),void 0!==i&&(m={prefix:i},n.updateDetails(m)),a?self.skipWaiting():self.addEventListener("message",e=>{e.data&&"SKIP_WAITING"===e.data.type&&self.skipWaiting()}),c&&self.addEventListener("activate",()=>self.clients.claim()),e&&e.length>0&&this.addToPrecacheList(e),y.cleanupOutdatedCaches&&(g=p.cacheName,self.addEventListener("activate",e=>{e.waitUntil(f(n.getPrecacheName(g)).then(e=>{}))})),this.registerRoute(new e_(this,w)),y.navigateFallback&&this.registerRoute(new ea(this.createHandlerBoundToUrl(y.navigateFallback),{allowlist:y.navigateFallbackAllowlist,denylist:y.navigateFallbackDenylist})),void 0!==l&&("boolean"==typeof l?l&&em({serwist:this}):em({...l,serwist:this})),void 0!==o){if(void 0!==u){let e=new ef({fallbackUrls:u.entries,serwist:this});o.forEach(t=>{t.handler instanceof J&&!t.handler.plugins.some(e=>"handlerDidError"in e)&&t.handler.plugins.push(e)})}for(let e of o)this.registerCapture(e.matcher,e.handler,e.method)}h&&(self.__WB_DISABLE_DEV_LOGS=!0)}get precacheStrategy(){return this._precacheStrategy}get routes(){return this._routes}addEventListeners(){self.addEventListener("install",this.handleInstall),self.addEventListener("activate",this.handleActivate),self.addEventListener("fetch",this.handleFetch),self.addEventListener("message",this.handleCache)}addToPrecacheList(e){let t=[];for(let a of e){"string"==typeof a?t.push(a):a&&!a.integrity&&void 0===a.revision&&t.push(a.url);let{cacheKey:e,url:s}=er(a),r="string"!=typeof a&&a.revision?"reload":"default";if(this._urlsToCacheKeys.has(s)&&this._urlsToCacheKeys.get(s)!==e)throw new i("add-to-cache-list-conflicting-entries",{firstEntry:this._urlsToCacheKeys.get(s),secondEntry:e});if("string"!=typeof a&&a.integrity){if(this._cacheKeysToIntegrities.has(e)&&this._cacheKeysToIntegrities.get(e)!==a.integrity)throw new i("add-to-cache-list-conflicting-integrities",{url:s});this._cacheKeysToIntegrities.set(e,a.integrity)}this._urlsToCacheKeys.set(s,e),this._urlsToCacheModes.set(s,r)}t.length>0&&console.warn(`Serwist is precaching URLs without revision info: ${t.join(", ")}
-This is generally NOT safe. Learn more at https://bit.ly/wb-precache`)}handleInstall(e){return this.registerRequestRules(e),g(e,async()=>{let t=new en;this.precacheStrategy.plugins.push(t),await ei(this._concurrentPrecaching,Array.from(this._urlsToCacheKeys.entries()),async([t,a])=>{let s=this._cacheKeysToIntegrities.get(a),r=this._urlsToCacheModes.get(t),n=new Request(t,{integrity:s,cache:r,credentials:"same-origin"});await Promise.all(this.precacheStrategy.handleAll({event:e,request:n,url:new URL(n.url),params:{cacheKey:a}}))});let{updatedURLs:a,notUpdatedURLs:s}=t;return{updatedURLs:a,notUpdatedURLs:s}})}async registerRequestRules(e){if(this._requestRules&&e?.addRoutes)try{await e.addRoutes(this._requestRules),this._requestRules=void 0}catch(e){throw e}}handleActivate(e){return g(e,async()=>{let e=await self.caches.open(this.precacheStrategy.cacheName),t=await e.keys(),a=new Set(this._urlsToCacheKeys.values()),s=[];for(let r of t)a.has(r.url)||(await e.delete(r),s.push(r.url));return{deletedCacheRequests:s}})}handleFetch(e){let{request:t}=e,a=this.handleRequest({request:t,event:e});a&&e.respondWith(a)}handleCache(e){if(e.data&&"CACHE_URLS"===e.data.type){let{payload:t}=e.data,a=Promise.all(t.urlsToCache.map(t=>{let a;return a="string"==typeof t?new Request(t):new Request(...t),this.handleRequest({request:a,event:e})}));e.waitUntil(a),e.ports?.[0]&&a.then(()=>e.ports[0].postMessage(!0))}}setDefaultHandler(e,t="GET"){this._defaultHandlerMap.set(t,Z(e))}setCatchHandler(e){this._catchHandler=Z(e)}registerCapture(e,t,a){let s=((e,t,a)=>{if("string"==typeof e){let s=new URL(e,location.href);return new ee(({url:e})=>e.href===s.href,t,a)}if(e instanceof RegExp)return new es(e,t,a);if("function"==typeof e)return new ee(e,t,a);if(e instanceof ee)return e;throw new i("unsupported-route-type",{moduleName:"serwist",funcName:"parseRoute",paramName:"capture"})})(e,t,a);return this.registerRoute(s),s}registerRoute(e){this._routes.has(e.method)||this._routes.set(e.method,[]),this._routes.get(e.method).push(e)}unregisterRoute(e){if(!this._routes.has(e.method))throw new i("unregister-route-but-not-found-with-method",{method:e.method});let t=this._routes.get(e.method).indexOf(e);if(t>-1)this._routes.get(e.method).splice(t,1);else throw new i("unregister-route-route-not-registered")}getUrlsToPrecacheKeys(){return this._urlsToCacheKeys}getPrecachedUrls(){return[...this._urlsToCacheKeys.keys()]}getPrecacheKeyForUrl(e){let t=new URL(e,location.href);return this._urlsToCacheKeys.get(t.href)}getIntegrityForPrecacheKey(e){return this._cacheKeysToIntegrities.get(e)}async matchPrecache(e){let t=e instanceof Request?e.url:e,a=this.getPrecacheKeyForUrl(t);if(a)return(await self.caches.open(this.precacheStrategy.cacheName)).match(a)}createHandlerBoundToUrl(e){let t=this.getPrecacheKeyForUrl(e);if(!t)throw new i("non-precached-url",{url:e});return a=>(a.request=new Request(e),a.params={cacheKey:t,...a.params},this.precacheStrategy.handle(a))}handleRequest({request:e,event:t}){let a,s=new URL(e.url,location.href);if(!s.protocol.startsWith("http"))return;let r=s.origin===location.origin,{params:n,route:i}=this.findMatchingRoute({event:t,request:e,sameOrigin:r,url:s}),c=i?.handler,o=e.method;if(!c&&this._defaultHandlerMap.has(o)&&(c=this._defaultHandlerMap.get(o)),!c)return;try{a=c.handle({url:s,request:e,event:t,params:n})}catch(e){a=Promise.reject(e)}let l=i?.catchHandler;return a instanceof Promise&&(this._catchHandler||l)&&(a=a.catch(async a=>{if(l)try{return await l.handle({url:s,request:e,event:t,params:n})}catch(e){e instanceof Error&&(a=e)}if(this._catchHandler)return this._catchHandler.handle({url:s,request:e,event:t});throw a})),a}findMatchingRoute({url:e,sameOrigin:t,request:a,event:s}){for(let r of this._routes.get(a.method)||[]){let n,i=r.match({url:e,sameOrigin:t,request:a,event:s});if(i)return Array.isArray(n=i)&&0===n.length||i.constructor===Object&&0===Object.keys(i).length?n=void 0:"boolean"==typeof i&&(n=void 0),{route:r,params:n}}return{}}};let ex={rscPrefetch:"pages-rsc-prefetch",rsc:"pages-rsc",html:"pages"},eE=[{matcher:/^https:\/\/fonts\.(?:gstatic)\.com\/.*/i,handler:new ew({cacheName:"google-fonts-webfonts",plugins:[new eu({maxEntries:4,maxAgeSeconds:31536e3,maxAgeFrom:"last-used"})]})},{matcher:/^https:\/\/fonts\.(?:googleapis)\.com\/.*/i,handler:new ey({cacheName:"google-fonts-stylesheets",plugins:[new eu({maxEntries:4,maxAgeSeconds:604800,maxAgeFrom:"last-used"})]})},{matcher:/\.(?:eot|otf|ttc|ttf|woff|woff2|font.css)$/i,handler:new ey({cacheName:"static-font-assets",plugins:[new eu({maxEntries:4,maxAgeSeconds:604800,maxAgeFrom:"last-used"})]})},{matcher:/\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,handler:new ey({cacheName:"static-image-assets",plugins:[new eu({maxEntries:64,maxAgeSeconds:2592e3,maxAgeFrom:"last-used"})]})},{matcher:/\/_next\/static.+\.js$/i,handler:new ew({cacheName:"next-static-js-assets",plugins:[new eu({maxEntries:64,maxAgeSeconds:86400,maxAgeFrom:"last-used"})]})},{matcher:/\/_next\/image\?url=.+$/i,handler:new ey({cacheName:"next-image",plugins:[new eu({maxEntries:64,maxAgeSeconds:86400,maxAgeFrom:"last-used"})]})},{matcher:/\.(?:mp3|wav|ogg)$/i,handler:new ew({cacheName:"static-audio-assets",plugins:[new eu({maxEntries:32,maxAgeSeconds:86400,maxAgeFrom:"last-used"}),new ep]})},{matcher:/\.(?:mp4|webm)$/i,handler:new ew({cacheName:"static-video-assets",plugins:[new eu({maxEntries:32,maxAgeSeconds:86400,maxAgeFrom:"last-used"}),new ep]})},{matcher:/\.(?:js)$/i,handler:new ey({cacheName:"static-js-assets",plugins:[new eu({maxEntries:48,maxAgeSeconds:86400,maxAgeFrom:"last-used"})]})},{matcher:/\.(?:css|less)$/i,handler:new ey({cacheName:"static-style-assets",plugins:[new eu({maxEntries:32,maxAgeSeconds:86400,maxAgeFrom:"last-used"})]})},{matcher:/\/_next\/data\/.+\/.+\.json$/i,handler:new X({cacheName:"next-data",plugins:[new eu({maxEntries:32,maxAgeSeconds:86400,maxAgeFrom:"last-used"})]})},{matcher:/\.(?:json|xml|csv)$/i,handler:new X({cacheName:"static-data-assets",plugins:[new eu({maxEntries:32,maxAgeSeconds:86400,maxAgeFrom:"last-used"})]})},{matcher:/\/api\/auth\/.*/,handler:new Y({networkTimeoutSeconds:10})},{matcher:({sameOrigin:e,url:{pathname:t}})=>e&&t.startsWith("/api/"),method:"GET",handler:new X({cacheName:"apis",plugins:[new eu({maxEntries:16,maxAgeSeconds:86400,maxAgeFrom:"last-used"})],networkTimeoutSeconds:10})},{matcher:({request:e,url:{pathname:t},sameOrigin:a})=>"1"===e.headers.get("RSC")&&"1"===e.headers.get("Next-Router-Prefetch")&&a&&!t.startsWith("/api/"),handler:new X({cacheName:ex.rscPrefetch,plugins:[new eu({maxEntries:32,maxAgeSeconds:86400})]})},{matcher:({request:e,url:{pathname:t},sameOrigin:a})=>"1"===e.headers.get("RSC")&&a&&!t.startsWith("/api/"),handler:new X({cacheName:ex.rsc,plugins:[new eu({maxEntries:32,maxAgeSeconds:86400})]})},{matcher:({request:e,url:{pathname:t},sameOrigin:a})=>e.headers.get("Content-Type")?.includes("text/html")&&a&&!t.startsWith("/api/"),handler:new X({cacheName:ex.html,plugins:[new eu({maxEntries:32,maxAgeSeconds:86400})]})},{matcher:({url:{pathname:e},sameOrigin:t})=>t&&!e.startsWith("/api/"),handler:new X({cacheName:"others",plugins:[new eu({maxEntries:32,maxAgeSeconds:86400})]})},{matcher:({sameOrigin:e})=>!e,handler:new X({cacheName:"cross-origin",plugins:[new eu({maxEntries:32,maxAgeSeconds:3600})],networkTimeoutSeconds:10})},{matcher:/.*/i,method:"GET",handler:new Y}],eR="";async function eq(){try{let e=await new Promise((e,t)=>{let a=indexedDB.open("tipmanna-push",1);a.onerror=()=>t(a.error),a.onsuccess=()=>e(a.result),a.onupgradeneeded=()=>{let e=a.result;e.objectStoreNames.contains("kv")||e.createObjectStore("kv")}});return new Promise(t=>{let a=e.transaction("kv","readonly").objectStore("kv").get("authToken");a.onsuccess=()=>t(a.result||null),a.onerror=()=>t(null)})}catch(e){return null}}async function eS(e,t){if(!e||!eR)return;let a=await eq(),s={"Content-Type":"application/json"};a&&(s.Authorization="Bearer ".concat(a));try{await fetch("".concat(eR,"/notifications/").concat(encodeURIComponent(e),"/click"),{method:"POST",headers:s,body:JSON.stringify({url:t||void 0})})}catch(e){console.error("[sw] notification click failed",e)}}self.addEventListener("message",e=>{let t=e.data;(null==t?void 0:t.type)==="SET_CONFIG"&&(eR=function(e){return e&&"string"==typeof e?e.replace(/\/$/,""):""}(t.apiBase))}),self.addEventListener("push",e=>{let t={};try{t=e.data?e.data.json():{}}catch(s){var a;t={title:"Tipmanna",body:(null==(a=e.data)?void 0:a.text())||""}}let s=t.title||"Tipmanna",r={body:t.body||"",data:{deepLink:t.deepLink||"/tv",notificationId:t.notificationId||null},icon:"/icons/icon-192.png",badge:"/icons/icon-192.png"};e.waitUntil(self.registration.showNotification(s,r))}),self.addEventListener("notificationclick",e=>{e.notification.close();let t=e.notification.data||{},a=t.deepLink||"/tv",s=t.notificationId,r=new URL(a,self.location.origin).href;e.waitUntil((async()=>{for(let e of(s&&await eS(s,r),await self.clients.matchAll({type:"window",includeUncontrolled:!0})))if(e.url===r&&"focus"in e)return e.focus();if(self.clients.openWindow)return self.clients.openWindow(r)})())}),new ev({precacheEntries:[{'revision':'2edb0d861fb790fd8f7610a8146fbe8f','url':'/_next/static/GzuhKd1nVfwS5UPSB3uCL/_buildManifest.js'},{'revision':'b6652df95db52feb4daf4eca35380933','url':'/_next/static/GzuhKd1nVfwS5UPSB3uCL/_ssgManifest.js'},{'revision':null,'url':'/_next/static/chunks/1183-74d5633f699fb31e.js'},{'revision':null,'url':'/_next/static/chunks/1186.1eb692d0c96d8569.js'},{'revision':null,'url':'/_next/static/chunks/1221-5eb26c9be99390de.js'},{'revision':null,'url':'/_next/static/chunks/1264-c8701eb0c4b171bc.js'},{'revision':null,'url':'/_next/static/chunks/1356-55692d5ef6a323df.js'},{'revision':null,'url':'/_next/static/chunks/1413-20065959f0026e58.js'},{'revision':null,'url':'/_next/static/chunks/1524-8efb9d1020acbd7f.js'},{'revision':null,'url':'/_next/static/chunks/1594-c16677342f15d008.js'},{'revision':null,'url':'/_next/static/chunks/1646.a93085a0445ba909.js'},{'revision':null,'url':'/_next/static/chunks/1691-2e45b62c95b4af18.js'},{'revision':null,'url':'/_next/static/chunks/1741-8ae7960f5bb5439b.js'},{'revision':null,'url':'/_next/static/chunks/1835-c6e603d2161ab038.js'},{'revision':null,'url':'/_next/static/chunks/206-da2c6fb48839ec3f.js'},{'revision':null,'url':'/_next/static/chunks/2152-53ee11b1f617d7a2.js'},{'revision':null,'url':'/_next/static/chunks/2168-7bb99612c9b1b24b.js'},{'revision':null,'url':'/_next/static/chunks/2179-9e53c79556a3b80d.js'},{'revision':null,'url':'/_next/static/chunks/2193-d42bac73dcbcb6e8.js'},{'revision':null,'url':'/_next/static/chunks/220.a02674cc9a3fe3f2.js'},{'revision':null,'url':'/_next/static/chunks/2271-562d1fa702e6eb1d.js'},{'revision':null,'url':'/_next/static/chunks/2399-331425ea59206370.js'},{'revision':null,'url':'/_next/static/chunks/23ab1c44-e47cfee854541c9c.js'},{'revision':null,'url':'/_next/static/chunks/2427.639d15163b6b39da.js'},{'revision':null,'url':'/_next/static/chunks/2455-b808b5e5ae971134.js'},{'revision':null,'url':'/_next/static/chunks/2544-de2539d03c27f471.js'},{'revision':null,'url':'/_next/static/chunks/2598-7351c30ae9515522.js'},{'revision':null,'url':'/_next/static/chunks/2619-04bc32f026a0d946.js'},{'revision':null,'url':'/_next/static/chunks/2846-f1daeaf3c4a48114.js'},{'revision':null,'url':'/_next/static/chunks/2906-1a0cdf601e476409.js'},{'revision':null,'url':'/_next/static/chunks/2968-ec973d0260d7c050.js'},{'revision':null,'url':'/_next/static/chunks/2995-ed3de09c8c0f5976.js'},{'revision':null,'url':'/_next/static/chunks/3075-58d80e743306d03a.js'},{'revision':null,'url':'/_next/static/chunks/3161-fa0c2c7870458db8.js'},{'revision':null,'url':'/_next/static/chunks/3225-48873209da12fcf3.js'},{'revision':null,'url':'/_next/static/chunks/3338.fcd4dfa3fc9fca42.js'},{'revision':null,'url':'/_next/static/chunks/3346-171dc92c797344c0.js'},{'revision':null,'url':'/_next/static/chunks/3404-c659904678b2b95e.js'},{'revision':null,'url':'/_next/static/chunks/3412.4959f075ce442a83.js'},{'revision':null,'url':'/_next/static/chunks/3491.b5020a515146d240.js'},{'revision':null,'url':'/_next/static/chunks/3546-cc4a5d0212306f53.js'},{'revision':null,'url':'/_next/static/chunks/3625-bc0330bb3a3dca0d.js'},{'revision':null,'url':'/_next/static/chunks/3967-c6493d957a1c4677.js'},{'revision':null,'url':'/_next/static/chunks/4071.274fef34c82bec93.js'},{'revision':null,'url':'/_next/static/chunks/4127-35d78e9d1074522e.js'},{'revision':null,'url':'/_next/static/chunks/4152-569dec81af309bce.js'},{'revision':null,'url':'/_next/static/chunks/4408.614f209af2a55fed.js'},{'revision':null,'url':'/_next/static/chunks/4420.12aeb45a0596693c.js'},{'revision':null,'url':'/_next/static/chunks/4493-7c5969b9b0ff504c.js'},{'revision':null,'url':'/_next/static/chunks/4511.8efd4020faae5d2e.js'},{'revision':null,'url':'/_next/static/chunks/4540.4decb69584cb1d05.js'},{'revision':null,'url':'/_next/static/chunks/4608.eefddfa7e5973d8d.js'},{'revision':null,'url':'/_next/static/chunks/4704-84353fd6bdef6f6c.js'},{'revision':null,'url':'/_next/static/chunks/4720.ac074c151ca723b8.js'},{'revision':null,'url':'/_next/static/chunks/4744-1394f6facc1af9f3.js'},{'revision':null,'url':'/_next/static/chunks/4772-60e0497b3d8ddbf2.js'},{'revision':null,'url':'/_next/static/chunks/4811.855d98186a9740d5.js'},{'revision':null,'url':'/_next/static/chunks/4876-970323e4c9718461.js'},{'revision':null,'url':'/_next/static/chunks/4909-f5e5a2b9645891bd.js'},{'revision':null,'url':'/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js'},{'revision':null,'url':'/_next/static/chunks/5095.254ac1d98691ac44.js'},{'revision':null,'url':'/_next/static/chunks/5107-290a907163f4faba.js'},{'revision':null,'url':'/_next/static/chunks/5113.041a4c11ac791fcb.js'},{'revision':null,'url':'/_next/static/chunks/5139.e4ff9cc3669129ed.js'},{'revision':null,'url':'/_next/static/chunks/5175.15758ba986cac8d9.js'},{'revision':null,'url':'/_next/static/chunks/5310-594357b2ea1662d4.js'},{'revision':null,'url':'/_next/static/chunks/5311-98665d775cebf6a5.js'},{'revision':null,'url':'/_next/static/chunks/5315-2f34f714a0528db3.js'},{'revision':null,'url':'/_next/static/chunks/5350-a0c089074592ddef.js'},{'revision':null,'url':'/_next/static/chunks/5384-d780ef7d7b75ea99.js'},{'revision':null,'url':'/_next/static/chunks/53c13509-0e20e772e1994873.js'},{'revision':null,'url':'/_next/static/chunks/5556.43724e4253589022.js'},{'revision':null,'url':'/_next/static/chunks/5599-226e96b4c6be84c7.js'},{'revision':null,'url':'/_next/static/chunks/5811-12b86af1fa0e4033.js'},{'revision':null,'url':'/_next/static/chunks/5817-15ffebb8ce74a06e.js'},{'revision':null,'url':'/_next/static/chunks/5872-6e93f8c653f31123.js'},{'revision':null,'url':'/_next/static/chunks/6093-da8af415b686f250.js'},{'revision':null,'url':'/_next/static/chunks/6120-bcb1a37c14385581.js'},{'revision':null,'url':'/_next/static/chunks/6199.37727765b6199407.js'},{'revision':null,'url':'/_next/static/chunks/6422.1157216b7498fd44.js'},{'revision':null,'url':'/_next/static/chunks/6449-2869ec5f925970ea.js'},{'revision':null,'url':'/_next/static/chunks/6578-55608c9a0530ba18.js'},{'revision':null,'url':'/_next/static/chunks/664-5c78b4611cd9353f.js'},{'revision':null,'url':'/_next/static/chunks/669-b3b9cf4f3fa828b8.js'},{'revision':null,'url':'/_next/static/chunks/6697-7b6ac6c8b314ea2f.js'},{'revision':null,'url':'/_next/static/chunks/6719.9b5ee03dfcf60c09.js'},{'revision':null,'url':'/_next/static/chunks/674-0b5dab67ef99c0bb.js'},{'revision':null,'url':'/_next/static/chunks/676-c12181dee5fd802d.js'},{'revision':null,'url':'/_next/static/chunks/6859-fbee471361c6020b.js'},{'revision':null,'url':'/_next/static/chunks/6893-98d74c1d5be1001d.js'},{'revision':null,'url':'/_next/static/chunks/6926.63f04616aec89161.js'},{'revision':null,'url':'/_next/static/chunks/72-594357b2ea1662d4.js'},{'revision':null,'url':'/_next/static/chunks/7293-63320771390167b8.js'},{'revision':null,'url':'/_next/static/chunks/7326-25b8a01771557e2f.js'},{'revision':null,'url':'/_next/static/chunks/7595-03b4bc295cc8d640.js'},{'revision':null,'url':'/_next/static/chunks/7660-d69928d8d16c2dab.js'},{'revision':null,'url':'/_next/static/chunks/7691-594357b2ea1662d4.js'},{'revision':null,'url':'/_next/static/chunks/7696.8f78694115230420.js'},{'revision':null,'url':'/_next/static/chunks/779-b2a02e54cf63660d.js'},{'revision':null,'url':'/_next/static/chunks/7807.6a907a6976efccc0.js'},{'revision':null,'url':'/_next/static/chunks/7815-c711ae1af066f0be.js'},{'revision':null,'url':'/_next/static/chunks/7839.13062aae0a098f1a.js'},{'revision':null,'url':'/_next/static/chunks/7880-ed109e39046dd0a4.js'},{'revision':null,'url':'/_next/static/chunks/7940-2c34186b12343e86.js'},{'revision':null,'url':'/_next/static/chunks/7959-d000fa31da8d0ee4.js'},{'revision':null,'url':'/_next/static/chunks/8133-ebfdf71f7cf9b2f5.js'},{'revision':null,'url':'/_next/static/chunks/822-758e71e2a1ddb900.js'},{'revision':null,'url':'/_next/static/chunks/8221-320a3bb003535c11.js'},{'revision':null,'url':'/_next/static/chunks/8239.1b5542090674594f.js'},{'revision':null,'url':'/_next/static/chunks/8250-6b95614bdcb34f62.js'},{'revision':null,'url':'/_next/static/chunks/8447.502298c2091d6288.js'},{'revision':null,'url':'/_next/static/chunks/862-8d9d18598f8ee70e.js'},{'revision':null,'url':'/_next/static/chunks/8698-6b723349e45bb704.js'},{'revision':null,'url':'/_next/static/chunks/8720-6b6d3010ddf857af.js'},{'revision':null,'url':'/_next/static/chunks/8729.8d63362bde39fff6.js'},{'revision':null,'url':'/_next/static/chunks/9186-8896fb62430c3877.js'},{'revision':null,'url':'/_next/static/chunks/9437-773b388b2fe6d7c6.js'},{'revision':null,'url':'/_next/static/chunks/9454-e4f19c1dde7a9639.js'},{'revision':null,'url':'/_next/static/chunks/9489-b2c2ed864494cc93.js'},{'revision':null,'url':'/_next/static/chunks/9568-e29bfb4b37686a5d.js'},{'revision':null,'url':'/_next/static/chunks/9771.289a55070179fc12.js'},{'revision':null,'url':'/_next/static/chunks/9774-9c14c84091f6f17a.js'},{'revision':null,'url':'/_next/static/chunks/9812-7ee7ddd2c1371ff5.js'},{'revision':null,'url':'/_next/static/chunks/9830-56c0e1bb7a78b1a9.js'},{'revision':null,'url':'/_next/static/chunks/9847-0cfb43025d003491.js'},{'revision':null,'url':'/_next/static/chunks/app/(auth)/create-account/page-b00a82420a317643.js'},{'revision':null,'url':'/_next/static/chunks/app/(auth)/forgot-password/page-29538777b8c46781.js'},{'revision':null,'url':'/_next/static/chunks/app/(auth)/layout-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/(auth)/password-reset-successful/page-ea0e6ba510883653.js'},{'revision':null,'url':'/_next/static/chunks/app/(auth)/reset-password/page-290fd203315f8beb.js'},{'revision':null,'url':'/_next/static/chunks/app/(auth)/sign-in/page-3c38fb1b7b498fd0.js'},{'revision':null,'url':'/_next/static/chunks/app/(auth)/verify-email/page-9481c7b0bcc2c412.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/error-76303708c956464a.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-analytics/page-7da1a6f16b60997d.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-customization/page-e8c6a15c51f7daa3.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-display/page-e42df358398ea207.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-payouts/page-c97ab790b65e4548.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-sends/page-7d2d8f77949cdd2b.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-tv/page-20d9abf5e38c27f7.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/host-community/page-c09be382a5c156c0.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/host-fees/page-85810acb77f08920.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/host-premium/page-c7836e6c2e269da4.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/manage-event/%5BeventId%5D/page-0a363891b3ae6678.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/manage-event/page-4c7898bf4fc5bfc4.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/notifications/page-5dababd851806c03.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/page-8e7f3289b3fbe0cb.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/profile/page-e2d77275b9e72fe9.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/reports/page-4762b3c36b942fa9.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/revenue/page-a91ad6a29b43a734.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/settings/page-930e3d7ca8f84a25.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/tip-customization/%5BeventId%5D/page-7c3031670c9c0a07.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/top-tippers/%5BtipperId%5D/page-43a5f2068dc146c4.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/top-tippers/page-a0a2eb1ad80f2db2.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/venue-display/page-8379b8491553b534.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/video-co-owners/page-b827ea537331fce0.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/video-requests/page-2890b9a88592fb76.js'},{'revision':null,'url':'/_next/static/chunks/app/(dashboard)/layout-901f5166d71585f6.js'},{'revision':null,'url':'/_next/static/chunks/app/(dev)/audit/page-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/(event)/content-only/page-8e4aa1415fa77131.js'},{'revision':null,'url':'/_next/static/chunks/app/(event)/event-and-content/page-817ae7d14f62a380.js'},{'revision':null,'url':'/_next/static/chunks/app/(event)/event-only/page-cd27f246400a7d38.js'},{'revision':null,'url':'/_next/static/chunks/app/(event)/join/page-cc11310acd1047e6.js'},{'revision':null,'url':'/_next/static/chunks/app/(event)/room/%5Bid%5D/page-d546839d9e046f55.js'},{'revision':null,'url':'/_next/static/chunks/app/(event)/room/%5Bid%5D/screen/page-d546839d9e046f55.js'},{'revision':null,'url':'/_next/static/chunks/app/(location)/modal/page-24375e482c53e950.js'},{'revision':null,'url':'/_next/static/chunks/app/(tv)/error-9a7f8923db2118a5.js'},{'revision':null,'url':'/_next/static/chunks/app/(tv)/layout-1fc5478409a19a59.js'},{'revision':null,'url':'/_next/static/chunks/app/(tv)/tv/page-0ee49e44f7ea1541.js'},{'revision':null,'url':'/_next/static/chunks/app/_not-found/page-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/api/auth/session/route-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/api/dev/backend-path-proof/route-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/api/perf-vitals/route-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/api/pusher/auth/route-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/c/%5BcommunityId%5D/program/%5BenforcementId%5D/page-42fe84b6a9fb3031.js'},{'revision':null,'url':'/_next/static/chunks/app/channel/%5BeventId%5D/page-3bbc505b53993fb9.js'},{'revision':null,'url':'/_next/static/chunks/app/channel/error-0cf2a46456e438c5.js'},{'revision':null,'url':'/_next/static/chunks/app/co-owner/invite/%5Btoken%5D/page-8ea6808e870737a9.js'},{'revision':null,'url':'/_next/static/chunks/app/co-owner/payouts/page-b9e7d84d0b87c7d6.js'},{'revision':null,'url':'/_next/static/chunks/app/cocreator/accept/%5Btoken%5D/page-ff655002f4038943.js'},{'revision':null,'url':'/_next/static/chunks/app/community/%5Bid%5D/join/layout-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/community/%5Bid%5D/join/page-9bbf17a3b946e133.js'},{'revision':null,'url':'/_next/static/chunks/app/community/invite/%5Btoken%5D/page-9eabd1a1e3af2fb7.js'},{'revision':null,'url':'/_next/static/chunks/app/community/page-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/community/side-chick/%5BcommunityId%5D/page-37f437671dbaa15b.js'},{'revision':null,'url':'/_next/static/chunks/app/content/%5BeventId%5D/page-f3668c9481c4639e.js'},{'revision':null,'url':'/_next/static/chunks/app/content/error-c7784ba5fea32487.js'},{'revision':null,'url':'/_next/static/chunks/app/discover/%5Bcategory%5D/page-4e49bf3601d2ffe8.js'},{'revision':null,'url':'/_next/static/chunks/app/discover/error-030884c1a4669ce5.js'},{'revision':null,'url':'/_next/static/chunks/app/discover/layout-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/discover/loading-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/discover/page-519ee70978c7bc5e.js'},{'revision':null,'url':'/_next/static/chunks/app/e2e/discover-explore-handoff/page-bde1c4eb67eb7e7b.js'},{'revision':null,'url':'/_next/static/chunks/app/e2e/discover-live-routing/page-b96ed9d5792acf65.js'},{'revision':null,'url':'/_next/static/chunks/app/e2e/explore-reel-layout/page-d87077dc81809dab.js'},{'revision':null,'url':'/_next/static/chunks/app/e2e/tips-drawer/page-7afdc58d7f220de4.js'},{'revision':null,'url':'/_next/static/chunks/app/error-144cb64fa8e94a72.js'},{'revision':null,'url':'/_next/static/chunks/app/explore/error-dc9bed2022f39f6e.js'},{'revision':null,'url':'/_next/static/chunks/app/explore/layout-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/explore/loading-14619b2b15740be7.js'},{'revision':null,'url':'/_next/static/chunks/app/explore/page-7cd0ddc5f1ac5228.js'},{'revision':null,'url':'/_next/static/chunks/app/global-error-d43d86bd26d3ce86.js'},{'revision':null,'url':'/_next/static/chunks/app/invite/page-4ef5cac23a55c0d2.js'},{'revision':null,'url':'/_next/static/chunks/app/join-host/%5BhostName%5D/page-cf46f0766c1f91c5.js'},{'revision':null,'url':'/_next/static/chunks/app/layout-8f52b1db43c8fb39.js'},{'revision':null,'url':'/_next/static/chunks/app/loading-6ff45f8407242a1d.js'},{'revision':null,'url':'/_next/static/chunks/app/new-partner/page-fb64338c25c06504.js'},{'revision':null,'url':'/_next/static/chunks/app/not-found-55e32678a717d488.js'},{'revision':null,'url':'/_next/static/chunks/app/offline/page-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/page-bcdfceb819e7d9d4.js'},{'revision':null,'url':'/_next/static/chunks/app/partner/page-bcdfceb819e7d9d4.js'},{'revision':null,'url':'/_next/static/chunks/app/program/%5BenforcementId%5D/page-dc999b58e9164eed.js'},{'revision':null,'url':'/_next/static/chunks/app/restricted/%5BcommunityId%5D/page-55e32678a717d488.js'},{'revision':null,'url':'/_next/static/chunks/app/robots.txt/route-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/sitemap.xml/route-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/success/page-7fd4b210709bc881.js'},{'revision':null,'url':'/_next/static/chunks/app/tipper/%5Busername%5D/page-eb055e9c6796c515.js'},{'revision':null,'url':'/_next/static/chunks/app/video-sitemap.xml/route-303fc384cf0c69fc.js'},{'revision':null,'url':'/_next/static/chunks/app/visitor/%5Busername%5D/page-19e52c3bb9cd6b8f.js'},{'revision':null,'url':'/_next/static/chunks/app/wallet/verify/page-6287ebf4d4e68c99.js'},{'revision':null,'url':'/_next/static/chunks/e34aaff9-def51a4eafa7805a.js'},{'revision':null,'url':'/_next/static/chunks/framework-32492dd9c4fc5870.js'},{'revision':null,'url':'/_next/static/chunks/main-app-73393b13601e1bf1.js'},{'revision':null,'url':'/_next/static/chunks/main-c9edd871af9ea0c3.js'},{'revision':null,'url':'/_next/static/chunks/pages/_app-e8b861c87f6f033c.js'},{'revision':null,'url':'/_next/static/chunks/pages/_error-c8f84f7bd11d43d4.js'},{'revision':'846118c33b2c0e922d7b3a7676f81f6f','url':'/_next/static/chunks/polyfills-42372ed130431b0a.js'},{'revision':null,'url':'/_next/static/chunks/webpack-d37e3487dd0f6158.js'},{'revision':null,'url':'/_next/static/css/294276ea636cfdea.css'},{'revision':null,'url':'/_next/static/css/602f5ad336f21e3d.css'},{'revision':null,'url':'/_next/static/css/acdf0dd557dcaf27.css'},{'revision':null,'url':'/_next/static/css/b82b51330dad2c65.css'},{'revision':null,'url':'/_next/static/css/d9f9764206959544.css'},{'revision':'b8e2d34878304af0af7552f727e9cca8','url':'/_next/static/media/04c24f78ad5a47d8-s.woff2'},{'revision':'5e789e4153cbcaf1421cd8053b04de95','url':'/_next/static/media/1369fa048801759f-s.woff2'},{'revision':'6e493671117e231571a1746987fbaa18','url':'/_next/static/media/13a314e63820922b-s.woff2'},{'revision':'f143fb4877cf7ada1b84423ee86a0198','url':'/_next/static/media/1f173e5e25f3efee-s.woff2'},{'revision':'6ffaf41555a2cfd84d55fb08dcb642d7','url':'/_next/static/media/37da3febcafd463e-s.woff2'},{'revision':'7f28d9acd0a8a4c1464195d229d07842','url':'/_next/static/media/403511e41efd5e81-s.woff2'},{'revision':'45ea393f38e4ecd97f4dbeb12ef23877','url':'/_next/static/media/48e2044251ef3125-s.woff2'},{'revision':'0533fc3fb6d983441a399f94eb182d81','url':'/_next/static/media/51f6eedf9be77cd7-s.woff2'},{'revision':'c154477b9affa3a0a47f894c8b80c03c','url':'/_next/static/media/904be59b21bd51cb-s.p.woff2'},{'revision':'63a7e6a745b18221c0c3b486a3317ae4','url':'/_next/static/media/93a6e477e1480c92-s.woff2'},{'revision':'b7df97614c8e4bd077a00d424ba42b1d','url':'/_next/static/media/9d5a263311222317-s.p.woff2'},{'revision':'01f355e30be7cae19120d5f796d25b42','url':'/_next/static/media/9e769f40faa52555-s.woff2'},{'revision':'f86583aa8d2f877a67021584096187ca','url':'/_next/static/media/a474899b80ee93d2-s.p.woff2'},{'revision':'b5818778898bf6d34b7423ff99c6beb4','url':'/_next/static/media/b1f344208eb4edfe-s.woff2'},{'revision':'d185d272afd4e2d7b4801eabba1463a1','url':'/_next/static/media/bf24a9759715e608-s.woff2'},{'revision':'5e13deb3df6f4ad52a1ed482edd90bc1','url':'/_next/static/media/c1a1fe1e2bf9b2ee-s.woff2'},{'revision':'deca0e4e8d0eee8cc1264e48d7a4e42f','url':'/_next/static/media/c7e0cf6c760983e7-s.woff2'},{'revision':'ea21aa8efaf84307316a1633d34995d1','url':'/_next/static/media/d6fc113833db48fe-s.woff2'},{'revision':'8027aefd3d59e5fa3da8e3d65e05a4b7','url':'/_next/static/media/e1df014bb05b8510-s.woff2'},{'revision':'23145c7141614ebba8c5dd949478c01e','url':'/_next/static/media/e807dee2426166ad-s.p.woff2'},{'revision':'3ade3f1359c1c7f4acb7b4479cf07b74','url':'/apple-touch-icon.png'},{'revision':'249fbf41bd7281f184b0f1aa3692f79e','url':'/apple.svg'},{'revision':'429e6098c93c93defca6a3e7acff5f58','url':'/assets\\auth-banner.png'},{'revision':'8a923e8938fe70d632cb33ba19d542fe','url':'/assets\\auth-story.png'},{'revision':'0bb0d655494f8976433a7468dbced737','url':'/assets\\event-screen.png'},{'revision':'d17d1a7b0336201ff60b05d04ee41093','url':'/assets\\event-story.png'},{'revision':'1df8827255b138fad75b6b8c3cdf937d','url':'/assets\\event_banner.webp'},{'revision':'b1c2f934e107b62cb7a1dba25037c85b','url':'/assets\\host-blob.png'},{'revision':'2bc896bbf7ba78bbb2b3bd6c1773dbde','url':'/assets\\host-story.png'},{'revision':'f303da5cfb1648e738f20bcce1ced698','url':'/assets\\host.png'},{'revision':'03b3c2c7fb6e62ce7c62be63a706f1e3','url':'/assets\\image_slider.png'},{'revision':'b0dc4a74089d10dbd2d2d2d3c30101e6','url':'/assets\\islamic-event.png'},{'revision':'489075342eced85e8cb0ac8cbe24ab67','url':'/assets\\lock.png'},{'revision':'1cd38ab49ec5b510887c34983cd13466','url':'/assets\\mobile_prev.png'},{'revision':'bdb917f3b620620b13fa1fb07c26198e','url':'/assets\\silent-video.mp4'},{'revision':'5d7e2717b2654aa464f1b5b154c519e6','url':'/assets\\star.png'},{'revision':'71b59bf21a6ddd610a5ec3b46bb5a002','url':'/assets\\tipmanna mobile message section image background.png'},{'revision':'dc7cd1f2552a47cda9843f8915938fc7','url':'/assets\\tipmanna_web_message_section_image_background.png'},{'revision':'d8b636dfdca7ee7d1b1112b6c7e982fa','url':'/assets\\web_prev.png'},{'revision':'080d4903a6447098a924915f92b3ae97','url':'/chat-room.png'},{'revision':'e4d14b4c5eeb4f1ac66d089f6816efae','url':'/default-event-image.jpg'},{'revision':'de615d1010040c458ac0d7337298c2ef','url':'/default-user-avatar.png'},{'revision':'7c4b7cdfa54df03aa1abc595e4d9c7fd','url':'/default.mp4'},{'revision':'0bb0d655494f8976433a7468dbced737','url':'/default.png'},{'revision':'e4d14b4c5eeb4f1ac66d089f6816efae','url':'/events\\event_1.jpg'},{'revision':'d3874e8b948a150b1367cdfe4096f13b','url':'/events\\event_2.jpg'},{'revision':'68eed5b0995f2ff3fe36caf33b8787f4','url':'/events\\event_banner.webp'},{'revision':'ecb65c35df80b983a1fd7c18a7aaa500','url':'/events\\funnel.png'},{'revision':'5fbe70f39b9601e94fbf880bd7ed1739','url':'/events\\polygon.png'},{'revision':'c41aa410fafe155d9bca06133e05b352','url':'/events\\screen_display_lines.svg'},{'revision':'1d80f843f89629b0fa42993d99fa0d5c','url':'/events\\together.png'},{'revision':'88f59b8659b4a7d8d1da8691e5016e7e','url':'/favicon.ico'},{'revision':'d09f95206c3fa0bb9bd9fefabfd0ea71','url':'/file.svg'},{'revision':'4b0588f54d56f841f18b392d7510f7da','url':'/gaming.mp4'},{'revision':'ac7401149e437186a380ed2ce374d1ee','url':'/gaming.png'},{'revision':'2aaafa6a49b6563925fe440891e32717','url':'/globe.svg'},{'revision':'0cae89c1f225b92dd09b1ee456bf998e','url':'/google.svg'},{'revision':'cb293cbba0b8276c7b71902ac1134f2b','url':'/heros\\image_1.webp'},{'revision':'68eed5b0995f2ff3fe36caf33b8787f4','url':'/heros\\image_2.webp'},{'revision':'25346aabdfcb12e6eac4ef6602ae6f6f','url':'/heros\\image_3.webp'},{'revision':'80c967e2bca23d1caaf6cf23ecf81fb2','url':'/heros\\image_4.webp'},{'revision':'c21b63553e94673f020bc287f3d78eef','url':'/icons\\add-text.png'},{'revision':'aa406b222b162ff15b783b2687400fbe','url':'/icons\\animal.png'},{'revision':'d05cc2c708825ba57c236708fef34fcf','url':'/icons\\ball.png'},{'revision':'b917be11f01a5bfbf8716ea541bb74b3','url':'/icons\\bell.png'},{'revision':'bb8a1fe3c822814b0825849a0533ebed','url':'/icons\\bible.png'},{'revision':'63a5a163b44e08fdbd13f65a3578dfca','url':'/icons\\black-diamond.png'},{'revision':'61daef30e88ab03d7b5f5bff2932c7f2','url':'/icons\\book.png'},{'revision':'f6b44e05f9bbb3b1f7f0ccde4e9ae17c','url':'/icons\\briefcase.png'},{'revision':'1350558ce7e911f4e2f64f0c3c4e4860','url':'/icons\\burger.png'},{'revision':'7caf7a9f769736bc0729e8d06613e156','url':'/icons\\butterfly.png'},{'revision':'39851c8ee64bcf9986ab4cbda1f81f57','url':'/icons\\calendar.png'},{'revision':'84569e83e895592b1364d6d178f8ff54','url':'/icons\\cap.png'},{'revision':'56ac3e25717dc987a93e7a5cf3edb46d','url':'/icons\\car.png'},{'revision':'33366e3c5c9aa18a7d2d7f3cd519ee82','url':'/icons\\cat.png'},{'revision':'8e3b657212e527671cc34bb0f0df9ae1','url':'/icons\\champ.png'},{'revision':'7b607fd07ce1d0233011619f7556eccc','url':'/icons\\charity.png'},{'revision':'1db201324a323f4290f5d30e2e3bf6b0','url':'/icons\\chicken.png'},{'revision':'293a0442255b5fb3cd382dbb3ebefa3e','url':'/icons\\choir.png'},{'revision':'b7a110af0700e3f2f41a82f0b29f9f03','url':'/icons\\church.png'},{'revision':'36bf74b5c3692e773c75b2aeecc0d8bc','url':'/icons\\clown.png'},{'revision':'f454d532c8c3cb34e4aa6573e2bfa2a3','url':'/icons\\comedy-mask.png'},{'revision':'6e4a3b6bdf0800f8a0dbada5778f719b','url':'/icons\\comedy.png'},{'revision':'60103a6563a4168a9ef25494785775a7','url':'/icons\\company.png'},{'revision':'672dbf68ba65abc2119ddd35145a6f18','url':'/icons\\concert.png'},{'revision':'588da7a4f99c81c8f7d6053790378c58','url':'/icons\\cooking.png'},{'revision':'74d90e41c94426a11fc7e8d319cc16a5','url':'/icons\\creative.png'},{'revision':'9d48e78d0b53adf8e848353168a1c7fb','url':'/icons\\crescent.png'},{'revision':'b7fa96aa40781fecbcd12c564a2ef67f','url':'/icons\\crown-new.mp4'},{'revision':'bfe46063a879ba05c7ec5be147747314','url':'/icons\\crown.webm'},{'revision':'3bb278aec75042dec244a68793e5fa80','url':'/icons\\dancer.png'},{'revision':'f82daeffb4a17b613e19f77c53c3da07','url':'/icons\\diamond.png'},{'revision':'4c7e9033546e551003dedba85b3c4f31','url':'/icons\\event-calendar.png'},{'revision':'1a506b6e513dc366fb07ac1f77127bbe','url':'/icons\\father.png'},{'revision':'d16ce093b70b23a757824467757b6e94','url':'/icons\\festival.png'},{'revision':'2e155b51ce93ac57a05a4023f1cdfbe1','url':'/icons\\file-validation.png'},{'revision':'064aa5ee5410a9643659a516a99143d5','url':'/icons\\firework.png'},{'revision':'7ee03f157ef17020b157d6e5d0ac9f80','url':'/icons\\flag.png'},{'revision':'55865d7b9f7d66803cc723399c7fec5c','url':'/icons\\flash.png'},{'revision':'85de6455d81d6676acca107b28491710','url':'/icons\\flower.png'},{'revision':'45d0615615d1e87d98536195c487df10','url':'/icons\\fries.png'},{'revision':'00619893435d0e7bc33c85ddde175f61','url':'/icons\\fun.png'},{'revision':'3d25e7baf031dac39f634d7a1be582ab','url':'/icons\\game-console.png'},{'revision':'c66298eac03bbefc52c9f415ebf0aced','url':'/icons\\gem.png'},{'revision':'58e883c3e71dbf8eab960cad6bb53812','url':'/icons\\giftbox.png'},{'revision':'fe63ebdd089b9c083f9fa4eebfb602bd','url':'/icons\\globe.png'},{'revision':'2d59a283722f718b6dfe5ff80bf3af9c','url':'/icons\\gown.png'},{'revision':'3ade3f1359c1c7f4acb7b4479cf07b74','url':'/icons\\icon-192.png'},{'revision':'85ee00e82a503cdcc17ac5817e095d0c','url':'/icons\\icon-512.png'},{'revision':'ed5f9f74e8e0a5e3e086a16378c1f0df','url':'/icons\\interview.png'},{'revision':'5ce5c59ee84a4296d7aa7c9953d1af59','url':'/icons\\kaaba.png'},{'revision':'6e3b71d586913b145c01bc6c91d882af','url':'/icons\\laptop.png'},{'revision':'8a04aa4e7f81178f4fbcb0b1068e0f69','url':'/icons\\lock.png'},{'revision':'5a5fb0d693d41ac6bba95243fcb7bafd','url':'/icons\\love.png'},{'revision':'cc3dc1e34c3a1c9da594042031f2b47f','url':'/icons\\mask.png'},{'revision':'79962d1da1dbf54f9e8a3215e64e4c4a','url':'/icons\\mat.png'},{'revision':'78ed7f59f9c7bab2ad110e86eda0359d','url':'/icons\\medal.png'},{'revision':'500a79230727cd09ee18e3f3ee11347e','url':'/icons\\mic.png'},{'revision':'d6e1aae14b8c174a230c9394aa490d0d','url':'/icons\\money.png'},{'revision':'930a3d21543f539e0b32e29a804c24ed','url':'/icons\\moon.png'},{'revision':'851c91927176962c290ea2a8e5069fd0','url':'/icons\\palette.png'},{'revision':'5ed31e07d15e4bfde1257ee2b4da869e','url':'/icons\\pen.png'},{'revision':'df42dbea4cff7e70fd39299eb6d974c9','url':'/icons\\performance.png'},{'revision':'7bc76a02cd6fc57b16d0a4a76721bcc2','url':'/icons\\phone.png'},{'revision':'35f4ec12aadf7313c1083e7e650bd481','url':'/icons\\plane.png'},{'revision':'b3626ff73800c7aa516d7ab3678edf16','url':'/icons\\popcorn.png'},{'revision':'35b6f786b5ca20c2ee3b5a3ccc9419cc','url':'/icons\\pope.png'},{'revision':'cb6d18bed1b5ffc1ea0ebc5f7b009658','url':'/icons\\puzzle.png'},{'revision':'4ba1bd7039f2f8252565bfa585bc2acd','url':'/icons\\quran.png'},{'revision':'0b3acbf9af615b978f11112c30b678df','url':'/icons\\rain.png'},{'revision':'c3a33480be2c4059f696deee55c6be58','url':'/icons\\rolex.png'},{'revision':'aaab0d07775da99f5f2903c19870f95c','url':'/icons\\rosary.png'},{'revision':'60090981a3c762ba3496c7ccc42688c6','url':'/icons\\rose.png'},{'revision':'0b3802903f9837239be4ee98dd5a110b','url':'/icons\\screen.png'},{'revision':'aaf3bc4775fdc343b548386b9e83dad2','url':'/icons\\shield.png'},{'revision':'f3d81d17ddbf75ac3ee40fb5c0014bea','url':'/icons\\shirt.png'},{'revision':'bc1974806c356974901d5e1da88dbbfa','url':'/icons\\shoe.png'},{'revision':'85d06e693f62f48492e5c35a42d124f7','url':'/icons\\snow.png'},{'revision':'54d03d9c77bc4c3cf0ac0822a44aed07','url':'/icons\\socks.png'},{'revision':'d21f4411b3714a6d7f75e404f35884d3','url':'/icons\\spark.png'},{'revision':'45dd54703cf1537d439bc358c680762c','url':'/icons\\star.png'},{'revision':'3809355799081dc245cb5ab0242a7bf2','url':'/icons\\suit.png'},{'revision':'c48529e890f96e9ec1c5a9ab0d842c31','url':'/icons\\sun.png'},{'revision':'5332adaecbb463c2a02888516418ad94','url':'/icons\\text.png'},{'revision':'d048ffd1c449738c22d5be1d865705d0','url':'/icons\\theater.png'},{'revision':'534af351f3470124d3cd4ef8ed0dd989','url':'/icons\\thunder.png'},{'revision':'0ff4a42e4bef5648f71a61be35de7eda','url':'/icons\\tie.png'},{'revision':'79e61965f1f60a7ec8458571f2a013a1','url':'/icons\\tree.png'},{'revision':'270db634ba96930b85049c7405df679b','url':'/icons\\trophy.png'},{'revision':'8630db5ffe84b2bf8818a09b312fee9f','url':'/icons\\vape.png'},{'revision':'9ef7e1b88d6b8e7d4d3ffb45b6c53a47','url':'/icons\\vintage.png'},{'revision':'5109c0b0a22ad0720ed99366af7942ab','url':'/icons\\vodka.png'},{'revision':'0b3acbf9af615b978f11112c30b678df','url':'/icons\\water.png'},{'revision':'b4a0b9db7bf0eb7ad97002dd575dd229','url':'/icons\\woman.png'},{'revision':'10e996a5ed6540c328fa30b1916ba235','url':'/islamic.mp4'},{'revision':'8213fa01e29660d729233a86e9d59272','url':'/islamic.png'},{'revision':'8c6ef4825047fe6564135f4c29aeccb2','url':'/kings-crown.gif'},{'revision':'518043ef4efa8ee15fb29acc877c05dd','url':'/logos\\apple-pay.png'},{'revision':'9357892adb4e37ba5b5f7e64e923b05d','url':'/logos\\apple.png'},{'revision':'231f3bc83a862016d949d58caf762b42','url':'/logos\\apple_dark.svg'},{'revision':'7d375c0a2e6011a4d98ebe2caad391d0','url':'/logos\\fca.jpg'},{'revision':'7a41c8cf8f7e029d0db2ae143049e108','url':'/logos\\fr.png'},{'revision':'0cb2685da8829142bf629555822597a6','url':'/logos\\gdpr.png'},{'revision':'b4b89e2caf95c10828025df76f4cc9d8','url':'/logos\\google-pay.png'},{'revision':'0cae89c1f225b92dd09b1ee456bf998e','url':'/logos\\google.svg'},{'revision':'e0179c3b68b8165577977852c0483dd9','url':'/logos\\logo_1.png'},{'revision':'d5898f347268ff3c609e15786c0980af','url':'/logos\\logo_2.png'},{'revision':'1008f257bb81b8968aa7c3efdc958cae','url':'/logos\\logo_3.png'},{'revision':'6d8fccd40fe145ebcc2dcc8f129ca3ad','url':'/logos\\paypal-logo.png'},{'revision':'9df410bba35dee5d036b6c08b6223753','url':'/logos\\paypal.png'},{'revision':'ec5823de496f61856c6aa6f48ba75a7a','url':'/logos\\stripe-link.png'},{'revision':'91697c5117d26867aedbf8341b350296','url':'/logos\\stripe.png'},{'revision':'64866b02efeda73cfbe1ff6c0ce4ee70','url':'/manifest.webmanifest'},{'revision':'8e061864f388b47f33a1c3780831193e','url':'/next.svg'},{'revision':'ebc4c0b174487d0259131803a92596b2','url':'/og\\discover.svg'},{'revision':'c2edee61c8b1809e06e48e54a97edf43','url':'/og\\explore.svg'},{'revision':'74e5c924ee49b5965ed197ae20fc5fc7','url':'/patterns\\bg_pattern.webp'},{'revision':'c8d49033068904e66175de3accc3256b','url':'/patterns\\hero_left_pattern.webp'},{'revision':'0fee892ff4948abea55fe4ee33bdfd71','url':'/patterns\\hero_right_pattern.webp'},{'revision':'4322e25271f89b8c6c055b8541188a73','url':'/patterns\\tip_what_you_can.webp'},{'revision':'1a84863e1afe0a8ada84e5c47164b6a6','url':'/success.png'},{'revision':'9a34530450d9f0ebc500813b22e3fb88','url':'/success.webp'},{'revision':'71b59bf21a6ddd610a5ec3b46bb5a002','url':'/tipmanna mobile message section image background.png'},{'revision':'4bba5561123a737eea9a2a496a3c2bb8','url':'/tipmanna-share-preview.jpeg'},{'revision':'b49728da9be621ef21cf46f1bf86c96b','url':'/tipmanna_logo.png'},{'revision':'dc7cd1f2552a47cda9843f8915938fc7','url':'/tipmanna_web_message_section_image_background.png'},{'revision':'a9ca4327be14d3378ca91eff91b63e73','url':'/vectors\\Homepage_section_wave.webp'},{'revision':'436944c5aaa6aa2fc4f6a2e31c48ce51','url':'/vectors\\Patterns.webp'},{'revision':'a9ca4327be14d3378ca91eff91b63e73','url':'/vectors\\Shapes.webp'},{'revision':'0b895fda3c85248a4c43d44ae3db0fa8','url':'/vectors\\Shapes_(4).webp'},{'revision':'3b4c9da2060582f0789eba9c10910d4c','url':'/vectors\\bolt_left.webp'},{'revision':'a2cc881c9e7921e1b29e47944c5450db','url':'/vectors\\bolt_right.webp'},{'revision':'0b2787cfe307497aff72460f4e65e029','url':'/vectors\\impact_vector.webp'},{'revision':'1d39ef04918faebc176661fb17b628ea','url':'/vectors\\tipping_pattern.webp'},{'revision':'445cdfcb18b5a2c0b559168cafa9c796','url':'/vectors\\tipping_pattern_1.webp'},{'revision':'e19bd23c7c66e6f8089f58d5ca356c50','url':'/vectors\\tipping_pattern_new.png'},{'revision':'74e5c924ee49b5965ed197ae20fc5fc7','url':'/vectors\\tipping_pattern_new.webp'},{'revision':'c0af2f507b369b085b35ef4bbe3bcf1e','url':'/vercel.svg'},{'revision':'a2760511c65806022ad20adf74370ff3','url':'/window.svg'}],skipWaiting:!0,clientsClaim:!0,navigationPreload:!0,runtimeCaching:eE,fallbacks:{entries:[{url:"/offline",matcher(e){let{request:t}=e;return"document"===t.destination}}]}}).addEventListeners()})();
+(() => {
+  "use strict";
+  let e,
+    t,
+    a,
+    s = {
+      googleAnalytics: "googleAnalytics",
+      precache: "precache-v2",
+      prefix: "serwist",
+      runtime: "runtime",
+      suffix: "undefined" != typeof registration ? registration.scope : "",
+    },
+    r = e => [s.prefix, e, s.suffix].filter(e => e && e.length > 0).join("-"),
+    n = {
+      updateDetails: e => {
+        var t = t => {
+          let a = e[t];
+          "string" == typeof a && (s[t] = a);
+        };
+        for (let e of Object.keys(s)) t(e);
+      },
+      getGoogleAnalyticsName: e => e || r(s.googleAnalytics),
+      getPrecacheName: e => e || r(s.precache),
+      getRuntimeName: e => e || r(s.runtime),
+    };
+  var i = class extends Error {
+    details;
+    constructor(e, t) {
+      (super(
+        ((e, ...t) => {
+          let a = e;
+          return (t.length > 0 && (a += ` :: ${JSON.stringify(t)}`), a);
+        })(e, t)
+      ),
+        (this.name = e),
+        (this.details = t));
+    }
+  };
+  function c(e) {
+    return new Promise(t => setTimeout(t, e));
+  }
+  let o = new Set();
+  function l(e, t) {
+    let a = new URL(e);
+    for (let e of t) a.searchParams.delete(e);
+    return a.href;
+  }
+  async function h(e, t, a, s) {
+    let r = l(t.url, a);
+    if (t.url === r) return e.match(t, s);
+    let n = { ...s, ignoreSearch: !0 };
+    for (let i of await e.keys(t, n))
+      if (r === l(i.url, a)) return e.match(i, s);
+  }
+  var u = class {
+    promise;
+    resolve;
+    reject;
+    constructor() {
+      this.promise = new Promise((e, t) => {
+        ((this.resolve = e), (this.reject = t));
+      });
+    }
+  };
+  let d = async () => {
+      for (let e of o) await e();
+    },
+    m = "-precache-",
+    f = async (e, t = m) => {
+      let a = (await self.caches.keys()).filter(
+        a => a.includes(t) && a.includes(self.registration.scope) && a !== e
+      );
+      return (await Promise.all(a.map(e => self.caches.delete(e))), a);
+    },
+    g = (e, t) => {
+      let a = t();
+      return (e.waitUntil(a), a);
+    },
+    p = (e, t) => t.some(t => e instanceof t),
+    w = new WeakMap(),
+    y = new WeakMap(),
+    _ = new WeakMap(),
+    b = {
+      get(e, t, a) {
+        if (e instanceof IDBTransaction) {
+          if ("done" === t) return w.get(e);
+          if ("store" === t)
+            return a.objectStoreNames[1]
+              ? void 0
+              : a.objectStore(a.objectStoreNames[0]);
+        }
+        return v(e[t]);
+      },
+      set: (e, t, a) => ((e[t] = a), !0),
+      has: (e, t) =>
+        (e instanceof IDBTransaction && ("done" === t || "store" === t)) ||
+        t in e,
+    };
+  function v(e) {
+    if (e instanceof IDBRequest) {
+      let t = new Promise((t, a) => {
+        let s = () => {
+            (e.removeEventListener("success", r),
+              e.removeEventListener("error", n));
+          },
+          r = () => {
+            (t(v(e.result)), s());
+          },
+          n = () => {
+            (a(e.error), s());
+          };
+        (e.addEventListener("success", r), e.addEventListener("error", n));
+      });
+      return (_.set(t, e), t);
+    }
+    if (y.has(e)) return y.get(e);
+    let s = (function (e) {
+      if ("function" == typeof e)
+        return (
+          a ||
+          (a = [
+            IDBCursor.prototype.advance,
+            IDBCursor.prototype.continue,
+            IDBCursor.prototype.continuePrimaryKey,
+          ])
+        ).includes(e)
+          ? function (...t) {
+              return (e.apply(x(this), t), v(this.request));
+            }
+          : function (...t) {
+              return v(e.apply(x(this), t));
+            };
+      return (e instanceof IDBTransaction &&
+        (function (e) {
+          if (w.has(e)) return;
+          let t = new Promise((t, a) => {
+            let s = () => {
+                (e.removeEventListener("complete", r),
+                  e.removeEventListener("error", n),
+                  e.removeEventListener("abort", n));
+              },
+              r = () => {
+                (t(), s());
+              },
+              n = () => {
+                (a(e.error || new DOMException("AbortError", "AbortError")),
+                  s());
+              };
+            (e.addEventListener("complete", r),
+              e.addEventListener("error", n),
+              e.addEventListener("abort", n));
+          });
+          w.set(e, t);
+        })(e),
+      p(
+        e,
+        t ||
+          (t = [
+            IDBDatabase,
+            IDBObjectStore,
+            IDBIndex,
+            IDBCursor,
+            IDBTransaction,
+          ])
+      ))
+        ? new Proxy(e, b)
+        : e;
+    })(e);
+    return (s !== e && (y.set(e, s), _.set(s, e)), s);
+  }
+  let x = e => _.get(e);
+  function E(
+    e,
+    t,
+    { blocked: a, upgrade: s, blocking: r, terminated: n } = {}
+  ) {
+    let i = indexedDB.open(e, t),
+      c = v(i);
+    return (
+      s &&
+        i.addEventListener("upgradeneeded", e => {
+          s(v(i.result), e.oldVersion, e.newVersion, v(i.transaction), e);
+        }),
+      a && i.addEventListener("blocked", e => a(e.oldVersion, e.newVersion, e)),
+      c
+        .then(e => {
+          (n && e.addEventListener("close", () => n()),
+            r &&
+              e.addEventListener("versionchange", e =>
+                r(e.oldVersion, e.newVersion, e)
+              ));
+        })
+        .catch(() => {}),
+      c
+    );
+  }
+  let R = ["get", "getKey", "getAll", "getAllKeys", "count"],
+    q = ["put", "add", "delete", "clear"],
+    S = new Map();
+  function D(e, t) {
+    if (!(e instanceof IDBDatabase && !(t in e) && "string" == typeof t))
+      return;
+    if (S.get(t)) return S.get(t);
+    let a = t.replace(/FromIndex$/, ""),
+      s = t !== a,
+      r = q.includes(a);
+    if (
+      !(a in (s ? IDBIndex : IDBObjectStore).prototype) ||
+      !(r || R.includes(a))
+    )
+      return;
+    let n = async function (e, ...t) {
+      let n = this.transaction(e, r ? "readwrite" : "readonly"),
+        i = n.store;
+      return (
+        s && (i = i.index(t.shift())),
+        (await Promise.all([i[a](...t), r && n.done]))[0]
+      );
+    };
+    return (S.set(t, n), n);
+  }
+  b = (e => ({
+    ...e,
+    get: (t, a, s) => D(t, a) || e.get(t, a, s),
+    has: (t, a) => !!D(t, a) || e.has(t, a),
+  }))(b);
+  let N = ["continue", "continuePrimaryKey", "advance"],
+    T = {},
+    C = new WeakMap(),
+    P = new WeakMap(),
+    k = {
+      get(e, t) {
+        if (!N.includes(t)) return e[t];
+        let a = T[t];
+        return (
+          a ||
+            (a = T[t] =
+              function (...e) {
+                C.set(this, P.get(this)[t](...e));
+              }),
+          a
+        );
+      },
+    };
+  async function* A(...e) {
+    let t = this;
+    if ((t instanceof IDBCursor || (t = await t.openCursor(...e)), !t)) return;
+    let a = new Proxy(t, k);
+    for (P.set(a, t), _.set(a, x(t)); t; )
+      (yield a, (t = await (C.get(a) || t.continue())), C.delete(a));
+  }
+  function I(e, t) {
+    return (
+      (t === Symbol.asyncIterator &&
+        p(e, [IDBIndex, IDBObjectStore, IDBCursor])) ||
+      ("iterate" === t && p(e, [IDBIndex, IDBObjectStore]))
+    );
+  }
+  b = (e => ({
+    ...e,
+    get: (t, a, s) => (I(t, a) ? A : e.get(t, a, s)),
+    has: (t, a) => I(t, a) || e.has(t, a),
+  }))(b);
+  let L = async (t, a) => {
+      let s = null;
+      if ((t.url && (s = new URL(t.url).origin), s !== self.location.origin))
+        throw new i("cross-origin-copy-response", { origin: s });
+      let r = t.clone(),
+        n = {
+          headers: new Headers(r.headers),
+          status: r.status,
+          statusText: r.statusText,
+        },
+        c = a ? a(n) : n,
+        o = !(function () {
+          if (void 0 === e) {
+            let t = new Response("");
+            if ("body" in t)
+              try {
+                (new Response(t.body), (e = !0));
+              } catch {
+                e = !1;
+              }
+            e = !1;
+          }
+          return e;
+        })()
+          ? await r.blob()
+          : r.body;
+      return new Response(o, c);
+    },
+    U = "requests",
+    F = "queueName";
+  var O = class {
+      _db = null;
+      async addEntry(e) {
+        let t = (await this.getDb()).transaction(U, "readwrite", {
+          durability: "relaxed",
+        });
+        (await t.store.add(e), await t.done);
+      }
+      async getFirstEntryId() {
+        return (await (await this.getDb()).transaction(U).store.openCursor())
+          ?.value.id;
+      }
+      async getAllEntriesByQueueName(e) {
+        return (
+          (await (
+            await this.getDb()
+          ).getAllFromIndex(U, F, IDBKeyRange.only(e))) || []
+        );
+      }
+      async getEntryCountByQueueName(e) {
+        return (await this.getDb()).countFromIndex(U, F, IDBKeyRange.only(e));
+      }
+      async deleteEntry(e) {
+        await (await this.getDb()).delete(U, e);
+      }
+      async getFirstEntryByQueueName(e) {
+        return await this.getEndEntryFromIndex(IDBKeyRange.only(e), "next");
+      }
+      async getLastEntryByQueueName(e) {
+        return await this.getEndEntryFromIndex(IDBKeyRange.only(e), "prev");
+      }
+      async getEndEntryFromIndex(e, t) {
+        return (
+          await (await this.getDb())
+            .transaction(U)
+            .store.index(F)
+            .openCursor(e, t)
+        )?.value;
+      }
+      async getDb() {
+        return (
+          this._db ||
+            (this._db = await E("serwist-background-sync", 3, {
+              upgrade: this._upgradeDb,
+            })),
+          this._db
+        );
+      }
+      _upgradeDb(e, t) {
+        (t > 0 &&
+          t < 3 &&
+          e.objectStoreNames.contains(U) &&
+          e.deleteObjectStore(U),
+          e
+            .createObjectStore(U, { autoIncrement: !0, keyPath: "id" })
+            .createIndex(F, F, { unique: !1 }));
+      }
+    },
+    B = class {
+      _queueName;
+      _queueDb;
+      constructor(e) {
+        ((this._queueName = e), (this._queueDb = new O()));
+      }
+      async pushEntry(e) {
+        (delete e.id,
+          (e.queueName = this._queueName),
+          await this._queueDb.addEntry(e));
+      }
+      async unshiftEntry(e) {
+        let t = await this._queueDb.getFirstEntryId();
+        (t ? (e.id = t - 1) : delete e.id,
+          (e.queueName = this._queueName),
+          await this._queueDb.addEntry(e));
+      }
+      async popEntry() {
+        return this._removeEntry(
+          await this._queueDb.getLastEntryByQueueName(this._queueName)
+        );
+      }
+      async shiftEntry() {
+        return this._removeEntry(
+          await this._queueDb.getFirstEntryByQueueName(this._queueName)
+        );
+      }
+      async getAll() {
+        return await this._queueDb.getAllEntriesByQueueName(this._queueName);
+      }
+      async size() {
+        return await this._queueDb.getEntryCountByQueueName(this._queueName);
+      }
+      async deleteEntry(e) {
+        await this._queueDb.deleteEntry(e);
+      }
+      async _removeEntry(e) {
+        return (e && (await this.deleteEntry(e.id)), e);
+      }
+    };
+  let M = [
+    "method",
+    "referrer",
+    "referrerPolicy",
+    "mode",
+    "credentials",
+    "cache",
+    "redirect",
+    "integrity",
+    "keepalive",
+  ];
+  var K = class e {
+    _requestData;
+    static async fromRequest(t) {
+      let a = { url: t.url, headers: {} };
+      for (let e of ("GET" !== t.method &&
+        (a.body = await t.clone().arrayBuffer()),
+      t.headers.forEach((e, t) => {
+        a.headers[t] = e;
+      }),
+      M))
+        void 0 !== t[e] && (a[e] = t[e]);
+      return new e(a);
+    }
+    constructor(e) {
+      ("navigate" === e.mode && (e.mode = "same-origin"),
+        (this._requestData = e));
+    }
+    toObject() {
+      let e = Object.assign({}, this._requestData);
+      return (
+        (e.headers = Object.assign({}, this._requestData.headers)),
+        e.body && (e.body = e.body.slice(0)),
+        e
+      );
+    }
+    toRequest() {
+      return new Request(this._requestData.url, this._requestData);
+    }
+    clone() {
+      return new e(this.toObject());
+    }
+  };
+  let W = "serwist-background-sync",
+    j = new Set(),
+    $ = e => {
+      let t = {
+        request: new K(e.requestData).toRequest(),
+        timestamp: e.timestamp,
+      };
+      return (e.metadata && (t.metadata = e.metadata), t);
+    };
+  var H = class {
+      _name;
+      _onSync;
+      _maxRetentionTime;
+      _queueStore;
+      _forceSyncFallback;
+      _syncInProgress = !1;
+      _requestsAddedDuringSync = !1;
+      constructor(
+        e,
+        { forceSyncFallback: t, onSync: a, maxRetentionTime: s } = {}
+      ) {
+        if (j.has(e)) throw new i("duplicate-queue-name", { name: e });
+        (j.add(e),
+          (this._name = e),
+          (this._onSync = a || this.replayRequests),
+          (this._maxRetentionTime = s || 10080),
+          (this._forceSyncFallback = !!t),
+          (this._queueStore = new B(this._name)),
+          this._addSyncListener());
+      }
+      get name() {
+        return this._name;
+      }
+      async pushRequest(e) {
+        await this._addRequest(e, "push");
+      }
+      async unshiftRequest(e) {
+        await this._addRequest(e, "unshift");
+      }
+      async popRequest() {
+        return this._removeRequest("pop");
+      }
+      async shiftRequest() {
+        return this._removeRequest("shift");
+      }
+      async getAll() {
+        let e = await this._queueStore.getAll(),
+          t = Date.now(),
+          a = [];
+        for (let s of e) {
+          let e = 60 * this._maxRetentionTime * 1e3;
+          t - s.timestamp > e
+            ? await this._queueStore.deleteEntry(s.id)
+            : a.push($(s));
+        }
+        return a;
+      }
+      async size() {
+        return await this._queueStore.size();
+      }
+      async _addRequest(
+        { request: e, metadata: t, timestamp: a = Date.now() },
+        s
+      ) {
+        let r = {
+          requestData: (await K.fromRequest(e.clone())).toObject(),
+          timestamp: a,
+        };
+        switch ((t && (r.metadata = t), s)) {
+          case "push":
+            await this._queueStore.pushEntry(r);
+            break;
+          case "unshift":
+            await this._queueStore.unshiftEntry(r);
+        }
+        this._syncInProgress
+          ? (this._requestsAddedDuringSync = !0)
+          : await this.registerSync();
+      }
+      async _removeRequest(e) {
+        let t,
+          a = Date.now();
+        switch (e) {
+          case "pop":
+            t = await this._queueStore.popEntry();
+            break;
+          case "shift":
+            t = await this._queueStore.shiftEntry();
+        }
+        if (t) {
+          let s = 60 * this._maxRetentionTime * 1e3;
+          return a - t.timestamp > s ? this._removeRequest(e) : $(t);
+        }
+      }
+      async replayRequests() {
+        let e;
+        for (; (e = await this.shiftRequest()); )
+          try {
+            await fetch(e.request.clone());
+          } catch {
+            throw (
+              await this.unshiftRequest(e),
+              new i("queue-replay-failed", { name: this._name })
+            );
+          }
+      }
+      async registerSync() {
+        if ("sync" in self.registration && !this._forceSyncFallback)
+          try {
+            await self.registration.sync.register(`${W}:${this._name}`);
+          } catch (e) {}
+      }
+      _addSyncListener() {
+        "sync" in self.registration && !this._forceSyncFallback
+          ? self.addEventListener("sync", e => {
+              if (e.tag === `${W}:${this._name}`) {
+                let t = async () => {
+                  let t;
+                  this._syncInProgress = !0;
+                  try {
+                    await this._onSync({ queue: this });
+                  } catch (e) {
+                    if (e instanceof Error) throw e;
+                  } finally {
+                    (this._requestsAddedDuringSync &&
+                      !(t && !e.lastChance) &&
+                      (await this.registerSync()),
+                      (this._syncInProgress = !1),
+                      (this._requestsAddedDuringSync = !1));
+                  }
+                };
+                e.waitUntil(t());
+              }
+            })
+          : this._onSync({ queue: this });
+      }
+      static get _queueNames() {
+        return j;
+      }
+    },
+    G = class {
+      _queue;
+      constructor(e, t) {
+        this._queue = new H(e, t);
+      }
+      async fetchDidFail({ request: e }) {
+        await this._queue.pushRequest({ request: e });
+      }
+    };
+  let Q = {
+    cacheWillUpdate: async ({ response: e }) =>
+      200 === e.status || 0 === e.status ? e : null,
+  };
+  function V(e) {
+    return "string" == typeof e ? new Request(e) : e;
+  }
+  var z = class {
+      event;
+      request;
+      url;
+      params;
+      _cacheKeys = {};
+      _strategy;
+      _handlerDeferred;
+      _extendLifetimePromises;
+      _plugins;
+      _pluginStateMap;
+      constructor(e, t) {
+        for (let a of ((this.event = t.event),
+        (this.request = t.request),
+        t.url && ((this.url = t.url), (this.params = t.params)),
+        (this._strategy = e),
+        (this._handlerDeferred = new u()),
+        (this._extendLifetimePromises = []),
+        (this._plugins = [...e.plugins]),
+        (this._pluginStateMap = new Map()),
+        this._plugins))
+          this._pluginStateMap.set(a, {});
+        this.event.waitUntil(this._handlerDeferred.promise);
+      }
+      async fetch(e) {
+        let { event: t } = this,
+          a = V(e),
+          s = await this.getPreloadResponse();
+        if (s) return s;
+        let r = this.hasCallback("fetchDidFail") ? a.clone() : null;
+        try {
+          for (let e of this.iterateCallbacks("requestWillFetch"))
+            a = await e({ request: a.clone(), event: t });
+        } catch (e) {
+          if (e instanceof Error)
+            throw new i("plugin-error-request-will-fetch", {
+              thrownErrorMessage: e.message,
+            });
+        }
+        let n = a.clone();
+        try {
+          let e;
+          for (let s of ((e = await fetch(
+            a,
+            "navigate" === a.mode ? void 0 : this._strategy.fetchOptions
+          )),
+          this.iterateCallbacks("fetchDidSucceed")))
+            e = await s({ event: t, request: n, response: e });
+          return e;
+        } catch (e) {
+          throw (
+            r &&
+              (await this.runCallbacks("fetchDidFail", {
+                error: e,
+                event: t,
+                originalRequest: r.clone(),
+                request: n.clone(),
+              })),
+            e
+          );
+        }
+      }
+      async fetchAndCachePut(e) {
+        let t = await this.fetch(e),
+          a = t.clone();
+        return (this.waitUntil(this.cachePut(e, a)), t);
+      }
+      async cacheMatch(e) {
+        let t,
+          a = V(e),
+          { cacheName: s, matchOptions: r } = this._strategy,
+          n = await this.getCacheKey(a, "read"),
+          i = { ...r, cacheName: s };
+        for (let e of ((t = await caches.match(n, i)),
+        this.iterateCallbacks("cachedResponseWillBeUsed")))
+          t =
+            (await e({
+              cacheName: s,
+              matchOptions: r,
+              cachedResponse: t,
+              request: n,
+              event: this.event,
+            })) || void 0;
+        return t;
+      }
+      async cachePut(e, t) {
+        let a = V(e);
+        await c(0);
+        let s = await this.getCacheKey(a, "write");
+        if (!t)
+          throw new i("cache-put-with-no-response", {
+            url: new URL(String(s.url), location.href).href.replace(
+              RegExp(`^${location.origin}`),
+              ""
+            ),
+          });
+        let r = await this._ensureResponseSafeToCache(t);
+        if (!r) return !1;
+        let { cacheName: n, matchOptions: o } = this._strategy,
+          l = await self.caches.open(n),
+          u = this.hasCallback("cacheDidUpdate"),
+          m = u ? await h(l, s.clone(), ["__WB_REVISION__"], o) : null;
+        try {
+          await l.put(s, u ? r.clone() : r);
+        } catch (e) {
+          if (e instanceof Error)
+            throw ("QuotaExceededError" === e.name && (await d()), e);
+        }
+        for (let e of this.iterateCallbacks("cacheDidUpdate"))
+          await e({
+            cacheName: n,
+            oldResponse: m,
+            newResponse: r.clone(),
+            request: s,
+            event: this.event,
+          });
+        return !0;
+      }
+      async getCacheKey(e, t) {
+        let a = `${e.url} | ${t}`;
+        if (!this._cacheKeys[a]) {
+          let s = e;
+          for (let e of this.iterateCallbacks("cacheKeyWillBeUsed"))
+            s = V(
+              await e({
+                mode: t,
+                request: s,
+                event: this.event,
+                params: this.params,
+              })
+            );
+          this._cacheKeys[a] = s;
+        }
+        return this._cacheKeys[a];
+      }
+      hasCallback(e) {
+        for (let t of this._strategy.plugins) if (e in t) return !0;
+        return !1;
+      }
+      async runCallbacks(e, t) {
+        for (let a of this.iterateCallbacks(e)) await a(t);
+      }
+      *iterateCallbacks(e) {
+        for (let t of this._strategy.plugins)
+          if ("function" == typeof t[e]) {
+            let a = this._pluginStateMap.get(t),
+              s = s => {
+                let r = { ...s, state: a };
+                return t[e](r);
+              };
+            yield s;
+          }
+      }
+      waitUntil(e) {
+        return (this._extendLifetimePromises.push(e), e);
+      }
+      async doneWaiting() {
+        let e;
+        for (; (e = this._extendLifetimePromises.shift()); ) await e;
+      }
+      destroy() {
+        this._handlerDeferred.resolve(null);
+      }
+      async getPreloadResponse() {
+        if (
+          this.event instanceof FetchEvent &&
+          "navigate" === this.event.request.mode &&
+          "preloadResponse" in this.event
+        )
+          try {
+            let e = await this.event.preloadResponse;
+            if (e) return e;
+          } catch (e) {
+            return;
+          }
+      }
+      async _ensureResponseSafeToCache(e) {
+        let t = e,
+          a = !1;
+        for (let e of this.iterateCallbacks("cacheWillUpdate"))
+          if (
+            ((t =
+              (await e({
+                request: this.request,
+                response: t,
+                event: this.event,
+              })) || void 0),
+            (a = !0),
+            !t)
+          )
+            break;
+        return (!a && t && 200 !== t.status && (t = void 0), t);
+      }
+    },
+    J = class {
+      cacheName;
+      plugins;
+      fetchOptions;
+      matchOptions;
+      constructor(e = {}) {
+        ((this.cacheName = n.getRuntimeName(e.cacheName)),
+          (this.plugins = e.plugins || []),
+          (this.fetchOptions = e.fetchOptions),
+          (this.matchOptions = e.matchOptions));
+      }
+      handle(e) {
+        let [t] = this.handleAll(e);
+        return t;
+      }
+      handleAll(e) {
+        e instanceof FetchEvent && (e = { event: e, request: e.request });
+        let t = e.event,
+          a = "string" == typeof e.request ? new Request(e.request) : e.request,
+          s = new z(
+            this,
+            e.url
+              ? { event: t, request: a, url: e.url, params: e.params }
+              : { event: t, request: a }
+          ),
+          r = this._getResponse(s, a, t);
+        return [r, this._awaitComplete(r, s, a, t)];
+      }
+      async _getResponse(e, t, a) {
+        let s;
+        await e.runCallbacks("handlerWillStart", { event: a, request: t });
+        try {
+          if (
+            ((s = await this._handle(t, e)), void 0 === s || "error" === s.type)
+          )
+            throw new i("no-response", { url: t.url });
+        } catch (r) {
+          if (r instanceof Error) {
+            for (let n of e.iterateCallbacks("handlerDidError"))
+              if (void 0 !== (s = await n({ error: r, event: a, request: t })))
+                break;
+          }
+          if (!s) throw r;
+        }
+        for (let r of e.iterateCallbacks("handlerWillRespond"))
+          s = await r({ event: a, request: t, response: s });
+        return s;
+      }
+      async _awaitComplete(e, t, a, s) {
+        let r, n;
+        try {
+          r = await e;
+        } catch {}
+        try {
+          (await t.runCallbacks("handlerDidRespond", {
+            event: s,
+            request: a,
+            response: r,
+          }),
+            await t.doneWaiting());
+        } catch (e) {
+          e instanceof Error && (n = e);
+        }
+        if (
+          (await t.runCallbacks("handlerDidComplete", {
+            event: s,
+            request: a,
+            response: r,
+            error: n,
+          }),
+          t.destroy(),
+          n)
+        )
+          throw n;
+      }
+    },
+    X = class extends J {
+      _networkTimeoutSeconds;
+      constructor(e = {}) {
+        (super(e),
+          this.plugins.some(e => "cacheWillUpdate" in e) ||
+            this.plugins.unshift(Q),
+          (this._networkTimeoutSeconds = e.networkTimeoutSeconds || 0));
+      }
+      async _handle(e, t) {
+        let a,
+          s = [],
+          r = [];
+        if (this._networkTimeoutSeconds) {
+          let { id: n, promise: i } = this._getTimeoutPromise({
+            request: e,
+            logs: s,
+            handler: t,
+          });
+          ((a = n), r.push(i));
+        }
+        let n = this._getNetworkPromise({
+          timeoutId: a,
+          request: e,
+          logs: s,
+          handler: t,
+        });
+        r.push(n);
+        let c = await t.waitUntil(
+          (async () => (await t.waitUntil(Promise.race(r))) || (await n))()
+        );
+        if (!c) throw new i("no-response", { url: e.url });
+        return c;
+      }
+      _getTimeoutPromise({ request: e, logs: t, handler: a }) {
+        let s;
+        return {
+          promise: new Promise(t => {
+            s = setTimeout(async () => {
+              t(await a.cacheMatch(e));
+            }, 1e3 * this._networkTimeoutSeconds);
+          }),
+          id: s,
+        };
+      }
+      async _getNetworkPromise({
+        timeoutId: e,
+        request: t,
+        logs: a,
+        handler: s,
+      }) {
+        let r, n;
+        try {
+          n = await s.fetchAndCachePut(t);
+        } catch (e) {
+          e instanceof Error && (r = e);
+        }
+        return (
+          e && clearTimeout(e),
+          (r || !n) && (n = await s.cacheMatch(t)),
+          n
+        );
+      }
+    },
+    Y = class extends J {
+      _networkTimeoutSeconds;
+      constructor(e = {}) {
+        (super(e),
+          (this._networkTimeoutSeconds = e.networkTimeoutSeconds || 0));
+      }
+      async _handle(e, t) {
+        let a, s;
+        try {
+          let a = [t.fetch(e)];
+          if (this._networkTimeoutSeconds) {
+            let e = c(1e3 * this._networkTimeoutSeconds);
+            a.push(e);
+          }
+          if (!(s = await Promise.race(a)))
+            throw Error(
+              `Timed out the network response after ${this._networkTimeoutSeconds} seconds.`
+            );
+        } catch (e) {
+          e instanceof Error && (a = e);
+        }
+        if (!s) throw new i("no-response", { url: e.url, error: a });
+        return s;
+      }
+    };
+  let Z = e => (e && "object" == typeof e ? e : { handle: e });
+  var ee = class {
+      handler;
+      match;
+      method;
+      catchHandler;
+      constructor(e, t, a = "GET") {
+        ((this.handler = Z(t)), (this.match = e), (this.method = a));
+      }
+      setCatchHandler(e) {
+        this.catchHandler = Z(e);
+      }
+    },
+    et = class e extends J {
+      _fallbackToNetwork;
+      static defaultPrecacheCacheabilityPlugin = {
+        cacheWillUpdate: async ({ response: e }) =>
+          !e || e.status >= 400 ? null : e,
+      };
+      static copyRedirectedCacheableResponsesPlugin = {
+        cacheWillUpdate: async ({ response: e }) =>
+          e.redirected ? await L(e) : e,
+      };
+      constructor(t = {}) {
+        ((t.cacheName = n.getPrecacheName(t.cacheName)),
+          super(t),
+          (this._fallbackToNetwork = !1 !== t.fallbackToNetwork),
+          this.plugins.push(e.copyRedirectedCacheableResponsesPlugin));
+      }
+      async _handle(e, t) {
+        let a = await t.getPreloadResponse();
+        if (a) return a;
+        let s = await t.cacheMatch(e);
+        return (
+          s ||
+          (t.event && "install" === t.event.type
+            ? await this._handleInstall(e, t)
+            : await this._handleFetch(e, t))
+        );
+      }
+      async _handleFetch(e, t) {
+        let a,
+          s = t.params || {};
+        if (this._fallbackToNetwork) {
+          let r = s.integrity,
+            n = e.integrity,
+            i = !n || n === r;
+          ((a = await t.fetch(
+            new Request(e, {
+              integrity: "no-cors" !== e.mode ? n || r : void 0,
+            })
+          )),
+            r &&
+              i &&
+              "no-cors" !== e.mode &&
+              (this._useDefaultCacheabilityPluginIfNeeded(),
+              await t.cachePut(e, a.clone())));
+        } else
+          throw new i("missing-precache-entry", {
+            cacheName: this.cacheName,
+            url: e.url,
+          });
+        return a;
+      }
+      async _handleInstall(e, t) {
+        this._useDefaultCacheabilityPluginIfNeeded();
+        let a = await t.fetch(e);
+        if (!(await t.cachePut(e, a.clone())))
+          throw new i("bad-precaching-response", {
+            url: e.url,
+            status: a.status,
+          });
+        return a;
+      }
+      _useDefaultCacheabilityPluginIfNeeded() {
+        let t = null,
+          a = 0;
+        for (let [s, r] of this.plugins.entries())
+          r !== e.copyRedirectedCacheableResponsesPlugin &&
+            (r === e.defaultPrecacheCacheabilityPlugin && (t = s),
+            r.cacheWillUpdate && a++);
+        0 === a
+          ? this.plugins.push(e.defaultPrecacheCacheabilityPlugin)
+          : a > 1 && null !== t && this.plugins.splice(t, 1);
+      }
+    },
+    ea = class extends ee {
+      _allowlist;
+      _denylist;
+      constructor(e, { allowlist: t = [/./], denylist: a = [] } = {}) {
+        (super(e => this._match(e), e),
+          (this._allowlist = t),
+          (this._denylist = a));
+      }
+      _match({ url: e, request: t }) {
+        if (t && "navigate" !== t.mode) return !1;
+        let a = e.pathname + e.search;
+        for (let e of this._denylist) if (e.test(a)) return !1;
+        return !!this._allowlist.some(e => e.test(a));
+      }
+    },
+    es = class extends ee {
+      constructor(e, t, a) {
+        super(
+          ({ url: t }) => {
+            let a = e.exec(t.href);
+            if (a)
+              return t.origin !== location.origin && 0 !== a.index
+                ? void 0
+                : a.slice(1);
+          },
+          t,
+          a
+        );
+      }
+    };
+  let er = e => {
+    if (!e) throw new i("add-to-cache-list-unexpected-type", { entry: e });
+    if ("string" == typeof e) {
+      let t = new URL(e, location.href);
+      return { cacheKey: t.href, url: t.href };
+    }
+    let { revision: t, url: a } = e;
+    if (!a) throw new i("add-to-cache-list-unexpected-type", { entry: e });
+    if (!t) {
+      let e = new URL(a, location.href);
+      return { cacheKey: e.href, url: e.href };
+    }
+    let s = new URL(a, location.href),
+      r = new URL(a, location.href);
+    return (
+      s.searchParams.set("__WB_REVISION__", t),
+      { cacheKey: s.href, url: r.href }
+    );
+  };
+  var en = class {
+    updatedURLs = [];
+    notUpdatedURLs = [];
+    handlerWillStart = async ({ request: e, state: t }) => {
+      t && (t.originalRequest = e);
+    };
+    cachedResponseWillBeUsed = async ({
+      event: e,
+      state: t,
+      cachedResponse: a,
+    }) => {
+      if (
+        "install" === e.type &&
+        t?.originalRequest &&
+        t.originalRequest instanceof Request
+      ) {
+        let e = t.originalRequest.url;
+        a ? this.notUpdatedURLs.push(e) : this.updatedURLs.push(e);
+      }
+      return a;
+    };
+  };
+  let ei = async (e, t, a) => {
+    let s = t.map((e, t) => ({ index: t, item: e })),
+      r = async e => {
+        let t = [];
+        for (;;) {
+          let r = s.pop();
+          if (!r) return e(t);
+          let n = await a(r.item);
+          t.push({ result: n, index: r.index });
+        }
+      },
+      n = Array.from({ length: e }, () => new Promise(r));
+    return (await Promise.all(n))
+      .flat()
+      .sort((e, t) => (e.index < t.index ? -1 : 1))
+      .map(e => e.result);
+  };
+  "undefined" != typeof navigator &&
+    /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  let ec = "cache-entries",
+    eo = e => {
+      let t = new URL(e, location.href);
+      return ((t.hash = ""), t.href);
+    };
+  var el = class {
+      _cacheName;
+      _db = null;
+      constructor(e) {
+        this._cacheName = e;
+      }
+      _getId(e) {
+        return `${this._cacheName}|${eo(e)}`;
+      }
+      _upgradeDb(e) {
+        let t = e.createObjectStore(ec, { keyPath: "id" });
+        (t.createIndex("cacheName", "cacheName", { unique: !1 }),
+          t.createIndex("timestamp", "timestamp", { unique: !1 }));
+      }
+      _upgradeDbAndDeleteOldDbs(e) {
+        (this._upgradeDb(e),
+          this._cacheName &&
+            (function (e, { blocked: t } = {}) {
+              let a = indexedDB.deleteDatabase(e);
+              (t && a.addEventListener("blocked", e => t(e.oldVersion, e)),
+                v(a).then(() => void 0));
+            })(this._cacheName));
+      }
+      async setTimestamp(e, t) {
+        e = eo(e);
+        let a = {
+            id: this._getId(e),
+            cacheName: this._cacheName,
+            url: e,
+            timestamp: t,
+          },
+          s = (await this.getDb()).transaction(ec, "readwrite", {
+            durability: "relaxed",
+          });
+        (await s.store.put(a), await s.done);
+      }
+      async getTimestamp(e) {
+        return (await (await this.getDb()).get(ec, this._getId(e)))?.timestamp;
+      }
+      async expireEntries(e, t) {
+        let a = await (await this.getDb())
+            .transaction(ec, "readwrite")
+            .store.index("timestamp")
+            .openCursor(null, "prev"),
+          s = [],
+          r = 0;
+        for (; a; ) {
+          let n = a.value;
+          (n.cacheName === this._cacheName &&
+            ((e && n.timestamp < e) || (t && r >= t)
+              ? (a.delete(), s.push(n.url))
+              : r++),
+            (a = await a.continue()));
+        }
+        return s;
+      }
+      async getDb() {
+        return (
+          this._db ||
+            (this._db = await E("serwist-expiration", 1, {
+              upgrade: this._upgradeDbAndDeleteOldDbs.bind(this),
+            })),
+          this._db
+        );
+      }
+    },
+    eh = class {
+      _isRunning = !1;
+      _rerunRequested = !1;
+      _maxEntries;
+      _maxAgeSeconds;
+      _matchOptions;
+      _cacheName;
+      _timestampModel;
+      constructor(e, t = {}) {
+        ((this._maxEntries = t.maxEntries),
+          (this._maxAgeSeconds = t.maxAgeSeconds),
+          (this._matchOptions = t.matchOptions),
+          (this._cacheName = e),
+          (this._timestampModel = new el(e)));
+      }
+      async expireEntries() {
+        if (this._isRunning) {
+          this._rerunRequested = !0;
+          return;
+        }
+        this._isRunning = !0;
+        let e = this._maxAgeSeconds
+            ? Date.now() - 1e3 * this._maxAgeSeconds
+            : 0,
+          t = await this._timestampModel.expireEntries(e, this._maxEntries),
+          a = await self.caches.open(this._cacheName);
+        for (let e of t) await a.delete(e, this._matchOptions);
+        ((this._isRunning = !1),
+          this._rerunRequested &&
+            ((this._rerunRequested = !1), this.expireEntries()));
+      }
+      async updateTimestamp(e) {
+        await this._timestampModel.setTimestamp(e, Date.now());
+      }
+      async isURLExpired(e) {
+        if (!this._maxAgeSeconds) return !1;
+        let t = await this._timestampModel.getTimestamp(e),
+          a = Date.now() - 1e3 * this._maxAgeSeconds;
+        return void 0 === t || t < a;
+      }
+      async delete() {
+        ((this._rerunRequested = !1),
+          await this._timestampModel.expireEntries(1 / 0));
+      }
+    },
+    eu = class {
+      _config;
+      _cacheExpirations;
+      constructor(e = {}) {
+        var t;
+        ((this._config = e),
+          (this._cacheExpirations = new Map()),
+          this._config.maxAgeFrom || (this._config.maxAgeFrom = "last-fetched"),
+          this._config.purgeOnQuotaError &&
+            ((t = () => this.deleteCacheAndMetadata()), o.add(t)));
+      }
+      _getCacheExpiration(e) {
+        if (e === n.getRuntimeName()) throw new i("expire-custom-caches-only");
+        let t = this._cacheExpirations.get(e);
+        return (
+          t ||
+            ((t = new eh(e, this._config)), this._cacheExpirations.set(e, t)),
+          t
+        );
+      }
+      cachedResponseWillBeUsed({
+        event: e,
+        cacheName: t,
+        request: a,
+        cachedResponse: s,
+      }) {
+        if (!s) return null;
+        let r = this._isResponseDateFresh(s),
+          n = this._getCacheExpiration(t),
+          i = "last-used" === this._config.maxAgeFrom,
+          c = (async () => {
+            (i && (await n.updateTimestamp(a.url)), await n.expireEntries());
+          })();
+        try {
+          e.waitUntil(c);
+        } catch {}
+        return r ? s : null;
+      }
+      _isResponseDateFresh(e) {
+        if ("last-used" === this._config.maxAgeFrom) return !0;
+        let t = Date.now();
+        if (!this._config.maxAgeSeconds) return !0;
+        let a = this._getDateHeaderTimestamp(e);
+        return null === a || a >= t - 1e3 * this._config.maxAgeSeconds;
+      }
+      _getDateHeaderTimestamp(e) {
+        if (!e.headers.has("date")) return null;
+        let t = new Date(e.headers.get("date")).getTime();
+        return Number.isNaN(t) ? null : t;
+      }
+      async cacheDidUpdate({ cacheName: e, request: t }) {
+        let a = this._getCacheExpiration(e);
+        (await a.updateTimestamp(t.url), await a.expireEntries());
+      }
+      async deleteCacheAndMetadata() {
+        for (let [e, t] of this._cacheExpirations)
+          (await self.caches.delete(e), await t.delete());
+        this._cacheExpirations = new Map();
+      }
+    };
+  let ed = /^\/(\w+\/)?collect/,
+    em = ({ serwist: e, cacheName: t, ...a }) => {
+      let s = n.getGoogleAnalyticsName(t),
+        r = new G("serwist-google-analytics", {
+          maxRetentionTime: 2880,
+          onSync: (
+            e =>
+            async ({ queue: t }) => {
+              let a;
+              for (; (a = await t.shiftRequest()); ) {
+                let { request: s, timestamp: r } = a,
+                  n = new URL(s.url);
+                try {
+                  let t =
+                      "POST" === s.method
+                        ? new URLSearchParams(await s.clone().text())
+                        : n.searchParams,
+                    a = r - (Number(t.get("qt")) || 0),
+                    i = Date.now() - a;
+                  if ((t.set("qt", String(i)), e.parameterOverrides))
+                    for (let a of Object.keys(e.parameterOverrides)) {
+                      let s = e.parameterOverrides[a];
+                      t.set(a, s);
+                    }
+                  ("function" == typeof e.hitFilter &&
+                    e.hitFilter.call(null, t),
+                    await fetch(
+                      new Request(n.origin + n.pathname, {
+                        body: t.toString(),
+                        method: "POST",
+                        mode: "cors",
+                        credentials: "omit",
+                        headers: { "Content-Type": "text/plain" },
+                      })
+                    ));
+                } catch (e) {
+                  throw (await t.unshiftRequest(a), e);
+                }
+              }
+            }
+          )(a),
+        });
+      for (let t of [
+        new ee(
+          ({ url: e }) =>
+            "www.googletagmanager.com" === e.hostname &&
+            "/gtm.js" === e.pathname,
+          new X({ cacheName: s }),
+          "GET"
+        ),
+        new ee(
+          ({ url: e }) =>
+            "www.google-analytics.com" === e.hostname &&
+            "/analytics.js" === e.pathname,
+          new X({ cacheName: s }),
+          "GET"
+        ),
+        new ee(
+          ({ url: e }) =>
+            "www.googletagmanager.com" === e.hostname &&
+            "/gtag/js" === e.pathname,
+          new X({ cacheName: s }),
+          "GET"
+        ),
+        ...(e => {
+          let t = ({ url: e }) =>
+              "www.google-analytics.com" === e.hostname && ed.test(e.pathname),
+            a = new Y({ plugins: [e] });
+          return [new ee(t, a, "GET"), new ee(t, a, "POST")];
+        })(r),
+      ])
+        e.registerRoute(t);
+    };
+  var ef = class {
+    _fallbackUrls;
+    _serwist;
+    constructor({ fallbackUrls: e, serwist: t }) {
+      ((this._fallbackUrls = e), (this._serwist = t));
+    }
+    async handlerDidError(e) {
+      for (let t of this._fallbackUrls)
+        if ("string" == typeof t) {
+          let e = await this._serwist.matchPrecache(t);
+          if (void 0 !== e) return e;
+        } else if (t.matcher(e)) {
+          let e = await this._serwist.matchPrecache(t.url);
+          if (void 0 !== e) return e;
+        }
+    }
+  };
+  let eg = async (e, t) => {
+    try {
+      if (206 === t.status) return t;
+      let a = e.headers.get("range");
+      if (!a) throw new i("no-range-header");
+      let s = (e => {
+          let t = e.trim().toLowerCase();
+          if (!t.startsWith("bytes="))
+            throw new i("unit-must-be-bytes", { normalizedRangeHeader: t });
+          if (t.includes(","))
+            throw new i("single-range-only", { normalizedRangeHeader: t });
+          let a = /(\d*)-(\d*)/.exec(t);
+          if (!a || !(a[1] || a[2]))
+            throw new i("invalid-range-values", { normalizedRangeHeader: t });
+          return {
+            start: "" === a[1] ? void 0 : Number(a[1]),
+            end: "" === a[2] ? void 0 : Number(a[2]),
+          };
+        })(a),
+        r = await t.blob(),
+        n = ((e, t, a) => {
+          let s,
+            r,
+            n = e.size;
+          if ((a && a > n) || (t && t < 0))
+            throw new i("range-not-satisfiable", { size: n, end: a, start: t });
+          return (
+            void 0 !== t && void 0 !== a
+              ? ((s = t), (r = a + 1))
+              : void 0 !== t && void 0 === a
+                ? ((s = t), (r = n))
+                : void 0 !== a && void 0 === t && ((s = n - a), (r = n)),
+            { start: s, end: r }
+          );
+        })(r, s.start, s.end),
+        c = r.slice(n.start, n.end),
+        o = c.size,
+        l = new Response(c, {
+          status: 206,
+          statusText: "Partial Content",
+          headers: t.headers,
+        });
+      return (
+        l.headers.set("Content-Length", String(o)),
+        l.headers.set(
+          "Content-Range",
+          `bytes ${n.start}-${n.end - 1}/${r.size}`
+        ),
+        l
+      );
+    } catch (e) {
+      return new Response("", {
+        status: 416,
+        statusText: "Range Not Satisfiable",
+      });
+    }
+  };
+  var ep = class {
+      cachedResponseWillBeUsed = async ({ request: e, cachedResponse: t }) =>
+        t && e.headers.has("range") ? await eg(e, t) : t;
+    },
+    ew = class extends J {
+      async _handle(e, t) {
+        let a,
+          s = await t.cacheMatch(e);
+        if (s);
+        else
+          try {
+            s = await t.fetchAndCachePut(e);
+          } catch (e) {
+            e instanceof Error && (a = e);
+          }
+        if (!s) throw new i("no-response", { url: e.url, error: a });
+        return s;
+      }
+    },
+    ey = class extends J {
+      constructor(e = {}) {
+        (super(e),
+          this.plugins.some(e => "cacheWillUpdate" in e) ||
+            this.plugins.unshift(Q));
+      }
+      async _handle(e, t) {
+        let a,
+          s = t.fetchAndCachePut(e).catch(() => {});
+        t.waitUntil(s);
+        let r = await t.cacheMatch(e);
+        if (r);
+        else
+          try {
+            r = await s;
+          } catch (e) {
+            e instanceof Error && (a = e);
+          }
+        if (!r) throw new i("no-response", { url: e.url, error: a });
+        return r;
+      }
+    },
+    e_ = class extends ee {
+      constructor(e, t) {
+        super(({ request: a }) => {
+          let s = e.getUrlsToPrecacheKeys();
+          for (let r of (function* (
+            e,
+            {
+              directoryIndex: t = "index.html",
+              ignoreURLParametersMatching: a = [/^utm_/, /^fbclid$/],
+              cleanURLs: s = !0,
+              urlManipulation: r,
+            } = {}
+          ) {
+            let n = new URL(e, location.href);
+            ((n.hash = ""), yield n.href);
+            let i = ((e, t = []) => {
+              for (let a of [...e.searchParams.keys()])
+                t.some(e => e.test(a)) && e.searchParams.delete(a);
+              return e;
+            })(n, a);
+            if ((yield i.href, t && i.pathname.endsWith("/"))) {
+              let e = new URL(i.href);
+              ((e.pathname += t), yield e.href);
+            }
+            if (s) {
+              let e = new URL(i.href);
+              ((e.pathname += ".html"), yield e.href);
+            }
+            if (r) for (let e of r({ url: n })) yield e.href;
+          })(a.url, t)) {
+            let t = s.get(r);
+            if (t)
+              return {
+                cacheKey: t,
+                integrity: e.getIntegrityForPrecacheKey(t),
+              };
+          }
+        }, e.precacheStrategy);
+      }
+    },
+    eb = class {
+      _precacheController;
+      constructor({ precacheController: e }) {
+        this._precacheController = e;
+      }
+      cacheKeyWillBeUsed = async ({ request: e, params: t }) => {
+        let a =
+          t?.cacheKey || this._precacheController.getPrecacheKeyForUrl(e.url);
+        return a ? new Request(a, { headers: e.headers }) : e;
+      };
+    },
+    ev = class {
+      _urlsToCacheKeys = new Map();
+      _urlsToCacheModes = new Map();
+      _cacheKeysToIntegrities = new Map();
+      _concurrentPrecaching;
+      _precacheStrategy;
+      _routes;
+      _defaultHandlerMap;
+      _catchHandler;
+      _requestRules;
+      constructor({
+        precacheEntries: e,
+        precacheOptions: t,
+        skipWaiting: a = !1,
+        importScripts: s,
+        navigationPreload: r = !1,
+        cacheId: i,
+        clientsClaim: c = !1,
+        runtimeCaching: o,
+        offlineAnalyticsConfig: l,
+        disableDevLogs: h = !1,
+        fallbacks: u,
+        requestRules: d,
+      } = {}) {
+        var m, g;
+        let {
+          precacheStrategyOptions: p,
+          precacheRouteOptions: w,
+          precacheMiscOptions: y,
+        } = ((e, t = {}) => {
+          let {
+            cacheName: a,
+            plugins: s = [],
+            fetchOptions: r,
+            matchOptions: i,
+            fallbackToNetwork: c,
+            directoryIndex: o,
+            ignoreURLParametersMatching: l,
+            cleanURLs: h,
+            urlManipulation: u,
+            cleanupOutdatedCaches: d,
+            concurrency: m = 10,
+            navigateFallback: f,
+            navigateFallbackAllowlist: g,
+            navigateFallbackDenylist: p,
+          } = t ?? {};
+          return {
+            precacheStrategyOptions: {
+              cacheName: n.getPrecacheName(a),
+              plugins: [...s, new eb({ precacheController: e })],
+              fetchOptions: r,
+              matchOptions: i,
+              fallbackToNetwork: c,
+            },
+            precacheRouteOptions: {
+              directoryIndex: o,
+              ignoreURLParametersMatching: l,
+              cleanURLs: h,
+              urlManipulation: u,
+            },
+            precacheMiscOptions: {
+              cleanupOutdatedCaches: d,
+              concurrency: m,
+              navigateFallback: f,
+              navigateFallbackAllowlist: g,
+              navigateFallbackDenylist: p,
+            },
+          };
+        })(this, t);
+        if (
+          ((this._concurrentPrecaching = y.concurrency),
+          (this._precacheStrategy = new et(p)),
+          (this._routes = new Map()),
+          (this._defaultHandlerMap = new Map()),
+          (this._requestRules = d),
+          (this.handleInstall = this.handleInstall.bind(this)),
+          (this.handleActivate = this.handleActivate.bind(this)),
+          (this.handleFetch = this.handleFetch.bind(this)),
+          (this.handleCache = this.handleCache.bind(this)),
+          s && s.length > 0 && self.importScripts(...s),
+          r &&
+            self.registration?.navigationPreload &&
+            self.addEventListener("activate", e => {
+              e.waitUntil(
+                self.registration.navigationPreload.enable().then(() => {})
+              );
+            }),
+          void 0 !== i && ((m = { prefix: i }), n.updateDetails(m)),
+          a
+            ? self.skipWaiting()
+            : self.addEventListener("message", e => {
+                e.data && "SKIP_WAITING" === e.data.type && self.skipWaiting();
+              }),
+          c && self.addEventListener("activate", () => self.clients.claim()),
+          e && e.length > 0 && this.addToPrecacheList(e),
+          y.cleanupOutdatedCaches &&
+            ((g = p.cacheName),
+            self.addEventListener("activate", e => {
+              e.waitUntil(f(n.getPrecacheName(g)).then(e => {}));
+            })),
+          this.registerRoute(new e_(this, w)),
+          y.navigateFallback &&
+            this.registerRoute(
+              new ea(this.createHandlerBoundToUrl(y.navigateFallback), {
+                allowlist: y.navigateFallbackAllowlist,
+                denylist: y.navigateFallbackDenylist,
+              })
+            ),
+          void 0 !== l &&
+            ("boolean" == typeof l
+              ? l && em({ serwist: this })
+              : em({ ...l, serwist: this })),
+          void 0 !== o)
+        ) {
+          if (void 0 !== u) {
+            let e = new ef({ fallbackUrls: u.entries, serwist: this });
+            o.forEach(t => {
+              t.handler instanceof J &&
+                !t.handler.plugins.some(e => "handlerDidError" in e) &&
+                t.handler.plugins.push(e);
+            });
+          }
+          for (let e of o) this.registerCapture(e.matcher, e.handler, e.method);
+        }
+        h && (self.__WB_DISABLE_DEV_LOGS = !0);
+      }
+      get precacheStrategy() {
+        return this._precacheStrategy;
+      }
+      get routes() {
+        return this._routes;
+      }
+      addEventListeners() {
+        (self.addEventListener("install", this.handleInstall),
+          self.addEventListener("activate", this.handleActivate),
+          self.addEventListener("fetch", this.handleFetch),
+          self.addEventListener("message", this.handleCache));
+      }
+      addToPrecacheList(e) {
+        let t = [];
+        for (let a of e) {
+          "string" == typeof a
+            ? t.push(a)
+            : a && !a.integrity && void 0 === a.revision && t.push(a.url);
+          let { cacheKey: e, url: s } = er(a),
+            r = "string" != typeof a && a.revision ? "reload" : "default";
+          if (
+            this._urlsToCacheKeys.has(s) &&
+            this._urlsToCacheKeys.get(s) !== e
+          )
+            throw new i("add-to-cache-list-conflicting-entries", {
+              firstEntry: this._urlsToCacheKeys.get(s),
+              secondEntry: e,
+            });
+          if ("string" != typeof a && a.integrity) {
+            if (
+              this._cacheKeysToIntegrities.has(e) &&
+              this._cacheKeysToIntegrities.get(e) !== a.integrity
+            )
+              throw new i("add-to-cache-list-conflicting-integrities", {
+                url: s,
+              });
+            this._cacheKeysToIntegrities.set(e, a.integrity);
+          }
+          (this._urlsToCacheKeys.set(s, e), this._urlsToCacheModes.set(s, r));
+        }
+        t.length > 0 &&
+          console.warn(`Serwist is precaching URLs without revision info: ${t.join(", ")}
+This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
+      }
+      handleInstall(e) {
+        return (
+          this.registerRequestRules(e),
+          g(e, async () => {
+            let t = new en();
+            (this.precacheStrategy.plugins.push(t),
+              await ei(
+                this._concurrentPrecaching,
+                Array.from(this._urlsToCacheKeys.entries()),
+                async ([t, a]) => {
+                  let s = this._cacheKeysToIntegrities.get(a),
+                    r = this._urlsToCacheModes.get(t),
+                    n = new Request(t, {
+                      integrity: s,
+                      cache: r,
+                      credentials: "same-origin",
+                    });
+                  await Promise.all(
+                    this.precacheStrategy.handleAll({
+                      event: e,
+                      request: n,
+                      url: new URL(n.url),
+                      params: { cacheKey: a },
+                    })
+                  );
+                }
+              ));
+            let { updatedURLs: a, notUpdatedURLs: s } = t;
+            return { updatedURLs: a, notUpdatedURLs: s };
+          })
+        );
+      }
+      async registerRequestRules(e) {
+        if (this._requestRules && e?.addRoutes)
+          try {
+            (await e.addRoutes(this._requestRules),
+              (this._requestRules = void 0));
+          } catch (e) {
+            throw e;
+          }
+      }
+      handleActivate(e) {
+        return g(e, async () => {
+          let e = await self.caches.open(this.precacheStrategy.cacheName),
+            t = await e.keys(),
+            a = new Set(this._urlsToCacheKeys.values()),
+            s = [];
+          for (let r of t) a.has(r.url) || (await e.delete(r), s.push(r.url));
+          return { deletedCacheRequests: s };
+        });
+      }
+      handleFetch(e) {
+        let { request: t } = e,
+          a = this.handleRequest({ request: t, event: e });
+        a && e.respondWith(a);
+      }
+      handleCache(e) {
+        if (e.data && "CACHE_URLS" === e.data.type) {
+          let { payload: t } = e.data,
+            a = Promise.all(
+              t.urlsToCache.map(t => {
+                let a;
+                return (
+                  (a =
+                    "string" == typeof t ? new Request(t) : new Request(...t)),
+                  this.handleRequest({ request: a, event: e })
+                );
+              })
+            );
+          (e.waitUntil(a),
+            e.ports?.[0] && a.then(() => e.ports[0].postMessage(!0)));
+        }
+      }
+      setDefaultHandler(e, t = "GET") {
+        this._defaultHandlerMap.set(t, Z(e));
+      }
+      setCatchHandler(e) {
+        this._catchHandler = Z(e);
+      }
+      registerCapture(e, t, a) {
+        let s = ((e, t, a) => {
+          if ("string" == typeof e) {
+            let s = new URL(e, location.href);
+            return new ee(({ url: e }) => e.href === s.href, t, a);
+          }
+          if (e instanceof RegExp) return new es(e, t, a);
+          if ("function" == typeof e) return new ee(e, t, a);
+          if (e instanceof ee) return e;
+          throw new i("unsupported-route-type", {
+            moduleName: "serwist",
+            funcName: "parseRoute",
+            paramName: "capture",
+          });
+        })(e, t, a);
+        return (this.registerRoute(s), s);
+      }
+      registerRoute(e) {
+        (this._routes.has(e.method) || this._routes.set(e.method, []),
+          this._routes.get(e.method).push(e));
+      }
+      unregisterRoute(e) {
+        if (!this._routes.has(e.method))
+          throw new i("unregister-route-but-not-found-with-method", {
+            method: e.method,
+          });
+        let t = this._routes.get(e.method).indexOf(e);
+        if (t > -1) this._routes.get(e.method).splice(t, 1);
+        else throw new i("unregister-route-route-not-registered");
+      }
+      getUrlsToPrecacheKeys() {
+        return this._urlsToCacheKeys;
+      }
+      getPrecachedUrls() {
+        return [...this._urlsToCacheKeys.keys()];
+      }
+      getPrecacheKeyForUrl(e) {
+        let t = new URL(e, location.href);
+        return this._urlsToCacheKeys.get(t.href);
+      }
+      getIntegrityForPrecacheKey(e) {
+        return this._cacheKeysToIntegrities.get(e);
+      }
+      async matchPrecache(e) {
+        let t = e instanceof Request ? e.url : e,
+          a = this.getPrecacheKeyForUrl(t);
+        if (a)
+          return (
+            await self.caches.open(this.precacheStrategy.cacheName)
+          ).match(a);
+      }
+      createHandlerBoundToUrl(e) {
+        let t = this.getPrecacheKeyForUrl(e);
+        if (!t) throw new i("non-precached-url", { url: e });
+        return a => (
+          (a.request = new Request(e)),
+          (a.params = { cacheKey: t, ...a.params }),
+          this.precacheStrategy.handle(a)
+        );
+      }
+      handleRequest({ request: e, event: t }) {
+        let a,
+          s = new URL(e.url, location.href);
+        if (!s.protocol.startsWith("http")) return;
+        let r = s.origin === location.origin,
+          { params: n, route: i } = this.findMatchingRoute({
+            event: t,
+            request: e,
+            sameOrigin: r,
+            url: s,
+          }),
+          c = i?.handler,
+          o = e.method;
+        if (
+          (!c &&
+            this._defaultHandlerMap.has(o) &&
+            (c = this._defaultHandlerMap.get(o)),
+          !c)
+        )
+          return;
+        try {
+          a = c.handle({ url: s, request: e, event: t, params: n });
+        } catch (e) {
+          a = Promise.reject(e);
+        }
+        let l = i?.catchHandler;
+        return (
+          a instanceof Promise &&
+            (this._catchHandler || l) &&
+            (a = a.catch(async a => {
+              if (l)
+                try {
+                  return await l.handle({
+                    url: s,
+                    request: e,
+                    event: t,
+                    params: n,
+                  });
+                } catch (e) {
+                  e instanceof Error && (a = e);
+                }
+              if (this._catchHandler)
+                return this._catchHandler.handle({
+                  url: s,
+                  request: e,
+                  event: t,
+                });
+              throw a;
+            })),
+          a
+        );
+      }
+      findMatchingRoute({ url: e, sameOrigin: t, request: a, event: s }) {
+        for (let r of this._routes.get(a.method) || []) {
+          let n,
+            i = r.match({ url: e, sameOrigin: t, request: a, event: s });
+          if (i)
+            return (
+              (Array.isArray((n = i)) && 0 === n.length) ||
+              (i.constructor === Object && 0 === Object.keys(i).length)
+                ? (n = void 0)
+                : "boolean" == typeof i && (n = void 0),
+              { route: r, params: n }
+            );
+        }
+        return {};
+      }
+    };
+  let ex = {
+      rscPrefetch: "pages-rsc-prefetch",
+      rsc: "pages-rsc",
+      html: "pages",
+    },
+    eE = [
+      {
+        matcher: /^https:\/\/fonts\.(?:gstatic)\.com\/.*/i,
+        handler: new ew({
+          cacheName: "google-fonts-webfonts",
+          plugins: [
+            new eu({
+              maxEntries: 4,
+              maxAgeSeconds: 31536e3,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /^https:\/\/fonts\.(?:googleapis)\.com\/.*/i,
+        handler: new ey({
+          cacheName: "google-fonts-stylesheets",
+          plugins: [
+            new eu({
+              maxEntries: 4,
+              maxAgeSeconds: 604800,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\.(?:eot|otf|ttc|ttf|woff|woff2|font.css)$/i,
+        handler: new ey({
+          cacheName: "static-font-assets",
+          plugins: [
+            new eu({
+              maxEntries: 4,
+              maxAgeSeconds: 604800,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
+        handler: new ey({
+          cacheName: "static-image-assets",
+          plugins: [
+            new eu({
+              maxEntries: 64,
+              maxAgeSeconds: 2592e3,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\/_next\/static.+\.js$/i,
+        handler: new ew({
+          cacheName: "next-static-js-assets",
+          plugins: [
+            new eu({
+              maxEntries: 64,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\/_next\/image\?url=.+$/i,
+        handler: new ey({
+          cacheName: "next-image",
+          plugins: [
+            new eu({
+              maxEntries: 64,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\.(?:mp3|wav|ogg)$/i,
+        handler: new ew({
+          cacheName: "static-audio-assets",
+          plugins: [
+            new eu({
+              maxEntries: 32,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+            new ep(),
+          ],
+        }),
+      },
+      {
+        matcher: /\.(?:mp4|webm)$/i,
+        handler: new ew({
+          cacheName: "static-video-assets",
+          plugins: [
+            new eu({
+              maxEntries: 32,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+            new ep(),
+          ],
+        }),
+      },
+      {
+        matcher: /\.(?:js)$/i,
+        handler: new ey({
+          cacheName: "static-js-assets",
+          plugins: [
+            new eu({
+              maxEntries: 48,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\.(?:css|less)$/i,
+        handler: new ey({
+          cacheName: "static-style-assets",
+          plugins: [
+            new eu({
+              maxEntries: 32,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\/_next\/data\/.+\/.+\.json$/i,
+        handler: new X({
+          cacheName: "next-data",
+          plugins: [
+            new eu({
+              maxEntries: 32,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\.(?:json|xml|csv)$/i,
+        handler: new X({
+          cacheName: "static-data-assets",
+          plugins: [
+            new eu({
+              maxEntries: 32,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+        }),
+      },
+      {
+        matcher: /\/api\/auth\/.*/,
+        handler: new Y({ networkTimeoutSeconds: 10 }),
+      },
+      {
+        matcher: ({ sameOrigin: e, url: { pathname: t } }) =>
+          e && t.startsWith("/api/"),
+        method: "GET",
+        handler: new X({
+          cacheName: "apis",
+          plugins: [
+            new eu({
+              maxEntries: 16,
+              maxAgeSeconds: 86400,
+              maxAgeFrom: "last-used",
+            }),
+          ],
+          networkTimeoutSeconds: 10,
+        }),
+      },
+      {
+        matcher: ({ request: e, url: { pathname: t }, sameOrigin: a }) =>
+          "1" === e.headers.get("RSC") &&
+          "1" === e.headers.get("Next-Router-Prefetch") &&
+          a &&
+          !t.startsWith("/api/"),
+        handler: new X({
+          cacheName: ex.rscPrefetch,
+          plugins: [new eu({ maxEntries: 32, maxAgeSeconds: 86400 })],
+        }),
+      },
+      {
+        matcher: ({ request: e, url: { pathname: t }, sameOrigin: a }) =>
+          "1" === e.headers.get("RSC") && a && !t.startsWith("/api/"),
+        handler: new X({
+          cacheName: ex.rsc,
+          plugins: [new eu({ maxEntries: 32, maxAgeSeconds: 86400 })],
+        }),
+      },
+      {
+        matcher: ({ request: e, url: { pathname: t }, sameOrigin: a }) =>
+          e.headers.get("Content-Type")?.includes("text/html") &&
+          a &&
+          !t.startsWith("/api/"),
+        handler: new X({
+          cacheName: ex.html,
+          plugins: [new eu({ maxEntries: 32, maxAgeSeconds: 86400 })],
+        }),
+      },
+      {
+        matcher: ({ url: { pathname: e }, sameOrigin: t }) =>
+          t && !e.startsWith("/api/"),
+        handler: new X({
+          cacheName: "others",
+          plugins: [new eu({ maxEntries: 32, maxAgeSeconds: 86400 })],
+        }),
+      },
+      {
+        matcher: ({ sameOrigin: e }) => !e,
+        handler: new X({
+          cacheName: "cross-origin",
+          plugins: [new eu({ maxEntries: 32, maxAgeSeconds: 3600 })],
+          networkTimeoutSeconds: 10,
+        }),
+      },
+      { matcher: /.*/i, method: "GET", handler: new Y() },
+    ],
+    eR = "";
+  async function eq() {
+    try {
+      let e = await new Promise((e, t) => {
+        let a = indexedDB.open("tipmanna-push", 1);
+        ((a.onerror = () => t(a.error)),
+          (a.onsuccess = () => e(a.result)),
+          (a.onupgradeneeded = () => {
+            let e = a.result;
+            e.objectStoreNames.contains("kv") || e.createObjectStore("kv");
+          }));
+      });
+      return new Promise(t => {
+        let a = e
+          .transaction("kv", "readonly")
+          .objectStore("kv")
+          .get("authToken");
+        ((a.onsuccess = () => t(a.result || null)),
+          (a.onerror = () => t(null)));
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+  async function eS(e, t) {
+    if (!e || !eR) return;
+    let a = await eq(),
+      s = { "Content-Type": "application/json" };
+    a && (s.Authorization = "Bearer ".concat(a));
+    try {
+      await fetch(
+        ""
+          .concat(eR, "/notifications/")
+          .concat(encodeURIComponent(e), "/click"),
+        {
+          method: "POST",
+          headers: s,
+          body: JSON.stringify({ url: t || void 0 }),
+        }
+      );
+    } catch (e) {
+      console.error("[sw] notification click failed", e);
+    }
+  }
+  (self.addEventListener("message", e => {
+    let t = e.data;
+    (null == t ? void 0 : t.type) === "SET_CONFIG" &&
+      (eR = (function (e) {
+        return e && "string" == typeof e ? e.replace(/\/$/, "") : "";
+      })(t.apiBase));
+  }),
+    self.addEventListener("push", e => {
+      let t = {};
+      try {
+        t = e.data ? e.data.json() : {};
+      } catch (s) {
+        var a;
+        t = {
+          title: "Tipmanna",
+          body: (null == (a = e.data) ? void 0 : a.text()) || "",
+        };
+      }
+      let s = t.title || "Tipmanna",
+        r = {
+          body: t.body || "",
+          data: {
+            deepLink: t.deepLink || "/tv",
+            notificationId: t.notificationId || null,
+          },
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
+        };
+      e.waitUntil(self.registration.showNotification(s, r));
+    }),
+    self.addEventListener("notificationclick", e => {
+      e.notification.close();
+      let t = e.notification.data || {},
+        a = t.deepLink || "/tv",
+        s = t.notificationId,
+        r = new URL(a, self.location.origin).href;
+      e.waitUntil(
+        (async () => {
+          for (let e of (s && (await eS(s, r)),
+          await self.clients.matchAll({
+            type: "window",
+            includeUncontrolled: !0,
+          })))
+            if (e.url === r && "focus" in e) return e.focus();
+          if (self.clients.openWindow) return self.clients.openWindow(r);
+        })()
+      );
+    }),
+    new ev({
+      precacheEntries: [
+        {
+          revision: "2edb0d861fb790fd8f7610a8146fbe8f",
+          url: "/_next/static/GzuhKd1nVfwS5UPSB3uCL/_buildManifest.js",
+        },
+        {
+          revision: "b6652df95db52feb4daf4eca35380933",
+          url: "/_next/static/GzuhKd1nVfwS5UPSB3uCL/_ssgManifest.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1183-74d5633f699fb31e.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1186.1eb692d0c96d8569.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1221-5eb26c9be99390de.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1264-c8701eb0c4b171bc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1356-55692d5ef6a323df.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1413-20065959f0026e58.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1524-8efb9d1020acbd7f.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1594-c16677342f15d008.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1646.a93085a0445ba909.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1691-2e45b62c95b4af18.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1741-8ae7960f5bb5439b.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/1835-c6e603d2161ab038.js",
+        },
+        { revision: null, url: "/_next/static/chunks/206-da2c6fb48839ec3f.js" },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2152-53ee11b1f617d7a2.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2168-7bb99612c9b1b24b.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2179-9e53c79556a3b80d.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2193-d42bac73dcbcb6e8.js",
+        },
+        { revision: null, url: "/_next/static/chunks/220.a02674cc9a3fe3f2.js" },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2271-562d1fa702e6eb1d.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2399-331425ea59206370.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/23ab1c44-e47cfee854541c9c.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2427.639d15163b6b39da.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2455-b808b5e5ae971134.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2544-de2539d03c27f471.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2598-7351c30ae9515522.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2619-04bc32f026a0d946.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2846-f1daeaf3c4a48114.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2906-1a0cdf601e476409.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2968-ec973d0260d7c050.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/2995-ed3de09c8c0f5976.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3075-58d80e743306d03a.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3161-fa0c2c7870458db8.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3225-48873209da12fcf3.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3338.fcd4dfa3fc9fca42.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3346-171dc92c797344c0.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3404-c659904678b2b95e.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3412.4959f075ce442a83.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3491.b5020a515146d240.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3546-cc4a5d0212306f53.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3625-bc0330bb3a3dca0d.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/3967-c6493d957a1c4677.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4071.274fef34c82bec93.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4127-35d78e9d1074522e.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4152-569dec81af309bce.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4408.614f209af2a55fed.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4420.12aeb45a0596693c.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4493-7c5969b9b0ff504c.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4511.8efd4020faae5d2e.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4540.4decb69584cb1d05.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4608.eefddfa7e5973d8d.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4704-84353fd6bdef6f6c.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4720.ac074c151ca723b8.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4744-1394f6facc1af9f3.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4772-60e0497b3d8ddbf2.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4811.855d98186a9740d5.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4876-970323e4c9718461.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4909-f5e5a2b9645891bd.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5095.254ac1d98691ac44.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5107-290a907163f4faba.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5113.041a4c11ac791fcb.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5139.e4ff9cc3669129ed.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5175.15758ba986cac8d9.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5310-594357b2ea1662d4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5311-98665d775cebf6a5.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5315-2f34f714a0528db3.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5350-a0c089074592ddef.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5384-d780ef7d7b75ea99.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/53c13509-0e20e772e1994873.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5556.43724e4253589022.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5599-226e96b4c6be84c7.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5811-12b86af1fa0e4033.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5817-15ffebb8ce74a06e.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/5872-6e93f8c653f31123.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6093-da8af415b686f250.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6120-bcb1a37c14385581.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6199.37727765b6199407.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6422.1157216b7498fd44.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6449-2869ec5f925970ea.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6578-55608c9a0530ba18.js",
+        },
+        { revision: null, url: "/_next/static/chunks/664-5c78b4611cd9353f.js" },
+        { revision: null, url: "/_next/static/chunks/669-b3b9cf4f3fa828b8.js" },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6697-7b6ac6c8b314ea2f.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6719.9b5ee03dfcf60c09.js",
+        },
+        { revision: null, url: "/_next/static/chunks/674-0b5dab67ef99c0bb.js" },
+        { revision: null, url: "/_next/static/chunks/676-c12181dee5fd802d.js" },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6859-fbee471361c6020b.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6893-98d74c1d5be1001d.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/6926.63f04616aec89161.js",
+        },
+        { revision: null, url: "/_next/static/chunks/72-594357b2ea1662d4.js" },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7293-63320771390167b8.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7326-25b8a01771557e2f.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7595-03b4bc295cc8d640.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7660-d69928d8d16c2dab.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7691-594357b2ea1662d4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7696.8f78694115230420.js",
+        },
+        { revision: null, url: "/_next/static/chunks/779-b2a02e54cf63660d.js" },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7807.6a907a6976efccc0.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7815-c711ae1af066f0be.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7839.13062aae0a098f1a.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7880-ed109e39046dd0a4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7940-2c34186b12343e86.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/7959-d000fa31da8d0ee4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/8133-ebfdf71f7cf9b2f5.js",
+        },
+        { revision: null, url: "/_next/static/chunks/822-758e71e2a1ddb900.js" },
+        {
+          revision: null,
+          url: "/_next/static/chunks/8221-320a3bb003535c11.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/8239.1b5542090674594f.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/8250-6b95614bdcb34f62.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/8447.502298c2091d6288.js",
+        },
+        { revision: null, url: "/_next/static/chunks/862-8d9d18598f8ee70e.js" },
+        {
+          revision: null,
+          url: "/_next/static/chunks/8698-6b723349e45bb704.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/8720-6b6d3010ddf857af.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/8729.8d63362bde39fff6.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9186-8896fb62430c3877.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9437-773b388b2fe6d7c6.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9454-e4f19c1dde7a9639.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9489-b2c2ed864494cc93.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9568-e29bfb4b37686a5d.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9771.289a55070179fc12.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9774-9c14c84091f6f17a.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9812-7ee7ddd2c1371ff5.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9830-56c0e1bb7a78b1a9.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/9847-0cfb43025d003491.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(auth)/create-account/page-b00a82420a317643.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(auth)/forgot-password/page-29538777b8c46781.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(auth)/layout-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(auth)/password-reset-successful/page-ea0e6ba510883653.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(auth)/reset-password/page-290fd203315f8beb.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(auth)/sign-in/page-3c38fb1b7b498fd0.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(auth)/verify-email/page-9481c7b0bcc2c412.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/error-76303708c956464a.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-analytics/page-7da1a6f16b60997d.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-customization/page-e8c6a15c51f7daa3.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-display/page-e42df358398ea207.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-payouts/page-c97ab790b65e4548.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-sends/page-7d2d8f77949cdd2b.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/community-tv/page-20d9abf5e38c27f7.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/host-community/page-c09be382a5c156c0.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/host-fees/page-85810acb77f08920.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/host-premium/page-c7836e6c2e269da4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/manage-event/%5BeventId%5D/page-0a363891b3ae6678.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/manage-event/page-4c7898bf4fc5bfc4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/notifications/page-5dababd851806c03.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/page-8e7f3289b3fbe0cb.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/profile/page-e2d77275b9e72fe9.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/reports/page-4762b3c36b942fa9.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/revenue/page-a91ad6a29b43a734.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/settings/page-930e3d7ca8f84a25.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/tip-customization/%5BeventId%5D/page-7c3031670c9c0a07.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/top-tippers/%5BtipperId%5D/page-43a5f2068dc146c4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/top-tippers/page-a0a2eb1ad80f2db2.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/venue-display/page-8379b8491553b534.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/video-co-owners/page-b827ea537331fce0.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/host/%5Bslug%5D/video-requests/page-2890b9a88592fb76.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dashboard)/layout-901f5166d71585f6.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(dev)/audit/page-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(event)/content-only/page-8e4aa1415fa77131.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(event)/event-and-content/page-817ae7d14f62a380.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(event)/event-only/page-cd27f246400a7d38.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(event)/join/page-cc11310acd1047e6.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(event)/room/%5Bid%5D/page-d546839d9e046f55.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(event)/room/%5Bid%5D/screen/page-d546839d9e046f55.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(location)/modal/page-24375e482c53e950.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(tv)/error-9a7f8923db2118a5.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(tv)/layout-1fc5478409a19a59.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/(tv)/tv/page-0ee49e44f7ea1541.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/_not-found/page-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/api/auth/session/route-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/api/dev/backend-path-proof/route-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/api/perf-vitals/route-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/api/pusher/auth/route-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/c/%5BcommunityId%5D/program/%5BenforcementId%5D/page-42fe84b6a9fb3031.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/channel/%5BeventId%5D/page-3bbc505b53993fb9.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/channel/error-0cf2a46456e438c5.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/co-owner/invite/%5Btoken%5D/page-8ea6808e870737a9.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/co-owner/payouts/page-b9e7d84d0b87c7d6.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/cocreator/accept/%5Btoken%5D/page-ff655002f4038943.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/community/%5Bid%5D/join/layout-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/community/%5Bid%5D/join/page-9bbf17a3b946e133.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/community/invite/%5Btoken%5D/page-9eabd1a1e3af2fb7.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/community/page-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/community/side-chick/%5BcommunityId%5D/page-37f437671dbaa15b.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/content/%5BeventId%5D/page-f3668c9481c4639e.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/content/error-c7784ba5fea32487.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/discover/%5Bcategory%5D/page-4e49bf3601d2ffe8.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/discover/error-030884c1a4669ce5.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/discover/layout-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/discover/loading-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/discover/page-519ee70978c7bc5e.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/e2e/discover-explore-handoff/page-bde1c4eb67eb7e7b.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/e2e/discover-live-routing/page-b96ed9d5792acf65.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/e2e/explore-reel-layout/page-d87077dc81809dab.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/e2e/tips-drawer/page-7afdc58d7f220de4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/error-144cb64fa8e94a72.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/explore/error-dc9bed2022f39f6e.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/explore/layout-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/explore/loading-14619b2b15740be7.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/explore/page-7cd0ddc5f1ac5228.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/global-error-d43d86bd26d3ce86.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/invite/page-4ef5cac23a55c0d2.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/join-host/%5BhostName%5D/page-cf46f0766c1f91c5.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/layout-8f52b1db43c8fb39.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/loading-6ff45f8407242a1d.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/new-partner/page-fb64338c25c06504.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/not-found-55e32678a717d488.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/offline/page-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/page-bcdfceb819e7d9d4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/partner/page-bcdfceb819e7d9d4.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/program/%5BenforcementId%5D/page-dc999b58e9164eed.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/restricted/%5BcommunityId%5D/page-55e32678a717d488.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/robots.txt/route-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/sitemap.xml/route-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/success/page-7fd4b210709bc881.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/tipper/%5Busername%5D/page-eb055e9c6796c515.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/video-sitemap.xml/route-303fc384cf0c69fc.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/visitor/%5Busername%5D/page-19e52c3bb9cd6b8f.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/app/wallet/verify/page-6287ebf4d4e68c99.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/e34aaff9-def51a4eafa7805a.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/framework-32492dd9c4fc5870.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/main-app-73393b13601e1bf1.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/main-c9edd871af9ea0c3.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/pages/_app-e8b861c87f6f033c.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/pages/_error-c8f84f7bd11d43d4.js",
+        },
+        {
+          revision: "846118c33b2c0e922d7b3a7676f81f6f",
+          url: "/_next/static/chunks/polyfills-42372ed130431b0a.js",
+        },
+        {
+          revision: null,
+          url: "/_next/static/chunks/webpack-d37e3487dd0f6158.js",
+        },
+        { revision: null, url: "/_next/static/css/294276ea636cfdea.css" },
+        { revision: null, url: "/_next/static/css/602f5ad336f21e3d.css" },
+        { revision: null, url: "/_next/static/css/acdf0dd557dcaf27.css" },
+        { revision: null, url: "/_next/static/css/b82b51330dad2c65.css" },
+        { revision: null, url: "/_next/static/css/d9f9764206959544.css" },
+        {
+          revision: "b8e2d34878304af0af7552f727e9cca8",
+          url: "/_next/static/media/04c24f78ad5a47d8-s.woff2",
+        },
+        {
+          revision: "5e789e4153cbcaf1421cd8053b04de95",
+          url: "/_next/static/media/1369fa048801759f-s.woff2",
+        },
+        {
+          revision: "6e493671117e231571a1746987fbaa18",
+          url: "/_next/static/media/13a314e63820922b-s.woff2",
+        },
+        {
+          revision: "f143fb4877cf7ada1b84423ee86a0198",
+          url: "/_next/static/media/1f173e5e25f3efee-s.woff2",
+        },
+        {
+          revision: "6ffaf41555a2cfd84d55fb08dcb642d7",
+          url: "/_next/static/media/37da3febcafd463e-s.woff2",
+        },
+        {
+          revision: "7f28d9acd0a8a4c1464195d229d07842",
+          url: "/_next/static/media/403511e41efd5e81-s.woff2",
+        },
+        {
+          revision: "45ea393f38e4ecd97f4dbeb12ef23877",
+          url: "/_next/static/media/48e2044251ef3125-s.woff2",
+        },
+        {
+          revision: "0533fc3fb6d983441a399f94eb182d81",
+          url: "/_next/static/media/51f6eedf9be77cd7-s.woff2",
+        },
+        {
+          revision: "c154477b9affa3a0a47f894c8b80c03c",
+          url: "/_next/static/media/904be59b21bd51cb-s.p.woff2",
+        },
+        {
+          revision: "63a7e6a745b18221c0c3b486a3317ae4",
+          url: "/_next/static/media/93a6e477e1480c92-s.woff2",
+        },
+        {
+          revision: "b7df97614c8e4bd077a00d424ba42b1d",
+          url: "/_next/static/media/9d5a263311222317-s.p.woff2",
+        },
+        {
+          revision: "01f355e30be7cae19120d5f796d25b42",
+          url: "/_next/static/media/9e769f40faa52555-s.woff2",
+        },
+        {
+          revision: "f86583aa8d2f877a67021584096187ca",
+          url: "/_next/static/media/a474899b80ee93d2-s.p.woff2",
+        },
+        {
+          revision: "b5818778898bf6d34b7423ff99c6beb4",
+          url: "/_next/static/media/b1f344208eb4edfe-s.woff2",
+        },
+        {
+          revision: "d185d272afd4e2d7b4801eabba1463a1",
+          url: "/_next/static/media/bf24a9759715e608-s.woff2",
+        },
+        {
+          revision: "5e13deb3df6f4ad52a1ed482edd90bc1",
+          url: "/_next/static/media/c1a1fe1e2bf9b2ee-s.woff2",
+        },
+        {
+          revision: "deca0e4e8d0eee8cc1264e48d7a4e42f",
+          url: "/_next/static/media/c7e0cf6c760983e7-s.woff2",
+        },
+        {
+          revision: "ea21aa8efaf84307316a1633d34995d1",
+          url: "/_next/static/media/d6fc113833db48fe-s.woff2",
+        },
+        {
+          revision: "8027aefd3d59e5fa3da8e3d65e05a4b7",
+          url: "/_next/static/media/e1df014bb05b8510-s.woff2",
+        },
+        {
+          revision: "23145c7141614ebba8c5dd949478c01e",
+          url: "/_next/static/media/e807dee2426166ad-s.p.woff2",
+        },
+        {
+          revision: "3ade3f1359c1c7f4acb7b4479cf07b74",
+          url: "/apple-touch-icon.png",
+        },
+        { revision: "249fbf41bd7281f184b0f1aa3692f79e", url: "/apple.svg" },
+        {
+          revision: "429e6098c93c93defca6a3e7acff5f58",
+          url: "/assets\\auth-banner.png",
+        },
+        {
+          revision: "8a923e8938fe70d632cb33ba19d542fe",
+          url: "/assets\\auth-story.png",
+        },
+        {
+          revision: "0bb0d655494f8976433a7468dbced737",
+          url: "/assets\\event-screen.png",
+        },
+        {
+          revision: "d17d1a7b0336201ff60b05d04ee41093",
+          url: "/assets\\event-story.png",
+        },
+        {
+          revision: "1df8827255b138fad75b6b8c3cdf937d",
+          url: "/assets\\event_banner.webp",
+        },
+        {
+          revision: "b1c2f934e107b62cb7a1dba25037c85b",
+          url: "/assets\\host-blob.png",
+        },
+        {
+          revision: "2bc896bbf7ba78bbb2b3bd6c1773dbde",
+          url: "/assets\\host-story.png",
+        },
+        {
+          revision: "f303da5cfb1648e738f20bcce1ced698",
+          url: "/assets\\host.png",
+        },
+        {
+          revision: "03b3c2c7fb6e62ce7c62be63a706f1e3",
+          url: "/assets\\image_slider.png",
+        },
+        {
+          revision: "b0dc4a74089d10dbd2d2d2d3c30101e6",
+          url: "/assets\\islamic-event.png",
+        },
+        {
+          revision: "489075342eced85e8cb0ac8cbe24ab67",
+          url: "/assets\\lock.png",
+        },
+        {
+          revision: "1cd38ab49ec5b510887c34983cd13466",
+          url: "/assets\\mobile_prev.png",
+        },
+        {
+          revision: "bdb917f3b620620b13fa1fb07c26198e",
+          url: "/assets\\silent-video.mp4",
+        },
+        {
+          revision: "5d7e2717b2654aa464f1b5b154c519e6",
+          url: "/assets\\star.png",
+        },
+        {
+          revision: "71b59bf21a6ddd610a5ec3b46bb5a002",
+          url: "/assets\\tipmanna mobile message section image background.png",
+        },
+        {
+          revision: "dc7cd1f2552a47cda9843f8915938fc7",
+          url: "/assets\\tipmanna_web_message_section_image_background.png",
+        },
+        {
+          revision: "d8b636dfdca7ee7d1b1112b6c7e982fa",
+          url: "/assets\\web_prev.png",
+        },
+        { revision: "080d4903a6447098a924915f92b3ae97", url: "/chat-room.png" },
+        {
+          revision: "e4d14b4c5eeb4f1ac66d089f6816efae",
+          url: "/default-event-image.jpg",
+        },
+        {
+          revision: "de615d1010040c458ac0d7337298c2ef",
+          url: "/default-user-avatar.png",
+        },
+        { revision: "7c4b7cdfa54df03aa1abc595e4d9c7fd", url: "/default.mp4" },
+        { revision: "0bb0d655494f8976433a7468dbced737", url: "/default.png" },
+        {
+          revision: "e4d14b4c5eeb4f1ac66d089f6816efae",
+          url: "/events\\event_1.jpg",
+        },
+        {
+          revision: "d3874e8b948a150b1367cdfe4096f13b",
+          url: "/events\\event_2.jpg",
+        },
+        {
+          revision: "68eed5b0995f2ff3fe36caf33b8787f4",
+          url: "/events\\event_banner.webp",
+        },
+        {
+          revision: "ecb65c35df80b983a1fd7c18a7aaa500",
+          url: "/events\\funnel.png",
+        },
+        {
+          revision: "5fbe70f39b9601e94fbf880bd7ed1739",
+          url: "/events\\polygon.png",
+        },
+        {
+          revision: "c41aa410fafe155d9bca06133e05b352",
+          url: "/events\\screen_display_lines.svg",
+        },
+        {
+          revision: "1d80f843f89629b0fa42993d99fa0d5c",
+          url: "/events\\together.png",
+        },
+        { revision: "88f59b8659b4a7d8d1da8691e5016e7e", url: "/favicon.ico" },
+        { revision: "d09f95206c3fa0bb9bd9fefabfd0ea71", url: "/file.svg" },
+        { revision: "4b0588f54d56f841f18b392d7510f7da", url: "/gaming.mp4" },
+        { revision: "ac7401149e437186a380ed2ce374d1ee", url: "/gaming.png" },
+        { revision: "2aaafa6a49b6563925fe440891e32717", url: "/globe.svg" },
+        { revision: "0cae89c1f225b92dd09b1ee456bf998e", url: "/google.svg" },
+        {
+          revision: "cb293cbba0b8276c7b71902ac1134f2b",
+          url: "/heros\\image_1.webp",
+        },
+        {
+          revision: "68eed5b0995f2ff3fe36caf33b8787f4",
+          url: "/heros\\image_2.webp",
+        },
+        {
+          revision: "25346aabdfcb12e6eac4ef6602ae6f6f",
+          url: "/heros\\image_3.webp",
+        },
+        {
+          revision: "80c967e2bca23d1caaf6cf23ecf81fb2",
+          url: "/heros\\image_4.webp",
+        },
+        {
+          revision: "c21b63553e94673f020bc287f3d78eef",
+          url: "/icons\\add-text.png",
+        },
+        {
+          revision: "aa406b222b162ff15b783b2687400fbe",
+          url: "/icons\\animal.png",
+        },
+        {
+          revision: "d05cc2c708825ba57c236708fef34fcf",
+          url: "/icons\\ball.png",
+        },
+        {
+          revision: "b917be11f01a5bfbf8716ea541bb74b3",
+          url: "/icons\\bell.png",
+        },
+        {
+          revision: "bb8a1fe3c822814b0825849a0533ebed",
+          url: "/icons\\bible.png",
+        },
+        {
+          revision: "63a5a163b44e08fdbd13f65a3578dfca",
+          url: "/icons\\black-diamond.png",
+        },
+        {
+          revision: "61daef30e88ab03d7b5f5bff2932c7f2",
+          url: "/icons\\book.png",
+        },
+        {
+          revision: "f6b44e05f9bbb3b1f7f0ccde4e9ae17c",
+          url: "/icons\\briefcase.png",
+        },
+        {
+          revision: "1350558ce7e911f4e2f64f0c3c4e4860",
+          url: "/icons\\burger.png",
+        },
+        {
+          revision: "7caf7a9f769736bc0729e8d06613e156",
+          url: "/icons\\butterfly.png",
+        },
+        {
+          revision: "39851c8ee64bcf9986ab4cbda1f81f57",
+          url: "/icons\\calendar.png",
+        },
+        {
+          revision: "84569e83e895592b1364d6d178f8ff54",
+          url: "/icons\\cap.png",
+        },
+        {
+          revision: "56ac3e25717dc987a93e7a5cf3edb46d",
+          url: "/icons\\car.png",
+        },
+        {
+          revision: "33366e3c5c9aa18a7d2d7f3cd519ee82",
+          url: "/icons\\cat.png",
+        },
+        {
+          revision: "8e3b657212e527671cc34bb0f0df9ae1",
+          url: "/icons\\champ.png",
+        },
+        {
+          revision: "7b607fd07ce1d0233011619f7556eccc",
+          url: "/icons\\charity.png",
+        },
+        {
+          revision: "1db201324a323f4290f5d30e2e3bf6b0",
+          url: "/icons\\chicken.png",
+        },
+        {
+          revision: "293a0442255b5fb3cd382dbb3ebefa3e",
+          url: "/icons\\choir.png",
+        },
+        {
+          revision: "b7a110af0700e3f2f41a82f0b29f9f03",
+          url: "/icons\\church.png",
+        },
+        {
+          revision: "36bf74b5c3692e773c75b2aeecc0d8bc",
+          url: "/icons\\clown.png",
+        },
+        {
+          revision: "f454d532c8c3cb34e4aa6573e2bfa2a3",
+          url: "/icons\\comedy-mask.png",
+        },
+        {
+          revision: "6e4a3b6bdf0800f8a0dbada5778f719b",
+          url: "/icons\\comedy.png",
+        },
+        {
+          revision: "60103a6563a4168a9ef25494785775a7",
+          url: "/icons\\company.png",
+        },
+        {
+          revision: "672dbf68ba65abc2119ddd35145a6f18",
+          url: "/icons\\concert.png",
+        },
+        {
+          revision: "588da7a4f99c81c8f7d6053790378c58",
+          url: "/icons\\cooking.png",
+        },
+        {
+          revision: "74d90e41c94426a11fc7e8d319cc16a5",
+          url: "/icons\\creative.png",
+        },
+        {
+          revision: "9d48e78d0b53adf8e848353168a1c7fb",
+          url: "/icons\\crescent.png",
+        },
+        {
+          revision: "b7fa96aa40781fecbcd12c564a2ef67f",
+          url: "/icons\\crown-new.mp4",
+        },
+        {
+          revision: "bfe46063a879ba05c7ec5be147747314",
+          url: "/icons\\crown.webm",
+        },
+        {
+          revision: "3bb278aec75042dec244a68793e5fa80",
+          url: "/icons\\dancer.png",
+        },
+        {
+          revision: "f82daeffb4a17b613e19f77c53c3da07",
+          url: "/icons\\diamond.png",
+        },
+        {
+          revision: "4c7e9033546e551003dedba85b3c4f31",
+          url: "/icons\\event-calendar.png",
+        },
+        {
+          revision: "1a506b6e513dc366fb07ac1f77127bbe",
+          url: "/icons\\father.png",
+        },
+        {
+          revision: "d16ce093b70b23a757824467757b6e94",
+          url: "/icons\\festival.png",
+        },
+        {
+          revision: "2e155b51ce93ac57a05a4023f1cdfbe1",
+          url: "/icons\\file-validation.png",
+        },
+        {
+          revision: "064aa5ee5410a9643659a516a99143d5",
+          url: "/icons\\firework.png",
+        },
+        {
+          revision: "7ee03f157ef17020b157d6e5d0ac9f80",
+          url: "/icons\\flag.png",
+        },
+        {
+          revision: "55865d7b9f7d66803cc723399c7fec5c",
+          url: "/icons\\flash.png",
+        },
+        {
+          revision: "85de6455d81d6676acca107b28491710",
+          url: "/icons\\flower.png",
+        },
+        {
+          revision: "45d0615615d1e87d98536195c487df10",
+          url: "/icons\\fries.png",
+        },
+        {
+          revision: "00619893435d0e7bc33c85ddde175f61",
+          url: "/icons\\fun.png",
+        },
+        {
+          revision: "3d25e7baf031dac39f634d7a1be582ab",
+          url: "/icons\\game-console.png",
+        },
+        {
+          revision: "c66298eac03bbefc52c9f415ebf0aced",
+          url: "/icons\\gem.png",
+        },
+        {
+          revision: "58e883c3e71dbf8eab960cad6bb53812",
+          url: "/icons\\giftbox.png",
+        },
+        {
+          revision: "fe63ebdd089b9c083f9fa4eebfb602bd",
+          url: "/icons\\globe.png",
+        },
+        {
+          revision: "2d59a283722f718b6dfe5ff80bf3af9c",
+          url: "/icons\\gown.png",
+        },
+        {
+          revision: "3ade3f1359c1c7f4acb7b4479cf07b74",
+          url: "/icons\\icon-192.png",
+        },
+        {
+          revision: "85ee00e82a503cdcc17ac5817e095d0c",
+          url: "/icons\\icon-512.png",
+        },
+        {
+          revision: "ed5f9f74e8e0a5e3e086a16378c1f0df",
+          url: "/icons\\interview.png",
+        },
+        {
+          revision: "5ce5c59ee84a4296d7aa7c9953d1af59",
+          url: "/icons\\kaaba.png",
+        },
+        {
+          revision: "6e3b71d586913b145c01bc6c91d882af",
+          url: "/icons\\laptop.png",
+        },
+        {
+          revision: "8a04aa4e7f81178f4fbcb0b1068e0f69",
+          url: "/icons\\lock.png",
+        },
+        {
+          revision: "5a5fb0d693d41ac6bba95243fcb7bafd",
+          url: "/icons\\love.png",
+        },
+        {
+          revision: "cc3dc1e34c3a1c9da594042031f2b47f",
+          url: "/icons\\mask.png",
+        },
+        {
+          revision: "79962d1da1dbf54f9e8a3215e64e4c4a",
+          url: "/icons\\mat.png",
+        },
+        {
+          revision: "78ed7f59f9c7bab2ad110e86eda0359d",
+          url: "/icons\\medal.png",
+        },
+        {
+          revision: "500a79230727cd09ee18e3f3ee11347e",
+          url: "/icons\\mic.png",
+        },
+        {
+          revision: "d6e1aae14b8c174a230c9394aa490d0d",
+          url: "/icons\\money.png",
+        },
+        {
+          revision: "930a3d21543f539e0b32e29a804c24ed",
+          url: "/icons\\moon.png",
+        },
+        {
+          revision: "851c91927176962c290ea2a8e5069fd0",
+          url: "/icons\\palette.png",
+        },
+        {
+          revision: "5ed31e07d15e4bfde1257ee2b4da869e",
+          url: "/icons\\pen.png",
+        },
+        {
+          revision: "df42dbea4cff7e70fd39299eb6d974c9",
+          url: "/icons\\performance.png",
+        },
+        {
+          revision: "7bc76a02cd6fc57b16d0a4a76721bcc2",
+          url: "/icons\\phone.png",
+        },
+        {
+          revision: "35f4ec12aadf7313c1083e7e650bd481",
+          url: "/icons\\plane.png",
+        },
+        {
+          revision: "b3626ff73800c7aa516d7ab3678edf16",
+          url: "/icons\\popcorn.png",
+        },
+        {
+          revision: "35b6f786b5ca20c2ee3b5a3ccc9419cc",
+          url: "/icons\\pope.png",
+        },
+        {
+          revision: "cb6d18bed1b5ffc1ea0ebc5f7b009658",
+          url: "/icons\\puzzle.png",
+        },
+        {
+          revision: "4ba1bd7039f2f8252565bfa585bc2acd",
+          url: "/icons\\quran.png",
+        },
+        {
+          revision: "0b3acbf9af615b978f11112c30b678df",
+          url: "/icons\\rain.png",
+        },
+        {
+          revision: "c3a33480be2c4059f696deee55c6be58",
+          url: "/icons\\rolex.png",
+        },
+        {
+          revision: "aaab0d07775da99f5f2903c19870f95c",
+          url: "/icons\\rosary.png",
+        },
+        {
+          revision: "60090981a3c762ba3496c7ccc42688c6",
+          url: "/icons\\rose.png",
+        },
+        {
+          revision: "0b3802903f9837239be4ee98dd5a110b",
+          url: "/icons\\screen.png",
+        },
+        {
+          revision: "aaf3bc4775fdc343b548386b9e83dad2",
+          url: "/icons\\shield.png",
+        },
+        {
+          revision: "f3d81d17ddbf75ac3ee40fb5c0014bea",
+          url: "/icons\\shirt.png",
+        },
+        {
+          revision: "bc1974806c356974901d5e1da88dbbfa",
+          url: "/icons\\shoe.png",
+        },
+        {
+          revision: "85d06e693f62f48492e5c35a42d124f7",
+          url: "/icons\\snow.png",
+        },
+        {
+          revision: "54d03d9c77bc4c3cf0ac0822a44aed07",
+          url: "/icons\\socks.png",
+        },
+        {
+          revision: "d21f4411b3714a6d7f75e404f35884d3",
+          url: "/icons\\spark.png",
+        },
+        {
+          revision: "45dd54703cf1537d439bc358c680762c",
+          url: "/icons\\star.png",
+        },
+        {
+          revision: "3809355799081dc245cb5ab0242a7bf2",
+          url: "/icons\\suit.png",
+        },
+        {
+          revision: "c48529e890f96e9ec1c5a9ab0d842c31",
+          url: "/icons\\sun.png",
+        },
+        {
+          revision: "5332adaecbb463c2a02888516418ad94",
+          url: "/icons\\text.png",
+        },
+        {
+          revision: "d048ffd1c449738c22d5be1d865705d0",
+          url: "/icons\\theater.png",
+        },
+        {
+          revision: "534af351f3470124d3cd4ef8ed0dd989",
+          url: "/icons\\thunder.png",
+        },
+        {
+          revision: "0ff4a42e4bef5648f71a61be35de7eda",
+          url: "/icons\\tie.png",
+        },
+        {
+          revision: "79e61965f1f60a7ec8458571f2a013a1",
+          url: "/icons\\tree.png",
+        },
+        {
+          revision: "270db634ba96930b85049c7405df679b",
+          url: "/icons\\trophy.png",
+        },
+        {
+          revision: "8630db5ffe84b2bf8818a09b312fee9f",
+          url: "/icons\\vape.png",
+        },
+        {
+          revision: "9ef7e1b88d6b8e7d4d3ffb45b6c53a47",
+          url: "/icons\\vintage.png",
+        },
+        {
+          revision: "5109c0b0a22ad0720ed99366af7942ab",
+          url: "/icons\\vodka.png",
+        },
+        {
+          revision: "0b3acbf9af615b978f11112c30b678df",
+          url: "/icons\\water.png",
+        },
+        {
+          revision: "b4a0b9db7bf0eb7ad97002dd575dd229",
+          url: "/icons\\woman.png",
+        },
+        { revision: "10e996a5ed6540c328fa30b1916ba235", url: "/islamic.mp4" },
+        { revision: "8213fa01e29660d729233a86e9d59272", url: "/islamic.png" },
+        {
+          revision: "8c6ef4825047fe6564135f4c29aeccb2",
+          url: "/kings-crown.gif",
+        },
+        {
+          revision: "518043ef4efa8ee15fb29acc877c05dd",
+          url: "/logos\\apple-pay.png",
+        },
+        {
+          revision: "9357892adb4e37ba5b5f7e64e923b05d",
+          url: "/logos\\apple.png",
+        },
+        {
+          revision: "231f3bc83a862016d949d58caf762b42",
+          url: "/logos\\apple_dark.svg",
+        },
+        {
+          revision: "7d375c0a2e6011a4d98ebe2caad391d0",
+          url: "/logos\\fca.jpg",
+        },
+        { revision: "7a41c8cf8f7e029d0db2ae143049e108", url: "/logos\\fr.png" },
+        {
+          revision: "0cb2685da8829142bf629555822597a6",
+          url: "/logos\\gdpr.png",
+        },
+        {
+          revision: "b4b89e2caf95c10828025df76f4cc9d8",
+          url: "/logos\\google-pay.png",
+        },
+        {
+          revision: "0cae89c1f225b92dd09b1ee456bf998e",
+          url: "/logos\\google.svg",
+        },
+        {
+          revision: "e0179c3b68b8165577977852c0483dd9",
+          url: "/logos\\logo_1.png",
+        },
+        {
+          revision: "d5898f347268ff3c609e15786c0980af",
+          url: "/logos\\logo_2.png",
+        },
+        {
+          revision: "1008f257bb81b8968aa7c3efdc958cae",
+          url: "/logos\\logo_3.png",
+        },
+        {
+          revision: "6d8fccd40fe145ebcc2dcc8f129ca3ad",
+          url: "/logos\\paypal-logo.png",
+        },
+        {
+          revision: "9df410bba35dee5d036b6c08b6223753",
+          url: "/logos\\paypal.png",
+        },
+        {
+          revision: "ec5823de496f61856c6aa6f48ba75a7a",
+          url: "/logos\\stripe-link.png",
+        },
+        {
+          revision: "91697c5117d26867aedbf8341b350296",
+          url: "/logos\\stripe.png",
+        },
+        {
+          revision: "64866b02efeda73cfbe1ff6c0ce4ee70",
+          url: "/manifest.webmanifest",
+        },
+        { revision: "8e061864f388b47f33a1c3780831193e", url: "/next.svg" },
+        {
+          revision: "ebc4c0b174487d0259131803a92596b2",
+          url: "/og\\discover.svg",
+        },
+        {
+          revision: "c2edee61c8b1809e06e48e54a97edf43",
+          url: "/og\\explore.svg",
+        },
+        {
+          revision: "74e5c924ee49b5965ed197ae20fc5fc7",
+          url: "/patterns\\bg_pattern.webp",
+        },
+        {
+          revision: "c8d49033068904e66175de3accc3256b",
+          url: "/patterns\\hero_left_pattern.webp",
+        },
+        {
+          revision: "0fee892ff4948abea55fe4ee33bdfd71",
+          url: "/patterns\\hero_right_pattern.webp",
+        },
+        {
+          revision: "4322e25271f89b8c6c055b8541188a73",
+          url: "/patterns\\tip_what_you_can.webp",
+        },
+        { revision: "1a84863e1afe0a8ada84e5c47164b6a6", url: "/success.png" },
+        { revision: "9a34530450d9f0ebc500813b22e3fb88", url: "/success.webp" },
+        {
+          revision: "71b59bf21a6ddd610a5ec3b46bb5a002",
+          url: "/tipmanna mobile message section image background.png",
+        },
+        {
+          revision: "4bba5561123a737eea9a2a496a3c2bb8",
+          url: "/tipmanna-share-preview.jpeg",
+        },
+        {
+          revision: "b49728da9be621ef21cf46f1bf86c96b",
+          url: "/tipmanna_logo.png",
+        },
+        {
+          revision: "dc7cd1f2552a47cda9843f8915938fc7",
+          url: "/tipmanna_web_message_section_image_background.png",
+        },
+        {
+          revision: "a9ca4327be14d3378ca91eff91b63e73",
+          url: "/vectors\\Homepage_section_wave.webp",
+        },
+        {
+          revision: "436944c5aaa6aa2fc4f6a2e31c48ce51",
+          url: "/vectors\\Patterns.webp",
+        },
+        {
+          revision: "a9ca4327be14d3378ca91eff91b63e73",
+          url: "/vectors\\Shapes.webp",
+        },
+        {
+          revision: "0b895fda3c85248a4c43d44ae3db0fa8",
+          url: "/vectors\\Shapes_(4).webp",
+        },
+        {
+          revision: "3b4c9da2060582f0789eba9c10910d4c",
+          url: "/vectors\\bolt_left.webp",
+        },
+        {
+          revision: "a2cc881c9e7921e1b29e47944c5450db",
+          url: "/vectors\\bolt_right.webp",
+        },
+        {
+          revision: "0b2787cfe307497aff72460f4e65e029",
+          url: "/vectors\\impact_vector.webp",
+        },
+        {
+          revision: "1d39ef04918faebc176661fb17b628ea",
+          url: "/vectors\\tipping_pattern.webp",
+        },
+        {
+          revision: "445cdfcb18b5a2c0b559168cafa9c796",
+          url: "/vectors\\tipping_pattern_1.webp",
+        },
+        {
+          revision: "e19bd23c7c66e6f8089f58d5ca356c50",
+          url: "/vectors\\tipping_pattern_new.png",
+        },
+        {
+          revision: "74e5c924ee49b5965ed197ae20fc5fc7",
+          url: "/vectors\\tipping_pattern_new.webp",
+        },
+        { revision: "c0af2f507b369b085b35ef4bbe3bcf1e", url: "/vercel.svg" },
+        { revision: "a2760511c65806022ad20adf74370ff3", url: "/window.svg" },
+      ],
+      skipWaiting: !0,
+      clientsClaim: !0,
+      navigationPreload: !0,
+      runtimeCaching: eE,
+      fallbacks: {
+        entries: [
+          {
+            url: "/offline",
+            matcher(e) {
+              let { request: t } = e;
+              return "document" === t.destination;
+            },
+          },
+        ],
+      },
+    }).addEventListeners());
+})();

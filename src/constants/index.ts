@@ -37,23 +37,28 @@ export const HERO_IMAGES = [
 export const CONTINUOUS_ENGAGEMENT_SLIDES = [
   {
     image: "/heros/image_1.webp",
-    title: "Creators",
-    alt: "Creators publishing content on Tipmanna",
+    title: "Creator Channel",
+    alt: "A home for content, community, and repeat engagement.",
   },
   {
     image: "/heros/image_2.webp",
-    title: "Events",
-    alt: "Live audience engagement during an event",
+    title: "Event Room",
+    alt: "Live moments with comments, reactions, and supporter activity.",
   },
   {
     image: "/heros/image_3.webp",
-    title: "Communities",
-    alt: "Community growth through shared experiences",
+    title: "TV Explore",
+    alt: "Discovery that reaches beyond existing followers.",
   },
   {
     image: "/heros/image_4.webp",
-    title: "Tipmanna TV",
-    alt: "Continuous engagement across Tipmanna TV",
+    title: "Live TV",
+    alt: "24/7 scheduled broadcast of featured contents accross the platform",
+  },
+  {
+    image: "/heros/image_4.webp",
+    title: "Dashboard",
+    alt: "Broadcast updates, reminders, analytics, and growth tools.",
   },
 ];
 

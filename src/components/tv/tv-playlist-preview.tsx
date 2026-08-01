@@ -355,7 +355,7 @@ export function TvPlaylistPreview({
                     </span>
                   </span>
 
-                  <p className="w-[50px] rounded-md bg-gray-200 px-1 py-0.25 text-[8px] text-black lg:text-[6px] text-center">
+                  <p className="w-[50px] rounded-md bg-gray-200 px-1 py-0.25 text-center text-[8px] text-black lg:text-[6px]">
                     {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
                   </p>
                 </div>

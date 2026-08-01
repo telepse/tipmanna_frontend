@@ -72,9 +72,7 @@ test.describe("signed-in explore matrix", () => {
       .toContain("COMEDY");
     const comedyUrl = page.url();
     await page.goBack();
-    await expect
-      .poll(() => page.url(), { timeout: 8_000 })
-      .not.toBe(comedyUrl);
+    await expect.poll(() => page.url(), { timeout: 8_000 }).not.toBe(comedyUrl);
     await page.goForward();
     await expect(page.url()).toBe(comedyUrl);
     await openExploreFilters(page);
@@ -99,7 +97,9 @@ test.describe("signed-in explore matrix", () => {
     await expect(page.url()).toBe(mcUrl);
   });
 
-  test("Community picker updates URL and refresh restores", async ({ page }) => {
+  test("Community picker updates URL and refresh restores", async ({
+    page,
+  }) => {
     await gotoSignedInExplore(page, "/explore?feedTab=community");
     await page.getByRole("button", { name: /community/i }).click();
     await page.getByRole("menuitem", { name: /E2E Community/i }).click();
@@ -151,16 +151,19 @@ test.describe("signed-in explore matrix", () => {
     }
     const boot = await page.locator("[data-explore-slide]").count();
     const scroll = page.getByTestId("explore-feed-scroll");
-    await scroll.evaluate((el, target) => {
-      const slide = el.querySelector("[data-explore-slide]") as HTMLElement;
-      const h = slide?.getBoundingClientRect().height ?? el.clientHeight;
-      el.scrollTop = Math.max(0, target) * h;
-      el.dispatchEvent(new Event("scroll", { bubbles: true }));
-    }, Math.max(0, boot - 5));
+    await scroll.evaluate(
+      (el, target) => {
+        const slide = el.querySelector("[data-explore-slide]") as HTMLElement;
+        const h = slide?.getBoundingClientRect().height ?? el.clientHeight;
+        el.scrollTop = Math.max(0, target) * h;
+        el.dispatchEvent(new Event("scroll", { bubbles: true }));
+      },
+      Math.max(0, boot - 5)
+    );
     await expect(async () => {
-      expect(await page.locator("[data-explore-slide]").count()).toBeGreaterThan(
-        boot
-      );
+      expect(
+        await page.locator("[data-explore-slide]").count()
+      ).toBeGreaterThan(boot);
     }).toPass({ timeout: 45_000 });
   });
 
@@ -236,16 +239,19 @@ test.describe("signed-in explore matrix", () => {
     }
     const boot = await page.locator("[data-explore-slide]").count();
     const scroll = page.getByTestId("explore-feed-scroll");
-    await scroll.evaluate((el, target) => {
-      const slide = el.querySelector("[data-explore-slide]") as HTMLElement;
-      const h = slide?.getBoundingClientRect().height ?? el.clientHeight;
-      el.scrollTop = Math.max(0, target) * h;
-      el.dispatchEvent(new Event("scroll", { bubbles: true }));
-    }, Math.max(0, boot - 5));
+    await scroll.evaluate(
+      (el, target) => {
+        const slide = el.querySelector("[data-explore-slide]") as HTMLElement;
+        const h = slide?.getBoundingClientRect().height ?? el.clientHeight;
+        el.scrollTop = Math.max(0, target) * h;
+        el.dispatchEvent(new Event("scroll", { bubbles: true }));
+      },
+      Math.max(0, boot - 5)
+    );
     await expect(async () => {
-      expect(await page.locator("[data-explore-slide]").count()).toBeGreaterThan(
-        boot
-      );
+      expect(
+        await page.locator("[data-explore-slide]").count()
+      ).toBeGreaterThan(boot);
     }).toPass({ timeout: 45_000 });
   });
 });

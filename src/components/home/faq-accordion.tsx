@@ -63,7 +63,7 @@ export const FAQAccordion = () => {
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="item-5">
+        <AccordionItem value="item-6">
           <AccordionTrigger>How does discovery work?</AccordionTrigger>
           <AccordionContent>
             Your content can be discovered through channels, Explore, featured
@@ -72,7 +72,7 @@ export const FAQAccordion = () => {
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="item-5">
+        <AccordionItem value="item-7">
           <AccordionTrigger>Is Tipmanna only for creators?</AccordionTrigger>
           <AccordionContent>
             No. Tipmanna is built for creators, charities, event organisers,
@@ -81,7 +81,7 @@ export const FAQAccordion = () => {
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="item-5">
+        <AccordionItem value="item-8">
           <AccordionTrigger>Is Tipmanna secure?</AccordionTrigger>
           <AccordionContent>
             Yes. Security, privacy, and trusted payment processing are core

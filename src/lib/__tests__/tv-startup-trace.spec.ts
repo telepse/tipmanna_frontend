@@ -534,7 +534,7 @@ describe("playback and schedule counters", () => {
       trigger: "syncToLive_drift_seek",
     });
     tvStartupEvent("startup_stability_guard_released", {
-      data: { releaseReason: "stable_playback" },
+      data: { releaseReason: "stable_playback", releasedAtMs: 12345 },
     });
 
     const s = helper().getLatest();
@@ -543,6 +543,7 @@ describe("playback and schedule counters", () => {
     expect(s?.preStableCorrectiveSeekCount).toBe(1);
     expect(s?.startupStabilityGuardReleased).toBe(true);
     expect(s?.startupStabilityGuardReleaseReason).toBe("stable_playback");
+    expect(s?.startupStabilityGuardReleasedAtMs).toBe(12345);
   });
 });
 

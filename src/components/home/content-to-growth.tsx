@@ -40,7 +40,12 @@ export const ContentToGrowth = () => {
                 >
                   {item.title}
                 </Paragraph>
-                <Paragraph size="sm">{item.content}</Paragraph>
+                <Paragraph
+                  size="sm"
+                  className="leading-relaxed"
+                >
+                  {item.content}
+                </Paragraph>
               </div>
             </div>
           ))}

@@ -28,6 +28,8 @@ type SavedVideoItem = {
     url?: string;
     title?: string;
     durationSeconds?: number;
+    metrics?: { encounters?: number };
+    encounters?: number;
     event?: {
       id?: string;
       eventName?: string;
@@ -200,7 +202,9 @@ export function SavedTab({
                   username={host?.username?.trim() || ev?.hostName || ""}
                   amountRaised={ev?.amountRaised ?? 0}
                   numOfTips={ev?.numOfTips ?? 0}
-                  eventDate={(ev?.eventDate as string) || ""}
+                  numOfEncounters={
+                    ch?.metrics?.encounters ?? ch?.encounters ?? 0
+                  }
                   startTime={ev?.startTime || ""}
                   endTime={ev?.endTime || ""}
                   duration={ch?.durationSeconds ?? 0}
