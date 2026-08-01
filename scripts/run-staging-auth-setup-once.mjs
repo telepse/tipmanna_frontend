@@ -10,9 +10,9 @@ const required = [
   "PLAYWRIGHT_BACKEND_URL",
   "PLAYWRIGHT_TIPPER_EMAIL",
   "TIPMANNA_E2E_AUTH_CODE",
-] as const;
+];
 
-const optional = ["PLAYWRIGHT_E2E_AUTH_HELPER_SECRET"] as const;
+const optional = ["PLAYWRIGHT_E2E_AUTH_HELPER_SECRET"];
 
 function status(name) {
   const v = process.env[name]?.trim();
@@ -51,6 +51,16 @@ try {
   console.info(`backendHost=${backendHost}`);
 } catch {
   console.error("Invalid PLAYWRIGHT_BASE_URL or PLAYWRIGHT_BACKEND_URL");
+  process.exit(1);
+}
+
+if (
+  process.env.TIPMANNA_E2AUTHE__ALLOWLIST_EMAILS &&
+  !process.env.TIPMANNA_E2E_AUTH_ALLOWLIST_EMAILS
+) {
+  console.error(
+    "RENDER_ENV_FIX_REQUIRED: server must use TIPMANNA_E2E_AUTH_ALLOWLIST_EMAILS (a similarly named local typo was detected)"
+  );
   process.exit(1);
 }
 

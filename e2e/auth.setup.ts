@@ -67,6 +67,7 @@ setup("authenticate disposable tipper account", async ({ page }) => {
       method: codeResult.method,
       backendHost: codeResult.backendHost,
       httpStatus: codeResult.httpStatus ?? null,
+      reason: codeResult.reason ?? null,
       error: codeResult.error ?? null,
     })
   );
