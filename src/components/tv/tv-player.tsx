@@ -11,6 +11,7 @@ import React, {
 } from "react";
 
 import YouTube from "react-youtube";
+import type { YouTubeEvent } from "react-youtube";
 
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
@@ -39,6 +40,8 @@ import {
 } from "@/lib/tv-startup-trace";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
+
+type YouTubePlayer = YouTubeEvent["target"];
 
 export interface TvPlayerRef {
   isReady: () => boolean;
@@ -268,8 +271,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const onMuteChangeRef = useRef(onMuteChange);
     onMuteChangeRef.current = onMuteChange;
 
-    const syncMuteFromPlayer = useCallback((target?: any) => {
-      // eslint-disable-line @typescript-eslint/no-explicit-any
+    const syncMuteFromPlayer = useCallback((target?: YouTubePlayer | null) => {
       const p = target ?? playerRef.current;
       if (!p || typeof p.isMuted !== "function") return;
       onMuteChangeRef.current?.(p.isMuted());
