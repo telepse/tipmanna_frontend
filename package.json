@@ -114,7 +114,7 @@
     "@types/react": "^19",
     "@types/react-date-range": "^1.4.10",
     "@types/react-dom": "^19",
-    "@types/youtube": "^0.1.2",
+    "@types/youtube": "^0.3.0",
     "chromium": "^3.0.3",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
