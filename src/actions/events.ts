@@ -77,6 +77,7 @@ export async function getHostEventsAction(
 export async function createEventChannelAction(
   values: {
     title: string;
+    description?: string;
     url: string;
     isLive: boolean;
     reminders?: number[];

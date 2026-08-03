@@ -10,6 +10,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -113,7 +114,7 @@ export function buildCreateChannelPayload(values: AddVideoFormValues) {
 
   return {
     title: values.title,
-    description: values.description,
+    description: values.description.trim() || undefined,
     url: values.url,
     isLive: values.isLive,
     reminders: reminderNums,
@@ -404,9 +405,10 @@ export function AddVideoForm({
                       Video Description
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="My awesome event"
-                        className={inputClass}
+                      <Textarea
+                        placeholder="Describe your video (optional)"
+                        className={cn("min-h-24 resize-y", inputClass)}
+                        rows={4}
                         {...field}
                       />
                     </FormControl>

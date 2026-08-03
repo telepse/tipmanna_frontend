@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: explore-signed-in-matrix.spec.ts >> signed-in explore matrix >> Join Community deep link preserves feedTab
-- Location: e2e\explore-signed-in-matrix.spec.ts:141:7
+- Name: explore-signed-in-matrix.spec.ts >> signed-in explore matrix >> Feed reel index survives My Communities round-trip
+- Location: e2e\explore-signed-in-matrix.spec.ts:238:7
 
 # Error details
 
@@ -32,13 +32,13 @@ Call Log:
             - generic [ref=e6]:
                 - link "tipmanna" [ref=e7] [cursor=pointer]:
                     - /url: /explore
-                - button [ref=e8] [cursor=pointer]:
+                - button "Open Discover panel" [ref=e8] [cursor=pointer]:
                     - img [ref=e9]
             - generic [ref=e12]:
                 - button "Open discover search" [ref=e13]:
                     - textbox "Search videos..." [ref=e14]
                     - img [ref=e15]
-                - generic [ref=e20]: 3 watching live
+                - generic [ref=e20]: 0 watching live
         - generic [ref=e22]:
             - generic [ref=e23]:
                 - button [ref=e24]:
@@ -46,10 +46,47 @@ Call Log:
                 - generic [ref=e26]: Create
             - button "Feed" [ref=e27]
             - button "Start Community" [ref=e28]
-            - button "Signed in" [ref=e29]:
+            - button "Not signed in" [ref=e29]:
                 - img [ref=e31]
-                - generic [ref=e34]: Signed in
-        - img [ref=e37]
+                - generic [ref=e34]: Not signed in
+        - generic [ref=e37]:
+            - banner [ref=e38]:
+                - heading "Communities" [level=1] [ref=e39]
+                - paragraph [ref=e40]: Search new communities to join. Sign in to send a start community request and view your memberships.
+            - generic [ref=e41]:
+                - generic [ref=e42]:
+                    - generic [ref=e43]:
+                        - generic [ref=e44]: Search
+                        - generic [ref=e45]: "0"
+                        - text: communities
+                    - button "Browse all A–Z" [ref=e46] [cursor=pointer]
+                - textbox "Search 0 communities" [ref=e47]:
+                    - /placeholder: Type to search…
+                - paragraph [ref=e48]: fetch failed
+            - generic [ref=e49]:
+                - generic [ref=e50]:
+                    - heading "Top communities" [level=2] [ref=e51]
+                    - paragraph [ref=e52]: Ranked by total tips received.
+                - paragraph [ref=e53]: No active communities to rank yet.
+            - generic [ref=e54]:
+                - heading "Communities you own" [level=2] [ref=e56]
+                - generic [ref=e57]:
+                    - paragraph [ref=e58]: No communities detected on your account.
+                    - paragraph [ref=e59]: Send a request to start another community
+                    - button "Start community" [ref=e60] [cursor=pointer]
+            - generic [ref=e61]:
+                - generic [ref=e62]:
+                    - heading "Your memberships" [level=5] [ref=e63]
+                    - button "Refresh" [disabled]
+                - generic [ref=e65]:
+                    - heading "Default system community" [level=3] [ref=e66]
+                    - list [ref=e67]:
+                        - listitem [ref=e68]:
+                            - generic [ref=e69]:
+                                - paragraph [ref=e70]: Tipmanna
+                                - paragraph [ref=e71]: Public hub — everyone can explore Tipmanna content.
+                            - link:
+                                - /url: /partner
 ```
 
 # Test source

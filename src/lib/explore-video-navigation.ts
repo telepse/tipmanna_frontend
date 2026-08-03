@@ -55,6 +55,25 @@ export function buildExploreVideoHref(target: ExploreFeedOpenTarget): string {
   return `/explore?${params.toString()}`;
 }
 
+/** Preserve live Explore query keys (e.g. e2e=1) while adding reel handoff params. */
+export function buildExploreVideoHandoffHref(
+  target: ExploreFeedOpenTarget,
+  existingSearchParams: URLSearchParams | string
+): string {
+  const params = new URLSearchParams(
+    typeof existingSearchParams === "string"
+      ? existingSearchParams
+      : existingSearchParams.toString()
+  );
+  params.delete("tab");
+  params.delete("joinCommunity");
+  params.set("feedTab", "trends");
+  params.delete("tvSource");
+  params.set("channel", target.videoId.trim());
+  params.set("eventId", target.eventId.trim());
+  return `/explore?${params.toString()}`;
+}
+
 export function exploreOpenTargetFromUrl(
   searchParams: URLSearchParams
 ): ExploreFeedOpenTarget | null {

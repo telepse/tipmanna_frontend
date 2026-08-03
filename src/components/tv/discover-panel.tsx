@@ -43,6 +43,8 @@ import {
   readRecentDiscoverySearches,
 } from "@/lib/discovery-search-storage";
 import { shouldApplyDiscoverSearchResult } from "@/lib/discover-search-generation";
+import { E2E_DISCOVER_CONTENTS } from "@/lib/e2e-explore-fixtures";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import {
   DISCOVER_RAIL_SUBTITLES,
   DISCOVER_RAIL_UPDATE_HINTS,
@@ -287,6 +289,20 @@ export function DiscoverPanel({
       return;
     }
 
+    if (isExploreE2eFixturesActiveOnClient()) {
+      tagRequestGenRef.current += 1;
+      setTagResults(
+        E2E_DISCOVER_CONTENTS.map(c => ({
+          id: c.id,
+          title: c.title,
+          url: c.url,
+          event: c.event,
+        }))
+      );
+      setTagLoading(false);
+      return;
+    }
+
     const gen = ++tagRequestGenRef.current;
     setTagLoading(true);
     void discoverySearchAction("", 30, selectedTag)
@@ -525,6 +541,7 @@ export function DiscoverPanel({
     <div
       key={content.id}
       data-testid="discover-content-card"
+      data-event-id={content.event?.id ?? undefined}
       onPointerEnter={() => warmContentForExplore(content)}
       onClick={() => resolveContentClick(content)}
       className={cn(
@@ -993,6 +1010,8 @@ export function DiscoverPanel({
                   {tagResults.map(content => (
                     <div
                       key={content.id}
+                      data-testid="discover-handoff-card"
+                      data-event-id={content.event?.id ?? undefined}
                       onPointerEnter={() => warmContentForExplore(content)}
                       onClick={() => resolveContentClick(content)}
                       className={cn(

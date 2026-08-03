@@ -46,6 +46,7 @@ import { ExploreTvScheduleFeed } from "./explore-tv-schedule-feed";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import {
   exploreOpenTargetFromUrl,
+  buildExploreVideoHandoffHref,
   exploreVideoHandoffKeyFromUrl,
 } from "@/lib/explore-video-navigation";
 import { warmExploreVideoHandoff } from "@/lib/explore-video-handoff-warm";
@@ -96,7 +97,10 @@ import {
   E2E_JOINED_MEMBERSHIP,
   E2E_TV_HANDOFF,
 } from "@/lib/e2e-explore-fixtures";
-import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
+import {
+  isExploreE2eFixturesEnabled,
+  isExploreE2eFixturesEnvEnabled,
+} from "@/lib/explore-e2e-fixtures-gate";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import {
   getAllCharacterSets,
@@ -202,22 +206,6 @@ function isEligibleForCommunityFeedDropdown(m: JoinedMembershipRow): boolean {
   }
   if (m.expiresAt && new Date(m.expiresAt) <= new Date()) return false;
   return true;
-}
-
-/** Dual-gate E2E: keep deterministic picker row when signed-in API returns none. */
-function mergeJoinedMembershipsForExplore(
-  apiMemberships: JoinedMembershipRow[],
-  includeE2eFixture: boolean
-): JoinedMembershipRow[] {
-  if (!includeE2eFixture) return apiMemberships;
-  if (
-    apiMemberships.some(
-      m => m.communityId === E2E_JOINED_MEMBERSHIP.communityId
-    )
-  ) {
-    return apiMemberships;
-  }
-  return [E2E_JOINED_MEMBERSHIP as JoinedMembershipRow, ...apiMemberships];
 }
 
 /** Hide Tipmanna Public / system global feed from the multi-select community picker. */
@@ -441,20 +429,22 @@ export default function ExplorePageClient({
     }
     let cancelled = false;
     void (async () => {
-      const joinedPromise = getMeJoinedCommunitiesAction(exploreAuthToken);
       const hostPromise = getMyCommunitiesAction(exploreAuthToken);
-      const [joinedRes, hostRes] = await Promise.all([
-        joinedPromise,
-        hostPromise,
-      ]);
+      if (e2eFixtures) {
+        if (!cancelled) {
+          setJoinedMemberships([E2E_JOINED_MEMBERSHIP as JoinedMembershipRow]);
+        }
+      } else {
+        const joinedRes = await getMeJoinedCommunitiesAction(exploreAuthToken);
+        if (cancelled) return;
+        const apiMemberships =
+          joinedRes.success && Array.isArray(joinedRes.data?.memberships)
+            ? (joinedRes.data.memberships as JoinedMembershipRow[])
+            : [];
+        setJoinedMemberships(apiMemberships);
+      }
+      const hostRes = await hostPromise;
       if (cancelled) return;
-      const apiMemberships =
-        joinedRes.success && Array.isArray(joinedRes.data?.memberships)
-          ? (joinedRes.data.memberships as JoinedMembershipRow[])
-          : [];
-      setJoinedMemberships(
-        mergeJoinedMembershipsForExplore(apiMemberships, e2eFixtures)
-      );
       if (hostRes?.success && hostRes.data) {
         const raw = hostRes.data as {
           owned?: TvCommunityBrief[];
@@ -989,7 +979,24 @@ export default function ExplorePageClient({
       setSuppressDiscoverInlineContentId(target.videoId);
       warmExploreVideoHandoff(target);
       setDiscoverSheetOpen(false);
-      navigateFeedSubTab("trends");
+
+      localTabNavRef.current = true;
+      setMainTab("feed");
+      setFeedSubTab("trends");
+      feedUrlStateRef.current = {
+        ...feedUrlStateRef.current,
+        feedSubTab: "trends",
+      };
+
+      const handoffHref = buildExploreVideoHandoffHref(
+        target,
+        searchParamsKeyRef.current
+      );
+      commitExploreHistory({
+        href: handoffHref,
+        mode: "push",
+        source: "discover-expand",
+      });
 
       const client = exploreFeedRef.current;
       if (client) {
@@ -999,7 +1006,7 @@ export default function ExplorePageClient({
       }
       setExploreOpenNonce(n => n + 1);
     },
-    [navigateFeedSubTab]
+    [setMainTab]
   );
 
   useLayoutEffect(() => {
@@ -1054,6 +1061,10 @@ export default function ExplorePageClient({
   }, [tab, feedSubTab, exploreOpenNonce]);
 
   const loadExploreCatalog = useCallback(async () => {
+    if (e2eFixtures) {
+      setCatalogLoading(false);
+      return;
+    }
     setCatalogLoading(true);
     try {
       const signedIn = isSignedInExplore && Boolean(exploreUserId?.trim());
@@ -1139,7 +1150,7 @@ export default function ExplorePageClient({
       // rejected action (root cause of the "skeleton forever" regression).
       setCatalogLoading(false);
     }
-  }, [isSignedInExplore, exploreUserId]);
+  }, [e2eFixtures, isSignedInExplore, exploreUserId]);
 
   const openDiscoverSheet = useCallback(() => {
     setDiscoverSheetOpen(true);
@@ -1300,7 +1311,16 @@ export default function ExplorePageClient({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden">
+    <div
+      className="flex h-[100dvh] flex-col overflow-hidden"
+      data-explore-e2e-fixtures={e2eFixtures ? "1" : "0"}
+      data-explore-e2e-fixtures-build={
+        isExploreE2eFixturesEnvEnabled() ? "1" : "0"
+      }
+      data-explore-deploy-commit={
+        process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "local"
+      }
+    >
       <header
         className={cn(
           "flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2"
@@ -1336,6 +1356,8 @@ export default function ExplorePageClient({
 
           <button
             type="button"
+            data-testid="explore-open-discover-panel"
+            aria-label="Open Discover panel"
             className="cursor-pointer rounded border border-black p-0.25 sm:p-0.5"
             onClick={openDiscoverSheet}
           >

@@ -11,6 +11,8 @@ import {
 import type { ExploreSsrBootPayload } from "@/lib/explore-ssr-boot";
 import { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
 import { EXPLORE_FEED_PREFETCH_WAIT_TIMEOUT_MS } from "@/lib/explore-feed-fetch-timeout";
+import { E2E_FEED_BOOT } from "@/lib/e2e-explore-fixtures";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 
 export { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
 
@@ -80,6 +82,13 @@ function prefetchOptsFromWindow():
 }
 
 async function fetchBootSnapshot(): Promise<ExploreFeedPrefetchSnapshot | null> {
+  if (isExploreE2eFixturesActiveOnClient()) {
+    return {
+      items: E2E_FEED_BOOT.items,
+      seed: E2E_FEED_BOOT.seed,
+      bucketId: E2E_FEED_BOOT.bucketId,
+    };
+  }
   const urlOpts = prefetchOptsFromWindow();
   if (urlOpts) {
     const r = await postExploreFeedBatchAction(
@@ -110,6 +119,13 @@ async function fetchBootSnapshot(): Promise<ExploreFeedPrefetchSnapshot | null> 
 }
 
 async function fetchSavesSnapshot(): Promise<ExploreFeedPrefetchSnapshot | null> {
+  if (isExploreE2eFixturesActiveOnClient()) {
+    return {
+      items: E2E_FEED_BOOT.items,
+      seed: E2E_FEED_BOOT.seed,
+      bucketId: E2E_FEED_BOOT.bucketId,
+    };
+  }
   const r = await postExploreFeedBatchAction(
     [],
     undefined,

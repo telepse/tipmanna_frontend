@@ -222,7 +222,7 @@ export function AppSidebar({ numOfEvents }: Props) {
   const payoutNavTitles = new Set(["Revenue & Payouts", "Community payouts"]);
 
   return (
-    <Sidebar className="bg-white">
+    <Sidebar className="overflow-y-auto [scrollbar-color:#d1d5db_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-track]:bg-transparent">
       <SidebarContent>
         <SidebarGroup>
           <Logo />
