@@ -4,40 +4,48 @@
  * and the URL includes `?e2e=1`.
  */
 
+import { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
+
 export const E2E_JOIN_COMMUNITY_ID = "11111111-1111-4111-8111-111111111111";
 
 export const E2E_SELECT_COMMUNITY_ID = "22222222-2222-4222-8222-222222222222";
 
+const E2E_FEED_POOL_SIZE = 24;
+
+function buildE2eFeedItem(index: number) {
+  return {
+    id: `e2e-channel-${index}`,
+    title: `E2E Explore clip ${index}`,
+    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    liveStatus: "NOT_LIVE" as const,
+    event: {
+      id: `e2e-event-${index}`,
+      eventName: `E2E Event ${index}`,
+      numOfTips: 0,
+      amountRaised: 0,
+    },
+  };
+}
+
+/** Synthetic feed pool large enough for boot + pagination continuations in E2E. */
+export const E2E_FEED_ALL_ITEMS = Array.from(
+  { length: E2E_FEED_POOL_SIZE },
+  (_, i) => buildE2eFeedItem(i + 1)
+);
+
 export const E2E_FEED_BOOT = {
-  items: [
-    {
-      id: "e2e-channel-1",
-      title: "E2E Explore clip one",
-      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      liveStatus: "NOT_LIVE",
-      event: {
-        id: "e2e-event-1",
-        eventName: "E2E Event One",
-        numOfTips: 0,
-        amountRaised: 0,
-      },
-    },
-    {
-      id: "e2e-channel-2",
-      title: "E2E Explore clip two",
-      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      liveStatus: "NOT_LIVE",
-      event: {
-        id: "e2e-event-2",
-        eventName: "E2E Event Two",
-        numOfTips: 0,
-        amountRaised: 0,
-      },
-    },
-  ],
+  items: E2E_FEED_ALL_ITEMS.slice(0, EXPLORE_FEED_BOOT_COUNT),
   seed: "e2e-feed-seed",
   bucketId: 1,
 };
+
+/** Next deterministic batch page for dual-gated signed-in pagination tests. */
+export function takeE2eFeedBatchPage(
+  alreadyLoaded: number,
+  count: number
+): typeof E2E_FEED_ALL_ITEMS {
+  return E2E_FEED_ALL_ITEMS.slice(alreadyLoaded, alreadyLoaded + count);
+}
 
 export const E2E_DISCOVER_CONTENTS = [
   {

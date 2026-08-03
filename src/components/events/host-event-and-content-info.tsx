@@ -13,6 +13,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectTrigger,
@@ -621,8 +622,11 @@ export const HostEventAndContentInfo = ({ control }: Props) => {
                       />
                     </div>
 
-                    <Input
+                    <Textarea
                       disabled={isLocked}
+                      placeholder={`Video Description ${index + 1}`}
+                      className="min-h-20 resize-y bg-black/15 text-white"
+                      rows={3}
                       {...register(`videoLinks.${index}.description`)}
                     />
                   </>
@@ -679,9 +683,10 @@ export const HostEventAndContentInfo = ({ control }: Props) => {
                     </div>
 
                     {/* Video Description */}
-                    <Input
+                    <Textarea
                       placeholder={`Video Description ${index + 1}`}
-                      className="bg-black/15 text-white"
+                      className="min-h-20 resize-y bg-black/15 text-white"
+                      rows={3}
                       {...register(`videoLinks.${index}.description` as const)}
                     />
 

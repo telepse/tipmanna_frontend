@@ -1,13 +1,16 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import {
-  discoverTagRow,
+  clickDiscoverExploreHandoffCard,
+  openExploreDiscoverPanel,
+  readExploreFixtureDeployState,
+} from "./helpers/explore-discover-handoff";
+import {
   exploreFilterTypeChip,
   openExploreFilters,
   selectFeedTypeFilter,
 } from "./helpers/explore-filter-helpers";
 import { gotoExplore } from "./helpers/goto-explore";
-import { openExploreHeaderDiscoverSearch } from "./helpers/open-explore-discover-search";
 import {
   E2E_JOIN_COMMUNITY_ID,
   E2E_SELECT_COMMUNITY_ID,
@@ -15,7 +18,6 @@ import {
 } from "./helpers/explore-test-fixtures";
 import {
   requireExploreNavigationReady,
-  requirePopulatedExploreFeed,
   waitExploreFeedReady,
 } from "./helpers/wait-explore-feed-ready";
 
@@ -108,6 +110,16 @@ test.describe("signed-in explore matrix", () => {
     page,
   }) => {
     await gotoSignedInExplore(page, "/explore?feedTab=community");
+    const deploy = await readExploreFixtureDeployState(page);
+    expect(
+      deploy.buildFlagEnabled,
+      "Rebuild staging with NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES=1"
+    ).toBe(true);
+    expect(
+      deploy.runtimeActive,
+      "Dual-gate requires ?e2e=1 on the Explore URL"
+    ).toBe(true);
+
     await page
       .getByRole("button", { name: /My Communities|\d+ communit/i })
       .first()
@@ -115,16 +127,7 @@ test.describe("signed-in explore matrix", () => {
     const e2eCommunityRow = page.getByRole("menuitemcheckbox", {
       name: "E2E Community",
     });
-    const pickerEligible = await e2eCommunityRow
-      .isVisible({ timeout: 30_000 })
-      .catch(() => false);
-    if (!pickerEligible) {
-      test.skip(
-        true,
-        "Eligibility: signed-in picker needs active feedActive membership for E2E_SELECT_COMMUNITY_ID (dual-gate fixture merged when ?e2e=1)"
-      );
-      return;
-    }
+    await expect(e2eCommunityRow).toBeVisible({ timeout: 30_000 });
     await e2eCommunityRow.click();
     await expect
       .poll(() => sp(page.url()).get("communities"), { timeout: 8_000 })
@@ -154,14 +157,27 @@ test.describe("signed-in explore matrix", () => {
 
   test("Discover open/close and return to Feed", async ({ page }) => {
     await gotoSignedInExplore(page, "/explore");
-    await requirePopulatedExploreFeed(page, 60_000);
-    await openExploreHeaderDiscoverSearch(page);
-    const tag = discoverTagRow(page).first();
-    if (await tag.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await tag.click();
-      await expect(page).toHaveURL(/channel=/, { timeout: 15_000 });
-      await page.goBack();
-    }
+    await requireExploreNavigationReady(page, 60_000);
+
+    const deploy = await readExploreFixtureDeployState(page);
+    expect(
+      deploy.buildFlagEnabled,
+      "Rebuild staging with NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES=1"
+    ).toBe(true);
+    expect(
+      deploy.runtimeActive,
+      "Dual-gate requires ?e2e=1 on the Explore URL"
+    ).toBe(true);
+
+    const dialog = await openExploreDiscoverPanel(page);
+
+    const urlBefore = page.url();
+    await clickDiscoverExploreHandoffCard(page, dialog);
+    await expect(page).toHaveURL(/channel=/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/eventId=/, { timeout: 15_000 });
+    expect(page.url()).not.toBe(urlBefore);
+    await expect(dialog).not.toBeVisible();
+    await page.goBack();
     await expect(page.getByTestId("explore-feed-scroll")).toBeVisible({
       timeout: 30_000,
     });
@@ -246,6 +262,10 @@ test.describe("signed-in explore matrix", () => {
       .poll(() => sp(page.url()).get("tab"), { timeout: 8_000 })
       .toBe("my-communities");
     await page.goBack();
+    await expect
+      .poll(() => sp(page.url()).get("tab"), { timeout: 8_000 })
+      .not.toBe("my-communities");
+    await requireExploreNavigationReady(page, 60_000);
     await expect(page.getByTestId("explore-feed-scroll")).toBeVisible({
       timeout: 30_000,
     });

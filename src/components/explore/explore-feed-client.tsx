@@ -50,6 +50,8 @@ import {
   mergeBatchDedup,
 } from "@/lib/explore-feed-pagination-policy";
 import { logExplorePagination } from "@/lib/explore-feed-pagination-observability";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
+import { takeE2eFeedBatchPage } from "@/lib/e2e-explore-fixtures";
 import {
   buildExploreFeedIdentity,
   isUnscopedGlobalTrendsIdentity,
@@ -1251,6 +1253,9 @@ export const ExploreFeedClient = forwardRef<
         !(scope.communityIds?.length ?? 0)
       ) {
         return [];
+      }
+      if (isExploreE2eFixturesActiveOnClient()) {
+        return takeE2eFeedBatchPage(list.length, count);
       }
       const r = await postExploreFeedBatchAction(
         list.map((x: any) => x.id),
