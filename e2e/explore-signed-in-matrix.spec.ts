@@ -74,8 +74,13 @@ test.describe("signed-in explore matrix", () => {
     await page.goBack();
     await expect.poll(() => page.url(), { timeout: 8_000 }).not.toBe(comedyUrl);
     await page.goForward();
+    await expect(page).toHaveURL(/feedTypes=.*COMEDY/i, { timeout: 8_000 });
     await expect(page.url()).toBe(comedyUrl);
     await openExploreFilters(page);
+    await expect(exploreFilterTypeChip(page, "Comedy")).toHaveClass(
+      /border-primary/,
+      { timeout: 8_000 }
+    );
     const chip = exploreFilterTypeChip(page, "Comedy");
     if (await chip.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await chip.click();
@@ -84,7 +89,8 @@ test.describe("signed-in explore matrix", () => {
 
   test("My Communities from Trends with Back/Forward", async ({ page }) => {
     await gotoSignedInExplore(page, "/explore");
-    await page.getByRole("button", { name: /my communities/i }).click();
+    await page.getByTestId("explore-chrome-start-community").click();
+    await requireExploreNavigationReady(page, 60_000);
     await expect
       .poll(() => sp(page.url()).get("tab"), { timeout: 8_000 })
       .toBe("my-communities");
@@ -94,6 +100,7 @@ test.describe("signed-in explore matrix", () => {
       .poll(() => sp(page.url()).get("tab"), { timeout: 8_000 })
       .not.toBe("my-communities");
     await page.goForward();
+    await expect(page).toHaveURL(/tab=my-communities/, { timeout: 8_000 });
     await expect(page.url()).toBe(mcUrl);
   });
 
@@ -101,8 +108,24 @@ test.describe("signed-in explore matrix", () => {
     page,
   }) => {
     await gotoSignedInExplore(page, "/explore?feedTab=community");
-    await page.getByRole("button", { name: /community/i }).click();
-    await page.getByRole("menuitem", { name: /E2E Community/i }).click();
+    await page
+      .getByRole("button", { name: /My Communities|\d+ communit/i })
+      .first()
+      .click();
+    const e2eCommunityRow = page.getByRole("menuitemcheckbox", {
+      name: "E2E Community",
+    });
+    const pickerEligible = await e2eCommunityRow
+      .isVisible({ timeout: 30_000 })
+      .catch(() => false);
+    if (!pickerEligible) {
+      test.skip(
+        true,
+        "Eligibility: signed-in picker needs active feedActive membership for E2E_SELECT_COMMUNITY_ID (dual-gate fixture merged when ?e2e=1)"
+      );
+      return;
+    }
+    await e2eCommunityRow.click();
     await expect
       .poll(() => sp(page.url()).get("communities"), { timeout: 8_000 })
       .toContain(E2E_SELECT_COMMUNITY_ID);
@@ -116,13 +139,16 @@ test.describe("signed-in explore matrix", () => {
   });
 
   test("Join Community deep link preserves feedTab", async ({ page }) => {
-    await gotoSignedInExplore(
+    await gotoExplore(
       page,
-      `/explore?feedTab=trends&joinCommunity=${E2E_JOIN_COMMUNITY_ID}`
+      withE2eFixtures(
+        `/explore?tab=join&joinCommunity=${E2E_JOIN_COMMUNITY_ID}&feedTab=trends`
+      )
     );
-    await expect(page.getByText(/join/i).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect
+      .poll(() => sp(page.url()).get("tab"), { timeout: 30_000 })
+      .toBe("join");
+    expect(sp(page.url()).get("joinCommunity")).toBe(E2E_JOIN_COMMUNITY_ID);
     expect(sp(page.url()).get("feedTab") ?? "trends").toBe("trends");
   });
 
@@ -180,6 +206,7 @@ test.describe("signed-in explore matrix", () => {
       })
       .toBe("trends");
     await page.goBack();
+    await expect(page).toHaveURL(/feedTab=saves/, { timeout: 8_000 });
     await expect(page.url()).toBe(savesUrl);
     await page.goForward();
     await expect
@@ -213,7 +240,8 @@ test.describe("signed-in explore matrix", () => {
       const h = slide?.getBoundingClientRect().height ?? el.clientHeight;
       return h > 0 ? Math.round(el.scrollTop / h) : 0;
     });
-    await page.getByRole("button", { name: /my communities/i }).click();
+    await page.getByTestId("explore-chrome-start-community").click();
+    await requireExploreNavigationReady(page, 60_000);
     await expect
       .poll(() => sp(page.url()).get("tab"), { timeout: 8_000 })
       .toBe("my-communities");

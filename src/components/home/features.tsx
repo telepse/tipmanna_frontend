@@ -65,7 +65,7 @@ export default function Features() {
       <Paragraph
         align="center"
         color="muted"
-        className="-mt-2"
+        className="-mt-2 leading-relaxed"
       >
         Your channel is where participation begins.{" "}
         <br className="hidden sm:block" /> Upload videos, or go live, share!{" "}

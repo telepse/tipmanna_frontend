@@ -123,13 +123,13 @@ export default function KeyStats({ stats }: Props) {
 
   return (
     <section className="bg-[#FFFAF6] py-12">
-      <div className="wrapper p-4">
+      <div className="wrapper section p-4">
         <Badge
           title="Our Impact
         
         "
         />
-        <div className="grid grid-cols-12 gap-4 sm:gap-6 lg:gap-12">
+        <div className="mt-6 grid grid-cols-12 gap-4 sm:gap-6 lg:gap-12">
           <div className="bg-primary section relative col-span-full rounded-2xl text-white lg:col-span-5">
             <span className="border-primary open_sans z-10 inline-flex w-fit items-center gap-2 rounded-full border bg-black/50 px-4 py-3 text-xs font-medium sm:text-sm">
               <span className="bg-primary size-5 rounded-full"></span> Live

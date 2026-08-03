@@ -14,8 +14,8 @@ import TippingBanner from "@/components/home/tipping-banner";
 import TrustBadges from "@/components/home/trust-badges";
 import TopEventsSection from "@/components/home/top-events-section";
 import TopContentsSection from "@/components/home/top-contents-section";
-import CharitiesSection from "@/components/home/charities-section";
-import TestimonialsLazy from "@/components/home/testimonials-lazy";
+// import CharitiesSection from "@/components/home/charities-section";
+// import TestimonialsLazy from "@/components/home/testimonials-lazy";
 import TopCommunitiesSection from "@/components/home/top-communities-section";
 import KeyStatsLazy from "@/components/home/key-stats-lazy";
 import FAQs from "@/components/home/faqs";
@@ -24,6 +24,18 @@ import PricingGrid from "@/components/home/pricing-grid";
 
 // Lib imports
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
+import { WhoIsTipmannaFor } from "@/components/home/who-is-tipmanna-for";
+import { TheCoreShift } from "@/components/home/the-core-shift";
+import { ContentToGrowth } from "@/components/home/content-to-growth";
+import { DiscoverSection } from "@/components/home/discover-section";
+import { SupportHappensInTheMoment } from "@/components/home/support-happens-in-the-moment";
+import ScheduledTvProgramsSection from "@/components/home/scheduled-tv-programs-section";
+import { AlreadyWatching } from "@/components/home/already-watching";
+import { ContinousEngagement } from "@/components/home/continuous-engagement";
+import { NewHeroServer } from "@/components/home/new-hero-server";
+import NewTrustBadges from "@/components/home/new-trust-badges";
+import NewTippingBanner from "@/components/home/new-tipping-banner";
+import NewPricingGrid from "@/components/home/pricing-grid";
 
 function DataSection({ children }: { children: ReactNode }) {
   return <section className="contents">{children}</section>;
@@ -74,8 +86,11 @@ export default function Home() {
   return (
     <main id="main-content">
       <NavbarShell />
-      <HeroServer />
+      <NewHeroServer />
       <LazySlider />
+      <NewTrustBadges />
+      <TheCoreShift />
+      <ContentToGrowth />
 
       <DataSection>
         <section
@@ -93,30 +108,37 @@ export default function Home() {
             aria-hidden
           />
 
-          <Features />
+          <div className="bg-secondary/10">
+            <Features />
+
+            <TopContentsSection />
+            <TopEventsSection />
+          </div>
+
+          <DiscoverSection />
 
           <TvHomePreviewSectionLazy />
-
-          <PricingGrid />
-
-          <TrustBadges />
-
-          <TippingBanner />
-
-          <TopContentsSection />
-          <TopEventsSection />
+          <ScheduledTvProgramsSection />
+          <ContinousEngagement />
+          <SupportHappensInTheMoment />
         </section>
       </DataSection>
+
+      <NewTippingBanner />
+
+      <WhoIsTipmannaFor />
+
+      <NewPricingGrid />
 
       <DataSection>
         <TopCommunitiesSection />
       </DataSection>
 
-      <DataSection>
+      {/* <DataSection>
         <TestimonialsLazy />
-      </DataSection>
+      </DataSection> */}
 
-      <DataSection>
+      {/* <DataSection>
         <section
           className="relative min-h-[50vh]"
           aria-label="Charities"
@@ -134,11 +156,13 @@ export default function Home() {
             <CharitiesSection />
           </div>
         </section>
-      </DataSection>
+      </DataSection> */}
 
       <DataSection>
         <KeyStatsLazy />
       </DataSection>
+
+      <AlreadyWatching />
 
       <FAQs />
 

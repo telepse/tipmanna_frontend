@@ -28,35 +28,36 @@ export const NAV_LINKS = [
 ];
 
 export const HERO_IMAGES = [
-  "/heros/image_1.webp",
-  "/heros/image_2.webp",
-  "/heros/image_3.webp",
-  "/heros/image_4.webp",
+  "/heros/creator_channel_slide.png",
+  "/heros/event_room_slide.png",
+  "/heros/explore_slide.png",
+  "/heros/tipmanna_tv_slide.png",
+  "/heros/dashboard_slide.png",
 ];
 
 export const CONTINUOUS_ENGAGEMENT_SLIDES = [
   {
-    image: "/heros/image_1.webp",
+    image: "/partner/creator_channel_slide_partner.png",
     title: "Creator Channel",
     alt: "A home for content, community, and repeat engagement.",
   },
   {
-    image: "/heros/image_2.webp",
+    image: "/partner/event_room_slide_partner.png",
     title: "Event Room",
     alt: "Live moments with comments, reactions, and supporter activity.",
   },
   {
-    image: "/heros/image_3.webp",
+    image: "/partner/explore_slide_partner.png",
     title: "TV Explore",
     alt: "Discovery that reaches beyond existing followers.",
   },
   {
-    image: "/heros/image_4.webp",
+    image: "/partner/tipmanna_tv_slide_partner.png",
     title: "Live TV",
     alt: "24/7 scheduled broadcast of featured contents accross the platform",
   },
   {
-    image: "/heros/image_4.webp",
+    image: "/partner/dashboard_slide_partner.png",
     title: "Dashboard",
     alt: "Broadcast updates, reminders, analytics, and growth tools.",
   },

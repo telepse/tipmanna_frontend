@@ -85,7 +85,7 @@ export default function ImageSlider() {
             width={SLIDER_CONFIG.imageWidth}
             height={SLIDER_CONFIG.imageHeight}
             sizes="(max-width: 768px) 100vw, 700px"
-            className="absolute h-[250px] w-[400px] object-cover transition-all duration-300 ease-in-out"
+            className="absolute h-[250px] w-[440px] object-cover transition-all duration-300 ease-in-out"
             style={{
               transform: position.transform,
               opacity: position.opacity,

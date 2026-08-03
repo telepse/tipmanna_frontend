@@ -1027,6 +1027,7 @@ export const ExploreFeedClient = forwardRef<
         role: user?.role,
         userId: user?.id,
       });
+      console.log("res", res);
       if (res.success && res.data) {
         toast.success(
           res.data.toggledTo === "saved"

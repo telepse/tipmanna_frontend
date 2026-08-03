@@ -204,6 +204,22 @@ function isEligibleForCommunityFeedDropdown(m: JoinedMembershipRow): boolean {
   return true;
 }
 
+/** Dual-gate E2E: keep deterministic picker row when signed-in API returns none. */
+function mergeJoinedMembershipsForExplore(
+  apiMemberships: JoinedMembershipRow[],
+  includeE2eFixture: boolean
+): JoinedMembershipRow[] {
+  if (!includeE2eFixture) return apiMemberships;
+  if (
+    apiMemberships.some(
+      m => m.communityId === E2E_JOINED_MEMBERSHIP.communityId
+    )
+  ) {
+    return apiMemberships;
+  }
+  return [E2E_JOINED_MEMBERSHIP as JoinedMembershipRow, ...apiMemberships];
+}
+
 /** Hide Tipmanna Public / system global feed from the multi-select community picker. */
 function isTipmannaPublicCommunityRow(m: JoinedMembershipRow): boolean {
   const n = (m.community?.name ?? "").trim().toLowerCase();
@@ -432,13 +448,13 @@ export default function ExplorePageClient({
         hostPromise,
       ]);
       if (cancelled) return;
-      if (joinedRes.success && Array.isArray(joinedRes.data?.memberships)) {
-        setJoinedMemberships(
-          joinedRes.data.memberships as JoinedMembershipRow[]
-        );
-      } else {
-        setJoinedMemberships([]);
-      }
+      const apiMemberships =
+        joinedRes.success && Array.isArray(joinedRes.data?.memberships)
+          ? (joinedRes.data.memberships as JoinedMembershipRow[])
+          : [];
+      setJoinedMemberships(
+        mergeJoinedMembershipsForExplore(apiMemberships, e2eFixtures)
+      );
       if (hostRes?.success && hostRes.data) {
         const raw = hostRes.data as {
           owned?: TvCommunityBrief[];

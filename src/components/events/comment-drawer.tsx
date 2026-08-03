@@ -471,10 +471,14 @@ export const CommentDrawer = ({
             </div>
 
             <div className="space-y-2 p-4">
-              <h4 className="text-sm font-semibold">
-                {hostMeta?.firstName ?? hostName} ·{" "}
-                {hostMeta?.username ? `@${hostMeta.username}` : null}{" "}
+              <h4 className="flex items-center gap-1 text-sm font-semibold">
                 <span className="text-primary">Creator</span>
+                <span>
+                  {hostMeta?.firstName ?? hostName}{" "}
+                  <span className="text-muted-foreground text-[10px]">
+                    {hostMeta?.username ? `@${hostMeta.username}` : null}{" "}
+                  </span>
+                </span>
                 <SaveHostToggleButton
                   channelId={channelId != null ? String(channelId) : null}
                   className="rounded bg-black/50 p-1 text-white"
@@ -534,11 +538,6 @@ export const CommentDrawer = ({
               {channelMeta ? (
                 <div className="flex flex-col gap-1">
                   <p className="text-muted-foreground text-[11px]">
-                    · {channelMeta.contentLanguage} ·{" "}
-                    {channelMeta.contentCountry}
-                  </p>
-
-                  <p className="text-muted-foreground text-[11px]">
                     Created:{" "}
                     {new Date(channelMeta.createdAt).toLocaleDateString(
                       "en-US",
@@ -547,15 +546,21 @@ export const CommentDrawer = ({
                   </p>
 
                   <p className="text-muted-foreground text-[11px]">
-                    Community:{" "}
+                    {channelMeta.communityName ? "Community" : ""}{" "}
                     {channelMeta.communityName
                       ? ` · ${channelMeta.communityName}`
                       : ""}
                   </p>
 
-                  <p className="w-fit bg-gray-200">
-                    {channelMeta.eventVideoType}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[10px]">
+                      {channelMeta.eventVideoType}
+                    </p>
+                    <p className="text-muted-foreground text-[11px]">
+                      · {channelMeta.contentLanguage} ·{" "}
+                      {channelMeta.contentCountry}
+                    </p>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -585,7 +590,7 @@ export const CommentDrawer = ({
                   <span>{amountRaisedLabel} raised</span>
                 ) : null}
                 {resolvedEncounterCount > 0 ? (
-                  <span>
+                  <span className="flex items-center gap-1">
                     <EyeIcon className="size-3" /> {resolvedEncounterCount} seen
                   </span>
                 ) : null}

@@ -14,7 +14,7 @@ export default function NewTippingBanner() {
 
   return (
     <div className="wrapper px-4 py-12">
-      <div className="flex flex-col items-center gap-8">
+      <div className="flex flex-col items-center gap-4">
         <h2
           id="features-heading"
           className="w-full"
@@ -31,8 +31,7 @@ export default function NewTippingBanner() {
         </h2>
         <Paragraph
           align="center"
-          color="muted"
-          className="-mt-2"
+          className="-mt-2 leading-relaxed"
         >
           Watch. Participate. Then Support. <br /> That is the idea behind Tip
           as you enjoy.
@@ -42,7 +41,7 @@ export default function NewTippingBanner() {
       <Badge title="Ways people support" />
 
       <section
-        className="section relative mt-8 min-h-[60vh] rounded-2xl bg-cover bg-center bg-no-repeat bg-blend-multiply"
+        className="section relative mt-4 min-h-[55vh] rounded-2xl bg-cover bg-center bg-no-repeat bg-blend-multiply"
         // style={{ backgroundImage: `url(/patterns/tip_what_you_can.webp)` }}
       >
         <Image

@@ -172,7 +172,19 @@ export default function HeroClient() {
             size="lg"
             className="mt-6 inline-flex items-center"
           >
-            <span>Turn viewers</span>{" "}
+            <span>Turn</span> &nbsp;
+            <span className="relative inline-block">
+              viewers
+              {/* Decorative Icon Above 'fun' */}
+              <Image
+                src="/icons/fun.png"
+                alt="Fun"
+                width={50}
+                height={50}
+                sizes="48px"
+                className="absolute -top-6 -left-10 size-10 translate-x-14 object-contain sm:-top-8 sm:size-12 sm:translate-x-20"
+              />
+            </span>
           </Title>
         </h1>
 
@@ -191,7 +203,7 @@ export default function HeroClient() {
               width={50}
               height={50}
               sizes="48px"
-              className="absolute bottom-2 -left-10 size-8 -rotate-[15deg] object-contain opacity-50 sm:-left-24 sm:size-12"
+              className="absolute bottom-8 -left-20 size-8 -rotate-[15deg] object-contain opacity-50 sm:bottom-10 sm:-left-36 sm:size-12"
             />{" "}
             participants
           </Title>
