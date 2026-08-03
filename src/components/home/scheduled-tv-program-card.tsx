@@ -1,14 +1,21 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Calendar, Tv } from "lucide-react";
+import { Tv } from "lucide-react";
 
 import { Paragraph } from "@/components/shared/paragraph";
 import { cn, formatProgramScheduleDisplay, getStatusColor } from "@/lib/utils";
 import type { DiscoveryProgram } from "@/types/program.types";
 
 function formatDuration(seconds: number) {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
+  const total = Math.max(0, Math.floor(seconds));
+  const hrs = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
@@ -66,26 +73,36 @@ export function ScheduledTvProgramCard({
           className="-mt-3 flex items-center justify-between gap-2"
         >
           <span className="text-xs whitespace-nowrap">
-            {communityName.substring(0, 20)}
+            TV: {communityName.substring(0, 20)}
             {communityName.length > 20 ? "..." : ""}
           </span>
         </Paragraph>
 
-        <div className="mt-3 flex items-end justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            {durationSec != null && durationSec > 0 ? (
-              <span className="text-muted-foreground flex gap-2 text-xs">
+        <div className="mt-3 flex flex-col gap-1">
+          {durationSec != null && durationSec > 0 ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground text-xs">
                 Duration: {formatDuration(durationSec)}
               </span>
-            ) : null}
+              <span
+                className={cn(
+                  getStatusColor(programStatus),
+                  "shrink-0 text-xs"
+                )}
+              >
+                {programStatus}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end">
+              <span className={cn(getStatusColor(programStatus), "text-xs")}>
+                {programStatus}
+              </span>
+            </div>
+          )}
 
-            <span className="text-muted-foreground flex items-center gap-2 text-[10px]">
-              Scheduled: {formatProgramScheduleDisplay(scheduledAt)}
-            </span>
-          </div>
-
-          <span className={cn(getStatusColor(programStatus))}>
-            {programStatus}
+          <span className="text-muted-foreground flex items-center gap-2 text-[10px]">
+            Scheduled: {formatProgramScheduleDisplay(scheduledAt)}
           </span>
         </div>
       </Link>

@@ -25,14 +25,15 @@ export const SupportHappensInTheMoment = () => {
         </div>
 
         <div className="grid grid-cols-1 items-center gap-4 lg:grid-cols-12 lg:gap-8">
-          <div className="bg-secondary/30 h-[220px] rounded-2xl p-4 sm:h-[280px] lg:col-span-8 lg:h-[350px]">
-            <div className="l h-[190px] rounded-2xl bg-white p-4 sm:h-[250px] lg:h-[320px]">
+          <div className="bg-secondary/30 flex items-center justify-center rounded-2xl p-4 lg:col-span-8 lg:min-h-[420px] lg:p-6">
+            <div className="w-full max-w-[220px] overflow-hidden rounded-2xl bg-white p-3 sm:max-w-[260px] lg:max-w-[300px]">
               <video
-                src="https://res.cloudinary.com/tipmanna/video/upload/v1785337897/coverr-a-road-through-the-hills-6377-1080p_xyhmmr.mp4"
+                src="https://res.cloudinary.com/tipmanna/video/upload/v1785683068/IMG_3107_betymi.mp4"
                 autoPlay
                 muted
                 loop
-                className="h-full w-full rounded-2xl object-cover"
+                playsInline
+                className="aspect-[9/16] w-full rounded-xl object-contain"
               />
             </div>
           </div>

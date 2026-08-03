@@ -27,6 +27,13 @@ const DISCOVER_PANEL_LATEST_GET: ServerActionFetchInit = {
   cache: "no-store",
 };
 
+/** Featured rail includes live engagement metrics — bypass Next.js Data Cache. */
+const FEATURED_CONTENTS_GET: ServerActionFetchInit = {
+  method: "GET",
+  headers: { "Content-Type": "application/json" },
+  cache: "no-store",
+};
+
 // -------- Get latest contents -------- //
 export async function getLatestContents() {
   return runServerFetch(
@@ -113,7 +120,7 @@ export async function unsaveChannelVideo(
 export async function getAllFeaturedContentsAction() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/featured`,
-    DISCOVER_CATALOG_GET,
+    FEATURED_CONTENTS_GET,
     "getAllFeaturedContentsAction",
     raw => normalizeListPayload(raw)
   );

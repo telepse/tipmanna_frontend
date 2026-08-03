@@ -1,31 +1,51 @@
-// import TopContents from "./top-contents";
-// import { getAllFeaturedContentsAction } from "@/actions/contents";
-// import { Content } from "@/types/content.types";
-
-// export default async function TopContentsSection() {
-//   const { data: contents } = await getAllFeaturedContentsAction();
-
-//   return <TopContents contents={contents as Content[]} />;
-// }
-
-"use client";
-
-import { useState, useEffect } from "react";
-
 import TopContents from "./top-contents";
-import { Content } from "@/types/content.types";
+import {
+  getAllFeaturedContentsAction,
+  getExploreChannelMetricsBatchAction,
+  type ExploreChannelMetrics,
+  type ExploreChannelMetricsResponse,
+} from "@/actions/contents";
+import { normalizeListPayload } from "@/lib/list-response-normalizer";
 
-export default function TopContentsSection() {
-  const [contents, setContents] = useState<Content[]>([]);
+type FeaturedContent = {
+  id: string;
+  metrics?: ExploreChannelMetrics;
+  [key: string]: unknown;
+};
 
-  useEffect(() => {
-    const fetchContents = async () => {
-      const res = await fetch("/api/v1/contents/featured");
-      const data = await res.json();
-      setContents(data as Content[]);
-    };
-    fetchContents();
-  }, []);
+function isPublicMetrics(
+  raw: ExploreChannelMetricsResponse | undefined
+): raw is ExploreChannelMetrics {
+  return Boolean(raw && !("restricted" in raw));
+}
 
-  return <TopContents contents={contents as Content[]} />;
+async function withEngagementMetrics(
+  contents: FeaturedContent[]
+): Promise<FeaturedContent[]> {
+  if (contents.length === 0 || contents.every(item => item.metrics)) {
+    return contents;
+  }
+
+  const metricsRes = await getExploreChannelMetricsBatchAction(
+    contents.map(item => item.id)
+  );
+  const metricsMap =
+    metricsRes.success && metricsRes.data?.metrics
+      ? metricsRes.data.metrics
+      : {};
+
+  return contents.map(item => {
+    if (item.metrics) return item;
+    const raw = metricsMap[item.id];
+    if (!isPublicMetrics(raw)) return item;
+    return { ...item, metrics: raw };
+  });
+}
+
+export default async function TopContentsSection() {
+  const { data } = await getAllFeaturedContentsAction();
+  const contents = normalizeListPayload<FeaturedContent>(data);
+  const withMetrics = await withEngagementMetrics(contents);
+
+  return <TopContents contents={withMetrics} />;
 }

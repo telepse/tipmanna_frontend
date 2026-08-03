@@ -34,7 +34,6 @@ export default function ScheduledTvPrograms() {
     >
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <Badge title="TV Schedule" />
           <h2 id="scheduled-tv-programs-heading">
             <Title size="lg">
               Scheduled <span className="text-primary">TV programs</span>

@@ -150,7 +150,10 @@ export default function TvHomePreviewSection() {
           </span>
         </Title>
 
-        <Paragraph align="center">
+        <Paragraph
+          align="center"
+          className="leading-relaxed"
+        >
           Tipmanna turns viewing into live participation. Supporters react{" "}
           <br className="hidden sm:block" /> comment, and engage as content
           happens - not after.

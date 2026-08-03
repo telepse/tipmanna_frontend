@@ -40,7 +40,7 @@ export const ContinousEngagement = () => {
         </Paragraph>
 
         <div
-          className="continuous-engagement-slideshow mt-8 w-full max-w-full overflow-x-clip"
+          className="continuous-engagement-slideshow mt-8 w-full"
           role="region"
           aria-label="Continuous engagement showcase"
         >
@@ -48,15 +48,15 @@ export const ContinousEngagement = () => {
             {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
               <div
                 key={slide.image}
-                className="each-slide px-2"
+                className="w-full"
               >
-                <div className="border-primary relative h-[280px] overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[480px]">
+                <div className="border-primary relative h-[280px] w-full overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px]">
                   <Image
                     src={slide.image}
                     alt={slide.alt}
                     fill
                     className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 960px) 90vw, 960px"
+                    sizes="100vw"
                     quality={90}
                   />
 
