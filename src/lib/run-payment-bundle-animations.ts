@@ -36,6 +36,13 @@ export interface PaymentBundleEnqueueResult {
   resolutionSummary?: PaymentBundleResolutionSummary;
 }
 
+export type PaymentBundleDeliverySource = "realtime" | "payer_origin_recovery";
+
+export interface PaymentBundleRunContext {
+  deliverySource?: PaymentBundleDeliverySource;
+  bypassSegmentFreshness?: boolean;
+}
+
 /**
  * Shared payment path: Turbo/Galaxy companions for the bundle window, then
  * sequential character animations (unchanged).
@@ -43,11 +50,12 @@ export interface PaymentBundleEnqueueResult {
 export function enqueuePaymentBundleForValidatedTip(options: {
   data: TipAnimationEvent;
   characterMap: Map<string, RoomCharacter>;
-  /** Per-surface dedupe key, e.g. `${dedupeBase}-${name}` or `screen-${dedupeBase}-${name}`. */
-  buildDedupeKey: (characterName: string) => string;
+  /** Per-surface dedupe key; optional characterIndex for occurrence-aware keys. */
+  buildDedupeKey: (characterName: string, characterIndex?: number) => string;
   enqueue: (tasks: AnimationQueueTask[]) => EnqueueResult;
   animationMount?: HTMLElement;
   surface?: RealtimeSurface;
+  bundleRunContext?: PaymentBundleRunContext;
 }): PaymentBundleEnqueueResult {
   const {
     data,
@@ -56,7 +64,12 @@ export function enqueuePaymentBundleForValidatedTip(options: {
     enqueue,
     animationMount,
     surface = "unknown",
+    bundleRunContext,
   } = options;
+
+  const bypassSegmentFreshness =
+    bundleRunContext?.deliverySource === "payer_origin_recovery" &&
+    bundleRunContext?.bypassSegmentFreshness === true;
 
   const emptyResult = (
     rejections: PaymentCharacterStyleRejection[] = [],
@@ -119,7 +132,7 @@ export function enqueuePaymentBundleForValidatedTip(options: {
       return;
     }
 
-    const key = buildDedupeKey(character.name);
+    const key = buildDedupeKey(character.name, characterIndex);
     const traceMeta = {
       surface,
       eventId: data.eventId,
@@ -161,7 +174,10 @@ export function enqueuePaymentBundleForValidatedTip(options: {
       characterCount
     );
 
-    if (shouldSkipPaymentSegment(Date.now(), segmentEnd)) {
+    if (
+      !bypassSegmentFreshness &&
+      shouldSkipPaymentSegment(Date.now(), segmentEnd)
+    ) {
       tracePaymentAnimation({
         stage: "payment_segment_budget_skipped",
         ...traceMeta,

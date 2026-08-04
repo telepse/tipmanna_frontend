@@ -25,6 +25,7 @@ import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
+import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import {
   acquireCommunityLiveTvChannel,
   acquireGlobalLiveTvChannel,
@@ -141,6 +142,13 @@ export function ExploreTvScheduleFeed({
   });
   usePaymentAnimationPlayer({
     eventId: tipEventId ?? "",
+    characters: characters as RoomCharacter[],
+    enabled: feedSurfaceActive && Boolean(tipEventId),
+    surface: "explore_tv_schedule",
+  });
+  usePayerOriginAnimationRecovery({
+    eventId: tipEventId ?? "",
+    paymentSurface: "explore_feed",
     characters: characters as RoomCharacter[],
     enabled: feedSurfaceActive && Boolean(tipEventId),
     surface: "explore_tv_schedule",

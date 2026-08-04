@@ -11,6 +11,7 @@ import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import { clearPendingTipBroadcast } from "@/lib/payment-origin";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
+import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { Pin } from "lucide-react";
 
 interface Performer {
@@ -54,7 +55,8 @@ export const RoomMessages = ({
   projects,
   contributionType,
   eventEventType,
-}: Props) => {
+  paymentSurface = "event_room",
+}: Props & { paymentSurface?: string }) => {
   const safeTippingCharacters = useMemo(
     () => (Array.isArray(tippingCharacters) ? tippingCharacters : []),
     [tippingCharacters]
@@ -65,6 +67,12 @@ export const RoomMessages = ({
 
   usePaymentAnimationPlayer({
     eventId,
+    characters: safeTippingCharacters,
+    surface: "room_messages",
+  });
+  usePayerOriginAnimationRecovery({
+    eventId,
+    paymentSurface,
     characters: safeTippingCharacters,
     surface: "room_messages",
   });

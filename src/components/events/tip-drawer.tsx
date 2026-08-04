@@ -50,6 +50,9 @@ import {
   getStripeReturnUrl,
   type TipResumeWalletLineV1,
 } from "@/lib/payment-origin";
+import { writePendingPaymentReturn } from "@/lib/pending-payment-return";
+import { isPayerOriginRecoveryEnabled } from "@/lib/payer-origin-recovery-flag";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import { setPaymentPendingReturn } from "@/lib/tv-payment-snapshot";
 import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
 import type { PaymentSurface } from "@/lib/analytics-types";
@@ -818,6 +821,33 @@ export const TipDrawer = ({
     });
 
     savePaymentOrigin();
+
+    const recoveryState =
+      isPayerOriginRecoveryEnabled() &&
+      typeof data.recoveryState === "string" &&
+      data.recoveryState.trim()
+        ? data.recoveryState.trim()
+        : undefined;
+
+    if (typeof window !== "undefined" && tipTransactionId && eventId) {
+      writePendingPaymentReturn({
+        transactionId: tipTransactionId,
+        eventId,
+        paymentOrigin: window.location.href,
+        paymentSurface,
+        isRedirectPayment: true,
+        ...(recoveryState ? { recoveryState } : {}),
+      });
+      if (recoveryState) {
+        tracePaymentAnimation({
+          stage: "payer_recovery_state_saved",
+          transactionId: tipTransactionId,
+          eventId,
+          surface: paymentSurface,
+          result: "pending_return_written",
+        });
+      }
+    }
 
     // Confirm the PaymentIntent
     const { error: confirmError } = await stripe.confirmPayment({

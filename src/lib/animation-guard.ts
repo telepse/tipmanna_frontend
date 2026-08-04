@@ -13,6 +13,9 @@ export interface ResolvedTipCharacter {
   iconUrl: string;
   styleName: string | null;
   characterId: string | null;
+  /** Canonical outbox payloads include stable occurrence identity. */
+  occurrenceIndex?: number;
+  occurrenceId?: string;
 }
 
 export interface TipAnimationEvent {
