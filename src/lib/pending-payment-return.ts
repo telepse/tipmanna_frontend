@@ -39,10 +39,7 @@ export function writePendingPaymentReturn(
       createdAt: Date.now(),
       ...payload,
     };
-    sessionStorage.setItem(
-      PENDING_PAYMENT_RETURN_V1_KEY,
-      JSON.stringify(full)
-    );
+    sessionStorage.setItem(PENDING_PAYMENT_RETURN_V1_KEY, JSON.stringify(full));
   } catch {
     /* quota / private mode */
   }

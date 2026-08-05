@@ -336,6 +336,9 @@ export async function postExploreFeedBatchAction(
     countries?: string[];
     language?: string;
     country?: string;
+    /** Non-sensitive continuation trace for backend stage logging. */
+    paginationTraceId?: string;
+    paginationAttempt?: number;
   }
 ) {
   const fm = opts?.feedMode ?? "trends";
@@ -357,7 +360,15 @@ export async function postExploreFeedBatchAction(
 
   const fetchInit = {
     method: "POST" as const,
-    headers: await serverAuthHeaders(authToken),
+    headers: {
+      ...(await serverAuthHeaders(authToken)),
+      ...(isContinuation && opts?.paginationTraceId
+        ? { "x-explore-trace-id": opts.paginationTraceId }
+        : {}),
+      ...(isContinuation && opts?.paginationAttempt != null
+        ? { "x-explore-attempt": String(opts.paginationAttempt) }
+        : {}),
+    },
     body: JSON.stringify(body),
     cache: "no-store" as const,
     perAttemptTimeoutMs: fetchTimeoutMs,

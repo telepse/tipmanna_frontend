@@ -12,6 +12,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { isTvStartupStabilityGuardActive } from "./tv-feature-flags";
+import {
+  getTvSsrYoutubePreconnectOrigins,
+  isTvSsrYoutubePreconnectEnabled,
+} from "./tv-youtube-preconnect-config";
+import {
+  applyYoutubeBootstrapToSummary,
+  initYoutubeBootstrapTrace,
+  notifyBootstrapT6,
+  notifyBootstrapT8,
+  notifyBootstrapT2,
+  registerYoutubeBootstrapEventSink,
+  resetYoutubeBootstrapTrace,
+  stopYoutubeBootstrapTrace,
+  type YoutubeApiDetectionReason,
+  type LooperKind,
+} from "./tv-youtube-bootstrap-trace";
 
 export type CanonicalMark =
   | "T0"
@@ -174,6 +190,44 @@ export type TvStartupSummary = {
   latestStage: string | null;
   finalState: "pending" | "stable" | "failed";
   postFinalizationEventCount: number;
+  /** Phase C2.0 — T6→T8 bootstrap subsegments (null when flag off or marks missing). */
+  T6_toLooperCommitMs: number | null;
+  T6_toPlayerRenderRequestedMs: number | null;
+  T6_toPlayerCommitMs: number | null;
+  playerCommitToApiResourceStartMs: number | null;
+  apiResourceStartToFinishMs: number | null;
+  apiResourceFinishToObjectDetectedMs: number | null;
+  playerCommitToApiObjectDetectedMs: number | null;
+  playerCommitToIframeInsertedMs: number | null;
+  apiObjectDetectedToIframeInsertedMs: number | null;
+  iframeInsertedToT8Ms: number | null;
+  playerCommitToT8Ms: number | null;
+  youtubeApiPresentAtPlayerCommit: boolean | null;
+  youtubeApiDetectionReason: YoutubeApiDetectionReason | null;
+  youtubeResourceTimingDetailLevel: "full" | "limited" | null;
+  youtubeApiResourceCount: number;
+  youtubeWidgetResourceCount: number;
+  youtubeEmbedDocumentCount: number;
+  youtubeIframeInsertionCount: number;
+  youtubeDuplicateIframeInsertionCount: number;
+  looperKind: LooperKind | null;
+  looperCommitCount: number;
+  tvPlayerCommitCount: number;
+  longTaskObserverSupported: boolean;
+  longTaskCountT2ToT8: number;
+  longTaskTotalDurationMsT2ToT8: number;
+  longTaskMaxDurationMsT2ToT8: number;
+  longTaskCountT6ToT8: number;
+  longTaskTotalDurationMsT6ToT8: number;
+  longTaskMaxDurationMsT6ToT8: number;
+  youtubeApiDnsDurationMs: number | null;
+  youtubeApiConnectDurationMs: number | null;
+  youtubeApiTlsDurationMs: number | null;
+  youtubeApiRequestWaitDurationMs: number | null;
+  youtubeApiResponseDurationMs: number | null;
+  youtubeApiConnectionReusedOrPreconnected: boolean | null;
+  ssrYoutubePreconnectEnabled: boolean;
+  ssrYoutubePreconnectOrigins: string[];
 };
 
 type TvStartupRun = {
@@ -432,6 +486,43 @@ function createEmptySummary(id: string): TvStartupSummary {
     latestStage: null,
     finalState: "pending",
     postFinalizationEventCount: 0,
+    T6_toLooperCommitMs: null,
+    T6_toPlayerRenderRequestedMs: null,
+    T6_toPlayerCommitMs: null,
+    playerCommitToApiResourceStartMs: null,
+    apiResourceStartToFinishMs: null,
+    apiResourceFinishToObjectDetectedMs: null,
+    playerCommitToApiObjectDetectedMs: null,
+    playerCommitToIframeInsertedMs: null,
+    apiObjectDetectedToIframeInsertedMs: null,
+    iframeInsertedToT8Ms: null,
+    playerCommitToT8Ms: null,
+    youtubeApiPresentAtPlayerCommit: null,
+    youtubeApiDetectionReason: null,
+    youtubeResourceTimingDetailLevel: null,
+    youtubeApiResourceCount: 0,
+    youtubeWidgetResourceCount: 0,
+    youtubeEmbedDocumentCount: 0,
+    youtubeIframeInsertionCount: 0,
+    youtubeDuplicateIframeInsertionCount: 0,
+    looperKind: null,
+    looperCommitCount: 0,
+    tvPlayerCommitCount: 0,
+    longTaskObserverSupported: false,
+    longTaskCountT2ToT8: 0,
+    longTaskTotalDurationMsT2ToT8: 0,
+    longTaskMaxDurationMsT2ToT8: 0,
+    longTaskCountT6ToT8: 0,
+    longTaskTotalDurationMsT6ToT8: 0,
+    longTaskMaxDurationMsT6ToT8: 0,
+    youtubeApiDnsDurationMs: null,
+    youtubeApiConnectDurationMs: null,
+    youtubeApiTlsDurationMs: null,
+    youtubeApiRequestWaitDurationMs: null,
+    youtubeApiResponseDurationMs: null,
+    youtubeApiConnectionReusedOrPreconnected: null,
+    ssrYoutubePreconnectEnabled: false,
+    ssrYoutubePreconnectOrigins: [],
   };
 }
 
@@ -447,6 +538,7 @@ function resetForNewNavigation(): void {
   scheduleAttemptCounter = 0;
   ambient = {};
   stabilityGuardReleasedForRun = false;
+  resetYoutubeBootstrapTrace();
 }
 
 function ensureRun(): TvStartupRun | null {
@@ -466,6 +558,7 @@ function ensureRun(): TvStartupRun | null {
     postFinalizationEvents: [],
   };
   installBrowserHelper();
+  initYoutubeBootstrapTrace(id);
   currentRun.failureTimer = safeSetTimeout(() => {
     finalizeRun("failed", "startup_failure_timeout");
   }, STARTUP_FAILURE_TIMEOUT_MS);
@@ -498,6 +591,8 @@ function recordCanonicalMark(
   if (run.summary.marks[mark] != null) return;
   run.summary.marks[mark] = at;
   run.summary.latestStage = mark;
+  if (mark === "T6") notifyBootstrapT6(at);
+  if (mark === "T8") notifyBootstrapT8(at);
   try {
     if (typeof performance !== "undefined" && performance.mark) {
       performance.mark(PERFORMANCE_MARK_NAMES[mark]);
@@ -860,6 +955,13 @@ function computeSummary(run: TvStartupRun): TvStartupSummary {
   run.summary.overlayLeadMs = overlayLeadMs;
   run.summary.overlayLagMs = overlayLagMs;
   syncLegacyCounterAliases(run.summary);
+  run.summary.ssrYoutubePreconnectEnabled = isTvSsrYoutubePreconnectEnabled();
+  run.summary.ssrYoutubePreconnectOrigins = getTvSsrYoutubePreconnectOrigins();
+  applyYoutubeBootstrapToSummary(
+    run.summary,
+    marks.T6 ?? null,
+    marks.T8 ?? null
+  );
   return run.summary;
 }
 
@@ -926,6 +1028,7 @@ function finalizeRun(state: "stable" | "failed", reason: string): void {
 
   run.summary.finalState = state;
   validateStabilityReleaseBeforeFinalize(run, state);
+  stopYoutubeBootstrapTrace();
   if (state === "failed") {
     logPostFinalizationEvent("startup_failed", {
       reason,
@@ -1023,6 +1126,10 @@ function emitEvent(event: string, opts: TvStartupEventOptions = {}): void {
       ...(opts.data ?? {}),
     };
     logRaw(event, record);
+
+    if (event === "tv_provider_mounted") {
+      notifyBootstrapT2();
+    }
 
     handleStability(run, event);
   } catch {
@@ -1146,4 +1253,12 @@ export function __resetTvStartupTraceForTest(): void {
   currentRun = null;
   ambient = {};
   helperInstalled = false;
+  resetYoutubeBootstrapTrace();
 }
+
+registerYoutubeBootstrapEventSink((event, opts) => {
+  emitEvent(event, {
+    reason: opts?.reason,
+    data: opts?.data,
+  });
+});

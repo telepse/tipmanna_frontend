@@ -34,10 +34,19 @@ import {
 import { notifyTvFirstPlay } from "@/lib/tv-post-ttfv-idle";
 import {
   hashShortId,
+  getTvStartupTraceId,
   isTvStartupTraceEnabled,
   tvStartupEvent,
   updateTvStartupContext,
 } from "@/lib/tv-startup-trace";
+import {
+  attachIframeInsertionObserver,
+  ensureApiObjectDetectedAtReady,
+  isTvYoutubeBootstrapTraceActive,
+  recordApiObjectDetected,
+  recordPlayerCommitted,
+  recordReactYoutubeContainerCommitted,
+} from "@/lib/tv-youtube-bootstrap-trace";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
 
@@ -157,6 +166,35 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     );
     const initialEmbedTracedRef = useRef(false);
     const initialEmbedCommittedRef = useRef(false);
+    const playerContainerRef = useRef<HTMLDivElement>(null);
+    const bootstrapLayoutDoneRef = useRef(false);
+    const apiPollStartRef = useRef<number | null>(null);
+
+    useLayoutEffect(() => {
+      if (bootstrapLayoutDoneRef.current) return;
+      bootstrapLayoutDoneRef.current = true;
+
+      recordPlayerCommitted({
+        startupGeneration,
+        source: embedSource,
+        traceId: getTvStartupTraceId(),
+      });
+      recordReactYoutubeContainerCommitted({
+        startupGeneration,
+        source: embedSource,
+        traceId: getTvStartupTraceId(),
+      });
+
+      const container = playerContainerRef.current;
+      if (container) {
+        attachIframeInsertionObserver({
+          container,
+          startupGeneration,
+          source: embedSource,
+          traceId: getTvStartupTraceId(),
+        });
+      }
+    }, [startupGeneration, embedSource]);
 
     /**
      * Diagnostic-only (no behaviour change): record player mount + earliest
@@ -214,8 +252,19 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
 
       if (w.YT && w.YT.Player) {
         emitApi(false);
+        if (isTvYoutubeBootstrapTraceActive()) {
+          recordApiObjectDetected({
+            detectionReason: "present_at_mount_effect",
+            pollDelayMs: 0,
+            apiAlreadyPresent: true,
+            startupGeneration,
+            traceId: getTvStartupTraceId(),
+          });
+        }
         return;
       }
+      apiPollStartRef.current =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
       let done = false;
       const id = setInterval(() => {
         if (done) return;
@@ -223,6 +272,16 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
           done = true;
           clearInterval(id);
           emitApi(true);
+          if (isTvYoutubeBootstrapTraceActive()) {
+            const pollStart = apiPollStartRef.current ?? performance.now();
+            recordApiObjectDetected({
+              detectionReason: "poll_detected",
+              pollDelayMs: performance.now() - pollStart,
+              apiAlreadyPresent: false,
+              startupGeneration,
+              traceId: getTvStartupTraceId(),
+            });
+          }
         }
       }, 200);
       // Bounded so the poll cannot linger; onReady will supersede regardless.
@@ -393,6 +452,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
 
     return (
       <div
+        ref={playerContainerRef}
         className={
           cover || containFill
             ? "pointer-events-none relative h-full min-h-0 w-full min-w-0"
@@ -445,6 +505,10 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
               videoId: extractYoutubeID(videoUrlRef.current),
             });
             updateTvStartupContext({ playerReady: true, playerState: "READY" });
+            ensureApiObjectDetectedAtReady({
+              startupGeneration,
+              traceId: getTvStartupTraceId(),
+            });
             tvStartupEvent("player_ready", {
               canonicalMark: "T8",
               trigger: "youtube_onReady",

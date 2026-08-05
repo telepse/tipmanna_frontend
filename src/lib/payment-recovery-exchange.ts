@@ -107,7 +107,10 @@ export async function runPaymentRecoveryExchange(params: {
         });
         return { outcome: "definitive_rejection" };
       }
-      if (!isTransientExchangeFailure(err) || attempt === EXCHANGE_MAX_ATTEMPTS - 1) {
+      if (
+        !isTransientExchangeFailure(err) ||
+        attempt === EXCHANGE_MAX_ATTEMPTS - 1
+      ) {
         break;
       }
     }

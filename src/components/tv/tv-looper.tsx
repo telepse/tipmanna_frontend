@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from "react";
 import dynamic from "next/dynamic";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
@@ -1369,96 +1376,110 @@ export const TvLooper = ({
                 traceId: getTvStartupTraceId(),
               });
               return (
-            <TvPlayer
-              ref={playerRef as React.Ref<import("./tv-player").TvPlayerRef>}
-              key={playerEmbedKey}
-              videoUrl={effectiveEmbedPlaybackUrl}
-              externallyControlled
-              autoplay
-              enableLiveOffsetEmbed={enableLiveOffsetEmbedFinal}
-              initialStartSeconds={
-                enableLiveOffsetEmbedFinal
-                  ? liveOffsetEmbed!.startOffsetSeconds
-                  : 0
-              }
-              startupGeneration={startupEmbedGeneration}
-              initialSelectedIndex={
-                enableLiveOffsetEmbedFinal ? liveOffsetEmbed!.selectedIndex : 0
-              }
-              embedSource={scheduleSourceCommunityId ? "community" : "global"}
-              embedReason={
-                liveOffsetEmbed?.rolledOver ? "rollover_at_embed" : "cold_start"
-              }
-              targetWasResolved={enableLiveOffsetEmbedFinal}
-              onInitialEmbedCommitted={onInitialLiveOffsetEmbedCommitted}
-              onInitialEmbedConfirmed={onInitialLiveOffsetEmbedConfirmed}
-              onReady={() => {
-                setIsPlayerLoading(false);
-
-                const player = playerRef.current;
-                player?.syncMuteFromPlayer?.();
-                if (player?.isReady() && isMuted) {
-                  player.mute();
-                }
-
-                setPlayerVisible(true);
-                emitEncounterWhenVideoLoads();
-              }}
-              onPlaybackReady={() => {
-                setIsPlayerLoading(false);
-
-                const player = playerRef.current;
-                player?.syncMuteFromPlayer?.();
-                if (player?.isReady() && isMuted) {
-                  player.mute();
-                }
-
-                applyPendingPlaybackRestore();
-                applyPendingAudioRestore();
-                emitEncounterWhenVideoLoads();
-                const dur = playerRef.current?.getDuration() ?? 0;
-                if (dur > 0) setDuration(dur);
-              }}
-              onPlay={() => {
-                setIsPlayerLoading(false);
-                setIsPlaying(true);
-                notifyStartupPlayerPlaying();
-                applyPendingPlaybackRestore();
-                applyPendingAudioRestore();
-                const dur = playerRef.current?.getDuration() ?? 0;
-                if (dur > 0) setDuration(dur);
-                const id = current?.id as string | undefined;
-                if (!id) return;
-                if (id !== lastTrackedItemIdRef.current) {
-                  if (
-                    lastTrackedItemIdRef.current &&
-                    segmentStartMsRef.current > 0
-                  ) {
-                    const prev = lastTrackedItemIdRef.current;
-                    const sec = (Date.now() - segmentStartMsRef.current) / 1000;
-                    trackTvVideoEnd(
-                      prev,
-                      sec,
-                      "interrupted",
-                      mode,
-                      lastSegmentChannelIdRef.current
-                    );
+                <TvPlayer
+                  ref={
+                    playerRef as React.Ref<import("./tv-player").TvPlayerRef>
                   }
-                  lastTrackedItemIdRef.current = id;
-                  lastSegmentChannelIdRef.current = currentChannelId;
-                  segmentStartMsRef.current = Date.now();
-                  trackTvVideoStart(id, mode, currentIndex, currentChannelId);
-                }
-              }}
-              onPause={() => setIsPlaying(false)}
-              onUserPause={onPlayerPause}
-              onUserSeek={onPlayerSeek}
-              onEnd={handleVideoEnd}
-              onPlayerError={handlePlayerError}
-              onMuteChange={muted => setIsMuted(muted)}
-              cover={fullPresentationFit === "cover"}
-              containFill={fullPresentationFit === "contain"}
-            />
+                  key={playerEmbedKey}
+                  videoUrl={effectiveEmbedPlaybackUrl}
+                  externallyControlled
+                  autoplay
+                  enableLiveOffsetEmbed={enableLiveOffsetEmbedFinal}
+                  initialStartSeconds={
+                    enableLiveOffsetEmbedFinal
+                      ? liveOffsetEmbed!.startOffsetSeconds
+                      : 0
+                  }
+                  startupGeneration={startupEmbedGeneration}
+                  initialSelectedIndex={
+                    enableLiveOffsetEmbedFinal
+                      ? liveOffsetEmbed!.selectedIndex
+                      : 0
+                  }
+                  embedSource={
+                    scheduleSourceCommunityId ? "community" : "global"
+                  }
+                  embedReason={
+                    liveOffsetEmbed?.rolledOver
+                      ? "rollover_at_embed"
+                      : "cold_start"
+                  }
+                  targetWasResolved={enableLiveOffsetEmbedFinal}
+                  onInitialEmbedCommitted={onInitialLiveOffsetEmbedCommitted}
+                  onInitialEmbedConfirmed={onInitialLiveOffsetEmbedConfirmed}
+                  onReady={() => {
+                    setIsPlayerLoading(false);
+
+                    const player = playerRef.current;
+                    player?.syncMuteFromPlayer?.();
+                    if (player?.isReady() && isMuted) {
+                      player.mute();
+                    }
+
+                    setPlayerVisible(true);
+                    emitEncounterWhenVideoLoads();
+                  }}
+                  onPlaybackReady={() => {
+                    setIsPlayerLoading(false);
+
+                    const player = playerRef.current;
+                    player?.syncMuteFromPlayer?.();
+                    if (player?.isReady() && isMuted) {
+                      player.mute();
+                    }
+
+                    applyPendingPlaybackRestore();
+                    applyPendingAudioRestore();
+                    emitEncounterWhenVideoLoads();
+                    const dur = playerRef.current?.getDuration() ?? 0;
+                    if (dur > 0) setDuration(dur);
+                  }}
+                  onPlay={() => {
+                    setIsPlayerLoading(false);
+                    setIsPlaying(true);
+                    notifyStartupPlayerPlaying();
+                    applyPendingPlaybackRestore();
+                    applyPendingAudioRestore();
+                    const dur = playerRef.current?.getDuration() ?? 0;
+                    if (dur > 0) setDuration(dur);
+                    const id = current?.id as string | undefined;
+                    if (!id) return;
+                    if (id !== lastTrackedItemIdRef.current) {
+                      if (
+                        lastTrackedItemIdRef.current &&
+                        segmentStartMsRef.current > 0
+                      ) {
+                        const prev = lastTrackedItemIdRef.current;
+                        const sec =
+                          (Date.now() - segmentStartMsRef.current) / 1000;
+                        trackTvVideoEnd(
+                          prev,
+                          sec,
+                          "interrupted",
+                          mode,
+                          lastSegmentChannelIdRef.current
+                        );
+                      }
+                      lastTrackedItemIdRef.current = id;
+                      lastSegmentChannelIdRef.current = currentChannelId;
+                      segmentStartMsRef.current = Date.now();
+                      trackTvVideoStart(
+                        id,
+                        mode,
+                        currentIndex,
+                        currentChannelId
+                      );
+                    }
+                  }}
+                  onPause={() => setIsPlaying(false)}
+                  onUserPause={onPlayerPause}
+                  onUserSeek={onPlayerSeek}
+                  onEnd={handleVideoEnd}
+                  onPlayerError={handlePlayerError}
+                  onMuteChange={muted => setIsMuted(muted)}
+                  cover={fullPresentationFit === "cover"}
+                  containFill={fullPresentationFit === "contain"}
+                />
               );
             })()
           ) : null}

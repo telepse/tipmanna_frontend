@@ -344,7 +344,14 @@ export default function PaymentSuccessPage() {
       }
     };
     void loadSession();
-  }, [paymentIntentId, paymentIntentSecret, router, dispatch, searchParams, authUser]);
+  }, [
+    paymentIntentId,
+    paymentIntentSecret,
+    router,
+    dispatch,
+    searchParams,
+    authUser,
+  ]);
 
   if (loading) {
     return (

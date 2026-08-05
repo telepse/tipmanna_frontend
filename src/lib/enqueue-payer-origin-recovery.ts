@@ -1,5 +1,8 @@
 import type { RoomCharacter } from "@/types";
-import type { TipAnimationEvent, ResolvedTipCharacter } from "@/lib/animation-guard";
+import type {
+  TipAnimationEvent,
+  ResolvedTipCharacter,
+} from "@/lib/animation-guard";
 import type { StyleCharacter } from "@/lib/animation-style-registry";
 import { isKnownAnimationStyleName } from "@/lib/animation-style-registry";
 import { wrapPaymentAnimation } from "@/lib/wrapPaymentAnimation";
@@ -102,8 +105,7 @@ export function enqueuePayerOriginRecoveryBundle(options: {
 
   const paymentAnimations: AnimationQueueTask[] = [];
   const skippedRealtime: string[] = [];
-  const characterCount =
-    data.selectedTips?.length ?? occurrences.length ?? 1;
+  const characterCount = data.selectedTips?.length ?? occurrences.length ?? 1;
 
   occurrences.forEach((entry, idx) => {
     const occurrenceId = entry.occurrenceId;

@@ -354,7 +354,7 @@ export function CommunityJoinPanel({
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt className="text-muted-foreground text-xs">Total tips</dt>
-              <dd className="font-medium">£{form.totalTips ?? 0}</dd>
+              <dd className="font-medium">{form.totalTips ?? 0}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground text-xs">Members</dt>

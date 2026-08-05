@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -9,9 +10,14 @@ import { HostVideoCoOwnersClient } from "@/components/dashboard/host-video-co-ow
 import { HostVideoRequestsClient } from "@/components/dashboard/host-video-requests-client";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
 import { HostChannelManageClient } from "@/components/dashboard/host-channel-manage-client";
+import { VideoAnalyticsPanel } from "@/components/dashboard/video-analytics-panel";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 
-type PremiumTab = "channel_manage" | "video_requests" | "video_coowners";
+type PremiumTab =
+  | "channel_manage"
+  | "video_requests"
+  | "video_coowners"
+  | "advanced_video_analytics";
 
 function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
   return (
@@ -28,8 +34,16 @@ function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
 }
 
 export const HostPremiumClient = () => {
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
   const [tabType, setTabType] = useState<PremiumTab>("video_requests");
   const { status, capabilities, isLoading } = useHostPlanCapabilities();
+
+  useEffect(() => {
+    if (tabFromUrl === "advanced_video_analytics") {
+      setTabType("advanced_video_analytics");
+    }
+  }, [tabFromUrl]);
 
   const showFeatures =
     status === "active" && capabilities.usePremiumDashboardActions;
@@ -43,7 +57,7 @@ export const HostPremiumClient = () => {
       onValueChange={val => setTabType(val as PremiumTab)}
       className="section px-0"
     >
-      <TabsList className="flex h-14! w-full gap-1">
+      <TabsList className="flex h-14! w-full flex-wrap gap-1">
         <TabsTrigger
           value="video_requests"
           className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
@@ -55,6 +69,12 @@ export const HostPremiumClient = () => {
           className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
         >
           Video Co-owners
+        </TabsTrigger>
+        <TabsTrigger
+          value="advanced_video_analytics"
+          className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+        >
+          Advanced video analytics
         </TabsTrigger>
       </TabsList>
 
@@ -81,6 +101,13 @@ export const HostPremiumClient = () => {
         className="mt-6 space-y-6"
       >
         <HostVideoCoOwnersClient />
+      </TabsContent>
+
+      <TabsContent
+        value="advanced_video_analytics"
+        className="mt-6 space-y-6"
+      >
+        <VideoAnalyticsPanel variant="advanced" />
       </TabsContent>
     </Tabs>
   );

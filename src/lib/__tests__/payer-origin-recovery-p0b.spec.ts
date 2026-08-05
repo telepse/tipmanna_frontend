@@ -112,7 +112,8 @@ vi.mock("@/lib/payment-recovery-client", () => ({
 }));
 
 vi.mock("@/lib/payment-playback-budget", async importOriginal => {
-  const actual = await importOriginal<typeof import("@/lib/payment-playback-budget")>();
+  const actual =
+    await importOriginal<typeof import("@/lib/payment-playback-budget")>();
   return {
     ...actual,
     shouldSkipPaymentSegment: vi.fn(actual.shouldSkipPaymentSegment),
@@ -332,7 +333,11 @@ describe("P0-B payer-origin recovery", () => {
       history: { replaceState },
     });
     sanitizeSuccessUrlInHistory();
-    expect(replaceState).toHaveBeenCalledWith({}, "", "http://localhost/success");
+    expect(replaceState).toHaveBeenCalledWith(
+      {},
+      "",
+      "http://localhost/success"
+    );
   });
 
   it("10. legacy payload uses legacy playback key", () => {
@@ -528,8 +533,8 @@ describe("P0-B payer-origin recovery", () => {
 
   it("18. Pusher wins race → recovery skips occurrence", () => {
     reservePlaybackKey("bundle-race-0-Heart", { surface: "content_client" });
-    const { enqueuedCount, skippedRealtime } =
-      enqueuePayerOriginRecoveryBundle({
+    const { enqueuedCount, skippedRealtime } = enqueuePayerOriginRecoveryBundle(
+      {
         canonicalPayload: {
           id: "bundle-race",
           eventId: "ev",
@@ -553,7 +558,8 @@ describe("P0-B payer-origin recovery", () => {
         bypassSegmentFreshness: true,
         characterMap: new Map(),
         enqueue: () => ({ accepted: true }),
-      });
+      }
+    );
     expect(enqueuedCount).toBe(0);
     expect(skippedRealtime).toContain("occ-race");
   });

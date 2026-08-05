@@ -92,3 +92,25 @@ export function isTvStartupStabilityGuardActive(): boolean {
     isTvStartupPlaybackGuardEnabled() && isTvStartupStabilityGuardEnabled()
   );
 }
+
+/**
+ * Phase C2.0 — YouTube bootstrap trace decomposition (observational).
+ * Default DISABLED. Requires startup trace enabled and frontend rebuild.
+ */
+export function isTvYoutubeBootstrapTraceEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_YOUTUBE_BOOTSTRAP_TRACE === "true" ||
+    process.env.NEXT_PUBLIC_TV_YOUTUBE_BOOTSTRAP_TRACE === "1"
+  );
+}
+
+/**
+ * Phase C2.1 — SSR YouTube connection hints on the TV route only.
+ * Default DISABLED. Independent from C2.0 tracing. Requires frontend rebuild.
+ */
+export function isTvSsrYoutubePreconnectEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_SSR_YOUTUBE_PRECONNECT === "true" ||
+    process.env.NEXT_PUBLIC_TV_SSR_YOUTUBE_PRECONNECT === "1"
+  );
+}

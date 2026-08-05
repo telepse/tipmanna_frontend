@@ -81,11 +81,7 @@ async function recoveryFetch(
         headers,
         credentials: "include",
       });
-      if (
-        res.ok ||
-        res.status < 500 ||
-        attempt === maxAttempts - 1
-      ) {
+      if (res.ok || res.status < 500 || attempt === maxAttempts - 1) {
         return res;
       }
       lastErr = new RecoveryApiError("server", res.status, "Server error");
@@ -144,7 +140,11 @@ export async function exchangeRecoveryStateRequest(params: {
       result: kind,
       reason: String(res.status),
     });
-    throw new RecoveryApiError(kind, res.status, `Exchange failed (${res.status})`);
+    throw new RecoveryApiError(
+      kind,
+      res.status,
+      `Exchange failed (${res.status})`
+    );
   }
 
   const body = (await parseJsonSafe(res)) as {
@@ -153,7 +153,11 @@ export async function exchangeRecoveryStateRequest(params: {
     expiresAt?: string;
   };
   if (!body?.sessionToken || !body?.expiresAt) {
-    throw new RecoveryApiError("client", res.status, "Invalid exchange response");
+    throw new RecoveryApiError(
+      "client",
+      res.status,
+      "Invalid exchange response"
+    );
   }
 
   tracePaymentAnimation({
@@ -196,7 +200,11 @@ export async function claimRecoveryOccurrencesRequest(
 
   if (!res.ok) {
     const kind = classifyStatus(res.status);
-    throw new RecoveryApiError(kind, res.status, `Claim failed (${res.status})`);
+    throw new RecoveryApiError(
+      kind,
+      res.status,
+      `Claim failed (${res.status})`
+    );
   }
 
   const body = (await parseJsonSafe(res)) as ClaimRecoveryResult;
@@ -222,7 +230,11 @@ export async function renewRecoveryClaimRequest(
 
   if (!res.ok) {
     const kind = classifyStatus(res.status);
-    throw new RecoveryApiError(kind, res.status, `Renew failed (${res.status})`);
+    throw new RecoveryApiError(
+      kind,
+      res.status,
+      `Renew failed (${res.status})`
+    );
   }
 
   const body = (await parseJsonSafe(res)) as {
@@ -262,7 +274,11 @@ export async function reportRecoveryProgressRequest(
 
   if (!res.ok) {
     const kind = classifyStatus(res.status);
-    throw new RecoveryApiError(kind, res.status, `Progress failed (${res.status})`);
+    throw new RecoveryApiError(
+      kind,
+      res.status,
+      `Progress failed (${res.status})`
+    );
   }
 
   const body = (await parseJsonSafe(res)) as { deliveryComplete?: boolean };
