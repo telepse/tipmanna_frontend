@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { trimTitle } from "@/lib/utils";
 
 export type VideoRollupRow = {
   videoId: string;
@@ -37,7 +38,7 @@ export const VIDEO_SURFACE_FILTER_OPTIONS = [
 function surfaceSummary(bySurface: VideoRollupRow["bySurface"]) {
   return Object.entries(bySurface || {})
     .map(([k, v]) => `${k}: ${v.views}v/${v.encounters}e`)
-    .join(" · ");
+    .join("\n");
 }
 
 function viewsForSurface(row: VideoRollupRow, selectedSurface: string): number {
@@ -68,7 +69,19 @@ export function createVideoViewsColumns({
     {
       accessorKey: "videoTitle",
       header: "Video title",
-      cell: ({ row }) => <span>{row.original.videoTitle || "—"}</span>,
+      cell: ({ row }) => {
+        const fullTitle = row.original.videoTitle?.trim() || "—";
+        const display =
+          fullTitle === "—" ? fullTitle : trimTitle(fullTitle, 20);
+        return (
+          <span
+            className="block max-w-[8rem] text-sm"
+            title={fullTitle === "—" ? undefined : fullTitle}
+          >
+            {display}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "totalNumberOfViews",
@@ -129,7 +142,7 @@ export function createVideoViewsColumns({
     {
       id: "bySurface",
       header: () => (
-        <div className="flex min-w-[180px] flex-col gap-2 py-1">
+        <div className="flex max-w-[9rem] flex-col gap-2 py-1">
           <span className="text-sm font-medium">By surface</span>
           <Select
             value={selectedSurface}
@@ -157,16 +170,17 @@ export function createVideoViewsColumns({
       ),
       cell: ({ row }) => {
         if (selectedSurface === "all") {
+          const summary = surfaceSummary(row.original.bySurface);
           return (
-            <span className="text-muted-foreground max-w-md text-xs">
-              {surfaceSummary(row.original.bySurface) || "—"}
+            <span className="text-muted-foreground block max-w-[9rem] text-xs leading-snug whitespace-pre-wrap">
+              {summary || "—"}
             </span>
           );
         }
         const m = row.original.bySurface[selectedSurface];
         return (
-          <span className="text-xs">
-            {m ? `${m.views} views · ${m.encounters} encounters` : "—"}
+          <span className="block text-xs leading-snug whitespace-pre-wrap">
+            {m ? `${m.views} views\n${m.encounters} encounters` : "—"}
           </span>
         );
       },

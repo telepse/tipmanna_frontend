@@ -15,6 +15,7 @@ export type ExplorePaginationObsPhase =
 export type ExplorePaginationObsPayload = {
   phase: ExplorePaginationObsPhase;
   feedMode: "trends" | "saves" | "community";
+  uiCycle?: number;
   itemCount?: number;
   batchSize?: number;
   newItems?: number;

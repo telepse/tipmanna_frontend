@@ -103,6 +103,20 @@ export type PaymentAnimationTraceStage =
   | "spin_natural_timer_scheduled"
   | "spin_finish_entered"
   | "spin_finish_resolved"
+  | "payer_recovery_state_saved"
+  | "payer_recovery_exchange_started"
+  | "payer_recovery_exchange_completed"
+  | "payer_recovery_exchange_failed"
+  | "payer_recovery_origin_detected"
+  | "payer_recovery_claim_started"
+  | "payer_recovery_claim_completed"
+  | "payer_recovery_local_enqueue"
+  | "payer_recovery_realtime_won"
+  | "payer_recovery_occurrence_started"
+  | "payer_recovery_occurrence_completed"
+  | "payer_recovery_occurrence_failed"
+  | "payer_recovery_lease_renewed"
+  | "payer_recovery_session_completed"
   | string;
 
 export interface PaymentAnimationTracePayload {
@@ -175,6 +189,9 @@ export interface PaymentAnimationTracePayload {
   connectedToDocument?: boolean;
   matchingNodeCountBefore?: number;
   matchingNodeCountAfter?: number;
+  occurrenceId?: string;
+  claimId?: string;
+  deliverySource?: string;
   [key: string]: unknown;
 }
 

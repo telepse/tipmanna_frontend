@@ -124,11 +124,11 @@ test.describe("signed-in explore matrix", () => {
       .getByRole("button", { name: /My Communities|\d+ communit/i })
       .first()
       .click();
-    const e2eCommunityRow = page.getByRole("menuitemcheckbox", {
-      name: "E2E Community",
+    const e2eCommunityToggle = page.getByRole("switch", {
+      name: /Include E2E Community in Explore feed/i,
     });
-    await expect(e2eCommunityRow).toBeVisible({ timeout: 30_000 });
-    await e2eCommunityRow.click();
+    await expect(e2eCommunityToggle).toBeVisible({ timeout: 30_000 });
+    await e2eCommunityToggle.click();
     await expect
       .poll(() => sp(page.url()).get("communities"), { timeout: 8_000 })
       .toContain(E2E_SELECT_COMMUNITY_ID);
@@ -266,10 +266,9 @@ test.describe("signed-in explore matrix", () => {
       .poll(() => sp(page.url()).get("tab"), { timeout: 8_000 })
       .not.toBe("my-communities");
     await requireExploreNavigationReady(page, 60_000);
-    await expect(page.getByTestId("explore-feed-scroll")).toBeVisible({
-      timeout: 30_000,
-    });
-    const idxAfter = await scroll.evaluate(el => {
+    const scrollAfter = page.getByTestId("explore-feed-scroll");
+    await expect(scrollAfter).toBeVisible({ timeout: 30_000 });
+    const idxAfter = await scrollAfter.evaluate(el => {
       const slide = el.querySelector("[data-explore-slide]") as HTMLElement;
       const h = slide?.getBoundingClientRect().height ?? el.clientHeight;
       return h > 0 ? Math.round(el.scrollTop / h) : 0;

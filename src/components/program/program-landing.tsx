@@ -225,7 +225,8 @@ export function ProgramLanding({
             const thumb =
               item.thumbnailUrl ??
               (item.contentUrl ? getYoutubeThumbnail(item.contentUrl) : null);
-            const itemHref = item.contentUrl ? contentItemHref(item) : null;
+            const itemHref =
+              item.eventId && item.channelId ? contentItemHref(item) : null;
 
             return (
               <div
@@ -357,7 +358,7 @@ export function ProgramLanding({
                     </span>
                   </div>
 
-                  {selectedItem.contentUrl ? (
+                  {selectedItem.eventId && selectedItem.channelId ? (
                     <Button
                       asChild
                       size="sm"
@@ -365,7 +366,7 @@ export function ProgramLanding({
                       className="absolute right-4 bottom-0"
                     >
                       <Link
-                        href={selectedItem.contentUrl}
+                        href={contentItemHref(selectedItem)}
                         className="flex items-center gap-2 border border-black hover:bg-black hover:text-white"
                       >
                         <Play /> Play video

@@ -188,28 +188,28 @@ export const ReportsClient = () => {
         }
         className="space-y-4 sm:space-y-6"
       >
-        <TabsList className="bg-secondary/20 flex !h-14 w-full">
+        <TabsList className="flex h-14! w-full gap-1">
           <TabsTrigger
             value="events"
-            className="h-13! font-semibold"
+            className="data-[state=active]:bg-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white"
           >
             Events
           </TabsTrigger>
           <TabsTrigger
             value="transaction"
-            className="h-13! font-semibold"
+            className="data-[state=active]:bg-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white"
           >
             Transaction
           </TabsTrigger>
           <TabsTrigger
             value="reports"
-            className="h-13! font-semibold"
+            className="data-[state=active]:bg-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white"
           >
             Reports
           </TabsTrigger>
           <TabsTrigger
             value="video"
-            className="h-13! font-semibold"
+            className="data-[state=active]:bg-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white"
           >
             Video analytics
           </TabsTrigger>
@@ -331,7 +331,7 @@ export const ReportsClient = () => {
         </TabsContent>
 
         <TabsContent value="video">
-          <VideoAnalyticsPanel />
+          <VideoAnalyticsPanel variant="reports" />
         </TabsContent>
       </Tabs>
     </section>

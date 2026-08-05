@@ -19,6 +19,16 @@ import {
 } from "@/actions/communities";
 import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -218,6 +228,11 @@ export default function CommunityHubClient() {
   const [interestPhone, setInterestPhone] = useState("");
   const [interestSubmitting, setInterestSubmitting] = useState(false);
   const [startCommunityModalOpen, setStartCommunityModalOpen] = useState(false);
+  const [leaveConfirmTarget, setLeaveConfirmTarget] = useState<{
+    communityId: string;
+    name: string;
+  } | null>(null);
+  const [leaveInProgress, setLeaveInProgress] = useState(false);
 
   const loadCatalog = useCallback(async () => {
     setCatalogLoading(true);
@@ -427,21 +442,32 @@ export default function CommunityHubClient() {
     [authToken, loadMemberships, userId]
   );
 
-  const leaveCommunity = useCallback(
-    async (communityId: string, name: string) => {
-      if (
-        !window.confirm(
-          `Leave ${name}? You will lose access until you join again.`
-        )
-      ) {
-        return;
-      }
-      if (!userId) return;
-      const r = await leaveJoinedCommunityAction(authToken, communityId);
-      if (r.success) await loadMemberships();
+  const requestLeaveCommunity = useCallback(
+    (communityId: string, name: string) => {
+      setLeaveConfirmTarget({ communityId, name });
     },
-    [authToken, loadMemberships, userId]
+    []
   );
+
+  const confirmLeaveCommunity = useCallback(async () => {
+    if (!leaveConfirmTarget || !userId) return;
+    setLeaveInProgress(true);
+    try {
+      const r = await leaveJoinedCommunityAction(
+        authToken,
+        leaveConfirmTarget.communityId
+      );
+      if (r.success) {
+        toast.success(`Left ${leaveConfirmTarget.name}`);
+        setLeaveConfirmTarget(null);
+        await loadMemberships();
+      } else {
+        toast.error(r.message ?? "Could not leave community");
+      }
+    } finally {
+      setLeaveInProgress(false);
+    }
+  }, [authToken, leaveConfirmTarget, loadMemberships, userId]);
 
   const rejoinCommunity = useCallback(
     async (communityId: string, name: string) => {
@@ -689,6 +715,41 @@ export default function CommunityHubClient() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog
+        open={leaveConfirmTarget != null}
+        onOpenChange={open => {
+          if (!open && !leaveInProgress) setLeaveConfirmTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Leave {leaveConfirmTarget?.name ?? "community"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You will lose access to this community until you join again. Your
+              membership can be restored if you still have an active
+              subscription window.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={leaveInProgress}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={leaveInProgress}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={e => {
+                e.preventDefault();
+                void confirmLeaveCommunity();
+              }}
+            >
+              {leaveInProgress ? "Leaving…" : "Leave community"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog
         open={catalogOpen}
         onOpenChange={setCatalogOpen}
@@ -721,7 +782,7 @@ export default function CommunityHubClient() {
                       </p>
                     ) : null}
                     <p className="text-muted-foreground text-[11px]">
-                      £{c.totalTips} tips · {c.memberCount} members · Created{" "}
+                      {c.totalTips} tips · {c.memberCount} members · Created{" "}
                       {formatCommunityDate(c.createdAt)}
                     </p>
                   </div>
@@ -831,7 +892,7 @@ export default function CommunityHubClient() {
                         ) : null}
                         <p className="text-muted-foreground text-[11px]">
                           {typeof c.totalTips === "number"
-                            ? `£${c.totalTips} tips`
+                            ? `${c.totalTips} tips`
                             : null}
                           {typeof c.totalTips === "number" &&
                           typeof c.memberCount === "number"
@@ -1086,7 +1147,7 @@ export default function CommunityHubClient() {
                       key={m.id}
                       m={m}
                       onFeedActive={setFeedActive}
-                      onLeave={leaveCommunity}
+                      onLeave={requestLeaveCommunity}
                     />
                   ))}
                 </ul>
@@ -1115,7 +1176,7 @@ export default function CommunityHubClient() {
                         key={m.id}
                         m={m}
                         onFeedActive={setFeedActive}
-                        onLeave={leaveCommunity}
+                        onLeave={requestLeaveCommunity}
                       />
                     ))}
                   </ul>
@@ -1132,7 +1193,7 @@ export default function CommunityHubClient() {
                         key={m.id}
                         m={m}
                         onFeedActive={setFeedActive}
-                        onLeave={leaveCommunity}
+                        onLeave={requestLeaveCommunity}
                       />
                     ))}
                   </ul>

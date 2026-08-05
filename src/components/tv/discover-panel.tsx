@@ -973,11 +973,11 @@ export function DiscoverPanel({
                                       <UsersRound className="size-6 text-neutral-500" />
                                     </div>
                                   )}
-                                  <p className="mt-2 text-sm font-medium">
+                                  <p className="mt-2 text-sm font-medium underline underline-offset-2">
                                     {community.name}
                                   </p>
                                   <p className="text-muted-foreground text-xs">
-                                    {community.memberCount} members · £
+                                    {community.memberCount} members ·{" "}
                                     {community.totalTips} tips
                                   </p>
                                 </Link>
@@ -1217,14 +1217,16 @@ export function DiscoverPanel({
                       </div>
                     )}
 
-                    <h5 className="text-sm font-semibold">{community.name}</h5>
+                    <h5 className="text-sm font-semibold underline underline-offset-2">
+                      {community.name}
+                    </h5>
 
                     <p className="text-muted-foreground line-clamp-1 text-xs">
                       {trimTitle(community.description ?? "", 20)}
                     </p>
 
                     <p className="text-muted-foreground text-xs">
-                      £{community.totalTips} tips &middot;{" "}
+                      {community.totalTips} tips &middot;{" "}
                       {community.memberCount} member
                       {community.memberCount > 1 ? "s" : ""}
                     </p>

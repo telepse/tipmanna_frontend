@@ -277,7 +277,9 @@ test.describe("explore native history — formal matrix", () => {
           .first()
           .click();
         await page
-          .getByRole("menuitemcheckbox", { name: "E2E Community" })
+          .getByRole("switch", {
+            name: /Include E2E Community in Explore feed/i,
+          })
           .click({ timeout: 15_000 });
         await expect
           .poll(() => sp(page.url()).get("communities"), { timeout: 2_000 })

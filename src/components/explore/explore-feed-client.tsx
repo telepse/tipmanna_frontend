@@ -77,6 +77,7 @@ import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
+import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import type { RoomCharacter } from "@/types";
 import {
   flushTvAnalytics,
@@ -863,6 +864,7 @@ export const ExploreFeedClient = forwardRef<
   }
   const feedLoadGenerationRef = useRef(0);
   const paginationFailCountRef = useRef(0);
+  const paginationUiCycleRef = useRef(0);
   const paginationQueryKeyRef = useRef<string | null>(null);
   const paginationRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -1183,6 +1185,13 @@ export const ExploreFeedClient = forwardRef<
     enabled: feedSurfaceActive,
     surface: "explore_feed",
   });
+  usePayerOriginAnimationRecovery({
+    eventId: activeEventId,
+    paymentSurface: "explore_feed",
+    characters: characters as RoomCharacter[],
+    enabled: feedSurfaceActive,
+    surface: "explore_feed",
+  });
   useAutoDropTip(activeEventId, Boolean(activeEventId) && feedSurfaceActive);
 
   const { amountRaised: liveAmountRaised, numOfTips: liveNumOfTips } =
@@ -1246,7 +1255,11 @@ export const ExploreFeedClient = forwardRef<
   }, []);
 
   const fetchBatch = useCallback(
-    async (list: any[], count: number) => {
+    async (
+      list: any[],
+      count: number,
+      paginationOpts?: { traceId?: string; attempt?: number }
+    ) => {
       const scope = feedIdentity.fetchScope;
       if (
         scope.feedMode === "community" &&
@@ -1262,10 +1275,20 @@ export const ExploreFeedClient = forwardRef<
         seedRef.current,
         count,
         undefined,
-        scope
+        {
+          ...scope,
+          ...(list.length > 0 && paginationOpts?.traceId
+            ? {
+                paginationTraceId: paginationOpts.traceId,
+                paginationAttempt: paginationOpts.attempt ?? 1,
+              }
+            : {}),
+        }
       );
       if (!r.success || !r.data) {
-        toast.error(r.error ?? r.message ?? "Could not load explore feed");
+        if (list.length === 0) {
+          toast.error(r.error ?? r.message ?? "Could not load explore feed");
+        }
         return null;
       }
       if (scope.feedMode === "saves" && r.data.savesFeedEligible === false) {
@@ -1577,6 +1600,7 @@ export const ExploreFeedClient = forwardRef<
     if (paginationQueryKeyRef.current !== feedQueryKey) {
       paginationQueryKeyRef.current = feedQueryKey;
       paginationFailCountRef.current = 0;
+      paginationUiCycleRef.current = 0;
     }
 
     if (endOfFeedRef.current) return;
@@ -1600,10 +1624,14 @@ export const ExploreFeedClient = forwardRef<
     const loadGen = feedLoadGenerationRef.current;
     const queryKey = loadedQueryKeyRef.current;
     const excludeCount = itemsRef.current.length;
+    paginationUiCycleRef.current += 1;
+    const uiCycle = paginationUiCycleRef.current;
+    const traceId = `pag-${uiCycle}-${loadGen}-${Date.now().toString(36)}`;
 
     logExplorePagination({
       phase: "request",
       feedMode,
+      uiCycle,
       itemCount: len,
       activeIndex: scrollIndex,
     });
@@ -1612,7 +1640,8 @@ export const ExploreFeedClient = forwardRef<
       try {
         const batch = await fetchBatch(
           itemsRef.current,
-          EXPLORE_FEED_PAGE_COUNT
+          EXPLORE_FEED_PAGE_COUNT,
+          { traceId, attempt: uiCycle }
         );
         if (loadGen !== feedLoadGenerationRef.current) return;
         if (queryKey !== loadedQueryKeyRef.current) return;
@@ -1625,6 +1654,7 @@ export const ExploreFeedClient = forwardRef<
           logExplorePagination({
             phase: "failure",
             feedMode,
+            uiCycle,
             itemCount: itemsRef.current.length,
             failStreak: paginationFailCountRef.current,
             backoffMs,
@@ -1643,6 +1673,7 @@ export const ExploreFeedClient = forwardRef<
             logExplorePagination({
               phase: "retry",
               feedMode,
+              uiCycle,
               itemCount: curLen,
               failStreak: paginationFailCountRef.current,
               backoffMs,
@@ -1717,6 +1748,7 @@ export const ExploreFeedClient = forwardRef<
             logExplorePagination({
               phase: "success",
               feedMode,
+              uiCycle,
               itemCount: merged.length,
               batchSize: batch.length,
               newItems: newCount,

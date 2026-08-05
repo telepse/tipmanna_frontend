@@ -144,6 +144,11 @@ import {
   readTipResumeCtx,
 } from "@/lib/payment-origin";
 import { setPaymentPendingReturn } from "@/lib/tv-payment-snapshot";
+import {
+  runPaymentRecoveryExchange,
+  sanitizeSuccessUrlInHistory,
+} from "@/lib/payment-recovery-exchange";
+import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import { sanitizeEventIdForRoomRedirect } from "@/lib/public-video-url";
 import {
   fetchWalletStatus,
@@ -177,6 +182,7 @@ export default function PaymentSuccessPage() {
   const router = useRouter();
   const dispatch = useDispatch();
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
+  const authUser = useSelector((s: RootState) => s.auth.user);
 
   useEffect(() => {
     // Load eventId and amount from localStorage on mount
@@ -304,6 +310,23 @@ export default function PaymentSuccessPage() {
       const blockRedirect = isWalletTopupFlow && !walletTopupReconciled;
 
       if (!blockRedirect) {
+        if (paymentIntentId) {
+          const ownership = {
+            clientSessionId: getAnalyticsSessionId(),
+            ...(authUser?.role === "VISITOR"
+              ? { visitorId: authUser.id }
+              : authUser?.id
+                ? { tipperId: authUser.id }
+                : {}),
+          };
+          await runPaymentRecoveryExchange({
+            stripePaymentIntentId: paymentIntentId,
+            redirectStatus: searchParams.get("redirect_status"),
+            ownership,
+          });
+          sanitizeSuccessUrlInHistory();
+        }
+
         setTimeout(() => {
           const origin = localStorage.getItem(PAYMENT_ORIGIN_STORAGE_KEY);
           if (origin) {
@@ -321,7 +344,14 @@ export default function PaymentSuccessPage() {
       }
     };
     void loadSession();
-  }, [paymentIntentId, paymentIntentSecret, router, dispatch, searchParams]);
+  }, [
+    paymentIntentId,
+    paymentIntentSecret,
+    router,
+    dispatch,
+    searchParams,
+    authUser,
+  ]);
 
   if (loading) {
     return (

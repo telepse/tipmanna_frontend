@@ -159,7 +159,7 @@ export function AppSidebar({ numOfEvents }: Props) {
       // freezed: isFreezed,
     },
     {
-      title: "Host Premium",
+      title: "Host Growth",
       url: `/host/${eventSlug}/host-premium`,
       icon: Crown,
       disabled: false,

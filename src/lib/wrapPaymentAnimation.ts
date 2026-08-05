@@ -35,6 +35,11 @@ export interface PaymentAnimationTraceContext {
   playbackKey?: string;
   characterName?: string;
   styleName?: string;
+  onCharacterPlaybackFinished?: (result: {
+    playbackResult: PaymentCharacterPlaybackResult;
+    cycle1Outcome: PaymentCycleOutcome;
+    cycle2Outcome: PaymentCycleOutcome | null;
+  }) => void;
 }
 
 export type { PaymentCycleOutcome, PaymentCharacterPlaybackResult };
@@ -306,6 +311,11 @@ export function wrapPaymentAnimation(
         cycle2,
         traceContext
       );
+      traceContext?.onCharacterPlaybackFinished?.({
+        playbackResult,
+        cycle1Outcome: cycle1,
+        cycle2Outcome: cycle2,
+      });
     } catch (err) {
       tracePaymentAnimationError("payment_cycle_failed", err, {
         surface: traceContext?.surface,
@@ -320,6 +330,11 @@ export function wrapPaymentAnimation(
         cycle2,
         traceContext
       );
+      traceContext?.onCharacterPlaybackFinished?.({
+        playbackResult: derivePaymentCharacterPlaybackResult(cycle1, cycle2),
+        cycle1Outcome: cycle1,
+        cycle2Outcome: cycle2,
+      });
     }
   };
 }

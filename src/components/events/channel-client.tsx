@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
+import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
@@ -262,6 +263,12 @@ export const ChannelClient = ({
   useGlobalTipStream({ eventId, surface: "channel_client" });
   usePaymentAnimationPlayer({
     eventId,
+    characters: tipStrip as RoomCharacter[],
+    surface: "channel_client",
+  });
+  usePayerOriginAnimationRecovery({
+    eventId,
+    paymentSurface: "channel_client",
     characters: tipStrip as RoomCharacter[],
     surface: "channel_client",
   });

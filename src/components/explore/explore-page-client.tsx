@@ -112,8 +112,8 @@ import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -121,6 +121,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { usePusherTrackingGlobalTV } from "@/hooks/use-global-viewer-count";
 import type { UserInfo } from "@/types/tracking.types";
 import { useSelector } from "react-redux";
@@ -739,7 +740,24 @@ export default function ExplorePageClient({
   useEffect(() => {
     const onPopState = () => {
       localTabNavRef.current = false;
+      leaveDiscoverForFeedRef.current = false;
       setHistorySyncGen(g => g + 1);
+      if (typeof window !== "undefined") {
+        const poppedTab = new URLSearchParams(window.location.search).get(
+          "tab"
+        );
+        const fromUrl: ExploreMainTab =
+          poppedTab === "discover"
+            ? "discover"
+            : poppedTab === "community"
+              ? "community"
+              : poppedTab === "my-communities"
+                ? "my-communities"
+                : poppedTab === "join"
+                  ? "join"
+                  : "feed";
+        setTab(fromUrl);
+      }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -1842,24 +1860,36 @@ export default function ExplorePageClient({
                           page.
                         </div>
                       ) : (
-                        eligibleCommunityPickerRows.map(m => (
-                          <DropdownMenuCheckboxItem
-                            key={m.communityId}
-                            checked={communityFeedSelIds.includes(
-                              m.communityId
-                            )}
-                            onCheckedChange={checked => {
-                              onCommunityFeedPick(
-                                m.communityId,
-                                checked,
-                                communityPickerMultiRef.current
-                              );
-                            }}
-                            className="text-xs"
-                          >
-                            {m.community?.name ?? m.communityId}
-                          </DropdownMenuCheckboxItem>
-                        ))
+                        eligibleCommunityPickerRows.map(m => {
+                          const communityName =
+                            m.community?.name ?? m.communityId;
+                          const included = communityFeedSelIds.includes(
+                            m.communityId
+                          );
+                          return (
+                            <DropdownMenuItem
+                              key={m.communityId}
+                              className="flex items-center justify-between gap-3 text-xs"
+                              onSelect={e => e.preventDefault()}
+                            >
+                              <span className="min-w-0 flex-1 truncate">
+                                {communityName}
+                              </span>
+                              <Switch
+                                checked={included}
+                                aria-label={`Include ${communityName} in Explore feed`}
+                                onCheckedChange={checked => {
+                                  onCommunityFeedPick(
+                                    m.communityId,
+                                    checked,
+                                    communityPickerMultiRef.current
+                                  );
+                                }}
+                                onClick={e => e.stopPropagation()}
+                              />
+                            </DropdownMenuItem>
+                          );
+                        })
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>

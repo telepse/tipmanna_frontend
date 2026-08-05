@@ -95,7 +95,7 @@ export function ExploreTopCommunitiesGrid({ communities, className }: Props) {
                   </p>
                 )}
                 <p className="text-muted-foreground mt-2 text-[11px]">
-                  £{c.totalTips} tips &middot; {c.memberCount} members &middot;{" "}
+                  {c.totalTips} tips &middot; {c.memberCount} members &middot;{" "}
                   {c.numVideos ?? 0} contents
                 </p>
                 <p className="text-muted-foreground text-[11px]">

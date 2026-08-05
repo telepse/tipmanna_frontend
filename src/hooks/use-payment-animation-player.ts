@@ -7,6 +7,7 @@ import { useAnimationQueue } from "@/hooks/use-animation-queue";
 import { animLog } from "@/lib/animationDebug";
 import { enqueuePaymentBundleForValidatedTip } from "@/lib/run-payment-bundle-animations";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
+import { buildPaymentPlaybackKeyForBundleCharacter } from "@/lib/payment-playback-key";
 
 export interface UsePaymentAnimationPlayerOptions {
   /** Tips for this event are played; empty string skips playback. */
@@ -82,15 +83,21 @@ export function usePaymentAnimationPlayer({
         tips: data.selectedTips,
       });
 
-      const dedupeKeyBase = data.id ?? `${data.eventId}-${data.serverTs}`;
       const prefix = playbackKeyPrefixRef.current;
       enqueuePaymentBundleForValidatedTip({
         data,
         characterMap: characterMapRef.current,
-        buildDedupeKey: name => `${prefix}${dedupeKeyBase}-${name}`,
+        buildDedupeKey: (name, characterIndex = 0) =>
+          buildPaymentPlaybackKeyForBundleCharacter(
+            data,
+            characterIndex,
+            name,
+            prefix
+          ),
         enqueue: enqueueRef.current,
         animationMount: animationMountRef.current?.current ?? undefined,
         surface,
+        bundleRunContext: { deliverySource: "realtime" },
       });
     };
 
