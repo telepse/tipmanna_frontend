@@ -865,6 +865,9 @@ export const ExploreFeedClient = forwardRef<
   const feedLoadGenerationRef = useRef(0);
   const paginationFailCountRef = useRef(0);
   const paginationUiCycleRef = useRef(0);
+  const lastPaginationFetchMetaRef = useRef<
+    import("@/lib/action-fetch").ExplorePaginationFetchMeta | undefined
+  >(undefined);
   const paginationQueryKeyRef = useRef<string | null>(null);
   const paginationRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -1084,6 +1087,14 @@ export const ExploreFeedClient = forwardRef<
     let cancelled = false;
     const probeTimer = window.setTimeout(() => {
       void (async () => {
+        // Pagination continuation uses the same server-action queue; defer
+        // metrics probes while a batch is in flight (trace: queue blocked ~41s).
+        while (loadingMoreRef.current) {
+          await new Promise<void>(resolve => {
+            window.setTimeout(resolve, 100);
+          });
+          if (cancelled) return;
+        }
         const r = await getExploreChannelMetricsAction(rawId);
         if (cancelled) return;
         if (r.success && r.data) {
@@ -1288,6 +1299,20 @@ export const ExploreFeedClient = forwardRef<
         if (list.length === 0) {
           toast.error(r.error ?? r.message ?? "Could not load explore feed");
         }
+        if (list.length > 0 && r.fetchMeta) {
+          logExplorePagination({
+            phase: "failure",
+            feedMode: scope.feedMode ?? "trends",
+            traceId: paginationOpts?.traceId,
+            uiCycle: paginationOpts?.attempt,
+            coalesceStage: r.fetchMeta.coalesceStage,
+            coalesceKeyHash: r.fetchMeta.coalesceKeyHash,
+            coalesceInstanceId: r.fetchMeta.coalesceInstanceId,
+            fetchDurationMs: r.fetchMeta.durationMs,
+            aborted: r.fetchMeta.aborted,
+            reason: r.error ?? r.message ?? "transient",
+          });
+        }
         return null;
       }
       if (scope.feedMode === "saves" && r.data.savesFeedEligible === false) {
@@ -1297,6 +1322,7 @@ export const ExploreFeedClient = forwardRef<
       }
       setSavesBlocked(null);
       if (r.data.seed) seedRef.current = r.data.seed;
+      if (list.length > 0) lastPaginationFetchMetaRef.current = r.fetchMeta;
       return Array.isArray(r.data.items) ? (r.data.items as any[]) : [];
     },
     [feedIdentity]
@@ -1631,6 +1657,7 @@ export const ExploreFeedClient = forwardRef<
       phase: "request",
       feedMode,
       uiCycle,
+      traceId,
       itemCount: len,
       activeIndex: scrollIndex,
     });
@@ -1744,15 +1771,22 @@ export const ExploreFeedClient = forwardRef<
           if (queryKey !== loadedQueryKeyRef.current) return prev;
           const { items: merged, newCount } = mergeBatchDedup(prev, batch);
           if (newCount > 0) {
+            const meta = lastPaginationFetchMetaRef.current;
             logExplorePagination({
               phase: "success",
               feedMode,
               uiCycle,
+              traceId,
               itemCount: merged.length,
               batchSize: batch.length,
               newItems: newCount,
               activeIndex: activeIndexRef.current,
+              coalesceStage: meta?.coalesceStage,
+              coalesceKeyHash: meta?.coalesceKeyHash,
+              coalesceInstanceId: meta?.coalesceInstanceId,
+              fetchDurationMs: meta?.durationMs,
             });
+            lastPaginationFetchMetaRef.current = undefined;
           }
           return merged;
         });

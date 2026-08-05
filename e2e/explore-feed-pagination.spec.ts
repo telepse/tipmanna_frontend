@@ -112,9 +112,24 @@ test.describe("Explore feed pagination", () => {
     await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible();
   });
 
-  test("fast-scroll near-end starts request before final old slide", async ({
+  test("fast-scroll near-end fixture trigger and append (deterministic)", async ({
     page,
   }) => {
+    test.setTimeout(60_000);
+    await page.goto("/explore?e2e=1");
+    const ready = await waitExploreFeedReady(page, 60_000);
+    expect(ready.state).toBe("scroll");
+
+    const bootCount = await page.locator("[data-explore-slide]").count();
+    expect(bootCount).toBeGreaterThanOrEqual(4);
+    await scrollFeedNearEnd(page, bootCount);
+    await expect(async () => {
+      const count = await page.locator("[data-explore-slide]").count();
+      expect(count).toBeGreaterThan(bootCount);
+    }).toPass({ timeout: 10_000 });
+  });
+
+  test("fast-scroll near-end live-backend performance", async ({ page }) => {
     test.setTimeout(180_000);
     const marks: { label: string; t: number }[] = [];
     const mark = (label: string) => marks.push({ label, t: Date.now() });
@@ -126,10 +141,7 @@ test.describe("Explore feed pagination", () => {
 
     await page.goto("/explore");
     const ready = await waitExploreFeedReady(page, 60_000);
-    if (ready.state !== "scroll") {
-      test.skip(true, "Populated feed required for pagination");
-      return;
-    }
+    expect(ready.state).toBe("scroll");
 
     const bootCount = await page.locator("[data-explore-slide]").count();
     mark("threshold");

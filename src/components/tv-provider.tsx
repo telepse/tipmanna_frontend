@@ -29,6 +29,7 @@ import {
   setTvStartupStabilityGuardReleaseCallback,
   tvStartupFinalizeFailed,
 } from "@/lib/tv-startup-trace";
+import { requestTvYoutubeApiWarmup } from "@/lib/tv-youtube-api-warmup";
 import {
   isSameOrchestratedPlayback,
   type TvPlaybackRequest,
@@ -2322,6 +2323,7 @@ export default function GlobalTVProvider({
       canonicalMark: "T2",
       trigger: "provider_mount",
     });
+    requestTvYoutubeApiWarmup({ trigger: "tv_provider_mounted" });
   }, []);
 
   useEffect(() => {

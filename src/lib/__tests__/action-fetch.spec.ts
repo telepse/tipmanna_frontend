@@ -244,4 +244,27 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
 
     vi.useRealTimers();
   });
+
+  it("propagates non-sensitive explore coalesce headers into fetchMeta", async () => {
+    const res = jsonResponse({ items: [], seed: "s" });
+    res.headers.set("x-explore-coalesce-stage", "coalesced_recent_cache");
+    res.headers.set("x-explore-coalesce-key-hash", "abc123def456");
+    res.headers.set("x-explore-coalesce-instance", "inst9a8b7c6d");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => res)
+    );
+
+    const result = await runServerFetch<{ items: unknown[]; seed: string }>(
+      "http://example.test/feed/batch",
+      { method: "POST", body: "{}" },
+      "testFetchMeta"
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.fetchMeta?.coalesceStage).toBe("coalesced_recent_cache");
+    expect(result.fetchMeta?.coalesceKeyHash).toBe("abc123def456");
+    expect(result.fetchMeta?.coalesceInstanceId).toBe("inst9a8b7c6d");
+    expect(result.fetchMeta?.durationMs).toBeGreaterThanOrEqual(0);
+  });
 });

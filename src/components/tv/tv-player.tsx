@@ -8,6 +8,7 @@ import React, {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useState,
 } from "react";
 
 import YouTube from "react-youtube";
@@ -47,6 +48,15 @@ import {
   recordPlayerCommitted,
   recordReactYoutubeContainerCommitted,
 } from "@/lib/tv-youtube-bootstrap-trace";
+import { isTvEarlyYoutubeApiWarmupEnabled } from "@/lib/tv-feature-flags";
+import {
+  getTvYoutubeApiWarmupPromise,
+  getTvYoutubeApiWarmupRemainingMs,
+  recordYoutubeApiPresentAtReactYoutubeMount,
+  recordYoutubeChildMountDeferred,
+  recordYoutubeChildMountReleased,
+} from "@/lib/tv-youtube-api-warmup";
+import { isYoutubeIframeApiReady } from "@/lib/youtube-iframe-api-loader";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
 
@@ -169,6 +179,81 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const playerContainerRef = useRef<HTMLDivElement>(null);
     const bootstrapLayoutDoneRef = useRef(false);
     const apiPollStartRef = useRef<number | null>(null);
+    const youtubeChildGenerationRef = useRef(startupGeneration);
+
+    const [youtubeChildReleased, setYoutubeChildReleased] = useState(() => {
+      if (!isTvEarlyYoutubeApiWarmupEnabled()) return true;
+      return isYoutubeIframeApiReady();
+    });
+
+    useEffect(() => {
+      if (!isTvEarlyYoutubeApiWarmupEnabled()) return;
+      if (youtubeChildReleased) return;
+
+      recordYoutubeChildMountDeferred({ startupGeneration });
+
+      const generation = startupGeneration;
+      let cancelled = false;
+
+      const release = (
+        reason:
+          | "api_ready"
+          | "warmup_resolved"
+          | "absolute_deadline"
+          | "warmup_failed"
+      ) => {
+        if (cancelled) return;
+        if (youtubeChildGenerationRef.current !== generation) return;
+        setYoutubeChildReleased(true);
+        recordYoutubeChildMountReleased({
+          startupGeneration: generation,
+          fallbackReason: reason,
+        });
+      };
+
+      if (isYoutubeIframeApiReady()) {
+        release("api_ready");
+        return;
+      }
+
+      const promise = getTvYoutubeApiWarmupPromise();
+      if (promise) {
+        void promise.then(result => {
+          if (result.state === "ready") {
+            release("warmup_resolved");
+          } else {
+            release("warmup_failed");
+          }
+        });
+      }
+
+      const remaining = getTvYoutubeApiWarmupRemainingMs();
+      let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+      if (remaining != null) {
+        if (remaining <= 0) {
+          release("absolute_deadline");
+        } else {
+          deadlineTimer = setTimeout(() => {
+            release("absolute_deadline");
+          }, remaining);
+        }
+      }
+
+      return () => {
+        cancelled = true;
+        if (deadlineTimer != null) clearTimeout(deadlineTimer);
+      };
+    }, [startupGeneration, youtubeChildReleased]);
+
+    useEffect(() => {
+      youtubeChildGenerationRef.current = startupGeneration;
+    }, [startupGeneration]);
+
+    useEffect(() => {
+      if (!youtubeChildReleased) return;
+      if (!isTvEarlyYoutubeApiWarmupEnabled()) return;
+      recordYoutubeApiPresentAtReactYoutubeMount(isYoutubeIframeApiReady());
+    }, [youtubeChildReleased]);
 
     useLayoutEffect(() => {
       if (bootstrapLayoutDoneRef.current) return;
@@ -459,108 +544,14 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
             : "pointer-events-none"
         }
       >
-        <YouTube
-          videoId={youtubeVideoId}
-          opts={youtubeOpts}
-          onReady={event => {
-            playerRef.current = event.target;
-            readyRef.current = true;
+        {youtubeChildReleased ? (
+          <YouTube
+            videoId={youtubeVideoId}
+            opts={youtubeOpts}
+            onReady={event => {
+              playerRef.current = event.target;
+              readyRef.current = true;
 
-            if (cover) {
-              styleYoutubeIframePresentation(event.target.getIframe(), "cover");
-            } else if (containFill) {
-              styleYoutubeIframePresentation(
-                event.target.getIframe(),
-                "contain"
-              );
-            }
-
-            if (pendingLoadRef.current) {
-              const { videoId: vid, start } = pendingLoadRef.current;
-              pendingLoadRef.current = null;
-              beginProgrammaticPlayback();
-              tvTrace("playback", "player_load_pending", {
-                videoId: vid,
-                start,
-              });
-              event.target.loadVideoById(vid, start);
-              if (event.target.isMuted()) {
-                tracePlayVideoResult(
-                  "TvPlayer.onReady.pending_muted_play",
-                  event.target.playVideo()
-                );
-              }
-            } else if (autoplay && !externallyControlled) {
-              tracePlayVideoResult(
-                "TvPlayer.onReady.autoplay",
-                event.target.playVideo()
-              );
-            }
-
-            tvTrace("playback", "onReady", {
-              videoId: extractYoutubeID(videoUrlRef.current),
-              externallyControlled,
-            });
-            tvLoadMark("T5", {
-              videoId: extractYoutubeID(videoUrlRef.current),
-            });
-            updateTvStartupContext({ playerReady: true, playerState: "READY" });
-            ensureApiObjectDetectedAtReady({
-              startupGeneration,
-              traceId: getTvStartupTraceId(),
-            });
-            tvStartupEvent("player_ready", {
-              canonicalMark: "T8",
-              trigger: "youtube_onReady",
-              data: { externallyControlled },
-            });
-
-            if (enableLiveOffsetEmbed && onInitialEmbedConfirmed) {
-              onInitialEmbedConfirmed({ startupGeneration });
-            }
-
-            syncMuteFromPlayer(event.target);
-            onReady?.();
-          }}
-          onStateChange={event => {
-            tvTrace("playback", "onStateChange", {
-              state: event.data,
-              stateName: ytStateName(event.data as number),
-              videoId: extractYoutubeID(videoUrlRef.current),
-            });
-            updateTvStartupContext({
-              playerState: ytStateName(event.data as number),
-            });
-            if (event.data === 3) {
-              tvStartupEvent("player_buffering", {
-                canonicalMark: "T10",
-                trigger: "youtube_state_3",
-              });
-            }
-            if (event.data === 1) {
-              syncMuteFromPlayer(event.target);
-              tvTrace("playback", "onPlay", {
-                videoId: extractYoutubeID(videoUrlRef.current),
-              });
-              tvLoadMark("T6", {
-                videoId: extractYoutubeID(videoUrlRef.current),
-              });
-              tvStartupEvent("player_playing", {
-                canonicalMark: "T11",
-                trigger: "youtube_state_1",
-              });
-              notifyTvFirstPlay();
-              maybeNotifyVideoAspectOnce();
-              onPlay?.();
-            }
-            if (event.data === 2) {
-              syncMuteFromPlayer(event.target);
-              onPause?.();
-              if (Date.now() >= suppressUserIntentUntilRef.current) {
-                onUserPause?.();
-              }
-            }
-            if (event.data === 5) {
               if (cover) {
                 styleYoutubeIframePresentation(
                   event.target.getIframe(),
@@ -572,25 +563,127 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                   "contain"
                 );
               }
-              syncMuteFromPlayer(event.target);
-              tvTrace("playback", "onPlaybackReady", {
-                videoId: extractYoutubeID(videoUrlRef.current),
-              });
-              if (
-                event.target.isMuted() &&
-                event.target.getPlayerState() !== 1
-              ) {
+
+              if (pendingLoadRef.current) {
+                const { videoId: vid, start } = pendingLoadRef.current;
+                pendingLoadRef.current = null;
+                beginProgrammaticPlayback();
+                tvTrace("playback", "player_load_pending", {
+                  videoId: vid,
+                  start,
+                });
+                event.target.loadVideoById(vid, start);
+                if (event.target.isMuted()) {
+                  tracePlayVideoResult(
+                    "TvPlayer.onReady.pending_muted_play",
+                    event.target.playVideo()
+                  );
+                }
+              } else if (autoplay && !externallyControlled) {
                 tracePlayVideoResult(
-                  "TvPlayer.cued_muted_play",
+                  "TvPlayer.onReady.autoplay",
                   event.target.playVideo()
                 );
               }
-              onPlaybackReady?.();
-            }
-            if (event.data === 0) onEnd?.();
-          }}
-          onError={event => onPlayerError?.(event.data as number)}
-        />
+
+              tvTrace("playback", "onReady", {
+                videoId: extractYoutubeID(videoUrlRef.current),
+                externallyControlled,
+              });
+              tvLoadMark("T5", {
+                videoId: extractYoutubeID(videoUrlRef.current),
+              });
+              updateTvStartupContext({
+                playerReady: true,
+                playerState: "READY",
+              });
+              ensureApiObjectDetectedAtReady({
+                startupGeneration,
+                traceId: getTvStartupTraceId(),
+              });
+              tvStartupEvent("player_ready", {
+                canonicalMark: "T8",
+                trigger: "youtube_onReady",
+                data: { externallyControlled },
+              });
+
+              if (enableLiveOffsetEmbed && onInitialEmbedConfirmed) {
+                onInitialEmbedConfirmed({ startupGeneration });
+              }
+
+              syncMuteFromPlayer(event.target);
+              onReady?.();
+            }}
+            onStateChange={event => {
+              tvTrace("playback", "onStateChange", {
+                state: event.data,
+                stateName: ytStateName(event.data as number),
+                videoId: extractYoutubeID(videoUrlRef.current),
+              });
+              updateTvStartupContext({
+                playerState: ytStateName(event.data as number),
+              });
+              if (event.data === 3) {
+                tvStartupEvent("player_buffering", {
+                  canonicalMark: "T10",
+                  trigger: "youtube_state_3",
+                });
+              }
+              if (event.data === 1) {
+                syncMuteFromPlayer(event.target);
+                tvTrace("playback", "onPlay", {
+                  videoId: extractYoutubeID(videoUrlRef.current),
+                });
+                tvLoadMark("T6", {
+                  videoId: extractYoutubeID(videoUrlRef.current),
+                });
+                tvStartupEvent("player_playing", {
+                  canonicalMark: "T11",
+                  trigger: "youtube_state_1",
+                });
+                notifyTvFirstPlay();
+                maybeNotifyVideoAspectOnce();
+                onPlay?.();
+              }
+              if (event.data === 2) {
+                syncMuteFromPlayer(event.target);
+                onPause?.();
+                if (Date.now() >= suppressUserIntentUntilRef.current) {
+                  onUserPause?.();
+                }
+              }
+              if (event.data === 5) {
+                if (cover) {
+                  styleYoutubeIframePresentation(
+                    event.target.getIframe(),
+                    "cover"
+                  );
+                } else if (containFill) {
+                  styleYoutubeIframePresentation(
+                    event.target.getIframe(),
+                    "contain"
+                  );
+                }
+                syncMuteFromPlayer(event.target);
+                tvTrace("playback", "onPlaybackReady", {
+                  videoId: extractYoutubeID(videoUrlRef.current),
+                });
+                if (
+                  event.target.isMuted() &&
+                  event.target.getPlayerState() !== 1
+                ) {
+                  tracePlayVideoResult(
+                    "TvPlayer.cued_muted_play",
+                    event.target.playVideo()
+                  );
+                }
+                onPlaybackReady?.();
+              }
+              if (event.data === 0) onEnd?.();
+            }}
+            onError={event => onPlayerError?.(event.data as number)}
+          />
+        ) : null}
         <YoutubeChromeMask />
       </div>
     );
