@@ -114,3 +114,14 @@ export function isTvSsrYoutubePreconnectEnabled(): boolean {
     process.env.NEXT_PUBLIC_TV_SSR_YOUTUBE_PRECONNECT === "1"
   );
 }
+
+/**
+ * Phase C2.2 — early YouTube IFrame API warm-up at TVProvider T2.
+ * Default DISABLED. TV-route scoped. Independent from C2.0/C2.1.
+ */
+export function isTvEarlyYoutubeApiWarmupEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_EARLY_YOUTUBE_API_WARMUP === "true" ||
+    process.env.NEXT_PUBLIC_TV_EARLY_YOUTUBE_API_WARMUP === "1"
+  );
+}

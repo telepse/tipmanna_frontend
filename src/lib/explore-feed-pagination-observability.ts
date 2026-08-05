@@ -16,6 +16,7 @@ export type ExplorePaginationObsPayload = {
   phase: ExplorePaginationObsPhase;
   feedMode: "trends" | "saves" | "community";
   uiCycle?: number;
+  traceId?: string;
   itemCount?: number;
   batchSize?: number;
   newItems?: number;
@@ -23,6 +24,11 @@ export type ExplorePaginationObsPayload = {
   backoffMs?: number;
   activeIndex?: number;
   reason?: string;
+  coalesceStage?: string;
+  coalesceKeyHash?: string;
+  coalesceInstanceId?: string;
+  fetchDurationMs?: number;
+  aborted?: boolean;
 };
 
 export function logExplorePagination(opts: ExplorePaginationObsPayload): void {

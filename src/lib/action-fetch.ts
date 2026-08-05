@@ -19,9 +19,37 @@ export type ActionResult<T> = {
   message?: string;
   /** Raw error JSON body for field-level validation mapping */
   validationBody?: unknown;
+  /** Non-sensitive upstream fetch metadata (Explore pagination correlation). */
+  fetchMeta?: ExplorePaginationFetchMeta;
+};
+
+export type ExplorePaginationFetchMeta = {
+  durationMs?: number;
+  coalesceStage?: string;
+  coalesceKeyHash?: string;
+  coalesceInstanceId?: string;
+  aborted?: boolean;
 };
 
 const LOG_BODY_MAX = 2048;
+
+function readExplorePaginationFetchMeta(
+  res: Response,
+  startedAt: number,
+  aborted: boolean
+): ExplorePaginationFetchMeta | undefined {
+  const stage = res.headers.get("x-explore-coalesce-stage");
+  const keyHash = res.headers.get("x-explore-coalesce-key-hash");
+  const instanceId = res.headers.get("x-explore-coalesce-instance");
+  if (!stage && !keyHash && !instanceId && !aborted) return undefined;
+  return {
+    durationMs: Date.now() - startedAt,
+    ...(stage ? { coalesceStage: stage } : {}),
+    ...(keyHash ? { coalesceKeyHash: keyHash } : {}),
+    ...(instanceId ? { coalesceInstanceId: instanceId } : {}),
+    ...(aborted ? { aborted } : {}),
+  };
+}
 
 type FetchFailureLog = {
   context: string;
@@ -97,8 +125,16 @@ function makeActionFailResult<T = never>(message: string): ActionResult<T> {
   };
 }
 
-export function actionOk<T>(data: T): ActionResult<T> {
-  return { data, error: null, success: true };
+export function actionOk<T>(
+  data: T,
+  fetchMeta?: ExplorePaginationFetchMeta
+): ActionResult<T> {
+  return {
+    data,
+    error: null,
+    success: true,
+    ...(fetchMeta ? { fetchMeta } : {}),
+  };
 }
 
 export function actionFail<T = never>(
@@ -227,6 +263,7 @@ async function fetchWithRetry(
     };
 
     try {
+      const attemptStartedAt = Date.now();
       const res = await fetch(url, attemptFetchInit(attemptInit));
       const text = await res.text();
       let raw: unknown = null;
@@ -303,9 +340,19 @@ async function fetchWithRetry(
       }
 
       const data = mapSuccess ? mapSuccess(raw) : raw;
-      return actionOk(data);
+      return actionOk(
+        data,
+        readExplorePaginationFetchMeta(res, attemptStartedAt, false)
+      );
     } catch (e) {
       const isAbort = isAbortError(e);
+      const meta = isAbort
+        ? readExplorePaginationFetchMeta(
+            new Response(null, { status: 408 }),
+            Date.now(),
+            true
+          )
+        : undefined;
       const msg = isAbort
         ? "Request timed out (AbortSignal)"
         : e instanceof Error
@@ -329,7 +376,10 @@ async function fetchWithRetry(
         willRetry,
         retryDelayMs,
       });
-      lastResult = makeActionFailResult(msg);
+      lastResult = {
+        ...makeActionFailResult(msg),
+        ...(meta ? { fetchMeta: meta } : {}),
+      };
       if (willRetry) {
         await sleep(retryDelayMs!);
         continue;

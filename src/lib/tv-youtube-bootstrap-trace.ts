@@ -925,6 +925,7 @@ export type YoutubeBootstrapSummaryFields = {
   youtubeApiConnectionReusedOrPreconnected: boolean | null;
   ssrYoutubePreconnectEnabled: boolean;
   ssrYoutubePreconnectOrigins: string[];
+  apiResourceStartedBeforePlayerCommit: boolean | null;
 };
 
 export function computeBootstrapDiagnostics(
@@ -1048,6 +1049,10 @@ export function buildYoutubeBootstrapSummaryFields(
       s?.apiConnectionTiming?.youtubeApiConnectionReusedOrPreconnected ?? null,
     ssrYoutubePreconnectEnabled: isTvSsrYoutubePreconnectEnabled(),
     ssrYoutubePreconnectOrigins: getTvSsrYoutubePreconnectOrigins(),
+    apiResourceStartedBeforePlayerCommit:
+      s?.apiResourceStartMs != null && playerCommit != null
+        ? s.apiResourceStartMs <= playerCommit
+        : null,
   };
 
   return fields;
@@ -1102,6 +1107,10 @@ export function applyYoutubeBootstrapToSummary(
 }
 
 /** Test-only helpers */
+export function getBootstrapPlayerCommitMs(): number | null {
+  return state?.playerCommitMs ?? null;
+}
+
 export function __getYoutubeBootstrapStateForTest(): BootstrapState | null {
   return state;
 }

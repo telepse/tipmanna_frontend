@@ -1,0 +1,1986 @@
+{
+  "responseContext": {
+    "serviceTrackingParams": [
+      {
+        "service": "CSI",
+        "params": [
+          { "key": "c", "value": "WEB_EMBEDDED_PLAYER" },
+          {
+            "key": "cver",
+            "value": "2.20260805.01.00-canary_experiment_2.20260804.01.00"
+          },
+          { "key": "yt_li", "value": "0" },
+          { "key": "GetWatchPage_rid", "value": "0x6525d35850070c5c" }
+        ]
+      },
+      {
+        "service": "GFEEDBACK",
+        "params": [{ "key": "logged_in", "value": "0" }]
+      },
+      {
+        "service": "GUIDED_HELP",
+        "params": [{ "key": "logged_in", "value": "0" }]
+      },
+      {
+        "service": "ECATCHER",
+        "params": [
+          { "key": "client.version", "value": "2.20260805" },
+          { "key": "client.name", "value": "WEB_EMBEDDED_PLAYER" }
+        ]
+      }
+    ],
+    "responseId": "IhMImtzN9tGJlgMV0SNVCB0V6hzi",
+    "webResponseContextExtensionData": { "hasDecorated": true }
+  },
+  "currentVideoEndpoint": {
+    "clickTrackingParams": "CAAQg2ciEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+    "commandMetadata": {
+      "webCommandMetadata": {
+        "url": "/watch?v=Fpn1imb9qZg",
+        "webPageType": "WEB_PAGE_TYPE_WATCH",
+        "rootVe": 3832
+      }
+    },
+    "watchEndpoint": { "videoId": "Fpn1imb9qZg" }
+  },
+  "trackingParams": "CAAQg2ciEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+  "playerOverlays": {
+    "playerOverlayRenderer": {
+      "endScreen": {
+        "watchNextEndScreenRenderer": {
+          "results": [
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "-ZvsGmYKhcU",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/default.webp",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/-ZvsGmYKhcU/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAMVvubxo67KvcgoBo0sWCinvoP0A",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/-ZvsGmYKhcU/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLCsWKgaxi7NYVF7Iqhtz-na66n3pw",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/-ZvsGmYKhcU/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDmoz1R2jhhScBs0aXq11G4Hoee6w",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/mqdefault.webp",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/-ZvsGmYKhcU/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAQaXBOSSPluICrhA25tgTmX--ucQ",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/hqdefault.webp",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/sddefault.webp",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/maxresdefault.webp",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    { "text": "Coldplay - Viva La Vida (Live In São Paulo)" }
+                  ]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBoQvU4YACITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "4:08" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "4 minutes, 8 seconds" }
+                  }
+                },
+                "lengthInSeconds": 248,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBoQvU4YACITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=-ZvsGmYKhcU&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=-ZvsGmYKhcU&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBoQvU4YACITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "243M views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "243 million views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "7 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "4:08" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "4 minutes, 8 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "VPRjCeoBqrI",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/default.jpg",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLDeuEJbjDgLmyw4hnnYM9nACkom-w",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAqJ2IGLaZ23i52mM5am4TwSLoI4Q",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLBVpIDRZTAJcwp856W9U_vZ3yWvDg",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/mqdefault.jpg",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCRxGsEt-ocjmw18khmOushTedBWQ",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/hqdefault.jpg",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/sddefault.jpg",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/maxresdefault.jpg",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    {
+                      "text": "Coldplay - A Sky Full Of Stars (Official Video)"
+                    }
+                  ]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBkQvU4YASITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "4:14" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "4 minutes, 14 seconds" }
+                  }
+                },
+                "lengthInSeconds": 254,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBkQvU4YASITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=VPRjCeoBqrI&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=VPRjCeoBqrI&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBkQvU4YASITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "1B views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "1 billion views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "12 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "4:14" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "4 minutes, 14 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "QtXby3twMmI",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi/QtXby3twMmI/default.jpg",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QtXby3twMmI/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAiKeXH9WXi51jMJHqcPj7ioraaSQ",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QtXby3twMmI/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLB6GbUVukieTp3OG8RqoTFkLu0kWg",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QtXby3twMmI/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDuyLSWjXzpH3ywCYYJsISCOD8QYw",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QtXby3twMmI/mqdefault.jpg",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QtXby3twMmI/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAXO7buPetG6_KHw1OsF9ZVRtG1jg",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QtXby3twMmI/hqdefault.jpg",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QtXby3twMmI/sddefault.jpg",
+                      "width": 640,
+                      "height": 480
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    {
+                      "text": "Coldplay - Adventure Of A Lifetime (Official Video)"
+                    }
+                  ]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBgQvU4YAiITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "5:16" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "5 minutes, 16 seconds" }
+                  }
+                },
+                "lengthInSeconds": 316,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBgQvU4YAiITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=QtXby3twMmI&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=QtXby3twMmI&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBgQvU4YAiITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "1.7B views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "1.7 billion views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "10 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "5:16" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "5 minutes, 16 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "n9aL0otZalc",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/default.jpg",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLCpj8Oa9ZLhDbxISikL_zrPNhtRug",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLDvbCDprzj5nwBARO3YNQoFsEwCeQ",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLC7HdKwx80kJSIOo-oBJv1z7JUROQ",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/mqdefault.jpg",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAZoIGOwtNlCenV8j5zQj2w6WMVgw",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/hqdefault.jpg",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/sddefault.jpg",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/n9aL0otZalc/maxresdefault.jpg",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    {
+                      "text": "Coldplay & Ed Sheeran - Fix You (Live at Shepherd's Bush Empire)"
+                    }
+                  ]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBcQvU4YAyITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "5:08" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "5 minutes, 8 seconds" }
+                  }
+                },
+                "lengthInSeconds": 308,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBcQvU4YAyITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=n9aL0otZalc&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=n9aL0otZalc&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBcQvU4YAyITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "68M views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "68 million views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "4 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "5:08" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "5 minutes, 8 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "YykjpeuMNEk",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/default.jpg",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLB3lDWa0M4uBTytpu8it2sy3rIpvw",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAHC6Tmord9W851bT99q3p3qVqtGw",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAL9XqpYSEbYopMlwnXQpEd8FM5Ig",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/mqdefault.jpg",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAojx8_Yokuhhp5_eH6SqfiOVqNfQ",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/hqdefault.jpg",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/sddefault.jpg",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/YykjpeuMNEk/maxresdefault.jpg",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    {
+                      "text": "Coldplay - Hymn For The Weekend (Official Video)"
+                    }
+                  ]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBYQvU4YBCITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "4:21" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "4 minutes, 21 seconds" }
+                  }
+                },
+                "lengthInSeconds": 261,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBYQvU4YBCITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=YykjpeuMNEk&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=YykjpeuMNEk&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBYQvU4YBCITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "2.2B views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "2.2 billion views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "10 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "4:21" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "4 minutes, 21 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "AEp08vVYreg",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/AEp08vVYreg/default.webp",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/AEp08vVYreg/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAtb27ft4TnNeb2yHUAvV0bsGaI3A",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/AEp08vVYreg/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLDYW9dbTXx8gAJstNMvgkNByz3M8Q",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/AEp08vVYreg/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLA5U-OiDQCFvl7UQD1eb2oN2KgxjA",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/AEp08vVYreg/mqdefault.webp",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/AEp08vVYreg/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLBU1npiFRc3HFsM2vqkKuN13Pvhvw",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/AEp08vVYreg/hqdefault.webp",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/AEp08vVYreg/sddefault.webp",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/AEp08vVYreg/maxresdefault.webp",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [{ "text": "Coldplay - Fix You (Live In São Paulo)" }]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBUQvU4YBSITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "5:06" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "5 minutes, 6 seconds" }
+                  }
+                },
+                "lengthInSeconds": 306,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBUQvU4YBSITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=AEp08vVYreg&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=AEp08vVYreg&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBUQvU4YBSITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "107M views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "107 million views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "7 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "5:06" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "5 minutes, 6 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "tO7CCP7liwI",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/tO7CCP7liwI/default.webp",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/tO7CCP7liwI/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLC6lYnuhznHY2vP7WocTZiEuDuZOQ",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/tO7CCP7liwI/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLCkP9K9bC78AzZQICeZrTTNRGTmiQ",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/tO7CCP7liwI/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLA0-mL0f19AJTfE8LI6bWDPfc20Bw",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/tO7CCP7liwI/mqdefault.webp",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/tO7CCP7liwI/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAc-GzmrQXUHd2Yg83UhTFXhVZSFQ",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/tO7CCP7liwI/hqdefault.webp",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/tO7CCP7liwI/sddefault.webp",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/tO7CCP7liwI/maxresdefault.webp",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [{ "text": "Coldplay: Everyday Life Live in Jordan" }]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBQQvU4YBiITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "58:16" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "58 minutes, 16 seconds" }
+                  }
+                },
+                "lengthInSeconds": 3496,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBQQvU4YBiITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=tO7CCP7liwI&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=tO7CCP7liwI&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBQQvU4YBiITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "28M views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "28 million views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "5 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "58:16" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "58 minutes, 16 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "1G4isv_Fylg",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/1G4isv_Fylg/default.webp",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/1G4isv_Fylg/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAM7To-1D-OqojEW5yXhyj41qaR2Q",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/1G4isv_Fylg/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLBDJG4ezohtGV6kBsqDZbFVjmC5aQ",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/1G4isv_Fylg/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDibMRMUNL1GI2FIbOcYUyr8sskuQ",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/1G4isv_Fylg/mqdefault.webp",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/1G4isv_Fylg/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDcWcYLWlRrfrek1r1Owhi2spnYQQ",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/1G4isv_Fylg/hqdefault.webp",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/1G4isv_Fylg/sddefault.webp",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/1G4isv_Fylg/maxresdefault.webp",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [{ "text": "Coldplay - Paradise (Official Video)" }]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBMQvU4YByITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "4:21" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "4 minutes, 21 seconds" }
+                  }
+                },
+                "lengthInSeconds": 261,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBMQvU4YByITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=1G4isv_Fylg&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=1G4isv_Fylg&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBMQvU4YByITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "2B views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "2 billion views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "14 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "4:21" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "4 minutes, 21 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "QKcxhQZxvdw",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi/QKcxhQZxvdw/default.jpg",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QKcxhQZxvdw/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLDwNtnP8caZ-FqaS7H5611eHNV3hg",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QKcxhQZxvdw/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLCJJuxVQGGdnQd-9KNfztQ830L9og",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QKcxhQZxvdw/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCld5TkBy6lOV7zI230eYdxK042vQ",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QKcxhQZxvdw/mqdefault.jpg",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QKcxhQZxvdw/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCLlvXHnFY2Gy2aSkJDSkb4usFevg",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QKcxhQZxvdw/hqdefault.jpg",
+                      "width": 480,
+                      "height": 360
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    { "text": "Coldplay - Paradise (Live 2012 from Paris)" }
+                  ]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBIQvU4YCCITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "5:36" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "5 minutes, 36 seconds" }
+                  }
+                },
+                "lengthInSeconds": 336,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBIQvU4YCCITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=QKcxhQZxvdw&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=QKcxhQZxvdw&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBIQvU4YCCITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "111M views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "111 million views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "13 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "5:36" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "5 minutes, 36 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "rLm_aSP369M",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi/rLm_aSP369M/default.jpg",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/rLm_aSP369M/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAINTBizkWyF4iVlatvergpQ0e9fA",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/rLm_aSP369M/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLDOZTCLW29a7r6BVfqOsa6_b9xAmg",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/rLm_aSP369M/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAchZSduAZR8YFongGmdikdEnCxJQ",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/rLm_aSP369M/mqdefault.jpg",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/rLm_aSP369M/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLACye7afvxo_xI_OLvd8uELRhP2Ig",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/rLm_aSP369M/hqdefault.jpg",
+                      "width": 480,
+                      "height": 360
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    { "text": "Coldplay - The Scientist (Live in Madrid 2011)" }
+                  ]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBEQvU4YCSITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "6:12" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "6 minutes, 12 seconds" }
+                  }
+                },
+                "lengthInSeconds": 372,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBEQvU4YCSITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=rLm_aSP369M&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=rLm_aSP369M&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBEQvU4YCSITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "262M views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "262 million views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "14 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "6:12" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "6 minutes, 12 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "9ldOuVuas1c",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/default.jpg?sqp=-oaymwEkCHgQWvKriqkDGvABAfgB_gmAAtAFigIMCAAQARhbICIofzAP&rs=AOn4CLBICzELW27AUj11oKOy-_TfI7oB_Q",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/hqdefault.jpg?sqp=-oaymwE1CKgBEF5IVfKriqkDKAgBFQAAiEIYAXABwAEG8AEB-AH-CYAC0AWKAgwIABABGFsgIih_MA8=&rs=AOn4CLBQBsiVLPBWxJnOz-p4B9aDnq1x-w",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/hqdefault.jpg?sqp=-oaymwE1CMQBEG5IVfKriqkDKAgBFQAAiEIYAXABwAEG8AEB-AH-CYAC0AWKAgwIABABGFsgIih_MA8=&rs=AOn4CLDywKN7J7WNs6tkT11uKeKLF6XFXA",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/hqdefault.jpg?sqp=-oaymwE2CPYBEIoBSFXyq4qpAygIARUAAIhCGAFwAcABBvABAfgB_gmAAtAFigIMCAAQARhbICIofzAP&rs=AOn4CLBvF_LVQg5uWx6SmYnhclFnf7MbIw",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/mqdefault.jpg?sqp=-oaymwEmCMACELQB8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGFsgIih_MA8=&rs=AOn4CLA6CpOrNQ5nUN2qwCOe8ZRy_hNKWA",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/hqdefault.jpg?sqp=-oaymwE2CNACELwBSFXyq4qpAygIARUAAIhCGAFwAcABBvABAfgB_gmAAtAFigIMCAAQARhbICIofzAP&rs=AOn4CLDW6D8fR4eObZ1CBIk-ZAcqpywwuw",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/hqdefault.jpg?sqp=-oaymwEmCOADEOgC8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGFsgIih_MA8=&rs=AOn4CLB99aljUS05ERI1Gs0p3St8NEGg6A",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/sddefault.jpg?sqp=-oaymwEmCIAFEOAD8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGFsgIih_MA8=&rs=AOn4CLAR0M9pDVClA_XuW9_PsUjRaiTzog",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/9ldOuVuas1c/maxresdefault.jpg?sqp=-oaymwEmCIAKENAF8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGFsgIih_MA8=&rs=AOn4CLAkxrfMtdedhCOfyFLNmPmqlbEAig",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [
+                    { "text": "Coldplay - Viva La Vida (Live in Madrid 2011)" }
+                  ]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CBAQvU4YCiITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "5:19" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "5 minutes, 19 seconds" }
+                  }
+                },
+                "lengthInSeconds": 319,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CBAQvU4YCiITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=9ldOuVuas1c&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=9ldOuVuas1c&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CBAQvU4YCiITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "129M views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "129 million views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "14 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "5:19" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "5 minutes, 19 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "endScreenVideoRenderer": {
+                "videoId": "k4V3Mo61fJM",
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/k4V3Mo61fJM/default.webp",
+                      "width": 120,
+                      "height": 90
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/k4V3Mo61fJM/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLBbg_2SMrVOg8JQQOfmCfVsjy-Dlg",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/k4V3Mo61fJM/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAlJTlsRuTglzLEZs7f8_8oqcAt6A",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/k4V3Mo61fJM/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDLcxb46zSLZQYYYxVkeZchC8tUTw",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/k4V3Mo61fJM/mqdefault.webp",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/k4V3Mo61fJM/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCV-8IcQJH9tpVH1n1Gq3Eqo-7h-A",
+                      "width": 336,
+                      "height": 188
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/k4V3Mo61fJM/hqdefault.webp",
+                      "width": 480,
+                      "height": 360
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/k4V3Mo61fJM/sddefault.webp",
+                      "width": 640,
+                      "height": 480
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi_webp/k4V3Mo61fJM/maxresdefault.webp",
+                      "width": 1920,
+                      "height": 1080
+                    }
+                  ]
+                },
+                "title": {
+                  "runs": [{ "text": "Coldplay - Fix You (Official Video)" }]
+                },
+                "shortBylineText": {
+                  "runs": [
+                    {
+                      "text": "Coldplay",
+                      "navigationEndpoint": {
+                        "clickTrackingParams": "CA8QvU4YCyITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "rootVe": 3611,
+                            "apiUrl": "/youtubei/v1/browse"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCDPM_n1atn2ijUwHd0NNRQw",
+                          "canonicalBaseUrl": "/channel/UCDPM_n1atn2ijUwHd0NNRQw"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "lengthText": {
+                  "runs": [{ "text": "4:54" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "4 minutes, 54 seconds" }
+                  }
+                },
+                "lengthInSeconds": 294,
+                "navigationEndpoint": {
+                  "clickTrackingParams": "CA8QvU4YCyITCJrczfbRiZYDFdEjVQgdFeoc4soBBAZTczw=",
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "url": "https://www.youtube.com/watch?v=k4V3Mo61fJM&feature=endscreen",
+                      "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                      "rootVe": 83769
+                    }
+                  },
+                  "urlEndpoint": {
+                    "url": "https://www.youtube.com/watch?v=k4V3Mo61fJM&feature=endscreen",
+                    "target": "TARGET_NEW_WINDOW"
+                  }
+                },
+                "trackingParams": "CA8QvU4YCyITCJrczfbRiZYDFdEjVQgdFeoc4g==",
+                "shortViewCountText": {
+                  "runs": [{ "text": "735M views" }],
+                  "accessibility": {
+                    "accessibilityData": { "label": "735 million views" }
+                  }
+                },
+                "publishedTimeText": { "runs": [{ "text": "15 years ago" }] },
+                "thumbnailOverlays": [
+                  {
+                    "thumbnailOverlayTimeStatusRenderer": {
+                      "text": {
+                        "runs": [{ "text": "4:54" }],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "4 minutes, 54 seconds"
+                          }
+                        }
+                      },
+                      "style": "DEFAULT"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "title": { "runs": [{ "text": "You may also like..." }] },
+          "trackingParams": "CA4Q-lwiEwia3M320YmWAxXRI1UIHRXqHOI="
+        }
+      },
+      "shareButton": {
+        "buttonRenderer": {
+          "style": "STYLE_OPACITY",
+          "size": "SIZE_DEFAULT",
+          "isDisabled": false,
+          "icon": { "iconType": "LINK" },
+          "navigationEndpoint": {
+            "clickTrackingParams": "CAsQ8FsiEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+            "copyTextEndpoint": {
+              "text": "https://youtu.be/Fpn1imb9qZg",
+              "successActions": [
+                {
+                  "clickTrackingParams": "CAsQ8FsiEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+                  "openPopupAction": {
+                    "popup": {
+                      "notificationActionRenderer": {
+                        "responseText": {
+                          "runs": [{ "text": "Link copied to clipboard" }]
+                        },
+                        "trackingParams": "CA0QuWoiEwia3M320YmWAxXRI1UIHRXqHOI="
+                      }
+                    },
+                    "popupType": "TOAST"
+                  }
+                }
+              ],
+              "failureActions": [
+                {
+                  "clickTrackingParams": "CAsQ8FsiEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+                  "openPopupAction": {
+                    "popup": {
+                      "notificationActionRenderer": {
+                        "responseText": {
+                          "runs": [
+                            { "text": "Unable to copy link to clipboard" }
+                          ]
+                        },
+                        "trackingParams": "CAwQuWoiEwia3M320YmWAxXRI1UIHRXqHOI="
+                      }
+                    },
+                    "popupType": "TOAST"
+                  }
+                }
+              ]
+            }
+          },
+          "accessibility": { "label": "Copy link" },
+          "trackingParams": "CAsQ8FsiEwia3M320YmWAxXRI1UIHRXqHOI="
+        }
+      },
+      "videoDetails": {
+        "embeddedPlayerOverlayVideoDetailsRenderer": {
+          "channelThumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://yt3.ggpht.com/vWWn3HO1emNl2iGb08UuY4q_OtqXwUUWJMjMDr6bBPpuCBoWg-dE_Gu-yoMQNrBqb2gMzA3wLQ=s88-c-k-c0x00ffffff-no-rj",
+                "width": 68,
+                "height": 68
+              }
+            ]
+          },
+          "collapsedRenderer": {
+            "embeddedPlayerOverlayVideoDetailsCollapsedRenderer": {
+              "title": {
+                "runs": [
+                  {
+                    "text": "Coldplay - A Sky Full Of Stars (Live at River Plate)",
+                    "navigationEndpoint": {
+                      "clickTrackingParams": "CAoQ46ICIhMImtzN9tGJlgMV0SNVCB0V6hziygEEBlNzPA==",
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "https://www.youtube.com/watch?v=Fpn1imb9qZg",
+                          "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                          "rootVe": 83769
+                        }
+                      },
+                      "urlEndpoint": {
+                        "url": "https://www.youtube.com/watch?v=Fpn1imb9qZg",
+                        "target": "TARGET_NEW_WINDOW"
+                      }
+                    }
+                  }
+                ]
+              },
+              "subtitle": { "runs": [{ "text": "152M views • 30K comments" }] },
+              "trackingParams": "CAoQ46ICIhMImtzN9tGJlgMV0SNVCB0V6hzi"
+            }
+          },
+          "expandedRenderer": {
+            "embeddedPlayerOverlayVideoDetailsExpandedRenderer": {
+              "title": { "runs": [{ "text": "Coldplay" }] },
+              "subtitle": { "runs": [{ "text": "28.6M subscribers" }] },
+              "trackingParams": "CAkQ5KICIhMImtzN9tGJlgMV0SNVCB0V6hzi"
+            }
+          },
+          "channelThumbnailEndpoint": {
+            "clickTrackingParams": "CAAQg2ciEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+            "commandMetadata": {
+              "webCommandMetadata": {
+                "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                "rootVe": 83769
+              }
+            },
+            "urlEndpoint": {
+              "url": "/channel/UCDPM_n1atn2ijUwHd0NNRQw",
+              "target": "TARGET_NEW_WINDOW"
+            }
+          }
+        }
+      },
+      "showShareButtonSmallscreen": true,
+      "showShareButtonFullscreen": true,
+      "fullscreenEngagement": {
+        "fullscreenEngagementOverlayRenderer": {
+          "title": {
+            "runs": [
+              { "text": "Coldplay - A Sky Full Of Stars (Live at River Plate)" }
+            ]
+          },
+          "trackingParams": "CAQQnZYDIhMImtzN9tGJlgMV0SNVCB0V6hzi",
+          "actionBar": {
+            "fullscreenEngagementActionBarRenderer": {
+              "actionBarButtons": [
+                {
+                  "slimMetadataButtonRenderer": {
+                    "button": {
+                      "buttonRenderer": {
+                        "style": "STYLE_OPACITY",
+                        "size": "SIZE_DEFAULT",
+                        "isDisabled": false,
+                        "icon": { "iconType": "LINK" },
+                        "navigationEndpoint": {
+                          "clickTrackingParams": "CAYQ8FsiEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+                          "copyTextEndpoint": {
+                            "text": "https://youtu.be/Fpn1imb9qZg",
+                            "successActions": [
+                              {
+                                "clickTrackingParams": "CAYQ8FsiEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+                                "openPopupAction": {
+                                  "popup": {
+                                    "notificationActionRenderer": {
+                                      "responseText": {
+                                        "runs": [
+                                          { "text": "Link copied to clipboard" }
+                                        ]
+                                      },
+                                      "trackingParams": "CAgQuWoiEwia3M320YmWAxXRI1UIHRXqHOI="
+                                    }
+                                  },
+                                  "popupType": "TOAST"
+                                }
+                              }
+                            ],
+                            "failureActions": [
+                              {
+                                "clickTrackingParams": "CAYQ8FsiEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8",
+                                "openPopupAction": {
+                                  "popup": {
+                                    "notificationActionRenderer": {
+                                      "responseText": {
+                                        "runs": [
+                                          {
+                                            "text": "Unable to copy link to clipboard"
+                                          }
+                                        ]
+                                      },
+                                      "trackingParams": "CAcQuWoiEwia3M320YmWAxXRI1UIHRXqHOI="
+                                    }
+                                  },
+                                  "popupType": "TOAST"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "accessibility": { "label": "Copy link" },
+                        "trackingParams": "CAYQ8FsiEwia3M320YmWAxXRI1UIHRXqHOI="
+                      }
+                    }
+                  }
+                }
+              ],
+              "trackingParams": "CAUQv9oDIhMImtzN9tGJlgMV0SNVCB0V6hzi"
+            }
+          }
+        }
+      },
+      "fullscreenQuickActionsBar": {
+        "quickActionsViewModel": {
+          "fullscreenRelatedVideosEntryPoint": {
+            "fullscreenRelatedVideosEntryPointViewModel": {
+              "title": { "content": "More videos" },
+              "subtitle": { "content": "Tap to see all" },
+              "imageFront": {
+                "sources": [
+                  {
+                    "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/default.webp",
+                    "width": 120,
+                    "height": 90
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/-ZvsGmYKhcU/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAMVvubxo67KvcgoBo0sWCinvoP0A",
+                    "width": 168,
+                    "height": 94
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/mqdefault.webp",
+                    "width": 320,
+                    "height": 180
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/-ZvsGmYKhcU/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAQaXBOSSPluICrhA25tgTmX--ucQ",
+                    "width": 336,
+                    "height": 188
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/hqdefault.webp",
+                    "width": 480,
+                    "height": 360
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/sddefault.webp",
+                    "width": 640,
+                    "height": 480
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi_webp/-ZvsGmYKhcU/maxresdefault.webp",
+                    "width": 1920,
+                    "height": 1080
+                  }
+                ]
+              },
+              "imageMiddle": {
+                "sources": [
+                  {
+                    "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/default.jpg",
+                    "width": 120,
+                    "height": 90
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLDeuEJbjDgLmyw4hnnYM9nACkom-w",
+                    "width": 168,
+                    "height": 94
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/mqdefault.jpg",
+                    "width": 320,
+                    "height": 180
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCRxGsEt-ocjmw18khmOushTedBWQ",
+                    "width": 336,
+                    "height": 188
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/hqdefault.jpg",
+                    "width": 480,
+                    "height": 360
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/sddefault.jpg",
+                    "width": 640,
+                    "height": 480
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/VPRjCeoBqrI/maxresdefault.jpg",
+                    "width": 1920,
+                    "height": 1080
+                  }
+                ]
+              },
+              "imageBack": {
+                "sources": [
+                  {
+                    "url": "https://i.ytimg.com/vi/QtXby3twMmI/default.jpg",
+                    "width": 120,
+                    "height": 90
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/QtXby3twMmI/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAiKeXH9WXi51jMJHqcPj7ioraaSQ",
+                    "width": 168,
+                    "height": 94
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/QtXby3twMmI/mqdefault.jpg",
+                    "width": 320,
+                    "height": 180
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/QtXby3twMmI/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAXO7buPetG6_KHw1OsF9ZVRtG1jg",
+                    "width": 336,
+                    "height": 188
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/QtXby3twMmI/hqdefault.jpg",
+                    "width": 480,
+                    "height": 360
+                  },
+                  {
+                    "url": "https://i.ytimg.com/vi/QtXby3twMmI/sddefault.jpg",
+                    "width": 640,
+                    "height": 480
+                  }
+                ]
+              }
+            }
+          },
+          "quickActionsBarButtons": [
+            {
+              "buttonViewModel": {
+                "iconName": "PLAYLISTS",
+                "accessibilityText": "Show playlist videos",
+                "style": "BUTTON_VIEW_MODEL_STYLE_MONO",
+                "trackingParams": "CAMQyKUEGAAiEwia3M320YmWAxXRI1UIHRXqHOI=",
+                "state": "BUTTON_VIEW_MODEL_STATE_DISABLED"
+              }
+            }
+          ],
+          "watchOnYoutubeButton": {
+            "watchOnYoutubeButtonViewModel": {
+              "watchOnYtLabelButton": {
+                "buttonViewModel": {
+                  "onTap": {
+                    "innertubeCommand": {
+                      "clickTrackingParams": "CAIQyvMFIhMImtzN9tGJlgMV0SNVCB0V6hziygEEBlNzPA==",
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "https://www.youtube.com/watch?v=Fpn1imb9qZg",
+                          "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                          "rootVe": 83769
+                        }
+                      },
+                      "urlEndpoint": {
+                        "url": "https://www.youtube.com/watch?v=Fpn1imb9qZg",
+                        "target": "TARGET_NEW_WINDOW"
+                      }
+                    }
+                  },
+                  "accessibilityText": "Watch on YouTube",
+                  "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                  "trackingParams": "CAIQyvMFIhMImtzN9tGJlgMV0SNVCB0V6hzi",
+                  "type": "BUTTON_VIEW_MODEL_TYPE_TEXT",
+                  "buttonSize": "BUTTON_VIEW_MODEL_SIZE_LARGE",
+                  "titleFormatted": {
+                    "content": "Watch on",
+                    "styleRuns": [{ "weightLabel": "FONT_WEIGHT_THIN" }],
+                    "attachmentRuns": [
+                      {
+                        "startIndex": 8,
+                        "length": 0,
+                        "element": {
+                          "type": {
+                            "imageType": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "clientResource": {
+                                      "imageName": "watermark"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "properties": {
+                            "layoutProperties": {
+                              "height": {
+                                "value": 20,
+                                "unit": "DIMENSION_UNIT_POINT"
+                              },
+                              "width": {
+                                "value": 90,
+                                "unit": "DIMENSION_UNIT_POINT"
+                              },
+                              "margin": { "left": { "value": 5 } }
+                            }
+                          }
+                        },
+                        "alignment": "ALIGNMENT_VERTICAL_CENTER"
+                      }
+                    ]
+                  }
+                }
+              },
+              "ytLogoOnlyButton": {
+                "buttonViewModel": {
+                  "onTap": {
+                    "innertubeCommand": {
+                      "clickTrackingParams": "CAEQ1tcEIhMImtzN9tGJlgMV0SNVCB0V6hziygEEBlNzPA==",
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "https://www.youtube.com/watch?v=Fpn1imb9qZg",
+                          "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                          "rootVe": 83769
+                        }
+                      },
+                      "urlEndpoint": {
+                        "url": "https://www.youtube.com/watch?v=Fpn1imb9qZg",
+                        "target": "TARGET_NEW_WINDOW"
+                      }
+                    }
+                  },
+                  "accessibilityText": "Watch on YouTube",
+                  "style": "BUTTON_VIEW_MODEL_STYLE_MONO",
+                  "trackingParams": "CAEQ1tcEIhMImtzN9tGJlgMV0SNVCB0V6hzi",
+                  "type": "BUTTON_VIEW_MODEL_TYPE_TEXT",
+                  "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                  "titleFormatted": {
+                    "content": " ",
+                    "attachmentRuns": [
+                      {
+                        "startIndex": 0,
+                        "length": 0,
+                        "element": {
+                          "type": {
+                            "imageType": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "clientResource": {
+                                      "imageName": "watermark"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "properties": {
+                            "layoutProperties": {
+                              "height": {
+                                "value": 20,
+                                "unit": "DIMENSION_UNIT_POINT"
+                              },
+                              "width": {
+                                "value": 90,
+                                "unit": "DIMENSION_UNIT_POINT"
+                              },
+                              "margin": { "left": { "value": 5 } }
+                            }
+                          }
+                        },
+                        "alignment": "ALIGNMENT_VERTICAL_CENTER"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

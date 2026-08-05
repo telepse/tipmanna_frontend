@@ -1,0 +1,204 @@
+{
+  "context": {
+    "client": {
+      "hl": "en",
+      "gl": "NG",
+      "clientName": 56,
+      "clientVersion": "2.20260805.01.00-canary_experiment_2.20260804.01.00",
+      "configInfo": {
+        "appInstallData": "CL2BzdMGEMGP0BwQvoqwBRCt3tEcENeF0BwQ6fjRHBDw3tEcEL22rgUQt_iAExC58NEcEKWO0hwQABCdhrgiEL6E0RwQrZHSHBCG4YATEIuHuCIQzN-uBRDn69EcEPyyzhwQg4e4IhCIkNEcEIHNzhwQxvyAExCe0LAFELGR0RwQn8-AExDa984cEIeszhwQyfaAExCkqdEcEL2ZsAUQyvuAExCmmdIcEImwzhwQ9vfRHBDevM4cEParsAUQvKTQHBD8i9IcEM2IuCIQ4LfRHBCZjbEFEJLy0RwQuOTOHBDYxs8cEK7WzxwQi_fPHBDKk9IcEPG00BwQ1faAExD06dEcKmhDQU1TU2hWQi1acS1ETGlVRXBRQ25BNzVGWGF2QnVFV3FOVVAzQVBURGRnRzVBYlRBZ1Q1di1rTE1xQ3NCQU9RcmdQN0pyYmtCdVNGRjV6bUJJaGMyZFVGM1N6bFJ0V3U3eDdiQmgwSDAA"
+      },
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.7778.96 Safari/537.36",
+      "connectionType": "CONN_CELLULAR_4G",
+      "browserName": "Chrome",
+      "browserVersion": "148.0.7778.96",
+      "osName": "Windows",
+      "osVersion": "10.0",
+      "platform": "DESKTOP",
+      "windowWidthPoints": 1280,
+      "windowHeightPoints": 720
+    },
+    "thirdParty": {
+      "embedUrl": "https://tipmanna-fj3ffgvfq-test01.vercel.app/"
+    }
+  },
+  "events": [
+    {
+      "eventTimeMs": 1785938114584,
+      "latencyActionTicked": {
+        "tickName": "l2s",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "2633" }
+    },
+    {
+      "eventTimeMs": 1785938114591,
+      "latencyActionTicked": {
+        "tickName": "ftl",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "2640" }
+    },
+    {
+      "eventTimeMs": 1785938115181,
+      "streamzIncremented": {
+        "serializedIncrementBatch": "ChYvY2xpZW50X3N0cmVhbXovYmcvZnJzEhAKDgoIYm90Z3VhcmQSAjUzGgJtayITCgYKBGFHSWYSCREAAAAAAF6lQA=="
+      },
+      "context": { "lastActivityMs": "124" }
+    },
+    {
+      "eventTimeMs": 1785938115182,
+      "streamzIncremented": {
+        "serializedIncrementBatch": "ChUvY2xpZW50X3N0cmVhbXovYmcvZWMSEAoOCghib3RndWFyZBICNTMaAmVuGgJtayIRCgMKAW4KBgoEYUdJZhICCAE="
+      },
+      "context": { "lastActivityMs": "125" }
+    },
+    {
+      "eventTimeMs": 1785938115182,
+      "streamzIncremented": {
+        "serializedIncrementBatch": "ChUvY2xpZW50X3N0cmVhbXovYmcvZWwSEAoOCghib3RndWFyZBICNTMaAmVuGgJtayIYCgMKAW4KBgoEYUdJZhIJEQAAgGZmpktA"
+      },
+      "context": { "lastActivityMs": "125" }
+    },
+    {
+      "eventTimeMs": 1785938115220,
+      "latencyActionTicked": {
+        "tickName": "plev",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "163" }
+    },
+    {
+      "eventTimeMs": 1785938115265,
+      "latencyActionInfo": {
+        "videoId": "Fpn1imb9qZg",
+        "clientPlaybackNonce": "HVF5cM8AnLIuhklR",
+        "liveStreamMode": "LIVE_STREAM_MODE_UNKNOWN",
+        "playerInfo": { "itag": 398 },
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "208" }
+    },
+    {
+      "eventTimeMs": 1785938112767,
+      "latencyActionTicked": {
+        "tickName": "gv",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114854,
+      "latencyActionTicked": {
+        "tickName": "vrr",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114854,
+      "latencyActionTicked": {
+        "tickName": "arr",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938115281,
+      "latencyActionInfo": { "clientActionNonce": "yvbi8ZCVX9lsMtA4" },
+      "context": { "lastActivityMs": "224" }
+    },
+    {
+      "eventTimeMs": 1785938115281,
+      "latencyActionInfo": {
+        "playerInfo": { "visibilityState": 1 },
+        "playerType": "LATENCY_PLAYER_HTML5",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "224" }
+    },
+    {
+      "eventTimeMs": 1785938115274,
+      "latencyActionTicked": {
+        "tickName": "pbs",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938115282,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": {
+          "trackingParams": "CAAQu2kiEwi0kbP20YmWAxUI1kIFHandJKnKAQQGU3M8"
+        },
+        "eventType": 1
+      },
+      "context": { "lastActivityMs": "225" }
+    },
+    {
+      "eventTimeMs": 1785938115282,
+      "playbackAssociated": {
+        "cpn": "HVF5cM8AnLIuhklR",
+        "csn": "zLqocwOmmH3AQzLC",
+        "playbackVe": {
+          "trackingParams": "CAAQu2kiEwi0kbP20YmWAxUI1kIFHandJKnKAQQGU3M8"
+        }
+      },
+      "context": { "lastActivityMs": "225" }
+    },
+    {
+      "eventTimeMs": 1785938115285,
+      "embedsAutoplayStatusChanged": {
+        "autoplayBrowserPolicy": "AUTOPLAY_BROWSER_POLICY_UNSPECIFIED",
+        "autoplayIntended": true,
+        "autoplayStatus": "AUTOPLAY_STATUS_OCCURRED",
+        "cpn": "HVF5cM8AnLIuhklR",
+        "intentionalPlayback": false
+      },
+      "context": { "lastActivityMs": "228" }
+    },
+    {
+      "eventTimeMs": 1785938115397,
+      "latencyActionTicked": {
+        "tickName": "pot_if",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "340" }
+    },
+    {
+      "eventTimeMs": 1785938115397,
+      "latencyActionTicked": {
+        "tickName": "pot_cms",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "341" }
+    },
+    {
+      "eventTimeMs": 1785938115400,
+      "latencyActionTicked": {
+        "tickName": "pot_cmf",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "344" }
+    },
+    {
+      "eventTimeMs": 1785938116183,
+      "streamzIncremented": {
+        "serializedIncrementBatch": "ChUvY2xpZW50X3N0cmVhbXovYmcvZWMSEAoOCghib3RndWFyZBICNTMaAmVuGgJtayIRCgMKAW0KBgoEYUdJZhICCAE="
+      },
+      "context": { "lastActivityMs": "1126" }
+    },
+    {
+      "eventTimeMs": 1785938116184,
+      "streamzIncremented": {
+        "serializedIncrementBatch": "ChUvY2xpZW50X3N0cmVhbXovYmcvZWwSEAoOCghib3RndWFyZBICNTMaAmVuGgJtayIYCgMKAWkKBgoEYUdJZhIJEQAAANDMzPQ/IhgKAwoBbwoGCgRhR0lmEgkRAAAAAABgp0AiGAoDCgFjCgYKBGFHSWYSCREAAAAAmpm5PyIYCgMKAUMKBgoEYUdJZhIJEQAAAMDMzPQ/IhgKAwoBeAoGCgRhR0lmEgkRAAAAAAAAAAAiGAoDCgFtCgYKBGFHSWYSCREAAABwZmb+Pw=="
+      },
+      "context": { "lastActivityMs": "1127" }
+    }
+  ],
+  "serializedClientEventId": {
+    "serializedEventId": "vUBzareVCp_p6dsP59HA8Aw",
+    "clientCounter": "12615"
+  }
+}

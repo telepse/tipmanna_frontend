@@ -1,0 +1,913 @@
+{
+  "context": {
+    "client": {
+      "hl": "en",
+      "gl": "NG",
+      "clientName": 56,
+      "clientVersion": "2.20260805.01.00-canary_experiment_2.20260804.01.00",
+      "configInfo": {
+        "appInstallData": "CL2BzdMGEMGP0BwQvoqwBRCt3tEcENeF0BwQ6fjRHBDw3tEcEL22rgUQt_iAExC58NEcEKWO0hwQABCdhrgiEL6E0RwQrZHSHBCG4YATEIuHuCIQzN-uBRDn69EcEPyyzhwQg4e4IhCIkNEcEIHNzhwQxvyAExCe0LAFELGR0RwQn8-AExDa984cEIeszhwQyfaAExCkqdEcEL2ZsAUQyvuAExCmmdIcEImwzhwQ9vfRHBDevM4cEParsAUQvKTQHBD8i9IcEM2IuCIQ4LfRHBCZjbEFEJLy0RwQuOTOHBDYxs8cEK7WzxwQi_fPHBDKk9IcEPG00BwQ1faAExD06dEcKmhDQU1TU2hWQi1acS1ETGlVRXBRQ25BNzVGWGF2QnVFV3FOVVAzQVBURGRnRzVBYlRBZ1Q1di1rTE1xQ3NCQU9RcmdQN0pyYmtCdVNGRjV6bUJJaGMyZFVGM1N6bFJ0V3U3eDdiQmgwSDAA"
+      },
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.7778.96 Safari/537.36",
+      "connectionType": "CONN_CELLULAR_4G",
+      "browserName": "Chrome",
+      "browserVersion": "148.0.7778.96",
+      "osName": "Windows",
+      "osVersion": "10.0",
+      "platform": "DESKTOP",
+      "windowWidthPoints": 1280,
+      "windowHeightPoints": 589
+    },
+    "thirdParty": {
+      "embedUrl": "https://tipmanna-fj3ffgvfq-test01.vercel.app/"
+    }
+  },
+  "events": [
+    {
+      "eventTimeMs": 1785938110367,
+      "latencyActionTicked": {
+        "tickName": "mm_is",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110433,
+      "latencyActionTicked": {
+        "tickName": "mm_ie",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110452,
+      "latencyActionTicked": {
+        "tickName": "ep_init_cus",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110453,
+      "latencyActionTicked": {
+        "tickName": "ep_init_eps",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110454,
+      "latencyActionTicked": {
+        "tickName": "ep_init_epe",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110455,
+      "latencyActionTicked": {
+        "tickName": "ep_init_cue",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938111842,
+      "latencyActionTicked": {
+        "tickName": "pe",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938111850,
+      "latencyActionTicked": {
+        "tickName": "ep_init_wes",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109226,
+      "latencyActionTicked": {
+        "tickName": "srt",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938108492,
+      "latencyActionBaselined": { "clientActionNonce": "yvbi8ZCVX9lsMtA4" },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110112,
+      "latencyActionTicked": {
+        "tickName": "fpt",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938108860,
+      "latencyActionTicked": {
+        "tickName": "nreqs",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109226,
+      "latencyActionTicked": {
+        "tickName": "nress",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109579,
+      "latencyActionTicked": {
+        "tickName": "nrese",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938108498,
+      "latencyActionTicked": {
+        "tickName": "ntcps",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938108847,
+      "latencyActionTicked": {
+        "tickName": "ntcpe",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938108643,
+      "latencyActionTicked": {
+        "tickName": "nstcps",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938108847,
+      "latencyActionTicked": {
+        "tickName": "ntcpe",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109291,
+      "latencyActionTicked": {
+        "tickName": "wffs",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110625,
+      "latencyActionTicked": {
+        "tickName": "wffe",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109503,
+      "latencyActionTicked": {
+        "tickName": "rsf_pj",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110722,
+      "latencyActionTicked": {
+        "tickName": "rse_pj",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109283,
+      "latencyActionTicked": {
+        "tickName": "rsf_pc",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109858,
+      "latencyActionTicked": {
+        "tickName": "rse_pc",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109503,
+      "latencyActionTicked": {
+        "tickName": "rsf_ecj",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110287,
+      "latencyActionTicked": {
+        "tickName": "rse_ecj",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109284,
+      "latencyActionTicked": {
+        "tickName": "rsf_ecc",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938109668,
+      "latencyActionTicked": {
+        "tickName": "rse_ecc",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938111858,
+      "latencyActionInfo": {
+        "isNavigation": true,
+        "actionType": "LATENCY_ACTION_WATCH",
+        "httpProtocol": "h2",
+        "transportProtocol": "tcp",
+        "isVisible": true,
+        "loadType": "cold",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938110356,
+      "latencyActionTicked": {
+        "tickName": "rses_dpj",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938111882,
+      "latencyActionTicked": {
+        "tickName": "ep_init_wee",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938112050,
+      "screenCreated": {
+        "csn": "uPut2FZzxoQLNfOD",
+        "pageVe": {
+          "veType": 16623,
+          "youtubeData": {
+            "servletData": {
+              "serializedServletEventId": "vUBzareVCp_p6dsP59HA8Aw"
+            }
+          }
+        }
+      },
+      "context": { "lastActivityMs": "100" }
+    },
+    {
+      "eventTimeMs": 1785938112052,
+      "latencyActionInfo": {
+        "clientScreenNonce": "uPut2FZzxoQLNfOD",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "102" }
+    },
+    {
+      "eventTimeMs": 1785938112053,
+      "screenCreated": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "pageVe": { "veType": 27240 },
+        "implicitGesture": {
+          "parentCsn": "uPut2FZzxoQLNfOD",
+          "gesturedVe": { "veType": 16623 },
+          "gestureType": "INTERACTION_LOGGING_GESTURE_TYPE_AUTOMATED"
+        }
+      },
+      "context": { "lastActivityMs": "102" }
+    },
+    {
+      "eventTimeMs": 1785938112061,
+      "visualElementHidden": {
+        "csn": "uPut2FZzxoQLNfOD",
+        "ve": { "veType": 16623 },
+        "eventType": 16
+      },
+      "context": { "lastActivityMs": "110" }
+    },
+    {
+      "eventTimeMs": 1785938112061,
+      "latencyActionInfo": {
+        "clientScreenNonce": "zLqocwOmmH3AQzLC",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "111" }
+    },
+    {
+      "eventTimeMs": 1785938112083,
+      "latencyActionTicked": {
+        "tickName": "qoes",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "132" }
+    },
+    {
+      "eventTimeMs": 1785938112086,
+      "latencyActionTicked": {
+        "tickName": "fs",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "136" }
+    },
+    {
+      "eventTimeMs": 1785938112112,
+      "latencyActionTicked": {
+        "tickName": "vir",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "161" }
+    },
+    {
+      "eventTimeMs": 1785938112112,
+      "latencyActionTicked": {
+        "tickName": "ps_s",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "161" }
+    },
+    {
+      "eventTimeMs": 1785938112185,
+      "latencyActionTicked": {
+        "tickName": "psns",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "234" }
+    },
+    {
+      "eventTimeMs": 1785938112214,
+      "latencyActionInfo": {
+        "clientPlaybackNonce": "HVF5cM8AnLIuhklR",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "263" }
+    },
+    {
+      "eventTimeMs": 1785938112221,
+      "latencyActionTicked": {
+        "tickName": "ep_init_pr",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "270" }
+    },
+    {
+      "eventTimeMs": 1785938112238,
+      "latencyActionTicked": {
+        "tickName": "ep_init_ar",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "287" }
+    },
+    {
+      "eventTimeMs": 1785938112317,
+      "latencyActionInfo": {
+        "serverTimeMs": 122,
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "367" }
+    },
+    {
+      "eventTimeMs": 1785938112369,
+      "foregroundHeartbeatScreenAssociated": {
+        "clientDocumentNonce": "pDY4j5gGMayAWU8c",
+        "clientScreenNonce": "uPut2FZzxoQLNfOD"
+      },
+      "context": { "lastActivityMs": "419" }
+    },
+    {
+      "eventTimeMs": 1785938112370,
+      "foregroundHeartbeatScreenAssociated": {
+        "clientDocumentNonce": "pDY4j5gGMayAWU8c",
+        "clientScreenNonce": "zLqocwOmmH3AQzLC"
+      },
+      "context": { "lastActivityMs": "419" }
+    },
+    {
+      "eventTimeMs": 1785938112398,
+      "latencyActionTicked": {
+        "tickName": "pot_ist",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "448" }
+    },
+    {
+      "eventTimeMs": 1785938112658,
+      "latencyActionTicked": {
+        "tickName": "ps_c",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "707" }
+    },
+    {
+      "eventTimeMs": 1785938112664,
+      "latencyActionTicked": {
+        "tickName": "psnr",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "714" }
+    },
+    {
+      "eventTimeMs": 1785938112687,
+      "latencyActionTicked": {
+        "tickName": "bpd_s",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "736" }
+    },
+    {
+      "eventTimeMs": 1785938112766,
+      "latencyActionTicked": {
+        "tickName": "mb_s",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938112769,
+      "latencyActionTicked": {
+        "tickName": "bpd_c",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "818" }
+    },
+    {
+      "eventTimeMs": 1785938112779,
+      "latencyActionTicked": {
+        "tickName": "pl_c",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "828" }
+    },
+    {
+      "eventTimeMs": 1785938112779,
+      "latencyActionTicked": {
+        "tickName": "pbr",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "829" }
+    },
+    {
+      "eventTimeMs": 1785938112789,
+      "embedsVideoDataDidChange": {
+        "clientPlaybackNonce": "HVF5cM8AnLIuhklR",
+        "isReload": false,
+        "runtimeEnabledFeatures": { "isShortsModeEnabled": false }
+      },
+      "context": { "lastActivityMs": "839" }
+    },
+    {
+      "eventTimeMs": 1785938112791,
+      "visualElementAttached": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "parentVe": { "veType": 27240 },
+        "childVes": [
+          { "trackingParams": "CAAQu2kiEwi0kbP20YmWAxUI1kIFHandJKnKAQQGU3M8" }
+        ]
+      },
+      "context": { "lastActivityMs": "841" }
+    },
+    {
+      "eventTimeMs": 1785938112797,
+      "latencyActionTicked": {
+        "tickName": "wn_s",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "846" }
+    },
+    {
+      "eventTimeMs": 1785938112803,
+      "latencyActionTicked": {
+        "tickName": "virc",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "852" }
+    },
+    {
+      "eventTimeMs": 1785938112804,
+      "latencyActionTicked": {
+        "tickName": "ps_r",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "854" }
+    },
+    {
+      "eventTimeMs": 1785938113067,
+      "latencyActionTicked": {
+        "tickName": "ep_init_ijs",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1116" }
+    },
+    {
+      "eventTimeMs": 1785938113069,
+      "latencyActionTicked": {
+        "tickName": "ep_init_ije",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1118" }
+    },
+    {
+      "eventTimeMs": 1785938113071,
+      "latencyActionTicked": {
+        "tickName": "ep_init_rs",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1120" }
+    },
+    {
+      "eventTimeMs": 1785938113086,
+      "latencyActionTicked": {
+        "tickName": "ep_init_re",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1135" }
+    },
+    {
+      "eventTimeMs": 1785938113100,
+      "latencyActionTicked": {
+        "tickName": "gv",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1149" }
+    },
+    {
+      "eventTimeMs": 1785938113285,
+      "latencyActionTicked": {
+        "tickName": "ol",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1334" }
+    },
+    {
+      "eventTimeMs": 1785938113285,
+      "latencyActionTicked": {
+        "tickName": "ol",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1334" }
+    },
+    {
+      "eventTimeMs": 1785938113537,
+      "latencyActionTicked": {
+        "tickName": "wn_r",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1586" }
+    },
+    {
+      "eventTimeMs": 1785938113537,
+      "visualElementAttached": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "parentVe": { "veType": 27240 },
+        "childVes": [
+          { "trackingParams": "CAAQg2ciEwia3M320YmWAxXRI1UIHRXqHOLKAQQGU3M8" }
+        ]
+      },
+      "context": { "lastActivityMs": "1586" }
+    },
+    {
+      "eventTimeMs": 1785938113546,
+      "embedsVideoDataDidChange": {
+        "clientPlaybackNonce": "HVF5cM8AnLIuhklR",
+        "isReload": false,
+        "runtimeEnabledFeatures": { "isShortsModeEnabled": false }
+      },
+      "context": { "lastActivityMs": "1595" }
+    },
+    {
+      "eventTimeMs": 1785938113585,
+      "visualElementAttached": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "parentVe": { "veType": 27240 },
+        "childVes": [{ "veType": 28572, "veCounter": 2, "elementIndex": 0 }]
+      },
+      "context": { "lastActivityMs": "1635" }
+    },
+    {
+      "eventTimeMs": 1785938113586,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 28572, "veCounter": 2, "elementIndex": 0 },
+        "eventType": 1
+      },
+      "context": { "lastActivityMs": "1635" }
+    },
+    {
+      "eventTimeMs": 1785938113837,
+      "latencyActionTicked": {
+        "tickName": "ftr",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "1886" }
+    },
+    {
+      "eventTimeMs": 1785938113886,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 28572, "veCounter": 2, "elementIndex": 0 },
+        "eventType": 1,
+        "clientData": {}
+      },
+      "context": { "lastActivityMs": "1935" }
+    },
+    {
+      "eventTimeMs": 1785938113946,
+      "visualElementAttached": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "parentVe": { "veType": 27240 },
+        "childVes": [{ "veType": 23851, "veCounter": 3, "elementIndex": 0 }]
+      },
+      "context": { "lastActivityMs": "1995" }
+    },
+    {
+      "eventTimeMs": 1785938113946,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 23851, "veCounter": 3, "elementIndex": 0 },
+        "eventType": 1
+      },
+      "context": { "lastActivityMs": "1995" }
+    },
+    {
+      "eventTimeMs": 1785938113946,
+      "visualElementAttached": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "parentVe": { "veType": 27240 },
+        "childVes": [{ "veType": 36925, "veCounter": 4, "elementIndex": 0 }]
+      },
+      "context": { "lastActivityMs": "1996" }
+    },
+    {
+      "eventTimeMs": 1785938113946,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 36925, "veCounter": 4, "elementIndex": 0 },
+        "eventType": 1
+      },
+      "context": { "lastActivityMs": "1996" }
+    },
+    {
+      "eventTimeMs": 1785938113947,
+      "visualElementAttached": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "parentVe": { "veType": 27240 },
+        "childVes": [{ "veType": 141902, "veCounter": 5, "elementIndex": 0 }]
+      },
+      "context": { "lastActivityMs": "1996" }
+    },
+    {
+      "eventTimeMs": 1785938113947,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 141902, "veCounter": 5, "elementIndex": 0 },
+        "eventType": 1
+      },
+      "context": { "lastActivityMs": "1996" }
+    },
+    {
+      "eventTimeMs": 1785938113947,
+      "visualElementAttached": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "parentVe": { "veType": 27240 },
+        "childVes": [{ "veType": 36842, "veCounter": 6, "elementIndex": 0 }]
+      },
+      "context": { "lastActivityMs": "1996" }
+    },
+    {
+      "eventTimeMs": 1785938113947,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 36842, "veCounter": 6, "elementIndex": 0 },
+        "eventType": 1
+      },
+      "context": { "lastActivityMs": "1996" }
+    },
+    {
+      "eventTimeMs": 1785938113947,
+      "visualElementAttached": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "parentVe": { "veType": 27240 },
+        "childVes": [{ "veType": 141903, "veCounter": 7, "elementIndex": 0 }]
+      },
+      "context": { "lastActivityMs": "1996" }
+    },
+    {
+      "eventTimeMs": 1785938113947,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 141903, "veCounter": 7, "elementIndex": 0 },
+        "eventType": 1
+      },
+      "context": { "lastActivityMs": "1996" }
+    },
+    {
+      "eventTimeMs": 1785938113970,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 23851, "veCounter": 3, "elementIndex": 0 },
+        "eventType": 1,
+        "clientData": {}
+      },
+      "context": { "lastActivityMs": "2020" }
+    },
+    {
+      "eventTimeMs": 1785938113971,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 36925, "veCounter": 4, "elementIndex": 0 },
+        "eventType": 1,
+        "clientData": {}
+      },
+      "context": { "lastActivityMs": "2020" }
+    },
+    {
+      "eventTimeMs": 1785938113971,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 141902, "veCounter": 5, "elementIndex": 0 },
+        "eventType": 1,
+        "clientData": {}
+      },
+      "context": { "lastActivityMs": "2020" }
+    },
+    {
+      "eventTimeMs": 1785938113971,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 36842, "veCounter": 6, "elementIndex": 0 },
+        "eventType": 1,
+        "clientData": {}
+      },
+      "context": { "lastActivityMs": "2020" }
+    },
+    {
+      "eventTimeMs": 1785938113971,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "veType": 141903, "veCounter": 7, "elementIndex": 0 },
+        "eventType": 1,
+        "clientData": {}
+      },
+      "context": { "lastActivityMs": "2020" }
+    },
+    {
+      "eventTimeMs": 1785938113971,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "trackingParams": "CAYQ8FsiEwia3M320YmWAxXRI1UIHRXqHOI=" },
+        "eventType": 1,
+        "clientData": {}
+      },
+      "context": { "lastActivityMs": "2021" }
+    },
+    {
+      "eventTimeMs": 1785938113972,
+      "visualElementShown": {
+        "csn": "zLqocwOmmH3AQzLC",
+        "ve": { "trackingParams": "CAEQ1tcEIhMIjMXc9NGJlgMVKnN6BR2aNwct" },
+        "eventType": 1,
+        "clientData": {}
+      },
+      "context": { "lastActivityMs": "2021" }
+    },
+    {
+      "eventTimeMs": 1785938113996,
+      "latencyActionTicked": {
+        "tickName": "ais_r",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114001,
+      "latencyActionTicked": {
+        "tickName": "fab_r",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114007,
+      "latencyActionTicked": {
+        "tickName": "ais_a",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114030,
+      "latencyActionTicked": {
+        "tickName": "vis_r",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114032,
+      "latencyActionTicked": {
+        "tickName": "fvb_r",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114033,
+      "latencyActionTicked": {
+        "tickName": "vis_a",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114111,
+      "embedsVideoDataDidChange": {
+        "clientPlaybackNonce": "HVF5cM8AnLIuhklR",
+        "isReload": false,
+        "runtimeEnabledFeatures": { "isShortsModeEnabled": false }
+      },
+      "context": { "lastActivityMs": "2160" }
+    },
+    {
+      "eventTimeMs": 1785938114161,
+      "streamzIncremented": {
+        "serializedIncrementBatch": "ChUvY2xpZW50X3N0cmVhbXovYmcvZWMSEAoOCghib3RndWFyZBICNTMaAmVuGgJtayIRCgMKAW8KBgoEYUdJZhICCAEiEQoDCgF0CgYKBGFHSWYSAggBIhEKAwoBaAoGCgRhR0lmEgIIFw=="
+      },
+      "context": { "lastActivityMs": "2211" }
+    },
+    {
+      "eventTimeMs": 1785938114164,
+      "streamzIncremented": {
+        "serializedIncrementBatch": "ChUvY2xpZW50X3N0cmVhbXovYmcvZWwSEAoOCghib3RndWFyZBICNTMaAmVuGgJtayIYCgMKAWgKBgoEYUdJZhIJEQAAAAAwszBAIhgKAwoBaAoGCgRhR0lmEgkRAAAAAKAZOUAiGAoDCgFoCgYKBGFHSWYSCREAAAAAgJkmQCIYCgMKAWgKBgoEYUdJZhIJEQAAAABAMyZAIhgKAwoBaAoGCgRhR0lmEgkRAAAAACAzJkAiGAoDCgFoCgYKBGFHSWYSCREAAAAAAAApQCIYCgMKAWgKBgoEYUdJZhIJEQAAAACAZg5AIhgKAwoBaAoGCgRhR0lmEgkRAAAAAIAzD0AiGAoDCgFoCgYKBGFHSWYSCREAAAAAAAAnQCIYCgMKAWgKBgoEYUdJZhIJEQAAAACAmS5AIhgKAwoBaAoGCgRhR0lmEgkRAAAAACAzJkAiGAoDCgFoCgYKBGFHSWYSCREAAAAAgGYSQCIYCgMKAWgKBgoEYUdJZhIJEQAAAABgZiZAIhgKAwoBaAoGCgRhR0lmEgkRAAAAAAAAJ0AiGAoDCgFoCgYKBGFHSWYSCREAAAAAAAD4PyIYCgMKAWgKBgoEYUdJZhIJEQAAAABAMyhAIhgKAwoBaAoGCgRhR0lmEgkRAAAAAGBmJkAiGAoDCgFoCgYKBGFHSWYSCREAAAAAoJknQCIYCgMKAWgKBgoEYUdJZhIJEQAAAADAzCxAIhgKAwoBaAoGCgRhR0lmEgkRAAAAAKCZKEAiGAoDCgFoCgYKBGFHSWYSCREAAAAAAIA5QCIYCgMKAWgKBgoEYUdJZhIJEQAAAACAZiZAIhgKAwoBaAoGCgRhR0lmEgkRAAAAAAAAJEAiGAoDCgF0CgYKBGFHSWYSCREAAJiZmcWMQA=="
+      },
+      "context": { "lastActivityMs": "2213" }
+    },
+    {
+      "eventTimeMs": 1785938114250,
+      "latencyActionTicked": {
+        "tickName": "vda",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114250,
+      "latencyActionTicked": {
+        "tickName": "vrb_f",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114251,
+      "latencyActionTicked": {
+        "tickName": "ada",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    },
+    {
+      "eventTimeMs": 1785938114251,
+      "latencyActionTicked": {
+        "tickName": "arb_f",
+        "clientActionNonce": "yvbi8ZCVX9lsMtA4"
+      },
+      "context": { "lastActivityMs": "-1" }
+    }
+  ],
+  "serializedClientEventId": {
+    "serializedEventId": "vUBzareVCp_p6dsP59HA8Aw",
+    "clientCounter": "12614"
+  }
+}

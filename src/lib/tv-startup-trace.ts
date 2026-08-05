@@ -17,7 +17,16 @@ import {
   isTvSsrYoutubePreconnectEnabled,
 } from "./tv-youtube-preconnect-config";
 import {
+  applyTvYoutubeApiWarmupToSummary,
+  type EarlyYoutubeApiWarmupOutcome,
+  recordYoutubeApiPresentAtT6,
+  registerTvYoutubeApiWarmupEventSink,
+  resetTvYoutubeApiWarmupForNavigation,
+  type YoutubeChildMountFallbackReason,
+} from "./tv-youtube-api-warmup";
+import {
   applyYoutubeBootstrapToSummary,
+  getBootstrapPlayerCommitMs,
   initYoutubeBootstrapTrace,
   notifyBootstrapT6,
   notifyBootstrapT8,
@@ -228,6 +237,23 @@ export type TvStartupSummary = {
   youtubeApiConnectionReusedOrPreconnected: boolean | null;
   ssrYoutubePreconnectEnabled: boolean;
   ssrYoutubePreconnectOrigins: string[];
+  /** Phase C2.2 — early API warm-up at T2 */
+  earlyYoutubeApiWarmupEnabled: boolean;
+  earlyYoutubeApiWarmupTrigger: string | null;
+  earlyYoutubeApiWarmupRequestedAtMs: number | null;
+  earlyYoutubeApiWarmupResolvedAtMs: number | null;
+  earlyYoutubeApiWarmupDurationMs: number | null;
+  earlyYoutubeApiWarmupOutcome: EarlyYoutubeApiWarmupOutcome | null;
+  youtubeApiPresentAtT6: boolean | null;
+  youtubeApiWarmupResolvedBeforeT6: boolean | null;
+  youtubeApiWarmupLeadBeforePlayerCommitMs: number | null;
+  youtubeChildMountDeferredForWarmup: boolean;
+  youtubeChildMountDeferredAtMs: number | null;
+  youtubeChildMountReleasedAtMs: number | null;
+  youtubeChildMountDeferredDurationMs: number | null;
+  youtubeChildMountFallbackReason: YoutubeChildMountFallbackReason;
+  youtubeApiPresentAtReactYoutubeMount: boolean | null;
+  apiResourceStartedBeforePlayerCommit: boolean | null;
 };
 
 type TvStartupRun = {
@@ -523,6 +549,22 @@ function createEmptySummary(id: string): TvStartupSummary {
     youtubeApiConnectionReusedOrPreconnected: null,
     ssrYoutubePreconnectEnabled: false,
     ssrYoutubePreconnectOrigins: [],
+    earlyYoutubeApiWarmupEnabled: false,
+    earlyYoutubeApiWarmupTrigger: null,
+    earlyYoutubeApiWarmupRequestedAtMs: null,
+    earlyYoutubeApiWarmupResolvedAtMs: null,
+    earlyYoutubeApiWarmupDurationMs: null,
+    earlyYoutubeApiWarmupOutcome: null,
+    youtubeApiPresentAtT6: null,
+    youtubeApiWarmupResolvedBeforeT6: null,
+    youtubeApiWarmupLeadBeforePlayerCommitMs: null,
+    youtubeChildMountDeferredForWarmup: false,
+    youtubeChildMountDeferredAtMs: null,
+    youtubeChildMountReleasedAtMs: null,
+    youtubeChildMountDeferredDurationMs: null,
+    youtubeChildMountFallbackReason: null,
+    youtubeApiPresentAtReactYoutubeMount: null,
+    apiResourceStartedBeforePlayerCommit: null,
   };
 }
 
@@ -539,6 +581,7 @@ function resetForNewNavigation(): void {
   ambient = {};
   stabilityGuardReleasedForRun = false;
   resetYoutubeBootstrapTrace();
+  resetTvYoutubeApiWarmupForNavigation();
 }
 
 function ensureRun(): TvStartupRun | null {
@@ -591,7 +634,15 @@ function recordCanonicalMark(
   if (run.summary.marks[mark] != null) return;
   run.summary.marks[mark] = at;
   run.summary.latestStage = mark;
-  if (mark === "T6") notifyBootstrapT6(at);
+  if (mark === "T6") {
+    notifyBootstrapT6(at);
+    try {
+      const w = window as unknown as { YT?: { Player?: unknown } };
+      recordYoutubeApiPresentAtT6(Boolean(w.YT && w.YT.Player));
+    } catch {
+      recordYoutubeApiPresentAtT6(false);
+    }
+  }
   if (mark === "T8") notifyBootstrapT8(at);
   try {
     if (typeof performance !== "undefined" && performance.mark) {
@@ -962,6 +1013,11 @@ function computeSummary(run: TvStartupRun): TvStartupSummary {
     marks.T6 ?? null,
     marks.T8 ?? null
   );
+  applyTvYoutubeApiWarmupToSummary(
+    run.summary,
+    marks.T6 ?? null,
+    getBootstrapPlayerCommitMs()
+  );
   return run.summary;
 }
 
@@ -1254,9 +1310,17 @@ export function __resetTvStartupTraceForTest(): void {
   ambient = {};
   helperInstalled = false;
   resetYoutubeBootstrapTrace();
+  resetTvYoutubeApiWarmupForNavigation();
 }
 
 registerYoutubeBootstrapEventSink((event, opts) => {
+  emitEvent(event, {
+    reason: opts?.reason,
+    data: opts?.data,
+  });
+});
+
+registerTvYoutubeApiWarmupEventSink((event, opts) => {
   emitEvent(event, {
     reason: opts?.reason,
     data: opts?.data,
