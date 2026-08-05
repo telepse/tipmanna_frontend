@@ -28,6 +28,8 @@ export type ExplorePaginationFetchMeta = {
   coalesceStage?: string;
   coalesceKeyHash?: string;
   coalesceInstanceId?: string;
+  cacheReadTier?: string;
+  cacheWriteTier?: string;
   aborted?: boolean;
 };
 
@@ -41,12 +43,25 @@ function readExplorePaginationFetchMeta(
   const stage = res.headers.get("x-explore-coalesce-stage");
   const keyHash = res.headers.get("x-explore-coalesce-key-hash");
   const instanceId = res.headers.get("x-explore-coalesce-instance");
-  if (!stage && !keyHash && !instanceId && !aborted) return undefined;
+  const cacheReadTier = res.headers.get("x-explore-cache-read-tier");
+  const cacheWriteTier = res.headers.get("x-explore-cache-write-tier");
+  if (
+    !stage &&
+    !keyHash &&
+    !instanceId &&
+    !cacheReadTier &&
+    !cacheWriteTier &&
+    !aborted
+  ) {
+    return undefined;
+  }
   return {
     durationMs: Date.now() - startedAt,
     ...(stage ? { coalesceStage: stage } : {}),
     ...(keyHash ? { coalesceKeyHash: keyHash } : {}),
     ...(instanceId ? { coalesceInstanceId: instanceId } : {}),
+    ...(cacheReadTier ? { cacheReadTier } : {}),
+    ...(cacheWriteTier ? { cacheWriteTier } : {}),
     ...(aborted ? { aborted } : {}),
   };
 }

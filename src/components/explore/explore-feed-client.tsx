@@ -811,6 +811,8 @@ export const ExploreFeedClient = forwardRef<
   }
   const seedRef = useRef<string | undefined>(exploreBootRef.current.seed);
   const loadingMoreRef = useRef(false);
+  /** Set synchronously on scroll near-end so metrics SAs yield the queue before pagination effect runs. */
+  const metricsSuppressedRef = useRef(false);
   const endOfFeedRef = useRef(false);
   const lastTrackedItemIdRef = useRef<string | null>(null);
   const segmentStartMsRef = useRef(0);
@@ -1084,16 +1086,31 @@ export const ExploreFeedClient = forwardRef<
       return;
     }
 
+    const len = itemsRef.current.length;
+    const idx = activeIndexRef.current;
+    if (
+      metricsSuppressedRef.current ||
+      loadingMoreRef.current ||
+      (len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS)
+    ) {
+      return;
+    }
+
     let cancelled = false;
     const probeTimer = window.setTimeout(() => {
       void (async () => {
         // Pagination continuation uses the same server-action queue; defer
-        // metrics probes while a batch is in flight (trace: queue blocked ~41s).
-        while (loadingMoreRef.current) {
+        // metrics probes while near-end pagination is armed or in flight.
+        while (metricsSuppressedRef.current || loadingMoreRef.current) {
           await new Promise<void>(resolve => {
             window.setTimeout(resolve, 100);
           });
           if (cancelled) return;
+        }
+        const curLen = itemsRef.current.length;
+        const curIdx = activeIndexRef.current;
+        if (curLen > 0 && curIdx >= curLen - EXPLORE_NEAR_END_SLOTS) {
+          return;
         }
         const r = await getExploreChannelMetricsAction(rawId);
         if (cancelled) return;
@@ -1794,6 +1811,10 @@ export const ExploreFeedClient = forwardRef<
         loadingMoreRef.current = false;
         const root = scrollRef.current;
         const curLen = itemsRef.current.length;
+        const curIdx = activeIndexRef.current;
+        metricsSuppressedRef.current =
+          endOfFeedRef.current ||
+          (curLen > 0 && curIdx >= curLen - EXPLORE_NEAR_END_SLOTS);
         if (root && curLen > 0) {
           const synced = resolveExploreFeedScrollIndex(
             root,
@@ -1876,7 +1897,10 @@ export const ExploreFeedClient = forwardRef<
         activeIndexRef.current = idx;
         setActiveIndex(prev => (prev === idx ? prev : idx));
       }
-      if (len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS) {
+      const nearEnd = len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS;
+      metricsSuppressedRef.current =
+        nearEnd || loadingMoreRef.current || endOfFeedRef.current;
+      if (nearEnd) {
         setPaginationScrollEpoch(e => e + 1);
       }
     };
