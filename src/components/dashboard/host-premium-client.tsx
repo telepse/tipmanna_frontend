@@ -17,7 +17,9 @@ type PremiumTab =
   | "channel_manage"
   | "video_requests"
   | "video_coowners"
-  | "advanced_video_analytics";
+  | "advanced_video_analytics"
+  | "playlist"
+  | "event_room_access_control";
 
 function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
   return (
@@ -76,6 +78,18 @@ export const HostPremiumClient = () => {
         >
           Advanced video analytics
         </TabsTrigger>
+        <TabsTrigger
+          value="playlist"
+          className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+        >
+          Playlist
+        </TabsTrigger>
+        <TabsTrigger
+          value="event_room_access_control"
+          className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+        >
+          Event room access control
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent
@@ -109,13 +123,15 @@ export const HostPremiumClient = () => {
       >
         <VideoAnalyticsPanel variant="advanced" />
       </TabsContent>
+      <TabsContent value="playlist">Upcoming</TabsContent>
+      <TabsContent value="event_room_access_control">Upcoming</TabsContent>
     </Tabs>
   );
 
   return (
     <section className="flex flex-col gap-6">
       <DashboardHeading
-        title="Host Premium"
+        title="Host Growth"
         subtitle="Manage your premium plan and features."
       />
 

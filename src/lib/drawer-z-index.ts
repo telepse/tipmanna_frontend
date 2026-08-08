@@ -22,4 +22,7 @@ export const MODAL_DROPDOWN_Z_INDEX = "z-[100021]";
 /** PWA install prompt — above immersive video chrome, below tip drawer. */
 export const PWA_INSTALL_SHEET_OVERLAY_Z_INDEX = "z-[100023]";
 export const PWA_INSTALL_SHEET_Z_INDEX = "z-[100024]";
+/** Dialog opened from creator drawer / explore must sit above drawer chrome. */
+export const CREATOR_PROFILE_DIALOG_OVERLAY_Z_INDEX = "z-[100010]";
+export const CREATOR_PROFILE_DIALOG_Z_INDEX = "z-[100011]";
 export const OVERLAY_Z_INDEX = "z-[1000000]";

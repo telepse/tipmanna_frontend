@@ -1,17 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { toast } from "react-toastify";
-import { Plus, Copy, Check, Mail, Users, UserX, Banknote } from "lucide-react";
+import {
+  Plus,
+  Copy,
+  Check,
+  Mail,
+  Users,
+  UserX,
+  Banknote,
+  User,
+} from "lucide-react";
 import { useSelector } from "react-redux";
 import Link from "next/link";
-import {
-  useParams,
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
 import { Button } from "@/components/ui/button";
@@ -75,7 +79,11 @@ import {
 import { normalizeEmail } from "@/lib/normalize-email";
 import { parseHostEventsEligibleForCommunity } from "@/lib/parse-host-events";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
+import { copyShareUrl } from "@/lib/copy-share-url";
+import { buildContentShareUrl } from "@/lib/public-video-url";
+import { uploadImage } from "@/lib/cloudinary";
 
 function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
   return (
@@ -200,10 +208,12 @@ function isCommunityApiUnavailable(message?: string | null): boolean {
 function OwnerBankCard({
   item,
   communityId,
+  eventId,
   onUpdated,
 }: {
   item: BankItem;
   communityId: string;
+  eventId?: string | null;
   onUpdated: () => void;
 }) {
   const authUser = useSelector((s: RootState) => s.auth.user);
@@ -211,6 +221,7 @@ function OwnerBankCard({
   const [busy, setBusy] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const run = async (
     fn: () => Promise<{ success: boolean; message?: string }>
@@ -232,6 +243,30 @@ function OwnerBankCard({
   };
 
   const visibility = item.visibility ?? "public";
+
+  const getShareUrl = () => {
+    if (!eventId?.trim() || !item.channel.id?.trim()) return null;
+    return buildContentShareUrl({
+      eventId: eventId.trim(),
+      channelId: item.channel.id,
+    });
+  };
+
+  const copyLink = async () => {
+    const shareUrl = getShareUrl();
+    if (!shareUrl) {
+      toast.error("Could not build video link");
+      return;
+    }
+    try {
+      await copyShareUrl(shareUrl);
+      setCopied(true);
+      toast.success("Link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy link");
+    }
+  };
 
   return (
     <>
@@ -289,24 +324,23 @@ function OwnerBankCard({
         </DialogContent>
       </Dialog>
 
-      <div className="bg-card rounded-lg border p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="font-medium">{item.channel.title}</p>
-            <p className="text-muted-foreground mt-1 truncate text-xs">
-              {item.channel.url}
-            </p>
-            {item.submittedBy && (
-              <p className="text-muted-foreground mt-1 text-xs">
-                From {item.submittedBy.fullName} (@{item.submittedBy.username})
-              </p>
-            )}
-          </div>
-          <Badge variant={item.status === "pending" ? "secondary" : "default"}>
-            {item.status}
-          </Badge>
-        </div>
-        <div className="text-muted-foreground mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+      <div className="bg-card relative space-y-2 rounded-md border p-4">
+        <h5 className="font-semibold">{item.channel.title}</h5>
+        <p className="text-muted-foreground mt-1 truncate text-xs">
+          {item.channel.url}
+        </p>
+        {item.submittedBy && (
+          <p className="text-muted-foreground mt-1 text-xs">
+            From {item.submittedBy.fullName} (@{item.submittedBy.username})
+          </p>
+        )}
+        <span
+          className={`absolute top-4 right-4 rounded ${item.status === "pending" ? "bg-secondary" : "bg-green-100 text-green-900"} px-2 py-0.5 text-[11px] font-medium`}
+        >
+          {item.status}
+        </span>
+
+        <div className="text-muted-foreground flex items-center gap-2 text-xs">
           <span>Tips: {item.metrics.numOfTips}</span>
           <span>Raised: £{Number(item.metrics.amountRaised).toFixed(2)}</span>
           <span>Completes: {item.metrics.completes}</span>
@@ -314,7 +348,7 @@ function OwnerBankCard({
         </div>
 
         {item.status === "pending" && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               size="sm"
@@ -352,7 +386,7 @@ function OwnerBankCard({
         )}
 
         {item.status === "approved" && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-muted-foreground text-xs">Visibility</span>
             <Select
               value={visibility}
@@ -376,7 +410,7 @@ function OwnerBankCard({
                 });
               }}
             >
-              <SelectTrigger className="h-8 w-[140px]">
+              <SelectTrigger className="h-7 w-fit px-2 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -384,6 +418,24 @@ function OwnerBankCard({
                 <SelectItem value="private">Private</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              disabled={!getShareUrl()}
+              onClick={() => void copyLink()}
+            >
+              {copied ? (
+                <>
+                  <Check className="mr-1 size-3.5" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-1 size-3.5" /> Copy link
+                </>
+              )}
+            </Button>
           </div>
         )}
       </div>
@@ -440,6 +492,7 @@ export function HostCommunityClient() {
   const searchParams = useSearchParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const authUserId = authUser?.id;
   const authToken = useSelector((s: RootState) => s.auth.token);
   const {
     status: planStatus,
@@ -457,7 +510,7 @@ export function HostCommunityClient() {
     approved: BankItem[];
     pending: BankItem[];
   } | null>(null);
-  const [sends, setSends] = useState<BankItem[]>([]);
+  const [sends, setSends] = useState<BankItem[] | null>(null);
   const [loadingBank, setLoadingBank] = useState(false);
   const [loadingSends, setLoadingSends] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -489,7 +542,14 @@ export function HostCommunityClient() {
   const [activationDescription, setActivationDescription] = useState("");
   const [activationContactEmail, setActivationContactEmail] = useState("");
   const [activationContactPhone, setActivationContactPhone] = useState("");
-  const [activationLogoUrl, setActivationLogoUrl] = useState("");
+  const {
+    readableImage: activationLogoPreview,
+    error: activationLogoUploadError,
+    inputRef: activationLogoInputRef,
+    handleImageUpload: handleActivationLogoUpload,
+    handleChangeImage: handleActivationLogoChangeClick,
+    handleRemoveImage: handleRemoveActivationLogo,
+  } = useImageUpload({ maxSizeMB: 2 });
   const [activationRows, setActivationRows] = useState<
     Record<string, unknown>[]
   >([]);
@@ -522,6 +582,14 @@ export function HostCommunityClient() {
       }>;
     }>;
   } | null>(null);
+
+  const membershipsLoadedRef = useRef(false);
+  const mainTabInitializedForRef = useRef<string | null>(null);
+  const appliedSearchParamsRef = useRef("");
+  const bankLoadedForRef = useRef<string | null>(null);
+  const sendsLoadedForRef = useRef<string | null>(null);
+  const coCreatorsLoadedForRef = useRef<string | null>(null);
+  const owedLoadedForRef = useRef<string | null>(null);
 
   const pendingPayoutSettlements = useMemo(() => {
     if (!payoutSummary) return [];
@@ -597,76 +665,85 @@ export function HostCommunityClient() {
     [memberships, selectedId]
   );
 
-  const loadMemberships = useCallback(async () => {
-    if (!authUser || !authToken) {
-      setLoadingMeta(false);
-      return;
-    }
-    setLoadingMeta(true);
-    setCommunityApiError(null);
-    const res = await getMyCommunitiesAction(authToken);
-    if (!res.success || !res.data) {
-      if (isCommunityApiUnavailable(res.message)) {
-        setCommunityApiError(
-          "Community API is unavailable. Ensure the backend has COMMUNITY_FEATURE_ENABLED=true and is running."
-        );
-      } else {
-        toast.error(res.message ?? "Could not load communities");
+  const selectedRole = selected?.role ?? null;
+
+  const loadMemberships = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (!authUserId || !authToken) {
+        setLoadingMeta(false);
+        return;
       }
-      setLoadingMeta(false);
-      return;
-    }
-    const raw = res.data as {
-      owned: CommunityBrief[];
-      coCreator: CommunityBrief[];
-    };
-    const byId = new Map<string, Membership>();
-    // let hostAlreadyHasCommunity = false;
-    // let hostCommunityId: string | null = null;
-    for (const c of raw.owned ?? []) {
-      byId.set(c.id, {
-        id: c.id,
-        name: c.name,
-        role: "owner",
-        eventType: c.event?.eventType,
-        eventId: c.event?.id ?? null,
-        tvActivatedAt: c.tvActivatedAt ?? null,
-        tvHostPaused: Boolean(c.tvHostPaused),
-      });
-      // if (c.name === hostSlug) {
-      //   hostAlreadyHasCommunity = true;
-      //   hostCommunityId = c.id;
-      // }
-    }
-    for (const c of raw.coCreator ?? []) {
-      if (!byId.has(c.id)) {
+      if (!options?.background) {
+        setLoadingMeta(true);
+      }
+      setCommunityApiError(null);
+      const res = await getMyCommunitiesAction(authToken);
+      if (!res.success || !res.data) {
+        if (isCommunityApiUnavailable(res.message)) {
+          setCommunityApiError(
+            "Community API is unavailable. Ensure the backend has COMMUNITY_FEATURE_ENABLED=true and is running."
+          );
+        } else {
+          toast.error(res.message ?? "Could not load communities");
+        }
+        setLoadingMeta(false);
+        return;
+      }
+      const raw = res.data as {
+        owned: CommunityBrief[];
+        coCreator: CommunityBrief[];
+      };
+      const byId = new Map<string, Membership>();
+      for (const c of raw.owned ?? []) {
         byId.set(c.id, {
           id: c.id,
           name: c.name,
-          role: "coCreator",
+          role: "owner",
           eventType: c.event?.eventType,
           eventId: c.event?.id ?? null,
           tvActivatedAt: c.tvActivatedAt ?? null,
           tvHostPaused: Boolean(c.tvHostPaused),
         });
       }
-    }
-    const list = Array.from(byId.values());
-    setMemberships(list);
-    setSelectedId(prev => prev ?? list[0]?.id ?? null);
-    setLoadingMeta(false);
-  }, [authUser, authToken]);
+      for (const c of raw.coCreator ?? []) {
+        if (!byId.has(c.id)) {
+          byId.set(c.id, {
+            id: c.id,
+            name: c.name,
+            role: "coCreator",
+            eventType: c.event?.eventType,
+            eventId: c.event?.id ?? null,
+            tvActivatedAt: c.tvActivatedAt ?? null,
+            tvHostPaused: Boolean(c.tvHostPaused),
+          });
+        }
+      }
+      const list = Array.from(byId.values());
+      setMemberships(list);
+      setSelectedId(prev => prev ?? list[0]?.id ?? null);
+      membershipsLoadedRef.current = true;
+      setLoadingMeta(false);
+    },
+    [authUserId, authToken]
+  );
 
   useEffect(() => {
     if (!communityFeatureOn) return;
-    void loadMemberships();
+    void loadMemberships({
+      background: membershipsLoadedRef.current,
+    });
   }, [loadMemberships]);
 
   useEffect(() => {
     const communityId = searchParams.get("communityId");
     const draftId = searchParams.get("modalDraftId");
+    const nextKey = `${communityId ?? ""}|${draftId ?? ""}`;
+    if (appliedSearchParamsRef.current === nextKey) return;
+    appliedSearchParamsRef.current = nextKey;
+
     if (communityId) {
       setSelectedId(communityId);
+      mainTabInitializedForRef.current = null;
     }
     if (draftId) {
       setModalDraftId(draftId);
@@ -699,7 +776,7 @@ export function HostCommunityClient() {
       setActivationCommunityName("");
       setActivationDescription("");
       setActivationContactPhone("");
-      setActivationLogoUrl("");
+      handleRemoveActivationLogo();
       const defaultEmail =
         authUser && "email" in authUser && typeof authUser.email === "string"
           ? authUser.email
@@ -759,12 +836,22 @@ export function HostCommunityClient() {
     }
     setActivationBusy(true);
     try {
+      let logoUrl: string | null = null;
+      if (activationLogoPreview?.startsWith("data:")) {
+        const uploaded = await uploadImage(activationLogoPreview);
+        logoUrl = uploaded?.secure_url ?? null;
+        if (!logoUrl) {
+          toast.error("Could not upload community logo.");
+          return;
+        }
+      }
+
       const res = await createCommunityActivationRequestAction(authToken, {
         eventId: pickEventId,
         kind: activationKind === "tv" ? "tv" : "community",
         communityName: communityName || null,
         description: description || null,
-        logoUrl: activationLogoUrl.trim() || null,
+        logoUrl,
         contactEmail: contactEmail || null,
         contactPhone: activationContactPhone.trim() || null,
       });
@@ -787,7 +874,7 @@ export function HostCommunityClient() {
     activationDescription,
     activationContactEmail,
     activationContactPhone,
-    activationLogoUrl,
+    activationLogoPreview,
     loadActivationRequests,
   ]);
 
@@ -842,86 +929,117 @@ export function HostCommunityClient() {
       return;
     }
     toast.success("Community TV resumed");
-    await loadMemberships();
+    await loadMemberships({ background: true });
   }, [authToken, selected?.id, loadMemberships]);
 
-  const loadBank = useCallback(async () => {
-    if (!selected || selected.role !== "owner") return;
-    if (!authUser) return;
-    setLoadingBank(true);
-    const res = await getCommunityContentBankAction(authToken, selected.id);
-    if (!res.success || !res.data) {
-      toast.error(res.message ?? "Could not load content bank");
-      setLoadingBank(false);
-      return;
-    }
-    const d = res.data as { approved: BankItem[]; pending: BankItem[] };
-    setBank({ approved: d.approved ?? [], pending: d.pending ?? [] });
-    setLoadingBank(false);
-  }, [authToken, authUser, selected]);
-
-  const loadSends = useCallback(async () => {
-    if (!selected || selected.role !== "coCreator") return;
-    if (!authUser) return;
-    setLoadingSends(true);
-    const res = await getCommunitySendsAction(authToken, selected.id);
-    if (!res.success || !res.data) {
-      toast.error(res.message ?? "Could not load sends");
-      setLoadingSends(false);
-      return;
-    }
-    const d = res.data as { sends: BankItem[] };
-    setSends(d.sends ?? []);
-    setLoadingSends(false);
-  }, [authToken, authUser, selected]);
-
-  const loadCoCreators = useCallback(async () => {
-    if (!selected || selected.role !== "owner") return;
-    if (!authUser) return;
-    setLoadingCo(true);
-    const res = await listCoCreatorsAction(authToken, selected.id);
-    if (!res.success || !res.data) {
-      toast.error(res.message ?? "Could not load co-creators");
-      setLoadingCo(false);
-      return;
-    }
-    const d = res.data as {
-      active: CoCreatorHostRow[];
-      pendingMemberships: CoCreatorHostRow[];
-      revoked: CoCreatorHostRow[];
-      pendingInvites: PendingInviteRow[];
-    };
-    setCoCreators({
-      active: d.active ?? [],
-      pendingMemberships: d.pendingMemberships ?? [],
-      revoked: d.revoked ?? [],
-      pendingInvites: d.pendingInvites ?? [],
-    });
-    setLoadingCo(false);
-  }, [authToken, authUser, selected]);
-
-  const loadOwed = useCallback(async () => {
-    if (!selected || selected.role !== "owner") return;
-    if (!authUser) return;
-    setLoadingOwed(true);
-    try {
-      const res = await getCommunityOwedAction(authToken, selected.id);
-      if (res.success && res.data) {
-        setOwed(res.data as OwedPayload);
-      } else {
-        setOwed(null);
+  const loadBank = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (!selectedId || selectedRole !== "owner") return;
+      if (!authUserId) return;
+      const background =
+        options?.background ?? bankLoadedForRef.current === selectedId;
+      if (!background) setLoadingBank(true);
+      try {
+        const res = await getCommunityContentBankAction(authToken, selectedId);
+        if (!res.success || !res.data) {
+          toast.error(res.message ?? "Could not load content bank");
+          return;
+        }
+        const d = res.data as { approved: BankItem[]; pending: BankItem[] };
+        setBank({ approved: d.approved ?? [], pending: d.pending ?? [] });
+        bankLoadedForRef.current = selectedId;
+      } finally {
+        setLoadingBank(false);
       }
-    } finally {
-      setLoadingOwed(false);
-    }
-  }, [authToken, authUser, selected]);
+    },
+    [authToken, authUserId, selectedId, selectedRole]
+  );
+
+  const loadSends = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (!selectedId || selectedRole !== "coCreator") return;
+      if (!authUserId) return;
+      const background =
+        options?.background ?? sendsLoadedForRef.current === selectedId;
+      if (!background) setLoadingSends(true);
+      try {
+        const res = await getCommunitySendsAction(authToken, selectedId);
+        if (!res.success || !res.data) {
+          toast.error(res.message ?? "Could not load sends");
+          return;
+        }
+        const d = res.data as { sends: BankItem[] };
+        setSends(d.sends ?? []);
+        sendsLoadedForRef.current = selectedId;
+      } finally {
+        setLoadingSends(false);
+      }
+    },
+    [authToken, authUserId, selectedId, selectedRole]
+  );
+
+  const loadCoCreators = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (!selectedId || selectedRole !== "owner") return;
+      if (!authUserId) return;
+      const background =
+        options?.background ?? coCreatorsLoadedForRef.current === selectedId;
+      if (!background) setLoadingCo(true);
+      try {
+        const res = await listCoCreatorsAction(authToken, selectedId);
+        if (!res.success || !res.data) {
+          toast.error(res.message ?? "Could not load co-creators");
+          return;
+        }
+        const d = res.data as {
+          active: CoCreatorHostRow[];
+          pendingMemberships: CoCreatorHostRow[];
+          revoked: CoCreatorHostRow[];
+          pendingInvites: PendingInviteRow[];
+        };
+        setCoCreators({
+          active: d.active ?? [],
+          pendingMemberships: d.pendingMemberships ?? [],
+          revoked: d.revoked ?? [],
+          pendingInvites: d.pendingInvites ?? [],
+        });
+        coCreatorsLoadedForRef.current = selectedId;
+      } finally {
+        setLoadingCo(false);
+      }
+    },
+    [authToken, authUserId, selectedId, selectedRole]
+  );
+
+  const loadOwed = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (!selectedId || selectedRole !== "owner") return;
+      if (!authUserId) return;
+      const background =
+        options?.background ?? owedLoadedForRef.current === selectedId;
+      if (!background) setLoadingOwed(true);
+      try {
+        const res = await getCommunityOwedAction(authToken, selectedId);
+        if (res.success && res.data) {
+          setOwed(res.data as OwedPayload);
+          owedLoadedForRef.current = selectedId;
+        } else {
+          setOwed(null);
+          owedLoadedForRef.current = null;
+        }
+      } finally {
+        setLoadingOwed(false);
+      }
+    },
+    [authToken, authUserId, selectedId, selectedRole]
+  );
 
   const loadSubscribers = useCallback(async () => {
-    if (!selected || selected.role !== "owner") return;
-    if (!authUser) return;
+    if (!selectedId || selectedRole !== "owner") return;
+    if (!authUserId) return;
     setLoadingSubs(true);
     try {
-      const res = await listCommunitySubscribersAction(authToken, selected.id);
+      const res = await listCommunitySubscribersAction(authToken, selectedId);
       if (res.success && res.data) {
         const d = res.data as { subscribers: PaidSubRow[] };
         setSubscribers(d.subscribers ?? []);
@@ -931,18 +1049,31 @@ export function HostCommunityClient() {
     } finally {
       setLoadingSubs(false);
     }
-  }, [authToken, authUser, selected]);
+  }, [authToken, authUserId, selectedId, selectedRole]);
 
   useEffect(() => {
-    if (!selected) return;
-    setMainTab(selected.role === "owner" ? "bank" : "sends");
-  }, [selected]);
+    if (!selectedId || !selectedRole) return;
+    if (mainTabInitializedForRef.current === selectedId) return;
+    mainTabInitializedForRef.current = selectedId;
+    setMainTab(selectedRole === "owner" ? "bank" : "sends");
+  }, [selectedId, selectedRole]);
 
   useEffect(() => {
-    if (mainTab === "subscribers" && selected?.role === "owner") {
+    bankLoadedForRef.current = null;
+    sendsLoadedForRef.current = null;
+    coCreatorsLoadedForRef.current = null;
+    owedLoadedForRef.current = null;
+    setBank(null);
+    setSends(null);
+    setCoCreators(null);
+    setOwed(null);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (mainTab === "subscribers" && selectedRole === "owner") {
       void loadSubscribers();
     }
-  }, [mainTab, loadSubscribers, selected?.role]);
+  }, [mainTab, loadSubscribers, selectedRole]);
 
   useEffect(() => {
     if (mainTab === "activation" || memberships.length === 0) {
@@ -951,21 +1082,16 @@ export function HostCommunityClient() {
   }, [mainTab, memberships.length, loadActivationRequests]);
 
   useEffect(() => {
-    if (
-      !authUser ||
-      authUser.role !== "HOST" ||
-      !("id" in authUser) ||
-      !authUser.id
-    ) {
+    if (!authUserId || authUser?.role !== "HOST") {
       return;
     }
-    const hostId = authUser.id;
+    const hostId = authUserId;
     const hostChannelName = `community-host-${hostId}`;
     const hostChannel = subscribeChannel(hostChannelName);
 
     const onPayoutSettled = () => {
       toast.info("Community payout updated");
-      if (selected?.role === "owner") void loadOwed();
+      if (selectedRole === "owner") void loadOwed({ background: true });
     };
     if (hostChannel) {
       hostChannel.bind("community-payout-settled", onPayoutSettled);
@@ -976,10 +1102,10 @@ export function HostCommunityClient() {
     });
 
     const communityIdForPusher =
-      selected?.role === "owner" ? selected.id : null;
+      selectedRole === "owner" && selectedId ? selectedId : null;
     let communityChannel: ReturnType<typeof subscribeChannel> | null = null;
     const onBankUpdated = () => {
-      void loadBank();
+      void loadBank({ background: true });
     };
     if (communityIdForPusher) {
       const cname = `community-${communityIdForPusher}`;
@@ -998,17 +1124,34 @@ export function HostCommunityClient() {
         unsubscribeChannel(`community-${communityIdForPusher}`);
       }
     };
-  }, [authUser, selected, loadOwed, loadBank]);
+  }, [
+    authUser?.role,
+    authUserId,
+    selectedId,
+    selectedRole,
+    loadOwed,
+    loadBank,
+  ]);
 
   useEffect(() => {
-    if (!communityFeatureOn || !selected) return;
-    if (selected.role === "owner") {
-      void loadBank();
-      void loadCoCreators();
-      void loadOwed();
+    if (!communityFeatureOn || !selectedId || !selectedRole) return;
+    if (selectedRole === "owner") {
+      void loadBank({
+        background: bankLoadedForRef.current === selectedId,
+      });
+      void loadCoCreators({
+        background: coCreatorsLoadedForRef.current === selectedId,
+      });
+      void loadOwed({
+        background: owedLoadedForRef.current === selectedId,
+      });
     }
-    if (selected.role === "coCreator") void loadSends();
-  }, [selected, loadBank, loadSends, loadCoCreators, loadOwed]);
+    if (selectedRole === "coCreator") {
+      void loadSends({
+        background: sendsLoadedForRef.current === selectedId,
+      });
+    }
+  }, [selectedId, selectedRole, loadBank, loadSends, loadCoCreators, loadOwed]);
 
   const onAddVideo = async (values: AddVideoFormValues) => {
     if (!selected) return;
@@ -1041,9 +1184,9 @@ export function HostCommunityClient() {
       await clearModalFormDraft("community_video", selected.id, modalDraftId);
       setModalDraftId(null);
       setAddOpen(false);
-      await loadBank();
-      await loadSends();
-      await loadCoCreators();
+      await loadBank({ background: true });
+      await loadSends({ background: true });
+      await loadCoCreators({ background: true });
     } catch (e) {
       if (e instanceof Error) toast.error(e.message);
       else if (typeof e === "object" && e !== null && "error" in e) {
@@ -1072,7 +1215,7 @@ export function HostCommunityClient() {
       toast.success("Invitation sent");
       setInviteOpen(false);
       setInviteEmail("");
-      await loadCoCreators();
+      await loadCoCreators({ background: true });
     } finally {
       setInviteLoading(false);
     }
@@ -1087,8 +1230,8 @@ export function HostCommunityClient() {
       return;
     }
     toast.success("Co-creator revoked");
-    await loadCoCreators();
-    await loadBank();
+    await loadCoCreators({ background: true });
+    await loadBank({ background: true });
   };
 
   const onRevokePendingInvite = async (inviteId: string) => {
@@ -1104,7 +1247,7 @@ export function HostCommunityClient() {
       return;
     }
     toast.success("Invite revoked");
-    await loadCoCreators();
+    await loadCoCreators({ background: true });
   };
 
   if (!communityFeatureOn) {
@@ -1158,7 +1301,7 @@ export function HostCommunityClient() {
     );
   }
 
-  if (loadingMeta) {
+  if (loadingMeta && !membershipsLoadedRef.current) {
     return <p className="text-muted-foreground text-sm">Loading…</p>;
   }
 
@@ -1202,7 +1345,10 @@ export function HostCommunityClient() {
                 <span className="text-sm font-medium">Community</span>
                 <Select
                   value={selectedId ?? undefined}
-                  onValueChange={setSelectedId}
+                  onValueChange={value => {
+                    setSelectedId(value);
+                    mainTabInitializedForRef.current = null;
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select community" />
@@ -1225,55 +1371,53 @@ export function HostCommunityClient() {
             )}
 
             {selected?.role === "owner" && communityFeatureOn ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap gap-2">
-                  {tvUnpaused ? (
-                    <>
+              <div className="flex flex-row gap-2">
+                {tvUnpaused ? (
+                  <>
+                    <Button
+                      asChild
+                      variant="secondary"
+                      size="sm"
+                    >
+                      <Link
+                        href={`/tv?community=${encodeURIComponent(selected.id)}`}
+                      >
+                        Watch community TV
+                      </Link>
+                    </Button>
+                    {hostSlug ? (
                       <Button
                         asChild
-                        variant="secondary"
+                        variant="outline"
                         size="sm"
                       >
                         <Link
-                          href={`/tv?community=${encodeURIComponent(selected.id)}`}
+                          href={`/host/${hostSlug}/community-tv?communityId=${encodeURIComponent(selected.id)}`}
                         >
-                          Watch community TV
+                          TV schedule (reorder)
                         </Link>
                       </Button>
-                      {hostSlug ? (
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                        >
-                          <Link
-                            href={`/host/${hostSlug}/community-tv?communityId=${encodeURIComponent(selected.id)}`}
-                          >
-                            TV schedule (reorder)
-                          </Link>
-                        </Button>
-                      ) : null}
-                    </>
-                  ) : selected.tvActivatedAt && selected.tvHostPaused ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => void resumeCommunityTv()}
-                    >
-                      Resume community TV
-                    </Button>
-                  ) : selected.eventId ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => void openActivationDialog("tv")}
-                    >
-                      Request TV activation
-                    </Button>
-                  ) : null}
-                </div>
+                    ) : null}
+                  </>
+                ) : selected.tvActivatedAt && selected.tvHostPaused ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void resumeCommunityTv()}
+                  >
+                    Resume community TV
+                  </Button>
+                ) : selected.eventId ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void openActivationDialog("tv")}
+                  >
+                    Request TV activation
+                  </Button>
+                ) : null}
                 {hostSlug ? (
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -1402,27 +1546,55 @@ export function HostCommunityClient() {
               key={selected?.id ?? "x"}
               className="w-full"
             >
-              <TabsList className="flex w-full max-w-md flex-wrap gap-1">
+              <TabsList className="flex h-14! w-full gap-1">
                 {selected?.role === "owner" && (
-                  <TabsTrigger value="bank">Content Bank</TabsTrigger>
+                  <TabsTrigger
+                    value="bank"
+                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                  >
+                    Content Bank
+                  </TabsTrigger>
                 )}
                 {selected?.role === "owner" && (
-                  <TabsTrigger value="cocreators">Co-creators</TabsTrigger>
+                  <TabsTrigger
+                    value="cocreators"
+                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                  >
+                    Co-creators
+                  </TabsTrigger>
                 )}
                 {selected?.role === "owner" && (
-                  <TabsTrigger value="membership">Membership</TabsTrigger>
+                  <TabsTrigger
+                    value="membership"
+                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                  >
+                    Membership
+                  </TabsTrigger>
                 )}
                 {selected?.role === "owner" && (
-                  <TabsTrigger value="subscribers">
+                  <TabsTrigger
+                    value="subscribers"
+                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                  >
                     <Users className="mr-1 inline size-4" />
                     Subscribers
                   </TabsTrigger>
                 )}
                 {selected?.role === "owner" && (
-                  <TabsTrigger value="activation">Activations</TabsTrigger>
+                  <TabsTrigger
+                    value="activation"
+                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                  >
+                    Activations
+                  </TabsTrigger>
                 )}
                 {selected?.role === "coCreator" && (
-                  <TabsTrigger value="sends">Community Sends</TabsTrigger>
+                  <TabsTrigger
+                    value="sends"
+                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                  >
+                    Community Sends
+                  </TabsTrigger>
                 )}
               </TabsList>
 
@@ -1443,48 +1615,63 @@ export function HostCommunityClient() {
                     </Button>
                   </div>
 
-                  {loadingBank ? (
+                  {loadingBank && bank === null ? (
                     <p className="text-muted-foreground text-sm">
                       Loading bank…
                     </p>
                   ) : (
                     <>
-                      <section>
-                        <h3 className="mb-2 text-sm font-medium">Approved</h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                      <>
+                        <h5 className="text-sm font-semibold">
+                          Approved videos
+                        </h5>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
                           {(bank?.approved ?? []).map(item => (
                             <OwnerBankCard
                               key={item.id}
                               item={item}
                               communityId={selected.id}
-                              onUpdated={() => void loadBank()}
+                              eventId={selected.eventId}
+                              onUpdated={() =>
+                                void loadBank({ background: true })
+                              }
                             />
                           ))}
                         </div>
+
                         {!bank?.approved?.length && (
                           <p className="text-muted-foreground text-sm">
                             No approved videos yet.
                           </p>
                         )}
-                      </section>
-                      <section>
-                        <h3 className="mb-2 text-sm font-medium">Pending</h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                      </>
+
+                      <>
+                        <h5 className="text-sm font-semibold">
+                          Pending videos
+                        </h5>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
                           {(bank?.pending ?? []).map(item => (
                             <OwnerBankCard
                               key={item.id}
                               item={item}
                               communityId={selected.id}
-                              onUpdated={() => void loadBank()}
+                              eventId={selected.eventId}
+                              onUpdated={() =>
+                                void loadBank({ background: true })
+                              }
                             />
                           ))}
                         </div>
+
                         {!bank?.pending?.length && (
                           <p className="text-muted-foreground text-sm">
                             No pending submissions.
                           </p>
                         )}
-                      </section>
+                      </>
                     </>
                   )}
                 </TabsContent>
@@ -1510,9 +1697,9 @@ export function HostCommunityClient() {
                     </Button>
                   </div>
 
-                  {loadingCo || !coCreators ? (
+                  {loadingCo && coCreators === null ? (
                     <p className="text-muted-foreground text-sm">Loading…</p>
-                  ) : (
+                  ) : coCreators ? (
                     <>
                       <section>
                         <h3 className="mb-2 text-sm font-medium">Active</h3>
@@ -1613,18 +1800,17 @@ export function HostCommunityClient() {
                         </section>
                       )}
                     </>
-                  )}
+                  ) : null}
                 </TabsContent>
               )}
 
-              {selected?.role === "owner" && (
+              {selected?.role === "owner" && selectedId != null && (
                 <TabsContent
                   value="membership"
-                  className="mt-4 space-y-4"
+                  forceMount
+                  className="mt-4 space-y-4 data-[state=inactive]:hidden"
                 >
-                  {selected && (
-                    <CommunityMembershipOwnerPanel communityId={selected.id} />
-                  )}
+                  <CommunityMembershipOwnerPanel communityId={selectedId} />
                 </TabsContent>
               )}
 
@@ -1774,11 +1960,11 @@ export function HostCommunityClient() {
                       Add video
                     </Button>
                   </div>
-                  {loadingSends ? (
+                  {loadingSends && sends === null ? (
                     <p className="text-muted-foreground text-sm">Loading…</p>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {sends.map(item => (
+                      {(sends ?? []).map(item => (
                         <SendCard
                           key={item.id}
                           item={item}
@@ -1786,7 +1972,7 @@ export function HostCommunityClient() {
                       ))}
                     </div>
                   )}
-                  {!loadingSends && sends.length === 0 && (
+                  {sends !== null && sends.length === 0 && (
                     <p className="text-muted-foreground text-sm">
                       You have not submitted any videos yet.
                     </p>
@@ -1890,20 +2076,68 @@ export function HostCommunityClient() {
                   rows={3}
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="act-logo">
-                  Logo URL{" "}
+              <div className="space-y-2">
+                <Label>
+                  Community logo{" "}
                   <span className="text-muted-foreground font-normal">
                     (optional)
                   </span>
                 </Label>
-                <Input
-                  id="act-logo"
-                  type="url"
-                  value={activationLogoUrl}
-                  onChange={e => setActivationLogoUrl(e.target.value)}
-                  placeholder="https://…"
-                />
+                <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={handleActivationLogoChangeClick}
+                    className="relative size-20 shrink-0 overflow-hidden rounded-full border bg-neutral-100"
+                  >
+                    {activationLogoPreview ? (
+                      <img
+                        src={activationLogoPreview}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex size-full items-center justify-center">
+                        <User className="text-muted-foreground size-10" />
+                      </div>
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <input
+                      ref={activationLogoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleActivationLogoUpload}
+                    />
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleActivationLogoChangeClick}
+                        className="w-fit"
+                      >
+                        Change photo
+                      </Button>
+                      {activationLogoPreview ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive w-fit"
+                          onClick={handleRemoveActivationLogo}
+                        >
+                          Remove photo
+                        </Button>
+                      ) : null}
+                      {activationLogoUploadError ? (
+                        <p className="text-destructive text-xs">
+                          {activationLogoUploadError}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="act-email">Contact email</Label>

@@ -32,7 +32,6 @@ export const HERO_IMAGES = [
   "/heros/event_room_slide.png",
   "/heros/explore_slide.png",
   "/heros/tipmanna_tv_slide.png",
-  "/heros/dashboard_slide.png",
 ];
 
 export const CONTINUOUS_ENGAGEMENT_SLIDES = [

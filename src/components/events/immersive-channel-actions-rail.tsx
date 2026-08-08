@@ -36,6 +36,7 @@ type Props = {
   /** Opens tip drawer after comment flow */
   onContinueToTip?: () => void;
   hostName?: string | null;
+  hostUsername?: string | null;
   isSaved: boolean;
   saveBusy: boolean;
   onSaveClick: () => void;
@@ -79,6 +80,7 @@ export function ImmersiveChannelActionsRail({
   characters,
   onContinueToTip,
   hostName,
+  hostUsername,
   isSaved,
   saveBusy,
   onSaveClick,
@@ -257,6 +259,7 @@ export function ImmersiveChannelActionsRail({
         tippingCharacters={characters}
         onContinueToTip={onContinueToTip}
         hostName={hostName ?? undefined}
+        hostUsername={hostUsername ?? undefined}
       />
 
       <TipsDrawer

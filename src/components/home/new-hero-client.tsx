@@ -169,7 +169,7 @@ export default function HeroClient() {
           className="flex flex-col items-center"
         >
           <Title
-            size="lg"
+            size="xl"
             className="mt-6 inline-flex items-center"
           >
             <span>Turn</span> &nbsp;
@@ -189,11 +189,11 @@ export default function HeroClient() {
         </h1>
 
         {/* Subheadline */}
-        <div className="-mt-4 flex items-center gap-2">
-          <Title size="lg">into</Title>
+        <div className="-mt-6 flex items-center gap-2">
+          <Title size="xl">into</Title>
 
           <Title
-            size="lg"
+            size="xl"
             color="primary"
             className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent"
           >

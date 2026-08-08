@@ -6,7 +6,7 @@ import { Paragraph } from "../shared/paragraph";
 export const ContentToGrowth = () => {
   return (
     <section
-      className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat lg:mt-12"
+      className="relative flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat py-6 lg:py-12"
       style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
     >
       <div className="wrapper section flex flex-col items-center">
@@ -26,9 +26,9 @@ export const ContentToGrowth = () => {
           {CONTENT_TO_GROWTH_STEPS.map((item, index) => (
             <div
               key={index}
-              className="border-primary bg-secondary/10 space-y-4 rounded-2xl border-2 px-4 py-6 shadow lg:py-12"
+              className="border-primary bg-secondary/30 space-y-4 rounded-2xl border-2 px-4 py-6 shadow lg:py-12"
             >
-              <h2 className="text-secondary/30 text-4xl font-bold sm:text-5xl">
+              <h2 className="text-secondary/50 text-4xl font-bold sm:text-5xl">
                 0{index + 1}
               </h2>
 

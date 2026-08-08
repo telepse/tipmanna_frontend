@@ -125,7 +125,10 @@ import {
 import { useExploreReelLayoutMode } from "@/hooks/use-explore-reel-layout-mode";
 import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-realtime";
 import { getAuthToken } from "@/lib/getAuthToken";
-import { prefetchChannelDrawers } from "@/lib/drawer-prefetch-cache";
+import {
+  prefetchChannelDrawers,
+  prefetchCreatorProfile,
+} from "@/lib/drawer-prefetch-cache";
 import { markExplorePerf } from "@/lib/web-vitals";
 import {
   exploreReelActionsRailClassName,
@@ -163,6 +166,7 @@ import {
 import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import { useMediaQuery } from "react-responsive";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
+import { CreatorDrawer } from "./creator-drawer";
 
 const TipDrawer = dynamic(
   () =>
@@ -606,6 +610,18 @@ type ExploreReelSlideMetrics = {
   comments: number;
 };
 
+function resolveExploreItemHostUsername(item: unknown): string | null {
+  if (!item || typeof item !== "object") return null;
+  const row = item as {
+    event?: { username?: string | null };
+    host?: { username?: string | null };
+  };
+  const username = row.event?.username ?? row.host?.username;
+  return typeof username === "string" && username.trim()
+    ? username.trim().replace(/^@/, "")
+    : null;
+}
+
 type ExploreReelSlideTitleProps = {
   item: any;
   layoutMode: ExploreReelLayoutMode;
@@ -616,6 +632,8 @@ type ExploreReelSlideTitleProps = {
   active: any;
   metrics: ExploreReelSlideMetrics | null;
   metricsRestrictedCommunity: { id: string; name: string } | null;
+  onOpenCreatorDrawer: (username: string) => void;
+  onPrefetchCreator?: (username: string) => void;
   className?: string;
 };
 
@@ -629,55 +647,90 @@ function ExploreReelSlideTitle({
   active,
   metrics,
   metricsRestrictedCommunity,
+  onOpenCreatorDrawer,
+  onPrefetchCreator,
   className,
 }: ExploreReelSlideTitleProps) {
+  const hostUsername = resolveExploreItemHostUsername(item);
+
   return (
     <div className={className}>
       <div className={exploreReelTitleRowClassName(layoutMode)}>
-        <button
-          type="button"
-          title={reelMuted ? "Unmute" : "Mute"}
-          className={exploreReelMuteButtonClassName(layoutMode)}
-          onPointerDown={e => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onClick={e => {
-            e.stopPropagation();
-            const p = videoRef.current;
-            if (!p?.isReady()) return;
-            if (reelMuted) p.unmute();
-            else p.mute();
-            setReelMuted(p.isMuted());
-          }}
-        >
-          {reelMuted ? (
-            <VolumeX className={exploreReelMuteIconClassName(layoutMode)} />
-          ) : (
-            <Volume2 className={exploreReelMuteIconClassName(layoutMode)} />
-          )}
-        </button>
-        <span className="min-w-0 truncate">{item.title.substring(0, 30)}</span>
-        {item.title.length > 30 ? ".." : ""}
-        {item.title.length > 30 ? (
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            aria-label="Open comments"
-            className={exploreReelTitleCommentButtonClassName(layoutMode)}
+            title={reelMuted ? "Unmute" : "Mute"}
+            className={exploreReelMuteButtonClassName(layoutMode)}
             onPointerDown={e => {
               e.preventDefault();
               e.stopPropagation();
             }}
             onClick={e => {
               e.stopPropagation();
-              setExploreCommentOpen(true);
+              const p = videoRef.current;
+              if (!p?.isReady()) return;
+              if (reelMuted) p.unmute();
+              else p.mute();
+              setReelMuted(p.isMuted());
             }}
           >
-            <ArrowRight
-              className={exploreReelTitleCommentIconClassName(layoutMode)}
-            />
+            {reelMuted ? (
+              <VolumeX className="bg-destructive size-4 rounded text-white sm:size-5" />
+            ) : (
+              <Volume2 className={exploreReelMuteIconClassName(layoutMode)} />
+            )}
           </button>
-        ) : null}
+          <span className="min-w-0 truncate text-sm">
+            {item.coOwnerName ? `${item.coOwnerName}` : ``}{" "}
+            {item.coOwnerName && "and"}{" "}
+            {hostUsername ? (
+              <button
+                type="button"
+                className="cursor-pointer underline"
+                onPointerDown={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={e => {
+                  e.stopPropagation();
+                  onOpenCreatorDrawer(hostUsername);
+                }}
+                onPointerEnter={() => onPrefetchCreator?.(hostUsername)}
+              >
+                @{hostUsername}
+              </button>
+            ) : (
+              <span>@{item.event?.username}</span>
+            )}
+          </span>
+        </div>
+
+        <div>
+          <span className="min-w-0 truncate">
+            {item.title.substring(0, 30)}
+          </span>
+
+          {item.title.length > 30 ? ".." : ""}
+          {item.title.length > 30 ? (
+            <button
+              type="button"
+              aria-label="Open comments"
+              className={exploreReelTitleCommentButtonClassName(layoutMode)}
+              onPointerDown={e => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={e => {
+                e.stopPropagation();
+                setExploreCommentOpen(true);
+              }}
+            >
+              <ArrowRight
+                className={exploreReelTitleCommentIconClassName(layoutMode)}
+              />
+            </button>
+          ) : null}
+        </div>
       </div>
       {metricsRestrictedCommunity ? (
         <p className={exploreReelMetricsClassName(layoutMode)}>
@@ -811,6 +864,8 @@ export const ExploreFeedClient = forwardRef<
   }
   const seedRef = useRef<string | undefined>(exploreBootRef.current.seed);
   const loadingMoreRef = useRef(false);
+  /** Set synchronously on scroll near-end so metrics SAs yield the queue before pagination effect runs. */
+  const metricsSuppressedRef = useRef(false);
   const endOfFeedRef = useRef(false);
   const lastTrackedItemIdRef = useRef<string | null>(null);
   const segmentStartMsRef = useRef(0);
@@ -833,6 +888,10 @@ export const ExploreFeedClient = forwardRef<
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [exploreCommentOpen, setExploreCommentOpen] = useState(false);
+  const [creatorDrawerOpen, setCreatorDrawerOpen] = useState(false);
+  const [creatorDrawerUsername, setCreatorDrawerUsername] = useState<
+    string | null
+  >(null);
   const [exploreCommentMetricsRefreshKey, setExploreCommentMetricsRefreshKey] =
     useState(0);
   const [tipsListOpen, setTipsListOpen] = useState(false);
@@ -842,6 +901,20 @@ export const ExploreFeedClient = forwardRef<
   const [paginationScrollEpoch, setPaginationScrollEpoch] = useState(0);
   const [paginationRetryEpoch, setPaginationRetryEpoch] = useState(0);
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
+
+  const openCreatorDrawer = useCallback((username: string) => {
+    const handle = username.trim().replace(/^@/, "");
+    if (!handle) return;
+    setCreatorDrawerUsername(handle);
+    setCreatorDrawerOpen(true);
+  }, []);
+
+  const handleCreatorDrawerOpenChange = useCallback((open: boolean) => {
+    setCreatorDrawerOpen(open);
+    if (!open) {
+      setCreatorDrawerUsername(null);
+    }
+  }, []);
 
   const { user } = useSelector((s: RootState) => s.auth);
 
@@ -920,7 +993,9 @@ export const ExploreFeedClient = forwardRef<
       channelId: String(activeChannelId),
       authenticated: Boolean(getAuthToken()),
     });
-  }, [activeEventId, activeChannelId]);
+    const hostUsername = resolveExploreItemHostUsername(active);
+    if (hostUsername) prefetchCreatorProfile(hostUsername);
+  }, [activeEventId, activeChannelId, active]);
 
   const [videoTipCatalog, setVideoTipCatalog] = useState<TvEventCatalog | null>(
     null
@@ -1084,16 +1159,31 @@ export const ExploreFeedClient = forwardRef<
       return;
     }
 
+    const len = itemsRef.current.length;
+    const idx = activeIndexRef.current;
+    if (
+      metricsSuppressedRef.current ||
+      loadingMoreRef.current ||
+      (len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS)
+    ) {
+      return;
+    }
+
     let cancelled = false;
     const probeTimer = window.setTimeout(() => {
       void (async () => {
         // Pagination continuation uses the same server-action queue; defer
-        // metrics probes while a batch is in flight (trace: queue blocked ~41s).
-        while (loadingMoreRef.current) {
+        // metrics probes while near-end pagination is armed or in flight.
+        while (metricsSuppressedRef.current || loadingMoreRef.current) {
           await new Promise<void>(resolve => {
             window.setTimeout(resolve, 100);
           });
           if (cancelled) return;
+        }
+        const curLen = itemsRef.current.length;
+        const curIdx = activeIndexRef.current;
+        if (curLen > 0 && curIdx >= curLen - EXPLORE_NEAR_END_SLOTS) {
+          return;
         }
         const r = await getExploreChannelMetricsAction(rawId);
         if (cancelled) return;
@@ -1794,6 +1884,10 @@ export const ExploreFeedClient = forwardRef<
         loadingMoreRef.current = false;
         const root = scrollRef.current;
         const curLen = itemsRef.current.length;
+        const curIdx = activeIndexRef.current;
+        metricsSuppressedRef.current =
+          endOfFeedRef.current ||
+          (curLen > 0 && curIdx >= curLen - EXPLORE_NEAR_END_SLOTS);
         if (root && curLen > 0) {
           const synced = resolveExploreFeedScrollIndex(
             root,
@@ -1876,7 +1970,10 @@ export const ExploreFeedClient = forwardRef<
         activeIndexRef.current = idx;
         setActiveIndex(prev => (prev === idx ? prev : idx));
       }
-      if (len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS) {
+      const nearEnd = len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS;
+      metricsSuppressedRef.current =
+        nearEnd || loadingMoreRef.current || endOfFeedRef.current;
+      if (nearEnd) {
         setPaginationScrollEpoch(e => e + 1);
       }
     };
@@ -2153,6 +2250,26 @@ export const ExploreFeedClient = forwardRef<
                     ) : (
                       <div className="text-muted-foreground flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center text-sm">
                         <span className="inline-flex items-center gap-1">
+                          {resolveExploreItemHostUsername(item) ? (
+                            <button
+                              type="button"
+                              className="pointer-events-auto underline"
+                              onPointerDown={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={e => {
+                                e.stopPropagation();
+                                openCreatorDrawer(
+                                  resolveExploreItemHostUsername(item)!
+                                );
+                              }}
+                            >
+                              @{resolveExploreItemHostUsername(item)}
+                            </button>
+                          ) : (
+                            <span>@{item?.host?.username}</span>
+                          )}
                           {item?.title.substring(0, 15)}
                           {item?.title.length > 15 ? ".." : ""}
                           {item?.title.length > 15 ? (
@@ -2210,6 +2327,8 @@ export const ExploreFeedClient = forwardRef<
                             metricsRestrictedCommunity={
                               metricsRestrictedCommunity
                             }
+                            onOpenCreatorDrawer={openCreatorDrawer}
+                            onPrefetchCreator={prefetchCreatorProfile}
                             className={exploreReelTitleOnVideoClassName(
                               slideLayoutMode
                             )}
@@ -2228,6 +2347,8 @@ export const ExploreFeedClient = forwardRef<
                             metricsRestrictedCommunity={
                               metricsRestrictedCommunity
                             }
+                            onOpenCreatorDrawer={openCreatorDrawer}
+                            onPrefetchCreator={prefetchCreatorProfile}
                             className={exploreReelTitleAboveDockClassName(
                               slideLayoutMode
                             )}
@@ -2260,6 +2381,7 @@ export const ExploreFeedClient = forwardRef<
                             characters={characters as RoomCharacter[]}
                             onContinueToTip={() => setIsTipDrawerOpen(true)}
                             hostName={active?.event?.hostName ?? null}
+                            hostUsername={active?.event?.username ?? null}
                             isSaved={isExploreChannelSaved}
                             saveBusy={saveBusy}
                             onSaveClick={() => void handleExploreSaveToggle()}
@@ -2493,6 +2615,12 @@ export const ExploreFeedClient = forwardRef<
           }
         />
       ) : null}
+
+      <CreatorDrawer
+        open={creatorDrawerOpen}
+        onOpenChange={handleCreatorDrawerOpenChange}
+        username={creatorDrawerUsername}
+      />
     </div>
   );
 });

@@ -295,8 +295,8 @@ export function exploreReelTitleRowClassName(
   mode: ExploreReelLayoutMode
 ): string {
   return exploreReelIsDesktopMode(mode)
-    ? "flex items-center gap-3 text-lg font-semibold drop-shadow-md"
-    : "flex items-center gap-2 text-sm font-semibold drop-shadow-md";
+    ? "flex items-start flex-col gap-3 text-lg font-semibold drop-shadow-md"
+    : "flex items-start flex-col gap-2 text-sm font-semibold drop-shadow-md";
 }
 
 export function exploreReelMetricsClassName(

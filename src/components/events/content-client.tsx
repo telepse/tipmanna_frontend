@@ -847,7 +847,6 @@ export const ContentClient = ({
                   >
                     {playlist[0]?.event?.hostName.split(" ")[0]}
                   </span>{" "}
-                  {/* <span>@{playlist[0]?.event?.username}</span> */}
                 </p>
 
                 <SaveHostToggleButton
@@ -1077,7 +1076,7 @@ export const ContentClient = ({
                     href={`/channel/${playlist[0]?.event?.id}`}
                     className="text-primary hover:underline"
                   >
-                    @{playlist[0]?.event?.username}
+                    channel
                   </Link>
                 </p>
 
@@ -1326,6 +1325,7 @@ export const ContentClient = ({
               tippingCharacters={tipPriceCatalog}
               onContinueToTip={() => setIsTipDrawerOpen(true)}
               hostName={currentContent?.event?.hostName}
+              hostUsername={currentContent?.event?.username}
             />
 
             {showInfo && (

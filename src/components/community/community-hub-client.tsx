@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { User } from "lucide-react";
 import { useSelector } from "react-redux";
 
 import {
@@ -43,26 +44,23 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 import { cn } from "@/lib/utils";
 import { normalizeEmail } from "@/lib/normalize-email";
 import type { RootState } from "@/redux/store";
 import { toast } from "react-toastify";
+import { uploadImage } from "@/lib/cloudinary";
+import { COMMUNITY_TYPE_LABELS } from "@/lib/community-type-labels";
+import {
+  COMMUNITY_TYPE_OPTIONS,
+  type CommunityType,
+} from "@/schemas/community.schema";
 
 const TIPMANNA_COMMUNITY_ID =
   process.env.NEXT_PUBLIC_TIPMANNA_COMMUNITY_ID?.trim() ?? "";
 
 const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
-
-const COMMUNITY_TYPE_OPTIONS = [
-  "Religious",
-  "Educational",
-  "Lifestyle",
-  "Sports",
-  "Arts & culture",
-  "Professional",
-  "Other",
-] as const;
 
 function exploreCommunityJoinHref(communityId: string) {
   return `/explore?tab=join&joinCommunity=${encodeURIComponent(communityId)}`;
@@ -220,7 +218,7 @@ export default function CommunityHubClient() {
 
   const [interestName, setInterestName] = useState("");
   const [interestDesc, setInterestDesc] = useState("");
-  const [interestType, setInterestType] = useState<string>(
+  const [interestType, setInterestType] = useState<CommunityType>(
     COMMUNITY_TYPE_OPTIONS[0]
   );
   const [interestStart, setInterestStart] = useState("");
@@ -228,6 +226,14 @@ export default function CommunityHubClient() {
   const [interestPhone, setInterestPhone] = useState("");
   const [interestSubmitting, setInterestSubmitting] = useState(false);
   const [startCommunityModalOpen, setStartCommunityModalOpen] = useState(false);
+  const {
+    readableImage: interestLogoPreview,
+    error: interestLogoUploadError,
+    inputRef: interestLogoInputRef,
+    handleImageUpload: handleInterestLogoUpload,
+    handleChangeImage: handleInterestLogoChangeClick,
+    handleRemoveImage: handleRemoveInterestLogo,
+  } = useImageUpload({ maxSizeMB: 2 });
   const [leaveConfirmTarget, setLeaveConfirmTarget] = useState<{
     communityId: string;
     name: string;
@@ -524,10 +530,21 @@ export default function CommunityHubClient() {
       }
       setInterestSubmitting(true);
       try {
+        let logoUrl: string | null = null;
+        if (interestLogoPreview?.startsWith("data:")) {
+          const uploaded = await uploadImage(interestLogoPreview);
+          logoUrl = uploaded?.secure_url ?? null;
+          if (!logoUrl) {
+            toast.error("Could not upload community logo. Try again.");
+            return;
+          }
+        }
+
         const r = await submitCommunityStartInterestAction(authToken, {
           communityName,
           description,
           communityType: interestType,
+          logoUrl,
           interestedStartDate: interestStart.trim() || null,
           contactEmail,
           contactPhone: interestPhone.trim() || null,
@@ -539,6 +556,7 @@ export default function CommunityHubClient() {
           setInterestDesc("");
           setInterestStart("");
           setInterestPhone("");
+          handleRemoveInterestLogo();
           const email =
             user && "email" in user && typeof user.email === "string"
               ? user.email
@@ -559,6 +577,7 @@ export default function CommunityHubClient() {
       interestDesc,
       interestEmail,
       interestName,
+      interestLogoPreview,
       interestPhone,
       interestStart,
       interestType,
@@ -588,7 +607,10 @@ export default function CommunityHubClient() {
       />
       <Dialog
         open={startCommunityModalOpen}
-        onOpenChange={setStartCommunityModalOpen}
+        onOpenChange={open => {
+          setStartCommunityModalOpen(open);
+          if (!open) handleRemoveInterestLogo();
+        }}
       >
         <DialogContent className="flex max-h-[min(90dvh,640px)] flex-col gap-0 overflow-hidden sm:max-w-lg">
           <DialogHeader className="shrink-0 space-y-2 pr-6 pb-2">
@@ -627,6 +649,69 @@ export default function CommunityHubClient() {
                 />
               </div>
               <div className="space-y-2">
+                <Label>
+                  Community logo{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
+                <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={handleInterestLogoChangeClick}
+                    className="relative size-20 shrink-0 overflow-hidden rounded-full border bg-neutral-100"
+                  >
+                    {interestLogoPreview ? (
+                      <img
+                        src={interestLogoPreview}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex size-full items-center justify-center">
+                        <User className="text-muted-foreground size-10" />
+                      </div>
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <input
+                      ref={interestLogoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleInterestLogoUpload}
+                    />
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleInterestLogoChangeClick}
+                        className="w-fit"
+                      >
+                        Change photo
+                      </Button>
+                      {interestLogoPreview ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive w-fit"
+                          onClick={handleRemoveInterestLogo}
+                        >
+                          Remove photo
+                        </Button>
+                      ) : null}
+                      {interestLogoUploadError ? (
+                        <p className="text-destructive text-xs">
+                          {interestLogoUploadError}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label id="sc-type-label">Community type</Label>
                 <div
                   className="flex flex-wrap gap-2"
@@ -644,7 +729,7 @@ export default function CommunityHubClient() {
                       className="h-auto shrink-0 rounded-full px-3 py-1.5 font-normal"
                       onClick={() => setInterestType(opt)}
                     >
-                      {opt}
+                      {COMMUNITY_TYPE_LABELS[opt]}
                     </Button>
                   ))}
                 </div>
@@ -985,7 +1070,7 @@ export default function CommunityHubClient() {
             <h2 className="text-lg font-semibold">Communities you own</h2>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* {canCreateCommunity && (
+              {canCreateCommunity && (
                 <Button
                   type="button"
                   variant="secondary"
@@ -994,7 +1079,7 @@ export default function CommunityHubClient() {
                 >
                   Start community
                 </Button>
-              )} */}
+              )}
               {/* {user?.role === "HOST" && eventSlug ? (
                 <Button
                   type="button"

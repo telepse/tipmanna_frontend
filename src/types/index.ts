@@ -12,6 +12,8 @@ export interface TipUsageDisclosure {
   usageType: string;
 }
 
+import type { EventSubmissionKind } from "@/lib/event-submission-kind";
+
 export type Event = {
   id: string;
   eventName: string;
@@ -28,6 +30,7 @@ export type Event = {
   characters: Character[];
   approved: boolean;
   rejected: boolean;
+  submissionKind?: EventSubmissionKind | null;
   performers: [];
   amountToRaise: number;
   resourcesRequested: ResourceRequested[];

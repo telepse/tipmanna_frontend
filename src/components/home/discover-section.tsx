@@ -5,10 +5,10 @@ import { Title } from "../shared/title";
 
 export const DiscoverSection = () => {
   return (
-    <section className="wrapper section flex flex-col items-center">
+    <section className="wrapper section mt-6 flex flex-col items-center py-6 lg:py-12">
       <Badge title="Discover" />
 
-      <div className="border-primary bg-secondary/10 grid grid-cols-1 items-center gap-4 rounded-2xl border px-4 py-8 lg:grid-cols-2 lg:gap-8 lg:px-8">
+      <div className="border-primary bg-secondary/30 grid grid-cols-1 items-center gap-4 rounded-2xl border px-4 py-8 lg:grid-cols-2 lg:gap-8 lg:px-8">
         <div className="space-y-2">
           <Title size="lg">
             Get{" "}
@@ -29,7 +29,7 @@ export const DiscoverSection = () => {
           {DISCOVER_FEATURES.map((item, index) => (
             <div
               key={index}
-              className={`${item.cardClassName} border-primary space-y-1 rounded-2xl border-2 p-2`}
+              className={`${item.cardClassName} space-y-1 rounded-2xl border-2 border-black p-2`}
             >
               <Paragraph
                 weight="bold"
@@ -38,7 +38,7 @@ export const DiscoverSection = () => {
                 {item.title}
               </Paragraph>
               <Paragraph
-                size="sm"
+                size="xs"
                 className="leading-relaxed"
               >
                 {item.content}
@@ -48,13 +48,13 @@ export const DiscoverSection = () => {
         </div>
       </div>
 
-      <div className="border-primary self-start border-l-2 p-4">
+      <div className="border-primary flex inline-block h-[70px] items-center self-start border-l-2 p-4">
         <Paragraph
           size="sm"
-          weight="bold"
+          className="leading-relaxed"
         >
-          Your content doesn’t stay confined to your audience. Tipmanna helps
-          people discover creators, <br />
+          Your content doesn&apos;t stay confined to your audience. Tipmanna
+          helps people discover creators, <br />
           communities, events, and experiences through TV Explore, Channels, and
           Tipmanna TV.
         </Paragraph>

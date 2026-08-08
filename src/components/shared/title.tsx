@@ -1,7 +1,7 @@
 interface TitleProps {
   children: React.ReactNode;
   align?: "left" | "center" | "right";
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   weight?: "normal" | "medium" | "bold";
   color?: "black" | "white" | "primary";
   className?: string;
@@ -21,6 +21,7 @@ export const Title = ({
     sm: "text-xl sm:text-2xl",
     md: "text-3xl sm:text-4xl",
     lg: "text-4xl sm:text-6xl",
+    xl: "text-5xl sm:text-[67px]",
   };
 
   // Weight map

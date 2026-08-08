@@ -250,6 +250,8 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
     res.headers.set("x-explore-coalesce-stage", "coalesced_recent_cache");
     res.headers.set("x-explore-coalesce-key-hash", "abc123def456");
     res.headers.set("x-explore-coalesce-instance", "inst9a8b7c6d");
+    res.headers.set("x-explore-cache-read-tier", "redis");
+    res.headers.set("x-explore-cache-write-tier", "l1+redis");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => res)
@@ -265,6 +267,8 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
     expect(result.fetchMeta?.coalesceStage).toBe("coalesced_recent_cache");
     expect(result.fetchMeta?.coalesceKeyHash).toBe("abc123def456");
     expect(result.fetchMeta?.coalesceInstanceId).toBe("inst9a8b7c6d");
+    expect(result.fetchMeta?.cacheReadTier).toBe("redis");
+    expect(result.fetchMeta?.cacheWriteTier).toBe("l1+redis");
     expect(result.fetchMeta?.durationMs).toBeGreaterThanOrEqual(0);
   });
 });

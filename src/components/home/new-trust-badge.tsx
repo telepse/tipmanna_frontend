@@ -22,7 +22,7 @@ export const NewTrustBadge = ({ label }: Props) => {
       align="center"
       size={isDesktopOrLaptop ? "sm" : "xs"}
       weight="medium"
-      className="bg-secondary/50 rounded-md px-2 py-1"
+      className="bg-secondary rounded-md px-2 py-1"
     >
       {label}
     </Paragraph>

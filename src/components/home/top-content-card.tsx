@@ -95,10 +95,13 @@ export const TopContentCard = ({
         >
           <span className="flex items-center gap-1 text-xs whitespace-nowrap">
             Creator: {(fullName || "Host").split(" ")[0]}{" "}
-            <span className="text-primary">
+            <Link
+              href={`/@${username}`}
+              className="text-primary"
+            >
               @{(username || "—").substring(0, 9)}
               {(username || "").length > 7 ? "..." : ""}
-            </span>
+            </Link>
           </span>
         </Paragraph>
 

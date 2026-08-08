@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -30,7 +30,11 @@ import {
   tipperSignUpSchema,
 } from "@/schemas/tipper.schema";
 import { Paragraph } from "@/components/shared/paragraph";
-import { registerHostAction, registerTipperAction } from "@/actions/auth";
+import {
+  checkHostUsernameAvailabilityAction,
+  registerHostAction,
+  registerTipperAction,
+} from "@/actions/auth";
 import { setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
@@ -76,11 +80,53 @@ export const SignupForm = () => {
     defaultValues: {
       fullName: "",
       email: emailParam || "",
+      username: "",
       password: "",
       confirmPassword: "",
       acceptedTerms: false,
     },
   });
+
+  const username = hostForm.watch("username");
+
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!username) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
+
+    if (!usernameRegex.test(username)) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setCheckingUsername(true);
+
+        const res = await checkHostUsernameAvailabilityAction({ username });
+
+        if (res.success) {
+          setUsernameAvailable(true);
+        } else {
+          setUsernameAvailable(false);
+        }
+      } catch {
+        setUsernameAvailable(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [username]);
 
   // 2. Define Tipper form
   const tipperForm = useForm<TipperSignUpFormData>({
@@ -282,6 +328,53 @@ export const SignupForm = () => {
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-1">
+                <FormField
+                  control={hostForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Choose a username"
+                        />
+                      </FormControl>
+
+                      <FormMessage />
+
+                      {checkingUsername && (
+                        <p className="text-muted-foreground text-sm">
+                          Checking availability...
+                        </p>
+                      )}
+
+                      {!checkingUsername &&
+                        username &&
+                        usernameAvailable === true && (
+                          <p className="text-success text-sm">
+                            Username is available ✓
+                          </p>
+                        )}
+
+                      {!checkingUsername &&
+                        username &&
+                        usernameAvailable === false && (
+                          <p className="text-destructive text-sm">
+                            Username is already taken
+                          </p>
+                        )}
+                    </FormItem>
+                  )}
+                />
+
+                <span className="text-muted-foreground text-xs">
+                  This will be your unique creator username
+                </span>
+              </div>
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <FormField

@@ -1141,6 +1141,16 @@ export const WebTvLooper = ({
                 numOfTips={liveNumOfTips}
                 tippingCharacters={characters}
                 onContinueToTip={onContinueCommentToTip}
+                hostName={
+                  typeof current?.channel?.hostName === "string"
+                    ? current.channel.hostName
+                    : undefined
+                }
+                hostUsername={
+                  typeof current?.channel?.username === "string"
+                    ? current.channel.username
+                    : undefined
+                }
               />
 
               <TipsDrawer
@@ -1268,6 +1278,16 @@ export const WebTvLooper = ({
                 numOfTips={liveNumOfTips}
                 tippingCharacters={characters}
                 onContinueToTip={onContinueCommentToTip}
+                hostName={
+                  typeof current?.channel?.hostName === "string"
+                    ? current.channel.hostName
+                    : undefined
+                }
+                hostUsername={
+                  typeof current?.channel?.username === "string"
+                    ? current.channel.username
+                    : undefined
+                }
               />
 
               <TipsDrawer

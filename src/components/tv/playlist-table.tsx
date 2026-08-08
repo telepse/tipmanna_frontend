@@ -35,6 +35,8 @@ type CommentDrawerTarget = {
   videoTitle: string;
   videoDescription: string;
   numOfTips: number;
+  hostName?: string;
+  hostUsername?: string;
 };
 
 function resolveCommentDrawerTarget(item: {
@@ -45,6 +47,8 @@ function resolveCommentDrawerTarget(item: {
     title?: string;
     description?: string | null;
     numOfTips?: number;
+    hostName?: string;
+    username?: string;
   };
 }): CommentDrawerTarget | null {
   const eventId = String(
@@ -63,6 +67,14 @@ function resolveCommentDrawerTarget(item: {
         : "",
     numOfTips:
       typeof item.channel?.numOfTips === "number" ? item.channel.numOfTips : 0,
+    hostName:
+      typeof item.channel?.hostName === "string"
+        ? item.channel.hostName
+        : undefined,
+    hostUsername:
+      typeof item.channel?.username === "string"
+        ? item.channel.username
+        : undefined,
   };
 }
 
@@ -432,6 +444,8 @@ export default function PlaylistTable({
           videoDescription={commentDrawerTarget.videoDescription}
           numOfTips={commentDrawerTarget.numOfTips}
           tippingCharacters={tippingCharacters}
+          hostName={commentDrawerTarget.hostName}
+          hostUsername={commentDrawerTarget.hostUsername}
         />
       ) : null}
     </>

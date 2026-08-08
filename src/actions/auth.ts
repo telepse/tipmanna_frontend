@@ -7,6 +7,7 @@ import { serverAuthHeaders } from "@/lib/server-auth";
 export async function registerHostAction(values: {
   fullName: string;
   email: string;
+  username: string;
   password: string;
   acceptedTerms: boolean;
   visitorId?: string;
@@ -99,7 +100,7 @@ export async function verifyCodeAction(email: string, code: string) {
 
 // -------- Login host -------- //
 export async function loginHostAction(values: {
-  email: string;
+  emailOrUsername: string;
   password: string;
   visitorId?: string;
 }) {
@@ -112,6 +113,21 @@ export async function loginHostAction(values: {
       cache: "no-store",
     },
     "loginHostAction"
+  );
+}
+
+// -------- Check host username availability -------- //
+export async function checkHostUsernameAvailabilityAction(values: {
+  username: string;
+}) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/hosts/check-username?username=${encodeURIComponent(values.username)}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    },
+    "checkHostUsernameAvailabilityAction"
   );
 }
 

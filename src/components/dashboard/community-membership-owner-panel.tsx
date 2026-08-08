@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import {
@@ -151,6 +151,7 @@ export function CommunityMembershipOwnerPanel({
   const [inviteExpires, setInviteExpires] = useState("");
 
   const [copiedJoinUrl, setCopiedJoinUrl] = useState(false);
+  const joinFormLoadedForRef = useRef<string | null>(null);
 
   const loadJoinForm = useCallback(async () => {
     if (!userId) return;
@@ -260,8 +261,10 @@ export function CommunityMembershipOwnerPanel({
   }, [communityId, sideChickScope, userId]);
 
   useEffect(() => {
+    if (joinFormLoadedForRef.current === communityId) return;
+    joinFormLoadedForRef.current = communityId;
     void loadJoinForm();
-  }, [loadJoinForm]);
+  }, [communityId, loadJoinForm]);
 
   useEffect(() => {
     if (subTab === "members") void loadMembers();

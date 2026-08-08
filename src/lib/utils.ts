@@ -185,71 +185,7 @@ export function formatUtcTime(date: Date | string) {
 }
 
 // ------- Get event stats -------- //
-export const getEventStats = (events: Event[]) => {
-  const now = new Date();
-
-  const stats = events.reduce(
-    (acc, event) => {
-      const eventDateTime = new Date(event.eventDate);
-
-      if (event.startTime && event.endTime) {
-        const [startHours, startMinutes] = event.startTime
-          .split(":")
-          .map(Number);
-        const [endHours, endMinutes] = event.endTime.split(":").map(Number);
-
-        const startDateTime = new Date(eventDateTime);
-        startDateTime.setHours(startHours, startMinutes, 0, 0);
-
-        const endDateTime = new Date(eventDateTime);
-        endDateTime.setHours(endHours, endMinutes, 0, 0);
-
-        if (endDateTime < startDateTime) {
-          endDateTime.setDate(endDateTime.getDate() + 1);
-        }
-
-        if (now >= startDateTime && now <= endDateTime) {
-          acc.activeEvents++;
-        } else if (now > endDateTime) {
-          acc.completedEvents++;
-        }
-      }
-
-      // Total raised amount
-      acc.totalAmountRaised += event.amountRaised || 0;
-
-      // Pending events (approved === false)
-      if (event.approved === false) {
-        acc.pendingEvents++;
-      }
-
-      // Total number of tips
-      acc.numOfTips += event.numOfTips || 0;
-
-      // Count total events created
-      acc.totalEventsCreated++;
-
-      return acc;
-    },
-    {
-      totalEventsCreated: 0,
-      activeEvents: 0,
-      completedEvents: 0,
-      pendingEvents: 0,
-      totalAmountRaised: 0,
-      numOfTips: 0,
-    }
-  );
-
-  return {
-    totalEventsCreated: stats.totalEventsCreated,
-    activeEvents: stats.activeEvents,
-    completedEvents: stats.completedEvents,
-    pendingEvents: stats.pendingEvents,
-    totalAmountRaised: stats.totalAmountRaised,
-    numOfTips: stats.numOfTips,
-  };
-};
+export { getHostEventStats as getEventStats } from "@/lib/host-event-stats";
 
 // ------- Calculate earnings -------- //
 export function calculateEarnings(data: Transaction[]) {
@@ -416,4 +352,25 @@ export function formatWithCommas(value: number) {
 export function trimTitle(title: string, maxLength = 20): string {
   if (title.length <= maxLength) return title;
   return title.slice(0, maxLength) + "...";
+}
+
+export function formatNextUsernameChange(dateIso: string): string {
+  return new Date(dateIso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function formatBankDuration(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds));
+  const hrs = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
+
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }

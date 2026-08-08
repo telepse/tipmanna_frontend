@@ -15,6 +15,10 @@ import {
   getMyTippedVideos,
 } from "@/actions/events";
 import { getAllCausesAction } from "@/actions/home";
+import {
+  getHostCreatorPublicProfileAction,
+  type HostCreatorPublicProfile,
+} from "@/actions/host-creator";
 import { fetchSavedHostsMe } from "@/lib/save-host-client";
 import { getAuthToken, getAuthUserFromCookies } from "@/lib/getAuthToken";
 import { normalizeSavedVideosList } from "@/lib/save-video-client";
@@ -32,12 +36,27 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 const commentCache = new Map<string, CommentDrawerData>();
 const tipsCache = new Map<string, TipsDrawerSnapshot>();
 const profileCache = new Map<string, unknown>();
+const creatorProfileCache = new Map<string, HostCreatorPublicProfile>();
 
 const commentInflight: Map<
   string,
   Promise<CommentDrawerData | null>
 > = new Map();
 const tipsInflight: Map<string, Promise<TipsDrawerSnapshot | null>> = new Map();
+const creatorProfileInflight: Map<
+  string,
+  Promise<HostCreatorPublicProfile | null>
+> = new Map();
+
+export function normalizeCreatorUsername(
+  username: string | null | undefined
+): string {
+  return (username ?? "").trim().replace(/^@/, "").toLowerCase();
+}
+
+export function creatorProfileKey(username: string) {
+  return `creator:${normalizeCreatorUsername(username)}`;
+}
 
 function readSession<T>(key: string): T | null {
   if (typeof window === "undefined") return null;
@@ -109,6 +128,56 @@ export function getCachedTipsDrawer(
 ): TipsDrawerSnapshot | null {
   const key = tipsDrawerKey(eventId, channelId, scope);
   return tipsCache.get(key) ?? readSession<TipsDrawerSnapshot>(key);
+}
+
+export function getCachedCreatorProfile(
+  username: string
+): HostCreatorPublicProfile | null {
+  const handle = normalizeCreatorUsername(username);
+  if (!handle) return null;
+  const key = creatorProfileKey(handle);
+  return (
+    creatorProfileCache.get(key) ?? readSession<HostCreatorPublicProfile>(key)
+  );
+}
+
+export async function fetchCreatorProfileCached(
+  username: string,
+  opts?: { force?: boolean }
+): Promise<HostCreatorPublicProfile | null> {
+  const handle = normalizeCreatorUsername(username);
+  if (!handle) return null;
+  const key = creatorProfileKey(handle);
+  if (!opts?.force) {
+    const hit = getCachedCreatorProfile(handle);
+    if (hit) return hit;
+  }
+  let inflight = creatorProfileInflight.get(key);
+  if (!inflight) {
+    inflight = getHostCreatorPublicProfileAction(handle).then(res => {
+      if (res.success && res.data) {
+        creatorProfileCache.set(key, res.data);
+        writeSession(key, res.data);
+        return res.data;
+      }
+      return null;
+    });
+    creatorProfileInflight.set(key, inflight);
+    void inflight.finally(() => creatorProfileInflight.delete(key));
+  }
+  return inflight;
+}
+
+export function prefetchCreatorProfile(username: string | null | undefined) {
+  const handle = normalizeCreatorUsername(username);
+  if (!handle) return;
+  scheduleIdle(() => {
+    void fetchCreatorProfileCached(handle);
+  });
+}
+
+export async function awaitCreatorProfilePrefetch(username: string) {
+  return fetchCreatorProfileCached(username);
 }
 
 export async function fetchCommentDrawerCached(

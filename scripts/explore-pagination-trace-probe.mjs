@@ -48,6 +48,8 @@ async function continuation(exclude, seed, traceId, attempt) {
     stage: res.headers.get("x-explore-coalesce-stage"),
     keyHash: res.headers.get("x-explore-coalesce-key-hash"),
     instanceId: res.headers.get("x-explore-coalesce-instance"),
+    cacheReadTier: res.headers.get("x-explore-cache-read-tier"),
+    cacheWriteTier: res.headers.get("x-explore-cache-write-tier"),
     itemCount: Array.isArray(body.items) ? body.items.length : 0,
   };
 }

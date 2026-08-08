@@ -144,7 +144,7 @@ export const SigninForm = ({
   const hostForm = useForm<HostSignInFormData>({
     resolver: zodResolver(hostSignInSchema),
     defaultValues: {
-      email: emailParam || "",
+      emailOrUsername: emailParam || "",
       password: "",
     },
   });
@@ -253,11 +253,11 @@ export const SigninForm = ({
         if (isUnverifiedHostMessage(res.message)) {
           toast.info("Verify your email to continue — we sent you a code.");
           if (mode === "modal") {
-            setHostVerifyEmail(values.email);
+            setHostVerifyEmail(values.emailOrUsername);
             setHostAuthView("verifyEmail");
             return;
           }
-          const emailQ = encodeURIComponent(values.email);
+          const emailQ = encodeURIComponent(values.emailOrUsername);
           push(
             returnTo
               ? `/verify-email?email=${emailQ}&next=${encodeURIComponent(returnTo)}`
@@ -580,13 +580,14 @@ export const SigninForm = ({
                 <Form {...hostForm}>
                   <form
                     onSubmit={hostForm.handleSubmit(
-                      values => void handleForgotPassword(values.email)
+                      values =>
+                        void handleForgotPassword(values.emailOrUsername)
                     )}
                     className="space-y-6"
                   >
                     <FormField
                       control={hostForm.control}
-                      name="email"
+                      name="emailOrUsername"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Email</FormLabel>
@@ -783,19 +784,20 @@ export const SigninForm = ({
                 >
                   <FormField
                     control={hostForm.control}
-                    name="email"
+                    name="emailOrUsername"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel>Email or username</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Enter email address"
+                            placeholder="Enter email address or username"
                             autoComplete="off"
                             {...field}
                             readOnly={!!emailParam}
                             className={
                               emailParam ? "bg-gray cursor-not-allowed" : ""
                             }
+                            type="text"
                           />
                         </FormControl>
                         <FormMessage />
@@ -837,7 +839,7 @@ export const SigninForm = ({
                     data-testid="signin-request-login-code"
                     onClick={() =>
                       handleRequestLoginCode({
-                        email: hostForm.getValues("email"),
+                        email: hostForm.getValues("emailOrUsername"),
                       })
                     }
                     className="text-muted-foreground cursor-pointer text-sm underline"
