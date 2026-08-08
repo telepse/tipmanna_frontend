@@ -588,7 +588,7 @@ export function CommunityJoinPanel({
                     <div
                       key={video.id}
                       className="flex min-w-0 cursor-pointer flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                      onClick={openLightbox}
+                      // onClick={openLightbox}
                     >
                       <div className="flex min-w-0 items-center gap-4">
                         <img
