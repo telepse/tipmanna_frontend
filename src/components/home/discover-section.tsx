@@ -48,7 +48,7 @@ export const DiscoverSection = () => {
         </div>
       </div>
 
-      <div className="border-primary flex inline-block h-[70px] items-center self-start border-l-2 p-4">
+      <div className="border-primary inline-block self-start border-l-2 p-4">
         <Paragraph
           size="sm"
           className="leading-relaxed"

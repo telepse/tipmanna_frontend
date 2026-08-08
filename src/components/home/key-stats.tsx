@@ -93,13 +93,14 @@ function normalizeKeyStat(raw: unknown): KeyStat {
   };
 }
 
-function weeklySubtitle(
-  delta: number | undefined,
+function previousPeriodSubtitle(
+  current: number,
+  lastWeekGain: number,
   isMoney?: boolean
-): string | undefined {
-  if (delta == null || delta <= 0) return undefined;
-  const formatted = formatWithCommas(delta);
-  return isMoney ? `£${formatted} last week` : `${formatted} last week`;
+): string {
+  const previous = Math.max(0, current - lastWeekGain);
+  const formatted = formatWithCommas(previous);
+  return isMoney ? `${formatted} last week` : `${formatted} last week`;
 }
 
 export default function KeyStats({ stats }: Props) {
@@ -172,8 +173,9 @@ export default function KeyStats({ stats }: Props) {
           <div className="relative col-span-full grid grid-cols-2 gap-4 sm:grid-cols-2 sm:gap-6 lg:col-span-7">
             <StatCard
               label={`(${liveStats.successfulTransactions}) Supporter Participation`}
-              value={liveStats.totalTipsReceived - liveStats.lastWeek.totalTipsReceived}
-              subtitle={weeklySubtitle(
+              value={liveStats.totalTipsReceived}
+              subtitle={previousPeriodSubtitle(
+                liveStats.totalTipsReceived,
                 liveStats.lastWeek.totalTipsReceived,
                 true
               )}
@@ -181,18 +183,27 @@ export default function KeyStats({ stats }: Props) {
             />
             <StatCard
               label="Channels Created"
-              value={liveStats.activeYoutubeLinks - liveStats.lastWeek.activeYoutubeLinks}
-              subtitle={weeklySubtitle(liveStats.lastWeek.activeYoutubeLinks)}
+              value={liveStats.activeYoutubeLinks}
+              subtitle={previousPeriodSubtitle(
+                liveStats.activeYoutubeLinks,
+                liveStats.lastWeek.activeYoutubeLinks
+              )}
             />
             <StatCard
               label="Communities Started"
-              value={liveStats.communitiesCreated - liveStats.lastWeek.communitiesCreated}
-              subtitle={weeklySubtitle(liveStats.lastWeek.communitiesCreated)}
+              value={liveStats.communitiesCreated}
+              subtitle={previousPeriodSubtitle(
+                liveStats.communitiesCreated,
+                liveStats.lastWeek.communitiesCreated
+              )}
             />
             <StatCard
               label="TV Total Plays"
-              value={liveStats.totalEncounters - liveStats.lastWeek.totalEncounters}
-              subtitle={weeklySubtitle(liveStats.lastWeek.totalEncounters)}
+              value={liveStats.totalEncounters}
+              subtitle={previousPeriodSubtitle(
+                liveStats.totalEncounters,
+                liveStats.lastWeek.totalEncounters
+              )}
             />
 
             {/* <StatCard

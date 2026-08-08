@@ -72,7 +72,7 @@ export default function TopCommunities({
       </div>
 
       {isPartnerPage && (
-        <div className="border-primary flex h-[50px] items-center self-start border-l-2 p-4">
+        <div className="border-primary inline-block self-start border-l-2 p-4">
           <div>
             <Paragraph
               weight="bold"
