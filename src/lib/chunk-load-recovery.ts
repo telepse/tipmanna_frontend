@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 
 const SESSION_KEY = "tipmanna_chunk_reload";
 
-function isChunkLoadError(reason: unknown): boolean {
+export function isChunkLoadError(reason: unknown): boolean {
   if (!reason) return false;
   const msg =
     typeof reason === "string"
@@ -23,9 +23,32 @@ function isChunkLoadError(reason: unknown): boolean {
   return (
     name === "ChunkLoadError" ||
     /Loading chunk [\d]+ failed/i.test(msg) ||
+    /Failed to load chunk/i.test(msg) ||
     /Failed to fetch dynamically imported module/i.test(msg) ||
     /Importing a module script failed/i.test(msg)
   );
+}
+
+/** Full navigation reload so the browser picks up the latest deployed HTML/chunks. */
+export async function hardReloadForLatestBuild(): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* noop */
+  }
+
+  if ("serviceWorker" in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(registration => registration.unregister()));
+    } catch {
+      /* noop */
+    }
+  }
+
+  window.location.reload();
 }
 
 /**
@@ -42,7 +65,9 @@ export function installChunkLoadRecovery(): void {
       /* noop */
     }
     toast.info("New version available — refreshing.", { autoClose: 2000 });
-    window.setTimeout(() => window.location.reload(), 500);
+    window.setTimeout(() => {
+      void hardReloadForLatestBuild();
+    }, 500);
   };
 
   window.addEventListener("unhandledrejection", event => {
