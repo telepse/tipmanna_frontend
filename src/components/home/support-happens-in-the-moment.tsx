@@ -26,7 +26,7 @@ export const SupportHappensInTheMoment = () => {
 
         <div className="grid grid-cols-1 items-center gap-4 lg:grid-cols-12 lg:gap-8">
           <div className="flex items-center justify-center rounded-2xl p-4 lg:col-span-8 lg:min-h-[420px] lg:p-6">
-            <div className="bg-secondary w-full max-w-[240px] overflow-hidden rounded-2xl p-3 sm:max-w-[280px] lg:max-w-[360px]">
+            <div className="bg-secondary mx-auto flex w-full max-w-[240px] items-center justify-center overflow-hidden rounded-2xl p-3 sm:max-w-[280px] lg:max-w-[480px]">
               <div className="w-full max-w-[220px] overflow-hidden rounded-2xl bg-white p-3 sm:max-w-[260px] lg:max-w-[300px]">
                 <video
                   src="https://res.cloudinary.com/tipmanna/video/upload/v1785683068/IMG_3107_betymi.mp4"

@@ -96,11 +96,12 @@ export const ContinousEngagement = () => {
           </Slide>
         )}
 
-        <div className="border-primary self-start border-l-2 p-4">
-          <Paragraph size="sm">
-            A connected system built around participation - not isolated tools.
-          </Paragraph>
-        </div>
+        <Paragraph
+          size="sm"
+          className="border-primary w-fit max-w-full self-start border-l-2 py-0 pl-4"
+        >
+          A connected system built around participation - not isolated tools.
+        </Paragraph>
       </div>
     </section>
   );
