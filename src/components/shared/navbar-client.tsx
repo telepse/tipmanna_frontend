@@ -93,18 +93,18 @@ export default function NavbarClient() {
           aria-label="Main menu"
         >
           <Link
-            href="/"
-            prefetch={true}
-            className={`hover:text-primary open_sans ${pathname === "/" ? "text-primary" : ""}`}
-          >
-            Home
-          </Link>
-          <Link
             href="/tv"
             prefetch={true}
             className={`hover:text-primary open_sans ${pathname === "/tv" ? "text-primary" : ""}`}
           >
-            Live TV
+            Watch TV
+          </Link>
+          <Link
+            href="/explore"
+            prefetch={true}
+            className={`hover:text-primary open_sans ${pathname === "/explore" ? "text-primary" : ""}`}
+          >
+            Explore
           </Link>
           {communityFeatureEnabled ? (
             <Link
@@ -115,13 +115,12 @@ export default function NavbarClient() {
               Communities
             </Link>
           ) : null}
-          <button
-            type="button"
-            className={`hover:text-primary open_sans cursor-pointer`}
-            onClick={() => setOpenPopup(true)}
+          <a
+            href="/partner#pricing"
+            className={`hover:text-primary open_sans`}
           >
-            Create
-          </button>
+            Pricing
+          </a>
 
           <Link
             href="/#faq"
@@ -210,11 +209,11 @@ export default function NavbarClient() {
                 {/* Mobile nav */}
 
                 <Link
-                  href="/"
+                  href="/explore"
                   prefetch={true}
-                  className={`hover:text-primary open_sans ${pathname === "/" ? "text-primary" : ""}`}
+                  className={`hover:text-primary open_sans ${pathname === "/explore" ? "text-primary" : ""}`}
                 >
-                  Home
+                  Explore
                 </Link>
 
                 <Link
@@ -222,7 +221,7 @@ export default function NavbarClient() {
                   prefetch={true}
                   className={`open_sans ${pathname === "/tv" ? "" : ""}`}
                 >
-                  Live TV
+                  Watch TV
                 </Link>
 
                 {communityFeatureEnabled ? (
@@ -235,13 +234,12 @@ export default function NavbarClient() {
                   </Link>
                 ) : null}
 
-                <button
-                  type="button"
-                  className={`hover:text-primary open_sans cursor-pointer text-left`}
-                  onClick={() => setOpenPopup(true)}
+                <a
+                  href="/partner#pricing"
+                  className={`hover:text-primary open_sans`}
                 >
-                  Create
-                </button>
+                  Pricing
+                </a>
 
                 <Link
                   href="/#faq"

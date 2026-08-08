@@ -1,6 +1,52 @@
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 
 const SNAPSHOT_KEY_PREFIX = "tipmanna:explore-channel-snapshot:";
+const PENDING_HANDOFF_KEY = "tipmanna:explore-pending-handoff:v1";
+
+export function normalizeExploreHandoffSnapshot(
+  content: Record<string, unknown>,
+  videoId: string,
+  eventId: string
+): Record<string, unknown> {
+  const snapshot = { ...content };
+  snapshot.id = videoId;
+
+  const event =
+    snapshot.event && typeof snapshot.event === "object"
+      ? { ...(snapshot.event as Record<string, unknown>) }
+      : {};
+  event.id = eventId;
+  snapshot.event = event;
+
+  if (typeof snapshot.url !== "string") {
+    snapshot.url = "";
+  }
+  if (typeof snapshot.liveStatus !== "string") {
+    snapshot.liveStatus = "NOT_LIVE";
+  }
+
+  return snapshot;
+}
+
+export function buildExploreHandoffTarget(content: {
+  id?: string;
+  event?: { id?: string } | null;
+  [key: string]: unknown;
+}): ExploreFeedOpenTarget | null {
+  const videoId = content.id?.trim();
+  const eventId = content.event?.id?.trim();
+  if (!videoId || !eventId) return null;
+
+  return {
+    videoId,
+    eventId,
+    channelSnapshot: normalizeExploreHandoffSnapshot(
+      content as Record<string, unknown>,
+      videoId,
+      eventId
+    ),
+  };
+}
 
 export function stashExploreChannelSnapshot(
   videoId: string,
@@ -36,6 +82,60 @@ export function readExploreChannelSnapshot(
   return undefined;
 }
 
+/** Full handoff payload for cross-page navigation (Discover page, creator profile, etc.). */
+export function stashExplorePendingHandoff(
+  target: ExploreFeedOpenTarget
+): void {
+  if (typeof window === "undefined") return;
+  const videoId = target.videoId.trim();
+  const eventId = target.eventId.trim();
+  if (!videoId || !eventId) return;
+
+  const channelSnapshot = target.channelSnapshot
+    ? normalizeExploreHandoffSnapshot(target.channelSnapshot, videoId, eventId)
+    : {};
+
+  try {
+    sessionStorage.setItem(
+      PENDING_HANDOFF_KEY,
+      JSON.stringify({
+        videoId,
+        eventId,
+        channelSnapshot,
+      } satisfies ExploreFeedOpenTarget)
+    );
+    stashExploreChannelSnapshot(videoId, channelSnapshot);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function readExplorePendingHandoff(): ExploreFeedOpenTarget | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(PENDING_HANDOFF_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ExploreFeedOpenTarget;
+    if (!parsed?.videoId?.trim() || !parsed?.eventId?.trim()) return null;
+    return {
+      videoId: parsed.videoId.trim(),
+      eventId: parsed.eventId.trim(),
+      channelSnapshot: parsed.channelSnapshot ?? {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearExplorePendingHandoff(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(PENDING_HANDOFF_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Stable key for deduping URL-driven reel handoffs (`channel` + `eventId`). */
 export function exploreVideoHandoffKeyFromUrl(
   searchParams: URLSearchParams
@@ -46,13 +146,12 @@ export function exploreVideoHandoffKeyFromUrl(
   return `${videoId}:${eventId}`;
 }
 
+export function handoffKeyForTarget(target: ExploreFeedOpenTarget): string {
+  return `${target.videoId.trim()}:${target.eventId.trim()}`;
+}
+
 export function buildExploreVideoHref(target: ExploreFeedOpenTarget): string {
-  const params = new URLSearchParams();
-  params.set("tab", "feed");
-  params.set("feedTab", "trends");
-  params.set("channel", target.videoId.trim());
-  params.set("eventId", target.eventId.trim());
-  return `/explore?${params.toString()}`;
+  return buildExploreVideoHandoffHref(target, "");
 }
 
 /** Preserve live Explore query keys (e.g. e2e=1) while adding reel handoff params. */

@@ -896,6 +896,7 @@ export async function submitCommunityStartInterestAction(
     communityName: string;
     description: string;
     communityType: string;
+    logoUrl?: string | null;
     interestedStartDate?: string | null;
     contactEmail: string;
     contactPhone?: string | null;
@@ -974,5 +975,123 @@ export async function rejoinCommunityMembershipAction(
       cache: "no-store",
     },
     "rejoinCommunityMembershipAction"
+  );
+}
+
+export type CommunityFeaturedVideo = {
+  id: string;
+  channelId: string;
+  eventId?: string;
+  title: string;
+  url: string;
+  eventVideoType?: string | null;
+  durationSeconds?: number;
+  numOfTips?: number;
+  numOfSaves?: number;
+  numOfShares?: number;
+  numOfComments?: number;
+  numOfSeen?: number;
+};
+
+export type CommunityCustomizationResponse = {
+  community: {
+    id: string;
+    name: string;
+    description: string | null;
+    logoUrl: string | null;
+    communityType: string | null;
+    isSystem: boolean;
+  };
+  customization: {
+    headerColor: string | null;
+    tvLogoUrl: string | null;
+    brandColor: string | null;
+  } | null;
+  featuredVideos: CommunityFeaturedVideo[];
+};
+
+export async function getCommunityCustomizationAction(communityId: string) {
+  return runServerFetch<CommunityCustomizationResponse>(
+    `${api()}/communities/${encodeURIComponent(communityId)}/customization`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    },
+    "getCommunityCustomizationAction"
+  );
+}
+
+export async function patchCommunityDetailsAction(
+  token: string | null | undefined,
+  communityId: string,
+  body: {
+    description?: string | null;
+    communityType?: string | null;
+    logoUrl?: string | null;
+  }
+) {
+  return runServerFetch<{
+    ok: boolean;
+    community: CommunityCustomizationResponse["community"];
+  }>(
+    `${api()}/communities/${encodeURIComponent(communityId)}/details`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await serverAuthHeaders(token)),
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    },
+    "patchCommunityDetailsAction"
+  );
+}
+
+export async function patchCommunityFeaturedVideosAction(
+  token: string | null | undefined,
+  communityId: string,
+  featuredContentBankEntryIds: string[]
+) {
+  return runServerFetch<{
+    ok: boolean;
+    featuredVideos: CommunityFeaturedVideo[];
+  }>(
+    `${api()}/communities/${encodeURIComponent(communityId)}/featured-videos`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await serverAuthHeaders(token)),
+      },
+      body: JSON.stringify({ featuredContentBankEntryIds }),
+      cache: "no-store",
+    },
+    "patchCommunityFeaturedVideosAction"
+  );
+}
+
+export async function patchCommunityBrandingAction(
+  token: string | null | undefined,
+  communityId: string,
+  body: {
+    headerColor?: string | null;
+    brandColor?: string | null;
+    tvLogoUrl?: string | null;
+  }
+) {
+  return runServerFetch<{ ok: boolean }>(
+    `${api()}/communities/${encodeURIComponent(communityId)}/customization`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await serverAuthHeaders(token)),
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    },
+    "patchCommunityBrandingAction"
   );
 }

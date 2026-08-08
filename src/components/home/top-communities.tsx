@@ -72,14 +72,22 @@ export default function TopCommunities({
       </div>
 
       {isPartnerPage && (
-        <div className="border-primary self-start border-l-2 p-4">
-          <Paragraph weight="bold">
-            Start with content. Grow participation. Build a community.
-          </Paragraph>
-          <Paragraph size="sm">
-            Tipmanna grows with you - from your first video to your own
-            community-powered media network.
-          </Paragraph>
+        <div className="border-primary flex h-[50px] items-center self-start border-l-2 p-4">
+          <div>
+            <Paragraph
+              weight="bold"
+              className="leading-relaxed"
+            >
+              Start with content. Grow participation. Build a community.
+            </Paragraph>
+            <Paragraph
+              size="sm"
+              className="-mt-1 leading-relaxed"
+            >
+              Tipmanna grows with you - from your first video to your own
+              community-powered media network.
+            </Paragraph>
+          </div>
         </div>
       )}
     </section>

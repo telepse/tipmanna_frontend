@@ -108,21 +108,31 @@ export default function Home() {
             aria-hidden
           />
 
-          <div className="bg-secondary/10">
+          <div className="bg-secondary/30">
             <Features />
 
             <TopContentsSection />
             <TopEventsSection />
           </div>
 
-          <DiscoverSection />
+          <div className="bg-white">
+            <DiscoverSection />
+          </div>
 
-          <TvHomePreviewSectionLazy />
-          <ScheduledTvProgramsSection />
-          <ContinousEngagement />
-          <SupportHappensInTheMoment />
+          <div
+            className="bg-cover bg-fixed bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
+          >
+            <TvHomePreviewSectionLazy />
+            <ScheduledTvProgramsSection />
+          </div>
         </section>
       </DataSection>
+
+      <div className="bg-white">
+        <ContinousEngagement />
+      </div>
+      <SupportHappensInTheMoment />
 
       <NewTippingBanner />
 

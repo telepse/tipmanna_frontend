@@ -18,6 +18,7 @@ import {
   Search,
   Sparkles,
   Tv,
+  UserRound,
   UsersRound,
 } from "lucide-react";
 import { cn, formatProgramScheduleDisplay, trimTitle } from "@/lib/utils";
@@ -225,6 +226,7 @@ export function DiscoverPanel({
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [discoveryResults, setDiscoveryResults] =
     useState<DiscoverySearchResult | null>(null);
+
   const [tagResults, setTagResults] = useState<Content[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [tagLoading, setTagLoading] = useState(false);
@@ -1213,7 +1215,7 @@ export function DiscoverPanel({
                       </div>
                     ) : (
                       <div className="border-moonstone-blue flex size-12 items-center justify-center rounded-md border-2 bg-white">
-                        <UsersRound className="size-6" />
+                        <UserRound className="size-6" />
                       </div>
                     )}
 
@@ -1229,6 +1231,11 @@ export function DiscoverPanel({
                       {community.totalTips} tips &middot;{" "}
                       {community.memberCount} member
                       {community.memberCount > 1 ? "s" : ""}
+                      &middot;&nbsp;
+                      {community.numVideos} video
+                      {community.numVideos && community.numVideos > 1
+                        ? "s"
+                        : ""}
                     </p>
                   </Link>
                 )}

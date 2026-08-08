@@ -7,7 +7,14 @@ import { useParams } from "next/navigation";
 // Third-party imports
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
-import { Calendar, Copy, TrendingUp, Users, Wallet } from "lucide-react";
+import {
+  Calendar,
+  Copy,
+  SquarePen,
+  TrendingUp,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // Local imports
@@ -132,6 +139,12 @@ export const HostStats = ({ events, stats, payoutSummary }: Props) => {
               <Button onClick={handleCopy}>
                 <Copy /> {eventCode}
               </Button>
+              <button
+                type="button"
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-black p-2 text-sm hover:bg-black hover:text-white"
+              >
+                <SquarePen className="size-4" /> @{user?.username}
+              </button>
             </div>
 
             <GenerateQrButton link={fullLink} />

@@ -97,7 +97,7 @@ export const DashboardClient = () => {
           label="Active Events"
           value={eventStats.activeEvents}
           icon={Calendar}
-          subLabel="Currenty ongoing"
+          subLabel="Currently ongoing"
           hasColor
         />
         <StatCard

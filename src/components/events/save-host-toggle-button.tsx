@@ -15,7 +15,7 @@ import type { RootState } from "@/redux/store";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  channelId: string | null;
+  channelId?: string | null;
   hostId?: string | null;
   className?: string;
   iconClassName?: string;

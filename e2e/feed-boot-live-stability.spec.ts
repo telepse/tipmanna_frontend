@@ -38,7 +38,9 @@ test.describe("Feed boot stability (live backend)", () => {
         slideCount = await page.locator("[data-explore-slide]").count();
         expect(state).toBe("scroll");
         expect(slideCount).toBeGreaterThanOrEqual(4);
-        await expect(page.getByTestId("explore-feed-skeleton")).not.toBeVisible();
+        await expect(
+          page.getByTestId("explore-feed-skeleton")
+        ).not.toBeVisible();
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);
         state = "fail";

@@ -54,7 +54,7 @@ export default function TopEvents({ events = [] }: Props) {
 
   return (
     <section className="wrapper section py-12">
-      <div className="flex items-center justify-between">
+      <div className="flex gap-4">
         <div className="flex flex-col">
           <h2 id="top-events-heading">
             <Title size="lg">
@@ -66,19 +66,18 @@ export default function TopEvents({ events = [] }: Props) {
           </h2>
         </div>
 
-        <Button
-          size={isMobile ? "sm" : "lg"}
+        <button
           onClick={handleJoinClick}
           aria-label="Join an event to start tipping"
           aria-haspopup="dialog"
-          className=""
+          className="mt-6 block flex cursor-pointer items-center gap-2 text-sm underline underline-offset-2 sm:text-base"
         >
           Find an event{" "}
           <ArrowRight
             className="-rotate-45"
             aria-hidden="true"
           />
-        </Button>
+        </button>
       </div>
 
       {/* Small and medium screens */}

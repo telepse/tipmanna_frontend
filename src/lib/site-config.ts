@@ -87,6 +87,16 @@ export function isUnifiedDiscoverNavEnabled(): boolean {
   return raw !== "0" && raw !== "false";
 }
 
+/**
+ * Host creator `@username` page: flat TikTok-style channel grid (no event headers).
+ * Set `NEXT_PUBLIC_HOST_CREATOR_CHANNELS_FLAT_GRID=true` to enable.
+ */
+export function isHostCreatorChannelsFlatGridEnabled(): boolean {
+  const raw =
+    process.env.NEXT_PUBLIC_HOST_CREATOR_CHANNELS_FLAT_GRID?.trim().toLowerCase();
+  return raw === "1" || raw === "true";
+}
+
 function parseHostList(raw: string | undefined, fallback: string[]): string[] {
   if (!raw?.trim()) return fallback;
   return raw

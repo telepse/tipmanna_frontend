@@ -29,7 +29,7 @@ export default function NewTrustBadges() {
 
   return (
     <section
-      className="section"
+      className="section -mt-8"
       aria-labelledby="trust-badges-heading"
       role="region"
     >

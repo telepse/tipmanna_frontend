@@ -1321,6 +1321,7 @@ export const ChannelClient = ({
               tippingCharacters={tipPriceCatalog}
               onContinueToTip={() => setIsTipDrawerOpen(true)}
               hostName={currentContent?.event?.hostName}
+              hostUsername={currentContent?.event?.username}
             />
 
             {showInfo && (

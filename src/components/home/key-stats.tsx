@@ -99,7 +99,7 @@ function weeklySubtitle(
 ): string | undefined {
   if (delta == null || delta <= 0) return undefined;
   const formatted = formatWithCommas(delta);
-  return isMoney ? `+£${formatted} last week` : `+${formatted} last week`;
+  return isMoney ? `£${formatted} last week` : `${formatted} last week`;
 }
 
 export default function KeyStats({ stats }: Props) {
@@ -172,7 +172,7 @@ export default function KeyStats({ stats }: Props) {
           <div className="relative col-span-full grid grid-cols-2 gap-4 sm:grid-cols-2 sm:gap-6 lg:col-span-7">
             <StatCard
               label={`(${liveStats.successfulTransactions}) Supporter Participation`}
-              value={liveStats.totalTipsReceived}
+              value={liveStats.totalTipsReceived - liveStats.lastWeek.totalTipsReceived}
               subtitle={weeklySubtitle(
                 liveStats.lastWeek.totalTipsReceived,
                 true
@@ -180,18 +180,18 @@ export default function KeyStats({ stats }: Props) {
               isMoney
             />
             <StatCard
-              label="Videos Published"
-              value={liveStats.activeYoutubeLinks}
+              label="Channels Created"
+              value={liveStats.activeYoutubeLinks - liveStats.lastWeek.activeYoutubeLinks}
               subtitle={weeklySubtitle(liveStats.lastWeek.activeYoutubeLinks)}
             />
             <StatCard
-              label="Communities Created"
-              value={liveStats.communitiesCreated}
+              label="Communities Started"
+              value={liveStats.communitiesCreated - liveStats.lastWeek.communitiesCreated}
               subtitle={weeklySubtitle(liveStats.lastWeek.communitiesCreated)}
             />
             <StatCard
               label="TV Total Plays"
-              value={liveStats.totalEncounters}
+              value={liveStats.totalEncounters - liveStats.lastWeek.totalEncounters}
               subtitle={weeklySubtitle(liveStats.lastWeek.totalEncounters)}
             />
 

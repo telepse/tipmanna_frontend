@@ -49,7 +49,7 @@ export const TopEventCard = ({
       <Link
         href={`/room/${roomId}`}
         prefetch={true}
-        className="relative"
+        className="relative block"
       >
         <Image
           src={eventBanner}

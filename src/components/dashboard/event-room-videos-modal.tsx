@@ -165,7 +165,7 @@ export function EventRoomVideosModal({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className="flex max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden sm:max-w-lg">
+      <DialogContent className="flex max-h-[80vh] flex-col gap-0 overflow-y-scroll sm:max-w-lg">
         <DialogHeader className="shrink-0 pr-6">
           <DialogTitle>Event videos</DialogTitle>
           <DialogDescription>

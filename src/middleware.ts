@@ -58,6 +58,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(dest, 308);
   }
 
+  const creatorHandleMatch = url.pathname.match(/^\/@([^/]+)\/?$/);
+  if (creatorHandleMatch) {
+    url.pathname = `/creator/${creatorHandleMatch[1]}`;
+    return NextResponse.rewrite(url);
+  }
+
   return NextResponse.next();
 }
 

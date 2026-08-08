@@ -45,8 +45,11 @@ export default function Features() {
   }, []);
 
   return (
-    <section className="wrapper section items-center">
-      <Badge title="Create" />
+    <section className="wrapper section items-center py-6 lg:py-12">
+      <Badge
+        title="Create"
+        isWhite={true}
+      />
 
       <h2
         id="features-heading"
@@ -92,7 +95,7 @@ export default function Features() {
 
       <Button
         size="lg"
-        className="shadow-primary mt-8 w-fit border bg-white text-black shadow hover:bg-black/80 hover:text-white"
+        className="bg-primary mt-8 w-fit text-white shadow-[4px_4px_0px_black] hover:bg-black/80 hover:text-white"
         onClick={() => setOpenPopup(true)}
       >
         Create your channel{" "}

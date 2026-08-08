@@ -7,6 +7,7 @@ import { Slide } from "react-slideshow-image";
 import "react-slideshow-image/dist/styles.css";
 import { Title } from "../shared/title";
 import { Paragraph } from "../shared/paragraph";
+import { useMediaQuery } from "react-responsive";
 
 const slideProperties = {
   duration: 5000,
@@ -19,11 +20,10 @@ const slideProperties = {
 };
 
 export const ContinousEngagement = () => {
+  const isMobile = useMediaQuery({ maxWidth: "500px" });
+
   return (
-    <section
-      className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat lg:mt-12"
-      style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
-    >
+    <section className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat lg:mt-12">
       <div className="wrapper section flex w-full flex-col items-center">
         <Title
           align="center"
@@ -56,31 +56,45 @@ export const ContinousEngagement = () => {
                     alt={slide.alt}
                     fill
                     className="object-cover"
-                    sizes="100vw"
+                    sizes="90vw"
                     quality={90}
                   />
 
-                  <div className="bg-primary/70 border-primary absolute bottom-4 left-4 rounded-2xl border-2 p-4 text-sm">
-                    <Paragraph
-                      size="lg"
-                      weight="bold"
-                      color="white"
-                    >
-                      {slide.title}
-                    </Paragraph>
-                    <Paragraph
-                      size="xs"
-                      color="white"
-                      className="-mt-2"
-                    >
-                      {slide.alt}
-                    </Paragraph>
-                  </div>
+                  {!isMobile && (
+                    <div className="bg-primary border-primary absolute bottom-4 left-4 flex items-center gap-2 rounded-2xl border-2 p-4 text-sm">
+                      <Paragraph
+                        size="sm"
+                        color="white"
+                        className="-mt-2"
+                      >
+                        {slide.title} - {slide.alt}
+                      </Paragraph>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </Slide>
         </div>
+
+        {isMobile && (
+          <Slide {...slideProperties}>
+            {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
+              <div
+                key={slide.image}
+                className="w-full"
+              >
+                <Paragraph
+                  size="sm"
+                  color="white"
+                  className="-mt-2"
+                >
+                  {slide.title} - {slide.alt}
+                </Paragraph>
+              </div>
+            ))}
+          </Slide>
+        )}
 
         <div className="border-primary self-start border-l-2 p-4">
           <Paragraph size="sm">

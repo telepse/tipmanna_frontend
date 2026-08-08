@@ -67,6 +67,8 @@ interface Props {
   /** After saving draft locally: close comment drawer and open tip UI (parent owns drawer open state). */
   onContinueToTip?: () => void;
   hostName?: string;
+  /** Host @username from the already-loaded video/event payload (instant display). */
+  hostUsername?: string;
   /** Bump to refetch share/save metrics without closing the drawer. */
   metricsRefreshKey?: number;
 }
@@ -85,6 +87,7 @@ export const CommentDrawer = ({
   tippingCharacters,
   onContinueToTip,
   hostName,
+  hostUsername,
   metricsRefreshKey,
 }: Props) => {
   const dispatch = useDispatch();
@@ -151,6 +154,8 @@ export const CommentDrawer = ({
   const metrics = drawerData?.metrics;
   const channelMeta = drawerData?.channel;
   const hostMeta = drawerData?.host;
+
+  const resolvedHostUsername = hostMeta?.username ?? hostUsername?.trim() ?? "";
 
   const engagementInitial = useMemo(() => {
     if (!metrics) return null;
@@ -474,9 +479,11 @@ export const CommentDrawer = ({
               <h4 className="flex items-center gap-1 text-sm font-semibold">
                 <span className="text-primary">Creator</span>
                 <span>
-                  {hostMeta?.firstName ?? hostName}{" "}
+                  {hostMeta?.firstName ?? hostName?.split(" ")[0]}{" "}
                   <span className="text-muted-foreground text-[10px]">
-                    {hostMeta?.username ? `@${hostMeta.username}` : null}{" "}
+                    {resolvedHostUsername
+                      ? `@${resolvedHostUsername}`
+                      : null}{" "}
                   </span>
                 </span>
                 <SaveHostToggleButton
