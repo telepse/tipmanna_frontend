@@ -1328,19 +1328,24 @@ export const ExploreFeedClient = forwardRef<
 
   useEffect(() => {
     const onCreatorUsernameChanged = (event: Event) => {
-      const detail = (event as CustomEvent<CreatorUsernameChangedDetail>).detail;
+      const detail = (event as CustomEvent<CreatorUsernameChangedDetail>)
+        .detail;
       if (!detail?.previousUsername || !detail.username) return;
 
-      setItems(prev =>
-        patchExploreFeedHostUsername(
-          prev,
-          detail.previousUsername,
-          detail.username
-        ) as typeof prev
+      setItems(
+        prev =>
+          patchExploreFeedHostUsername(
+            prev,
+            detail.previousUsername,
+            detail.username
+          ) as typeof prev
       );
       setCreatorDrawerUsername(current => {
         if (!current) return current;
-        const previous = detail.previousUsername.trim().replace(/^@/, "").toLowerCase();
+        const previous = detail.previousUsername
+          .trim()
+          .replace(/^@/, "")
+          .toLowerCase();
         if (current.toLowerCase() === previous) {
           return resolveCreatorUsernameAlias(detail.username);
         }

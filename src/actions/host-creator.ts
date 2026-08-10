@@ -50,6 +50,7 @@ export type HostCreatorEvent = {
   startTime: string;
   endTime: string;
   eventDate: string;
+  organizationName: string | null;
 };
 
 export type HostCreatorCommunity = {

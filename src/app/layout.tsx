@@ -45,9 +45,9 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata = {
-  title: "Tipmanna",
+  title: "Tipmanna TV — Community-powered realtime media 💎",
   description:
-    "Tipmanna is a platform for tippers to tip their favorite hosts.",
+    "Discover creators, communities, and live TV experiences where audiences participate, support, and engage together in realtime.",
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",

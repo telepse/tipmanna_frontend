@@ -18,8 +18,10 @@ import {
   CircleX,
   Copy,
   Check,
+  UserRound,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { motion, useReducedMotion } from "framer-motion";
 
 // Local imports
 import type {
@@ -43,17 +45,11 @@ import {
   buildCreatorProfileShareUrl,
 } from "@/lib/creator-profile-url";
 import { copyShareUrl } from "@/lib/copy-share-url";
-import {
-  cn,
-  formatCurrency,
-  formatDate,
-  getEventDuration,
-  getEventStatus,
-  getStatusColor,
-} from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { RootState } from "@/redux/store";
 import { formatCreatorProfileCategoryLabel } from "@/schemas/creator.schema";
 import { useRouter } from "next/navigation";
+import { TopEventCard } from "../home/top-event-card";
 
 const PLACEHOLDER_AVATAR =
   "https://res.cloudinary.com/tipmanna/image/upload/v1786172267/user_sce6gw.png";
@@ -174,11 +170,12 @@ export function HostCreatorPageClient({
             {eventTabEvents.length === 0 ? (
               <EmptyTabMessage message="No events created yet." />
             ) : (
-              <div className="grid grid-cols-3 gap-4 sm:gap-8">
+              <div className="grid grid-cols-3 gap-4">
                 {eventTabEvents.map(event => (
                   <EventBannerSection
                     key={event.id}
                     event={event}
+                    hostFullName={host.fullName}
                   />
                 ))}
               </div>
@@ -290,7 +287,9 @@ function ProfileHeader({
             variant="outline"
             size="sm"
             className="shrink-0"
-            aria-label={copied ? "Creator link copied" : "Copy creator profile link"}
+            aria-label={
+              copied ? "Creator link copied" : "Copy creator profile link"
+            }
             title={copied ? "Copied!" : "Copy creator profile link"}
             onClick={() => void copyLink()}
           >
@@ -563,73 +562,30 @@ function ChannelsTabContent({
   );
 }
 
-function EventBannerSection({ event }: { event: HostCreatorEvent }) {
-  const bannerSrc = event.eventBanner?.trim() || DEFAULT_EVENT_BANNER;
-  const roomHref = `/room/${encodeURIComponent(event.id)}`;
-
-  console.log("event", event);
-
-  const status = getEventStatus(
-    event.eventDate,
-    event.startTime,
-    event.endTime
-  );
-  const statusColor = getStatusColor(status);
+function EventBannerSection({
+  event,
+  hostFullName,
+}: {
+  event: HostCreatorEvent;
+  hostFullName: string;
+}) {
+  const organizationName =
+    event.organizationName?.trim() || hostFullName.trim() || "Creator";
 
   return (
-    <article className="relative w-full overflow-hidden">
-      <Link
-        href={event.locked ? "#" : roomHref}
-        aria-disabled={event.locked}
-        className={cn(
-          "relative block aspect-[21/9] w-full bg-neutral-100",
-          event.locked && "pointer-events-none"
-        )}
-      >
-        <img
-          src={bannerSrc}
-          alt=""
-          className="size-full object-cover"
-        />
-        {event.locked ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <LockedBadge />
-          </div>
-        ) : null}
-      </Link>
-
-      <span
-        className={`absolute top-4 left-4 w-fit rounded-md px-2 py-1 text-sm ${statusColor}`}
-      >
-        {status}
-      </span>
-
-      <div className="space-y-2 px-4 py-4">
-        <h5 className="font-semibold">{event.eventName}</h5>
-        <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <p>
-            <span className="text-foreground font-medium">
-              {event.numOfTips.toLocaleString()}
-            </span>{" "}
-            tips
-          </p>
-          <p>
-            <span className="text-foreground font-medium">
-              {formatCurrency(event.amountRaised)}
-            </span>{" "}
-            raised
-          </p>
-
-          <span className="text-muted-foreground flex gap-2 text-sm">
-            {getEventDuration(event.startTime, event.endTime)}
-          </span>
-
-          <span className="text-muted-foreground flex items-center gap-2 text-sm">
-            {formatDate(event.eventDate)}
-          </span>
-        </div>
-      </div>
-    </article>
+    <TopEventCard
+      key={event.id}
+      channelId={event.id}
+      roomId={event.id}
+      eventBanner={event.eventBanner ?? ""}
+      eventName={event.eventName}
+      organizationName={organizationName}
+      amountRaised={event.amountRaised}
+      numOfTips={event.numOfTips}
+      eventDate={event.eventDate}
+      startTime={event.startTime}
+      endTime={event.endTime}
+    />
   );
 }
 
@@ -641,6 +597,9 @@ function CommunityBannerSection({
   const joinHref = exploreCommunityJoinHref(community.id);
   const bannerSrc = community.eventRoomBanner?.trim() || DEFAULT_EVENT_BANNER;
   const logoSrc = community.logoUrl?.trim() || null;
+  const description = community.description?.trim() || null;
+
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <article className="w-full overflow-hidden">
@@ -648,27 +607,65 @@ function CommunityBannerSection({
         href={community.locked ? "#" : joinHref}
         aria-disabled={community.locked}
         className={cn(
-          "relative block aspect-[21/9] w-full bg-neutral-100",
+          "relative block w-full bg-neutral-100",
           community.locked && "pointer-events-none"
         )}
       >
-        <img
-          src={bannerSrc}
-          alt=""
-          className="size-full object-cover"
-        />
+        <section className="relative mx-auto flex min-h-[25vh] max-w-4xl flex-col items-center justify-center rounded-2xl bg-cover bg-fixed bg-center bg-no-repeat bg-blend-multiply lg:min-h-[30vh]">
+          <Image
+            src="/patterns/tip_what_you_can.webp"
+            fill
+            alt=""
+            aria-hidden
+            priority={false}
+          />
 
-        {logoSrc ? (
-          <div className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
-            <div className="size-16 overflow-hidden rounded-full border-2 border-white bg-neutral-100 shadow-md sm:size-20 md:size-24">
-              <img
+          <motion.div
+            initial={{ y: 0 }}
+            animate={shouldReduceMotion ? {} : { y: [-5, 0, -5] }}
+            transition={{ repeat: Infinity, duration: 1.2 }}
+            className="absolute top-16 left-8 -rotate-[90deg]"
+          >
+            <Image
+              src="/vectors/bolt_right.webp"
+              alt="Bolt right"
+              width={50}
+              height={50}
+              className="size-10 drop-shadow-[5px_5px_0px_black] sm:size-12"
+            />
+          </motion.div>
+
+          <motion.div
+            initial={{ y: 0 }}
+            animate={shouldReduceMotion ? {} : { y: [-5, 0, -5] }}
+            transition={{ repeat: Infinity, duration: 1.2 }}
+            className="absolute top-8 right-8"
+          >
+            <Image
+              src="/vectors/bolt_right.webp"
+              alt="Bolt right"
+              width={50}
+              height={50}
+              className="size-10 drop-shadow-[5px_5px_0px_black] sm:size-12"
+            />
+          </motion.div>
+
+          <div className="bg-secondary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md p-3">
+            {logoSrc ? (
+              <Image
                 src={logoSrc}
-                alt=""
-                className="size-full object-cover"
+                alt={community.name}
+                width={100}
+                height={100}
+                className="size-[100px] rounded object-cover"
               />
-            </div>
+            ) : (
+              <div className="border-moonstone-blue flex size-24 items-center justify-center rounded-md border-2 bg-white">
+                <UserRound className="size-12" />
+              </div>
+            )}
           </div>
-        ) : null}
+        </section>
 
         {community.locked ? (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
@@ -677,8 +674,22 @@ function CommunityBannerSection({
         ) : null}
       </Link>
 
-      <div className="space-y-2 px-4 py-4">
-        <h3 className="font-semibold">{community.name}</h3>
+      <div className="space-y-3 px-4 py-4">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <h3 className="font-semibold">{community.name}</h3>
+            {description ? (
+              <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                {description}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm italic">
+                No community description yet.
+              </p>
+            )}
+          </div>
+        </div>
+
         <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
           <p>
             <span className="text-foreground font-medium">
