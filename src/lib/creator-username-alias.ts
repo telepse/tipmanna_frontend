@@ -2,7 +2,8 @@ import { normalizeCreatorUsername } from "@/lib/creator-profile-url";
 
 const ALIAS_STORAGE_KEY = "tipmanna:creator-username-aliases";
 
-export const CREATOR_USERNAME_CHANGED_EVENT = "tipmanna:creator-username-changed";
+export const CREATOR_USERNAME_CHANGED_EVENT =
+  "tipmanna:creator-username-changed";
 
 export type CreatorUsernameChangedDetail = {
   previousUsername: string;
@@ -85,9 +86,12 @@ export function dispatchCreatorUsernameChanged(
   if (typeof window === "undefined") return;
   recordCreatorUsernameChange(detail.previousUsername, detail.username);
   window.dispatchEvent(
-    new CustomEvent<CreatorUsernameChangedDetail>(CREATOR_USERNAME_CHANGED_EVENT, {
-      detail,
-    })
+    new CustomEvent<CreatorUsernameChangedDetail>(
+      CREATOR_USERNAME_CHANGED_EVENT,
+      {
+        detail,
+      }
+    )
   );
 }
 

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 
 import { getPrimaryOrigin } from "@/lib/site-config";
 
-const title = "Watch & tip live — Tipmanna TV";
+const title = "Tipmanna TV — Community-powered realtime media 💎";
 const description =
-  "Tipmanna TV is the flagship feed for community clips, live events, and realtime tipping.";
+  "Discover creators, communities, and live TV experiences where audiences participate, support, and engage together in realtime.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getPrimaryOrigin()),

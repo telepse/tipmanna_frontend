@@ -13,6 +13,8 @@ describe("creator-profile-url", () => {
 
   it("builds public creator profile paths", () => {
     expect(buildCreatorProfileSharePath("emediongudoh")).toBe("/@emediongudoh");
-    expect(buildCreatorProfileSharePath("@emediongudoh")).toBe("/@emediongudoh");
+    expect(buildCreatorProfileSharePath("@emediongudoh")).toBe(
+      "/@emediongudoh"
+    );
   });
 });

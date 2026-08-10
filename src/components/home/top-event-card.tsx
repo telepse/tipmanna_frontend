@@ -98,7 +98,7 @@ export const TopEventCard = ({
         >
           <span className="text-sm">
             By: {organizationName.substring(0, 20)}
-            {eventName.length > 20 ? "..." : ""}{" "}
+            {organizationName.length > 20 ? "..." : ""}{" "}
           </span>
           <span className="text-muted-foreground flex gap-2 text-sm">
             <Users className="size-4" /> {numOfTips} Tips

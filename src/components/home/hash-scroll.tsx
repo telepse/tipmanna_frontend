@@ -25,7 +25,10 @@ function resolveScrollTargetId(
   });
 }
 
-function scrollToElement(id: string, behavior: ScrollBehavior = "auto"): boolean {
+function scrollToElement(
+  id: string,
+  behavior: ScrollBehavior = "auto"
+): boolean {
   const element = document.getElementById(id);
   if (!element) return false;
 
