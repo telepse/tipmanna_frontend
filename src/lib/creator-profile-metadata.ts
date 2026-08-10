@@ -87,7 +87,7 @@ export function buildCreatorProfileMetadata(
   const description = `Watch the latest ${categoryLabel} videos, live streams, and exclusive content from ${name}. Join ${membersLabel} members today!`;
 
   const ogDescription = snippet
-    ? `Check out ${name}'s profile on Tipmanna. ${membersLabel} members. ${snippet}`
+    ? `Check out ${name}'s profile on Tipmanna. ${numOfVideosLabel} videos, ${membersLabel} subscribers. ${snippet}`
     : `Check out ${name}'s profile on Tipmanna. ${numOfVideosLabel} videos, ${membersLabel} subscribers. Explore videos, channels, and communities.`;
 
   const twitterDescription = `Explore exclusive ${categoryLabel} content from ${name} on Tipmanna.`;
@@ -109,6 +109,8 @@ export function buildCreatorProfileMetadata(
       images: [
         {
           url: avatarUrl,
+          width: 100,
+          height: 100,
           alt: `${name} profile picture`,
         },
       ],
