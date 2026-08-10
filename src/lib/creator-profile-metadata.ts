@@ -20,6 +20,14 @@ export function formatCompactSocialCount(value: number): string {
   }).format(Math.max(0, value));
 }
 
+export function formatVideoCount(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(Math.max(0, value));
+}
+
 export function toAbsoluteMediaUrl(
   url: string | null | undefined
 ): string | null {
@@ -66,9 +74,10 @@ export function buildCreatorProfileMetadata(
 ): Metadata {
   const { host, stats } = profile;
   const handle = host.username.trim();
-  const name = host.fullName.trim() || handle;
+  const name = host.fullName.trim().split(" ")[0] || handle;
   const categoryLabel = formatCreatorProfileCategoryLabel(host.profileCategory);
   const membersLabel = formatCompactSocialCount(stats.totalSubscribers);
+  const numOfVideosLabel = formatVideoCount(stats.totalVideos);
   const pageUrl = buildCreatorProfileShareUrl(handle);
   const avatarUrl = resolveCreatorAvatarUrl(profile);
   const bannerUrl = resolveCreatorBannerUrl(profile);
@@ -79,7 +88,7 @@ export function buildCreatorProfileMetadata(
 
   const ogDescription = snippet
     ? `Check out ${name}'s profile on Tipmanna. ${membersLabel} members. ${snippet}`
-    : `Check out ${name}'s profile on Tipmanna. ${membersLabel} members. Explore videos, channels, and communities.`;
+    : `Check out ${name}'s profile on Tipmanna. ${numOfVideosLabel} videos, ${membersLabel} subscribers. Explore videos, channels, and communities.`;
 
   const twitterDescription = `Explore exclusive ${categoryLabel} content from ${name} on Tipmanna.`;
 
@@ -100,8 +109,6 @@ export function buildCreatorProfileMetadata(
       images: [
         {
           url: avatarUrl,
-          width: 400,
-          height: 400,
           alt: `${name} profile picture`,
         },
       ],
