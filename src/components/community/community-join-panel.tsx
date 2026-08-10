@@ -506,9 +506,7 @@ export function CommunityJoinPanel({
           </motion.div>
 
           <div className="bg-secondary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md p-3 shadow-lg">
-          
-
-{communityLogoSrc ? (
+            {communityLogoSrc ? (
               <Image
                 src={communityLogoSrc!}
                 alt={form.name}
@@ -522,7 +520,6 @@ export function CommunityJoinPanel({
                 <UserRound className="size-12" />
               </div>
             )}
-            
           </div>
         </section>
 

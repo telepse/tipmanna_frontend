@@ -12,6 +12,24 @@ const DEFAULT_BANNER =
 
 const BIO_SNIPPET_MAX = 120;
 
+export const OG_SQUARE_IMAGE_SIZE = 200;
+
+export function toOgSquareImageUrl(
+  url: string,
+  options?: { focusFace?: boolean }
+): string {
+  const size = OG_SQUARE_IMAGE_SIZE;
+  const crop = options?.focusFace
+    ? `c_fill,w_${size},h_${size},g_face`
+    : `c_fill,w_${size},h_${size}`;
+
+  if (!url.includes("/image/upload/") || /\/image\/upload\/c_/.test(url)) {
+    return url;
+  }
+
+  return url.replace("/image/upload/", `/image/upload/${crop}/`);
+}
+
 export function formatCompactSocialCount(value: number): string {
   return new Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -80,10 +98,7 @@ export function buildCreatorProfileMetadata(
   const numOfVideosLabel = formatVideoCount(stats.totalVideos);
   const pageUrl = buildCreatorProfileShareUrl(handle);
   const avatarUrl = resolveCreatorAvatarUrl(profile);
-  const ogAvatarUrl = avatarUrl.replace(
-    "/image/upload/",
-    "/image/upload/c_fill,w_200,h_200,g_face/"
-  );
+  const ogAvatarUrl = toOgSquareImageUrl(avatarUrl, { focusFace: true });
   const bannerUrl = resolveCreatorBannerUrl(profile);
   const snippet = bioSnippet(host.pageDescription);
 
@@ -113,8 +128,8 @@ export function buildCreatorProfileMetadata(
       images: [
         {
           url: ogAvatarUrl,
-          width: 200,
-          height: 200,
+          width: OG_SQUARE_IMAGE_SIZE,
+          height: OG_SQUARE_IMAGE_SIZE,
           alt: `${name} profile picture`,
         },
       ],
