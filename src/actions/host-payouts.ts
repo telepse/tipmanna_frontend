@@ -59,11 +59,21 @@ export type HostPayoutObligationRow = {
   }>;
 };
 
+export type HostPayoutRequestStatus = {
+  profileComplete: boolean;
+  profileAccountType: "INDIVIDUAL" | "ORGANIZATION" | null;
+  coOwnerOutstandingMinor: number;
+  hasCoOwnerObligations: boolean;
+  payoutsFrozen: boolean;
+  canRequest: boolean;
+};
+
 export type HostPayoutSummaryResponse = {
   host: HostPayoutObligationRow[];
   communities: HostPayoutObligationRow[];
   summary: HostPayoutSummaryBlock;
   pendingSettlements: HostPayoutSettlementRow[];
+  requestPayout: HostPayoutRequestStatus;
 };
 
 export async function getMyLegacyCommunityPayoutsAction(token?: string | null) {
@@ -102,5 +112,21 @@ export async function acceptPayoutSettlementAction(
       cache: "no-store",
     },
     "acceptPayoutSettlementAction"
+  );
+}
+
+export async function requestHostPayoutAction(token?: string | null) {
+  return runServerFetch<{
+    ok?: boolean;
+    message?: string;
+    pendingMinor?: number;
+  }>(
+    `${api()}/me/payouts/request`,
+    {
+      method: "POST",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "requestHostPayoutAction"
   );
 }

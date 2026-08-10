@@ -443,12 +443,33 @@ function OwnerBankCard({
   );
 }
 
-function SendCard({ item }: { item: BankItem }) {
+function SendCard({
+  item,
+  eventId,
+}: {
+  item: BankItem;
+  eventId?: string | null;
+}) {
   const [copied, setCopied] = useState(false);
 
+  const getShareUrl = () => {
+    if (eventId?.trim() && item.channel.id?.trim()) {
+      return buildContentShareUrl({
+        eventId: eventId.trim(),
+        channelId: item.channel.id,
+      });
+    }
+    return item.channel.shareUrl;
+  };
+
   const copy = async () => {
+    const shareUrl = getShareUrl();
+    if (!shareUrl) {
+      toast.error("Could not build video link");
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(item.channel.shareUrl);
+      await copyShareUrl(shareUrl);
       setCopied(true);
       toast.success("Link copied");
       setTimeout(() => setCopied(false), 2000);
@@ -478,7 +499,7 @@ function SendCard({ item }: { item: BankItem }) {
           </>
         ) : (
           <>
-            <Copy className="mr-1 size-4" /> Copy share link
+            <Copy className="mr-1 size-4" /> Copy link
           </>
         )}
       </Button>
@@ -1948,8 +1969,7 @@ export function HostCommunityClient() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-muted-foreground text-sm">
-                      Your submissions. Copy link to share the room frame (no
-                      preview card).
+                      Your submissions. Copy link to share a specific video.
                     </p>
                     <Button
                       type="button"
@@ -1968,6 +1988,7 @@ export function HostCommunityClient() {
                         <SendCard
                           key={item.id}
                           item={item}
+                          eventId={selected.eventId}
                         />
                       ))}
                     </div>

@@ -8,8 +8,6 @@ import { useSearchParams } from "next/navigation";
 import { EmbeddedSupportChat } from "@/components/support/embedded-support-chat";
 import { HostYoutubeChannelsSettings } from "@/components/dashboard/host-youtube-channels-settings";
 import { HostProfileAddressFields } from "@/components/dashboard/host-profile-address-fields";
-import { IncompleteProfilePayoutModal } from "@/components/dashboard/incomplete-profile-payout-modal";
-import { usePayoutProfileGuard } from "@/hooks/use-payout-profile-guard";
 import { isUkCountry } from "@/lib/is-uk-country";
 
 // THird-party imports
@@ -212,24 +210,12 @@ export const SettingsClient = () => {
     },
   });
 
-  const {
-    guardPayoutNavigation,
-    modalOpen: payoutModalOpen,
-    setModalOpen: setPayoutModalOpen,
-    profileLabel,
-    profileAccountType: payoutProfileAccountType,
-  } = usePayoutProfileGuard();
-
   const showIndividualProfileTab =
     profileAccountType === null || profileAccountType === "INDIVIDUAL";
   const showOrganisationProfileTab =
     profileAccountType === null || profileAccountType === "ORGANIZATION";
 
   const handleTabChange = (value: string) => {
-    if (value === "payment_payouts" && !guardPayoutNavigation()) {
-      return;
-    }
-
     if (value === "individual_profile" && !showIndividualProfileTab) {
       return;
     }
@@ -1681,13 +1667,6 @@ export const SettingsClient = () => {
           </DialogHeader>
         </DialogContent>
       </Dialog>
-
-      <IncompleteProfilePayoutModal
-        open={payoutModalOpen}
-        onOpenChange={setPayoutModalOpen}
-        settingsUrl={`/host/${eventSlug}/settings?tab=${payoutProfileAccountType === "ORGANIZATION" ? "organisation_profile" : "individual_profile"}`}
-        profileLabel={profileLabel}
-      />
     </Tabs>
   );
 };

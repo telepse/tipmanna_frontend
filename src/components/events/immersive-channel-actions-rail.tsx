@@ -16,11 +16,9 @@ import {
   WhatsappIcon,
   WhatsappShareButton,
 } from "next-share";
-import { CommentDrawer } from "@/components/events/comment-drawer";
 import { TipsDrawer } from "@/components/events/tips-drawer";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import { ShareCopyLinkControl } from "@/components/shared/share-copy-link-control";
-import type { RoomCharacter } from "@/types";
 import type { VideoPlayerRef } from "@/components/events/video-player";
 import { trackTvShareClick } from "@/lib/tvAnalytics";
 import { buildContentShareUrl } from "@/lib/public-video-url";
@@ -30,17 +28,10 @@ type Props = {
   eventId: string;
   channelId: string | null;
   videoTitle: string;
-  videoDescription: string;
   numOfTips: number;
-  characters: RoomCharacter[];
-  /** Opens tip drawer after comment flow */
-  onContinueToTip?: () => void;
-  hostName?: string | null;
-  hostUsername?: string | null;
   isSaved: boolean;
   saveBusy: boolean;
   onSaveClick: () => void;
-  commentOpen: boolean;
   onCommentOpenChange: (open: boolean) => void;
   /** Positioning wrapper — parent supplies placement (channel uses absolute right-8 bottom-4). */
   className?: string;
@@ -60,9 +51,7 @@ type Props = {
   reelMuted?: boolean;
   videoTipCount?: number;
   eventRoomTipCount?: number;
-  /** Passed through to CommentDrawer to refetch share/save counts. */
-  metricsRefreshKey?: number;
-  /** Called when the share menu opens (parent bumps metricsRefreshKey). */
+  /** Called when the share menu opens (parent bumps metrics refresh). */
   onShareOpen?: () => void;
   /** When true, omit host save and volume controls (shown elsewhere). */
   hideHostAndAudio?: boolean;
@@ -75,16 +64,10 @@ export function ImmersiveChannelActionsRail({
   eventId,
   channelId,
   videoTitle,
-  videoDescription,
   numOfTips,
-  characters,
-  onContinueToTip,
-  hostName,
-  hostUsername,
   isSaved,
   saveBusy,
   onSaveClick,
-  commentOpen,
   onCommentOpenChange,
   className,
   iconButtonClassName = "cursor-pointer rounded bg-black/50 p-1",
@@ -98,7 +81,6 @@ export function ImmersiveChannelActionsRail({
   reelMuted = true,
   videoTipCount,
   eventRoomTipCount,
-  metricsRefreshKey,
   onShareOpen,
   hideHostAndAudio = false,
 }: Props) {
@@ -221,11 +203,16 @@ export function ImmersiveChannelActionsRail({
 
         <button
           type="button"
+          data-testid="explore-rail-comment"
+          title="Comments"
           className={iconButtonClassName}
-          onClick={e => {
+          onPointerDown={e => {
             e.stopPropagation();
             setShowShare(false);
             onCommentOpenChange(true);
+          }}
+          onClick={e => {
+            e.stopPropagation();
           }}
         >
           <MessageCircleMore className={iconClassName} />
@@ -246,21 +233,6 @@ export function ImmersiveChannelActionsRail({
           </button>
         ) : null}
       </div>
-
-      <CommentDrawer
-        isCommentDrawerOpen={commentOpen}
-        setIsCommentDrawerOpen={onCommentOpenChange}
-        metricsRefreshKey={metricsRefreshKey}
-        eventId={eventId}
-        channelId={channelId}
-        videoTitle={videoTitle}
-        videoDescription={videoDescription}
-        numOfTips={numOfTips}
-        tippingCharacters={characters}
-        onContinueToTip={onContinueToTip}
-        hostName={hostName ?? undefined}
-        hostUsername={hostUsername ?? undefined}
-      />
 
       <TipsDrawer
         open={tipsOpen}

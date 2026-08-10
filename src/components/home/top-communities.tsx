@@ -20,9 +20,9 @@ export default function TopCommunities({
 }: Props) {
   const pathname = usePathname();
   const isPartnerPage = pathname.includes("/partner");
-  const featuredCommunities = communities.filter(
-    c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem)
-  );
+  const featuredCommunities = communities
+    .filter(c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem))
+    .slice(0, 3);
 
   if (featuredCommunities.length === 0 && !showWhenEmpty) {
     return null;

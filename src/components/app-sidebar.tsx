@@ -47,8 +47,6 @@ import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel
 import { getNotificationsUnreadCountAction } from "@/actions/notifications";
 import { cn } from "@/lib/utils";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
-import { usePayoutProfileGuard } from "@/hooks/use-payout-profile-guard";
-import { IncompleteProfilePayoutModal } from "@/components/dashboard/incomplete-profile-payout-modal";
 
 interface Props {
   numOfEvents: number;
@@ -61,13 +59,6 @@ export function AppSidebar({ numOfEvents }: Props) {
   const pathname = usePathname();
   const [notifUnread, setNotifUnread] = useState(0);
   const { hasActivePremium } = useHostPlanCapabilities();
-  const {
-    guardPayoutNavigation,
-    modalOpen: payoutModalOpen,
-    setModalOpen: setPayoutModalOpen,
-    profileLabel,
-    profileAccountType,
-  } = usePayoutProfileGuard();
 
   const role = user?.role;
   const hostSubscriptionTier =
@@ -219,8 +210,6 @@ export function AppSidebar({ numOfEvents }: Props) {
     },
   ];
 
-  const payoutNavTitles = new Set(["Revenue & Payouts", "Community payouts"]);
-
   return (
     <Sidebar className="overflow-y-auto [scrollbar-color:#d1d5db_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-track]:bg-transparent">
       <SidebarContent>
@@ -241,11 +230,8 @@ export function AppSidebar({ numOfEvents }: Props) {
                       }
                       target={item.target}
                       onClick={event => {
-                        if (
-                          payoutNavTitles.has(item.title) &&
-                          !guardPayoutNavigation(event)
-                        ) {
-                          return;
+                        if (item.freezed || item.plan === false) {
+                          event.preventDefault();
                         }
                       }}
                       className={cn(
@@ -338,13 +324,6 @@ export function AppSidebar({ numOfEvents }: Props) {
           </div>
         </div>
       </SidebarContent>
-
-      <IncompleteProfilePayoutModal
-        open={payoutModalOpen}
-        onOpenChange={setPayoutModalOpen}
-        settingsUrl={`/host/${eventSlug}/settings?tab=${profileAccountType === "ORGANIZATION" ? "organisation_profile" : "individual_profile"}`}
-        profileLabel={profileLabel}
-      />
     </Sidebar>
   );
 }

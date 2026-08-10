@@ -264,8 +264,13 @@ export function exploreReelDockScrubberClassName(
     : "pointer-events-auto z-[88] w-full max-w-full px-1 sm:pr-14";
 }
 
-export function exploreReelTapCaptureClassName(): string {
-  return "absolute inset-x-0 top-0 bottom-[var(--explore-reel-dock-h,4.75rem)] z-30";
+export function exploreReelTapCaptureClassName(
+  mode: ExploreReelLayoutMode
+): string {
+  const railClearance = exploreReelIsDesktopMode(mode)
+    ? "right-[6rem]"
+    : "right-[4.75rem]";
+  return `absolute left-0 top-0 ${railClearance} bottom-[var(--explore-reel-dock-h,4.75rem)] z-30`;
 }
 
 export function exploreReelTitleOnVideoClassName(
@@ -359,8 +364,8 @@ export function exploreReelActionsRailClassName(
   mode: ExploreReelLayoutMode
 ): string {
   return exploreReelIsDesktopMode(mode)
-    ? "pointer-events-auto absolute top-1/2 right-10 z-[90] -translate-y-1/2"
-    : "pointer-events-auto absolute top-1/2 right-8 z-[90] -translate-y-1/2";
+    ? "pointer-events-auto absolute top-1/2 right-10 z-[140] -translate-y-1/2"
+    : "pointer-events-auto absolute top-1/2 right-8 z-[140] -translate-y-1/2";
 }
 
 export function exploreReelRailIconButtonClassName(
@@ -397,8 +402,8 @@ export function exploreReelTipsProgressWrapperClassName(
   mode: ExploreReelLayoutMode
 ): string {
   return exploreReelIsDesktopMode(mode)
-    ? "pointer-events-auto absolute top-1/2 right-5 z-[90] -translate-y-1/2"
-    : "pointer-events-auto absolute top-1/2 right-4 z-[90] -translate-y-1/2";
+    ? "pointer-events-none absolute top-1/2 right-5 z-[80] -translate-y-1/2"
+    : "pointer-events-none absolute top-1/2 right-4 z-[80] -translate-y-1/2";
 }
 
 export function exploreReelTipsChipClassName(

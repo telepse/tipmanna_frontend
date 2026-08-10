@@ -28,6 +28,7 @@ export function useHostPayoutSummary() {
     pendingSettlements: data?.pendingSettlements ?? [],
     host: data?.host ?? [],
     communities: data?.communities ?? [],
+    requestPayout: data?.requestPayout ?? null,
     isLoading,
     isError: !!error,
     refresh: mutate,

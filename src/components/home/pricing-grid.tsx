@@ -108,10 +108,7 @@ export default function NewPricingGrid() {
   );
 
   return (
-    <section
-      id="pricing"
-      className="wrapper section scroll-mt-24 items-center"
-    >
+    <section className="wrapper section scroll-mt-24 items-center">
       <Badge title="Pricing" />
 
       <h2

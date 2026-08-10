@@ -180,6 +180,48 @@ export async function awaitCreatorProfilePrefetch(username: string) {
   return fetchCreatorProfileCached(username);
 }
 
+export function invalidateCreatorProfile(username: string | null | undefined) {
+  const handle = normalizeCreatorUsername(username);
+  if (!handle) return;
+  const key = creatorProfileKey(handle);
+  creatorProfileCache.delete(key);
+  creatorProfileInflight.delete(key);
+  try {
+    sessionStorage.removeItem(`${SESSION_PREFIX}${key}`);
+  } catch {
+    /* noop */
+  }
+}
+
+export function migrateCreatorProfileCacheUsername(
+  previousUsername: string,
+  nextUsername: string
+) {
+  const previous = normalizeCreatorUsername(previousUsername);
+  const next = normalizeCreatorUsername(nextUsername);
+  if (!previous || !next || previous.toLowerCase() === next.toLowerCase()) {
+    return;
+  }
+
+  const previousKey = creatorProfileKey(previous);
+  const nextKey = creatorProfileKey(next);
+  const cached =
+    creatorProfileCache.get(previousKey) ??
+    readSession<HostCreatorPublicProfile>(previousKey);
+  if (cached) {
+    const migrated = {
+      ...cached,
+      host: {
+        ...cached.host,
+        username: next,
+      },
+    };
+    creatorProfileCache.set(nextKey, migrated);
+    writeSession(nextKey, migrated);
+  }
+  invalidateCreatorProfile(previous);
+}
+
 export async function fetchCommentDrawerCached(
   eventId: string,
   channelId: string,

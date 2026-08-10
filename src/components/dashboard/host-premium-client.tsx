@@ -44,6 +44,10 @@ export const HostPremiumClient = () => {
   useEffect(() => {
     if (tabFromUrl === "advanced_video_analytics") {
       setTabType("advanced_video_analytics");
+      return;
+    }
+    if (tabFromUrl === "video_coowners") {
+      setTabType("video_coowners");
     }
   }, [tabFromUrl]);
 

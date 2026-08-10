@@ -1,24 +1,43 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
-const MAX_ATTEMPTS = 60;
+import { resolvePartnerScrollTargetId } from "@/lib/partner-page-metadata";
+
+const MAX_ATTEMPTS = 80;
 const RETRY_DELAY_MS = 50;
 
-// App Router scroll restoration can run after first paint — retry through that window.
-const SCROLL_WAVES_MS = [0, 50, 150, 300, 500, 800, 1200, 2000];
+// App Router scroll restoration and lazy sections can run after first paint.
+const SCROLL_WAVES_MS = [0, 50, 150, 300, 500, 800, 1200, 2000, 3200, 4500];
 
-function scrollToElement(id: string): boolean {
+function resolveScrollTargetId(
+  pathname: string,
+  section: string | null
+): string | null {
+  const hashId = window.location.hash.replace(/^#/, "").trim();
+  if (hashId) return hashId;
+
+  return resolvePartnerScrollTargetId({
+    pathname,
+    section,
+    hash: window.location.hash,
+  });
+}
+
+function scrollToElement(id: string, behavior: ScrollBehavior = "auto"): boolean {
   const element = document.getElementById(id);
   if (!element) return false;
 
-  element.scrollIntoView({ behavior: "smooth", block: "start" });
+  element.scrollIntoView({ behavior, block: "start" });
   return true;
 }
 
-function scheduleScrollToHash(hash: string, startDelayMs: number): () => void {
-  const id = hash.replace(/^#/, "");
+function scheduleScrollToId(
+  id: string,
+  startDelayMs: number,
+  behavior: ScrollBehavior = "auto"
+): () => void {
   if (!id) return () => {};
 
   let attempts = 0;
@@ -27,7 +46,7 @@ function scheduleScrollToHash(hash: string, startDelayMs: number): () => void {
 
   const tryScroll = () => {
     if (cancelled) return;
-    if (scrollToElement(id)) return;
+    if (scrollToElement(id, behavior)) return;
 
     attempts += 1;
     if (attempts < MAX_ATTEMPTS) {
@@ -43,12 +62,16 @@ function scheduleScrollToHash(hash: string, startDelayMs: number): () => void {
   };
 }
 
-function scrollToCurrentHash(): () => void {
-  const hash = window.location.hash;
-  if (!hash) return () => {};
+function scrollToCurrentTarget(
+  pathname: string,
+  section: string | null,
+  behavior: ScrollBehavior = "auto"
+): () => void {
+  const id = resolveScrollTargetId(pathname, section);
+  if (!id) return () => {};
 
   const cleanups = SCROLL_WAVES_MS.map(delay =>
-    scheduleScrollToHash(hash, delay)
+    scheduleScrollToId(id, delay, behavior)
   );
 
   return () => cleanups.forEach(cleanup => cleanup());
@@ -56,13 +79,15 @@ function scrollToCurrentHash(): () => void {
 
 export default function HashScroll() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const section = searchParams.get("section");
 
   useEffect(() => {
-    let activeCleanup = scrollToCurrentHash();
+    let activeCleanup = scrollToCurrentTarget(pathname, section, "auto");
 
     const handleHashChange = () => {
       activeCleanup();
-      activeCleanup = scrollToCurrentHash();
+      activeCleanup = scrollToCurrentTarget(pathname, section, "smooth");
     };
 
     window.addEventListener("hashchange", handleHashChange);
@@ -70,7 +95,7 @@ export default function HashScroll() {
       activeCleanup();
       window.removeEventListener("hashchange", handleHashChange);
     };
-  }, [pathname]);
+  }, [pathname, section]);
 
   return null;
 }

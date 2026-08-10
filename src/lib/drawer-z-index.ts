@@ -3,7 +3,11 @@ export const IMMERSIVE_CHROME_Z_INDEX = "z-[130]";
 /** TV control rail — below tip drawer, above video chrome. */
 export const TV_RAIL_Z_INDEX = "z-[140]";
 /** Shared z-index tiers for drawers and auth modals. */
+export const DRAWER_OVERLAY_Z_INDEX = "z-[99989]";
 export const DRAWER_Z_INDEX = "z-[99990]";
+/** Above explore reel chrome (~13100), below explore create/sign-in modals (100020+). */
+export const IMMERSIVE_DRAWER_OVERLAY_Z_INDEX = "z-[100018]";
+export const IMMERSIVE_DRAWER_Z_INDEX = "z-[100019]";
 export const DRAWER_NESTED_Z_INDEX = "z-[99995]";
 export const AUTH_MODAL_OVERLAY_Z_INDEX = "z-[99998]";
 export const AUTH_MODAL_Z_INDEX = "z-[99999]";
