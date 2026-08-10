@@ -80,6 +80,10 @@ export function buildCreatorProfileMetadata(
   const numOfVideosLabel = formatVideoCount(stats.totalVideos);
   const pageUrl = buildCreatorProfileShareUrl(handle);
   const avatarUrl = resolveCreatorAvatarUrl(profile);
+  const ogAvatarUrl = avatarUrl.replace(
+    "/image/upload/",
+    "/image/upload/c_fill,w_200,h_200,g_face/"
+  );
   const bannerUrl = resolveCreatorBannerUrl(profile);
   const snippet = bioSnippet(host.pageDescription);
 
@@ -108,9 +112,9 @@ export function buildCreatorProfileMetadata(
       username: handle,
       images: [
         {
-          url: avatarUrl,
-          width: 100,
-          height: 100,
+          url: ogAvatarUrl,
+          width: 200,
+          height: 200,
           alt: `${name} profile picture`,
         },
       ],

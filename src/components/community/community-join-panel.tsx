@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
-import { Loader2, Copy } from "lucide-react";
+import { Loader2, Copy, UserRound } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
@@ -398,8 +398,10 @@ export function CommunityJoinPanel({
     const paidFee = form.subscriptionFeeGbp?.trim();
     const showPaidSubscribe =
       paidFee != null && paidFee !== "" && Number(paidFee) > 0;
-    const communityLogoSrc = form.logoUrl?.trim() || "/logos/logo_2.png";
+    const communityLogoSrc = form.logoUrl?.trim();
     const typeLabel = formatCommunityTypeLabel(form.communityType);
+
+    console.log("form", form);
 
     joinBody = (
       <section
@@ -504,14 +506,23 @@ export function CommunityJoinPanel({
           </motion.div>
 
           <div className="bg-secondary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md p-3 shadow-lg">
-            <Image
-              src={communityLogoSrc}
-              alt={form.name}
-              width={100}
-              height={100}
-              className="size-[100px] rounded object-cover"
-              unoptimized={communityLogoSrc.startsWith("http")}
-            />
+          
+
+{communityLogoSrc ? (
+              <Image
+                src={communityLogoSrc!}
+                alt={form.name}
+                width={100}
+                height={100}
+                className="size-[100px] rounded object-cover"
+                unoptimized={communityLogoSrc?.startsWith("http")}
+              />
+            ) : (
+              <div className="border-moonstone-blue flex size-24 items-center justify-center rounded-md border-2 bg-white">
+                <UserRound className="size-12" />
+              </div>
+            )}
+            
           </div>
         </section>
 
