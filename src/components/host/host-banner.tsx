@@ -33,6 +33,8 @@ import { useImageUpload } from "@/hooks/use-image-upload";
 import { uploadImage } from "@/lib/cloudinary";
 import { cn } from "@/lib/utils";
 import { updateTipper } from "@/features/auth-slice";
+import { dispatchCreatorUsernameChanged } from "@/lib/creator-username-alias";
+import { migrateCreatorProfileCacheUsername } from "@/lib/drawer-prefetch-cache";
 import type { RootState } from "@/redux/store";
 import { CreatorFormData, creatorSchema } from "@/schemas/creator.schema";
 import { Input } from "../ui/input";
@@ -260,6 +262,11 @@ export const HostBanner = () => {
 
       if (updated.username !== previousUsername) {
         dispatch(updateTipper({ username: updated.username }));
+        migrateCreatorProfileCacheUsername(previousUsername, updated.username);
+        dispatchCreatorUsernameChanged({
+          previousUsername,
+          username: updated.username,
+        });
       }
 
       toast.success("Creator profile updated successfully");

@@ -1452,13 +1452,16 @@ export const EventDetailClient = ({
                           <FormItem>
                             {isEditable(`content-${content.id}`) ? (
                               <FormControl>
-                                <Input
+                                <Textarea
                                   {...field}
-                                  className="h-8 text-sm"
+                                  rows={4}
+                                  className="min-h-20 resize-y bg-gray-50 text-sm"
                                 />
                               </FormControl>
                             ) : (
-                              <p className="text-sm">{field.value}</p>
+                              <p className="text-sm whitespace-pre-wrap">
+                                {field.value}
+                              </p>
                             )}
                           </FormItem>
                         )}

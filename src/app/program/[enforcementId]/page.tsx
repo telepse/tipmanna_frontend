@@ -7,6 +7,7 @@ import { fetchGlobalProgramBootstrap } from "@/lib/program-api";
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 import { formatProgramScheduleDisplay } from "@/lib/utils";
 import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
+import { resolveProgramOgImageUrl } from "@/lib/program-og-image";
 
 type Props = {
   params: Promise<{ enforcementId: string }>;
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!program) return { title: "Program | Tipmanna" };
 
   const url = getPublicAbsoluteUrl(`/program/${enforcementId}`);
-  const thumb = program.items.find(i => i.thumbnailUrl)?.thumbnailUrl;
+  const thumb = resolveProgramOgImageUrl(program);
   const broadcasterName = program.community?.name ?? "Tipmanna";
   const scheduledLabel = formatProgramScheduleDisplay(program.scheduledAt);
   const title = `${program.title} is live on ${broadcasterName} TV ${scheduledLabel} 📅⚡`;
@@ -55,7 +56,7 @@ export default async function GlobalProgramPage({ params }: Props) {
     title: program.title,
     startDate: program.scheduledAt,
     url: getPublicAbsoluteUrl(`/program/${enforcementId}`),
-    image: program.items.find(i => i.thumbnailUrl)?.thumbnailUrl ?? null,
+    image: resolveProgramOgImageUrl(program),
     organizerName: program.community?.name ?? "Tipmanna TV",
   });
 

@@ -7,6 +7,7 @@ import {
 import "./globals.css";
 import Script from "next/script";
 import type { Viewport } from "next";
+import { Suspense } from "react";
 
 // Third-party imports
 import Providers from "@/app/providers";
@@ -165,7 +166,9 @@ export default function RootLayout({
           <WebVitalsReporter />
           <TextTipDraftModalLayer />
 
-          <HashScroll />
+          <Suspense fallback={null}>
+            <HashScroll />
+          </Suspense>
 
           {children}
         </Providers>

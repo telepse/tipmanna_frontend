@@ -8,6 +8,7 @@ import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
 import { Button } from "@/components/ui/button";
 import { useSelector } from "react-redux";
 import { listMyCommunitySendsAction } from "@/actions/communities";
+import { copyShareUrl } from "@/lib/copy-share-url";
 import type { RootState } from "@/redux/store";
 
 type SendItem = {
@@ -36,8 +37,12 @@ function SendRow({ item }: { item: SendItem }) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
+    if (!item.channel.shareUrl) {
+      toast.error("Could not build video link");
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(item.channel.shareUrl);
+      await copyShareUrl(item.channel.shareUrl);
       setCopied(true);
       toast.success("Link copied");
       setTimeout(() => setCopied(false), 2000);
@@ -74,7 +79,7 @@ function SendRow({ item }: { item: SendItem }) {
           </>
         ) : (
           <>
-            <Copy className="mr-1 size-4" /> Copy share link
+            <Copy className="mr-1 size-4" /> Copy link
           </>
         )}
       </Button>

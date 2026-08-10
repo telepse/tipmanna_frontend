@@ -7,6 +7,7 @@ import { fetchCommunityProgramBootstrap } from "@/lib/program-api";
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 import { formatProgramScheduleDisplay } from "@/lib/utils";
 import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
+import { resolveProgramOgImageUrl } from "@/lib/program-og-image";
 
 type Props = {
   params: Promise<{ communityId: string; enforcementId: string }>;
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const url = getPublicAbsoluteUrl(
     `/c/${communityId}/program/${enforcementId}`
   );
-  const thumb = program.items.find(i => i.thumbnailUrl)?.thumbnailUrl;
+  const thumb = resolveProgramOgImageUrl(program);
   const broadcasterName = program.community?.name ?? "Tipmanna";
   const scheduledLabel = formatProgramScheduleDisplay(program.scheduledAt);
   const title = `${program.title} is live on ${broadcasterName} TV ${scheduledLabel} 📅⚡`;
@@ -63,7 +64,7 @@ export default async function CommunityProgramPage({ params }: Props) {
     title: program.title,
     startDate: program.scheduledAt,
     url: getPublicAbsoluteUrl(`/c/${communityId}/program/${enforcementId}`),
-    image: program.items.find(i => i.thumbnailUrl)?.thumbnailUrl ?? null,
+    image: resolveProgramOgImageUrl(program),
     organizerName: program.community?.name ?? "Community TV",
   });
 

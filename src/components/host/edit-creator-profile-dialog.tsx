@@ -29,11 +29,20 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { updateTipper } from "@/features/auth-slice";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { uploadImage } from "@/lib/cloudinary";
+import { dispatchCreatorUsernameChanged } from "@/lib/creator-username-alias";
+import { migrateCreatorProfileCacheUsername } from "@/lib/drawer-prefetch-cache";
 import {
   CREATOR_PROFILE_DIALOG_OVERLAY_Z_INDEX,
   CREATOR_PROFILE_DIALOG_Z_INDEX,
@@ -156,8 +165,6 @@ export function EditCreatorProfileDialog({
       externalLinkLabel: "",
     },
   });
-
-  const selectedProfileCategory = creatorForm.watch("profileCategory");
 
   const savedProfileImageUrl = creatorForm.watch("profileImageUrl");
 
@@ -326,6 +333,11 @@ export function EditCreatorProfileDialog({
 
       if (updated.username !== previousUsername) {
         dispatch(updateTipper({ username: updated.username }));
+        migrateCreatorProfileCacheUsername(previousUsername, updated.username);
+        dispatchCreatorUsernameChanged({
+          previousUsername,
+          username: updated.username,
+        });
       }
 
       onSaved?.({
@@ -505,38 +517,32 @@ export function EditCreatorProfileDialog({
                 <FormField
                   control={creatorForm.control}
                   name="profileCategory"
-                  render={() => (
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Profile category</FormLabel>
                       <FormDescription className="text-muted-foreground text-xs">
                         Choose one tag that best describes your page.
                       </FormDescription>
-                      <div className="flex flex-wrap gap-2">
-                        {CREATOR_PROFILE_CATEGORIES.map(category => {
-                          const selected = selectedProfileCategory === category;
-                          return (
-                            <button
+                      <Select
+                        value={field.value ?? "content_creator"}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CREATOR_PROFILE_CATEGORIES.map(category => (
+                            <SelectItem
                               key={category}
-                              type="button"
-                              onClick={() =>
-                                creatorForm.setValue(
-                                  "profileCategory",
-                                  category,
-                                  { shouldDirty: true, shouldValidate: true }
-                                )
-                              }
-                              className={cn(
-                                "cursor-pointer rounded-md border px-2 py-1 text-xs font-medium transition-colors sm:text-sm",
-                                selected
-                                  ? "border-black bg-black text-white"
-                                  : "bg-neutral-100 hover:bg-neutral-200"
-                              )}
+                              value={category}
                             >
                               {CREATOR_PROFILE_CATEGORY_LABELS[category]}
-                            </button>
-                          );
-                        })}
-                      </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

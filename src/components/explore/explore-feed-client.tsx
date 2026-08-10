@@ -29,6 +29,12 @@ import {
 } from "lucide-react";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
+import {
+  CREATOR_USERNAME_CHANGED_EVENT,
+  patchExploreFeedHostUsername,
+  resolveCreatorUsernameAlias,
+  type CreatorUsernameChangedDetail,
+} from "@/lib/creator-username-alias";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
 
@@ -103,6 +109,7 @@ import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { CreateDialog } from "@/components/home/create-dialog";
 import { ImmersiveChannelActionsRail } from "@/components/events/immersive-channel-actions-rail";
+import { CommentDrawer } from "@/components/events/comment-drawer";
 import { TipsDrawer } from "@/components/events/tips-drawer";
 import { getSavedVideosForTipper } from "@/actions/events";
 import {
@@ -482,7 +489,7 @@ function ExploreFeedSlideVideo({
             </div>
           ) : null}
           <div
-            className={exploreReelTapCaptureClassName()}
+            className={exploreReelTapCaptureClassName(layoutMode)}
             onPointerDownCapture={e => {
               e.preventDefault();
               e.stopPropagation();
@@ -617,9 +624,8 @@ function resolveExploreItemHostUsername(item: unknown): string | null {
     host?: { username?: string | null };
   };
   const username = row.event?.username ?? row.host?.username;
-  return typeof username === "string" && username.trim()
-    ? username.trim().replace(/^@/, "")
-    : null;
+  if (typeof username !== "string" || !username.trim()) return null;
+  return resolveCreatorUsernameAlias(username);
 }
 
 type ExploreReelSlideTitleProps = {
@@ -888,6 +894,13 @@ export const ExploreFeedClient = forwardRef<
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [exploreCommentOpen, setExploreCommentOpen] = useState(false);
+  const openExploreCommentDrawer = useCallback((open: boolean) => {
+    if (open) {
+      setIsTipDrawerOpen(false);
+      setTipsListOpen(false);
+    }
+    setExploreCommentOpen(open);
+  }, []);
   const [creatorDrawerOpen, setCreatorDrawerOpen] = useState(false);
   const [creatorDrawerUsername, setCreatorDrawerUsername] = useState<
     string | null
@@ -903,7 +916,7 @@ export const ExploreFeedClient = forwardRef<
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
 
   const openCreatorDrawer = useCallback((username: string) => {
-    const handle = username.trim().replace(/^@/, "");
+    const handle = resolveCreatorUsernameAlias(username);
     if (!handle) return;
     setCreatorDrawerUsername(handle);
     setCreatorDrawerOpen(true);
@@ -1311,6 +1324,39 @@ export const ExploreFeedClient = forwardRef<
 
   const handleExplorePlayerError = useCallback(() => {
     setPlayerRetryKey(k => k + 1);
+  }, []);
+
+  useEffect(() => {
+    const onCreatorUsernameChanged = (event: Event) => {
+      const detail = (event as CustomEvent<CreatorUsernameChangedDetail>).detail;
+      if (!detail?.previousUsername || !detail.username) return;
+
+      setItems(prev =>
+        patchExploreFeedHostUsername(
+          prev,
+          detail.previousUsername,
+          detail.username
+        ) as typeof prev
+      );
+      setCreatorDrawerUsername(current => {
+        if (!current) return current;
+        const previous = detail.previousUsername.trim().replace(/^@/, "").toLowerCase();
+        if (current.toLowerCase() === previous) {
+          return resolveCreatorUsernameAlias(detail.username);
+        }
+        return current;
+      });
+    };
+
+    window.addEventListener(
+      CREATOR_USERNAME_CHANGED_EVENT,
+      onCreatorUsernameChanged
+    );
+    return () =>
+      window.removeEventListener(
+        CREATOR_USERNAME_CHANGED_EVENT,
+        onCreatorUsernameChanged
+      );
   }, []);
 
   useEffect(() => {
@@ -2161,7 +2207,8 @@ export const ExploreFeedClient = forwardRef<
         ref={scrollRef}
         className={cn(
           "h-full min-h-0 w-full max-w-[100vw] min-w-0 flex-1 touch-pan-y snap-y snap-mandatory overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]",
-          isTipDrawerOpen && "pointer-events-none select-none"
+          (isTipDrawerOpen || exploreCommentOpen) &&
+            "pointer-events-none select-none"
         )}
       >
         {items.map((item, i) => {
@@ -2283,7 +2330,7 @@ export const ExploreFeedClient = forwardRef<
                               }}
                               onClick={e => {
                                 e.stopPropagation();
-                                setExploreCommentOpen(true);
+                                openExploreCommentDrawer(true);
                               }}
                             >
                               <ArrowRight className="size-4" />
@@ -2321,7 +2368,7 @@ export const ExploreFeedClient = forwardRef<
                             reelMuted={reelMuted}
                             setReelMuted={setReelMuted}
                             videoRef={videoRef}
-                            setExploreCommentOpen={setExploreCommentOpen}
+                            setExploreCommentOpen={openExploreCommentDrawer}
                             active={active}
                             metrics={metrics}
                             metricsRestrictedCommunity={
@@ -2341,7 +2388,7 @@ export const ExploreFeedClient = forwardRef<
                             reelMuted={reelMuted}
                             setReelMuted={setReelMuted}
                             videoRef={videoRef}
-                            setExploreCommentOpen={setExploreCommentOpen}
+                            setExploreCommentOpen={openExploreCommentDrawer}
                             active={active}
                             metrics={metrics}
                             metricsRestrictedCommunity={
@@ -2367,27 +2414,11 @@ export const ExploreFeedClient = forwardRef<
                                 ? active.title
                                 : ""
                             }
-                            videoDescription={
-                              typeof (
-                                active as { description?: string } | undefined
-                              )?.description === "string"
-                                ? String(
-                                    (active as { description: string })
-                                      .description
-                                  )
-                                : ""
-                            }
                             numOfTips={liveNumOfTips}
-                            characters={characters as RoomCharacter[]}
-                            onContinueToTip={() => setIsTipDrawerOpen(true)}
-                            hostName={active?.event?.hostName ?? null}
-                            hostUsername={active?.event?.username ?? null}
                             isSaved={isExploreChannelSaved}
                             saveBusy={saveBusy}
                             onSaveClick={() => void handleExploreSaveToggle()}
-                            commentOpen={exploreCommentOpen}
-                            onCommentOpenChange={setExploreCommentOpen}
-                            metricsRefreshKey={exploreCommentMetricsRefreshKey}
+                            onCommentOpenChange={openExploreCommentDrawer}
                             onShareOpen={() =>
                               setExploreCommentMetricsRefreshKey(k => k + 1)
                             }
@@ -2447,8 +2478,9 @@ export const ExploreFeedClient = forwardRef<
                             <button
                               type="button"
                               title="View tips"
-                              className={exploreReelTipsChipClassName(
-                                slideLayoutMode
+                              className={cn(
+                                exploreReelTipsChipClassName(slideLayoutMode),
+                                "pointer-events-auto"
                               )}
                               onClick={e => {
                                 e.stopPropagation();
@@ -2545,7 +2577,7 @@ export const ExploreFeedClient = forwardRef<
                             onClick={e => {
                               e.preventDefault();
                               e.stopPropagation();
-                              setExploreCommentOpen(true);
+                              openExploreCommentDrawer(true);
                             }}
                           >
                             <MessageCircle
@@ -2613,6 +2645,29 @@ export const ExploreFeedClient = forwardRef<
               ? active.numOfTips
               : liveNumOfTips
           }
+        />
+      ) : null}
+
+      {activeEventId ? (
+        <CommentDrawer
+          isCommentDrawerOpen={exploreCommentOpen}
+          setIsCommentDrawerOpen={openExploreCommentDrawer}
+          metricsRefreshKey={exploreCommentMetricsRefreshKey}
+          eventId={activeEventId}
+          channelId={activeChannelId != null ? String(activeChannelId) : null}
+          videoTitle={typeof active?.title === "string" ? active.title : ""}
+          videoDescription={
+            typeof (active as { description?: string } | undefined)
+              ?.description === "string"
+              ? String((active as { description: string }).description)
+              : ""
+          }
+          numOfTips={liveNumOfTips}
+          tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+          onContinueToTip={() => setIsTipDrawerOpen(true)}
+          hostName={active?.event?.hostName ?? undefined}
+          hostUsername={active?.event?.username ?? undefined}
+          stackAboveImmersive
         />
       ) : null}
 

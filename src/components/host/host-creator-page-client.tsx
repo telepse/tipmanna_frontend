@@ -39,6 +39,11 @@ import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
+  buildCreatorProfileSharePath,
+  buildCreatorProfileShareUrl,
+} from "@/lib/creator-profile-url";
+import { copyShareUrl } from "@/lib/copy-share-url";
+import {
   cn,
   formatCurrency,
   formatDate,
@@ -215,19 +220,23 @@ function ProfileHeader({
   isOwnProfile: boolean;
   editProfileHref: string | null;
 }) {
+  const router = useRouter();
   const [showSecondaryStats, setShowSecondaryStats] = useState(false);
   const [openCreatorDialog, setOpenCreatorDialog] = useState(false);
+  const [displayUsername, setDisplayUsername] = useState(host.username);
   const [profileImageUrl, setProfileImageUrl] = useState(host.profileImageUrl);
   const [pageDescription, setPageDescription] = useState(host.pageDescription);
   const [externalLink, setExternalLink] = useState(host.externalLink);
   const [profileCategory, setProfileCategory] = useState(host.profileCategory);
 
   useEffect(() => {
+    setDisplayUsername(host.username);
     setProfileImageUrl(host.profileImageUrl);
     setPageDescription(host.pageDescription);
     setExternalLink(host.externalLink);
     setProfileCategory(host.profileCategory);
   }, [
+    host.username,
     host.profileImageUrl,
     host.pageDescription,
     host.externalLink,
@@ -239,27 +248,36 @@ function ProfileHeader({
     setPageDescription(payload.pageDescription);
     setExternalLink(payload.externalLink);
     setProfileCategory(payload.profileCategory);
+
+    const nextUsername = payload.username.trim();
+    const previousUsername = displayUsername.trim();
+    setDisplayUsername(nextUsername);
+
+    if (
+      nextUsername &&
+      previousUsername &&
+      nextUsername.toLowerCase() !== previousUsername.toLowerCase()
+    ) {
+      router.replace(buildCreatorProfileSharePath(nextUsername));
+    }
   };
 
   const [copied, setCopied] = useState(false);
 
   const copyLink = async () => {
+    const shareUrl = buildCreatorProfileShareUrl(displayUsername);
+    if (!shareUrl.trim()) {
+      toast.error("Creator profile link is unavailable");
+      return;
+    }
+
     try {
-      const pageUrl = window.location.href;
-
-      // Copy to clipboard
-      await navigator.clipboard.writeText(pageUrl);
-
-      // Update copy state
+      await copyShareUrl(shareUrl);
       setCopied(true);
-
-      // Show toast notification
       toast.success("Creator page link copied");
-
-      // Set timeout on copy
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy link");
+    } catch {
+      toast.error("Could not copy link");
     }
   };
 
@@ -272,7 +290,9 @@ function ProfileHeader({
             variant="outline"
             size="sm"
             className="shrink-0"
-            onClick={copyLink}
+            aria-label={copied ? "Creator link copied" : "Copy creator profile link"}
+            title={copied ? "Copied!" : "Copy creator profile link"}
+            onClick={() => void copyLink()}
           >
             {copied ? (
               <>
@@ -354,7 +374,7 @@ function ProfileHeader({
 
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-sm font-semibold">
-                @{host.username}
+                @{displayUsername}
               </span>
 
               <span className="rounded-md bg-gray-200 px-2 py-1 text-sm">

@@ -37,6 +37,7 @@ import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { ContentCardSkeleton } from "./tv-loading-skeletons";
 import { VirtualRail } from "./virtual-rail";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 import { isOptimizableImageSrc } from "@/lib/image-src";
 import {
   DISCOVERY_TRENDING_SEARCHES,
@@ -59,6 +60,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { isLiveStreamContent } from "@/lib/discover-content-routing";
+import { buildChannelSharePath } from "@/lib/public-video-url";
 
 const CONTENT_CARD_MIN = "min-w-[220px] sm:min-w-[270px] flex-shrink-0";
 const PROGRAM_CARD_MIN = "min-w-[160px] sm:min-w-[220px] flex-shrink-0";
@@ -210,6 +212,14 @@ export function DiscoverPanel({
   suppressInlinePlaybackContentId = null,
   surface = "exploreTab",
 }: DiscoverPanelProps) {
+  const featuredTopCommunities = useMemo(
+    () =>
+      topCommunities
+        .filter(c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem))
+        .slice(0, 3),
+    [topCommunities]
+  );
+
   const form = useForm<{
     searchTerm: string;
   }>({
@@ -342,26 +352,19 @@ export function DiscoverPanel({
 
   const { push, prefetch } = useAppRouter();
 
-  // Legacy /content and /channel navigation — disabled; Discover clips open in Explore.
-  // const goToChannel = useCallback(
-  //   (eventId: string) => {
-  //     const href = `/content/${eventId}`;
-  //     prefetch(href);
-  //     push(href);
-  //   },
-  //   [push, prefetch]
-  // );
-  //
-  // const openLiveStreamContent = useCallback(
-  //   (content: Content) => {
-  //     const eventId = content.event?.id;
-  //     if (!eventId) return;
-  //     const href = `/channel/${eventId}`;
-  //     prefetch(href);
-  //     push(href);
-  //   },
-  //   [push, prefetch]
-  // );
+  const openLiveStreamInChannel = useCallback(
+    (content: Pick<Content, "id" | "event">) => {
+      const eventId = content.event?.id;
+      if (!eventId) return;
+      const href = buildChannelSharePath({
+        eventId,
+        channelId: content.id,
+      });
+      prefetch(href);
+      push(href);
+    },
+    [push, prefetch]
+  );
 
   const playContentInExplore = useCallback(
     (content: Content) => {
@@ -400,9 +403,13 @@ export function DiscoverPanel({
 
   const resolveContentClick = useCallback(
     (content: Content) => {
+      if (isLiveStreamContent(content)) {
+        openLiveStreamInChannel(content);
+        return;
+      }
       openDiscoverContent(content);
     },
-    [openDiscoverContent]
+    [openDiscoverContent, openLiveStreamInChannel]
   );
 
   const hasDiscoveryResults = useMemo(() => {
@@ -465,10 +472,8 @@ export function DiscoverPanel({
         return;
       }
       if (item.kind === "livestream") {
-        playContentInExplore({
+        openLiveStreamInChannel({
           id: item.stream.id,
-          title: item.stream.title,
-          url: "",
           event: { id: item.stream.eventId },
         });
         return;
@@ -477,7 +482,7 @@ export function DiscoverPanel({
       prefetch(href);
       push(href);
     },
-    [resolveContentClick, prefetch, push, playContentInExplore]
+    [resolveContentClick, prefetch, push, openLiveStreamInChannel]
   );
 
   const selectedTagLabel = useMemo(
@@ -887,11 +892,8 @@ export function DiscoverPanel({
                                   data-testid="discover-live-stream-card"
                                   data-search-index={idx}
                                   onClick={() =>
-                                    playContentInExplore({
+                                    openLiveStreamInChannel({
                                       id: stream.id,
-                                      title: stream.title,
-                                      url: "",
-                                      liveStatus: stream.liveStatus,
                                       event: { id: stream.eventId },
                                     })
                                   }
@@ -1177,7 +1179,7 @@ export function DiscoverPanel({
         </div>
 
         {/* TOP COMMUNITIES */}
-        {topCommunities.length > 0 ? (
+        {featuredTopCommunities.length > 0 ? (
           <div className="space-y-4">
             <div className="space-y-1">
               <h5 className="text-xl font-semibold">Top communities</h5>
@@ -1189,7 +1191,7 @@ export function DiscoverPanel({
             <div className="relative">
               <VirtualRail
                 containerRef={topCommunitiesRef}
-                items={topCommunities}
+                items={featuredTopCommunities}
                 getItemKey={community => community.id}
                 itemMinClassName={PROGRAM_CARD_MIN}
                 renderItem={community => (

@@ -1061,7 +1061,13 @@ export default function CommunityHubClient() {
               No active communities to rank yet.
             </p>
           ) : (
-            <ExploreTopCommunitiesGrid communities={catalog?.topByTips ?? []} />
+            <ExploreTopCommunitiesGrid
+              communities={(catalog?.topByTips ?? [])
+                .filter(
+                  c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem)
+                )
+                .slice(0, 3)}
+            />
           )}
         </section>
 

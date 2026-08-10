@@ -30,8 +30,6 @@ import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 import { ACHIEVEMENTS } from "@/constants";
 import type { Event } from "@/types";
-import { usePayoutProfileGuard } from "@/hooks/use-payout-profile-guard";
-import { IncompleteProfilePayoutModal } from "@/components/dashboard/incomplete-profile-payout-modal";
 
 interface Props {
   events: Event[];
@@ -41,13 +39,6 @@ interface Props {
 
 export const HostStats = ({ events, stats, payoutSummary }: Props) => {
   const user = useSelector((state: RootState) => state.auth.user);
-  const {
-    guardPayoutNavigation,
-    modalOpen: payoutModalOpen,
-    setModalOpen: setPayoutModalOpen,
-    profileLabel,
-    profileAccountType,
-  } = usePayoutProfileGuard();
   const params = useParams();
   const eventSlug =
     typeof params?.slug === "string"
@@ -242,12 +233,7 @@ export const HostStats = ({ events, stats, payoutSummary }: Props) => {
               subLabel={`Event tips: ${formatGbpMinor(payoutSummary?.receivedByBranch.eventTipsMinor ?? 0)} · Community: ${formatGbpMinor(payoutSummary?.receivedByBranch.communitySubscriptionMinor ?? 0)}`}
             />
 
-            <Link
-              href={`/host/${eventSlug}/revenue`}
-              onClick={event => {
-                if (!guardPayoutNavigation(event)) return;
-              }}
-            >
+            <Link href={`/host/${eventSlug}/revenue`}>
               <Button
                 size="lg"
                 className="w-full"
@@ -267,12 +253,6 @@ export const HostStats = ({ events, stats, payoutSummary }: Props) => {
           </div>
         </div>
       </div>
-      <IncompleteProfilePayoutModal
-        open={payoutModalOpen}
-        onOpenChange={setPayoutModalOpen}
-        settingsUrl={`/host/${eventSlug}/settings?tab=${profileAccountType === "ORGANIZATION" ? "organisation_profile" : "individual_profile"}`}
-        profileLabel={profileLabel}
-      />
     </div>
   );
 };

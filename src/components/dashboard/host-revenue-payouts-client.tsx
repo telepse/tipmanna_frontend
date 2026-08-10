@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
+import { IncompleteProfilePayoutModal } from "@/components/dashboard/incomplete-profile-payout-modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { acceptPayoutSettlementAction } from "@/actions/host-payouts";
+import {
+  acceptPayoutSettlementAction,
+  requestHostPayoutAction,
+} from "@/actions/host-payouts";
 import { useHostPayoutSummary } from "@/hooks/useHostPayoutSummary";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 import type { RootState } from "@/redux/store";
@@ -27,8 +31,58 @@ export function HostRevenuePayoutsClient() {
   const slug = typeof params?.slug === "string" ? params.slug : "";
   const userId = useSelector((s: RootState) => s.auth.user?.id);
   const authToken = useSelector((s: RootState) => s.auth.token);
-  const { summary, pendingSettlements, host, communities, isLoading, refresh } =
-    useHostPayoutSummary();
+  const {
+    summary,
+    pendingSettlements,
+    host,
+    communities,
+    requestPayout,
+    isLoading,
+    refresh,
+  } = useHostPayoutSummary();
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [requestingPayout, setRequestingPayout] = useState(false);
+
+  const profileAccountType = requestPayout?.profileAccountType ?? "INDIVIDUAL";
+  const profileLabel =
+    profileAccountType === "ORGANIZATION"
+      ? "organisation profile"
+      : "individual profile";
+  const settingsProfileTab =
+    profileAccountType === "ORGANIZATION"
+      ? "organisation_profile"
+      : "individual_profile";
+
+  const handleRequestPayout = async () => {
+    if (!requestPayout) return;
+
+    if (!requestPayout.profileComplete) {
+      setProfileModalOpen(true);
+      return;
+    }
+
+    if (requestPayout.hasCoOwnerObligations) {
+      return;
+    }
+
+    if (!authToken) {
+      toast.error("Not signed in");
+      return;
+    }
+
+    setRequestingPayout(true);
+    try {
+      const res = await requestHostPayoutAction(authToken);
+      if (!res.success) {
+        toast.error(res.message ?? "Could not submit payout request");
+        return;
+      }
+      toast.success(res.data?.message ?? "Payout request submitted");
+      await refresh();
+    } finally {
+      setRequestingPayout(false);
+    }
+  };
 
   const load = useCallback(async () => {
     await refresh();
@@ -67,6 +121,49 @@ export function HostRevenuePayoutsClient() {
         Host payee share is <strong>70%</strong> of gross tips and community
         subscription revenue. Admin settles outstanding balances manually; you
         confirm receipt here.
+      </div>
+
+      {requestPayout?.hasCoOwnerObligations ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          You have outstanding co-owner obligations
+          {requestPayout.coOwnerOutstandingMinor > 0
+            ? ` (${formatGbpMinor(requestPayout.coOwnerOutstandingMinor)})`
+            : ""}
+          . Settle these in{" "}
+          {slug ? (
+            <Link
+              href={`/host/${slug}/host-premium?tab=video_coowners`}
+              className="font-medium underline"
+            >
+              Video Co-owners
+            </Link>
+          ) : (
+            "Video Co-owners"
+          )}{" "}
+          before requesting a payout.
+        </div>
+      ) : null}
+
+      <div className="bg-card flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+        <div>
+          <p className="font-medium">Request payout</p>
+          <p className="text-muted-foreground text-sm">
+            Ask Tipmanna to review and send your pending balance.
+          </p>
+        </div>
+        <Button
+          type="button"
+          disabled={
+            requestingPayout ||
+            isLoading ||
+            !requestPayout ||
+            requestPayout.hasCoOwnerObligations ||
+            (requestPayout.profileComplete && !requestPayout.canRequest)
+          }
+          onClick={() => void handleRequestPayout()}
+        >
+          {requestingPayout ? "Submitting…" : "Request payout"}
+        </Button>
       </div>
 
       {isLoading && !summary ? (
@@ -258,6 +355,16 @@ export function HostRevenuePayoutsClient() {
           </div>
         </>
       )}
+      <IncompleteProfilePayoutModal
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+        settingsUrl={
+          slug
+            ? `/host/${slug}/settings?tab=${settingsProfileTab}`
+            : `/host/settings?tab=${settingsProfileTab}`
+        }
+        profileLabel={profileLabel}
+      />
     </section>
   );
 }

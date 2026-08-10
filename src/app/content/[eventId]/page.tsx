@@ -19,6 +19,10 @@ import { notFound, redirect } from "next/navigation";
 import { ActionResult } from "@/lib/action-fetch";
 import { Metadata } from "next";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
+import {
+  buildOgImageMetadata,
+  resolveVideoOgImageUrl,
+} from "@/lib/video-og-image";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
@@ -66,7 +70,6 @@ export async function generateMetadata({
   >;
   const list = Array.isArray(res.data) ? res.data : [];
   const videoRes = pickContentForPage(list, initialChannelId);
-  console.log("videoRes", videoRes);
 
   const videoHasCoOwner =
     videoRes?.coOwnerNames?.length && videoRes?.coOwnerNames?.length > 0;
@@ -77,6 +80,8 @@ export async function generateMetadata({
   });
   const title = `Watch "${videoRes?.title}" by ${videoHasCoOwner ? videoRes?.coOwnerNames?.join(", ") : videoRes?.event.hostName} 🎬 💎`;
   const description = `Watch this video on Tipmanna and join the experience through comments, reactions, and realtime supporter engagement.`;
+  const ogImage = resolveVideoOgImageUrl(videoRes?.url);
+  const imageMeta = buildOgImageMetadata(ogImage);
 
   return {
     title,
@@ -86,11 +91,13 @@ export async function generateMetadata({
       description,
       url: pageUrl,
       type: "video.other",
+      ...imageMeta.openGraph,
     },
     twitter: {
-      card: "summary_large_image",
+      card: ogImage ? "summary_large_image" : "summary",
       title,
       description,
+      ...imageMeta.twitter,
     },
   };
 }
@@ -215,8 +222,6 @@ export default async function ContentPage({ params, searchParams }: Props) {
           uploadDate: primary.createdAt,
         })
       : null;
-
-  console.log("primary", primary);
 
   return (
     <>

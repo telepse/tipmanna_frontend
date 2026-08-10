@@ -14,13 +14,13 @@ describe("discover content routing", () => {
     expect(isLiveStreamContent({})).toBe(false);
   });
 
-  it("routes live items to explore reel when Explore playback is wired", () => {
+  it("routes live items to channel even when Explore playback is wired", () => {
     const live = { liveStatus: "LIVE" as const };
     expect(resolveDiscoverContentTarget(live, "discovery", false)).toBe(
       "channel"
     );
     expect(resolveDiscoverContentTarget(live, "exploreTab", true)).toBe(
-      "explore-reel"
+      "channel"
     );
   });
 

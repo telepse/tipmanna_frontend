@@ -11,10 +11,15 @@ import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog"
 import {
   applyVideoDeepLinkQuery,
   parseChannelSearchParam,
+  pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import {
+  buildOgImageMetadata,
+  resolveVideoOgImageUrl,
+} from "@/lib/video-og-image";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
@@ -22,6 +27,9 @@ export interface Props {
 }
 
 interface ChannelData {
+  id?: string;
+  url?: string;
+  isDefault?: boolean;
   event: {
     hostName: string;
   };
@@ -33,18 +41,22 @@ interface ChannelData {
  */
 export async function generateMetadata({
   params,
-}: {
-  params: Promise<{ eventId: string }>;
-}): Promise<Metadata> {
+  searchParams,
+}: Props): Promise<Metadata> {
   const { eventId } = await params;
+  const sp = await searchParams;
+  const initialChannelId = parseChannelSearchParam(sp);
 
-  // fetch creator data
   const res = (await getContentChannelAction(eventId)) as ActionResult<
     ChannelData[]
   >;
-  const hostName = res.data?.[0]?.event?.hostName ?? "";
+  const list = Array.isArray(res.data) ? res.data : [];
+  const defaultChannel = pickInitialChannelContent(list, initialChannelId);
+  const hostName = list[0]?.event?.hostName ?? "";
   const creatorFirstName = hostName.split(" ")[0];
   const pageUrl = getPublicAbsoluteUrl(`/channel/${eventId}`);
+  const ogImage = resolveVideoOgImageUrl(defaultChannel?.url);
+  const imageMeta = buildOgImageMetadata(ogImage);
 
   return {
     metadataBase: new URL(getPrimaryOrigin()),
@@ -58,6 +70,13 @@ export async function generateMetadata({
       description: `Discover videos, join live conversations, and support ${creatorFirstName} through realtime visible participation on Tipmanna.`,
       url: pageUrl,
       type: "video.other",
+      ...imageMeta.openGraph,
+    },
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title: `Watch & support ${creatorFirstName} ⚡💎`,
+      description: `Discover videos, join live conversations, and support ${creatorFirstName} through realtime visible participation on Tipmanna.`,
+      ...imageMeta.twitter,
     },
   };
 }
