@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 // Third-party imports
 import { useSelector } from "react-redux";
@@ -55,6 +63,19 @@ import { TopEventCard } from "../home/top-event-card";
 import { CreatorEventCard } from "../events/creator-event-card";
 import { useMediaQuery } from "react-responsive";
 import { NotificationBadge } from "../notifications/notification-badge";
+import { CommunityHowToJoinSection } from "@/components/community/community-how-to-join-section";
+import SignInDialog, {
+  type SignInModalPayload,
+} from "@/components/auth/sign-in-dialog";
+import { getAccountNavHref } from "@/lib/account-nav-href";
+import {
+  CreateDialog,
+  type CreateDialogEntry,
+} from "@/components/home/create-dialog";
+import { ProfileDrawer } from "@/components/tv/profile-drawer";
+import { StartCommunityRequestDialog } from "@/components/community/start-community-request-dialog";
+import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import { awaitProfileDrawerPrefetch } from "@/lib/drawer-prefetch-cache";
 
 const PLACEHOLDER_AVATAR =
   "https://res.cloudinary.com/tipmanna/image/upload/v1786172267/user_sce6gw.png";
@@ -63,6 +84,8 @@ const DEFAULT_EVENT_BANNER =
   "https://res.cloudinary.com/tipmanna/image/upload/v1786171632/event_banner_hcqybl.webp";
 
 const EVENT_TAB_SUBMISSION_KINDS = new Set(["event_only", "event_and_content"]);
+
+const CO_OWNED_CHANNELS_SUBTAB_ID = "__co_owned_videos__";
 
 const TABS = [
   { id: "channels", label: "Channels" },
@@ -75,20 +98,26 @@ type Props = {
   profile: HostCreatorPublicProfile;
   className?: string;
   onVideoPlay?: () => void;
+  variant?: "page" | "drawer";
 };
 
 export function HostCreatorPageClient({
   profile,
   className,
   onVideoPlay,
+  variant = "page",
 }: Props) {
-  const { host, stats, events, communities } = profile;
+  const isDrawer = variant === "drawer";
+  const { host, stats, events, communities, coOwnedVideos = [] } = profile;
   const navigateToExplore = useNavigateToExploreVideo();
 
   const pathname = usePathname();
-  console.log("pathname", pathname);
+  const router = useRouter();
 
   const user = useSelector((state: RootState) => state.auth.user);
+  const isAuthenticated = useSelector(
+    (state: RootState) => state.auth.isAuthenticated
+  );
 
   const isOwnProfile =
     user?.role === "HOST" &&
@@ -126,209 +155,296 @@ export function HostCreatorPageClient({
     });
   };
 
-  const isMobile = useMediaQuery({ maxWidth: "500px" });
-
   const [isCreatePopupOpen, setIsCreatePopupOpen] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [createDialogEntry, setCreateDialogEntry] =
+    useState<CreateDialogEntry>("default");
+  const [startCommunityOpen, setStartCommunityOpen] = useState(false);
+  const [pendingStartCommunity, setPendingStartCommunity] = useState(false);
 
   const userRole = useSelector((s: RootState) => s.auth.user?.role);
-  const authToken = useSelector((s: RootState) => s.auth.token);
   const isSignedIn =
     useSelector((s: RootState) => s.auth.isAuthenticated) &&
     (userRole === "HOST" || userRole === "TIPPER");
 
+  const accountHref = getAccountNavHref(user, isAuthenticated);
+
+  const openCreateDialog = (entry: CreateDialogEntry) => {
+    setCreateDialogEntry(entry);
+    setIsCreatePopupOpen(true);
+  };
+
+  const handleSignInSuccess = (payload: SignInModalPayload) => {
+    setSignInOpen(false);
+
+    const hostUsername =
+      payload.role === "HOST"
+        ? (payload.username ??
+          (user && "username" in user ? user.username : undefined))
+        : undefined;
+
+    if (hostUsername) {
+      router.push(buildCreatorProfileSharePath(hostUsername));
+    }
+
+    if (pendingStartCommunity) {
+      setPendingStartCommunity(false);
+      setStartCommunityOpen(true);
+    }
+  };
+
+  const handleMyAccountClick = () => {
+    if (isAuthenticated && user) {
+      router.push(accountHref);
+      return;
+    }
+    setSignInOpen(true);
+  };
+
+  const openStartCommunityFlow = () => {
+    if (isAuthenticated && user) {
+      setStartCommunityOpen(true);
+      return;
+    }
+    setPendingStartCommunity(true);
+    setSignInOpen(true);
+  };
+
   return (
-    <section className="relative">
-      <div className="absolute top-4 left-4">
-        <h1 className="racing_sans_one text-2xl sm:text-3xl">
-          <Link href="/explore">
-            <span className="text-primary">tip</span>manna
-          </Link>
-        </h1>
-      </div>
-
-      {/* {isOwnProfile && editProfileHref ? ( */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="absolute top-4 right-4 w-fit"
-        // onClick={() => setOpenCreatorDialog(true)}
-      >
-        <SquarePen className="mr-1.5 size-4" />
-        Edit
-      </Button>
-      {/* ) : null} */}
-
-      <div
-        className={cn(
-          "relative mx-auto max-w-lg bg-white pb-8 sm:max-w-2xl md:max-w-4xl",
-          className ?? "min-h-screen"
-        )}
-      >
-        <ProfileHeader
-          host={host}
-          stats={stats}
-          isOwnProfile={isOwnProfile}
-          editProfileHref={editProfileHref}
-        />
-
-        <Tabs
-          defaultValue="channels"
-          className="gap-0 px-2"
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-[1000] shrink-0 bg-white">
+        <div
+          className={cn(
+            "mx-auto grid max-w-4xl items-center gap-2 px-4 py-2 sm:max-w-2xl md:max-w-4xl",
+            isDrawer ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]",
+            isOwnProfile ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]",
+            !isOwnProfile ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]"
+          )}
         >
-          <div className="sticky top-0 z-10 border-b bg-white">
-            <TabsList className="scrollbar-none h-auto w-full justify-start gap-0 overflow-x-auto rounded-none bg-transparent p-0">
-              {TABS.map(tab => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-                >
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-
-          <TabsContent value="channels">
-            <ChannelsTabContent
-              events={events}
-              onPlay={playVideo}
-            />
-          </TabsContent>
-
-          <TabsContent value="events">
-            {eventTabEvents.length === 0 ? (
-              <EmptyTabMessage message="No events created yet." />
-            ) : (
-              <>
-                {/* LARGE SCREENS */}
-                <div className="hidden flex-col gap-4 lg:flex">
-                  {eventTabEvents.map(event => (
-                    <EventBannerSection
-                      key={event.id}
-                      event={event}
-                      hostFullName={host.fullName}
-                    />
-                  ))}
-                </div>
-
-                {/* SMALL SCREENS */}
-                <div className="no-scrollbar hide__scrollbar relative flex items-center gap-4 overflow-x-auto lg:hidden">
-                  <div className="flex w-[320px] snap-x snap-mandatory space-x-4">
-                    {eventTabEvents.map(event => (
-                      <EventBannerSection
-                        key={event.id}
-                        event={event}
-                        hostFullName={host.fullName}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </TabsContent>
-
-          <TabsContent value="communities">
-            {communities.length === 0 ? (
-              <EmptyTabMessage message="No communities created yet." />
-            ) : (
-              <div className="space-y-6 divide-y">
-                {communities.map(community => (
-                  <CommunityBannerSection
-                    key={community.id}
-                    community={community}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="playlists">
-            <EmptyTabMessage message="Playlists are not available yet." />
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* Bottom section - MOBILE */}
-      <div
-        className={cn(
-          "absolute right-2 bottom-0 left-2 flex flex-col border-t px-4 py-1"
-        )}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <Link
-            href="/tv"
-            className="group flex flex-col items-center justify-center gap-1"
-          >
-            <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />{" "}
-            <span className="text-[8px]">Watch TV</span>
-          </Link>
-
           <Link
             href="/explore"
-            className="flex cursor-pointer flex-col items-center justify-center gap-1"
-            // onPointerEnter={prefetchExploreFeedInitial}
-            onClick={() => {
-              setIsCreatePopupOpen(false);
-              setIsProfileDrawerOpen(false);
-            }}
+            className="racing_sans_one justify-self-start text-xl sm:text-2xl"
           >
-            <Rocket
-              className="size-5"
-              strokeWidth={2}
-            />{" "}
-            <span className="text-[8px]">Explore</span>
+            <span className="text-primary">tip</span>manna
           </Link>
 
-          <div className="flex flex-col items-center justify-center">
-            <button
-              type="button"
-              className="cursor-pointer rounded-full bg-black/20 p-[3px]"
+          {isOwnProfile && !isDrawer ? (
+            <nav
+              className="flex items-center justify-center gap-4 sm:gap-6"
+              aria-label="Creator page navigation"
+            >
+              <Link
+                href="/tv"
+                className="hover:text-primary flex flex-col items-center gap-0.5 sm:flex-row sm:gap-1.5"
+              >
+                <Tv className="size-4 sm:size-5" />
+                <span className="text-[8px] sm:text-xs">Watch TV</span>
+              </Link>
+              <Link
+                href="/explore"
+                className="hover:text-primary flex flex-col items-center gap-0.5 sm:flex-row sm:gap-1.5"
+                onClick={() => {
+                  setIsCreatePopupOpen(false);
+                  setIsProfileDrawerOpen(false);
+                }}
+              >
+                <Rocket className="size-4 sm:size-5" />
+                <span className="text-[8px] sm:text-xs">Explore</span>
+              </Link>
+            </nav>
+          ) : null}
+
+          <Button
+            type="button"
+            size="sm"
+            className={`${isOwnProfile ? "hidden" : "justify-self-end"}`}
+            onClick={handleMyAccountClick}
+          >
+            My Account
+          </Button>
+        </div>
+      </header>
+
+      <SignInDialog
+        open={signInOpen}
+        onOpenChange={open => {
+          setSignInOpen(open);
+          if (!open) setPendingStartCommunity(false);
+        }}
+        title={
+          pendingStartCommunity ? "Sign in to start a community" : "Sign in"
+        }
+        returnTo={pathname}
+        defaultUserType="host"
+        allowInlineSignUp
+        onSuccess={handleSignInSuccess}
+      />
+
+      <CreateDialog
+        openPopup={isCreatePopupOpen}
+        setOpenPopup={open => {
+          setIsCreatePopupOpen(open);
+          if (!open) setCreateDialogEntry("default");
+        }}
+        entry={createDialogEntry}
+        forceTypePicker={createDialogEntry === "event-room"}
+      />
+
+      <StartCommunityRequestDialog
+        open={startCommunityOpen}
+        onOpenChange={setStartCommunityOpen}
+      />
+
+      {!isDrawer ? (
+        <ProfileDrawer
+          isProfileDrawerOpen={isProfileDrawerOpen}
+          setIsProfileDrawerOpen={setIsProfileDrawerOpen}
+        />
+      ) : null}
+
+      <section className="relative -z-50 -mt-4 flex-1 sm:-mt-2">
+        <div
+          className={cn(
+            "relative mx-auto max-w-lg bg-white sm:max-w-2xl md:max-w-4xl",
+            !isOwnProfile && !isDrawer && "pb-20",
+            className ?? "min-h-screen"
+          )}
+        >
+          <ProfileHeader
+            host={host}
+            stats={stats}
+            isOwnProfile={isOwnProfile}
+            editProfileHref={editProfileHref}
+          />
+
+          <Tabs
+            defaultValue="channels"
+            className="-mt-4 gap-0 px-2"
+          >
+            <div className="sticky top-11 z-10 border-b bg-white">
+              <TabsList className="scrollbar-none h-auto w-full justify-start gap-0 overflow-x-auto rounded-none bg-transparent p-0">
+                {TABS.map(tab => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                  >
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+
+            <TabsContent value="channels">
+              <ChannelsTabContent
+                events={events}
+                coOwnedVideos={coOwnedVideos}
+                onPlay={playVideo}
+                isOwnProfile={isOwnProfile}
+                onAddVideo={() => openCreateDialog("add-video")}
+              />
+            </TabsContent>
+
+            <TabsContent value="events">
+              <EventsTabContent
+                events={eventTabEvents}
+                hostFullName={host.fullName}
+                isOwnProfile={isOwnProfile}
+                onAddLiveEvent={() => openCreateDialog("event-room")}
+              />
+            </TabsContent>
+
+            <TabsContent value="communities">
+              <CommunitiesTabContent
+                communities={communities}
+                isOwnProfile={isOwnProfile}
+                onStartCommunity={openStartCommunityFlow}
+              />
+            </TabsContent>
+
+            <TabsContent value="playlists">
+              <EmptyTabMessage message="Playlists are not available yet." />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </section>
+
+      {!isOwnProfile && !isDrawer ? (
+        <div className="fixed right-0 bottom-0 left-0 z-40 border-t border-black/20 bg-white px-4 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+            <Link
+              href="/tv"
+              className="group flex flex-col items-center justify-center gap-1"
+            >
+              <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />
+              <span className="text-[8px]">Watch TV</span>
+            </Link>
+
+            <Link
+              href="/explore"
+              className="flex cursor-pointer flex-col items-center justify-center gap-1"
+              onPointerEnter={prefetchExploreFeedInitial}
               onClick={() => {
-                setIsCreatePopupOpen(true);
+                setIsCreatePopupOpen(false);
                 setIsProfileDrawerOpen(false);
               }}
             >
-              <Plus
-                className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
-                strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+              <Rocket
+                className="size-5"
+                strokeWidth={2}
               />
+              <span className="text-[8px]">Explore</span>
+            </Link>
+
+            <div className="flex flex-col items-center justify-center">
+              <button
+                type="button"
+                className="cursor-pointer rounded-full bg-black/20 p-[3px]"
+                onClick={() => {
+                  openCreateDialog("default");
+                  setIsProfileDrawerOpen(false);
+                }}
+              >
+                <Plus
+                  className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
+                  strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+                />
+              </button>
+              <span className="text-[8px]">Create</span>
+            </div>
+
+            <button
+              type="button"
+              className="mt-[5px] flex cursor-pointer flex-col items-center"
+              onPointerDown={() => {
+                void awaitProfileDrawerPrefetch();
+              }}
+              onClick={() => {
+                setIsCreatePopupOpen(false);
+                setIsProfileDrawerOpen(true);
+              }}
+            >
+              <UserRound
+                className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+                strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
+              />
+              <NotificationBadge
+                variant="dot"
+                className="-top-0.5 right-6"
+              />
+              <span className="max-w-[4.5rem] truncate text-[8px] text-black">
+                {isSignedIn
+                  ? "Signed in"
+                  : userRole === "VISITOR"
+                    ? "Guest"
+                    : "Not signed in"}
+              </span>
             </button>
-
-            <span className="text-[8px]">Create</span>
           </div>
-
-          <button
-            type="button"
-            className="mt-[5px] flex cursor-pointer flex-col items-center"
-            onPointerDown={() => {
-              // void awaitProfileDrawerPrefetch();
-            }}
-            onClick={() => {
-              setIsCreatePopupOpen(false);
-              setIsProfileDrawerOpen(true);
-            }}
-          >
-            <UserRound
-              className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
-              strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
-            />
-            <NotificationBadge
-              variant="dot"
-              className="-top-0.5 right-6"
-            />
-            <span className="max-w-[4.5rem] truncate text-[8px] text-black">
-              {isSignedIn
-                ? "Signed in"
-                : userRole === "VISITOR"
-                  ? "Guest"
-                  : "Not signed in"}
-            </span>
-          </button>
         </div>
-      </div>
-    </section>
+      ) : null}
+    </div>
   );
 }
 
@@ -406,82 +522,16 @@ function ProfileHeader({
 
   return (
     <section className="section relative z-100 bg-white">
-      <>
-        <div className="absolute top-2 right-2 flex items-center gap-4 sm:top-4 sm:right-4">
-          <Link
-            href="/tv"
-            className="group flex flex-col items-center justify-center gap-1"
-          >
-            <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />{" "}
-            <span className="text-[8px]">Watch TV</span>
-          </Link>
+      {/* <div className="absolute top-2 right-2 flex items-center gap-2 sm:top-4 sm:right-4">
+        
+      </div> */}
 
-          <Link
-            href="/explore"
-            className="flex cursor-pointer flex-col items-center justify-center gap-1"
-            // onPointerEnter={prefetchExploreFeedInitial}
-            onClick={() => {
-              // setIsCreatePopupOpen(false);
-              // setIsProfileDrawerOpen(false);
-            }}
-          >
-            <Rocket
-              className="size-5"
-              strokeWidth={2}
-            />{" "}
-            <span className="text-[8px]">Explore</span>
-          </Link>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="shrink-0"
-            aria-label={
-              copied ? "Creator link copied" : "Copy creator profile link"
-            }
-            title={copied ? "Copied!" : "Copy creator profile link"}
-            onClick={() => void copyLink()}
-          >
-            {copied ? (
-              <>
-                <Check className="size-4" />
-              </>
-            ) : (
-              <>
-                <Copy className="size-4" />
-              </>
-            )}
-          </Button>
-
-          {/* {isOwnProfile && editProfileHref ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              onClick={() => setOpenCreatorDialog(true)}
-            >
-              <SquarePen className="mr-1.5 size-4" />
-              Edit
-            </Button>
-          ) : null} */}
-        </div>
-
-        <EditCreatorProfileDialog
-          open={openCreatorDialog}
-          onOpenChange={setOpenCreatorDialog}
-          initialAvatarUrl={profileImageUrl}
-          onSaved={handleProfileSaved}
-        />
-      </>
-
-      <div className="absolute top-1 left-1">
-        <h1 className="racing_sans_one text-2xl sm:text-3xl lg:hidden">
-          <Link href="/explore">
-            <span className="text-primary">tip</span>manna
-          </Link>
-        </h1>
-      </div>
+      <EditCreatorProfileDialog
+        open={openCreatorDialog}
+        onOpenChange={setOpenCreatorDialog}
+        initialAvatarUrl={profileImageUrl}
+        onSaved={handleProfileSaved}
+      />
 
       <Image
         src="/patterns/bg_pattern.webp"
@@ -568,7 +618,9 @@ function ProfileHeader({
 
           {showSecondaryStats ? <SecondaryStats stats={stats} /> : null}
 
-          <div className={` ${showSecondaryStats ? "" : "-mt-4"}`}>
+          <div
+            className={` ${showSecondaryStats ? "" : "-mt-4 flex items-center justify-center gap-2 sm:justify-start"}`}
+          >
             {externalLink?.url && externalLink.url !== "#" ? (
               <a
                 href={externalLink.url}
@@ -584,6 +636,35 @@ function ProfileHeader({
                 <ExternalLink className="size-4 shrink-0" />
                 {externalLink.label}
               </p>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              aria-label={
+                copied ? "Creator link copied" : "Copy creator profile link"
+              }
+              title={copied ? "Copied!" : "Copy creator profile link"}
+              onClick={() => void copyLink()}
+            >
+              {copied ? (
+                <Check className="size-4" />
+              ) : (
+                <Copy className="size-4" />
+              )}
+            </Button>
+
+            {isOwnProfile && editProfileHref ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => setOpenCreatorDialog(true)}
+              >
+                <SquarePen className="mr-1.5 size-4" />
+                Edit
+              </Button>
             ) : null}
           </div>
         </div>
@@ -643,13 +724,19 @@ function SecondaryStats({
   );
 }
 
-/** Channels tab: sub-tabs per event channel, defaulting to the latest channel. */
+/** Channels tab: co-owned videos first, then sub-tabs per event channel. */
 function ChannelsTabContent({
   events,
+  coOwnedVideos,
   onPlay,
+  isOwnProfile,
+  onAddVideo,
 }: {
   events: HostCreatorEvent[];
+  coOwnedVideos: HostCreatorVideo[];
   onPlay: (video: HostCreatorVideo) => void;
+  isOwnProfile: boolean;
+  onAddVideo: () => void;
 }) {
   const sortedEvents = useMemo(
     () =>
@@ -660,42 +747,76 @@ function ChannelsTabContent({
     [events]
   );
 
-  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
-    null
-  );
+  const showCoOwnedSubtab = coOwnedVideos.length > 0 || isOwnProfile;
 
-  const activeChannelId = selectedChannelId ?? sortedEvents[0]?.id ?? null;
+  const subtabItems = useMemo(() => {
+    const items: { id: string }[] = [];
+    if (showCoOwnedSubtab) {
+      items.push({ id: CO_OWNED_CHANNELS_SUBTAB_ID });
+    }
+    items.push(...sortedEvents.map(event => ({ id: event.id })));
+    return items;
+  }, [sortedEvents, showCoOwnedSubtab]);
+
+  const {
+    activeId: activeChannelId,
+    selectById,
+    subtabScrollRef,
+  } = useSubtabScrollSync(subtabItems);
+
+  const isCoOwnedActive = activeChannelId === CO_OWNED_CHANNELS_SUBTAB_ID;
   const activeChannel = sortedEvents.find(
     event => event.id === activeChannelId
   );
 
-  if (sortedEvents.length === 0) {
+  if (sortedEvents.length === 0 && !showCoOwnedSubtab && !isOwnProfile) {
     return <EmptyTabMessage message="No channels created yet." />;
   }
 
   return (
     <div>
-      <div className="sticky top-[52px] z-10 border-b bg-white px-2">
-        <div className="scrollbar-none hide__scrollbar flex gap-2 overflow-x-auto py-2">
-          {sortedEvents.map(event => (
-            <button
-              key={event.id}
-              type="button"
-              onClick={() => setSelectedChannelId(event.id)}
-              className={cn(
-                "shrink-0 cursor-pointer rounded-md px-2 py-1 text-sm font-medium transition-colors",
-                activeChannelId === event.id
-                  ? "bg-black text-white"
-                  : "bg-neutral-100 hover:bg-neutral-200"
-              )}
-            >
-              {event.eventName}
-            </button>
-          ))}
-        </div>
-      </div>
+      <CreatorSubtabBar
+        stickyClassName="top-[5.75rem]"
+        subtabScrollRef={subtabScrollRef}
+        action={
+          isOwnProfile && !isCoOwnedActive
+            ? { label: "+ Add video", onClick: onAddVideo }
+            : null
+        }
+      >
+        {showCoOwnedSubtab ? (
+          <CreatorSubtabButton
+            subtabId={CO_OWNED_CHANNELS_SUBTAB_ID}
+            active={isCoOwnedActive}
+            onClick={() => selectById(CO_OWNED_CHANNELS_SUBTAB_ID)}
+          >
+            Co-owned videos
+          </CreatorSubtabButton>
+        ) : null}
+        {sortedEvents.map(event => (
+          <CreatorSubtabButton
+            key={event.id}
+            subtabId={event.id}
+            active={activeChannelId === event.id}
+            onClick={() => selectById(event.id)}
+          >
+            {event.eventName}
+          </CreatorSubtabButton>
+        ))}
+      </CreatorSubtabBar>
 
-      {activeChannel ? (
+      {isCoOwnedActive ? (
+        coOwnedVideos.length === 0 ? (
+          <p className="text-muted-foreground px-4 py-8 text-center text-sm">
+            No co-owned videos yet.
+          </p>
+        ) : (
+          <VideoCardGrid
+            videos={coOwnedVideos}
+            onPlay={onPlay}
+          />
+        )
+      ) : activeChannel ? (
         activeChannel.videos.length === 0 ? (
           <p className="text-muted-foreground px-4 py-8 text-center text-sm">
             No videos in this channel.
@@ -707,17 +828,571 @@ function ChannelsTabContent({
             forceLocked={activeChannel.locked}
           />
         )
+      ) : isOwnProfile ? (
+        <EmptyTabMessage message="Add a video to one of your channels or create a new channel." />
       ) : null}
     </div>
+  );
+}
+
+function EventsTabContent({
+  events,
+  hostFullName,
+  isOwnProfile,
+  onAddLiveEvent,
+}: {
+  events: HostCreatorEvent[];
+  hostFullName: string;
+  isOwnProfile: boolean;
+  onAddLiveEvent: () => void;
+}) {
+  const { activeId, selectById, carouselRef, subtabScrollRef } =
+    useSnapCarouselSync(events);
+
+  const activeEvent = events.find(event => event.id === activeId);
+
+  if (events.length === 0 && !isOwnProfile) {
+    return <EmptyTabMessage message="No events created yet." />;
+  }
+
+  return (
+    <div>
+      <CreatorSubtabBar
+        stickyClassName="top-[5.75rem]"
+        subtabScrollRef={subtabScrollRef}
+        action={
+          isOwnProfile
+            ? { label: "+ Add live event", onClick: onAddLiveEvent }
+            : null
+        }
+      >
+        {events.map(event => (
+          <CreatorSubtabButton
+            key={event.id}
+            subtabId={event.id}
+            active={activeId === event.id}
+            onClick={() => selectById(event.id)}
+          >
+            {event.eventName}
+          </CreatorSubtabButton>
+        ))}
+      </CreatorSubtabBar>
+
+      {events.length > 0 ? (
+        <>
+          <MobileSnapCarousel carouselRef={carouselRef}>
+            {events.map(event => (
+              <SnapCarouselSlide
+                key={event.id}
+                slideId={event.id}
+              >
+                <EventBannerSection
+                  event={event}
+                  hostFullName={hostFullName}
+                  compact
+                />
+              </SnapCarouselSlide>
+            ))}
+          </MobileSnapCarousel>
+
+          <div className="hidden px-1 pt-2 lg:block">
+            {activeEvent ? (
+              <EventBannerSection
+                event={activeEvent}
+                hostFullName={hostFullName}
+              />
+            ) : null}
+          </div>
+        </>
+      ) : isOwnProfile ? (
+        <EmptyTabMessage message="Create a live event room to start streaming." />
+      ) : null}
+    </div>
+  );
+}
+
+function CommunitiesTabContent({
+  communities,
+  isOwnProfile,
+  onStartCommunity,
+}: {
+  communities: HostCreatorCommunity[];
+  isOwnProfile: boolean;
+  onStartCommunity: () => void;
+}) {
+  const { activeId, selectById, carouselRef, subtabScrollRef } =
+    useSnapCarouselSync(communities);
+
+  const activeCommunity = communities.find(
+    community => community.id === activeId
+  );
+
+  if (communities.length === 0 && !isOwnProfile) {
+    return <EmptyTabMessage message="No communities created yet." />;
+  }
+
+  return (
+    <div>
+      <CreatorSubtabBar
+        stickyClassName="top-[5.75rem]"
+        subtabScrollRef={subtabScrollRef}
+        action={
+          isOwnProfile
+            ? { label: "+ Start community", onClick: onStartCommunity }
+            : null
+        }
+      >
+        {communities.map(community => (
+          <CreatorSubtabButton
+            key={community.id}
+            subtabId={community.id}
+            active={activeId === community.id}
+            onClick={() => selectById(community.id)}
+          >
+            {community.name}
+          </CreatorSubtabButton>
+        ))}
+      </CreatorSubtabBar>
+
+      {communities.length > 0 ? (
+        <>
+          <MobileSnapCarousel carouselRef={carouselRef}>
+            {communities.map(community => (
+              <SnapCarouselSlide
+                key={community.id}
+                slideId={community.id}
+              >
+                <CommunityBannerSection
+                  community={community}
+                  compact
+                />
+              </SnapCarouselSlide>
+            ))}
+          </MobileSnapCarousel>
+
+          <div className="hidden px-1 pt-2 lg:block">
+            {activeCommunity ? (
+              <CommunityBannerSection community={activeCommunity} />
+            ) : null}
+          </div>
+        </>
+      ) : isOwnProfile ? (
+        <EmptyTabMessage message="Send a start community request to tell us about your idea." />
+      ) : null}
+    </div>
+  );
+}
+
+function useSubtabScrollSync<T extends { id: string }>(items: T[]) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const subtabScrollRef = useRef<HTMLDivElement>(null);
+  const isProgrammaticSubtabScrollRef = useRef(false);
+  const programmaticSubtabTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  const activeId = selectedId ?? items[0]?.id ?? null;
+
+  const markProgrammaticSubtabScroll = useCallback((duration = 450) => {
+    isProgrammaticSubtabScrollRef.current = true;
+    if (programmaticSubtabTimerRef.current) {
+      clearTimeout(programmaticSubtabTimerRef.current);
+    }
+    programmaticSubtabTimerRef.current = setTimeout(() => {
+      isProgrammaticSubtabScrollRef.current = false;
+    }, duration);
+  }, []);
+
+  const scrollSubtabIntoView = useCallback(
+    (id: string, behavior: ScrollBehavior = "smooth") => {
+      const container = subtabScrollRef.current;
+      if (!container) return;
+
+      const subtabBtn = container.querySelector<HTMLElement>(
+        `[data-subtab-id="${CSS.escape(id)}"]`
+      );
+      if (!subtabBtn) return;
+
+      markProgrammaticSubtabScroll(behavior === "smooth" ? 450 : 80);
+      scrollWithinContainerHorizontally(container, subtabBtn, behavior);
+    },
+    [markProgrammaticSubtabScroll]
+  );
+
+  const selectById = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      scrollSubtabIntoView(id);
+    },
+    [scrollSubtabIntoView]
+  );
+
+  useEffect(() => {
+    const container = subtabScrollRef.current;
+    if (!container || items.length === 0) return;
+
+    let raf = 0;
+    const onScroll = () => {
+      if (isProgrammaticSubtabScrollRef.current) return;
+
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const id = getFocusedItemId(
+          container,
+          "[data-subtab-id]",
+          "data-subtab-id"
+        );
+        if (!id) return;
+
+        setSelectedId(prev => {
+          const current = prev ?? items[0]?.id ?? null;
+          if (current === id) return prev;
+          return id;
+        });
+      });
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [items]);
+
+  useEffect(
+    () => () => {
+      if (programmaticSubtabTimerRef.current) {
+        clearTimeout(programmaticSubtabTimerRef.current);
+      }
+    },
+    []
+  );
+
+  return { activeId, selectById, subtabScrollRef };
+}
+
+function useSnapCarouselSync<T extends { id: string }>(items: T[]) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const subtabScrollRef = useRef<HTMLDivElement>(null);
+  const isProgrammaticScrollRef = useRef(false);
+  const isProgrammaticSubtabScrollRef = useRef(false);
+  const programmaticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const programmaticSubtabTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  const activeId = selectedId ?? items[0]?.id ?? null;
+
+  const markProgrammaticScroll = useCallback((duration = 450) => {
+    isProgrammaticScrollRef.current = true;
+    if (programmaticTimerRef.current) {
+      clearTimeout(programmaticTimerRef.current);
+    }
+    programmaticTimerRef.current = setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, duration);
+  }, []);
+
+  const markProgrammaticSubtabScroll = useCallback((duration = 450) => {
+    isProgrammaticSubtabScrollRef.current = true;
+    if (programmaticSubtabTimerRef.current) {
+      clearTimeout(programmaticSubtabTimerRef.current);
+    }
+    programmaticSubtabTimerRef.current = setTimeout(() => {
+      isProgrammaticSubtabScrollRef.current = false;
+    }, duration);
+  }, []);
+
+  const scrollSubtabIntoView = useCallback(
+    (id: string, behavior: ScrollBehavior = "smooth") => {
+      const container = subtabScrollRef.current;
+      if (!container) return;
+
+      const subtabBtn = container.querySelector<HTMLElement>(
+        `[data-subtab-id="${CSS.escape(id)}"]`
+      );
+      if (!subtabBtn) return;
+
+      markProgrammaticSubtabScroll(behavior === "smooth" ? 450 : 80);
+      scrollWithinContainerHorizontally(container, subtabBtn, behavior);
+    },
+    [markProgrammaticSubtabScroll]
+  );
+
+  const scrollCarouselToId = useCallback(
+    (id: string, behavior: ScrollBehavior = "smooth") => {
+      const container = carouselRef.current;
+      if (!container) return;
+
+      if (window.matchMedia("(min-width: 1024px)").matches) return;
+
+      const slide = container.querySelector<HTMLElement>(
+        `[data-carousel-slide="${CSS.escape(id)}"]`
+      );
+      if (!slide) return;
+
+      markProgrammaticScroll(behavior === "smooth" ? 450 : 80);
+      container.scrollTo({ left: slide.offsetLeft, behavior });
+    },
+    [markProgrammaticScroll]
+  );
+
+  const selectById = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      scrollCarouselToId(id);
+      scrollSubtabIntoView(id);
+    },
+    [scrollCarouselToId, scrollSubtabIntoView]
+  );
+
+  useEffect(() => {
+    const container = subtabScrollRef.current;
+    if (!container || items.length === 0) return;
+
+    let raf = 0;
+    const onScroll = () => {
+      if (isProgrammaticSubtabScrollRef.current) return;
+
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const id = getFocusedItemId(
+          container,
+          "[data-subtab-id]",
+          "data-subtab-id"
+        );
+        if (!id) return;
+
+        setSelectedId(prev => {
+          const current = prev ?? items[0]?.id ?? null;
+          if (current === id) return prev;
+          scrollCarouselToId(id, "smooth");
+          return id;
+        });
+      });
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [items, scrollCarouselToId]);
+
+  useEffect(() => {
+    const container = carouselRef.current;
+    if (!container || items.length === 0) return;
+
+    let raf = 0;
+    const onScroll = () => {
+      if (isProgrammaticScrollRef.current) return;
+
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const id = getFocusedItemId(
+          container,
+          "[data-carousel-slide]",
+          "data-carousel-slide"
+        );
+        if (!id) return;
+
+        setSelectedId(prev => {
+          const current = prev ?? items[0]?.id ?? null;
+          if (current === id) return prev;
+          scrollSubtabIntoView(id, "smooth");
+          return id;
+        });
+      });
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [items, scrollSubtabIntoView]);
+
+  useEffect(
+    () => () => {
+      if (programmaticTimerRef.current) {
+        clearTimeout(programmaticTimerRef.current);
+      }
+      if (programmaticSubtabTimerRef.current) {
+        clearTimeout(programmaticSubtabTimerRef.current);
+      }
+    },
+    []
+  );
+
+  return { activeId, selectById, carouselRef, subtabScrollRef };
+}
+
+/** Pick the child whose center is closest to the scroll container center. */
+function getFocusedItemId(
+  container: HTMLElement,
+  selector: string,
+  idAttribute: string
+): string | null {
+  const containerRect = container.getBoundingClientRect();
+  const containerCenter = containerRect.left + containerRect.width / 2;
+
+  const elements = container.querySelectorAll<HTMLElement>(selector);
+  let bestId: string | null = null;
+  let bestDistance = Infinity;
+
+  elements.forEach(element => {
+    const rect = element.getBoundingClientRect();
+    const elementCenter = rect.left + rect.width / 2;
+    const distance = Math.abs(elementCenter - containerCenter);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestId = element.getAttribute(idAttribute);
+    }
+  });
+
+  return bestId;
+}
+
+/** Scroll horizontally within a container without moving the page vertically. */
+function scrollWithinContainerHorizontally(
+  container: HTMLElement,
+  element: HTMLElement,
+  behavior: ScrollBehavior = "smooth"
+) {
+  const elementLeft = element.offsetLeft;
+  const elementWidth = element.offsetWidth;
+  const containerWidth = container.clientWidth;
+  const scrollLeft = container.scrollLeft;
+
+  if (elementLeft < scrollLeft) {
+    container.scrollTo({ left: elementLeft, behavior });
+    return;
+  }
+
+  if (elementLeft + elementWidth > scrollLeft + containerWidth) {
+    container.scrollTo({
+      left: elementLeft + elementWidth - containerWidth,
+      behavior,
+    });
+  }
+}
+
+function MobileSnapCarousel({
+  carouselRef,
+  children,
+}: {
+  carouselRef: RefObject<HTMLDivElement | null>;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      ref={carouselRef}
+      className="no-scrollbar hide__scrollbar flex w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] lg:hidden"
+    >
+      {children}
+    </div>
+  );
+}
+
+function SnapCarouselSlide({
+  slideId,
+  children,
+}: {
+  slideId: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      data-carousel-slide={slideId}
+      className="box-border w-full max-w-full min-w-0 shrink-0 grow-0 basis-full snap-center px-1 pt-2"
+    >
+      <div className="max-w-full min-w-0 overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+function CreatorSubtabBar({
+  children,
+  stickyClassName,
+  action = null,
+  subtabScrollRef,
+}: {
+  children: ReactNode;
+  stickyClassName: string;
+  action?: { label: string; onClick: () => void } | null;
+  subtabScrollRef?: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div
+      className={cn(
+        "sticky z-10 flex items-stretch border-b bg-white",
+        stickyClassName
+      )}
+    >
+      <div
+        ref={subtabScrollRef}
+        className="scrollbar-none hide__scrollbar min-w-0 flex-1 overflow-x-auto py-2 pl-2"
+      >
+        <div className="flex gap-2">{children}</div>
+      </div>
+      {action ? (
+        <div className="flex shrink-0 items-center border-l bg-white py-2 pr-2 pl-2">
+          <CreatorSubtabButton
+            active={false}
+            variant="action"
+            onClick={action.onClick}
+          >
+            {action.label}
+          </CreatorSubtabButton>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CreatorSubtabButton({
+  children,
+  active,
+  onClick,
+  variant = "default",
+  subtabId,
+}: {
+  children: ReactNode;
+  active: boolean;
+  onClick: () => void;
+  variant?: "default" | "action";
+  subtabId?: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-subtab-id={subtabId}
+      onClick={onClick}
+      className={cn(
+        "shrink-0 cursor-pointer rounded-md px-2 py-1 text-sm font-medium transition-colors",
+        variant === "action"
+          ? "border border-dashed border-neutral-400 bg-white text-neutral-700 hover:bg-neutral-50"
+          : active
+            ? "bg-black text-white"
+            : "bg-neutral-100 hover:bg-neutral-200"
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
 function EventBannerSection({
   event,
   hostFullName,
+  compact = false,
 }: {
   event: HostCreatorEvent;
   hostFullName: string;
+  compact?: boolean;
 }) {
   const organizationName =
     event.organizationName?.trim() || hostFullName.trim() || "Creator";
@@ -726,9 +1401,11 @@ function EventBannerSection({
     maxWidth: "500px",
   });
 
+  const useCompactCard = compact || isMobile;
+
   return (
     <>
-      {isMobile ? (
+      {useCompactCard ? (
         <TopEventCard
           key={event.id}
           channelId={event.id}
@@ -763,8 +1440,10 @@ function EventBannerSection({
 
 function CommunityBannerSection({
   community,
+  compact = false,
 }: {
   community: HostCreatorCommunity;
+  compact?: boolean;
 }) {
   const joinHref = exploreCommunityJoinHref(community.id);
   const bannerSrc = community.eventRoomBanner?.trim() || DEFAULT_EVENT_BANNER;
@@ -774,7 +1453,12 @@ function CommunityBannerSection({
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <article className="w-full overflow-hidden rounded-3xl border-2 border-gray-200 shadow-md">
+    <article
+      className={cn(
+        "w-full max-w-full overflow-hidden rounded-3xl border-2 border-gray-200 shadow-md",
+        compact && "mx-auto"
+      )}
+    >
       <Link
         href={community.locked ? "#" : joinHref}
         aria-disabled={community.locked}
@@ -783,7 +1467,14 @@ function CommunityBannerSection({
           community.locked && "pointer-events-none"
         )}
       >
-        <section className="relative mx-auto flex min-h-[25vh] max-w-4xl flex-col items-center justify-center rounded-2xl bg-cover bg-fixed bg-center bg-no-repeat bg-blend-multiply lg:min-h-[30vh]">
+        <section
+          className={cn(
+            "relative mx-auto flex flex-col items-center justify-center rounded-2xl bg-cover bg-center bg-no-repeat bg-blend-multiply",
+            compact
+              ? "min-h-[22vh] bg-scroll"
+              : "min-h-[25vh] max-w-4xl bg-fixed lg:min-h-[30vh]"
+          )}
+        >
           <Image
             src="/patterns/tip_what_you_can.webp"
             fill
@@ -861,6 +1552,14 @@ function CommunityBannerSection({
             )}
           </div>
         </div>
+
+        <CommunityHowToJoinSection
+          communityId={community.id}
+          signInRedirectPath={joinHref}
+          className="border-t pt-4"
+          showCancelLink={false}
+          joinDisabled={community.locked}
+        />
 
         <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
           <p>

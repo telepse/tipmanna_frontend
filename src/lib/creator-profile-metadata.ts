@@ -95,7 +95,7 @@ export function formatMetaMetricsLine(input: {
   const members = formatCompactSocialCount(input.members);
   const tips = formatCompactSocialCount(input.tips);
   const videos = formatVideoCount(input.videos);
-  return `${members} members · ${tips} tips · ${videos} videos`;
+  return `${videos} videos · ${members} subscribers`;
 }
 
 export function buildCommunityMetaDescription(input: {

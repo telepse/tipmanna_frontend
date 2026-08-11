@@ -55,8 +55,35 @@ import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { Button } from "@/components/ui/button";
 import { isHostRole } from "@/lib/is-host-role";
 import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
+import { cn } from "@/lib/utils";
 
 type SignInIntent = "add-video" | "type-picker-proceed" | null;
+
+export type CreateDialogEntry = "default" | "add-video" | "event-room";
+
+const FULL_CREATE_OPTIONS = [
+  {
+    value: "content",
+    title: "Content only",
+    subtitle: "Upload videos to create content",
+    description: "Suitable for",
+    role: "content creators",
+  },
+  {
+    value: "event",
+    title: "Event channel",
+    subtitle: "Livestream your event and share",
+    description: "Suitable for",
+    role: "event organizers",
+  },
+  {
+    value: "event_content",
+    title: "Event and Content channel",
+    subtitle: "Livestream and upload videos",
+    description: "Suitable for",
+    role: "charity and event",
+  },
+] as const;
 
 interface Props {
   openPopup: boolean;
@@ -68,6 +95,8 @@ interface Props {
   forceTypePicker?: boolean;
   /** Use explore-layer z-index so the dialog sits above explore filter chrome. */
   onExploreLayer?: boolean;
+  /** Opens add-video flow or live-event picker (content-only disabled). */
+  entry?: CreateDialogEntry;
 }
 
 type CommunityBrief = {
@@ -90,6 +119,7 @@ export const CreateDialog = ({
   setOpenPopup,
   forceTypePicker = false,
   onExploreLayer = false,
+  entry = "default",
 }: Props) => {
   const { push } = useAppRouter();
   const router = useRouter();
@@ -147,8 +177,32 @@ export const CreateDialog = ({
       setIsProceeding(false);
       setShowNewEventRoomPicker(false);
       setHostSessionActive(false);
+      setSelected("");
+      return;
     }
-  }, [openPopup]);
+    if (entry === "event-room") {
+      setShowNewEventRoomPicker(true);
+      setSelected("event");
+    } else if (entry === "add-video") {
+      setShowNewEventRoomPicker(false);
+    }
+  }, [openPopup, entry]);
+
+  const createTypeOptions = FULL_CREATE_OPTIONS;
+
+  const isLiveEventEntry = entry === "event-room";
+  const disabledCreateOptions = isLiveEventEntry
+    ? new Set<string>(["content"])
+    : new Set<string>();
+
+  const handleCreateTypeChange = (value: string) => {
+    if (disabledCreateOptions.has(value)) return;
+    setSelected(value);
+  };
+
+  const hostEventRoomDialogTitle = "Create new channel";
+  const hostEventRoomDialogSubtitle =
+    "Choose what you are creating. You will continue on the full create form.";
 
   useEffect(() => {
     if (!openPopup || forceTypePicker || !communityFeatureOn) return;
@@ -465,7 +519,7 @@ export const CreateDialog = ({
               <DialogHeader>
                 <DialogTitle className="text-white/70">
                   {showNewEventRoomPicker
-                    ? "Create new channel"
+                    ? hostEventRoomDialogTitle
                     : "Add a video"}
                 </DialogTitle>
               </DialogHeader>
@@ -475,40 +529,64 @@ export const CreateDialog = ({
               ) : showNewEventRoomPicker ? (
                 <>
                   <p className="text-sm text-white/70">
-                    Choose what you are creating. You will continue on the full
-                    create form.
+                    {isLiveEventEntry
+                      ? hostEventRoomDialogSubtitle
+                      : "Choose what you are creating. You will continue on the full create form."}
                   </p>
                   <RadioGroup
                     value={selected}
-                    onValueChange={setSelected}
+                    onValueChange={handleCreateTypeChange}
                     className="mt-3 grid gap-2"
                   >
-                    {[
-                      { value: "content", title: "Content only" },
-                      { value: "event", title: "Event room" },
-                      { value: "event_content", title: "Event and content" },
-                    ].map(opt => (
-                      <Label
-                        key={opt.value}
-                        htmlFor={`host-new-${opt.value}`}
-                        className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/30 bg-[#251212] p-3 text-white"
-                      >
-                        <RadioGroupItem
-                          value={opt.value}
-                          id={`host-new-${opt.value}`}
-                        />
-                        {opt.title}
-                      </Label>
-                    ))}
+                    {createTypeOptions.map(opt => {
+                      const isDisabled = disabledCreateOptions.has(opt.value);
+
+                      return (
+                        <Label
+                          key={opt.value}
+                          htmlFor={`host-new-${opt.value}`}
+                          className={cn(
+                            "flex items-center gap-2 rounded-lg border border-white/30 bg-[#251212] p-3 text-white",
+                            isDisabled
+                              ? "cursor-not-allowed opacity-50"
+                              : "cursor-pointer"
+                          )}
+                        >
+                          <RadioGroupItem
+                            value={opt.value}
+                            id={`host-new-${opt.value}`}
+                            disabled={isDisabled}
+                          />
+                          <span className="flex flex-col gap-0.5">
+                            <span>{opt.title}</span>
+                            {entry !== "event-room" && (
+                              <>
+                                {"subtitle" in opt ? (
+                                  <span className="text-xs text-white/70">
+                                    {opt.subtitle}
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+                          </span>
+                        </Label>
+                      );
+                    })}
                   </RadioGroup>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button
                       type="button"
                       variant="outline"
-                      className="border-white/40 text-white"
-                      onClick={() => setShowNewEventRoomPicker(false)}
+                      className="border-white/40 bg-white text-black"
+                      onClick={() => {
+                        if (entry === "event-room") {
+                          setOpenPopup(false);
+                          return;
+                        }
+                        setShowNewEventRoomPicker(false);
+                      }}
                     >
-                      Back to add video
+                      {entry === "event-room" ? "Cancel" : "Back to add video"}
                     </Button>
                     <Button
                       type="button"
@@ -521,19 +599,22 @@ export const CreateDialog = ({
                 </>
               ) : (
                 <div className="space-y-4">
-                  <div className="mb-4">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="w-full sm:w-auto"
-                      onClick={() => setShowNewEventRoomPicker(true)}
-                    >
-                      Create new channel
-                    </Button>
-                    <p className="mt-2 text-xs text-white/50">
-                      Or add a video to an existing channel or community below.
-                    </p>
-                  </div>
+                  {entry !== "event-room" ? (
+                    <div className="mb-4">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="w-full sm:w-auto"
+                        onClick={() => setShowNewEventRoomPicker(true)}
+                      >
+                        Create new channel
+                      </Button>
+                      <p className="mt-2 text-xs text-white/50">
+                        Or add a video to an existing channel or community
+                        below.
+                      </p>
+                    </div>
+                  ) : null}
                   <Tabs
                     value={hostTab}
                     onValueChange={v =>
@@ -729,86 +810,94 @@ export const CreateDialog = ({
           >
             <DialogHeader>
               <DialogTitle className="text-white/70">
-                What are you creating?
+                {isLiveEventEntry
+                  ? hostEventRoomDialogTitle
+                  : "What are you creating?"}
               </DialogTitle>
             </DialogHeader>
+
+            {isLiveEventEntry ? (
+              <p className="text-sm text-white/70">
+                {hostEventRoomDialogSubtitle}
+              </p>
+            ) : null}
 
             <div className="mt-4 grid w-full grid-cols-1 gap-4 md:grid-cols-3">
               <RadioGroup
                 value={selected}
-                onValueChange={setSelected}
+                onValueChange={handleCreateTypeChange}
                 className="grid w-full grid-cols-1"
               >
-                {[
-                  {
-                    value: "content",
-                    title: "Content channel",
-                    subtitle: "Upload videos to create content",
-                    description: "Suitable for",
-                    role: "content creators",
-                  },
-                  {
-                    value: "event",
-                    title: "Event channel",
-                    subtitle: "Livestream your event and share",
-                    description: "Suitable for",
-                    role: "event organizers",
-                  },
-                  {
-                    value: "event_content",
-                    title: "Event and Content channel",
-                    subtitle: "Livestream and upload videos",
-                    description: "Suitable for",
-                    role: "charity and event",
-                  },
-                ].map(option => (
-                  <Label
-                    key={option.value}
-                    htmlFor={option.value}
-                    className="relative flex w-full flex-col sm:w-[400px] sm:flex-row"
-                  >
-                    <div
-                      className={`w-full sm:w-[270px] ${selected === option.value ? "border-primary bg-primary/20" : "border-white/30 bg-[#251212]"} duration transition-300 flex w-full items-center justify-between gap-2 rounded-2xl border-2 p-4 text-white shadow-2xl`}
+                {createTypeOptions.map(option => {
+                  const isDisabled = disabledCreateOptions.has(option.value);
+
+                  return (
+                    <Label
+                      key={option.value}
+                      htmlFor={option.value}
+                      className={cn(
+                        "relative flex w-full flex-col sm:w-[400px] sm:flex-row",
+                        isDisabled && "cursor-not-allowed opacity-50"
+                      )}
                     >
-                      <div className="relative flex w-full">
-                        <div className="flex flex-col gap-1">
-                          <h5>{option.title}</h5>
-                          <p className="text-xs text-white/80">
-                            {option.subtitle}
-                          </p>
-                          <span className="inline-block shrink-0 text-[10px] text-white/50 sm:hidden">
-                            {option.description}
-                          </span>
+                      <div
+                        className={cn(
+                          "duration transition-300 flex w-full items-center justify-between gap-2 rounded-2xl border-2 p-4 text-white shadow-2xl sm:w-[270px]",
+                          selected === option.value
+                            ? "border-primary bg-primary/20"
+                            : "border-white/30 bg-[#251212]",
+                          isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                        )}
+                      >
+                        <div className="relative flex w-full">
+                          <div className="flex flex-col gap-1">
+                            <h5>{option.title}</h5>
+                            {"subtitle" in option ? (
+                              <>
+                                <p className="text-xs text-white/80">
+                                  {option.subtitle}
+                                </p>
+                                <span className="inline-block shrink-0 text-[10px] text-white/50 sm:hidden">
+                                  {option.description} for {option.role}
+                                </span>
+                              </>
+                            ) : null}
+                          </div>
+
+                          <RadioGroupItem
+                            className={`absolute top-1/2 right-2 -translate-y-1/2 ${selected === option.value ? "bg-primary" : "bg-[#3b3b3b]"}`}
+                            value={option.value}
+                            id={option.value}
+                            disabled={isDisabled}
+                          />
                         </div>
-
-                        <RadioGroupItem
-                          className={`absolute top-1/2 right-2 -translate-y-1/2 ${selected === option.value ? "bg-primary" : "bg-[#3b3b3b]"}`}
-                          value={option.value}
-                          id={option.value}
-                        />
                       </div>
-                    </div>
 
-                    <span className="hidden text-xs text-white/80 sm:inline-block">
-                      {option.description} <br /> {option.role}
-                    </span>
-                  </Label>
-                ))}
+                      {"description" in option ? (
+                        <span className="hidden text-xs text-white/80 sm:inline-block">
+                          {option.description} <br /> {option.role}
+                        </span>
+                      ) : null}
+                    </Label>
+                  );
+                })}
               </RadioGroup>
             </div>
 
-            <p className="mt-3 text-center text-xs text-white/55">
-              * To add videos straight to your existing channels <br /> and
-              communities, sign in as a{" "}
-              <button
-                type="button"
-                className="text-primary cursor-pointer underline underline-offset-2 hover:underline"
-                onClick={() => openSignInFromCreate("type-picker-proceed")}
-              >
-                host creator
-              </button>{" "}
-              from here.
-            </p>
+            {!isLiveEventEntry ? (
+              <p className="mt-3 text-center text-xs text-white/55">
+                * To add videos straight to your existing channels <br /> and
+                communities, sign in as a{" "}
+                <button
+                  type="button"
+                  className="text-primary cursor-pointer underline underline-offset-2 hover:underline"
+                  onClick={() => openSignInFromCreate("type-picker-proceed")}
+                >
+                  host creator
+                </button>{" "}
+                from here.
+              </p>
+            ) : null}
 
             <div className="mt-4 flex items-center justify-between">
               <button
