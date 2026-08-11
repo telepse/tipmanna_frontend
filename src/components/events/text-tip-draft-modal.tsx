@@ -9,6 +9,10 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import {
+  TEXT_TIP_DRAFT_MODAL_OVERLAY_Z_INDEX,
+  TEXT_TIP_DRAFT_MODAL_Z_INDEX,
+} from "@/lib/drawer-z-index";
 import { cn } from "@/lib/utils";
 
 export interface TextTipDraftModalProps {
@@ -44,10 +48,13 @@ export function TextTipDraftModal({
       onOpenChange={onOpenChange}
     >
       <DialogContent
-        overlayClassName={cn("bg-black/60", stackOnTop && "z-[2147483646]")}
+        overlayClassName={cn(
+          "bg-black/60",
+          stackOnTop && TEXT_TIP_DRAFT_MODAL_OVERLAY_Z_INDEX
+        )}
         className={cn(
           "max-w-[min(100%,380px)] rounded-md bg-white p-6 sm:max-w-md",
-          stackOnTop && "z-[2147483647]"
+          stackOnTop && TEXT_TIP_DRAFT_MODAL_Z_INDEX
         )}
       >
         <DialogHeader>

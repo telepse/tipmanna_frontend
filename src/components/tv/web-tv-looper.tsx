@@ -1151,6 +1151,7 @@ export const WebTvLooper = ({
                     ? current.channel.username
                     : undefined
                 }
+                stackAboveImmersive
               />
 
               <TipsDrawer
@@ -1288,6 +1289,7 @@ export const WebTvLooper = ({
                     ? current.channel.username
                     : undefined
                 }
+                stackAboveImmersive
               />
 
               <TipsDrawer

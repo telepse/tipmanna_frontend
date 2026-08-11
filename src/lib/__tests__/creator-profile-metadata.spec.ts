@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { HostCreatorPublicProfile } from "@/actions/host-creator";
 import {
+  buildCommunityMetaDescription,
   buildCreatorProfileMetadata,
   formatCompactSocialCount,
 } from "@/lib/creator-profile-metadata";
@@ -44,15 +45,29 @@ describe("creator profile metadata", () => {
     expect(formatCompactSocialCount(450)).toBe("450");
   });
 
-  it("builds title and description from name, category, and members", () => {
+  it("builds title and three-line description starting with metrics", () => {
     const metadata = buildCreatorProfileMetadata(baseProfile);
 
     expect(metadata.title).toBe(
-      "Alex Rivers (@AlexDraws) | Content creator Creator on Tipmanna"
+      "Alex (@AlexDraws) | Content creator Creator on Tipmanna"
     );
-    expect(metadata.description).toContain("Alex Rivers");
     expect(metadata.description).toContain("14.5K members");
-    expect(metadata.description).toContain("Content creator");
+    expect(metadata.description).toContain("40 tips");
+    expect(metadata.description).toContain("12 videos");
+    expect(metadata.description?.split("\n")).toHaveLength(3);
+  });
+
+  it("builds community meta description with logo metrics first", () => {
+    const description = buildCommunityMetaDescription({
+      name: "Design Club",
+      memberCount: 1200,
+      totalTips: 450,
+      numVideos: 32,
+      description: "A community for designers sharing tips and tutorials.",
+    });
+
+    expect(description.split("\n")).toHaveLength(3);
+    expect(description).toMatch(/^1.2K members · 450 tips · 32 videos/);
   });
 
   it("uses avatar for open graph and banner fallback for twitter", () => {

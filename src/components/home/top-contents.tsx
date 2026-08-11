@@ -16,8 +16,6 @@ interface Props {
 export default function TopContents({ contents }: Props) {
   const topContentsRef = useRef<HTMLDivElement>(null);
 
-  console.log("contents", contents);
-
   return (
     <section className="wrapper section py-12">
       <div className="flex flex-col">

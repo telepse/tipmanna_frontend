@@ -19,6 +19,8 @@ import {
   Copy,
   Check,
   UserRound,
+  Rocket,
+  Plus,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { motion, useReducedMotion } from "framer-motion";
@@ -48,8 +50,11 @@ import { copyShareUrl } from "@/lib/copy-share-url";
 import { cn } from "@/lib/utils";
 import type { RootState } from "@/redux/store";
 import { formatCreatorProfileCategoryLabel } from "@/schemas/creator.schema";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { TopEventCard } from "../home/top-event-card";
+import { CreatorEventCard } from "../events/creator-event-card";
+import { useMediaQuery } from "react-responsive";
+import { NotificationBadge } from "../notifications/notification-badge";
 
 const PLACEHOLDER_AVATAR =
   "https://res.cloudinary.com/tipmanna/image/upload/v1786172267/user_sce6gw.png";
@@ -79,6 +84,9 @@ export function HostCreatorPageClient({
 }: Props) {
   const { host, stats, events, communities } = profile;
   const navigateToExplore = useNavigateToExploreVideo();
+
+  const pathname = usePathname();
+  console.log("pathname", pathname);
 
   const user = useSelector((state: RootState) => state.auth.user);
 
@@ -118,6 +126,17 @@ export function HostCreatorPageClient({
     });
   };
 
+  const isMobile = useMediaQuery({ maxWidth: "500px" });
+
+  const [isCreatePopupOpen, setIsCreatePopupOpen] = useState(false);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+
+  const userRole = useSelector((s: RootState) => s.auth.user?.role);
+  const authToken = useSelector((s: RootState) => s.auth.token);
+  const isSignedIn =
+    useSelector((s: RootState) => s.auth.isAuthenticated) &&
+    (userRole === "HOST" || userRole === "TIPPER");
+
   return (
     <section className="relative">
       <div className="absolute top-4 left-4">
@@ -127,6 +146,18 @@ export function HostCreatorPageClient({
           </Link>
         </h1>
       </div>
+
+      {/* {isOwnProfile && editProfileHref ? ( */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="absolute top-4 right-4 w-fit"
+        // onClick={() => setOpenCreatorDialog(true)}
+      >
+        <SquarePen className="mr-1.5 size-4" />
+        Edit
+      </Button>
+      {/* ) : null} */}
 
       <div
         className={cn(
@@ -170,15 +201,31 @@ export function HostCreatorPageClient({
             {eventTabEvents.length === 0 ? (
               <EmptyTabMessage message="No events created yet." />
             ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {eventTabEvents.map(event => (
-                  <EventBannerSection
-                    key={event.id}
-                    event={event}
-                    hostFullName={host.fullName}
-                  />
-                ))}
-              </div>
+              <>
+                {/* LARGE SCREENS */}
+                <div className="hidden flex-col gap-4 lg:flex">
+                  {eventTabEvents.map(event => (
+                    <EventBannerSection
+                      key={event.id}
+                      event={event}
+                      hostFullName={host.fullName}
+                    />
+                  ))}
+                </div>
+
+                {/* SMALL SCREENS */}
+                <div className="no-scrollbar hide__scrollbar relative flex items-center gap-4 overflow-x-auto lg:hidden">
+                  <div className="flex w-[320px] snap-x snap-mandatory space-x-4">
+                    {eventTabEvents.map(event => (
+                      <EventBannerSection
+                        key={event.id}
+                        event={event}
+                        hostFullName={host.fullName}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </TabsContent>
 
@@ -186,7 +233,7 @@ export function HostCreatorPageClient({
             {communities.length === 0 ? (
               <EmptyTabMessage message="No communities created yet." />
             ) : (
-              <div className="divide-y">
+              <div className="space-y-6 divide-y">
                 {communities.map(community => (
                   <CommunityBannerSection
                     key={community.id}
@@ -201,6 +248,85 @@ export function HostCreatorPageClient({
             <EmptyTabMessage message="Playlists are not available yet." />
           </TabsContent>
         </Tabs>
+      </div>
+
+      {/* Bottom section - MOBILE */}
+      <div
+        className={cn(
+          "absolute right-2 bottom-0 left-2 flex flex-col border-t px-4 py-1"
+        )}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <Link
+            href="/tv"
+            className="group flex flex-col items-center justify-center gap-1"
+          >
+            <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />{" "}
+            <span className="text-[8px]">Watch TV</span>
+          </Link>
+
+          <Link
+            href="/explore"
+            className="flex cursor-pointer flex-col items-center justify-center gap-1"
+            // onPointerEnter={prefetchExploreFeedInitial}
+            onClick={() => {
+              setIsCreatePopupOpen(false);
+              setIsProfileDrawerOpen(false);
+            }}
+          >
+            <Rocket
+              className="size-5"
+              strokeWidth={2}
+            />{" "}
+            <span className="text-[8px]">Explore</span>
+          </Link>
+
+          <div className="flex flex-col items-center justify-center">
+            <button
+              type="button"
+              className="cursor-pointer rounded-full bg-black/20 p-[3px]"
+              onClick={() => {
+                setIsCreatePopupOpen(true);
+                setIsProfileDrawerOpen(false);
+              }}
+            >
+              <Plus
+                className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
+                strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+              />
+            </button>
+
+            <span className="text-[8px]">Create</span>
+          </div>
+
+          <button
+            type="button"
+            className="mt-[5px] flex cursor-pointer flex-col items-center"
+            onPointerDown={() => {
+              // void awaitProfileDrawerPrefetch();
+            }}
+            onClick={() => {
+              setIsCreatePopupOpen(false);
+              setIsProfileDrawerOpen(true);
+            }}
+          >
+            <UserRound
+              className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+              strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
+            />
+            <NotificationBadge
+              variant="dot"
+              className="-top-0.5 right-6"
+            />
+            <span className="max-w-[4.5rem] truncate text-[8px] text-black">
+              {isSignedIn
+                ? "Signed in"
+                : userRole === "VISITOR"
+                  ? "Guest"
+                  : "Not signed in"}
+            </span>
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -281,7 +407,31 @@ function ProfileHeader({
   return (
     <section className="section relative z-100 bg-white">
       <>
-        <div className="absolute top-2 right-2 flex items-center gap-2 sm:top-4 sm:right-4">
+        <div className="absolute top-2 right-2 flex items-center gap-4 sm:top-4 sm:right-4">
+          <Link
+            href="/tv"
+            className="group flex flex-col items-center justify-center gap-1"
+          >
+            <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />{" "}
+            <span className="text-[8px]">Watch TV</span>
+          </Link>
+
+          <Link
+            href="/explore"
+            className="flex cursor-pointer flex-col items-center justify-center gap-1"
+            // onPointerEnter={prefetchExploreFeedInitial}
+            onClick={() => {
+              // setIsCreatePopupOpen(false);
+              // setIsProfileDrawerOpen(false);
+            }}
+          >
+            <Rocket
+              className="size-5"
+              strokeWidth={2}
+            />{" "}
+            <span className="text-[8px]">Explore</span>
+          </Link>
+
           <Button
             type="button"
             variant="outline"
@@ -304,7 +454,7 @@ function ProfileHeader({
             )}
           </Button>
 
-          {isOwnProfile && editProfileHref ? (
+          {/* {isOwnProfile && editProfileHref ? (
             <Button
               variant="outline"
               size="sm"
@@ -314,7 +464,7 @@ function ProfileHeader({
               <SquarePen className="mr-1.5 size-4" />
               Edit
             </Button>
-          ) : null}
+          ) : null} */}
         </div>
 
         <EditCreatorProfileDialog
@@ -403,7 +553,7 @@ function ProfileHeader({
 
           <div className="text-muted-foreground -mt-4 py-4 text-center text-sm leading-relaxed sm:text-left">
             {pageDescription ? (
-              <p>{pageDescription}</p>
+              <p className="line-clamp-3">{pageDescription}</p>
             ) : isOwnProfile ? (
               <p className="italic">
                 Add a page description to tell followers what your page is
@@ -572,20 +722,42 @@ function EventBannerSection({
   const organizationName =
     event.organizationName?.trim() || hostFullName.trim() || "Creator";
 
+  const isMobile = useMediaQuery({
+    maxWidth: "500px",
+  });
+
   return (
-    <TopEventCard
-      key={event.id}
-      channelId={event.id}
-      roomId={event.id}
-      eventBanner={event.eventBanner ?? ""}
-      eventName={event.eventName}
-      organizationName={organizationName}
-      amountRaised={event.amountRaised}
-      numOfTips={event.numOfTips}
-      eventDate={event.eventDate}
-      startTime={event.startTime}
-      endTime={event.endTime}
-    />
+    <>
+      {isMobile ? (
+        <TopEventCard
+          key={event.id}
+          channelId={event.id}
+          roomId={event.id}
+          eventBanner={event.eventBanner ?? ""}
+          eventName={event.eventName}
+          organizationName={organizationName}
+          amountRaised={event.amountRaised}
+          numOfTips={event.numOfTips}
+          eventDate={event.eventDate}
+          startTime={event.startTime}
+          endTime={event.endTime}
+        />
+      ) : (
+        <CreatorEventCard
+          key={event.id}
+          channelId={event.id}
+          roomId={event.id}
+          eventBanner={event.eventBanner ?? ""}
+          eventName={event.eventName}
+          organizationName={organizationName}
+          amountRaised={event.amountRaised}
+          numOfTips={event.numOfTips}
+          eventDate={event.eventDate}
+          startTime={event.startTime}
+          endTime={event.endTime}
+        />
+      )}
+    </>
   );
 }
 
@@ -602,7 +774,7 @@ function CommunityBannerSection({
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <article className="w-full overflow-hidden">
+    <article className="w-full overflow-hidden rounded-3xl border-2 border-gray-200 shadow-md">
       <Link
         href={community.locked ? "#" : joinHref}
         aria-disabled={community.locked}
@@ -802,7 +974,9 @@ function VideoCard({
       {locked ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50">
           <Lock className="size-5 text-white" />
-          <span className="text-[10px] font-medium text-white/90">Pending</span>
+          <span className="text-[10px] font-medium text-white/90">
+            Pending admin approval
+          </span>
         </div>
       ) : null}
     </button>

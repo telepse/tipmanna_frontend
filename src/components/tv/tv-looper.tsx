@@ -1256,6 +1256,7 @@ export const TvLooper = ({
                     ? current.channel.username
                     : undefined
                 }
+                stackAboveImmersive
               />
 
               <TipsDrawer

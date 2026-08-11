@@ -2,7 +2,14 @@ import { useState } from "react";
 import Image from "next/image";
 
 // Third-party imports
-import { Eye, Play, Users } from "lucide-react";
+import {
+  Bookmark,
+  Eye,
+  MessageCircleMore,
+  Play,
+  Share2,
+  Users,
+} from "lucide-react";
 
 // Local imports
 import { Paragraph } from "@/components/shared/paragraph";
@@ -23,14 +30,17 @@ interface Props {
   eventName: string;
   /** Optional second line — e.g. parent event / room name when `eventName` is the video title. */
   eventSubtitle?: string;
-  fullName: string;
-  username: string;
-  amountRaised: number;
-  numOfTips: number;
+  fullName?: string | null;
+  username?: string | null;
+  amountRaised?: number | null;
+  numOfTips?: number | null;
   numOfEncounters?: number;
   startTime: string;
   endTime: string;
   duration: number;
+  numOfSaves?: number | null;
+  numOfShares?: number | null;
+  numOfComments?: number | null;
 }
 
 export const TopContentCard = ({
@@ -45,6 +55,9 @@ export const TopContentCard = ({
   numOfTips,
   numOfEncounters = 0,
   duration,
+  numOfSaves,
+  numOfShares,
+  numOfComments,
 }: Props) => {
   const [loadingEventId] = useState<string | null>(null);
   const headline =
@@ -86,56 +99,86 @@ export const TopContentCard = ({
           {headline.substring(0, 20)}
           {headline.length > 20 ? "..." : ""}
         </Paragraph>
-        <Paragraph
-          size="sm"
-          className={cn(
-            "flex items-center justify-between gap-2",
-            eventSubtitle?.trim() ? "mt-2" : "-mt-3"
-          )}
-        >
-          <span className="flex items-center gap-1 text-xs whitespace-nowrap">
-            Creator: {(fullName || "Host").split(" ")[0]}{" "}
-            <Link
-              href={`/@${username}`}
-              className="text-primary"
-            >
-              @{(username || "—").substring(0, 9)}
-              {(username || "").length > 7 ? "..." : ""}
-            </Link>
-          </span>
-        </Paragraph>
 
-        <div className="mt-6 flex justify-between">
+        {fullName && username && (
+          <Paragraph
+            size="sm"
+            className={cn(
+              "flex items-center justify-between gap-2",
+              eventSubtitle?.trim() ? "mt-2" : "-mt-3"
+            )}
+          >
+            <span className="flex items-center gap-1 text-xs whitespace-nowrap">
+              Creator: {(fullName || "Host").split(" ")[0]}{" "}
+              <Link
+                href={`/@${username}`}
+                className="text-primary"
+              >
+                @{(username || "—").substring(0, 9)}
+                {(username || "").length > 7 ? "..." : ""}
+              </Link>
+            </span>
+          </Paragraph>
+        )}
+
+        <div
+          className={`${fullName && username ? "mt-6" : "mt-0"} flex justify-between`}
+        >
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground flex gap-2 text-xs">
               Duration: {formatTime(duration)}
             </span>
 
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground flex items-center gap-0.5 text-[10px] whitespace-nowrap">
-                <Users className="size-3" /> {numOfTips} Tips
-              </span>
+              {numOfTips && (
+                <span className="text-muted-foreground flex items-center gap-0.5 text-[10px] whitespace-nowrap">
+                  <Users className="size-3" /> {numOfTips} Tips
+                </span>
+              )}
+              {/* {numOfEncounters && 
               <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
                 <Eye
                   className="size-3"
                   aria-hidden
                 />
                 {numOfEncounters} seen
-              </span>
+              </span>} */}
+              {numOfSaves && (
+                <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+                  <Bookmark className="size-3" /> {numOfSaves} saves
+                </span>
+              )}
+              {numOfShares && (
+                <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+                  <Share2 className="size-3" /> {numOfShares} shares
+                </span>
+              )}
+              {numOfComments ? (
+                <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+                  {numOfComments && <MessageCircleMore className="size-3" />}
+                  {numOfComments} {numOfComments && "comments"}
+                </span>
+              ) : (
+                <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+                  0 comments
+                </span>
+              )}
             </div>
           </div>
 
-          <span className="text-primary border-primary flex items-center gap-2 rounded-md border px-2 py-1">
-            <Image
-              src="/icons/diamond.png"
-              alt="Diamond"
-              width={40}
-              height={40}
-              className="size-5 sm:size-7"
-            />{" "}
-            &pound;
-            {formatWithCommas(amountRaised)}
-          </span>
+          {amountRaised && (
+            <span className="text-primary border-primary flex items-center gap-2 rounded-md border px-2 py-1">
+              <Image
+                src="/icons/diamond.png"
+                alt="Diamond"
+                width={40}
+                height={40}
+                className="size-5 sm:size-7"
+              />{" "}
+              &pound;
+              {formatWithCommas(amountRaised)}
+            </span>
+          )}
         </div>
       </div>
     </div>

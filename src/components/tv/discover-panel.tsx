@@ -1222,11 +1222,15 @@ export function DiscoverPanel({
                     )}
 
                     <h5 className="text-sm font-semibold underline underline-offset-2">
-                      {community.name}
+                      {trimTitle(community.name, 20)}
                     </h5>
 
-                    <p className="text-muted-foreground line-clamp-1 text-xs">
-                      {trimTitle(community.description ?? "", 20)}
+                    <p
+                      className={`text-muted-foreground line-clamp-1 text-xs ${community.description ? "" : "italic"}`}
+                    >
+                      {community.description
+                        ? trimTitle(community.description, 20)
+                        : "No description added yet"}
                     </p>
 
                     <p className="text-muted-foreground text-xs">

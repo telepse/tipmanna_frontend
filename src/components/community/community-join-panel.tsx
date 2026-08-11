@@ -7,7 +7,17 @@ import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
-import { Loader2, Copy, UserRound } from "lucide-react";
+import {
+  CircleStop,
+  Copy,
+  Loader2,
+  Pause,
+  Play,
+  UserRound,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
@@ -42,7 +52,11 @@ import { EVENT_VIDEO_TYPE_OPTIONS } from "@/lib/event-video-type-options";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import { formatBankDuration } from "@/lib/utils";
+import { formatMetaMetricsLine } from "@/lib/creator-profile-metadata";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
+import { TopContentCard } from "../home/top-content-card";
+import { FeaturedContentCard } from "./featured-content-card";
+import VideoPlayer, { VideoPlayerRef } from "../events/video-player";
 
 const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
 
@@ -83,6 +97,210 @@ function getFeaturedVideoShareUrl(
     eventId: video.eventId,
     channelId: video.channelId,
   });
+}
+
+function formatPlaybackTime(seconds: number) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function FeaturedCommunityVideoOverlay({
+  video,
+  onClose,
+}: {
+  video: CommunityFeaturedVideo;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<VideoPlayerRef>(null);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [loadingPlayer, setLoadingPlayer] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+
+  useEffect(() => {
+    setPlayerReady(false);
+    setLoadingPlayer(true);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(true);
+    setIsMuted(true);
+    setAudioUnlocked(false);
+
+    const timer = window.setTimeout(() => {
+      setPlayerReady(true);
+      setLoadingPlayer(false);
+    }, 100);
+
+    return () => window.clearTimeout(timer);
+  }, [video.id]);
+
+  useEffect(() => {
+    if (!playerReady) return;
+
+    const interval = window.setInterval(() => {
+      const player = videoRef.current;
+      if (!player?.isReady()) return;
+      setCurrentTime(player.getCurrentTime());
+      setDuration(player.getDuration());
+    }, 500);
+
+    return () => window.clearInterval(interval);
+  }, [playerReady, video.id]);
+
+  const togglePlayPause = () => {
+    const player = videoRef.current;
+    if (!player) return;
+    if (isPlaying) {
+      player.pause();
+      setIsPlaying(false);
+    } else {
+      player.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const toggleMute = () => {
+    const player = videoRef.current;
+    if (!player) return;
+    if (isMuted) {
+      player.unmute();
+      setIsMuted(false);
+      setAudioUnlocked(true);
+    } else {
+      player.mute();
+      setIsMuted(true);
+    }
+  };
+
+  const handleUnmute = () => {
+    const player = videoRef.current;
+    if (!player) return;
+    player.unmute();
+    player.setvolume(100);
+    setIsMuted(false);
+    setAudioUnlocked(true);
+    setIsPlaying(true);
+  };
+
+  return (
+    <div
+      className={`${OVERLAY_Z_INDEX} fixed inset-0 flex items-center justify-center bg-black/80 p-4`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Playing ${video.title}`}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-xl rounded-md bg-white shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          aria-label="Close video"
+          onClick={onClose}
+          className="absolute top-3 right-3 z-20 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80"
+        >
+          <X className="size-4" />
+        </button>
+
+        <div className="relative flex gap-3 p-4 pt-10">
+          <div className="flex shrink-0 flex-col gap-2">
+            <button
+              type="button"
+              aria-label={isPlaying ? "Pause video" : "Play video"}
+              onClick={togglePlayPause}
+            >
+              {isPlaying ? (
+                <Pause className="size-5" />
+              ) : (
+                <Play className="size-5" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              aria-label="Stop video"
+              onClick={() => videoRef.current?.stop()}
+            >
+              <CircleStop className="-ml-1 size-7 fill-black text-white" />
+            </button>
+
+            <button
+              type="button"
+              aria-label={isMuted ? "Unmute video" : "Mute video"}
+              onClick={toggleMute}
+            >
+              {isMuted ? (
+                <VolumeX className="size-5" />
+              ) : (
+                <Volume2 className="size-5" />
+              )}
+            </button>
+
+            {!audioUnlocked && !loadingPlayer ? (
+              <button
+                type="button"
+                onClick={handleUnmute}
+                className="text-muted-foreground flex items-center gap-1 text-[10px] whitespace-nowrap"
+              >
+                <VolumeX className="size-4" />
+              </button>
+            ) : null}
+          </div>
+
+          <div className="relative min-h-[200px] min-w-0 flex-1 overflow-hidden rounded-lg bg-black">
+            {loadingPlayer ? (
+              <div className="flex h-[min(55vh,420px)] w-full items-center justify-center">
+                <span className="animate-pulse text-sm text-white/70">
+                  Loading video…
+                </span>
+              </div>
+            ) : null}
+            {playerReady && !loadingPlayer ? (
+              <div className="relative h-[min(55vh,420px)] w-full">
+                <VideoPlayer
+                  ref={videoRef}
+                  key={video.id}
+                  videoUrl={video.url}
+                  isChannel
+                  className="h-full w-full"
+                  onPlayStateChange={setIsPlaying}
+                  onMuteStateChange={setIsMuted}
+                  loadingBackdropClassName="bg-black"
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="space-y-2 px-4 pb-4">
+          <h4 className="line-clamp-2 text-sm font-medium">{video.title}</h4>
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            value={currentTime}
+            step={0.1}
+            aria-label="Video scrubber"
+            onChange={e => {
+              const seekTo = Number.parseFloat(e.target.value);
+              videoRef.current?.seekTo(seekTo);
+              setCurrentTime(seekTo);
+            }}
+            className="accent-primary h-2 w-full rounded-full bg-black"
+          />
+          <div className="flex justify-between px-1 text-xs">
+            <span>{formatPlaybackTime(currentTime)}</span>
+            <span>{formatPlaybackTime(duration)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export type CommunityJoinPanelProps = {
@@ -135,15 +353,10 @@ export function CommunityJoinPanel({
 
   const shouldReduceMotion = useReducedMotion();
 
-  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [overlayVideo, setOverlayVideo] =
+    useState<CommunityFeaturedVideo | null>(null);
 
-  const openLightbox = useCallback(() => {
-    setLightboxOpen(true);
-  }, []);
-
-  const closeLightbox = useCallback(() => {
-    setLightboxOpen(false);
-  }, []);
+  const featuredVideosRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     formLoadedForRef.current = null;
@@ -365,16 +578,6 @@ export function CommunityJoinPanel({
     );
   }
 
-  if (lightboxOpen) {
-    return (
-      <div
-        className={`${OVERLAY_Z_INDEX} fixed inset-0 m-auto flex h-[80vh] h-screen max-h-[50vh] w-full max-w-[80vh] items-center justify-center border-2 border-black`}
-      >
-        this slot is for a video player
-      </div>
-    );
-  }
-
   let joinBody: ReactNode;
 
   if (!communityId) {
@@ -400,8 +603,6 @@ export function CommunityJoinPanel({
       paidFee != null && paidFee !== "" && Number(paidFee) > 0;
     const communityLogoSrc = form.logoUrl?.trim();
     const typeLabel = formatCommunityTypeLabel(form.communityType);
-
-    console.log("form", form);
 
     joinBody = (
       <section
@@ -544,9 +745,38 @@ export function CommunityJoinPanel({
           <h5 className="text-muted-foreground text-lg font-medium underline underline-offset-2">
             Community details
           </h5>
-          <p className="-mt-4 leading-loose">
-            {form.description?.trim() || "No description yet."}
-          </p>
+          <div className="-mt-4 flex items-start gap-4">
+            {communityLogoSrc ? (
+              <Image
+                src={communityLogoSrc}
+                alt={`${form.name} logo`}
+                width={64}
+                height={64}
+                className="size-16 shrink-0 rounded-md object-cover"
+                unoptimized={communityLogoSrc.startsWith("http")}
+              />
+            ) : (
+              <div className="border-moonstone-blue flex size-16 shrink-0 items-center justify-center rounded-md border-2 bg-white">
+                <UserRound className="size-8" />
+              </div>
+            )}
+            <p className="line-clamp-3 min-w-0 flex-1 leading-relaxed">
+              <span className="font-medium">
+                {formatMetaMetricsLine({
+                  members: form.memberCount ?? 0,
+                  tips: form.totalTips ?? 0,
+                  videos: form.numVideos ?? 0,
+                })}
+              </span>
+              {form.description?.trim() ? (
+                <span>{` · ${form.description.trim()}`}</span>
+              ) : (
+                <span className="text-muted-foreground">
+                  {" · No description yet."}
+                </span>
+              )}
+            </p>
+          </div>
 
           {form.communityType ? (
             <p className="text-muted-foreground text-sm font-medium">
@@ -588,7 +818,7 @@ export function CommunityJoinPanel({
               <h5 className="text-muted-foreground text-lg font-medium">
                 Featured community videos
               </h5>
-              <div className="grid grid-cols-1 gap-4">
+              {/* <div className="grid grid-cols-1 gap-4">
                 {featuredVideos.map(video => {
                   const shareUrl = getFeaturedVideoShareUrl(video);
 
@@ -645,9 +875,84 @@ export function CommunityJoinPanel({
                     </div>
                   );
                 })}
+              </div> */}
+
+              {/* Small and medium screens */}
+              <div className="no-scrollbar hide__scrollbar relative flex items-center gap-4 overflow-x-auto lg:hidden">
+                <div className="flex w-full snap-x snap-mandatory space-x-4">
+                  {featuredVideos.map(video => (
+                    <div
+                      key={video.id}
+                      className="w-[85%] flex-shrink-0 snap-center transition-transform duration-300 sm:w-[50%]"
+                    >
+                      <FeaturedContentCard
+                        key={video.id}
+                        channelId={video.eventId ?? ""}
+                        roomId={video.id}
+                        videoId={video.id}
+                        eventBanner={(() => {
+                          const videoId = extractYoutubeID(video.url);
+                          return videoId
+                            ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                            : "";
+                        })()}
+                        eventName={video.title}
+                        numOfTips={video.numOfTips ?? 0}
+                        numOfEncounters={video.numOfSeen ?? 0}
+                        numOfSaves={video.numOfSaves ?? 0}
+                        numOfShares={video.numOfShares ?? 0}
+                        numOfComments={video.numOfComments}
+                        startTime={""}
+                        endTime={""}
+                        duration={video.durationSeconds ?? 0}
+                        videoUrl={video.url}
+                        onPlayClick={() => setOverlayVideo(video)}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ) : null}
+
+          {/* LARGE SCREENS */}
+          <div className="no-scrollbar hide__scrollbar relative hidden items-center gap-4 overflow-x-auto lg:flex">
+            <div
+              ref={featuredVideosRef}
+              className="flex w-[550px] snap-x snap-mandatory space-x-4"
+            >
+              {featuredVideos.map(video => (
+                <div
+                  key={video.id}
+                  className="w-[85%] flex-shrink-0 snap-center transition-transform duration-300 sm:w-[50%]"
+                >
+                  <FeaturedContentCard
+                    key={video.id}
+                    channelId={video.eventId ?? ""}
+                    roomId={video.id}
+                    videoId={video.id}
+                    eventBanner={(() => {
+                      const videoId = extractYoutubeID(video.url);
+                      return videoId
+                        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                        : "";
+                    })()}
+                    eventName={video.title}
+                    numOfTips={video.numOfTips ?? 0}
+                    numOfEncounters={video.numOfSeen ?? 0}
+                    numOfSaves={video.numOfSaves ?? 0}
+                    numOfShares={video.numOfShares ?? 0}
+                    numOfComments={video.numOfComments}
+                    startTime={""}
+                    endTime={""}
+                    duration={video.durationSeconds ?? 0}
+                    videoUrl={video.url}
+                    onPlayClick={() => setOverlayVideo(video)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-6 space-y-4 border-t pt-6 lg:mt-12">
             {isMember ? (
@@ -873,6 +1178,12 @@ export function CommunityJoinPanel({
   return (
     <>
       {joinBody}
+      {overlayVideo ? (
+        <FeaturedCommunityVideoOverlay
+          video={overlayVideo}
+          onClose={() => setOverlayVideo(null)}
+        />
+      ) : null}
       <TipperEmailOtpSignInDialog
         open={signInOpen}
         onOpenChange={setSignInOpen}
