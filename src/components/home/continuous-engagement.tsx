@@ -85,7 +85,7 @@ export const ContinousEngagement = () => {
         {/* </Slide> */}
         {/* )} */}
 
-        {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
+        {/* {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
           <div
             key={slide.image}
             className="w-full"
@@ -106,7 +106,7 @@ export const ContinousEngagement = () => {
         >
           {CONTINUOUS_ENGAGEMENT_SLIDES[0].title} -{" "}
           {CONTINUOUS_ENGAGEMENT_SLIDES[0].alt}
-        </Paragraph>
+        </Paragraph> */}
       </div>
     </section>
   );
