@@ -214,14 +214,7 @@ export function HostCreatorPageClient({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-[1000] shrink-0 bg-white">
-        <div
-          className={cn(
-            "mx-auto grid max-w-4xl items-center gap-2 px-4 py-2 sm:max-w-2xl md:max-w-4xl",
-            isDrawer ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]",
-            isOwnProfile ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]",
-            !isOwnProfile ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]"
-          )}
-        >
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-4 py-2 sm:max-w-2xl md:max-w-4xl">
           <Link
             href="/explore"
             className="racing_sans_one justify-self-start text-xl sm:text-2xl"
@@ -231,7 +224,7 @@ export function HostCreatorPageClient({
 
           {isOwnProfile && !isDrawer ? (
             <nav
-              className="flex items-center justify-center gap-4 sm:gap-6"
+              className="flex items-center gap-4 sm:gap-6"
               aria-label="Creator page navigation"
             >
               <Link
@@ -253,16 +246,15 @@ export function HostCreatorPageClient({
                 <span className="text-[8px] sm:text-xs">Explore</span>
               </Link>
             </nav>
+          ) : !isDrawer ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleMyAccountClick}
+            >
+              My Account
+            </Button>
           ) : null}
-
-          <Button
-            type="button"
-            size="sm"
-            className={`${isOwnProfile ? "hidden" : "justify-self-end"}`}
-            onClick={handleMyAccountClick}
-          >
-            My Account
-          </Button>
         </div>
       </header>
 
@@ -303,7 +295,7 @@ export function HostCreatorPageClient({
         />
       ) : null}
 
-      <section className="relative -z-50 -mt-4 flex-1 sm:-mt-2">
+      <section className="relative -mt-4 flex-1 sm:-mt-2">
         <div
           className={cn(
             "relative mx-auto max-w-lg bg-white sm:max-w-2xl md:max-w-4xl",
@@ -521,7 +513,7 @@ function ProfileHeader({
   };
 
   return (
-    <section className="section relative z-100 bg-white">
+    <section className="section relative z-20 bg-white">
       {/* <div className="absolute top-2 right-2 flex items-center gap-2 sm:top-4 sm:right-4">
         
       </div> */}
@@ -538,7 +530,7 @@ function ProfileHeader({
         alt="Wave pattern"
         width={1000}
         height={150}
-        className="absolute top-0 left-0 -z-100 h-[150px] w-full object-cover"
+        className="pointer-events-none absolute top-0 left-0 -z-10 h-[150px] w-full object-cover"
       />
 
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
@@ -619,7 +611,12 @@ function ProfileHeader({
           {showSecondaryStats ? <SecondaryStats stats={stats} /> : null}
 
           <div
-            className={` ${showSecondaryStats ? "" : "-mt-4 flex items-center justify-center gap-2 sm:justify-start"}`}
+            className={cn(
+              "relative z-20",
+              showSecondaryStats
+                ? ""
+                : "-mt-4 flex items-center justify-center gap-2 sm:justify-start"
+            )}
           >
             {externalLink?.url && externalLink.url !== "#" ? (
               <a
@@ -657,6 +654,7 @@ function ProfileHeader({
 
             {isOwnProfile && editProfileHref ? (
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 className="w-fit"
