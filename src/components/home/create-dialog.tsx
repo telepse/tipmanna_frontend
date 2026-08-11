@@ -646,7 +646,9 @@ export const CreateDialog = ({
                       value="event"
                       className="mt-4"
                     >
-                      <Label className={CREATE_FORM_LABEL_CLASS}>Channel</Label>
+                      <Label className={CREATE_FORM_LABEL_CLASS}>
+                        Existing Channel
+                      </Label>
                       <Select
                         value={targetId}
                         onValueChange={setTargetId}

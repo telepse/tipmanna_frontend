@@ -14,7 +14,6 @@ import Providers from "@/app/providers";
 import { ToastContainer } from "react-toastify";
 
 // Local imports
-import { Analytics } from "@/components/analytics";
 import { WebVitalsReporter } from "@/components/analytics/web-vitals-reporter";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import { VideoNativeMobileGuard } from "@/components/video-native-mobile-guard";
@@ -135,10 +134,32 @@ export default function RootLayout({
           rel="apple-touch-startup-image"
           href="/icons/icon-512.png"
         />
+        <Script
+          id="gtm-script"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NNDJ85BT');`,
+          }}
+        ></Script>
       </head>
       <body
         className={`${racingSansOne.variable} ${openSans.variable} ${montserrat.variable} ${bricolage.className} antialiased`}
       >
+        {/* <!-- Google Tag Manager (noscript) --> */}
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-NNDJ85BT"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          ></iframe>
+        </noscript>
+        {/* <!-- End Google Tag Manager (noscript) --> */}
+
         <Script
           src="https://cdn.jsdelivr.net/npm/add-to-calendar-button@2"
           strategy="lazyOnload"
@@ -162,7 +183,7 @@ export default function RootLayout({
         <Providers>
           <VideoNativeMobileGuard />
           <ServiceWorkerRegistrar />
-          <Analytics />
+
           <WebVitalsReporter />
           <TextTipDraftModalLayer />
 

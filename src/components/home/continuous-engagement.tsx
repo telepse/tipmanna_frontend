@@ -36,7 +36,8 @@ export const ContinousEngagement = () => {
         </Title>
 
         <Paragraph color="muted">
-          People don&apos;t return for content. They return for moments.
+          A connected system built around participation - not isolated tools.{" "}
+          <br /> People don&apos;t return for content. They return for moments.
         </Paragraph>
 
         <div
@@ -50,57 +51,61 @@ export const ContinousEngagement = () => {
                 key={slide.image}
                 className="w-full"
               >
-                <div className="border-primary relative h-[280px] w-full overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px]">
+                <div className="border-primary w-ful relative mx-auto h-[280px] overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px] lg:w-[960px]">
                   <Image
                     src={slide.image}
                     alt={slide.alt}
                     fill
-                    className="object-cover"
+                    className="h-[400px] w-full object-contain"
                     sizes="90vw"
                     quality={90}
                   />
-
-                  {!isMobile && (
-                    <div className="bg-primary border-primary absolute bottom-4 left-4 flex items-center gap-2 rounded-2xl border-2 p-4 text-sm">
-                      <Paragraph
-                        size="sm"
-                        color="white"
-                        className="-mt-2"
-                      >
-                        {slide.title} - {slide.alt}
-                      </Paragraph>
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
           </Slide>
         </div>
 
-        {isMobile && (
-          <Slide {...slideProperties}>
-            {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
+        {/* {!isMobile && ( */}
+        {/* <Slide {...slideProperties}> */}
+        {/* {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
               <div
                 key={slide.image}
                 className="w-full"
               >
                 <Paragraph
-                  size="sm"
-                  color="white"
+                  size="lg"
+                  color="black"
                   className="-mt-2"
                 >
                   {slide.title} - {slide.alt}
                 </Paragraph>
               </div>
-            ))}
-          </Slide>
-        )}
+            ))} */}
+        {/* </Slide> */}
+        {/* )} */}
+
+        {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
+          <div
+            key={slide.image}
+            className="w-full"
+          >
+            <Paragraph
+              size="sm"
+              className="border-primary w-fit max-w-full self-start border-l-2 py-0 pl-4"
+            >
+              {CONTINUOUS_ENGAGEMENT_SLIDES[0].title} -{" "}
+              {CONTINUOUS_ENGAGEMENT_SLIDES[0].alt}
+            </Paragraph>
+          </div>
+        ))}
 
         <Paragraph
           size="sm"
           className="border-primary w-fit max-w-full self-start border-l-2 py-0 pl-4"
         >
-          A connected system built around participation - not isolated tools.
+          {CONTINUOUS_ENGAGEMENT_SLIDES[0].title} -{" "}
+          {CONTINUOUS_ENGAGEMENT_SLIDES[0].alt}
         </Paragraph>
       </div>
     </section>

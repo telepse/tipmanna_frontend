@@ -211,17 +211,20 @@ export function HostCreatorPageClient({
     setSignInOpen(true);
   };
 
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = async () => {
+    const shareUrl = buildCreatorProfileShareUrl(host.username);
+    if (!shareUrl.trim()) {
+      toast.error("Creator profile link is unavailable");
+      return;
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-[1000] shrink-0 bg-white">
-        <div
-          className={cn(
-            "mx-auto grid max-w-4xl items-center gap-2 px-4 py-2 sm:max-w-2xl md:max-w-4xl",
-            isDrawer ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]",
-            isOwnProfile ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]",
-            !isOwnProfile ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_1fr]"
-          )}
-        >
+      <header className="sticky top-0 z-50 shrink-0 bg-white">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-4 py-2 sm:max-w-2xl md:max-w-4xl">
           <Link
             href="/explore"
             className="racing_sans_one justify-self-start text-xl sm:text-2xl"
@@ -231,38 +234,56 @@ export function HostCreatorPageClient({
 
           {isOwnProfile && !isDrawer ? (
             <nav
-              className="flex items-center justify-center gap-4 sm:gap-6"
+              className="flex items-center gap-4 sm:gap-6"
               aria-label="Creator page navigation"
             >
               <Link
                 href="/tv"
-                className="hover:text-primary flex flex-col items-center gap-0.5 sm:flex-row sm:gap-1.5"
+                className="hover:text-primary flex flex-row items-center gap-0.5 gap-1.5"
               >
                 <Tv className="size-4 sm:size-5" />
-                <span className="text-[8px] sm:text-xs">Watch TV</span>
+                <span className="text-xs">Watch TV</span>
               </Link>
               <Link
                 href="/explore"
-                className="hover:text-primary flex flex-col items-center gap-0.5 sm:flex-row sm:gap-1.5"
+                className="hover:text-primary flex flex-row items-center gap-0.5 gap-1.5"
                 onClick={() => {
                   setIsCreatePopupOpen(false);
                   setIsProfileDrawerOpen(false);
                 }}
               >
                 <Rocket className="size-4 sm:size-5" />
-                <span className="text-[8px] sm:text-xs">Explore</span>
+                <span className="text-xs">Explore</span>
               </Link>
             </nav>
+          ) : !isDrawer ? (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 px-1 py-0.5"
+                aria-label={
+                  copied ? "Creator link copied" : "Copy creator profile link"
+                }
+                title={copied ? "Copied!" : "Copy creator profile link"}
+                onClick={() => void copyLink()}
+              >
+                {copied ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleMyAccountClick}
+              >
+                My Account
+              </Button>
+            </div>
           ) : null}
-
-          <Button
-            type="button"
-            size="sm"
-            className={`${isOwnProfile ? "hidden" : "justify-self-end"}`}
-            onClick={handleMyAccountClick}
-          >
-            My Account
-          </Button>
         </div>
       </header>
 
@@ -303,7 +324,7 @@ export function HostCreatorPageClient({
         />
       ) : null}
 
-      <section className="relative -z-50 -mt-4 flex-1 sm:-mt-2">
+      <section className="relative z-[1000] flex-1 bg-white">
         <div
           className={cn(
             "relative mx-auto max-w-lg bg-white sm:max-w-2xl md:max-w-4xl",
@@ -328,7 +349,7 @@ export function HostCreatorPageClient({
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                    className="data-[state=active]:border-b-primary h-8! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
                   >
                     {tab.label}
                   </TabsTrigger>
@@ -370,80 +391,80 @@ export function HostCreatorPageClient({
         </div>
       </section>
 
-      {!isOwnProfile && !isDrawer ? (
-        <div className="fixed right-0 bottom-0 left-0 z-40 border-t border-black/20 bg-white px-4 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-          <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-            <Link
-              href="/tv"
-              className="group flex flex-col items-center justify-center gap-1"
-            >
-              <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />
-              <span className="text-[8px]">Watch TV</span>
-            </Link>
+      {/* {!isOwnProfile && !isDrawer ? ( */}
+      <div className="fixed right-0 bottom-0 left-0 z-40 border-t border-black/20 bg-white px-4 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+          <Link
+            href="/tv"
+            className="group flex flex-col items-center justify-center gap-1"
+          >
+            <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />
+            <span className="text-[8px]">Watch TV</span>
+          </Link>
 
-            <Link
-              href="/explore"
-              className="flex cursor-pointer flex-col items-center justify-center gap-1"
-              onPointerEnter={prefetchExploreFeedInitial}
+          <Link
+            href="/explore"
+            className="flex cursor-pointer flex-col items-center justify-center gap-1"
+            onPointerEnter={prefetchExploreFeedInitial}
+            onClick={() => {
+              setIsCreatePopupOpen(false);
+              setIsProfileDrawerOpen(false);
+            }}
+          >
+            <Rocket
+              className="size-5"
+              strokeWidth={2}
+            />
+            <span className="text-[8px]">Explore</span>
+          </Link>
+
+          <div className="flex flex-col items-center justify-center">
+            <button
+              type="button"
+              className="cursor-pointer rounded-full bg-black/20 p-[3px]"
               onClick={() => {
-                setIsCreatePopupOpen(false);
+                openCreateDialog("default");
                 setIsProfileDrawerOpen(false);
               }}
             >
-              <Rocket
-                className="size-5"
-                strokeWidth={2}
+              <Plus
+                className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
+                strokeWidth={isCreatePopupOpen ? 3.75 : 2}
               />
-              <span className="text-[8px]">Explore</span>
-            </Link>
-
-            <div className="flex flex-col items-center justify-center">
-              <button
-                type="button"
-                className="cursor-pointer rounded-full bg-black/20 p-[3px]"
-                onClick={() => {
-                  openCreateDialog("default");
-                  setIsProfileDrawerOpen(false);
-                }}
-              >
-                <Plus
-                  className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
-                  strokeWidth={isCreatePopupOpen ? 3.75 : 2}
-                />
-              </button>
-              <span className="text-[8px]">Create</span>
-            </div>
-
-            <button
-              type="button"
-              className="mt-[5px] flex cursor-pointer flex-col items-center"
-              onPointerDown={() => {
-                void awaitProfileDrawerPrefetch();
-              }}
-              onClick={() => {
-                setIsCreatePopupOpen(false);
-                setIsProfileDrawerOpen(true);
-              }}
-            >
-              <UserRound
-                className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
-                strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
-              />
-              <NotificationBadge
-                variant="dot"
-                className="-top-0.5 right-6"
-              />
-              <span className="max-w-[4.5rem] truncate text-[8px] text-black">
-                {isSignedIn
-                  ? "Signed in"
-                  : userRole === "VISITOR"
-                    ? "Guest"
-                    : "Not signed in"}
-              </span>
             </button>
+            <span className="text-[8px]">Create</span>
           </div>
+
+          <button
+            type="button"
+            className="mt-[5px] flex cursor-pointer flex-col items-center"
+            onPointerDown={() => {
+              void awaitProfileDrawerPrefetch();
+            }}
+            onClick={() => {
+              setIsCreatePopupOpen(false);
+              setIsProfileDrawerOpen(true);
+            }}
+          >
+            <UserRound
+              className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+              strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
+            />
+            <NotificationBadge
+              variant="dot"
+              className="-top-0.5 right-6"
+            />
+            <span className="max-w-[4.5rem] truncate text-[8px] text-black">
+              {isSignedIn
+                ? "Signed in"
+                : userRole === "VISITOR"
+                  ? "Guest"
+                  : "Not signed in"}
+            </span>
+          </button>
         </div>
-      ) : null}
+      </div>
+      {/* ) : null} */}
     </div>
   );
 }
@@ -521,7 +542,7 @@ function ProfileHeader({
   };
 
   return (
-    <section className="section relative z-100 bg-white">
+    <section className="section relative bg-white pt-2! sm:pt-6">
       {/* <div className="absolute top-2 right-2 flex items-center gap-2 sm:top-4 sm:right-4">
         
       </div> */}
@@ -533,20 +554,20 @@ function ProfileHeader({
         onSaved={handleProfileSaved}
       />
 
-      <Image
+      {/* <Image
         src="/patterns/bg_pattern.webp"
         alt="Wave pattern"
         width={1000}
         height={150}
-        className="absolute top-0 left-0 -z-100 h-[150px] w-full object-cover"
-      />
+        className="pointer-events-none absolute top-0 left-0 z-10  h-[150px] w-full object-contain"
+      /> */}
 
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
         <div className="relative size-24 shrink-0 overflow-hidden rounded-full sm:size-28">
           <img
             src={profileImageUrl ?? PLACEHOLDER_AVATAR}
             alt={host.fullName || "Creator avatar"}
-            className="size-full border border-gray-200 object-cover"
+            className="z-50 size-full border border-gray-200 object-cover"
           />
         </div>
 
@@ -619,7 +640,12 @@ function ProfileHeader({
           {showSecondaryStats ? <SecondaryStats stats={stats} /> : null}
 
           <div
-            className={` ${showSecondaryStats ? "" : "-mt-4 flex items-center justify-center gap-2 sm:justify-start"}`}
+            className={cn(
+              "relative z-20",
+              showSecondaryStats
+                ? ""
+                : "-mt-4 flex items-center justify-center gap-2 sm:justify-start"
+            )}
           >
             {externalLink?.url && externalLink.url !== "#" ? (
               <a
@@ -637,33 +663,36 @@ function ProfileHeader({
                 {externalLink.label}
               </p>
             ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="shrink-0"
-              aria-label={
-                copied ? "Creator link copied" : "Copy creator profile link"
-              }
-              title={copied ? "Copied!" : "Copy creator profile link"}
-              onClick={() => void copyLink()}
-            >
-              {copied ? (
-                <Check className="size-4" />
-              ) : (
-                <Copy className="size-4" />
-              )}
-            </Button>
 
             {isOwnProfile && editProfileHref ? (
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
-                className="w-fit"
+                className="w-fit px-1! py-0.5! text-xs"
                 onClick={() => setOpenCreatorDialog(true)}
               >
-                <SquarePen className="mr-1.5 size-4" />
+                <SquarePen className="size-3.5" />
                 Edit
+              </Button>
+            ) : null}
+            {isOwnProfile ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 px-1 py-0.5"
+                aria-label={
+                  copied ? "Creator link copied" : "Copy creator profile link"
+                }
+                title={copied ? "Copied!" : "Copy creator profile link"}
+                onClick={() => void copyLink()}
+              >
+                {copied ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
               </Button>
             ) : null}
           </div>
@@ -776,7 +805,7 @@ function ChannelsTabContent({
   return (
     <div>
       <CreatorSubtabBar
-        stickyClassName="top-[5.75rem]"
+        stickyClassName="top-[5.75rem] left-0"
         subtabScrollRef={subtabScrollRef}
         action={
           isOwnProfile && !isCoOwnedActive
@@ -789,6 +818,7 @@ function ChannelsTabContent({
             subtabId={CO_OWNED_CHANNELS_SUBTAB_ID}
             active={isCoOwnedActive}
             onClick={() => selectById(CO_OWNED_CHANNELS_SUBTAB_ID)}
+            subtabLabel="Co-owned videos"
           >
             Co-owned videos
           </CreatorSubtabButton>
@@ -964,6 +994,7 @@ function CommunitiesTabContent({
               >
                 <CommunityBannerSection
                   community={community}
+                  // isOwnProfile={isOwnProfile}
                   compact
                 />
               </SnapCarouselSlide>
@@ -972,12 +1003,15 @@ function CommunitiesTabContent({
 
           <div className="hidden px-1 pt-2 lg:block">
             {activeCommunity ? (
-              <CommunityBannerSection community={activeCommunity} />
+              <CommunityBannerSection
+                community={activeCommunity}
+                // isOwnProfile={isOwnProfile}
+              />
             ) : null}
           </div>
         </>
       ) : isOwnProfile ? (
-        <EmptyTabMessage message="Send a start community request to tell us about your idea." />
+        <EmptyTabMessage message="Send a start community request to tell us about." />
       ) : null}
     </div>
   );
@@ -1332,14 +1366,8 @@ function CreatorSubtabBar({
         stickyClassName
       )}
     >
-      <div
-        ref={subtabScrollRef}
-        className="scrollbar-none hide__scrollbar min-w-0 flex-1 overflow-x-auto py-2 pl-2"
-      >
-        <div className="flex gap-2">{children}</div>
-      </div>
       {action ? (
-        <div className="flex shrink-0 items-center border-l bg-white py-2 pr-2 pl-2">
+        <div className="flex shrink-0 items-center border-r bg-white py-2 pr-2 pl-2">
           <CreatorSubtabButton
             active={false}
             variant="action"
@@ -1349,6 +1377,12 @@ function CreatorSubtabBar({
           </CreatorSubtabButton>
         </div>
       ) : null}
+      <div
+        ref={subtabScrollRef}
+        className="scrollbar-none hide__scrollbar min-w-0 flex-1 overflow-x-auto py-2 pl-2"
+      >
+        <div className="flex gap-2">{children}</div>
+      </div>
     </div>
   );
 }
@@ -1359,12 +1393,14 @@ function CreatorSubtabButton({
   onClick,
   variant = "default",
   subtabId,
+  subtabLabel,
 }: {
   children: ReactNode;
   active: boolean;
   onClick: () => void;
   variant?: "default" | "action";
   subtabId?: string;
+  subtabLabel?: string;
 }) {
   return (
     <button
@@ -1377,7 +1413,10 @@ function CreatorSubtabButton({
           ? "border border-dashed border-neutral-400 bg-white text-neutral-700 hover:bg-neutral-50"
           : active
             ? "bg-black text-white"
-            : "bg-neutral-100 hover:bg-neutral-200"
+            : "bg-neutral-100 hover:bg-neutral-200",
+        subtabLabel === "Co-owned videos"
+          ? "bg-secondary/30 hover:bg-secondary/40 text-black"
+          : ""
       )}
     >
       {children}
@@ -1441,6 +1480,7 @@ function EventBannerSection({
 function CommunityBannerSection({
   community,
   compact = false,
+  // isOwnProfile = false,
 }: {
   community: HostCreatorCommunity;
   compact?: boolean;
@@ -1451,6 +1491,11 @@ function CommunityBannerSection({
   const description = community.description?.trim() || null;
 
   const shouldReduceMotion = useReducedMotion();
+
+  const user = useSelector((state: RootState) => state.auth.user);
+  const isAuthenticated = useSelector(
+    (state: RootState) => state.auth.isAuthenticated
+  );
 
   return (
     <article
@@ -1553,14 +1598,6 @@ function CommunityBannerSection({
           </div>
         </div>
 
-        <CommunityHowToJoinSection
-          communityId={community.id}
-          signInRedirectPath={joinHref}
-          className="border-t pt-4"
-          showCancelLink={false}
-          joinDisabled={community.locked}
-        />
-
         <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
           <p>
             <span className="text-foreground font-medium">
@@ -1581,6 +1618,33 @@ function CommunityBannerSection({
             videos
           </p>
         </div>
+
+        <div className="flex items-center gap-4 text-sm">
+          <Link
+            href={joinHref}
+            className="underline underline-offset-2"
+            target="_blank"
+          >
+            Community page
+          </Link>
+          <Link
+            href={`/tv?community=${community.id}`}
+            className="underline underline-offset-2"
+            target="_blank"
+          >
+            Community TV
+          </Link>
+        </div>
+
+        {/* {!isOwnProfile && (
+          <CommunityHowToJoinSection
+            communityId={community.id}
+            signInRedirectPath={joinHref}
+            className="border-t pt-4"
+            showCancelLink={false}
+            joinDisabled={community.locked}
+          />
+        )} */}
       </div>
     </article>
   );
