@@ -26,6 +26,9 @@ export const MODAL_DROPDOWN_Z_INDEX = "z-[100021]";
 /** PWA install prompt — above immersive video chrome, below tip drawer. */
 export const PWA_INSTALL_SHEET_OVERLAY_Z_INDEX = "z-[100023]";
 export const PWA_INSTALL_SHEET_Z_INDEX = "z-[100024]";
+/** Text tip draft dialog — above explore feature cards (13100) and immersive drawers. */
+export const TEXT_TIP_DRAFT_MODAL_OVERLAY_Z_INDEX = "!z-[13150]";
+export const TEXT_TIP_DRAFT_MODAL_Z_INDEX = "!z-[13151]";
 /** Dialog opened from creator drawer / explore must sit above drawer chrome. */
 export const CREATOR_PROFILE_DIALOG_OVERLAY_Z_INDEX = "z-[100010]";
 export const CREATOR_PROFILE_DIALOG_Z_INDEX = "z-[100011]";

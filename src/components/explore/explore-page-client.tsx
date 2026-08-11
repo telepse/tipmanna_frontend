@@ -1115,6 +1115,11 @@ export default function ExplorePageClient({
     }
   }, [e2eFixtures]);
 
+  useEffect(() => {
+    if (tab !== "feed" || e2eFixtures) return;
+    void loadCommunityCatalogForPicker();
+  }, [tab, e2eFixtures, loadCommunityCatalogForPicker]);
+
   const loadExploreCatalog = useCallback(async () => {
     if (e2eFixtures) {
       setCatalogLoading(false);

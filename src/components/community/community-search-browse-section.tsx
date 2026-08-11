@@ -148,16 +148,23 @@ export function CommunitySearchBrowseSection({
     };
   }, [searchQ]);
 
-  const filteredCatalog = useMemo(() => {
+  const browseableCatalog = useMemo(() => {
     if (!catalog?.alphabetical.length) return [];
-    const q = catalogFilter.trim().toLowerCase();
-    if (!q) return catalog.alphabetical;
     return catalog.alphabetical.filter(
+      c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem)
+    );
+  }, [catalog?.alphabetical]);
+
+  const filteredCatalog = useMemo(() => {
+    if (!browseableCatalog.length) return [];
+    const q = catalogFilter.trim().toLowerCase();
+    if (!q) return browseableCatalog;
+    return browseableCatalog.filter(
       c =>
         c.name.toLowerCase().includes(q) ||
         (c.description?.toLowerCase().includes(q) ?? false)
     );
-  }, [catalog, catalogFilter]);
+  }, [browseableCatalog, catalogFilter]);
 
   const catalogTotalDisplay = catalogLoading
     ? "…"
@@ -380,7 +387,7 @@ export function CommunitySearchBrowseSection({
                       <span className="text-muted-foreground self-center text-xs">
                         Member
                       </span>
-                    ) : !c.isSystem ? (
+                    ) : !isTipmannaSystemCommunity(c.id, c.name, c.isSystem) ? (
                       <Button
                         type="button"
                         size="sm"

@@ -1033,6 +1033,7 @@ export function TvInteractiveShell({
                   textTipUnitPrice={0}
                   sectionCtaLabel="Engage"
                   payLabel="Pay"
+                  stackDrawerAboveImmersive
                 />
               </div>
             )}
