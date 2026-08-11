@@ -624,8 +624,7 @@ export default function CommunityHubClient() {
             <DialogTitle>Tell us about your community idea</DialogTitle>
             <DialogDescription>
               Share a few details so our team knows you are interested. This
-              notifies admins only — it does not activate a community or link an
-              event room.
+              notifies admins only — it does not activate a community.
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto">

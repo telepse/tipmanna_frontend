@@ -131,8 +131,7 @@ export function StartCommunityRequestDialog({ open, onOpenChange }: Props) {
           <DialogTitle>Tell us about your community idea</DialogTitle>
           <DialogDescription>
             Share a few details so our team knows you are interested. This
-            notifies admins only — it does not activate a community or link an
-            event room.
+            notifies admins only — it does not activate a community
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -161,69 +160,6 @@ export function StartCommunityRequestDialog({ open, onOpenChange }: Props) {
                 rows={3}
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label>
-                Community logo{" "}
-                <span className="text-muted-foreground font-normal">
-                  (optional)
-                </span>
-              </Label>
-              <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={handleInterestLogoChangeClick}
-                  className="relative size-20 shrink-0 overflow-hidden rounded-full border bg-neutral-100"
-                >
-                  {interestLogoPreview ? (
-                    <img
-                      src={interestLogoPreview}
-                      alt=""
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex size-full items-center justify-center">
-                      <User className="text-muted-foreground size-10" />
-                    </div>
-                  )}
-                </button>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <input
-                    ref={interestLogoInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={handleInterestLogoUpload}
-                  />
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleInterestLogoChangeClick}
-                      className="w-fit"
-                    >
-                      Change photo
-                    </Button>
-                    {interestLogoPreview ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive w-fit"
-                        onClick={handleRemoveInterestLogo}
-                      >
-                        Remove photo
-                      </Button>
-                    ) : null}
-                    {interestLogoUploadError ? (
-                      <p className="text-destructive text-xs">
-                        {interestLogoUploadError}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
             </div>
             <div className="space-y-2">
               <Label id="creator-sc-type-label">Community type</Label>

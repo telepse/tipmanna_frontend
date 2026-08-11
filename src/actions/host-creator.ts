@@ -66,6 +66,7 @@ export type HostCreatorCommunity = {
   createdAt: string;
   locked: boolean;
   eventId: string | null;
+  isOwnProfile: boolean;
 };
 
 export type HostCreatorPublicProfile = {
