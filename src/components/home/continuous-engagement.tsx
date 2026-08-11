@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 
 import { CONTINUOUS_ENGAGEMENT_SLIDES } from "@/constants";
@@ -7,7 +8,6 @@ import { Slide } from "react-slideshow-image";
 import "react-slideshow-image/dist/styles.css";
 import { Title } from "../shared/title";
 import { Paragraph } from "../shared/paragraph";
-import { useMediaQuery } from "react-responsive";
 
 const slideProperties = {
   duration: 5000,
@@ -20,7 +20,8 @@ const slideProperties = {
 };
 
 export const ContinousEngagement = () => {
-  const isMobile = useMediaQuery({ maxWidth: "500px" });
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeSlide = CONTINUOUS_ENGAGEMENT_SLIDES[activeIndex];
 
   return (
     <section className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat lg:mt-12">
@@ -45,18 +46,21 @@ export const ContinousEngagement = () => {
           role="region"
           aria-label="Continuous engagement showcase"
         >
-          <Slide {...slideProperties}>
+          <Slide
+            {...slideProperties}
+            onStartChange={(_, to) => setActiveIndex(to)}
+          >
             {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
               <div
                 key={slide.image}
                 className="w-full"
               >
-                <div className="border-primary w-ful relative mx-auto h-[280px] overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px] lg:w-[960px]">
+                <div className="border-primary w-full relative mx-auto h-[200px] overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px] lg:w-[960px]">
                   <Image
                     src={slide.image}
                     alt={slide.alt}
                     fill
-                    className="h-[400px] w-full object-contain"
+                    className="lg:h-[400px] h-[200px] w-full object-contain"
                     sizes="90vw"
                     quality={90}
                   />
@@ -66,47 +70,14 @@ export const ContinousEngagement = () => {
           </Slide>
         </div>
 
-        {/* {!isMobile && ( */}
-        {/* <Slide {...slideProperties}> */}
-        {/* {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
-              <div
-                key={slide.image}
-                className="w-full"
-              >
-                <Paragraph
-                  size="lg"
-                  color="black"
-                  className="-mt-2"
-                >
-                  {slide.title} - {slide.alt}
-                </Paragraph>
-              </div>
-            ))} */}
-        {/* </Slide> */}
-        {/* )} */}
-
-        {/* {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
-          <div
-            key={slide.image}
-            className="w-full"
-          >
-            <Paragraph
-              size="sm"
-              className="border-primary w-fit max-w-full self-start border-l-2 py-0 pl-4"
-            >
-              {CONTINUOUS_ENGAGEMENT_SLIDES[0].title} -{" "}
-              {CONTINUOUS_ENGAGEMENT_SLIDES[0].alt}
-            </Paragraph>
-          </div>
-        ))}
-
         <Paragraph
+          key={activeIndex}
           size="sm"
-          className="border-primary w-fit max-w-full self-start border-l-2 py-0 pl-4"
+          aria-live="polite"
+          className="border-primary mt-4 w-fit max-w-full self-start border-l-2 py-0 pl-4 transition-opacity duration-300"
         >
-          {CONTINUOUS_ENGAGEMENT_SLIDES[0].title} -{" "}
-          {CONTINUOUS_ENGAGEMENT_SLIDES[0].alt}
-        </Paragraph> */}
+          {activeSlide.title} - {activeSlide.alt}
+        </Paragraph>
       </div>
     </section>
   );

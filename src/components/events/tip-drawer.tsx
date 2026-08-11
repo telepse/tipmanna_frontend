@@ -69,11 +69,12 @@ import { useTipperWalletStatus } from "@/hooks/use-tipper-wallet-status";
 import {
   ensureSingleTextInCart,
   buildTipSectionPreviewCharacters,
-  isTextCharacterId,
   clearTextTipDraftStorage,
   resolveCommentPreviewCharacter,
   textCharacterIdFromEnv,
   tipCartNameForCharacter,
+  isTextTipCharacterSelection,
+  isTextTipCharacterRef,
 } from "@/lib/tip-text-selection";
 import { runTextTipPreviewThenOpenDraftModal } from "@/lib/text-tip-draft-flow";
 import { presentTextTipDraftModal } from "@/components/events/text-tip-draft-modal-layer";
@@ -435,7 +436,7 @@ export const TipDrawer = ({
     // ─────────────────────────────
     // Text Tip — preview animation, then modal (edit skips preview).
     // ─────────────────────────────
-    if (isTextCharacterId(characterId)) {
+    if (isTextTipCharacterSelection(characterId, tippingCharacters)) {
       openTextDraftModal();
       return;
     }
@@ -999,7 +1000,7 @@ export const TipDrawer = ({
                           const match = tippingCharacters.find(
                             c => c.name === characterName
                           );
-                          return !(match && isTextCharacterId(match.id));
+                          return !(match && isTextTipCharacterRef(match));
                         })
                         .map(characterName => (
                           <span
@@ -1072,11 +1073,11 @@ export const TipDrawer = ({
                 >
                   {filteredCharacterSets[selectedTabIndex]?.characters.map(
                     (character: Character) => {
-                      const characterName = isTextCharacterId(character.id)
+                      const characterName = isTextTipCharacterRef(character)
                         ? "Comment"
                         : character.name;
                       const count = getSelectedCount(characterName);
-                      const label = isTextCharacterId(character.id)
+                      const label = isTextTipCharacterRef(character)
                         ? "Comment"
                         : character.displayLabel?.trim() || character.name;
                       const isPremium = character.tipKind === "premium";
