@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Metadata } from "next";
 
 import type { HostCreatorPublicProfile } from "@/actions/host-creator";
 import {
@@ -33,11 +34,39 @@ const baseProfile: HostCreatorPublicProfile = {
     totalComments: 30,
   },
   contents: [],
+  coOwnedVideos: [],
   youtubeChannels: [],
   events: [],
   communities: [],
   playlists: [],
 };
+
+function toMediaUrl(value: string | URL | undefined): string | undefined {
+  if (!value) return undefined;
+  return typeof value === "string" ? value : value.toString();
+}
+
+function firstOgImageUrl(
+  images: NonNullable<Metadata["openGraph"]>["images"]
+): string | undefined {
+  if (!images) return undefined;
+  const first = Array.isArray(images) ? images[0] : images;
+  if (typeof first === "string" || first instanceof URL) {
+    return toMediaUrl(first);
+  }
+  return toMediaUrl(first?.url);
+}
+
+function firstTwitterImageUrl(
+  images: NonNullable<Metadata["twitter"]>["images"]
+): string | undefined {
+  if (!images) return undefined;
+  const first = Array.isArray(images) ? images[0] : images;
+  if (typeof first === "string" || first instanceof URL) {
+    return toMediaUrl(first);
+  }
+  return toMediaUrl(first?.url);
+}
 
 describe("creator profile metadata", () => {
   it("formats compact member counts", () => {
@@ -94,9 +123,17 @@ describe("creator profile metadata", () => {
       ],
     });
 
-    expect(metadata.openGraph?.images?.[0]?.url).toContain("avatar.jpg");
-    expect(metadata.twitter?.images?.[0]).toContain("banner.jpg");
-    expect(metadata.openGraph?.type).toBe("profile");
-    expect(metadata.openGraph?.username).toBe("AlexDraws");
+    expect(firstOgImageUrl(metadata.openGraph?.images)).toContain("avatar.jpg");
+    expect(firstTwitterImageUrl(metadata.twitter?.images)).toContain(
+      "banner.jpg"
+    );
+
+    const openGraph = metadata.openGraph;
+    expect(openGraph && "username" in openGraph ? openGraph.type : null).toBe(
+      "profile"
+    );
+    expect(
+      openGraph && "username" in openGraph ? openGraph.username : null
+    ).toBe("AlexDraws");
   });
 });

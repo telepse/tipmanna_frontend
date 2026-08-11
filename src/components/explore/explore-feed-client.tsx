@@ -27,7 +27,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import {
   CREATOR_USERNAME_CHANGED_EVENT,
@@ -108,6 +108,7 @@ import { cn } from "@/lib/utils";
 import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { CreateDialog } from "@/components/home/create-dialog";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { ImmersiveChannelActionsRail } from "@/components/events/immersive-channel-actions-rail";
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import { TipsDrawer } from "@/components/events/tips-drawer";
@@ -628,6 +629,44 @@ function resolveExploreItemHostUsername(item: unknown): string | null {
   return resolveCreatorUsernameAlias(username);
 }
 
+function resolveExploreItemLocale(item: unknown) {
+  if (!item || typeof item !== "object") {
+    return resolveContentLocaleDisplay(null, null);
+  }
+  const row = item as {
+    contentLanguage?: string | null;
+    contentCountry?: string | null;
+    event?: { contentLanguage?: string | null; contentCountry?: string | null };
+  };
+  const contentLanguage =
+    (typeof row.contentLanguage === "string" ? row.contentLanguage : null) ??
+    (typeof row.event?.contentLanguage === "string"
+      ? row.event.contentLanguage
+      : null);
+  const contentCountry =
+    (typeof row.contentCountry === "string" ? row.contentCountry : null) ??
+    (typeof row.event?.contentCountry === "string"
+      ? row.event.contentCountry
+      : null);
+  return resolveContentLocaleDisplay(contentLanguage, contentCountry);
+}
+
+function ExploreReelLocaleFlag({
+  flagUrl,
+  alt,
+}: {
+  flagUrl: string;
+  alt: string;
+}) {
+  return (
+    <img
+      src={flagUrl}
+      alt={alt}
+      className="inline h-3 w-4 shrink-0 rounded-sm object-cover"
+    />
+  );
+}
+
 type ExploreReelSlideTitleProps = {
   item: any;
   layoutMode: ExploreReelLayoutMode;
@@ -658,6 +697,7 @@ function ExploreReelSlideTitle({
   className,
 }: ExploreReelSlideTitleProps) {
   const hostUsername = resolveExploreItemHostUsername(item);
+  const { flagUrl, contentLanguage } = resolveExploreItemLocale(item);
 
   return (
     <div className={className}>
@@ -686,28 +726,42 @@ function ExploreReelSlideTitle({
               <Volume2 className={exploreReelMuteIconClassName(layoutMode)} />
             )}
           </button>
-          <span className="min-w-0 truncate text-sm">
-            {item.coOwnerName ? `${item.coOwnerName}` : ``}{" "}
-            {item.coOwnerName && "and"}{" "}
-            {hostUsername ? (
-              <button
-                type="button"
-                className="cursor-pointer underline"
-                onPointerDown={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={e => {
-                  e.stopPropagation();
-                  onOpenCreatorDrawer(hostUsername);
-                }}
-                onPointerEnter={() => onPrefetchCreator?.(hostUsername)}
-              >
-                @{hostUsername}
-              </button>
-            ) : (
-              <span>@{item.event?.username}</span>
-            )}
+          <span className="inline-flex min-w-0 items-center gap-1 truncate text-sm">
+            {item.coOwnerName ? (
+              <>
+                <ExploreReelLocaleFlag
+                  flagUrl={flagUrl}
+                  alt={contentLanguage}
+                />
+                <span className="truncate">{item.coOwnerName}</span>
+                <span>and</span>
+              </>
+            ) : null}
+            <span className="inline-flex min-w-0 items-center gap-0.5">
+              <ExploreReelLocaleFlag
+                flagUrl={flagUrl}
+                alt={contentLanguage}
+              />
+              {hostUsername ? (
+                <button
+                  type="button"
+                  className="cursor-pointer truncate underline"
+                  onPointerDown={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onOpenCreatorDrawer(hostUsername);
+                  }}
+                  onPointerEnter={() => onPrefetchCreator?.(hostUsername)}
+                >
+                  @{hostUsername}
+                </button>
+              ) : (
+                <span className="truncate">@{item.event?.username}</span>
+              )}
+            </span>
           </span>
         </div>
 

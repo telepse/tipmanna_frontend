@@ -92,6 +92,7 @@ export type HostCreatorPublicProfile = {
     totalComments: number;
   };
   contents: HostCreatorPublicContent[];
+  coOwnedVideos: HostCreatorVideo[];
   youtubeChannels: HostCreatorYoutubeChannel[];
   events: HostCreatorEvent[];
   communities: HostCreatorCommunity[];

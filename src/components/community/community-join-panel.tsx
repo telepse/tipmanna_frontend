@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "react-toastify";
@@ -22,17 +21,9 @@ import { motion, useReducedMotion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import type { RootState } from "@/redux/store";
 import {
   getCommunityAccessStateAction,
-  requestDomainOtpAction,
-  submitJoinAction,
-  validateAccessCodeTipperAction,
-  verifyDomainOtpAction,
-  getMyCommunitySubscriptionAction,
   type CommunityFeaturedVideo,
 } from "@/actions/communities";
 import {
@@ -40,7 +31,8 @@ import {
   E2E_JOIN_FORM_PUBLIC,
 } from "@/lib/e2e-explore-fixtures";
 import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
-import { CommunitySubscribeSection } from "@/components/community/community-subscribe-section";
+import { CommunityHowToJoinSection } from "@/components/community/community-how-to-join-section";
+import { CommunityMemberInfo } from "@/components/community/community-member-info";
 import { CommunitySearchBrowseSection } from "@/components/community/community-search-browse-section";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { formatCommunityTypeLabel } from "@/lib/community-type-labels";
@@ -57,8 +49,6 @@ import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import { TopContentCard } from "../home/top-content-card";
 import { FeaturedContentCard } from "./featured-content-card";
 import VideoPlayer, { VideoPlayerRef } from "../events/video-player";
-
-const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
 
 const communityFeatureOn =
   process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
@@ -322,26 +312,20 @@ export function CommunityJoinPanel({
   signInRedirectPath,
 }: CommunityJoinPanelProps) {
   const router = useRouter();
-  const { user, isAuthenticated, requiresVerification } = useSelector(
-    (s: RootState) => s.auth
-  );
+  const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
 
   const [gateOk, setGateOk] = useState(false);
   const [form, setForm] = useState<JoinFormPublic | null>(null);
 
-  const [prefix, setPrefix] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [verifiedDomainEmail, setVerifiedDomainEmail] = useState<string | null>(
+  const [doneMessage, setDoneMessage] = useState<string | null>(null);
+  const [isMember, setIsMember] = useState(false);
+  const [membershipStatus, setMembershipStatus] = useState<string | null>(null);
+  const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(
     null
   );
-  const [accessCode, setAccessCode] = useState("");
-  const [codeHint, setCodeHint] = useState<string | null>(null);
-  const [customAnswer, setCustomAnswer] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [doneMessage, setDoneMessage] = useState<string | null>(null);
-  const [paidSubExpiresAt, setPaidSubExpiresAt] = useState<string | null>(null);
-  const [isMember, setIsMember] = useState(false);
-  const [viewerHostsCommunity, setViewerHostsCommunity] = useState(false);
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<
+    string | null
+  >(null);
   const [featuredVideos, setFeaturedVideos] = useState<
     CommunityFeaturedVideo[]
   >([]);
@@ -362,15 +346,11 @@ export function CommunityJoinPanel({
     formLoadedForRef.current = null;
     setDoneMessage(null);
     setForm(null);
-    setCodeHint(null);
-    setVerifiedDomainEmail(null);
-    setAccessCode("");
-    setPrefix("");
-    setOtpCode("");
-    setCustomAnswer("");
     setGateOk(false);
     setIsMember(false);
-    setViewerHostsCommunity(false);
+    setMembershipStatus(null);
+    setMembershipExpiresAt(null);
+    setSubscriptionExpiresAt(null);
     setFeaturedVideos([]);
   }, [communityId]);
 
@@ -424,6 +404,8 @@ export function CommunityJoinPanel({
         featuredVideos?: CommunityFeaturedVideo[];
         subscriptionExpiresAt: string | null;
         isMember: boolean;
+        membershipStatus: string | null;
+        membershipExpiresAt: string | null;
         viewerHostsCommunity: boolean;
       };
 
@@ -447,9 +429,10 @@ export function CommunityJoinPanel({
         subscriptionFeeGbp: jp.subscriptionFeeGbp ?? null,
       };
       setForm(nextForm);
-      setPaidSubExpiresAt(d.subscriptionExpiresAt ?? null);
       setIsMember(d.isMember);
-      setViewerHostsCommunity(d.viewerHostsCommunity);
+      setMembershipStatus(d.membershipStatus ?? null);
+      setMembershipExpiresAt(d.membershipExpiresAt ?? null);
+      setSubscriptionExpiresAt(d.subscriptionExpiresAt ?? null);
       setFeaturedVideos(d.featuredVideos ?? []);
       formLoadedForRef.current = communityId;
 
@@ -486,88 +469,6 @@ export function CommunityJoinPanel({
     });
   }, [loadForm]);
 
-  const onSendOtp = async () => {
-    if (!user?.id) return;
-    const res = await requestDomainOtpAction(undefined, communityId, prefix);
-    if (!res.success) {
-      toast.error(res.message ?? "Could not send code");
-      return;
-    }
-    toast.success("Check your inbox for the code");
-  };
-
-  const onVerifyOtp = async () => {
-    if (!user?.id) return;
-    const res = await verifyDomainOtpAction(
-      undefined,
-      communityId,
-      prefix,
-      otpCode
-    );
-    if (!res.success || !res.data) {
-      toast.error(res.message ?? "Invalid code");
-      return;
-    }
-    const d = res.data as { verifiedDomainEmail: string };
-    setVerifiedDomainEmail(d.verifiedDomainEmail);
-    toast.success("Email verified");
-  };
-
-  const onBlurValidateCode = async () => {
-    const c = accessCode.trim();
-    if (!c) {
-      setCodeHint(null);
-      return;
-    }
-    if (!user?.id) return;
-    const res = await validateAccessCodeTipperAction(undefined, communityId, c);
-    if (!res.success || !res.data) {
-      setCodeHint(null);
-      return;
-    }
-    const d = res.data as { valid: boolean; monthsGranted: number | null };
-    setCodeHint(
-      d.valid && d.monthsGranted != null
-        ? `Valid code — ${d.monthsGranted} month(s) membership`
-        : d.valid
-          ? "Valid code"
-          : "Invalid or exhausted code"
-    );
-  };
-
-  const onSubmit = async () => {
-    if (!user?.id) return;
-    setSubmitting(true);
-    try {
-      const body: Record<string, unknown> = {};
-      if (accessCode.trim()) body.accessCode = accessCode.trim();
-      if (verifiedDomainEmail) body.verifiedDomainEmail = verifiedDomainEmail;
-      if (customAnswer.trim()) body.customAnswer = customAnswer.trim();
-
-      const res = await submitJoinAction(undefined, communityId, body);
-      if (!res.success || !res.data) {
-        toast.error(res.message ?? "Join failed");
-        return;
-      }
-      const d = res.data as {
-        path?: string;
-        requestId?: string;
-        message?: string;
-      };
-      if (d.path === "request") {
-        setDoneMessage(
-          "Your request was submitted. The community owner will review it."
-        );
-        toast.success("Request submitted");
-      } else {
-        toast.success("Welcome!");
-        void loadForm({ background: true });
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   if (!communityFeatureOn) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16">
@@ -597,10 +498,6 @@ export function CommunityJoinPanel({
       </div>
     );
   } else {
-    const domainNorm = form.officialEmailDomain?.replace(/^@/, "") ?? "";
-    const paidFee = form.subscriptionFeeGbp?.trim();
-    const showPaidSubscribe =
-      paidFee != null && paidFee !== "" && Number(paidFee) > 0;
     const communityLogoSrc = form.logoUrl?.trim();
     const typeLabel = formatCommunityTypeLabel(form.communityType);
 
@@ -742,41 +639,19 @@ export function CommunityJoinPanel({
             </div>
           ) : null}
 
+          {isMember ? (
+            <CommunityMemberInfo
+              communityName={form.name}
+              membershipStatus={membershipStatus}
+              membershipExpiresAt={membershipExpiresAt}
+              subscriptionExpiresAt={subscriptionExpiresAt}
+            />
+          ) : null}
+
           <h5 className="text-muted-foreground text-lg font-medium underline underline-offset-2">
             Community details
           </h5>
-          <div className="-mt-4 flex items-start gap-4">
-            {communityLogoSrc ? (
-              <Image
-                src={communityLogoSrc}
-                alt={`${form.name} logo`}
-                width={64}
-                height={64}
-                className="size-16 shrink-0 rounded-md object-cover"
-                unoptimized={communityLogoSrc.startsWith("http")}
-              />
-            ) : (
-              <div className="border-moonstone-blue flex size-16 shrink-0 items-center justify-center rounded-md border-2 bg-white">
-                <UserRound className="size-8" />
-              </div>
-            )}
-            <p className="line-clamp-3 min-w-0 flex-1 leading-relaxed">
-              <span className="font-medium">
-                {formatMetaMetricsLine({
-                  members: form.memberCount ?? 0,
-                  tips: form.totalTips ?? 0,
-                  videos: form.numVideos ?? 0,
-                })}
-              </span>
-              {form.description?.trim() ? (
-                <span>{` · ${form.description.trim()}`}</span>
-              ) : (
-                <span className="text-muted-foreground">
-                  {" · No description yet."}
-                </span>
-              )}
-            </p>
-          </div>
+          <p className="leading-relaxed">{form.description}</p>
 
           {form.communityType ? (
             <p className="text-muted-foreground text-sm font-medium">
@@ -954,222 +829,13 @@ export function CommunityJoinPanel({
             </div>
           </div>
 
-          <div className="mt-6 space-y-4 border-t pt-6 lg:mt-12">
-            {isMember ? (
-              <div className="space-y-3 rounded-lg border bg-green-50/50 p-4">
-                <h5 className="text-lg font-semibold">You&apos;re a member</h5>
-                <p className="text-muted-foreground text-sm">
-                  Browse your communities hub to watch content and manage your
-                  membership.
-                </p>
-                <Button
-                  asChild
-                  variant="outline"
-                >
-                  <Link href={EXPLORE_COMMUNITY_HUB_HREF}>
-                    Go to my communities
-                  </Link>
-                </Button>
-              </div>
-            ) : viewerHostsCommunity ? (
-              <div className="space-y-3 rounded-lg border p-4">
-                <h5 className="text-lg font-semibold">Community host</h5>
-                <p className="text-muted-foreground text-sm">
-                  You operate this community as host. Manage it from Host tools
-                  rather than joining as a tipper.
-                </p>
-              </div>
-            ) : (
-              <>
-                <h5 className="text-2xl">
-                  How to join:{" "}
-                  <span className="text-sm">
-                    {form.joinMethod === "subscription"
-                      ? "Paid subscription"
-                      : "Submit a free request for approval"}
-                  </span>
-                </h5>
-
-                {!isAuthenticated || requiresVerification ? (
-                  <div className="bg-muted/40 space-y-3 rounded-lg p-4">
-                    <p className="text-sm">
-                      Sign in with your tipper email to submit a join request.
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setSignInReturnTo(signInRedirectPath);
-                        setSignInOpen(true);
-                      }}
-                    >
-                      Continue with email
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="max-w-lg space-y-4">
-                    <h2 className="text-lg font-semibold">Join {form.name}</h2>
-                    <p className="text-muted-foreground mt-2 text-sm">
-                      Signed in as {user?.email}. Default membership length when
-                      using domain or approval: {form.defaultMonths} month(s).
-                    </p>
-
-                    {showPaidSubscribe && (
-                      <div className="mt-6">
-                        <CommunitySubscribeSection
-                          communityId={communityId}
-                          feeGbp={Number(paidFee).toFixed(2)}
-                          activeUntil={paidSubExpiresAt}
-                          onSubscriptionChange={async () => {
-                            if (!user?.id) return;
-                            const subRes =
-                              await getMyCommunitySubscriptionAction(
-                                undefined,
-                                communityId
-                              );
-                            if (subRes.success && subRes.data) {
-                              const d = subRes.data as {
-                                subscription: {
-                                  expiresAt: string | null;
-                                } | null;
-                              };
-                              setPaidSubExpiresAt(
-                                d.subscription?.expiresAt ?? null
-                              );
-                            }
-                          }}
-                        />
-                        <p className="text-muted-foreground mt-4 text-xs">
-                          Or use a join request, invite link, or access code
-                          below.
-                        </p>
-                      </div>
-                    )}
-
-                    {form.joinFormRequireAccessCode && (
-                      <div className="mt-6 space-y-2">
-                        <Label htmlFor="acc">Access code</Label>
-                        <Input
-                          id="acc"
-                          value={accessCode}
-                          onChange={e => setAccessCode(e.target.value)}
-                          onBlur={() => void onBlurValidateCode()}
-                        />
-                        {codeHint && (
-                          <p className="text-muted-foreground text-xs">
-                            {codeHint}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {!form.joinFormRequireAccessCode && (
-                      <div className="mt-6 space-y-2">
-                        <Label htmlFor="acc-opt">Access code (optional)</Label>
-                        <Input
-                          id="acc-opt"
-                          value={accessCode}
-                          onChange={e => setAccessCode(e.target.value)}
-                          onBlur={() => void onBlurValidateCode()}
-                          placeholder="Skip if you are requesting access"
-                        />
-                        {codeHint && (
-                          <p className="text-muted-foreground text-xs">
-                            {codeHint}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {form.officialEmailDomain &&
-                      form.officialEmailDomainRequired &&
-                      domainNorm && (
-                        <div className="mt-6 space-y-3 rounded-lg border p-4">
-                          <p className="text-sm font-medium">
-                            Verify work email
-                          </p>
-                          <div className="flex flex-wrap items-end gap-2">
-                            <div className="min-w-[120px] flex-1">
-                              <Label htmlFor="prefix">Prefix</Label>
-                              <Input
-                                id="prefix"
-                                value={prefix}
-                                onChange={e => setPrefix(e.target.value)}
-                                placeholder="you"
-                              />
-                            </div>
-                            <p className="text-muted-foreground pb-2 text-sm">
-                              @{domainNorm}
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void onSendOtp()}
-                          >
-                            Send verification code
-                          </Button>
-                          <div>
-                            <Label htmlFor="otp">Code from email</Label>
-                            <Input
-                              id="otp"
-                              value={otpCode}
-                              onChange={e => setOtpCode(e.target.value)}
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => void onVerifyOtp()}
-                          >
-                            Verify
-                          </Button>
-                          {verifiedDomainEmail && (
-                            <p className="text-xs text-green-700">
-                              Verified: {verifiedDomainEmail}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                    {form.customQuestion && (
-                      <div className="mt-6 space-y-2">
-                        <Label>{form.customQuestion}</Label>
-                        <Textarea
-                          value={customAnswer}
-                          onChange={e => setCustomAnswer(e.target.value)}
-                          rows={4}
-                        />
-                      </div>
-                    )}
-
-                    <div className="mt-8 flex flex-col gap-2">
-                      <Button
-                        type="button"
-                        disabled={submitting}
-                        onClick={() => void onSubmit()}
-                      >
-                        {submitting ? (
-                          <>
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                            Submitting…
-                          </>
-                        ) : (
-                          "Submit"
-                        )}
-                      </Button>
-                      <Button
-                        asChild
-                        variant="ghost"
-                      >
-                        <Link href={EXPLORE_COMMUNITY_HUB_HREF}>Cancel</Link>
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          <CommunityHowToJoinSection
+            communityId={communityId}
+            signInRedirectPath={signInRedirectPath}
+            className="mt-6 border-t pt-6 lg:mt-12"
+            showMemberInfo={false}
+            onDoneMessageChange={setDoneMessage}
+          />
         </div>
       </section>
     );

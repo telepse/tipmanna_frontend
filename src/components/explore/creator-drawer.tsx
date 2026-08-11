@@ -77,7 +77,8 @@ export function CreatorDrawer({ open, onOpenChange, username }: Props) {
           ) : profile ? (
             <HostCreatorPageClient
               profile={profile}
-              className="min-h-0 pb-8"
+              variant="drawer"
+              className="min-h-0 pb-4"
               onVideoPlay={() => onOpenChange(false)}
             />
           ) : (
