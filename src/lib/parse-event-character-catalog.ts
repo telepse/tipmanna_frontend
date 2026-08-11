@@ -28,6 +28,7 @@ export function parseEventCharacterCatalog(rawSets: unknown): {
       iconUrl: char.iconUrl,
       price: char.price,
       styleName: char.styleName,
+      type: (char as { type?: string | null }).type,
     }))
   );
 

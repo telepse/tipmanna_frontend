@@ -36,7 +36,8 @@ import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import {
   buildTipSectionPreviewCharacters,
   ensureSingleTextInCart,
-  isTextCharacterId,
+  isTextTipCharacterRef,
+  isTextTipCharacterSelection,
   resolveCommentPreviewCharacter,
   tipCartNameForCharacter,
 } from "@/lib/tip-text-selection";
@@ -188,7 +189,7 @@ export const TipSection = ({
     // ─────────────────────────────
     // Text Tip — preview animation, then modal; max one Text in cart on save.
     // ─────────────────────────────
-    if (isTextCharacterId(characterId)) {
+    if (isTextTipCharacterSelection(characterId, tippingCharacters)) {
       stopPreview();
       openTextDraftModal(); // ALWAYS immediate
       return;
@@ -403,7 +404,7 @@ export const TipSection = ({
             {allTips.slice(0, 13).map(character => {
               const characterName = tipCartNameForCharacter(character);
               const count = getSelectedCount(characterName);
-              const isTextCharacter = isTextCharacterId(character.id);
+              const isTextCharacter = isTextTipCharacterRef(character);
 
               const label = isTextCharacter
                 ? "Comment"

@@ -27,6 +27,33 @@ export function isTextCharacterId(characterId: unknown): boolean {
   return String(characterId).trim() === env;
 }
 
+type TextTipCharacterLike = {
+  id: string;
+  name: string;
+  type?: string | null;
+};
+
+/** True when a catalog row is the paid comment / text tip character. */
+export function isTextTipCharacterRef(
+  character: TextTipCharacterLike | null | undefined
+): boolean {
+  if (!character) return false;
+  if (isTextCharacterId(character.id)) return true;
+  if (isTextTipCharacterName(character.name)) return true;
+  return String(character.type ?? "").trim().toLowerCase() === "comment";
+}
+
+/** Resolve id against env and optional catalog (name / type fallbacks). */
+export function isTextTipCharacterSelection(
+  characterId: unknown,
+  catalog?: TextTipCharacterLike[]
+): boolean {
+  if (isTextCharacterId(characterId)) return true;
+  const id = characterId == null ? "" : String(characterId).trim();
+  if (!id || !catalog?.length) return false;
+  return isTextTipCharacterRef(catalog.find(c => c.id === id));
+}
+
 /** Cart uses "Comment"; catalog often uses "Add Comment". */
 export function isTextTipCharacterName(name: string): boolean {
   const normalized = name.trim();
@@ -45,7 +72,7 @@ export function resolveCommentPreviewCharacter(
   if (!catalog?.length) return null;
 
   const match =
-    catalog.find(c => isTextCharacterId(c.id)) ??
+    catalog.find(c => isTextTipCharacterRef(c)) ??
     catalog.find(c => isTextTipCharacterName(c.name));
   if (!match?.iconUrl?.trim()) return null;
 
@@ -90,8 +117,9 @@ export function clearTextTipDraftStorage(): void {
 export function tipCartNameForCharacter(character: {
   id: string;
   name: string;
+  type?: string | null;
 }): string {
-  return isTextCharacterId(character.id) ? "Comment" : character.name;
+  return isTextTipCharacterRef(character) ? "Comment" : character.name;
 }
 
 /** Unit price for the text / paid-comment character. */
@@ -144,19 +172,18 @@ export function mergeTipPriceCatalog<
  * Tip section strip: Comment/text first, no duplicate comment rows.
  */
 export function buildTipSectionPreviewCharacters<
-  T extends { id: string; name: string },
+  T extends { id: string; name: string; type?: string | null },
 >(tippingCharacters: T[]): T[] {
   const tid = textCharacterIdFromEnv();
   const restById = new Map<string, T>();
   let commentChar: T | undefined;
 
   for (const character of tippingCharacters) {
-    if (tid && isTextCharacterId(character.id)) {
-      commentChar = character;
-      continue;
-    }
-    if (character.name === "Comment") {
-      if (tid) continue;
+    if (isTextTipCharacterRef(character)) {
+      if (tid && isTextCharacterId(character.id)) {
+        commentChar = character;
+        continue;
+      }
       if (!commentChar) commentChar = character;
       continue;
     }
