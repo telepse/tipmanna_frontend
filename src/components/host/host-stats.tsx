@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -67,8 +67,6 @@ export const HostStats = ({ events, stats, payoutSummary }: Props) => {
   const fullLink = getPublicAbsoluteUrl(
     `/join-host/${eventSlug}?eventCode=${encodeURIComponent(String(eventCode))}`
   );
-
-  const [portalLink, setPortalLink] = useState<string | null>(null);
 
   const totalEventsCreated = stats?.totalEventsCreated ?? 0;
   const totalAttendeesReached = stats?.totalAttendeesReached ?? 0;
