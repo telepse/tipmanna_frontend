@@ -42,7 +42,7 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 
 const PLACEHOLDER_AVATAR =
-  "https://res.cloudinary.com/emediong5135/image/upload/v1786004184/emediongudoh/1552831027642-Picsart-AiImageEnhancer_d6mjpp.jpg";
+  "https://res.cloudinary.com/tipmanna/image/upload/v1786172267/user_sce6gw.png";
 
 function formatNextUsernameChange(dateIso: string): string {
   return new Date(dateIso).toLocaleDateString(undefined, {
@@ -277,6 +277,12 @@ export const HostBanner = () => {
   };
 
   const avatarSrc = dialogAvatarSrc || PLACEHOLDER_AVATAR;
+
+  useEffect(() => {
+    const res = async () => {
+      // const res = await fetch(`${apiBase}/private/co-owner/`)
+    };
+  }, []);
 
   return (
     <div

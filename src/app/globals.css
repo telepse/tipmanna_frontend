@@ -146,6 +146,24 @@
   gap: 1rem; /* spacing between wallets */
 }
 
+.react-slideshow-container,
+.indicators {
+  margin-top: 4rem !important;
+}
+
+@media (max-width: 500px) {
+  .pricing-card-expanded {
+    touch-action: pan-y;
+  }
+}
+
+@media screen and (max-width: 500px) {
+  .react-slideshow-container,
+  .indicators {
+    margin-top: 6rem !important;
+  }
+}
+
 /* Add to your global CSS */
 @keyframes shimmer {
   0% {

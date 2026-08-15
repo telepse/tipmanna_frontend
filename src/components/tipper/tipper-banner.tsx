@@ -64,6 +64,7 @@ import { ApiError } from "@/types";
 import { performAuthLogout } from "@/lib/auth-logout";
 import { HostUpgradeDialog } from "@/components/auth/host-upgrade-dialog";
 import { setCredentials, updateTipper } from "@/features/auth-slice";
+import Image from "next/image";
 
 interface Props {
   iTipped: number;
@@ -503,7 +504,13 @@ export const TipperBanner = ({ iTipped }: Props) => {
           {/* Avatar */}
           <div className="relative flex items-center justify-center">
             <div className="flex size-24 items-center justify-center rounded-full bg-white">
-              <User className="text-primary size-10" />
+              <Image
+                src="/icons/diamond.png"
+                alt="Diamond"
+                width={40}
+                height={40}
+                className="size-5 sm:size-10"
+              />
             </div>
 
             {/* Pencil (Edit) */}
@@ -583,8 +590,14 @@ export const TipperBanner = ({ iTipped }: Props) => {
         {/* === Desktop Layout (unchanged) === */}
         <div className="hidden justify-between sm:flex">
           <div className="flex gap-4">
-            <div className="flex size-10 items-center justify-center rounded-full bg-white">
-              <User className="text-primary" />
+            <div className="flex size-10 items-center justify-center rounded-md bg-white sm:size-14">
+              <Image
+                src="/icons/diamond.png"
+                alt="Diamond"
+                width={40}
+                height={40}
+                className="size-6 sm:size-12"
+              />
             </div>
 
             <div className="space-y-2">

@@ -12,7 +12,7 @@ interface Props {
 
 export const FeatureCard = ({ icon: Icon, title, content }: Props) => {
   return (
-    <div className="flex flex-col items-start gap-2 rounded-2xl p-6">
+    <div className="border-l-primary flex flex-col items-start gap-2 rounded-2xl rounded-md border border-l-2 bg-white p-6">
       <Icon className="size-12" />
 
       <Paragraph

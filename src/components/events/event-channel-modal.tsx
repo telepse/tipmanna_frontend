@@ -155,10 +155,6 @@ export const EventChannelModal = ({
       onOpenChange={onClose}
     >
       <DialogContent className="sm:max-w-nd max-h-[70vh] w-full overflow-y-scroll">
-        <DialogHeader>
-          <DialogTitle>Add Channel Videos</DialogTitle>
-        </DialogHeader>
-
         <AddVideoForm
           onSubmit={onSubmit}
           loading={loading}
@@ -178,36 +174,7 @@ export const EventChannelModal = ({
             },
           }}
           seedDraftId={seedDraftId ?? modalDraftId}
-          belowSubmit={
-            <>
-              <div className="text-sm">{liveVideoLink}</div>
-
-              {channels.map(channel => (
-                <div
-                  key={channel.id}
-                  className="flex items-center gap-2"
-                >
-                  <Checkbox
-                    checked={defaultChannelId === channel.id}
-                    onCheckedChange={() => handleSetDefaultChannel(channel.id)}
-                    disabled={!isHost || updatingDefault}
-                  />
-                  {channel.title}{" "}
-                  {copiedId === channel.id ? (
-                    <Check className="size-4" />
-                  ) : (
-                    <Copy
-                      onClick={() => handleCopy(channel.id)}
-                      className="size-4"
-                    />
-                  )}
-                  {defaultChannelId === channel.id && (
-                    <span className="ml-2 text-sm text-green-600">Default</span>
-                  )}
-                </div>
-              ))}
-            </>
-          }
+          aboveForm={<></>}
         />
       </DialogContent>
     </Dialog>

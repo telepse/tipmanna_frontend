@@ -157,6 +157,7 @@ interface Props {
   initialChannelId?: string | null;
   /** When the active video changes (e.g. event room lightbox URL sync). */
   onActiveChannelChange?: (channelId: string) => void;
+  openedFromEventRoom?: boolean;
 }
 
 const formatTime = (seconds: number) => {
@@ -187,6 +188,7 @@ export const ChannelClient = ({
   characterSets,
   initialChannelId,
   onActiveChannelChange,
+  openedFromEventRoom,
 }: Props) => {
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user);
@@ -959,7 +961,7 @@ export const ChannelClient = ({
 
           <button
             type="button"
-            className="cursor-pointer"
+            className={`cursor-pointer ${openedFromEventRoom ? "hidden" : ""}`}
           >
             <Link href={`/room/${eventId}`}>
               <Image
@@ -1035,28 +1037,6 @@ export const ChannelClient = ({
             id="global-animation-layer"
             className={`pointer-events-none absolute inset-0 ${TV_RAIL_Z_INDEX}`}
           />
-
-          {/* Fast-forward icon */}
-          {/* {openPlaylist &&
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation();
-              setOpenPlaylist(prev => !prev);
-            }}
-            className={cn(
-              "absolute left-1/2 z-[9999] -translate-x-1/2 cursor-pointer rounded-full border p-1 transition hover:bg-white",
-              isFullView
-                ? cn(
-                    "-top-1 border-white/30 bg-white/20 text-white",
-                    immersiveLayout === "portrait_video" &&
-                      "top-2 -translate-y-0"
-                  )
-                : "-top-4 border-black bg-white/70"
-            )}
-          >
-              <X className="text-primary size-4" />
-          </button>} */}
 
           {openPlaylist && (
             <div className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2">

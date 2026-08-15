@@ -52,7 +52,10 @@ interface Props {
   eventSlug: string;
   eventBackground: string;
   eventBanner: string;
+  venueName?: string;
   venueLocation: string;
+  activities: any[];
+  eventDescription?: string;
   totalAttendees: number;
   hideProgressBarAmount: boolean;
   showLatestAmount: boolean;
@@ -129,6 +132,7 @@ export const EventRoomClient = ({
   eventSlug,
   eventBackground,
   eventBanner,
+  venueName,
   venueLocation,
   totalAttendees,
   hideProgressBarAmount,
@@ -144,6 +148,8 @@ export const EventRoomClient = ({
   EventSession,
   eventEventType,
   forceScreenOpen = false,
+  activities,
+  eventDescription,
 }: Props) => {
   void eventBanner;
 
@@ -510,6 +516,11 @@ export const EventRoomClient = ({
             performers={screenSettings.performers}
             currentSessionAmountToRaise={currentSessionAmountToRaise}
             forceScreenOpen={forceScreenOpen}
+            isEventOwner={isEventOwner}
+            eventBanner={eventBanner}
+            venueName={venueName ?? ""}
+            activities={activities ?? []}
+            eventDescription={eventDescription ?? ""}
           />
 
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -529,6 +540,14 @@ export const EventRoomClient = ({
               projects={projects}
               contributionType={contributionType}
               eventEventType={eventEventType}
+              eventDate={eventDate}
+              startTime={startTime}
+              endTime={endTime}
+              eventBanner={eventBanner}
+              venueName={venueName}
+              venueLocation={venueLocation}
+              activities={activities}
+              eventDescription={eventDescription}
             />
           </div>
 

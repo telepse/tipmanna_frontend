@@ -40,7 +40,11 @@ export function isTextTipCharacterRef(
   if (!character) return false;
   if (isTextCharacterId(character.id)) return true;
   if (isTextTipCharacterName(character.name)) return true;
-  return String(character.type ?? "").trim().toLowerCase() === "comment";
+  return (
+    String(character.type ?? "")
+      .trim()
+      .toLowerCase() === "comment"
+  );
 }
 
 /** Resolve id against env and optional catalog (name / type fallbacks). */

@@ -6,12 +6,15 @@ import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { AddProjectsModal } from "./add-projects-modal";
 import { AddPerformersModal } from "./add-performers-modal";
+import { SelectDefaultVideoModal } from "./select-default-video-modal";
+import { Crown } from "lucide-react";
 
 interface SectionItem {
   title: string;
   // icon: React.ReactNode;
   onClick: () => void;
   show?: boolean; // optional: show only for host/cohost
+  isPremium?: boolean;
 }
 
 interface Performer {
@@ -52,6 +55,8 @@ export const ContentRoomSettings = ({
 }) => {
   const searchParams = useSearchParams();
   const seedModalDraftId = searchParams.get("modalDraftId");
+  const [selectDefaultVideoModalOpen, setSelectDefaultVideoModalOpen] =
+    useState(false);
   const [channelModalOpen, setChannelModalOpen] = useState(false);
   const [dropMessageModalOpen, setDropMessageModalOpen] = useState(false);
   const [performersModalOpen, setPerformersModalOpen] = useState(false);
@@ -64,53 +69,37 @@ export const ContentRoomSettings = ({
   }, [searchParams, isHost]);
 
   const sections: SectionItem[] = [
-    {
-      title: "Drop message in event room",
-      // icon: <Settings className="size-5" />,
-      onClick: () => setDropMessageModalOpen(true),
-      show: isHost,
-    },
     // {
-    //   title: "Add Timestamp",
-    //   icon: <Clock className="size-5" />,
-    //   onClick: () => console.log("Open Timestamp Settings"),
-    //   show: isHost || isCohost,
-    // },
-    // {
-    //   title: "Restart Tip Target for a session",
-    //   icon: <RefreshCcw className="size-5" />,
-    //   onClick: () => console.log("Open Tip Reset"),
+    //   title: "Drop message in event room",
+    //   // icon: <Settings className="size-5" />,
+    //   onClick: () => setDropMessageModalOpen(true),
     //   show: isHost,
     // },
-    // {
-    //   title: "Request Report (7 days)",
-    //   icon: <FileText className="size-5" />,
-    //   onClick: () => console.log("Request Report"),
-    //   show: isHost || isCohost,
-    // },
+    {
+      title: "Select streaming video",
+      // icon: <Youtube className="size-5" />,
+      onClick: () => setSelectDefaultVideoModalOpen(true),
+      show: isHost || isCohost,
+    },
     {
       title: "Add videos to room channel",
       // icon: <Youtube className="size-5" />,
       onClick: () => setChannelModalOpen(true),
-      show: isHost,
+      show: isHost || isCohost,
     },
 
-    // {
-    //   title: "Pin performers stats",
-    //   // icon: <Star className="size-5" />,
-    //   onClick: () => console.log("Pin Performers Stats"),
-    //   show: isHost,
-    // },
-
     {
-      title: `Add or view ${contributionType === "PERFORMER" ? "performers" : "projects"}`,
+      title: `Add or pin ${contributionType === "PERFORMER" ? "performers" : "projects"}`,
       onClick:
         contributionType === "PERFORMER"
           ? () => setPerformersModalOpen(true)
           : () => setProjectsModalOpen(true),
-      show: isHost,
+      show: isHost || isCohost,
+      isPremium: true,
     },
   ];
+
+  console.log("isCohost", isCohost);
 
   return (
     <Dialog
@@ -134,7 +123,12 @@ export const ContentRoomSettings = ({
                 >
                   <div className="flex items-center gap-3">
                     <span className="size-1 rounded-full bg-black"></span>
-                    <span className="text-sm font-medium">{section.title}</span>
+                    <div
+                      className={`flex items-center gap-1 text-sm font-medium ${section.isPremium ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                    >
+                      {section.title}{" "}
+                      {section.isPremium && <Crown className="text-primary" />}
+                    </div>
                   </div>
                   <span className="text-gray-400">{">"}</span>
                 </button>
@@ -146,6 +140,18 @@ export const ContentRoomSettings = ({
             open={dropMessageModalOpen}
             onClose={() => setDropMessageModalOpen(false)}
             eventId={eventId}
+          />
+
+          <SelectDefaultVideoModal
+            open={selectDefaultVideoModalOpen}
+            onClose={() => setSelectDefaultVideoModalOpen(false)}
+            channels={channels}
+            isHost={isHost}
+            eventId={eventId}
+            frameId={frameId}
+            liveVideoLink={liveVideoLink}
+            eventEventType={eventEventType}
+            seedDraftId={seedModalDraftId}
           />
 
           <EventChannelModal

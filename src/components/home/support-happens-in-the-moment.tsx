@@ -17,10 +17,12 @@ export const SupportHappensInTheMoment = () => {
             </span>
           </Title>
           <Paragraph
-            weight="bold"
             color="muted"
+            size="lg"
           >
-            Not before. Not after. During.
+            <span style={{ fontWeight: 900 }}>
+              Not before. Not after. During.
+            </span>
           </Paragraph>
         </div>
 
@@ -50,7 +52,7 @@ export const SupportHappensInTheMoment = () => {
               {LIVE_ACTIVITY_FEATURES.map(feature => (
                 <div
                   key={feature.label}
-                  className="bg-secondary/30 flex items-center gap-2 rounded-2xl p-3 sm:p-2"
+                  className="flex items-center gap-2 rounded-2xl bg-white p-3 sm:p-2"
                 >
                   <feature.icon
                     className={`size-5 shrink-0 ${feature.className} ${feature.fill ? "fill-current" : ""}`}

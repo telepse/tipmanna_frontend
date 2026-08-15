@@ -26,7 +26,6 @@ import { useAppRouter } from "@/components/navigation/navigation-progress-provid
 const supportLinks = [
   { href: "#faq", label: "FAQ" },
   { href: "https://wa.link/9b3ibh", label: "Contact Us" },
-  { href: "#community", label: "Community" },
 ];
 
 const legalLinks = [
@@ -81,7 +80,8 @@ export default function Footer() {
               color="muted"
             >
               Realtime Community Media Infrastructure
-              <br /> Turning content into participation — and participation into
+              <br /> Turning content into participation{" "}
+              <br className="inline-block sm:hidden" />— and participation into
               shared experience.
             </Paragraph>
 
@@ -112,52 +112,24 @@ export default function Footer() {
           {/* Platform */}
           <FooterSection title="Platform">
             <ul className="flex flex-col gap-2 sm:gap-4">
-              <li
-                className="text-muted-foreground open_sans cursor-pointer text-sm"
-                onClick={handleJoinClick}
-              >
-                Find Event
-              </li>
-
               <li className="text-muted-foreground open_sans cursor-pointer text-sm">
                 <Link
                   href="/tv"
                   prefetch={true}
                 >
-                  Live TV
+                  Watch TV
                 </Link>
               </li>
-              <li
-                className="text-muted-foreground open_sans cursor-pointer text-sm"
-                onClick={() => setOpenPopup(true)}
-              >
-                Create
-              </li>
-              <li className="text-muted-foreground open_sans text-sm">
-                {user?.role === "TIPPER" ? (
-                  <button
-                    type="button"
-                    className="cursor-pointer hover:underline"
-                    onClick={() => setHostUpgradeOpen(true)}
-                  >
-                    Add event
-                  </button>
-                ) : (
-                  <Link
-                    href={addEventHref}
-                    prefetch={true}
-                  >
-                    Add event
-                  </Link>
-                )}
-              </li>
-              <li className="text-muted-foreground open_sans text-sm">
+              <li className="text-muted-foreground open_sans cursor-pointer text-sm">
                 <Link
-                  href={accountHref}
+                  href="/explore"
                   prefetch={true}
                 >
-                  My account
+                  Explore
                 </Link>
+              </li>
+              <li className="text-muted-foreground open_sans cursor-pointer text-sm">
+                <a href="/partner#pricing">Pricing</a>
               </li>
             </ul>
           </FooterSection>
@@ -196,22 +168,24 @@ export default function Footer() {
 
         <div className="col-span-full lg:col-span-4">
           <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-1">
-            <FooterSection title="Payment Partners">
-              <div className="-mt-1 inline-flex flex-wrap gap-4">
-                {paymentOptions.map((item, index) => (
-                  <Image
-                    key={index}
-                    src={item}
-                    alt={item}
-                    width={50}
-                    height={50}
-                    className="h-10 w-10 object-cover"
-                  />
-                ))}
-              </div>
-            </FooterSection>
+            <div className="order-3 mt-4 sm:order-1 lg:mt-0">
+              <FooterSection title="Payment Partners">
+                <div className="-mt-1 inline-flex flex-wrap gap-4">
+                  {paymentOptions.map((item, index) => (
+                    <Image
+                      key={index}
+                      src={item}
+                      alt={item}
+                      width={50}
+                      height={50}
+                      className="h-10 w-10 object-cover"
+                    />
+                  ))}
+                </div>
+              </FooterSection>
+            </div>
 
-            <div className="mt-4 flex items-center gap-4">
+            <div className="order-1 mt-2 flex items-center gap-4 sm:order-2 lg:mt-4">
               <Paragraph
                 size="xs"
                 color="muted"
@@ -238,7 +212,7 @@ export default function Footer() {
             <Paragraph
               size="xs"
               weight="bold"
-              className="racing_sans_one text-primary mt-12"
+              className="racing_sans_one text-primary order-2 sm:order-4 lg:mt-12"
             >
               Watch. Participate. Support. Belong.
             </Paragraph>

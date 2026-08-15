@@ -34,7 +34,6 @@ import {
   getCommunityExploreCatalogAction,
   type CommunityExploreCatalogRow,
 } from "@/actions/communities";
-import { ExploreCommunityPickerMenu } from "@/components/explore/explore-community-picker-menu";
 import { cn } from "@/lib/utils";
 import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 import {
@@ -49,9 +48,6 @@ import {
   exploreOpenTargetFromUrl,
   buildExploreVideoHandoffHref,
   exploreVideoHandoffKeyFromUrl,
-  readExplorePendingHandoff,
-  clearExplorePendingHandoff,
-  handoffKeyForTarget,
 } from "@/lib/explore-video-navigation";
 import { warmExploreVideoHandoff } from "@/lib/explore-video-handoff-warm";
 import {
@@ -116,11 +112,16 @@ import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import {
   DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { usePusherTrackingGlobalTV } from "@/hooks/use-global-viewer-count";
 import type { UserInfo } from "@/types/tracking.types";
 import { useSelector } from "react-redux";
@@ -388,12 +389,6 @@ export default function ExplorePageClient({
   const [topCommunities, setTopCommunities] = useState<
     CommunityExploreCatalogRow[]
   >([]);
-  const [exploreCatalogAlphabetical, setExploreCatalogAlphabetical] = useState<
-    CommunityExploreCatalogRow[]
-  >([]);
-  const [communityPickerCatalogLoading, setCommunityPickerCatalogLoading] =
-    useState(false);
-  const communityCatalogLoadedRef = useRef(false);
   const [tippers, setTippers] = useState<any[]>([]);
   const [tipperEvents, setTipperEvents] = useState<any[]>([]);
   const [iTipped, setITipped] = useState(0);
@@ -1024,7 +1019,6 @@ export default function ExplorePageClient({
       const client = exploreFeedRef.current;
       if (client) {
         pendingExploreOpenRef.current = null;
-        clearExplorePendingHandoff();
         void client.openInExplore(target);
         return;
       }
@@ -1034,30 +1028,20 @@ export default function ExplorePageClient({
   );
 
   useLayoutEffect(() => {
-    const liveKey = exploreLiveSearchParamsKey(searchParamsKey);
-    const sp = new URLSearchParams(liveKey);
-
-    const pending = readExplorePendingHandoff();
-    const target =
-      pending ??
-      (() => {
-        const handoffKey = exploreVideoHandoffKeyFromUrl(sp);
-        if (!handoffKey) return null;
-        return exploreOpenTargetFromUrl(sp);
-      })();
-
-    if (!target) {
+    const sp = new URLSearchParams(searchParamsKey);
+    const handoffKey = exploreVideoHandoffKeyFromUrl(sp);
+    if (!handoffKey) {
       lastHandledVideoHandoffKeyRef.current = null;
       return;
     }
-
-    const handoffKey = handoffKeyForTarget(target);
     if (handoffKey === lastHandledVideoHandoffKeyRef.current) return;
 
+    const target = exploreOpenTargetFromUrl(sp);
+    if (!target) return;
+
     lastHandledVideoHandoffKeyRef.current = handoffKey;
-    clearExplorePendingHandoff();
     handlePlayInExplore(target);
-  }, [searchParamsKey, handlePlayInExplore, historySyncGen]);
+  }, [searchParamsKey, handlePlayInExplore]);
 
   /** Runs after Feed subtree commits so refs/layout exist; restores pending target if aborted before open (Strict Mode / cancel). */
   useLayoutEffect(() => {
@@ -1093,32 +1077,6 @@ export default function ExplorePageClient({
       }
     };
   }, [tab, feedSubTab, exploreOpenNonce]);
-
-  const loadCommunityCatalogForPicker = useCallback(async () => {
-    if (e2eFixtures || communityCatalogLoadedRef.current) return;
-    communityCatalogLoadedRef.current = true;
-    setCommunityPickerCatalogLoading(true);
-    try {
-      const commRes = await getCommunityExploreCatalogAction();
-      if (commRes.success && commRes.data) {
-        setTopCommunities(
-          Array.isArray(commRes.data.topByTips) ? commRes.data.topByTips : []
-        );
-        setExploreCatalogAlphabetical(
-          Array.isArray(commRes.data.alphabetical)
-            ? commRes.data.alphabetical
-            : []
-        );
-      }
-    } finally {
-      setCommunityPickerCatalogLoading(false);
-    }
-  }, [e2eFixtures]);
-
-  useEffect(() => {
-    if (tab !== "feed" || e2eFixtures) return;
-    void loadCommunityCatalogForPicker();
-  }, [tab, e2eFixtures, loadCommunityCatalogForPicker]);
 
   const loadExploreCatalog = useCallback(async () => {
     if (e2eFixtures) {
@@ -1205,12 +1163,6 @@ export default function ExplorePageClient({
           ? commRes.data.topByTips
           : []
       );
-      setExploreCatalogAlphabetical(
-        commRes.success && Array.isArray(commRes.data?.alphabetical)
-          ? commRes.data.alphabetical
-          : []
-      );
-      communityCatalogLoadedRef.current = true;
     } finally {
       // Always clear loading so the Discover skeleton can never hang on a
       // rejected action (root cause of the "skeleton forever" regression).
@@ -1533,6 +1485,7 @@ export default function ExplorePageClient({
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.stopPropagation();
+                  openDiscoverSheetWithTerm(e.currentTarget.value);
                 }
               }}
               onClick={e => e.stopPropagation()}
@@ -1562,6 +1515,7 @@ export default function ExplorePageClient({
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     e.stopPropagation();
+                    openDiscoverSheetWithTerm(e.currentTarget.value);
                   }
                 }}
                 onClick={e => e.stopPropagation()}
@@ -1855,11 +1809,7 @@ export default function ExplorePageClient({
                 </div>
               ) : (
                 <div className="flex min-h-5 min-w-0">
-                  <DropdownMenu
-                    onOpenChange={open => {
-                      if (open) void loadCommunityCatalogForPicker();
-                    }}
-                  >
+                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
@@ -1867,7 +1817,6 @@ export default function ExplorePageClient({
                         size="sm"
                         className="h-8 max-w-full justify-between border-none bg-transparent px-2 text-xs font-normal shadow-none outline-none sm:max-w-md"
                         onPointerEnter={() => {
-                          void loadCommunityCatalogForPicker();
                           if (eligibleCommunityIdsForPrefetch.length) {
                             prefetchExploreCommunityFeed(
                               eligibleCommunityIdsForPrefetch
@@ -1884,16 +1833,70 @@ export default function ExplorePageClient({
                         </span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <ExploreCommunityPickerMenu
-                      eligibleCommunityPickerRows={eligibleCommunityPickerRows}
-                      communityFeedSelIds={communityFeedSelIds}
-                      onCommunityFeedPick={onCommunityFeedPick}
-                      communityPickerMultiRef={communityPickerMultiRef}
-                      topCommunities={topCommunities}
-                      catalogAlphabetical={exploreCatalogAlphabetical}
-                      catalogLoading={communityPickerCatalogLoading}
-                      onBrowseAllAz={() => void loadCommunityCatalogForPicker()}
-                    />
+                    <DropdownMenuContent
+                      className="z-[12550] w-[min(100vw-2rem,22rem)]"
+                      align="start"
+                      onPointerDownCapture={e => {
+                        communityPickerMultiRef.current = Boolean(
+                          e.shiftKey || e.metaKey || e.ctrlKey
+                        );
+                      }}
+                    >
+                      <DropdownMenuLabel className="text-xs">
+                        Communities in Explore feed
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {eligibleCommunityPickerRows.length === 0 ? (
+                        <div className="text-muted-foreground px-2 py-3 text-xs">
+                          Join a community to see their contents{" "}
+                          <button
+                            type="button"
+                            className="text-primary underline"
+                            onClick={() => navigateMainTab("my-communities")}
+                          >
+                            Communities
+                          </button>{" "}
+                          page.
+                        </div>
+                      ) : (
+                        eligibleCommunityPickerRows.map(m => {
+                          const communityName =
+                            m.community?.name ?? m.communityId;
+                          const included = communityFeedSelIds.includes(
+                            m.communityId
+                          );
+                          return (
+                            <DropdownMenuItem
+                              key={m.communityId}
+                              className="flex items-center justify-between gap-3 text-xs"
+                              onSelect={e => e.preventDefault()}
+                            >
+                              <span className="min-w-0 flex-1 truncate">
+                                {communityName}
+                              </span>
+                              <Switch
+                                checked={included}
+                                aria-label={`Include ${communityName} in Explore feed`}
+                                onCheckedChange={checked => {
+                                  onCommunityFeedPick(
+                                    m.communityId,
+                                    checked,
+                                    communityPickerMultiRef.current
+                                  );
+                                }}
+                                onClick={e => e.stopPropagation()}
+                              />
+                            </DropdownMenuItem>
+                          );
+                        })
+                      )}
+
+                      <div>
+                        <h2>Top communities</h2>
+
+                        {/* <ExploreTopCommunitiesGrid communities={catalog?.topByTips ?? []} /> */}
+                      </div>
+                    </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               )}

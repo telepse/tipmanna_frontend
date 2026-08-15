@@ -5,6 +5,7 @@ interface ParagraphProps {
   weight?: "normal" | "medium" | "bold";
   color?: "black" | "white" | "muted";
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export const Paragraph = ({
@@ -14,6 +15,7 @@ export const Paragraph = ({
   weight = "normal",
   color = "black",
   className,
+  style,
 }: ParagraphProps) => {
   // Size map
   const sizeClasses: Record<NonNullable<ParagraphProps["size"]>, string> = {
@@ -47,6 +49,7 @@ export const Paragraph = ({
 
   return (
     <p
+      style={style}
       className={`open_sans leading-loose break-words whitespace-normal ${sizeClasses[size]} ${weightClasses[weight]} ${alignClasses[align]} ${colorClasses[color]} ${className}`}
     >
       {children}

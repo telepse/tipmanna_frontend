@@ -16,6 +16,7 @@ import { HostUser, TipperUser, setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
 import { parseAuthResponse, type AuthUserPayload } from "@/lib/auth-response";
 import { persistAuthSession } from "@/lib/session-client";
+import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 
 function safeInternalPath(next: string | null): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
@@ -114,7 +115,7 @@ export default function VerifyEmailPage() {
       } else if (sessionUser.role === "TIPPER") {
         router.push(`/tipper/${sessionUser.username}`);
       } else if (sessionUser.role === "HOST") {
-        router.push(`/host/${sessionUser.eventSlug ?? sessionUser.username}`);
+        router.push(buildCreatorProfileSharePath(sessionUser.username));
       } else {
         router.push("/");
       }

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "react-toastify";
@@ -24,6 +24,7 @@ import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-s
 import type { RootState } from "@/redux/store";
 import {
   getCommunityAccessStateAction,
+  getApprovedCommunityContentBankAction,
   type CommunityFeaturedVideo,
 } from "@/actions/communities";
 import {
@@ -71,12 +72,51 @@ type JoinFormPublic = {
   subscriptionFeeGbp?: string | null;
 };
 
+type CommunityContentBankVideo = {
+  id: string;
+  status: string;
+  visibility: string;
+  createdAt: string;
+  submittedBy: {
+    id: string;
+    fullName: string;
+    username: string;
+  };
+  channel: {
+    id: string;
+    title: string;
+    url: string;
+    isLive: boolean;
+    eventVideoType: string | null;
+    sharePath: string;
+    shareUrl: string;
+  };
+  metrics: {
+    encounters: number;
+    completes: number;
+    saves: number;
+    shares: number;
+    comments: number;
+    numOfTips: number;
+    durationSeconds: number;
+    amountRaised: number;
+  };
+};
+
 function formatEventVideoTypeLabel(value: string | null | undefined) {
   if (!value) return "Other";
   return (
     EVENT_VIDEO_TYPE_OPTIONS.find(option => option.value === value)?.label ??
     value.replace(/_/g, " ").toLowerCase()
   );
+}
+
+function getCommunityContentBankThumbnail(video: CommunityContentBankVideo) {
+  const videoId = extractYoutubeID(video.channel.url);
+
+  return videoId
+    ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+    : "/default-event-image.jpg";
 }
 
 function getFeaturedVideoShareUrl(
@@ -93,6 +133,68 @@ function formatPlaybackTime(seconds: number) {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function CommunityContentBankVideoCard({
+  video,
+  onPlay,
+}: {
+  video: CommunityFeaturedVideo;
+  onPlay: () => void;
+}) {
+  const thumbnail = useMemo(() => {
+    const videoId = extractYoutubeID(video.url);
+
+    return videoId
+      ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+      : "/default-event-image.jpg";
+  }, [video.url]);
+
+  return (
+    <button
+      type="button"
+      onClick={onPlay}
+      className="group relative aspect-[9/16] w-full overflow-hidden bg-black"
+      aria-label={`Play ${video.title}`}
+    >
+      <img
+        src={thumbnail}
+        alt=""
+        className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+      />
+
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent px-2 pt-10 pb-2">
+        <p className="line-clamp-2 text-left text-xs font-medium text-white">
+          {video.title}
+        </p>
+
+        <p className="mt-1 line-clamp-2 text-left text-[10px] leading-tight text-white/80">
+          {video.numOfTips ?? 0} tips · {video.numOfSaves ?? 0} saves ·{" "}
+          {video.numOfSeen ?? 0} seen · {video.numOfComments ?? 0} comments
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function CommunityContentBankVideoGrid({
+  videos,
+  onPlay,
+}: {
+  videos: CommunityFeaturedVideo[];
+  onPlay: (video: CommunityFeaturedVideo) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      {videos.map(video => (
+        <CommunityContentBankVideoCard
+          key={video.id}
+          video={video}
+          onPlay={() => onPlay(video)}
+        />
+      ))}
+    </div>
+  );
 }
 
 function FeaturedCommunityVideoOverlay({
@@ -329,6 +431,9 @@ export function CommunityJoinPanel({
   const [featuredVideos, setFeaturedVideos] = useState<
     CommunityFeaturedVideo[]
   >([]);
+  const [contentBankVideos, setContentBankVideos] = useState<
+    CommunityContentBankVideo[]
+  >([]);
   const [signInOpen, setSignInOpen] = useState(false);
   const [signInReturnTo, setSignInReturnTo] = useState(signInRedirectPath);
   const formLoadedForRef = useRef<string | null>(null);
@@ -352,6 +457,7 @@ export function CommunityJoinPanel({
     setMembershipExpiresAt(null);
     setSubscriptionExpiresAt(null);
     setFeaturedVideos([]);
+    setContentBankVideos([]);
   }, [communityId]);
 
   useEffect(() => {
@@ -410,6 +516,7 @@ export function CommunityJoinPanel({
       };
 
       const d = res.data as AccessPayload;
+      console.log("res.data", res.data);
       const jp = d.joinFormPublic;
       const nextForm: JoinFormPublic = {
         name: jp.name,
@@ -434,6 +541,7 @@ export function CommunityJoinPanel({
       setMembershipExpiresAt(d.membershipExpiresAt ?? null);
       setSubscriptionExpiresAt(d.subscriptionExpiresAt ?? null);
       setFeaturedVideos(d.featuredVideos ?? []);
+
       formLoadedForRef.current = communityId;
 
       if (!background) {
@@ -448,6 +556,32 @@ export function CommunityJoinPanel({
     },
     [communityId]
   );
+
+  useEffect(() => {
+    if (!communityId) return;
+
+    let cancelled = false;
+
+    const loadContentBankVideos = async () => {
+      const res = await getApprovedCommunityContentBankAction(communityId);
+
+      if (cancelled) return;
+
+      if (!res.success || !res.data) {
+        console.error("Could not load community content bank:", res.message);
+        setContentBankVideos([]);
+        return;
+      }
+
+      setContentBankVideos(res.data.approved ?? []);
+    };
+
+    void loadContentBankVideos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [communityId]);
 
   const copyFeaturedVideoLink = async (video: CommunityFeaturedVideo) => {
     const shareUrl = getFeaturedVideoShareUrl(video);
@@ -468,6 +602,9 @@ export function CommunityJoinPanel({
       background: formLoadedForRef.current === communityId,
     });
   }, [loadForm]);
+
+  console.log("isMember", isMember);
+  console.log("membershipStatus", membershipStatus);
 
   if (!communityFeatureOn) {
     return (
@@ -693,64 +830,6 @@ export function CommunityJoinPanel({
               <h5 className="text-muted-foreground text-lg font-medium">
                 Featured community videos
               </h5>
-              {/* <div className="grid grid-cols-1 gap-4">
-                {featuredVideos.map(video => {
-                  const shareUrl = getFeaturedVideoShareUrl(video);
-
-                  return (
-                    <div
-                      key={video.id}
-                      className="flex min-w-0 cursor-pointer flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                      // onClick={openLightbox}
-                    >
-                      <div className="flex min-w-0 items-center gap-4">
-                        <img
-                          src={(() => {
-                            const videoId = extractYoutubeID(video.url);
-                            return videoId
-                              ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                              : "/default-event-image.jpg";
-                          })()}
-                          alt={video.title}
-                          className="h-14 w-28 shrink-0 object-cover"
-                        />
-
-                        <div className="min-w-0 space-y-1">
-                          <h5 className="font-semibold">{video.title}</h5>
-                          <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-                            <span className="bg-primary size-2 shrink-0 rounded-full" />
-                            {formatEventVideoTypeLabel(video.eventVideoType)}
-                          </p>
-                          <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                            <span>
-                              Duration:{" "}
-                              {formatBankDuration(video.durationSeconds ?? 0)}
-                            </span>
-                            {typeof video.numOfTips === "number" ? (
-                              <span>{video.numOfTips} tips</span>
-                            ) : null}
-                            <span>{video.numOfSaves ?? 0} saves</span>
-                            <span>{video.numOfShares ?? 0} shares</span>
-                            <span>{video.numOfComments ?? 0} comments</span>
-                            <span>{video.numOfSeen ?? 0} seen</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="shrink-0"
-                              disabled={!shareUrl}
-                              onClick={() => void copyFeaturedVideoLink(video)}
-                            >
-                              <Copy className="size-4" />
-                              Copy link
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div> */}
 
               {/* Small and medium screens */}
               <div className="no-scrollbar hide__scrollbar relative flex items-center gap-4 overflow-x-auto lg:hidden">
@@ -828,6 +907,58 @@ export function CommunityJoinPanel({
               ))}
             </div>
           </div>
+
+          {contentBankVideos.length > 0 ? (
+            <div className="space-y-4 pt-6">
+              <h5 className="text-muted-foreground text-lg font-medium">
+                Community videos {!isMember && "(only shown to members)"}
+              </h5>
+
+              {isMember && (
+                <div className="grid grid-cols-3 gap-0.5 sm:grid-cols-4 md:grid-cols-5">
+                  {contentBankVideos.map(video => {
+                    const thumbnail = getCommunityContentBankThumbnail(video);
+
+                    return (
+                      <button
+                        key={video.id}
+                        type="button"
+                        className="group relative aspect-[9/16] overflow-hidden bg-neutral-100 text-left"
+                        onClick={() => {
+                          window.open(
+                            video.channel.shareUrl,
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        }}
+                        title={video.channel.title}
+                        aria-label={video.channel.title}
+                      >
+                        <img
+                          src={thumbnail}
+                          alt={video.channel.title}
+                          className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                        />
+
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-1.5 pt-10 pb-1.5">
+                          <p className="line-clamp-2 text-[10px] font-medium text-white">
+                            {video.channel.title}
+                          </p>
+
+                          <p className="mt-0.5 line-clamp-2 text-[9px] leading-tight text-white/80">
+                            {video.metrics.numOfTips ?? 0} tips ·{" "}
+                            {video.metrics.saves ?? 0} saves ·{" "}
+                            {video.metrics.encounters ?? 0} seen ·{" "}
+                            {video.metrics.comments ?? 0} comments
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : null}
 
           <CommunityHowToJoinSection
             communityId={communityId}

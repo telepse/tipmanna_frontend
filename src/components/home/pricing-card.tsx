@@ -17,6 +17,7 @@ interface Props {
   features: string[];
   btnText: string;
   onButtonClick?: () => void;
+  onSeeMoreChange?: (open: boolean) => void;
 }
 
 export const PricingCard = ({
@@ -27,6 +28,7 @@ export const PricingCard = ({
   features,
   btnText,
   onButtonClick,
+  onSeeMoreChange,
 }: Props) => {
   const isMobile = useMediaQuery({
     query: "(max-width: 500px)",
@@ -35,7 +37,13 @@ export const PricingCard = ({
   const [seeMore, setSeeMore] = useState(false);
 
   const handleSeeMore = () => {
-    setSeeMore(!seeMore);
+    setSeeMore(previous => {
+      const next = !previous;
+
+      onSeeMoreChange?.(next);
+
+      return next;
+    });
   };
 
   return (
@@ -43,25 +51,19 @@ export const PricingCard = ({
       <Paragraph
         size="xl"
         weight="bold"
-        className="uppercase"
       >
         {name}
       </Paragraph>
-      <Paragraph
-        weight="bold"
-        color="muted"
-        align="center"
-      >
-        {desc}
-      </Paragraph>
-      <div className="flex items-center gap-2">
+
+      <div className="-mt-6 flex items-center gap-2">
         <Paragraph
           align="center"
           weight="bold"
           className="!text-[36px]"
         >
           {price}
-        </Paragraph>{" "}
+        </Paragraph>
+
         {discountPrice && (
           <Paragraph
             align="center"
@@ -71,9 +73,35 @@ export const PricingCard = ({
           >
             ({discountPrice})
           </Paragraph>
-        )}{" "}
-        <span className="text-sm text-gray-800">{"/ month"}</span>
+        )}
+
+        <span className="text-sm text-gray-800">/ month</span>
       </div>
+
+      <Paragraph
+        weight="bold"
+        color="muted"
+        align="center"
+        className="leading-relaxed"
+      >
+        {name === "Free" && (
+          <span>
+            Start creating and building <br />
+            your audience
+          </span>
+        )}
+
+        {name === "Growth" && (
+          <span>Grow engagement and build recurring relationships</span>
+        )}
+
+        {name === "Community" && (
+          <span>
+            Run your own community <br />
+            media network
+          </span>
+        )}
+      </Paragraph>
 
       <button
         type="button"
@@ -85,33 +113,37 @@ export const PricingCard = ({
 
       {isMobile && (
         <button
+          type="button"
           className="w-full cursor-pointer transition-all"
           onClick={handleSeeMore}
         >
           {seeMore ? (
             <span className="flex items-center gap-2">
-              See less <ChevronUp className="size-4" />
+              See less
+              <ChevronUp className="size-4" />
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              See more <ChevronDown className="size-4" />
+              See more
+              <ChevronDown className="size-4" />
             </span>
           )}
         </button>
       )}
 
-      {isMobile && seeMore ? (
-        <ul className="space-y-4">
+      {isMobile && seeMore && (
+        <ul className="w-full space-y-4">
           {features.map((feature, index) => (
             <li
               key={index}
               className="flex items-center gap-2 text-sm"
             >
-              <Check className="text-primary size-4 shrink-0" /> {feature}
+              <Check className="text-primary size-4 shrink-0" />
+              {feature}
             </li>
           ))}
         </ul>
-      ) : null}
+      )}
 
       <ul className="hidden space-y-4 lg:block">
         {features.map((feature, index) => (
@@ -119,7 +151,8 @@ export const PricingCard = ({
             key={index}
             className="flex items-center gap-2 text-sm"
           >
-            <Check className="text-primary size-4 shrink-0" /> {feature}
+            <Check className="text-primary size-4 shrink-0" />
+            {feature}
           </li>
         ))}
       </ul>

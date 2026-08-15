@@ -1,5 +1,7 @@
 "use client";
 
+import { getStatusColor } from "@/lib/getStatusColor";
+import { getEventStatus } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
 interface Props {
@@ -76,6 +78,9 @@ export const EventCountdown = ({ eventDate, startTime, endTime }: Props) => {
     return () => clearInterval(interval);
   }, [eventDate, startTime, endTime, totalHours, totalMinutes]);
 
+  const status = getEventStatus(eventDate, startTime, endTime);
+  const statusColor = getStatusColor(status);
+
   return (
     <p className="text-xs font-medium sm:text-sm">
       {state.status === "running" ? (
@@ -85,7 +90,9 @@ export const EventCountdown = ({ eventDate, startTime, endTime }: Props) => {
         </>
       ) : (
         <>
-          <span>
+          <span
+            className={`${status === "Completed" && "w-fit rounded-md bg-black px-1 py-0.5 text-[8px] text-white"} ${status === "Ongoing" && "bg-moonstone-blue w-fit rounded-md px-1 py-0.5 text-[8px] text-black"} ${status === "Not started" && "bg-gray w-fit rounded-md px-1 py-0.5 text-[8px] text-black"}`}
+          >
             {state.status === "not_started" ? "Not started:" : "Completed:"}
           </span>{" "}
           {state.durationHours}h {state.durationMinutes}m

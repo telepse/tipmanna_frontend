@@ -48,6 +48,9 @@ import {
   buildChannelSharePath,
   buildRoomSharePath,
 } from "@/lib/public-video-url";
+import { SelectDefaultVideoModal } from "./select-default-video-modal";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 
 interface Props {
   liveVideoLink: string;
@@ -85,6 +88,7 @@ interface Props {
   setOpenDrawer: (v: boolean) => void;
   characterSets: any[];
   channels: any[];
+  isEventOwner: string;
 
   // contents: any[];
   // tippers: any[];
@@ -114,6 +118,7 @@ export const EventLive = ({
   amountRaised,
   numOfTips,
   frameId,
+  isEventOwner,
 }: Props) => {
   const router = useRouter();
   const roomPathRef = useRef<string | null>(null);
@@ -122,8 +127,16 @@ export const EventLive = ({
 
   const [showProgress] = useState(false);
 
+  const [selectDefaultVideoModalOpen, setSelectDefaultVideoModalOpen] =
+    useState(false);
+
+  const { user, tag } = useSelector((state: RootState) => state.auth);
+
+  const eventOwner = isEventOwner === user?.id || tag === "COHOST";
+
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [tipsListOpen, setTipsListOpen] = useState(false);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -702,29 +715,6 @@ export const EventLive = ({
           id="global-animation-layer"
           className={`pointer-events-none absolute inset-0 ${TV_RAIL_Z_INDEX}`}
         />
-
-        <div className="absolute right-6 bottom-5 flex flex-col items-center gap-4">
-          <button
-            type="button"
-            title="View tips"
-            className="absolute -top-8 right-0 cursor-pointer rounded-md bg-black/70 p-1 text-xs font-medium whitespace-nowrap text-white sm:text-sm"
-            onClick={() => setTipsListOpen(true)}
-          >
-            {numOfTips} tips
-          </button>
-          <ChannelProgressBar
-            amountToRaise={amountToRaise}
-            amountRaised={amountRaised}
-            eventId={eventId}
-          />
-          <Image
-            src="/icons/black-diamond.png"
-            alt="Black Diamond"
-            width={40}
-            height={40}
-            className="-mt-8 size-[14px]"
-          />
-        </div>
       </div>
 
       {activeReminder !== null && (
@@ -803,6 +793,13 @@ export const EventLive = ({
       <div
         className={`${OVERLAY_Z_INDEX} fixed inset-0 flex h-screen w-screen items-center justify-center bg-white`}
       >
+        <button
+          type="button"
+          className={`absolute top-10 right-4 inline-block rounded-md bg-black p-1 text-xs text-white underline lg:hidden ${AUTH_MODAL_Z_INDEX} cursor-pointer`}
+          onClick={() => closeLightbox()}
+        >
+          Back to event room
+        </button>
         <ChannelClient
           contents={channels as any[]}
           characters={tippingCharacters as any[]}
@@ -816,17 +813,20 @@ export const EventLive = ({
               syncLightboxUrl(channelId, "replace");
             }
           }}
+          openedFromEventRoom={true}
         />
         <button
           type="button"
-          className={`absolute top-0 right-0 ${AUTH_MODAL_Z_INDEX} cursor-pointer`}
+          className={`absolute top-3 right-32 hidden text-sm underline lg:inline-block ${AUTH_MODAL_Z_INDEX} cursor-pointer`}
           onClick={() => closeLightbox()}
         >
-          <XIcon className="size-5 text-black" />
+          Back to event room
         </button>
       </div>
     );
   }
+
+  const seedModalDraftId = searchParams.get("modalDraftId");
 
   /* -----------------------------
      INLINE (NON-FULLSCREEN)
@@ -834,24 +834,51 @@ export const EventLive = ({
   return (
     <>
       {/* Toggle open */}
-      <button
-        type="button"
-        className="mt-6 flex w-full cursor-pointer items-center gap-1 rounded-md text-sm select-none"
-        onClick={() => setOpen(prev => !prev)}
-      >
-        <span
-          className={`rounded-md ${
-            resolvedVideoUrl ? "border border-black" : ""
-          } px-2 py-0.5`}
+      <div className="mt-6 flex items-center gap-2">
+        <button
+          type="button"
+          className="flex w-fit cursor-pointer items-center gap-1 rounded-md text-sm select-none"
         >
-          Stream
-        </span>
+          <div
+            className="flex items-center gap-1"
+            onClick={() => setOpen(prev => !prev)}
+          >
+            <span
+              className={`rounded-md ${open ? "bg-secondary" : ""} ${
+                resolvedVideoUrl ? "border border-black" : ""
+              } px-2 py-0.5`}
+            >
+              Stream
+            </span>
 
-        <div className="flex-1 flex-col items-center -space-y-3">
-          <ChevronDown className="animate-peek size-5" />
-          <ChevronDown className="size-5" />
-        </div>
-      </button>
+            <div className="flex-1 flex-col items-center -space-y-3">
+              <ChevronDown className="animate-peek size-5" />
+              <ChevronDown className="size-5" />
+            </div>
+          </div>
+        </button>
+
+        {open && !(isEventOwner === user?.id) && (
+          <span
+            className="cursor-pointer text-[8px] underline sm:text-[10px]"
+            onClick={() => setSelectDefaultVideoModalOpen(prev => !prev)}
+          >
+            Change streaming video
+          </span>
+        )}
+      </div>
+
+      <SelectDefaultVideoModal
+        open={selectDefaultVideoModalOpen}
+        onClose={() => setSelectDefaultVideoModalOpen(false)}
+        channels={channels}
+        isHost={isEventOwner === user?.id}
+        eventId={eventId}
+        frameId={frameId}
+        liveVideoLink={liveVideoLink}
+        eventEventType={""}
+        seedDraftId={seedModalDraftId}
+      />
 
       {open && (
         <div className="relative z-[1000] mb-14 w-full rounded-md bg-white">

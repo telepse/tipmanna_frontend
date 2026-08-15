@@ -111,7 +111,7 @@ export const AddPerformersModal = ({
     >
       <DialogContent className="max-h-[70vh] w-full overflow-y-scroll rounded-md sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Add performers</DialogTitle>
+          <DialogTitle>Add performers to pin to screen display</DialogTitle>
         </DialogHeader>
 
         <button

@@ -37,6 +37,14 @@ interface Props {
   projects: any[];
   contributionType: string;
   eventEventType?: string;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  eventBanner: string;
+  venueName?: string;
+  venueLocation?: string;
+  activities: any[];
+  eventDescription?: string;
 }
 
 export const RoomMessages = ({
@@ -56,6 +64,14 @@ export const RoomMessages = ({
   contributionType,
   eventEventType,
   paymentSurface = "event_room",
+  eventDate,
+  startTime,
+  endTime,
+  eventBanner,
+  venueName,
+  venueLocation,
+  activities,
+  eventDescription,
 }: Props & { paymentSurface?: string }) => {
   const safeTippingCharacters = useMemo(
     () => (Array.isArray(tippingCharacters) ? tippingCharacters : []),
@@ -186,6 +202,16 @@ export const RoomMessages = ({
           projects={safeProjects}
           contributionType={contributionType}
           eventEventType={eventEventType}
+          eventDate={eventDate}
+          startTime={startTime}
+          endTime={endTime}
+          eventName={eventName}
+          organizationName={organizationName}
+          eventBanner={eventBanner}
+          venueName={venueName ?? ""}
+          venueLocation={venueLocation ?? ""}
+          activities={activities}
+          eventDescription={eventDescription ?? ""}
         />
 
         {safePerformers.length > 0 && (

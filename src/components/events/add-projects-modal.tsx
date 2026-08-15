@@ -110,8 +110,8 @@ export const AddProjectsModal = ({
       onOpenChange={onClose}
     >
       <DialogContent className="max-h-[70vh] w-full overflow-y-scroll rounded-md sm:max-w-sm">
-        <DialogHeader>
-          w<DialogTitle>Add projects</DialogTitle>
+        <DialogHeader className="flex items-center justify-between">
+          <DialogTitle>Add projects to pin to screen display</DialogTitle>
         </DialogHeader>
 
         <button

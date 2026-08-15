@@ -287,7 +287,8 @@ export default function ContentOnlyPage() {
 
       // redirect to manage event page
       if (user?.role === "HOST") {
-        push(`/room/${(result.data as any).event.id}`);
+        // push(`/room/${(result.data as any).event.id}`);
+        push(`/@${user?.username}`);
       } else {
         toast.error("Only hosts can create events");
       }

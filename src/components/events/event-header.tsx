@@ -49,6 +49,11 @@ interface Props {
   currentSessionAmountToRaise?: number;
   channels: any[];
   forceScreenOpen?: boolean;
+  isEventOwner: string;
+  venueName: string;
+  activities: any[];
+  eventDescription: string;
+  eventBanner: string;
 }
 
 export const EventHeader = ({
@@ -90,6 +95,11 @@ export const EventHeader = ({
   channels,
   currentSessionAmountToRaise,
   forceScreenOpen = false,
+  isEventOwner,
+  venueName,
+  activities,
+  eventDescription,
+  eventBanner,
 }: Props) => {
   const [tipsListOpen, setTipsListOpen] = useState(false);
 
@@ -102,6 +112,8 @@ export const EventHeader = ({
   const safePerformers = Array.isArray(performers) ? performers : [];
   const safeChannels = Array.isArray(channels) ? channels : [];
   const safeCharacterSets = Array.isArray(characterSets) ? characterSets : [];
+
+  console.log("eventBannerFromHeader", eventBanner);
 
   return (
     <div className="mini-wrapper h-[104px] w-full flex-shrink-0 border-b px-4 py-1 sm:h-32">
@@ -124,6 +136,14 @@ export const EventHeader = ({
             tipUsageDisclosure={safeTipUsageDisclosure}
             performers={safePerformers}
             defaultScreenOpen={forceScreenOpen}
+            venueName={venueName}
+            venueLocation={venueLocation}
+            activities={activities ?? []}
+            eventDescription={eventDescription}
+            eventDate={eventDate}
+            startTime={startTime}
+            endTime={endTime}
+            eventBanner={eventBanner}
           />
 
           <div className="-mt-4 flex items-center gap-2">
@@ -157,12 +177,14 @@ export const EventHeader = ({
 
           <div className="ml-auto">
             <div className="mt-3 flex items-center justify-between">
-              {eventDate && (
+              {eventDate ? (
                 <EventCountdown
                   startTime={startTime ?? 0}
                   endTime={endTime ?? 0}
                   eventDate={eventDate ?? 0}
                 />
+              ) : (
+                <div style={{ display: "none" }}></div>
               )}
             </div>
           </div>
@@ -204,6 +226,7 @@ export const EventHeader = ({
             setOpenDrawer={setOpenDrawer}
             characterSets={safeCharacterSets}
             channels={safeChannels}
+            isEventOwner={isEventOwner}
           />
         </div>
       </div>

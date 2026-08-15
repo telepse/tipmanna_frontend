@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import OTPInput from "react-otp-input";
@@ -38,6 +38,8 @@ import {
 } from "@/schemas/tipper.schema";
 import { Paragraph } from "@/components/shared/paragraph";
 import {
+  checkCoOwnerSignupEligibilityAction,
+  checkHostUsernameAvailabilityAction,
   forgotPasswordAction,
   loginHostAction,
   loginOrRegisterHostAction,
@@ -55,6 +57,7 @@ import {
 } from "@/lib/auth-response";
 import { persistAuthSession } from "@/lib/session-client";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 import { store, type RootState } from "@/redux/store";
 
 type HostAuthView = "signIn" | "signUp" | "forgotPassword" | "verifyEmail";
@@ -111,8 +114,20 @@ export const SigninForm = ({
 
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email");
+  const nameParam = searchParams.get("name");
   const returnTo = safeInternalPath(
     returnToProp ?? searchParams.get("next") ?? searchParams.get("redirect")
+  );
+
+  const [checkingCoOwnerEmail, setCheckingCoOwnerEmail] = useState(false);
+  const [coOwnerEligible, setCoOwnerEligible] = useState<boolean | null>(null);
+  const [coOwnerResolvedName, setCoOwnerResolvedName] = useState<string | null>(
+    nameParam?.trim() || null
+  );
+
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
+    null
   );
 
   // NEW: loading states
@@ -132,9 +147,14 @@ export const SigninForm = ({
     fontSize: isMobile ? "16px" : "20px",
   };
 
-  const signupHref = returnTo
-    ? `/create-account?redirect=${encodeURIComponent(returnTo)}`
-    : "/create-account";
+  const signupHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (emailParam) params.set("email", emailParam);
+    if (nameParam) params.set("name", nameParam);
+    if (returnTo) params.set("redirect", returnTo);
+    const query = params.toString();
+    return query ? `/create-account?${query}` : "/create-account";
+  }, [emailParam, nameParam, returnTo]);
 
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
@@ -148,12 +168,47 @@ export const SigninForm = ({
       password: "",
     },
   });
+  const username = hostForm.watch("emailOrUsername");
+
+  const hostSignInEmailOrUsername = hostForm.watch("emailOrUsername");
+
+  useEffect(() => {
+    const email = hostSignInEmailOrUsername?.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCoOwnerEligible(null);
+      if (!nameParam?.trim()) setCoOwnerResolvedName(null);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setCheckingCoOwnerEmail(true);
+        const res = await checkCoOwnerSignupEligibilityAction(email);
+        if (res.success && res.data?.eligible) {
+          setCoOwnerEligible(true);
+          const resolvedName = res.data.coOwnerName?.trim();
+          if (resolvedName) setCoOwnerResolvedName(resolvedName);
+        } else {
+          setCoOwnerEligible(false);
+          if (!nameParam?.trim()) setCoOwnerResolvedName(null);
+        }
+      } catch {
+        setCoOwnerEligible(null);
+      } finally {
+        setCheckingCoOwnerEmail(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [hostSignInEmailOrUsername, nameParam]);
 
   const signUpForm = useForm<HostSignUpFormData>({
     resolver: zodResolver(hostSignUpSchema),
     defaultValues: {
       fullName: "",
       email: emailParam || "",
+      emailOrUsername: "",
+      username: "",
       password: "",
       confirmPassword: "",
       acceptedTerms: false,
@@ -188,20 +243,34 @@ export const SigninForm = ({
       });
       return;
     }
-    const dest = returnTo;
-    push(dest ?? `/host/${user.eventSlug ?? user.username}`);
+    // const dest =
+    //   returnTo ??
+    //   (coOwnerEligible === true
+    //     ? buildCreatorProfileSharePath(user.username)
+    //     : `/host/${user.eventSlug ?? user.username}`);
+    const dest =
+      returnTo ??
+      (coOwnerEligible === true
+        ? buildCreatorProfileSharePath(user.username)
+        : buildCreatorProfileSharePath(user.username));
+    push(dest);
   };
 
   const onSubmitHostSignUp = async (values: HostSignUpFormData) => {
+    console.log(values);
     if (values.password !== values.confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
+
     try {
       setIsHostLoading(true);
+
       const res = await loginOrRegisterHostAction({
         fullName: values.fullName,
+        emailOrUsername: values.emailOrUsername,
         email: values.email,
+        username: values.username,
         password: values.password,
         acceptedTerms: values.acceptedTerms,
         visitorId: visitorIdForMerge,
@@ -532,6 +601,40 @@ export const SigninForm = ({
     }
   };
 
+  useEffect(() => {
+    if (!username) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
+
+    if (!usernameRegex.test(username)) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setCheckingUsername(true);
+
+        const res = await checkHostUsernameAvailabilityAction({ username });
+
+        if (res.success) {
+          setUsernameAvailable(true);
+        } else {
+          setUsernameAvailable(false);
+        }
+      } catch {
+        setUsernameAvailable(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [username]);
+
   return (
     <div className={className ? "" : "mx-auto max-w-2xl"}>
       <Tabs
@@ -562,7 +665,9 @@ export const SigninForm = ({
           color="muted"
         >
           {userType === "host"
-            ? "Add content or event"
+            ? coOwnerEligible
+              ? "Co-owners sign in here as a host with their invite email"
+              : "Add content or event"
             : "Engage on content and join event"}
         </Paragraph>
 
@@ -700,6 +805,52 @@ export const SigninForm = ({
                       </FormItem>
                     )}
                   />
+                  <div className="space-y-1">
+                    <FormField
+                      control={signUpForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Choose a username"
+                            />
+                          </FormControl>
+
+                          <FormMessage />
+
+                          {checkingUsername && (
+                            <p className="text-muted-foreground text-sm">
+                              Checking availability...
+                            </p>
+                          )}
+
+                          {!checkingUsername &&
+                            username &&
+                            usernameAvailable === true && (
+                              <p className="text-success text-sm">
+                                Username is available ✓
+                              </p>
+                            )}
+
+                          {!checkingUsername &&
+                            username &&
+                            usernameAvailable === false && (
+                              <p className="text-destructive text-sm">
+                                Username is already taken
+                              </p>
+                            )}
+                        </FormItem>
+                      )}
+                    />
+
+                    <span className="text-muted-foreground text-xs">
+                      This will be your unique creator username
+                    </span>
+                  </div>
                   <FormField
                     control={signUpForm.control}
                     name="password"
@@ -800,6 +951,20 @@ export const SigninForm = ({
                             type="text"
                           />
                         </FormControl>
+                        {checkingCoOwnerEmail ? (
+                          <p className="text-muted-foreground text-sm">
+                            Checking co-owner eligibility…
+                          </p>
+                        ) : null}
+                        {!checkingCoOwnerEmail &&
+                        hostSignInEmailOrUsername?.trim() &&
+                        coOwnerEligible === true ? (
+                          <p className="text-success text-sm">
+                            {coOwnerResolvedName
+                              ? `${coOwnerResolvedName}, sign in with your host password ✓`
+                              : "Co-owner email — sign in with your host password ✓"}
+                          </p>
+                        ) : null}
                         <FormMessage />
                       </FormItem>
                     )}

@@ -8,13 +8,16 @@ export default function FAQs() {
       className="wrapper section py-12"
       id="faq"
     >
-      <Title size="lg">
-        FAQ<span className="text-primary">s</span>
-      </Title>
+      <div className="space-y-3">
+        <Title size="lg">
+          FAQ<span className="text-primary">s</span>
+        </Title>
 
-      <Paragraph color="muted">
-        Everything you need to know about tipmanna
-      </Paragraph>
+        <Paragraph color="muted">
+          Everything you need to know <br className="inline-block sm:hidden" />{" "}
+          about tipmanna
+        </Paragraph>
+      </div>
 
       <FAQAccordion />
     </section>
