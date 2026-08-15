@@ -14,13 +14,10 @@ import TippingBanner from "@/components/home/tipping-banner";
 import TrustBadges from "@/components/home/trust-badges";
 import TopEventsSection from "@/components/home/top-events-section";
 import TopContentsSection from "@/components/home/top-contents-section";
-// import CharitiesSection from "@/components/home/charities-section";
-// import TestimonialsLazy from "@/components/home/testimonials-lazy";
 import TopCommunitiesSection from "@/components/home/top-communities-section";
 import KeyStatsLazy from "@/components/home/key-stats-lazy";
 import FAQs from "@/components/home/faqs";
 import TvHomePreviewSectionLazy from "@/components/home/tv-home-preview-section-lazy";
-import PricingGrid from "@/components/home/pricing-grid";
 
 // Lib imports
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
@@ -110,7 +107,10 @@ export default function Home() {
             aria-hidden
           />
 
-          <div className="bg-secondary/30">
+          <div
+            className="bg-secondary/30 bg-cover bg-fixed bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
+          >
             <Features />
 
             <TopContentsSection />

@@ -34,6 +34,16 @@ export const AlreadyWatching = () => {
 
   return (
     <section className="relative mt-6 overflow-hidden bg-black lg:mt-12">
+      {/* Radial glow at top */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-0 left-1/2 z-0 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(245,125,17,0.35) 0%, rgba(181,88,5,0.15) 40%, transparent 70%)",
+        }}
+      />
+
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0"
@@ -47,12 +57,14 @@ export const AlreadyWatching = () => {
         ))}
       </div>
 
-      <div className="wrapper section relative z-10 flex flex-col items-center px-4 py-12 lg:py-16">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-8">
+      <div className="blur"></div>
+
+      <div className="section relative z-10 flex flex-col items-center px-4 py-12 lg:py-16">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:w-[960px] lg:grid-cols-3 lg:gap-8">
           {ALREADY_WATCHING_FEATURES.map((item, index) => (
             <div
               key={index}
-              className={`${item.className} space-y-2 rounded-lg border-2 p-4`}
+              className={`${item.className} w-full space-y-1 rounded-lg border-2 p-2 sm:space-y-2 lg:p-4`}
             >
               <Paragraph
                 size="lg"
@@ -65,7 +77,7 @@ export const AlreadyWatching = () => {
               <Paragraph
                 size="sm"
                 align="center"
-                className={`text-${item.txtColor}`}
+                className={`-mt-2 lg:mt-0 text-${item.txtColor}`}
               >
                 {item.content}
               </Paragraph>
@@ -73,22 +85,32 @@ export const AlreadyWatching = () => {
           ))}
         </div>
 
-        <Title size="lg">
-          <span className="text-white">Your audience is</span>{" "}
-          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-            already watching
-          </span>
-        </Title>
+        <div className="space-y-3">
+          <Title
+            size="lg"
+            align="center"
+          >
+            <span className="text-white">Your audience is</span>{" "}
+            <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+              already watching
+            </span>
+          </Title>
 
-        <Paragraph
-          size="sm"
-          className="text-white/70"
-        >
-          The question is simple: What happens next? Turn viewers into
-          participants <br className="hidden lg:block" /> Turn participation
-          into connection. Turn connection into something lasting.
-        </Paragraph>
+          <Paragraph
+            size="sm"
+            className="text-white/70"
+            align="center"
+          >
+            The question is simple: What happens next?{" "}
+            <br className="inline-block sm:hidden" /> Turn viewers into
+            participants <br className="inline-block sm:hidden" /> Turn
+            participation into connection.{" "}
+            <br className="inline-block sm:hidden" /> Turn connection into
+            something lasting.
+          </Paragraph>
+        </div>
 
+        {/* CTA */}
         {/* CTA */}
         <div className="mt-4 flex gap-2">
           <Button
@@ -96,21 +118,20 @@ export const AlreadyWatching = () => {
             aria-label="Explore Contents"
             aria-haspopup="dialog"
             onClick={() => setOpenPopup(true)}
-            className="flex-1 shrink-0"
+            className="w-fit flex-1 shrink-0"
           >
-            Create Your Channel
+            Create <span className="hidden sm:inline">Your</span> Channel
           </Button>
 
-          <Link href="/tv">
-            <Button
-              size={isMobile ? "sm" : "lg"}
-              aria-label="Watch TV"
-              aria-haspopup="dialog"
-              className="flex-1 shrink-0 bg-gray-500"
-            >
-              Watch TIpmanna TV <Tv aria-hidden="true" />
-            </Button>
-          </Link>
+          <Button
+            asChild
+            size={isMobile ? "sm" : "lg"}
+            aria-label="Watch TV"
+            aria-haspopup="dialog"
+            className="w-fit flex-1 shrink-0 bg-white text-black hover:bg-white/80"
+          >
+            <a href="/partner#pricing">See pricing</a>
+          </Button>
         </div>
 
         <CreateDialog

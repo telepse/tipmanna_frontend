@@ -36,7 +36,7 @@ export default function ScheduledTvPrograms() {
         <div className="flex flex-col">
           <h2 id="scheduled-tv-programs-heading">
             <Title size="lg">
-              Scheduled{" "}
+              Scheduled <br className="inline-block sm:hidden" />
               <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
                 TV programs
               </span>

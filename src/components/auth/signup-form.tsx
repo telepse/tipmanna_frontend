@@ -31,6 +31,7 @@ import {
 } from "@/schemas/tipper.schema";
 import { Paragraph } from "@/components/shared/paragraph";
 import {
+  checkCoOwnerSignupEligibilityAction,
   checkHostUsernameAvailabilityAction,
   registerHostAction,
   registerTipperAction,
@@ -41,6 +42,7 @@ import { useAppRouter } from "@/components/navigation/navigation-progress-provid
 import { parseAuthResponse } from "@/lib/auth-response";
 import { persistAuthSession } from "@/lib/session-client";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 import type { RootState } from "@/redux/store";
 
 function safeInternalPath(next: string | null): string | null {
@@ -55,11 +57,16 @@ export const SignupForm = () => {
 
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email");
+  const nameParam = searchParams.get("name");
   const redirectParam = searchParams.get("redirect");
 
-  // NEW: loading states
   const [isHostLoading, setIsHostLoading] = useState(false);
   const [isTipperLoading, setIsTipperLoading] = useState(false);
+  const [checkingCoOwnerEmail, setCheckingCoOwnerEmail] = useState(false);
+  const [coOwnerEligible, setCoOwnerEligible] = useState<boolean | null>(null);
+  const [coOwnerResolvedName, setCoOwnerResolvedName] = useState<string | null>(
+    nameParam?.trim() || null
+  );
 
   const { push } = useAppRouter();
   const dispatch = useDispatch();
@@ -74,11 +81,16 @@ export const SignupForm = () => {
     setShowConfirmPassword(prev => !prev);
   };
 
-  // 1. Define Host form
+  const hostVerifyRedirectPath = (username: string) => {
+    const profilePath = buildCreatorProfileSharePath(username);
+    const next = safeInternalPath(redirectParam) ?? profilePath;
+    return `/verify-email?next=${encodeURIComponent(next)}`;
+  };
+
   const hostForm = useForm<HostSignUpFormData>({
     resolver: zodResolver(hostSignUpSchema),
     defaultValues: {
-      fullName: "",
+      fullName: nameParam?.trim() || "",
       email: emailParam || "",
       username: "",
       password: "",
@@ -88,6 +100,7 @@ export const SignupForm = () => {
   });
 
   const username = hostForm.watch("username");
+  const hostEmail = hostForm.watch("email");
 
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
@@ -128,7 +141,42 @@ export const SignupForm = () => {
     return () => clearTimeout(timeout);
   }, [username]);
 
-  // 2. Define Tipper form
+  useEffect(() => {
+    const email = hostEmail?.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCoOwnerEligible(null);
+      if (!nameParam?.trim()) setCoOwnerResolvedName(null);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setCheckingCoOwnerEmail(true);
+        const res = await checkCoOwnerSignupEligibilityAction(email);
+        if (res.success && res.data?.eligible) {
+          setCoOwnerEligible(true);
+          const resolvedName = res.data.coOwnerName?.trim();
+          if (resolvedName) {
+            setCoOwnerResolvedName(resolvedName);
+            const currentName = hostForm.getValues("fullName").trim();
+            if (!currentName) {
+              hostForm.setValue("fullName", resolvedName);
+            }
+          }
+        } else {
+          setCoOwnerEligible(false);
+          if (!nameParam?.trim()) setCoOwnerResolvedName(null);
+        }
+      } catch {
+        setCoOwnerEligible(null);
+      } finally {
+        setCheckingCoOwnerEmail(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [hostEmail, hostForm, nameParam]);
+
   const tipperForm = useForm<TipperSignUpFormData>({
     resolver: zodResolver(tipperSignUpSchema),
     defaultValues: {
@@ -138,7 +186,6 @@ export const SignupForm = () => {
     },
   });
 
-  // 3. Define host submit handler
   const onSubmitHost = async (values: HostSignUpFormData) => {
     try {
       setIsHostLoading(true);
@@ -174,12 +221,7 @@ export const SignupForm = () => {
 
       await persistAuthSession(token, user, { expiresDays: 7 });
 
-      const next = safeInternalPath(redirectParam);
-      push(
-        next
-          ? `/verify-email?next=${encodeURIComponent(next)}`
-          : "/verify-email"
-      );
+      push(hostVerifyRedirectPath(values.username));
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -194,7 +236,6 @@ export const SignupForm = () => {
     }
   };
 
-  // 4. Define tipper submit handler
   const onSubmitTipper = async (values: TipperSignUpFormData) => {
     try {
       setIsTipperLoading(true);
@@ -275,7 +316,7 @@ export const SignupForm = () => {
           color="muted"
         >
           {userType === "host"
-            ? "Add content or event"
+            ? "Add content or event - co-owners can sign up here with their invite email"
             : "Engage on content and join event"}
         </Paragraph>
 
@@ -324,6 +365,20 @@ export const SignupForm = () => {
                         }
                       />
                     </FormControl>
+                    {checkingCoOwnerEmail ? (
+                      <p className="text-muted-foreground text-sm">
+                        Checking co-owner eligibility…
+                      </p>
+                    ) : null}
+                    {!checkingCoOwnerEmail &&
+                    hostEmail?.trim() &&
+                    coOwnerEligible === true ? (
+                      <p className="text-success text-sm">
+                        {coOwnerResolvedName
+                          ? `${coOwnerResolvedName}, your email is linked to a co-owner invite ✓`
+                          : "Email linked to a co-owner invite ✓"}
+                      </p>
+                    ) : null}
                     <FormMessage />
                   </FormItem>
                 )}

@@ -57,7 +57,7 @@ export default function TopCommunities({
         Ranked by total tips across approved bank videos.
       </Paragraph> */}
 
-      <div className="mt-6 w-full">
+      <div className="w-full">
         {featuredCommunities.length === 0 ? (
           <Paragraph
             align="center"
@@ -72,20 +72,23 @@ export default function TopCommunities({
       </div>
 
       {isPartnerPage && (
-        <div className="border-primary inline-block self-start border-l-2 p-4">
+        <div className="border-primary inline-block w-fit max-w-full self-start border-l-2 py-0 pl-4">
           <div>
             <Paragraph
+              size="sm"
               weight="bold"
               className="leading-relaxed"
             >
-              Start with content. Grow participation. Build a community.
+              Start with content. <br className="inline-block sm:hidden" /> Grow
+              participation. Build a community.
             </Paragraph>
             <Paragraph
               size="sm"
-              className="-mt-1 leading-relaxed"
+              className="leading-relaxed"
             >
-              Tipmanna grows with you - from your first video to your own
-              community-powered media network.
+              Tipmanna grows with you <br className="inline-block sm:hidden" />{" "}
+              - from your first video to your own community-powered media
+              network.
             </Paragraph>
           </div>
         </div>

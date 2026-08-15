@@ -26,6 +26,7 @@ import { useDispatch, useSelector } from "react-redux";
 // Local imports
 import { Paragraph } from "@/components/shared/paragraph";
 import {
+  checkHostUsernameAvailabilityAction,
   loginOrRegisterHostAction,
   requestLoginCodeAction,
   verifyCodeAction,
@@ -67,16 +68,26 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
 
   const signInForm = useForm<{
     fullName: string;
+    emailOrUsername: string;
     email: string;
+    username: string;
     acceptedTerms: false;
     password: string;
   }>({
-    defaultValues: { fullName: "", email: "", acceptedTerms: false },
+    defaultValues: {
+      fullName: "",
+      emailOrUsername: "",
+      email: "",
+      username: "",
+      acceptedTerms: false,
+    },
   });
 
   const handleLogin = async (values: {
     fullName: string;
+    emailOrUsername: string;
     email: string;
+    username: string;
     password: string;
     acceptedTerms: boolean;
   }) => {
@@ -90,7 +101,9 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
       const res = await loginOrRegisterHostAction({
         fullName: values.fullName,
         password: values.password,
+        emailOrUsername: values.emailOrUsername,
         email: values.email,
+        username: values.username,
         acceptedTerms: values.acceptedTerms,
         visitorId: getVisitorIdForAuthMerge(user),
       });
@@ -332,6 +345,47 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
     }
   }, [user, signInForm]);
 
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
+    null
+  );
+
+  const username = signInForm.watch("username");
+
+  useEffect(() => {
+    if (!username) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
+
+    if (!usernameRegex.test(username)) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setCheckingUsername(true);
+
+        const res = await checkHostUsernameAvailabilityAction({ username });
+
+        if (res.success) {
+          setUsernameAvailable(true);
+        } else {
+          setUsernameAvailable(false);
+        }
+      } catch {
+        setUsernameAvailable(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [username]);
+
   // --- NEW: RENDER FOR EXISTING HOST TAG ---
   if (role === "HOST" && tag === "EXISTING_HOST") {
     return (
@@ -469,25 +523,100 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
               />
             ) : null}
 
-            <FormField
-              control={signInForm.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter email address"
-                      autoComplete="off"
-                      className="bg-black/25"
-                      disabled={Boolean(user?.email?.trim())}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {authState === "signUp" ? (
+              <FormField
+                control={signInForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter email address"
+                        autoComplete="off"
+                        className="bg-black/25"
+                        disabled={Boolean(user?.email?.trim())}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : null}
+
+            {authState === "signUp" ? (
+              <div className="space-y-1">
+                <FormField
+                  control={signInForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Choose a username"
+                          className="bg-black/25"
+                          disabled={Boolean(user?.username?.trim())}
+                        />
+                      </FormControl>
+
+                      <FormMessage />
+
+                      {checkingUsername && (
+                        <p className="text-muted-foreground text-sm">
+                          Checking availability...
+                        </p>
+                      )}
+
+                      {!checkingUsername &&
+                        username &&
+                        usernameAvailable === true && (
+                          <p className="bg-success w-fit rounded px-1 py-0.5 text-sm text-white">
+                            Username is available ✓
+                          </p>
+                        )}
+
+                      {!checkingUsername &&
+                        username &&
+                        usernameAvailable === false && (
+                          <p className="bg-destructive w-fit rounded px-1 py-0.5 text-sm text-white">
+                            Username is already taken
+                          </p>
+                        )}
+                    </FormItem>
+                  )}
+                />
+
+                <span className="text-xs text-white/80">
+                  This will be your unique creator username
+                </span>
+              </div>
+            ) : null}
+
+            {authState === "signIn" ? (
+              <FormField
+                control={signInForm.control}
+                name="emailOrUsername"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email or username</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="Enter email or username"
+                        autoComplete="off"
+                        className="bg-black/25"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : null}
 
             <FormField
               control={signInForm.control}

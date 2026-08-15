@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleStar, Crown, Sprout, User } from "lucide-react";
+import { CircleStar, Crown, LogOut, Sprout, User } from "lucide-react";
 import { toast } from "react-toastify";
 
 import {
@@ -48,7 +48,7 @@ import {
   CREATOR_PROFILE_DIALOG_Z_INDEX,
 } from "@/lib/drawer-z-index";
 import { cn, formatNextUsernameChange } from "@/lib/utils";
-import type { RootState } from "@/redux/store";
+import type { AppDispatch, RootState } from "@/redux/store";
 import {
   CREATOR_PROFILE_CATEGORIES,
   CREATOR_PROFILE_CATEGORY_LABELS,
@@ -56,6 +56,8 @@ import {
   CreatorProfileCategory,
   creatorSchema,
 } from "@/schemas/creator.schema";
+import { performAuthLogout } from "@/lib/auth-logout";
+import { useRouter } from "next/navigation";
 
 export type CreatorProfileSavedPayload = {
   username: string;
@@ -99,7 +101,7 @@ export function EditCreatorProfileDialog({
   initialAvatarUrl = null,
   onSaved,
 }: Props) {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((state: RootState) => state.auth.user);
   const token = useSelector((state: RootState) => state.auth.token);
   const { hasActivePremium } = useHostPlanCapabilities();
@@ -137,7 +139,10 @@ export function EditCreatorProfileDialog({
   }, [user]);
 
   const premiumHref = hostSlug ? `/host/${hostSlug}/host-premium` : "/host";
-  const hostDashboardHref = hostSlug ? `/host/${hostSlug}` : "/host";
+  const hostDashboardHref = hostSlug ? `/host/${hostSlug}/profile` : "/host";
+  const manageEventDashboardHref = hostSlug
+    ? `/host/${hostSlug}/manage-event`
+    : "/host";
 
   const photoChangeLocked =
     profilePhotoChangeRequiresPremium ||
@@ -355,6 +360,14 @@ export function EditCreatorProfileDialog({
     }
   };
 
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await performAuthLogout(dispatch);
+    toast.success("HOST account logged out");
+    router.refresh();
+  };
+
   return (
     <Dialog
       open={open}
@@ -370,6 +383,17 @@ export function EditCreatorProfileDialog({
         <DialogHeader>
           <DialogTitle>Edit Creator Page Profile</DialogTitle>
         </DialogHeader>
+
+        <div className="absolute top-4 right-12 flex flex-col">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-fit shrink-0 border-0 bg-black text-white"
+            onClick={handleLogout}
+          >
+            <LogOut /> Logout
+          </Button>
+        </div>
 
         {loadingProfile ? (
           <p className="text-muted-foreground text-sm">Loading profile…</p>
@@ -408,7 +432,14 @@ export function EditCreatorProfileDialog({
                 <div className="flex w-fit items-center gap-2 rounded-md bg-gray-200 px-2 py-1 opacity-50">
                   <CircleStar />{" "}
                   <span className="text-xs">
-                    You will get verified after your first payout.
+                    You will get verified after your first payout.{" "}
+                    <Link
+                      href={hostDashboardHref}
+                      className="underline"
+                    >
+                      View your earnings here
+                    </Link>
+                    .
                   </span>
                 </div>
 
@@ -637,7 +668,9 @@ export function EditCreatorProfileDialog({
                     className="text-black underline"
                     asChild
                   >
-                    <Link href={hostDashboardHref}>Go to host dashboard</Link>
+                    <Link href={manageEventDashboardHref}>
+                      Manage my channels and events
+                    </Link>
                   </Button>
                 </div>
               </fieldset>

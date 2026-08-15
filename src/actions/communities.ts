@@ -3,6 +3,41 @@
 import { actionFail, actionOk, runServerFetch } from "@/lib/action-fetch";
 import { serverAuthHeaders } from "@/lib/server-auth";
 
+export type CommunityContentBankVideo = {
+  id: string;
+  status: string;
+  visibility: string;
+  createdAt: string;
+  submittedBy: {
+    id: string;
+    fullName: string;
+    username: string;
+  };
+  channel: {
+    id: string;
+    title: string;
+    url: string;
+    isLive: boolean;
+    eventVideoType: string | null;
+    sharePath: string;
+    shareUrl: string;
+  };
+  metrics: {
+    encounters: number;
+    completes: number;
+    saves: number;
+    shares: number;
+    comments: number;
+    numOfTips: number;
+    durationSeconds: number;
+    amountRaised: number;
+  };
+};
+
+export type ApprovedCommunityContentBankResponse = {
+  approved: CommunityContentBankVideo[];
+};
+
 export async function getCommunityTipFeedAction(communityId: string) {
   if (!communityId?.trim()) {
     return actionFail("Community ID is required", "getCommunityTipFeedAction");
@@ -60,6 +95,19 @@ export async function getCommunityContentBankAction(
       cache: "no-store",
     },
     "getCommunityContentBankAction"
+  );
+}
+
+export async function getApprovedCommunityContentBankAction(
+  communityId: string
+) {
+  return runServerFetch<ApprovedCommunityContentBankResponse>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/${communityId}/content-bank/approved`,
+    {
+      method: "GET",
+      cache: "no-store",
+    },
+    "getApprovedCommunityContentBankAction"
   );
 }
 

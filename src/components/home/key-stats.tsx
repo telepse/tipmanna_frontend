@@ -170,9 +170,9 @@ export default function KeyStats({ stats }: Props) {
             />
           </div>
 
-          <div className="relative col-span-full grid grid-cols-2 gap-4 sm:grid-cols-2 sm:gap-6 lg:col-span-7">
+          <div className="relative col-span-full mx-auto grid w-full max-w-xl grid-cols-2 gap-4 sm:grid-cols-2 sm:gap-6 lg:col-span-7">
             <StatCard
-              label={`(${liveStats.successfulTransactions}) Supporter Participation`}
+              label={`(${liveStats.successfulTransactions} tips)`}
               value={liveStats.totalTipsReceived}
               subtitle={previousPeriodSubtitle(
                 liveStats.totalTipsReceived,
@@ -198,7 +198,7 @@ export default function KeyStats({ stats }: Props) {
               )}
             />
             <StatCard
-              label="TV Total Plays"
+              label="Total TV Plays"
               value={liveStats.totalEncounters}
               subtitle={previousPeriodSubtitle(
                 liveStats.totalEncounters,

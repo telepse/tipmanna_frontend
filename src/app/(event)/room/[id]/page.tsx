@@ -135,6 +135,7 @@ export default async function EventRoomPage({ params }: Props) {
     eventSlug,
     eventBackground,
     eventBanner,
+    venueName,
     venueLocation,
     hideProgressBarAmount,
     showLatestAmount,
@@ -148,6 +149,8 @@ export default async function EventRoomPage({ params }: Props) {
     contributionType,
     EventSession,
     eventType,
+    eventDescription,
+    activities,
   } = event;
 
   const safeCharacterSets = Array.isArray(eventCharacterSets)
@@ -195,7 +198,10 @@ export default async function EventRoomPage({ params }: Props) {
           eventSlug={eventSlug ?? ""}
           eventBackground={eventBackground ?? ""}
           eventBanner={eventBanner ?? ""}
+          venueName={venueName ?? ""}
           venueLocation={venueLocation ?? ""}
+          activities={activities ?? []}
+          eventDescription={eventDescription ?? ""}
           totalAttendees={totalAttendees ?? 0}
           hideProgressBarAmount={hideProgressBarAmount ?? false}
           showLatestAmount={showLatestAmount ?? false}

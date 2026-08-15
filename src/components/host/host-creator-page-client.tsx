@@ -29,6 +29,7 @@ import {
   UserRound,
   Rocket,
   Plus,
+  Zap,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { motion, useReducedMotion } from "framer-motion";
@@ -59,7 +60,7 @@ import { cn } from "@/lib/utils";
 import type { RootState } from "@/redux/store";
 import { formatCreatorProfileCategoryLabel } from "@/schemas/creator.schema";
 import { usePathname, useRouter } from "next/navigation";
-import { TopEventCard } from "../home/top-event-card";
+import { CompactEventCard } from "../events/compact-event-card";
 import { CreatorEventCard } from "../events/creator-event-card";
 import { useMediaQuery } from "react-responsive";
 import { NotificationBadge } from "../notifications/notification-badge";
@@ -85,13 +86,14 @@ const DEFAULT_EVENT_BANNER =
 
 const EVENT_TAB_SUBMISSION_KINDS = new Set(["event_only", "event_and_content"]);
 
-const CO_OWNED_CHANNELS_SUBTAB_ID = "__co_owned_videos__";
+const CO_OWNED_VIDEOS_SUBTAB_ID = "__co_owned_videos__";
 
 const TABS = [
-  { id: "channels", label: "Channels" },
-  { id: "events", label: "Events" },
+  { id: "all_videos", label: "" },
+  { id: "channels", label: "Channel" },
+  { id: "events", label: "Event" },
   { id: "communities", label: "Community" },
-  { id: "playlists", label: "Playlist" },
+  { id: "playlists", label: "List" },
 ] as const;
 
 type Props = {
@@ -108,7 +110,15 @@ export function HostCreatorPageClient({
   variant = "page",
 }: Props) {
   const isDrawer = variant === "drawer";
-  const { host, stats, events, communities, coOwnedVideos = [] } = profile;
+  const {
+    host,
+    stats,
+    events,
+    communities,
+    coOwnedVideos = [],
+    coOwnerPartyVideos = [],
+    coOwnerPartyName = null,
+  } = profile;
   const navigateToExplore = useNavigateToExploreVideo();
 
   const pathname = usePathname();
@@ -123,6 +133,19 @@ export function HostCreatorPageClient({
     user?.role === "HOST" &&
     (user.id === host.id ||
       user.username?.toLowerCase() === host.username.toLowerCase());
+
+  const showBottomExpressNav =
+    !isDrawer &&
+    !isOwnProfile &&
+    (!isAuthenticated || user?.role === "HOST" || user?.role === "VISITOR");
+
+  const viewerCreatorProfileHref =
+    isAuthenticated &&
+    user?.role === "HOST" &&
+    !isOwnProfile &&
+    user.username?.trim()
+      ? buildCreatorProfileSharePath(user.username)
+      : null;
 
   const editProfileHref =
     isOwnProfile && user && "eventSlug" in user && user.eventSlug
@@ -140,6 +163,8 @@ export function HostCreatorPageClient({
       ),
     [events]
   );
+
+  const showCoOwnedSubtab = coOwnerPartyName != null;
 
   const playVideo = (video: HostCreatorVideo) => {
     if (video.locked) return;
@@ -170,6 +195,8 @@ export function HostCreatorPageClient({
 
   const accountHref = getAccountNavHref(user, isAuthenticated);
 
+  console.log("accountHref", accountHref);
+
   const openCreateDialog = (entry: CreateDialogEntry) => {
     setCreateDialogEntry(entry);
     setIsCreatePopupOpen(true);
@@ -188,6 +215,11 @@ export function HostCreatorPageClient({
       router.push(buildCreatorProfileSharePath(hostUsername));
     }
 
+    console.log(
+      "buildCreatorProfileSharePath(hostUsername)",
+      buildCreatorProfileSharePath(hostUsername!)
+    );
+
     if (pendingStartCommunity) {
       setPendingStartCommunity(false);
       setStartCommunityOpen(true);
@@ -196,6 +228,10 @@ export function HostCreatorPageClient({
 
   const handleMyAccountClick = () => {
     if (isAuthenticated && user) {
+      if (viewerCreatorProfileHref) {
+        router.push(viewerCreatorProfileHref);
+        return;
+      }
       router.push(accountHref);
       return;
     }
@@ -218,6 +254,15 @@ export function HostCreatorPageClient({
     if (!shareUrl.trim()) {
       toast.error("Creator profile link is unavailable");
       return;
+    }
+
+    try {
+      await copyShareUrl(shareUrl);
+      setCopied(true);
+      toast.success("Creator page link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy link");
     }
   };
 
@@ -328,7 +373,7 @@ export function HostCreatorPageClient({
         <div
           className={cn(
             "relative mx-auto max-w-lg bg-white sm:max-w-2xl md:max-w-4xl",
-            !isOwnProfile && !isDrawer && "pb-20",
+            showBottomExpressNav && "pb-20",
             className ?? "min-h-screen"
           )}
         >
@@ -340,7 +385,7 @@ export function HostCreatorPageClient({
           />
 
           <Tabs
-            defaultValue="channels"
+            defaultValue="all_videos"
             className="-mt-4 gap-0 px-2"
           >
             <div className="sticky top-11 z-10 border-b bg-white">
@@ -349,18 +394,32 @@ export function HostCreatorPageClient({
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="data-[state=active]:border-b-primary h-8! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+                    className={`${tab.id === "all_videos" ? "w-fit px-0!" : ""} data-[state=active]:bg-secondary/30 data-[state=active]:border-b-primary h-8! rounded-none border-r-2 border-t-gray-200 border-r-gray-200 border-l-gray-200 bg-white font-semibold data-[state=active]:border-b-2`}
                   >
-                    {tab.label}
+                    {tab.label}{" "}
+                    {tab.id === "all_videos" && (
+                      <Zap className="size-3.5 sm:size-5" />
+                    )}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </div>
 
+            <TabsContent value="all_videos">
+              <AllVideosTabContent
+                events={events}
+                coOwnedVideos={coOwnedVideos}
+                coOwnerPartyVideos={coOwnerPartyVideos}
+                coOwnerPartyName={coOwnerPartyName}
+                creatorName={host.fullName}
+                onPlay={playVideo}
+                isOwnProfile={isOwnProfile}
+              />
+            </TabsContent>
+
             <TabsContent value="channels">
               <ChannelsTabContent
                 events={events}
-                coOwnedVideos={coOwnedVideos}
                 onPlay={playVideo}
                 isOwnProfile={isOwnProfile}
                 onAddVideo={() => openCreateDialog("add-video")}
@@ -391,80 +450,82 @@ export function HostCreatorPageClient({
         </div>
       </section>
 
-      {/* {!isOwnProfile && !isDrawer ? ( */}
-      <div className="fixed right-0 bottom-0 left-0 z-40 border-t border-black/20 bg-white px-4 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-          <Link
-            href="/tv"
-            className="group flex flex-col items-center justify-center gap-1"
-          >
-            <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />
-            <span className="text-[8px]">Watch TV</span>
-          </Link>
+      {showBottomExpressNav ? (
+        <div className="fixed right-0 bottom-0 left-0 z-[1100] border-t border-black/20 bg-white px-4 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+            <Link
+              href="/tv"
+              className="group flex flex-col items-center justify-center gap-1"
+            >
+              <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />
+              <span className="text-[8px]">Watch TV</span>
+            </Link>
 
-          <Link
-            href="/explore"
-            className="flex cursor-pointer flex-col items-center justify-center gap-1"
-            onPointerEnter={prefetchExploreFeedInitial}
-            onClick={() => {
-              setIsCreatePopupOpen(false);
-              setIsProfileDrawerOpen(false);
-            }}
-          >
-            <Rocket
-              className="size-5"
-              strokeWidth={2}
-            />
-            <span className="text-[8px]">Explore</span>
-          </Link>
-
-          <div className="flex flex-col items-center justify-center">
-            <button
-              type="button"
-              className="cursor-pointer rounded-full bg-black/20 p-[3px]"
+            <Link
+              href="/explore"
+              className="flex cursor-pointer flex-col items-center justify-center gap-1"
+              onPointerEnter={prefetchExploreFeedInitial}
               onClick={() => {
-                openCreateDialog("default");
+                setIsCreatePopupOpen(false);
                 setIsProfileDrawerOpen(false);
               }}
             >
-              <Plus
-                className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
-                strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+              <Rocket
+                className="size-5"
+                strokeWidth={2}
               />
-            </button>
-            <span className="text-[8px]">Create</span>
-          </div>
+              <span className="text-[8px]">Explore</span>
+            </Link>
 
-          <button
-            type="button"
-            className="mt-[5px] flex cursor-pointer flex-col items-center"
-            onPointerDown={() => {
-              void awaitProfileDrawerPrefetch();
-            }}
-            onClick={() => {
-              setIsCreatePopupOpen(false);
-              setIsProfileDrawerOpen(true);
-            }}
-          >
-            <UserRound
-              className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
-              strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
-            />
-            <NotificationBadge
-              variant="dot"
-              className="-top-0.5 right-6"
-            />
-            <span className="max-w-[4.5rem] truncate text-[8px] text-black">
-              {isSignedIn
-                ? "Signed in"
-                : userRole === "VISITOR"
-                  ? "Guest"
-                  : "Not signed in"}
-            </span>
-          </button>
+            <div className="flex flex-col items-center justify-center">
+              <button
+                type="button"
+                className="cursor-pointer rounded-full bg-black/20 p-[3px]"
+                onClick={() => {
+                  openCreateDialog("default");
+                  setIsProfileDrawerOpen(false);
+                }}
+              >
+                <Plus
+                  className={`size-5 ${isCreatePopupOpen ? "text-primary" : ""}`}
+                  strokeWidth={isCreatePopupOpen ? 3.75 : 2}
+                />
+              </button>
+              <span className="text-[8px]">Create</span>
+            </div>
+
+            <button
+              type="button"
+              className="mt-[5px] flex cursor-pointer flex-col items-center"
+              onPointerDown={() => {
+                void awaitProfileDrawerPrefetch();
+              }}
+              onClick={() => {
+                setIsCreatePopupOpen(false);
+                setIsProfileDrawerOpen(true);
+              }}
+            >
+              <span className="relative inline-flex">
+                <UserRound
+                  className={`size-5 ${isProfileDrawerOpen ? "text-primary" : ""}`}
+                  strokeWidth={isProfileDrawerOpen ? 3.75 : 2}
+                />
+                <NotificationBadge
+                  variant="dot"
+                  className="-top-1 -right-1"
+                />
+              </span>
+              <span className="max-w-[4.5rem] truncate text-[8px] text-black">
+                {isSignedIn
+                  ? "Signed in"
+                  : userRole === "VISITOR"
+                    ? "Guest"
+                    : "Not signed in"}
+              </span>
+            </button>
+          </div>
         </div>
-      </div>
-      {/* ) : null} */}
+      ) : null}
     </div>
   );
 }
@@ -542,10 +603,15 @@ function ProfileHeader({
   };
 
   return (
-    <section className="section relative bg-white pt-2! sm:pt-6">
-      {/* <div className="absolute top-2 right-2 flex items-center gap-2 sm:top-4 sm:right-4">
-        
-      </div> */}
+    <section className="section relative overflow-hidden pt-2! sm:pt-6">
+      <Image
+        src="/patterns/bg_pattern.webp"
+        alt=""
+        fill
+        sizes="100vw"
+        className="pointer-events-none z-0 object-cover object-center"
+        aria-hidden
+      />
 
       <EditCreatorProfileDialog
         open={openCreatorDialog}
@@ -554,15 +620,7 @@ function ProfileHeader({
         onSaved={handleProfileSaved}
       />
 
-      {/* <Image
-        src="/patterns/bg_pattern.webp"
-        alt="Wave pattern"
-        width={1000}
-        height={150}
-        className="pointer-events-none absolute top-0 left-0 z-10  h-[150px] w-full object-contain"
-      /> */}
-
-      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+      <div className="relative z-10 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
         <div className="relative size-24 shrink-0 overflow-hidden rounded-full sm:size-28">
           <img
             src={profileImageUrl ?? PLACEHOLDER_AVATAR}
@@ -575,13 +633,15 @@ function ProfileHeader({
           <div className="flex flex-col items-center gap-1 sm:flex-row sm:gap-2">
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold">
-                {host.fullName.split(" ")[0]}
+                {host.fullName.split(" ")[0]} {!host.fullName && <i>Creator</i>}
               </span>
-              <SaveHostToggleButton
-                hostId={host.id}
-                className="cursor-pointer rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
-                iconClassName="size-4"
-              />
+              {!isOwnProfile ? (
+                <SaveHostToggleButton
+                  hostId={host.id}
+                  className="cursor-pointer rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
+                  iconClassName="size-4"
+                />
+              ) : null}
 
               <button
                 type="button"
@@ -738,7 +798,7 @@ function SecondaryStats({
   ];
 
   return (
-    <section className="sm:ml-none -mt-4 ml-4 flex items-center justify-center gap-4 sm:justify-start">
+    <section className="-mt-4 flex items-center justify-center gap-4 sm:justify-start">
       {items.map(item => (
         <div
           key={item.label}
@@ -753,16 +813,277 @@ function SecondaryStats({
   );
 }
 
+// /** All videos tab */
+function AllVideosTabContent({
+  events,
+  coOwnedVideos,
+  coOwnerPartyVideos,
+  coOwnerPartyName,
+  creatorName,
+  onPlay,
+  isOwnProfile,
+}: {
+  events: HostCreatorEvent[];
+  coOwnedVideos: HostCreatorVideo[];
+  coOwnerPartyVideos: HostCreatorVideo[];
+  coOwnerPartyName: string | null;
+  creatorName: string;
+  onPlay: (video: HostCreatorVideo) => void;
+  isOwnProfile: boolean;
+}) {
+  const allVideos = useMemo(
+    () => events.flatMap(event => event.videos),
+    [events]
+  );
+
+  /**
+   * If this creator was added as a co-owner by another party,
+   * use the videos from that co-ownership relationship.
+   *
+   * Otherwise, fall back to the creator's regular co-owned videos.
+   */
+  // const coOwnedSubtabVideos = coOwnerPartyName
+  //   ? coOwnerPartyVideos
+  //   : coOwnedVideos;
+  const coOwnedSubtabVideos = coOwnerPartyName ? coOwnerPartyVideos : [];
+
+  /**
+   * The label represents the creator whose profile is being viewed,
+   * NOT the party that added them as a co-owner.
+   *
+   * Example:
+   *   Profile: Annette
+   *   Added as co-owner by: Emediong
+   *
+   *   Display:
+   *   "Annette co-owned videos"
+   */
+  const trimmedCreatorName = creatorName.trim();
+
+  const coOwnedSubtabLabel = trimmedCreatorName
+    ? `${trimmedCreatorName} co-owner videos`
+    : "Co-owned videos";
+
+  const showCoOwnedSubtab =
+    coOwnedSubtabVideos.length > 0 || isOwnProfile || Boolean(coOwnerPartyName);
+
+  const [activeVideosSubtab, setActiveVideosSubtab] = useState<
+    "all" | typeof CO_OWNED_VIDEOS_SUBTAB_ID
+  >("all");
+
+  /**
+   * Don't hide the co-owned subtab simply because the creator
+   * has no regular channel videos.
+   */
+  const hasVideosToDisplay =
+    allVideos.length > 0 || coOwnedSubtabVideos.length > 0;
+
+  if (!hasVideosToDisplay) {
+    return isOwnProfile ? (
+      <EmptyTabMessage message="Add a video to one of your channels or create a new channel." />
+    ) : (
+      <EmptyTabMessage message="No videos available yet." />
+    );
+  }
+
+  console.log("creatorName", creatorName);
+  console.log("coOwnedVideos", coOwnedVideos);
+  console.log("coOwnerPartyName", coOwnerPartyName);
+  console.log("coOwnerPartyVideos", coOwnerPartyVideos);
+
+  return (
+    <div>
+      <CreatorSubtabBar stickyClassName="top-[5.75rem]">
+        <CreatorSubtabButton
+          active={activeVideosSubtab === "all"}
+          onClick={() => setActiveVideosSubtab("all")}
+        >
+          All
+        </CreatorSubtabButton>
+
+        {showCoOwnedSubtab ? (
+          <CreatorSubtabButton
+            subtabId={CO_OWNED_VIDEOS_SUBTAB_ID}
+            active={activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID}
+            onClick={() => setActiveVideosSubtab(CO_OWNED_VIDEOS_SUBTAB_ID)}
+            subtabLabel={coOwnedSubtabLabel}
+          >
+            {coOwnedSubtabLabel}
+          </CreatorSubtabButton>
+        ) : null}
+      </CreatorSubtabBar>
+
+      {activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID ? (
+        coOwnedSubtabVideos.length === 0 ? (
+          <p className="text-muted-foreground px-4 py-8 text-center text-sm">
+            No co-owned videos yet.
+          </p>
+        ) : (
+          <VideoCardGrid
+            videos={coOwnedSubtabVideos}
+            onPlay={onPlay}
+          />
+        )
+      ) : allVideos.length === 0 ? (
+        <EmptyTabMessage
+          message={
+            isOwnProfile
+              ? "Add a video to one of your channels or create a new channel."
+              : "No videos available yet."
+          }
+        />
+      ) : (
+        <VideoCardGrid
+          videos={allVideos}
+          onPlay={onPlay}
+        />
+      )}
+    </div>
+  );
+}
+
+/** All videos tab */
+// function AllVideosTabContent({
+//   events,
+//   coOwnedVideos,
+//   coOwnerPartyVideos,
+//   coOwnerPartyName,
+//   creatorName,
+//   onPlay,
+//   isOwnProfile,
+// }: {
+//   events: HostCreatorEvent[];
+//   coOwnedVideos: HostCreatorVideo[];
+//   coOwnerPartyVideos: HostCreatorVideo[];
+//   coOwnerPartyName: string | null;
+//   creatorName: string;
+//   onPlay: (video: HostCreatorVideo) => void;
+//   isOwnProfile: boolean;
+// }) {
+//   const allVideos = useMemo(
+//     () => events.flatMap(event => event.videos),
+//     [events]
+//   );
+
+//   /**
+//    * If this creator was added as a co-owner by another party,
+//    * use the videos belonging to that co-ownership relationship.
+//    *
+//    * Otherwise, fall back to the creator's regular co-owned videos.
+//    */
+//   const coOwnedSubtabVideos = coOwnerPartyName
+//     ? coOwnerPartyVideos
+//     : coOwnedVideos;
+
+//   /**
+//    * The label represents the party that added this creator
+//    * as a co-owner.
+//    *
+//    * Example:
+//    *   Profile: Annette
+//    *   Added as co-owner by: Emediong
+//    *
+//    *   Display:
+//    *   "Emediong co-owned videos"
+//    *
+//    * If there is no co-owner party name, fall back to the
+//    * generic "Co-owned videos" label.
+//    */
+//   const trimmedCoOwnerPartyName = coOwnerPartyName?.trim() ?? "";
+
+//   const coOwnedSubtabLabel = trimmedCoOwnerPartyName
+//     ? `${trimmedCoOwnerPartyName} co-owned videos`
+//     : "Co-owned videos";
+
+//   const showCoOwnedSubtab =
+//     coOwnedSubtabVideos.length > 0 ||
+//     isOwnProfile ||
+//     Boolean(trimmedCoOwnerPartyName);
+
+//   const [activeVideosSubtab, setActiveVideosSubtab] = useState<
+//     "all" | typeof CO_OWNED_VIDEOS_SUBTAB_ID
+//   >("all");
+
+//   /**
+//    * Allow the All Videos tab to render even when there are no
+//    * regular channel videos but co-owned videos are available.
+//    */
+//   const hasVideosToDisplay =
+//     allVideos.length > 0 || coOwnedSubtabVideos.length > 0;
+
+//   if (!hasVideosToDisplay) {
+//     return isOwnProfile ? (
+//       <EmptyTabMessage message="Add a video to one of your channels or create a new channel." />
+//     ) : (
+//       <EmptyTabMessage message="No videos available yet." />
+//     );
+//   }
+
+//   console.log("creatorName", creatorName);
+//   console.log("coOwnerPartyName", coOwnerPartyName);
+//   console.log("coOwnerPartyVideos", coOwnerPartyVideos);
+
+//   return (
+//     <div>
+//       <CreatorSubtabBar stickyClassName="top-[5.75rem]">
+//         <CreatorSubtabButton
+//           active={activeVideosSubtab === "all"}
+//           onClick={() => setActiveVideosSubtab("all")}
+//         >
+//           All
+//         </CreatorSubtabButton>
+
+//         {showCoOwnedSubtab ? (
+//           <CreatorSubtabButton
+//             subtabId={CO_OWNED_VIDEOS_SUBTAB_ID}
+//             active={activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID}
+//             onClick={() =>
+//               setActiveVideosSubtab(CO_OWNED_VIDEOS_SUBTAB_ID)
+//             }
+//             subtabLabel={coOwnedSubtabLabel}
+//           >
+//             {coOwnedSubtabLabel}
+//           </CreatorSubtabButton>
+//         ) : null}
+//       </CreatorSubtabBar>
+
+//       {activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID ? (
+//         coOwnedSubtabVideos.length === 0 ? (
+//           <p className="text-muted-foreground px-4 py-8 text-center text-sm">
+//             No co-owned videos yet.
+//           </p>
+//         ) : (
+//           <VideoCardGrid
+//             videos={coOwnedSubtabVideos}
+//             onPlay={onPlay}
+//           />
+//         )
+//       ) : allVideos.length === 0 ? (
+//         <EmptyTabMessage
+//           message={
+//             isOwnProfile
+//               ? "Add a video to one of your channels or create a new channel."
+//               : "No videos available yet."
+//           }
+//         />
+//       ) : (
+//         <VideoCardGrid
+//           videos={allVideos}
+//           onPlay={onPlay}
+//         />
+//       )}
+//     </div>
+//   );
+// }
+
 /** Channels tab: co-owned videos first, then sub-tabs per event channel. */
 function ChannelsTabContent({
   events,
-  coOwnedVideos,
   onPlay,
   isOwnProfile,
   onAddVideo,
 }: {
   events: HostCreatorEvent[];
-  coOwnedVideos: HostCreatorVideo[];
   onPlay: (video: HostCreatorVideo) => void;
   isOwnProfile: boolean;
   onAddVideo: () => void;
@@ -776,16 +1097,10 @@ function ChannelsTabContent({
     [events]
   );
 
-  const showCoOwnedSubtab = coOwnedVideos.length > 0 || isOwnProfile;
-
-  const subtabItems = useMemo(() => {
-    const items: { id: string }[] = [];
-    if (showCoOwnedSubtab) {
-      items.push({ id: CO_OWNED_CHANNELS_SUBTAB_ID });
-    }
-    items.push(...sortedEvents.map(event => ({ id: event.id })));
-    return items;
-  }, [sortedEvents, showCoOwnedSubtab]);
+  const subtabItems = useMemo(
+    () => sortedEvents.map(event => ({ id: event.id })),
+    [sortedEvents]
+  );
 
   const {
     activeId: activeChannelId,
@@ -793,12 +1108,11 @@ function ChannelsTabContent({
     subtabScrollRef,
   } = useSubtabScrollSync(subtabItems);
 
-  const isCoOwnedActive = activeChannelId === CO_OWNED_CHANNELS_SUBTAB_ID;
   const activeChannel = sortedEvents.find(
     event => event.id === activeChannelId
   );
 
-  if (sortedEvents.length === 0 && !showCoOwnedSubtab && !isOwnProfile) {
+  if (sortedEvents.length === 0 && !isOwnProfile) {
     return <EmptyTabMessage message="No channels created yet." />;
   }
 
@@ -808,21 +1122,9 @@ function ChannelsTabContent({
         stickyClassName="top-[5.75rem] left-0"
         subtabScrollRef={subtabScrollRef}
         action={
-          isOwnProfile && !isCoOwnedActive
-            ? { label: "+ Add video", onClick: onAddVideo }
-            : null
+          isOwnProfile ? { label: "+ Add video", onClick: onAddVideo } : null
         }
       >
-        {showCoOwnedSubtab ? (
-          <CreatorSubtabButton
-            subtabId={CO_OWNED_CHANNELS_SUBTAB_ID}
-            active={isCoOwnedActive}
-            onClick={() => selectById(CO_OWNED_CHANNELS_SUBTAB_ID)}
-            subtabLabel="Co-owned videos"
-          >
-            Co-owned videos
-          </CreatorSubtabButton>
-        ) : null}
         {sortedEvents.map(event => (
           <CreatorSubtabButton
             key={event.id}
@@ -835,18 +1137,7 @@ function ChannelsTabContent({
         ))}
       </CreatorSubtabBar>
 
-      {isCoOwnedActive ? (
-        coOwnedVideos.length === 0 ? (
-          <p className="text-muted-foreground px-4 py-8 text-center text-sm">
-            No co-owned videos yet.
-          </p>
-        ) : (
-          <VideoCardGrid
-            videos={coOwnedVideos}
-            onPlay={onPlay}
-          />
-        )
-      ) : activeChannel ? (
+      {activeChannel ? (
         activeChannel.videos.length === 0 ? (
           <p className="text-muted-foreground px-4 py-8 text-center text-sm">
             No videos in this channel.
@@ -967,7 +1258,7 @@ function CommunitiesTabContent({
         stickyClassName="top-[5.75rem]"
         subtabScrollRef={subtabScrollRef}
         action={
-          isOwnProfile
+          isOwnProfile && communities.length === 0
             ? { label: "+ Start community", onClick: onStartCommunity }
             : null
         }
@@ -994,7 +1285,7 @@ function CommunitiesTabContent({
               >
                 <CommunityBannerSection
                   community={community}
-                  // isOwnProfile={isOwnProfile}
+                  isOwnProfile={isOwnProfile}
                   compact
                 />
               </SnapCarouselSlide>
@@ -1005,7 +1296,7 @@ function CommunitiesTabContent({
             {activeCommunity ? (
               <CommunityBannerSection
                 community={activeCommunity}
-                // isOwnProfile={isOwnProfile}
+                isOwnProfile={isOwnProfile}
               />
             ) : null}
           </div>
@@ -1408,13 +1699,13 @@ function CreatorSubtabButton({
       data-subtab-id={subtabId}
       onClick={onClick}
       className={cn(
-        "shrink-0 cursor-pointer rounded-md px-2 py-1 text-sm font-medium transition-colors",
+        "shrink-0 cursor-pointer rounded-md px-2 py-1 text-[8px] font-medium transition-colors",
         variant === "action"
           ? "border border-dashed border-neutral-400 bg-white text-neutral-700 hover:bg-neutral-50"
           : active
             ? "bg-black text-white"
             : "bg-neutral-100 hover:bg-neutral-200",
-        subtabLabel === "Co-owned videos"
+        subtabLabel === "Co-owner videos"
           ? "bg-secondary/30 hover:bg-secondary/40 text-black"
           : ""
       )}
@@ -1445,7 +1736,7 @@ function EventBannerSection({
   return (
     <>
       {useCompactCard ? (
-        <TopEventCard
+        <CompactEventCard
           key={event.id}
           channelId={event.id}
           roomId={event.id}
@@ -1480,10 +1771,11 @@ function EventBannerSection({
 function CommunityBannerSection({
   community,
   compact = false,
-  // isOwnProfile = false,
+  isOwnProfile = false,
 }: {
   community: HostCreatorCommunity;
   compact?: boolean;
+  isOwnProfile?: boolean;
 }) {
   const joinHref = exploreCommunityJoinHref(community.id);
   const bannerSrc = community.eventRoomBanner?.trim() || DEFAULT_EVENT_BANNER;
@@ -1491,11 +1783,6 @@ function CommunityBannerSection({
   const description = community.description?.trim() || null;
 
   const shouldReduceMotion = useReducedMotion();
-
-  const user = useSelector((state: RootState) => state.auth.user);
-  const isAuthenticated = useSelector(
-    (state: RootState) => state.auth.isAuthenticated
-  );
 
   return (
     <article
@@ -1636,7 +1923,7 @@ function CommunityBannerSection({
           </Link>
         </div>
 
-        {/* {!isOwnProfile && (
+        {!isOwnProfile ? (
           <CommunityHowToJoinSection
             communityId={community.id}
             signInRedirectPath={joinHref}
@@ -1644,7 +1931,7 @@ function CommunityBannerSection({
             showCancelLink={false}
             joinDisabled={community.locked}
           />
-        )} */}
+        ) : null}
       </div>
     </article>
   );

@@ -97,6 +97,7 @@ export default async function EventRoomScreenPage({ params }: Props) {
     contributionType,
     EventSession,
     eventType,
+    activities,
   } = event;
 
   const safeCharacterSets = Array.isArray(eventCharacterSets)
@@ -163,6 +164,7 @@ export default async function EventRoomScreenPage({ params }: Props) {
           EventSession={Array.isArray(EventSession) ? EventSession : []}
           eventEventType={eventType}
           forceScreenOpen
+          activities={activities}
         />
       </ClientErrorBoundary>
 

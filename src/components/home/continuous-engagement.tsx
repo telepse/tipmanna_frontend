@@ -24,25 +24,31 @@ export const ContinousEngagement = () => {
   const activeSlide = CONTINUOUS_ENGAGEMENT_SLIDES[activeIndex];
 
   return (
-    <section className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat lg:mt-12">
+    <section className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat pb-12 lg:mt-12">
       <div className="wrapper section flex w-full flex-col items-center">
-        <Title
-          align="center"
-          size="lg"
-        >
-          One system <br />{" "}
-          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-            continous engagement
-          </span>{" "}
-        </Title>
+        <div className="space-y-3">
+          <Title
+            align="center"
+            size="lg"
+          >
+            One system, <br />{" "}
+            <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+              continous engagement
+            </span>{" "}
+          </Title>
 
-        <Paragraph color="muted">
-          A connected system built around participation - not isolated tools.{" "}
-          <br /> People don&apos;t return for content. They return for moments.
-        </Paragraph>
+          <Paragraph
+            color="muted"
+            align="center"
+          >
+            A connected system built around participation - not isolated tools.{" "}
+            <br /> People don&apos;t return for content.{" "}
+            <br className="inline-block lg:hidden" /> They return for moments.
+          </Paragraph>
+        </div>
 
         <div
-          className="continuous-engagement-slideshow mt-8 w-full"
+          className="continuous-engagement-slideshow -mt-16 w-full sm:-mt-8"
           role="region"
           aria-label="Continuous engagement showcase"
         >
@@ -55,12 +61,12 @@ export const ContinousEngagement = () => {
                 key={slide.image}
                 className="w-full"
               >
-                <div className="border-primary w-full relative mx-auto h-[200px] overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px] lg:w-[960px]">
+                <div className="border-primary relative mx-auto h-[200px] w-full overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px] lg:w-[960px]">
                   <Image
                     src={slide.image}
                     alt={slide.alt}
                     fill
-                    className="lg:h-[400px] h-[200px] w-full object-contain"
+                    className="h-[200px] w-full object-contain lg:h-[400px]"
                     sizes="90vw"
                     quality={90}
                   />
@@ -70,14 +76,35 @@ export const ContinousEngagement = () => {
           </Slide>
         </div>
 
-        <Paragraph
-          key={activeIndex}
-          size="sm"
+        <div
+          className="mx-auto -mt-28 w-full overflow-hidden lg:-mt-24 lg:w-[960px]"
           aria-live="polite"
-          className="border-primary mt-4 w-fit max-w-full self-start border-l-2 py-0 pl-4 transition-opacity duration-300"
         >
-          {activeSlide.title} - {activeSlide.alt}
-        </Paragraph>
+          <div
+            className="flex transition-transform ease-in-out"
+            style={{
+              width: `${CONTINUOUS_ENGAGEMENT_SLIDES.length * 100}%`,
+              transform: `translateX(-${
+                activeIndex * (100 / CONTINUOUS_ENGAGEMENT_SLIDES.length)
+              }%)`,
+              transitionDuration: `${slideProperties.transitionDuration ?? 500}ms`,
+            }}
+          >
+            {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
+              <Paragraph
+                key={slide.image}
+                size="sm"
+                className="border-primary w-fit max-w-full shrink-0 self-start border-l-2 py-0 pl-4 leading-relaxed"
+                style={{
+                  width: `${100 / CONTINUOUS_ENGAGEMENT_SLIDES.length}%`,
+                }}
+              >
+                <span className="font-semibold">{slide.title}</span> -{" "}
+                {slide.alt}
+              </Paragraph>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );

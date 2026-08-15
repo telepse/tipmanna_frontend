@@ -15,35 +15,36 @@ export default function NewTippingBanner() {
   return (
     <div className="wrapper px-4 py-12">
       <div className="flex flex-col items-center gap-4">
-        <h2
-          id="features-heading"
-          className="w-full"
-        >
-          <Title
-            align="center"
-            size="lg"
+        <div className="space-y-3">
+          <h2
+            id="features-heading"
+            className="w-full"
           >
-            Tip as you{" "}
-            <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-              enjoy
-            </span>{" "}
-          </Title>
-        </h2>
-        <Paragraph
-          align="center"
-          className="-mt-2 leading-relaxed"
-        >
-          Watch. Participate. Then Support. <br /> That is the idea behind Tip
-          as you enjoy.
-        </Paragraph>
+            <Title
+              align="center"
+              size="lg"
+            >
+              Tip as you{" "}
+              <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+                enjoy
+              </span>{" "}
+            </Title>
+          </h2>
+          <Paragraph
+            align="center"
+            className="leading-relaxed"
+          >
+            Watch. Participate. Then Support. <br /> That is the idea behind Tip
+            as you enjoy.
+          </Paragraph>
+        </div>
       </div>
 
-      <Badge title="Ways people support" />
+      <div className="mt-4">
+        <Badge title="Ways people support" />
+      </div>
 
-      <section
-        className="section relative mt-4 min-h-[55vh] rounded-2xl bg-cover bg-center bg-no-repeat bg-blend-multiply"
-        // style={{ backgroundImage: `url(/patterns/tip_what_you_can.webp)` }}
-      >
+      <section className="section relative mt-4 min-h-[55vh] rounded-2xl bg-cover bg-center bg-no-repeat bg-blend-multiply">
         <Image
           src="/patterns/tip_what_you_can.webp"
           fill

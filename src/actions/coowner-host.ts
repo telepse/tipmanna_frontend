@@ -32,3 +32,19 @@ export async function shareCoOwnerReportAction(
     "shareCoOwnerReportAction"
   );
 }
+
+export async function getCoOwnerPortalLinkAction(
+  token?: string | null,
+  email?: string | null
+) {
+  return runServerFetch(
+    `${base}/private/co-owner/portal-link`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      body: JSON.stringify({ email }),
+      cache: "no-store",
+    },
+    "getCoOwnerPortalLinkAction"
+  );
+}

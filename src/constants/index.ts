@@ -99,7 +99,7 @@ export const WHAT_YOU_CREATE = [
   },
   {
     icon: UsersRound,
-    label: "Reach new audiences",
+    label: "Discovery",
     className: "bg-black text-white",
   },
   {
@@ -107,6 +107,24 @@ export const WHAT_YOU_CREATE = [
     label: "Grow",
     className: "bg-white text-black",
     iconClassName: "text-primary",
+  },
+];
+
+export const WHAT_YOU_CREATE_MOBILE = [
+  {
+    icon: CloudUpload,
+    label: "Upload",
+    className: "bg-black text-white",
+  },
+  {
+    icon: Share2,
+    label: "Share",
+    className: "bg-black text-white",
+  },
+  {
+    icon: UsersRound,
+    label: "Discovery",
+    className: "bg-black text-white",
   },
 ];
 
@@ -197,7 +215,7 @@ export const FEATURES = [
   },
   {
     icon: TicketPercent,
-    title: "Events Organisers",
+    title: "Events Orgs",
     content: "Keep engagement alive before, during, and after every event.",
   },
   {
@@ -249,9 +267,9 @@ export const PRICING: {
   },
   {
     name: "Growth",
-    price: "£19.99",
+    price: "£9.99",
     desc: "Grow engagement and build recurring relationships.",
-    discountPrice: "£49.99",
+    discountPrice: "£29.99",
     btnText: "Upgrade to Growth",
     tier: "premium",
     features: [
@@ -267,22 +285,21 @@ export const PRICING: {
   },
   {
     name: "Community",
-    price: "£99.99",
+    price: "£49.99",
     desc: "Run your own community media network.",
-    discountPrice: "",
+    discountPrice: "£99.99",
     btnText: "Launch Community TV",
     tier: "community",
     features: [
       "Everything in Premium",
       "Community TV Channel",
       "Community memberships",
-      "Private community spaces",
+      "Whitelabel community mode",
       "Program scheduling",
       "Community branding",
       "Broadcast messaging",
       "Community analytics",
       "Co-creator management",
-      "Instant payouts",
     ],
   },
 ];
@@ -291,10 +308,10 @@ export const TRUST_BADGES = [
   "Creators",
   "Charities",
   "Communities",
-  "Faith Organisations",
+  "Faith Orgs",
   "Universities",
   "Sports Clubs",
-  "Event Organisers",
+  "Event Orgs",
 ];
 
 export const PROFILE_CHARACTERS = [

@@ -13,24 +13,24 @@ export const TheCoreShift = () => {
               isWhite={true}
             />
 
-            <Title
-              size="lg"
-              className=""
-            >
-              <span>Attention doesn&apos;t</span> <br /> build connection <br />{" "}
-              <span className="bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-                participation
-              </span>{" "}
-              does
-            </Title>
+            <div className="space-y-2">
+              <Title size="lg">
+                <span>Attention doesn&apos;t</span> <br /> build connection{" "}
+                <br />{" "}
+                <span className="bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+                  participation
+                </span>{" "}
+                does
+              </Title>
 
-            <Paragraph
-              weight="bold"
-              className="leading-relaxed"
-            >
-              Tipmanna is built on one idea: <br /> turn attention into
-              participation
-            </Paragraph>
+              <Paragraph
+                weight="bold"
+                className="leading-relaxed"
+              >
+                Tipmanna is built on one idea: <br /> turn attention into
+                participation
+              </Paragraph>
+            </div>
           </div>
 
           <div className="border-primary max-w-md space-y-4 justify-self-end rounded-2xl border-2 bg-white p-4">
@@ -49,9 +49,9 @@ export const TheCoreShift = () => {
               <span className="font-semibold">
                 But when people participate, everything changes.
               </span>{" "}
-              <br className="hidden lg:block" /> They react. They engage. They
-              feel part of it. And <br className="hidden lg:block" /> when
-              people feel part of something, they return.
+              <br /> They react. They engage. They feel part of it. And{" "}
+              <br className="hidden lg:block" /> when people feel part of
+              something, they return.
             </div>
           </div>
         </section>

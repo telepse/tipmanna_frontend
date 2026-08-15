@@ -137,7 +137,7 @@ type AddVideoFormProps = {
   /** Parent event.eventType — “Same as event type” label */
   eventEventType?: string;
   /** e.g. channel list + live link (event room only) */
-  belowSubmit?: React.ReactNode;
+  aboveForm?: React.ReactNode;
   /** When true, show optional “Host YouTube slot” (saved on the channel). */
   showHostYoutubeSlot?: boolean;
   /** When true, require ownership / co-owner policy fields before submit. */
@@ -164,7 +164,7 @@ export function AddVideoForm({
   loading,
   variant = "default",
   eventEventType,
-  belowSubmit,
+  aboveForm,
   showHostYoutubeSlot = false,
   requirePolicyFields = false,
   onFormReady,
@@ -327,6 +327,10 @@ export function AddVideoForm({
                 onSaveNow={() => void draftSave.saveNow()}
               />
             ) : null}
+
+            {/*  */}
+            <h2 className="mt-6 text-lg font-semibold">Add channel video</h2>
+
             <form
               onSubmit={form.handleSubmit(async values => {
                 const slot = values.hostYoutubeSlot;
@@ -858,8 +862,6 @@ export function AddVideoForm({
                   You can save to draft while waiting.
                 </p>
               ) : null}
-
-              {belowSubmit}
             </form>
           </Form>
         )}

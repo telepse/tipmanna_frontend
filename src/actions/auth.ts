@@ -65,7 +65,9 @@ export async function loginOrRegisterTipperAction(values: {
 // -------- Login or register host -------- //
 export async function loginOrRegisterHostAction(values: {
   fullName: string;
+  emailOrUsername: string;
   email: string;
+  username: string;
   acceptedTerms: boolean;
   password: string;
   visitorId?: string;
@@ -128,6 +130,22 @@ export async function checkHostUsernameAvailabilityAction(values: {
       cache: "no-store",
     },
     "checkHostUsernameAvailabilityAction"
+  );
+}
+
+// -------- Co-owner signup eligibility (standalone email signup) -------- //
+export async function checkCoOwnerSignupEligibilityAction(email: string) {
+  return runServerFetch<{
+    eligible: boolean;
+    coOwnerName?: string;
+  }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/public/co-owner-signup-eligibility?email=${encodeURIComponent(email.trim())}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    },
+    "checkCoOwnerSignupEligibilityAction"
   );
 }
 

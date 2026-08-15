@@ -29,31 +29,33 @@ export default function NewTrustBadges() {
 
   return (
     <section
-      className="section -mt-8"
+      className="section -mt-16 sm:-mt-8"
       aria-labelledby="trust-badges-heading"
       role="region"
     >
-      <h2 id="trust-badges-title">
-        <Paragraph
-          align="center"
-          size="sm"
+      <div className="space-y-2 sm:space-y-4">
+        <h2 id="trust-badges-title">
+          <Paragraph
+            align="center"
+            size="sm"
+          >
+            Trusted by people who bring others together
+          </Paragraph>
+        </h2>
+
+        <div
+          className={`flex flex-wrap items-center justify-center ${SECTION_STYLES.spacing.mobile} ${SECTION_STYLES.spacing.desktop}`}
+          role="list"
+          aria-label="Trust and compliance badges"
         >
-          Trusted by people who bring others together
-        </Paragraph>
-      </h2>
+          {trustBadges}
+        </div>
 
-      <div
-        className={`flex flex-wrap items-center justify-center ${SECTION_STYLES.spacing.mobile} ${SECTION_STYLES.spacing.desktop}`}
-        role="list"
-        aria-label="Trust and compliance badges"
-      >
-        {trustBadges}
-      </div>
-
-      {/* Hidden accessibility description */}
-      <div className="sr-only">
-        These badges represent our commitment to security, compliance, and
-        trustworthiness.
+        {/* Hidden accessibility description */}
+        <div className="sr-only">
+          These badges represent our commitment to security, compliance, and
+          trustworthiness.
+        </div>
       </div>
     </section>
   );

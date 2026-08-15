@@ -58,6 +58,90 @@ export function ExploreTopCommunitiesGrid({
     );
   }
 
+  const renderCard = (c: CommunityExploreCatalogRow) => {
+    const locked = lockedIds.has(c.id);
+    return (
+      <div
+        key={c.id}
+        className="border-border bg-card flex h-full flex-col rounded-lg border p-3 shadow-sm"
+      >
+        <div className="flex gap-2">
+          {c.logoUrl ? (
+            <div className="relative size-10 shrink-0 overflow-hidden rounded-md">
+              <Image
+                src={c.logoUrl}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="40px"
+              />
+            </div>
+          ) : (
+            <div className="border-moonstone-blue flex size-10 shrink-0 items-center justify-center rounded-md border-2 bg-white">
+              <UserRound className="size-6" />
+            </div>
+          )}
+
+          <div className="min-w-0 space-y-0.5">
+            <h5 className="line-clamp-2 text-sm leading-normal font-medium break-words">
+              {c.name}
+            </h5>
+          </div>
+        </div>
+
+        <div className="mt-1 min-h-0 flex-1">
+          {c.description ? (
+            <p className="text-muted-foreground line-clamp-2 text-xs break-words">
+              {c.description}
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-xs italic">
+              No description
+            </p>
+          )}
+        </div>
+
+        <div className="text-muted-foreground mt-3 space-y-0.5 text-[11px]">
+          <p>
+            {c.totalTips} tips &middot; {c.memberCount} members &middot;{" "}
+            {c.numVideos ?? 0} videos
+          </p>
+          <p>Created {formatCommunityDate(c.createdAt)}</p>
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          {locked ? (
+            <p className="text-muted-foreground w-full text-center text-xs">
+              Awaiting approval
+            </p>
+          ) : c.viewer?.joined ? (
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="flex-1"
+            >
+              <Link href={exploreCommunityJoinHref(c.id)}>Open</Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="flex-1"
+              onClick={() => {
+                if (!isAuthenticated) openJoinSignIn(c.id);
+                else router.push(exploreCommunityJoinHref(c.id));
+              }}
+            >
+              Join
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <TipperEmailOtpSignInDialog
@@ -70,90 +154,23 @@ export function ExploreTopCommunitiesGrid({
         onVerified={() => router.push(signInReturnTo)}
       />
 
-      <div className={className ?? "grid gap-3 sm:grid-cols-3"}>
-        {communities.map((c, i) => {
-          const locked = lockedIds.has(c.id);
-          return (
+      {/* Small and medium screens: swipeable */}
+      <div className="no-scrollbar hide__scrollbar relative flex items-center gap-4 overflow-x-auto lg:hidden">
+        <div className="flex w-full snap-x snap-mandatory space-x-4">
+          {communities.map(c => (
             <div
               key={c.id}
-              className="border-border bg-card flex h-full flex-col rounded-lg border p-3 shadow-sm"
+              className="w-[80%] flex-shrink-0 snap-center sm:w-[45%]"
             >
-              <div className="flex gap-2">
-                {c.logoUrl ? (
-                  <div className="relative size-10 shrink-0 overflow-hidden rounded-md">
-                    <Image
-                      src={c.logoUrl}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="40px"
-                    />
-                  </div>
-                ) : (
-                  <div className="border-moonstone-blue flex size-10 shrink-0 items-center justify-center rounded-md border-2 bg-white">
-                    <UserRound className="size-6" />
-                  </div>
-                )}
-
-                <div className="min-w-0 space-y-0.5">
-                  <h5 className="line-clamp-2 text-sm leading-normal font-medium break-words">
-                    {c.name}
-                  </h5>
-                </div>
-              </div>
-
-              <div className="mt-1 min-h-0 flex-1">
-                {c.description ? (
-                  <p className="text-muted-foreground line-clamp-2 text-xs break-words">
-                    {c.description}
-                  </p>
-                ) : (
-                  <p className="text-muted-foreground text-xs italic">
-                    No description
-                  </p>
-                )}
-              </div>
-
-              <div className="text-muted-foreground mt-3 space-y-0.5 text-[11px]">
-                <p>
-                  {c.totalTips} tips &middot; {c.memberCount} members &middot;{" "}
-                  {c.numVideos ?? 0} videos
-                </p>
-                <p>Created {formatCommunityDate(c.createdAt)}</p>
-              </div>
-
-              <div className="mt-3 flex gap-2">
-                {locked ? (
-                  <p className="text-muted-foreground w-full text-center text-xs">
-                    Awaiting approval
-                  </p>
-                ) : c.viewer?.joined ? (
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Link href={exploreCommunityJoinHref(c.id)}>Open</Link>
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => {
-                      if (!isAuthenticated) openJoinSignIn(c.id);
-                      else router.push(exploreCommunityJoinHref(c.id));
-                    }}
-                  >
-                    Join
-                  </Button>
-                )}
-              </div>
+              {renderCard(c)}
             </div>
-          );
-        })}
+          ))}
+        </div>
+      </div>
+
+      {/* Large screens: grid */}
+      <div className={className ?? "hidden gap-3 lg:grid lg:grid-cols-3"}>
+        {communities.map(renderCard)}
       </div>
     </>
   );

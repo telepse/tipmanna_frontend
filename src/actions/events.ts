@@ -309,7 +309,10 @@ export type EventByIdData = {
   eventSlug?: string;
   eventBackground?: string | null;
   eventBanner?: string;
+  venueName?: string;
   venueLocation?: string;
+  activities: unknown[];
+  eventDescription?: string;
   hideProgressBarAmount?: boolean;
   showLatestAmount?: boolean;
   totalAttendees?: number;

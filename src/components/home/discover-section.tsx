@@ -9,7 +9,7 @@ export const DiscoverSection = () => {
       <Badge title="Discover" />
 
       <div className="border-primary bg-secondary/30 grid grid-cols-1 items-center gap-4 rounded-2xl border px-4 py-8 lg:grid-cols-2 lg:gap-8 lg:px-8">
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Title size="lg">
             Get{" "}
             <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
@@ -20,8 +20,7 @@ export const DiscoverSection = () => {
 
           <Paragraph className="leading-relaxed">
             Your content becomes part <br className="hidden sm:block" /> of a
-            living discovery system <br className="hidden sm:block" /> - not a
-            static profile page.
+            living discovery system <br /> - not a static profile page.
           </Paragraph>
         </div>
 
@@ -48,13 +47,15 @@ export const DiscoverSection = () => {
         </div>
       </div>
 
-      <div className="border-primary inline-block self-start border-l-2 p-4">
+      <div className="border-primary inline-block w-fit max-w-full self-start border-l-2 py-0 pl-4">
         <Paragraph
           size="sm"
           className="leading-relaxed"
         >
-          Your content doesn&apos;t stay confined to your audience. Tipmanna
-          helps people discover creators, <br />
+          Your content doesn&apos;t stay confined{" "}
+          <br className="inline-block sm:hidden" /> to your audience.{" "}
+          <br className="inline-block sm:hidden" /> Tipmanna helps people
+          discover creators, <br className="hidden sm:block" />
           communities, events, and experiences through TV Explore, Channels, and
           Tipmanna TV.
         </Paragraph>

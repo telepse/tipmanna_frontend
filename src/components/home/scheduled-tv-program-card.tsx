@@ -29,10 +29,7 @@ export function ScheduledTvProgramCard({
   durationSec,
 }: DiscoveryProgram) {
   return (
-    <div
-      className="rounded-2xl border"
-      style={{ backgroundImage: `linear-gradient(to left, #FFF, #FFF8F1)` }}
-    >
+    <div className="bg-secondary/30 rounded-2xl border">
       <Link
         href={landingUrl}
         target="_blank"
@@ -45,7 +42,7 @@ export function ScheduledTvProgramCard({
             alt={title}
             width={320}
             height={180}
-            className="h-[180px] w-[320px] rounded-t-2xl object-contain sm:object-cover"
+            className="h-[180px] w-[320px] rounded-t-2xl object-cover"
           />
         ) : (
           <div className="bg-muted flex h-[180px] w-[320px] items-center justify-center rounded-t-2xl">

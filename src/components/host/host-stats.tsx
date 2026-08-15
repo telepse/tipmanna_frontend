@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -30,6 +30,7 @@ import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 import { ACHIEVEMENTS } from "@/constants";
 import type { Event } from "@/types";
+import { getCoOwnerPortalLinkAction } from "@/actions/coowner-host";
 
 interface Props {
   events: Event[];
@@ -39,6 +40,7 @@ interface Props {
 
 export const HostStats = ({ events, stats, payoutSummary }: Props) => {
   const user = useSelector((state: RootState) => state.auth.user);
+  const authToken = useSelector((state: RootState) => state.auth.token);
   const params = useParams();
   const eventSlug =
     typeof params?.slug === "string"
@@ -65,6 +67,8 @@ export const HostStats = ({ events, stats, payoutSummary }: Props) => {
   const fullLink = getPublicAbsoluteUrl(
     `/join-host/${eventSlug}?eventCode=${encodeURIComponent(String(eventCode))}`
   );
+
+  const [portalLink, setPortalLink] = useState<string | null>(null);
 
   const totalEventsCreated = stats?.totalEventsCreated ?? 0;
   const totalAttendeesReached = stats?.totalAttendeesReached ?? 0;

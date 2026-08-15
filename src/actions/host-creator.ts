@@ -94,6 +94,8 @@ export type HostCreatorPublicProfile = {
   };
   contents: HostCreatorPublicContent[];
   coOwnedVideos: HostCreatorVideo[];
+  coOwnerPartyVideos?: HostCreatorVideo[];
+  coOwnerPartyName?: string | null;
   youtubeChannels: HostCreatorYoutubeChannel[];
   events: HostCreatorEvent[];
   communities: HostCreatorCommunity[];
