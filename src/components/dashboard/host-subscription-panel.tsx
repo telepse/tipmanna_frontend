@@ -7,6 +7,13 @@ import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { RootState } from "@/redux/store";
+import {
+  getHostSubscriptionMeAction,
+  hostSubscriptionBillingPortalAction,
+  hostSubscriptionCheckoutAction,
+  hostSubscriptionRequestAction,
+} from "@/actions/host";
+import { useHostSession } from "@/hooks/use-host-session";
 import { updateTipper } from "@/features/auth-slice";
 
 type TierState = "NONE" | "HOST_PREMIUM" | "HOST_COMMUNITY" | string;
@@ -26,44 +33,30 @@ export function HostSubscriptionPanel({
   eventSlug: string | undefined;
 }) {
   const dispatch = useDispatch();
-  const user = useSelector((s: RootState) => s.auth.user);
   const userId = useSelector((s: RootState) => s.auth.user?.id);
-  const authToken = useSelector((s: RootState) => s.auth.token);
+  const { eventSlug, isActive: hostSessionActive } = useHostSession();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [info, setInfo] = useState<SubscriptionMe | null>(null);
 
-  const eventSlug =
-    user && "eventSlug" in user && user.eventSlug ? user.eventSlug : "";
-  const isHost = user && "role" in user && user.role === "HOST";
   const slugMatches =
     !!eventSlugFromRoute &&
     !!eventSlug &&
     eventSlugFromRoute.toLowerCase() === eventSlug.toLowerCase();
 
   const refresh = useCallback(async () => {
-    const token = authToken;
-    if (!token || !isHost) {
+    if (!hostSessionActive) {
       setLoading(false);
       return;
     }
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/me`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        }
-      );
-
-      console.log("res", res);
-
-      if (!res.ok) {
+      const res = await getHostSubscriptionMeAction();
+      if (!res.success || !res.data) {
         setInfo(null);
         return;
       }
-      const data = (await res.json()) as SubscriptionMe;
+      const data = res.data as SubscriptionMe;
       setInfo(data);
       const t = data.tier;
       const hostSubscriptionTier =
@@ -80,7 +73,7 @@ export function HostSubscriptionPanel({
     } finally {
       setLoading(false);
     }
-  }, [dispatch, isHost, authToken]);
+  }, [dispatch, hostSessionActive]);
 
   useEffect(() => {
     void refresh();
@@ -95,34 +88,23 @@ export function HostSubscriptionPanel({
   }, []);
 
   const checkout = async (tier: "premium" | "community") => {
-    const token = authToken;
-    if (!token) {
-      toast.error("Please sign in again.");
+    if (!hostSessionActive) {
+      toast.error("Host session required.");
       return;
     }
     setBusy(tier);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/checkout`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ tier }),
-        }
-      );
-      const data = (await res.json()) as {
+      const res = await hostSubscriptionCheckoutAction(tier);
+      if (!res.success) {
+        toast.error(res.message ?? "Unable to start checkout.");
+        return;
+      }
+      const data = res.data as {
         url?: string;
         upgraded?: boolean;
         redirectUrl?: string;
         message?: string;
       };
-      if (!res.ok) {
-        toast.error(data.message ?? "Unable to start checkout.");
-        return;
-      }
       if (data.upgraded && data.redirectUrl) {
         window.location.href = data.redirectUrl;
         return;
@@ -140,22 +122,15 @@ export function HostSubscriptionPanel({
   };
 
   const openBillingPortal = async () => {
-    const token = authToken;
-    if (!token) return;
+    if (!hostSessionActive) return;
     setBusy("portal");
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/billing-portal`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const data = (await res.json()) as { url?: string; message?: string };
-      if (!res.ok) {
-        toast.error(data.message ?? "Billing portal unavailable.");
+      const res = await hostSubscriptionBillingPortalAction();
+      if (!res.success) {
+        toast.error(res.message ?? "Billing portal unavailable.");
         return;
       }
+      const data = res.data as { url?: string; message?: string };
       if (data.url) window.location.href = data.url;
     } catch {
       toast.error("Network error.");
@@ -164,7 +139,7 @@ export function HostSubscriptionPanel({
     }
   };
 
-  if (!isHost || !slugMatches) return null;
+  if (!hostSessionActive || !slugMatches) return null;
 
   if (loading) {
     return (
@@ -180,30 +155,15 @@ export function HostSubscriptionPanel({
   const requestHostSubscriptionTier = async (
     tier: "HOST_PREMIUM" | "HOST_COMMUNITY"
   ) => {
-    const token = authToken;
-    if (!token) {
-      toast.error("Please sign in again.");
+    if (!hostSessionActive || !userId) {
+      toast.error("Host session required.");
       return;
     }
     setBusy(tier);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/request`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ tier, hostId: user?.id }),
-        }
-      );
-
-      const data = (await res.json()) as { message?: string };
-      console.log("data", data);
-
-      if (!res.ok) {
-        toast.error(data.message ?? "Unable to request subscription tier.");
+      const res = await hostSubscriptionRequestAction(tier, userId);
+      if (!res.success) {
+        toast.error(res.message ?? "Unable to request subscription tier.");
         return;
       }
       toast.success("Subscription tier requested successfully.");

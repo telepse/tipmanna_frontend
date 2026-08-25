@@ -15,6 +15,7 @@ import { getAllCausesAction } from "@/actions/home";
 import { Cause } from "@/types/cause.types";
 import { Content } from "@/types/content.types";
 import type { Metadata } from "next";
+import { NavbarShell } from "@/components/shared/navbar-shell";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -42,6 +43,7 @@ export default async function TipperProfile() {
   return (
     <ProtectedRoute>
       <div className="overflow-y-auto">
+        <NavbarShell />
         <TipperProfileClient
           events={events as any[]}
           iTipped={iTipped as number}

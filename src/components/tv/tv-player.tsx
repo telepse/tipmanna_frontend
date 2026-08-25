@@ -15,6 +15,10 @@ import YouTube from "react-youtube";
 import type { YouTubeEvent } from "react-youtube";
 
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import {
+  isYoutubePlayerApiReady,
+  safeYoutubeCall,
+} from "@/lib/tv/youtube-player-safe";
 import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import {
@@ -396,10 +400,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     }, []);
 
     const getReady = useCallback(
-      () =>
-        readyRef.current &&
-        !!playerRef.current &&
-        typeof playerRef.current.getCurrentTime === "function",
+      () => isYoutubePlayerApiReady(readyRef.current, playerRef.current),
       []
     );
 
@@ -440,35 +441,44 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         isReady: getReady,
 
         play: () => {
-          const result = playerRef.current?.playVideo();
-          tracePlayVideoResult("TvPlayer.play", result);
+          safeYoutubeCall(() => {
+            const result = playerRef.current?.playVideo();
+            tracePlayVideoResult("TvPlayer.play", result);
+          }, undefined);
         },
-        pause: () => playerRef.current?.pauseVideo(),
+        pause: () =>
+          safeYoutubeCall(() => playerRef.current?.pauseVideo(), undefined),
         stop: () => {
           beginProgrammaticPlayback();
-          playerRef.current?.stopVideo();
+          safeYoutubeCall(() => playerRef.current?.stopVideo(), undefined);
         },
 
         mute: () => {
-          playerRef.current?.mute();
+          safeYoutubeCall(() => playerRef.current?.mute(), undefined);
           tvTrace("autoplay", "mute", { source: "TvPlayer.mute" });
           onMuteChange?.(true);
         },
         unmute: () => {
-          playerRef.current?.unMute();
+          safeYoutubeCall(() => playerRef.current?.unMute(), undefined);
           tvTrace("autoplay", "unmute", { source: "TvPlayer.unmute" });
           onMuteChange?.(false);
         },
-        isMuted: () => !!playerRef.current?.isMuted(),
+        isMuted: () =>
+          safeYoutubeCall(() => !!playerRef.current?.isMuted(), true),
         syncMuteFromPlayer: () => syncMuteFromPlayer(),
 
-        setVolume: (vol: number) => playerRef.current?.setVolume(vol),
-        getCurrentTime: () => playerRef.current?.getCurrentTime() ?? 0,
-        getDuration: () => playerRef.current?.getDuration() ?? 0,
+        setVolume: (vol: number) =>
+          safeYoutubeCall(() => playerRef.current?.setVolume(vol), undefined),
+        getCurrentTime: () =>
+          safeYoutubeCall(() => playerRef.current?.getCurrentTime() ?? 0, 0),
+        getDuration: () =>
+          safeYoutubeCall(() => playerRef.current?.getDuration() ?? 0, 0),
         getPlayerState: () => {
-          const p = playerRef.current;
-          if (!p || typeof p.getPlayerState !== "function") return null;
-          return ytStateName(p.getPlayerState() as number);
+          return safeYoutubeCall(() => {
+            const p = playerRef.current;
+            if (!p || typeof p.getPlayerState !== "function") return null;
+            return ytStateName(p.getPlayerState() as number);
+          }, null);
         },
         seekTo: (time: number, notifyUserSeek?: boolean) => {
           if (notifyUserSeek) {
@@ -476,20 +486,25 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
           } else {
             beginProgrammaticPlayback();
           }
-          playerRef.current?.seekTo(time, true);
+          safeYoutubeCall(
+            () => playerRef.current?.seekTo(time, true),
+            undefined
+          );
         },
 
         load: (videoId: string, start: number) => {
           tvTrace("playback", "player_load", { videoId, start });
           beginProgrammaticPlayback();
-          if (readyRef.current && playerRef.current) {
-            playerRef.current.loadVideoById(videoId, start);
-            if (playerRef.current.isMuted()) {
-              tracePlayVideoResult(
-                "TvPlayer.load.muted_play",
-                playerRef.current.playVideo()
-              );
-            }
+          if (getReady() && playerRef.current) {
+            safeYoutubeCall(() => {
+              playerRef.current!.loadVideoById(videoId, start);
+              if (playerRef.current!.isMuted()) {
+                tracePlayVideoResult(
+                  "TvPlayer.load.muted_play",
+                  playerRef.current!.playVideo()
+                );
+              }
+            }, undefined);
           } else {
             pendingLoadRef.current = { videoId, start };
           }
@@ -544,7 +559,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
             : "pointer-events-none"
         }
       >
-        {youtubeChildReleased ? (
+        {youtubeChildReleased && youtubeVideoId ? (
           <YouTube
             videoId={youtubeVideoId}
             opts={youtubeOpts}

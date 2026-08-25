@@ -1,7 +1,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverHostAuthHeaders } from "@/lib/server-auth";
 
 function api() {
   return (process.env.NEXT_PUBLIC_BACKEND_API_URL || "").replace(/\/$/, "");
@@ -81,7 +81,7 @@ export async function getMyLegacyCommunityPayoutsAction(token?: string | null) {
     `${api()}/me/payouts/community-legacy`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getMyLegacyCommunityPayoutsAction"
@@ -93,7 +93,7 @@ export async function getHostPayoutSummaryAction(token?: string | null) {
     `${api()}/me/payouts/summary`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostPayoutSummaryAction"
@@ -108,7 +108,7 @@ export async function acceptPayoutSettlementAction(
     `${api()}/me/payouts/settlements/${settlementId}/accept`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "acceptPayoutSettlementAction"
@@ -124,7 +124,7 @@ export async function requestHostPayoutAction(token?: string | null) {
     `${api()}/me/payouts/request`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "requestHostPayoutAction"

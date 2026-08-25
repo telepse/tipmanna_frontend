@@ -5,17 +5,17 @@ import Image from "next/image";
 
 // Third-party imports
 import { Clock, Settings } from "lucide-react";
-import { useSelector } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
 
 // Local imports
 import { formatDate } from "@/lib/formatDate";
 import { truncateText } from "@/lib/utils";
-import { RootState } from "@/redux/store";
 import { ScreenDisplay } from "@/components/events/screen-display";
 import { EventScreenSettings } from "@/components/events/event-screen-settings";
 import { changeEventScreenSettings } from "@/actions/events";
+import { getEventSessionsAction } from "@/actions/community-host-dashboard";
+import { useHostSession } from "@/hooks/use-host-session";
 import { useRouter } from "next/navigation";
 import { TipUsageDisclosure } from "@/types/tipusagedisclosure.types";
 
@@ -78,27 +78,23 @@ export function VenueEventCard({
   latestTipAmount,
   moneyFor,
 }: Props) {
-  const user = useSelector((state: RootState) => state.auth.user);
+  const hostSession = useHostSession();
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/event-sessions/${id}/sessions`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await res.json();
-      console.log(data);
-
-      setSessions(data?.data);
-      setActiveSession(data?.find((s: Session) => s.isActive));
+      const res = await getEventSessionsAction(id);
+      if (!res.success || !res.data) return;
+      const data = res.data as { data?: Session[] } | Session[];
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+      setSessions(list);
+      setActiveSession(list.find((s: Session) => s.isActive) ?? null);
     } catch (err) {
       console.error(err);
     }
@@ -108,15 +104,8 @@ export function VenueEventCard({
     fetchSessions();
   }, []);
 
-  let eventCode;
-  if (user?.role === "HOST") {
-    eventCode = user?.eventCode;
-  }
-
-  let eventSlug;
-  if (user?.role === "HOST") {
-    eventSlug = user?.eventSlug;
-  }
+  const eventCode = hostSession?.eventCode;
+  const eventSlug = hostSession?.eventSlug;
 
   const progress = Math.min((amountRaised / amountToRaise) * 100, 100);
 
@@ -133,8 +122,6 @@ export function VenueEventCard({
     eventBackground && eventBackground !== DEFAULT_BG
       ? "text-black"
       : "text-white";
-
-  const { token } = useSelector((state: RootState) => state.auth);
 
   // 2. Define screen settings submit handler;
   // Update the screen settings submit handler
@@ -165,8 +152,7 @@ export function VenueEventCard({
           performers: values.performers,
           projects: values.projects,
         },
-        id,
-        token!
+        id
       );
 
       console.log(result);

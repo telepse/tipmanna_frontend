@@ -1,15 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSelector } from "react-redux";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 
+import {
+  getCommunityTvAdjustmentConfigAction,
+  putCommunityTvAdjustmentConfigAction,
+  resetCommunityTvAdjustmentConfigAction,
+  toggleCommunityTvAdjustmentEnabledAction,
+} from "@/actions/community-tv-host";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import type { RootState } from "@/redux/store";
 import { EVENT_VIDEO_TYPE_OPTIONS } from "@/lib/event-video-type-options";
 
 type Half = "FIRST_HALF" | "SECOND_HALF";
@@ -38,36 +42,27 @@ function keysFor(c: ColRes, half: Half): string[] {
 
 export function CommunityTvAdjustmentHostTab({
   communityId,
-  apiBase,
 }: {
   communityId: string;
-  apiBase: string;
+  apiBase?: string;
 }) {
-  const authToken = useSelector((s: RootState) => s.auth.token);
   const [cfg, setCfg] = useState<ConfigRes | null>(null);
   const [collections, setCollections] = useState<ColRes[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const base = apiBase.replace(/\/$/, "");
-  const prefix = `${base}/communities/${encodeURIComponent(communityId)}/tv/adjustment-config`;
-
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
-      const token = authToken;
-      if (!token) throw new Error("Sign in as the community owner.");
-      const res = await fetch(prefix, {
-        cache: "no-store",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 403) {
-        throw new Error("Only the community owner can manage TV themes.");
+      const res = await getCommunityTvAdjustmentConfigAction(communityId);
+      if (!res.success || !res.data) {
+        throw new Error(
+          res.message ?? res.error ?? "Could not load TV themes."
+        );
       }
-      if (!res.ok) throw new Error(`Could not load themes (${res.status})`);
-      const data = (await res.json()) as ConfigRes;
+      const data = res.data as ConfigRes;
       setCfg(data);
       setCollections(
         [...data.collections].sort((a, b) => a.slotOrder - b.slotOrder)
@@ -80,7 +75,7 @@ export function CommunityTvAdjustmentHostTab({
     } finally {
       setLoading(false);
     }
-  }, [prefix]);
+  }, [communityId]);
 
   useEffect(() => {
     void load();
@@ -106,8 +101,6 @@ export function CommunityTvAdjustmentHostTab({
     setError(null);
     setLoading(true);
     try {
-      const token = authToken;
-      if (!token) throw new Error("Sign in as the community owner.");
       const body = {
         enabled,
         activeCollectionIndex: cfg?.activeCollectionIndex ?? 0,
@@ -122,15 +115,10 @@ export function CommunityTvAdjustmentHostTab({
             })),
           })),
       };
-      const res = await fetch(prefix, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(`Save failed (${res.status})`);
+      const res = await putCommunityTvAdjustmentConfigAction(communityId, body);
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Save failed");
+      }
       toast.success("TV themes saved");
       await load();
     } catch (e) {
@@ -153,13 +141,10 @@ export function CommunityTvAdjustmentHostTab({
     setError(null);
     setLoading(true);
     try {
-      const token = authToken;
-      if (!token) throw new Error("Sign in as the community owner.");
-      const res = await fetch(`${prefix}/reset`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Reset failed (${res.status})`);
+      const res = await resetCommunityTvAdjustmentConfigAction(communityId);
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Reset failed");
+      }
       toast.success("TV themes reset");
       await load();
     } catch (e) {
@@ -175,17 +160,13 @@ export function CommunityTvAdjustmentHostTab({
     setError(null);
     setLoading(true);
     try {
-      const token = authToken;
-      if (!token) throw new Error("Sign in as the community owner.");
-      const res = await fetch(`${prefix}/enabled`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ enabled: on }),
-      });
-      if (!res.ok) throw new Error(`Toggle failed (${res.status})`);
+      const res = await toggleCommunityTvAdjustmentEnabledAction(
+        communityId,
+        on
+      );
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Toggle failed");
+      }
       toast.success(on ? "Themed scheduling enabled" : "Themed scheduling off");
       await load();
     } catch (e) {

@@ -1,22 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  resolvePartnerMetadataVariant,
+  PARTNER_PAGE_METADATA,
   resolvePartnerScrollTargetId,
 } from "@/lib/partner-page-metadata";
 
-describe("resolvePartnerMetadataVariant", () => {
-  it("selects pricing for section or hash", () => {
-    expect(resolvePartnerMetadataVariant({ section: "pricing" })).toBe(
-      "pricing"
-    );
-    expect(resolvePartnerMetadataVariant({ hash: "#pricing" })).toBe("pricing");
-    expect(resolvePartnerMetadataVariant({ section: "other" })).toBe("default");
+describe("PARTNER_PAGE_METADATA", () => {
+  it("uses a single canonical partner path", () => {
+    expect(PARTNER_PAGE_METADATA.canonicalPath).toBe("/partner");
+    expect(PARTNER_PAGE_METADATA.title.length).toBeGreaterThan(0);
+    expect(PARTNER_PAGE_METADATA.description.length).toBeGreaterThan(0);
   });
 });
 
 describe("resolvePartnerScrollTargetId", () => {
-  it("returns pricing id on partner page when section or hash requests pricing", () => {
+  it("returns pricing target on partner pricing deep links", () => {
     expect(
       resolvePartnerScrollTargetId({
         pathname: "/partner",
@@ -31,7 +29,7 @@ describe("resolvePartnerScrollTargetId", () => {
     ).toBe("pricing");
   });
 
-  it("returns null on other routes or default partner view", () => {
+  it("returns null for non-partner paths or unrelated sections", () => {
     expect(
       resolvePartnerScrollTargetId({
         pathname: "/",
@@ -41,7 +39,7 @@ describe("resolvePartnerScrollTargetId", () => {
     expect(
       resolvePartnerScrollTargetId({
         pathname: "/partner",
-        section: null,
+        section: "other",
       })
     ).toBeNull();
   });

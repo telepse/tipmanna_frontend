@@ -1,9 +1,9 @@
 import Cookies from "js-cookie";
 import type { AppDispatch } from "@/redux/store";
 import { clearCredentials } from "@/features/auth-slice";
-import { clearAuthSession } from "@/lib/session-client";
+import { clearAuthSession, clearHostSession } from "@/lib/session-client";
 
-/** Clears Redux, legacy cookies, localStorage persist, and HttpOnly session cookie. */
+/** Clears Redux, legacy cookies, localStorage persist, HttpOnly session and host session cookies. */
 export async function performAuthLogout(dispatch: AppDispatch): Promise<void> {
   dispatch(clearCredentials());
   if (typeof window !== "undefined") {
@@ -12,6 +12,7 @@ export async function performAuthLogout(dispatch: AppDispatch): Promise<void> {
     Cookies.remove("token");
     Cookies.remove("visitorToken");
     Cookies.remove("visitorUser");
+    Cookies.remove("hostUser");
   }
-  await clearAuthSession();
+  await Promise.all([clearAuthSession(), clearHostSession()]);
 }

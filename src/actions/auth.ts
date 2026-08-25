@@ -1,7 +1,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
 
 // -------- Register host -------- //
 export async function registerHostAction(values: {
@@ -85,7 +85,11 @@ export async function loginOrRegisterHostAction(values: {
 }
 
 // -------- Verify code -------- //
-export async function verifyCodeAction(email: string, code: string) {
+export async function verifyCodeAction(
+  email: string,
+  code: string,
+  accountType: "TIPPER" | "HOST" = "TIPPER"
+) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/verify-code`,
     {
@@ -93,7 +97,7 @@ export async function verifyCodeAction(email: string, code: string) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({ email, code, accountType }),
       cache: "no-store",
     },
     "verifyCodeAction"
@@ -328,22 +332,19 @@ export async function updateTipperAction(
 }
 
 // -------- Update host profile -------- //
-export async function updateHostAction(
-  values: {
-    fullName: string;
-    email: string;
-    currentPassword?: string;
-    newPassword?: string;
-  },
-  token: string
-) {
+export async function updateHostAction(values: {
+  fullName: string;
+  email: string;
+  currentPassword?: string;
+  newPassword?: string;
+}) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/update-host`,
     {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        ...(await serverHostAuthHeaders()),
       },
       body: JSON.stringify(values),
       cache: "no-store",
@@ -352,37 +353,53 @@ export async function updateHostAction(
   );
 }
 
-export async function getHostProfileAction(token?: string | null) {
+export async function getHostProfileAction() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/host-profile`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostProfileAction"
   );
 }
 
-export async function updateHostProfileAction(
-  values: {
-    profileAccountType?: "INDIVIDUAL" | "ORGANIZATION";
-    individualProfile?: Record<string, unknown>;
-    organisationProfile?: Record<string, unknown>;
-  },
-  token?: string | null
-) {
+export async function updateHostProfileAction(values: {
+  profileAccountType?: "INDIVIDUAL" | "ORGANIZATION";
+  individualProfile?: Record<string, unknown>;
+  organisationProfile?: Record<string, unknown>;
+}) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/host-profile`,
     {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        ...(await serverAuthHeaders(token)),
+        ...(await serverHostAuthHeaders()),
       },
       body: JSON.stringify(values),
       cache: "no-store",
     },
     "updateHostProfileAction"
+  );
+}
+
+export type HostLinkResponse = {
+  hasHost: boolean;
+  hostId: string | null;
+  eventSlug: string | null;
+  username: string | null;
+};
+
+export async function getHostLinkAction(token?: string | null) {
+  return runServerFetch<HostLinkResponse>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/me/host-link`,
+    {
+      method: "GET",
+      headers: await serverAuthHeaders(token),
+      cache: "no-store",
+    },
+    "getHostLinkAction"
   );
 }

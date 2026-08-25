@@ -58,3 +58,19 @@ export function buildPaymentPlaybackKeyForBundleCharacter(
     occurrenceIndex: occurrenceIndexForBundleCharacter(data, characterIndex),
   });
 }
+
+/** Shared alias namespace for payer-local fallback vs realtime/recovery dedupe. */
+export function buildTransactionAliasPlaybackKey(options: {
+  prefix?: string;
+  transactionId: string;
+  characterName: string;
+  occurrenceIndex?: number;
+}): string {
+  const txId = options.transactionId.trim();
+  return buildPaymentPlaybackKey({
+    prefix: options.prefix ?? "",
+    bundleId: `tx:${txId}`,
+    characterName: options.characterName,
+    occurrenceIndex: options.occurrenceIndex,
+  });
+}

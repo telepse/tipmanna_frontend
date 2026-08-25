@@ -58,8 +58,8 @@ export function SaveHostToggleButton({
       toast.error("Host not available for this video");
       return;
     }
-    if (!isAuthenticated || !user?.id) {
-      toast.error("Sign in to save hosts");
+    if (!isAuthenticated || !user?.id || user.role === "VISITOR") {
+      toast.error("Sign in as a tipper to save hosts");
       return;
     }
     setBusy(true);

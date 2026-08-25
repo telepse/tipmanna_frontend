@@ -36,7 +36,6 @@ type Step = "signIn" | "verifyCode";
 export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const dispatch = useDispatch();
-  const [openSignIn, setOpenSignIn] = useState(false);
 
   const [step, setStep] = useState<Step>("signIn");
   const [code, setCode] = useState("");
@@ -134,7 +133,8 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
 
       toast.success("Email verified successfully!");
 
-      setOpenSignIn(false);
+      onSuccess();
+      onClose();
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -152,7 +152,9 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
   return (
     <Dialog
       open={open}
-      onOpenChange={setOpenSignIn}
+      onOpenChange={next => {
+        if (!next) onClose();
+      }}
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="open_sans">

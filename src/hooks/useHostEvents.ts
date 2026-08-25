@@ -12,7 +12,7 @@ export function useHostEvents() {
   const user = useSelector((s: RootState) => s.auth.user);
 
   const fetcher = async (): Promise<Event[]> => {
-    const response = await getHostEventsAction(undefined, { limit: 100 });
+    const response = await getHostEventsAction({ limit: 100 });
     return unwrapPaginatedList<Event>(response.data);
   };
 

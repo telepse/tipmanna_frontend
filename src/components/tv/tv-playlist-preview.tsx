@@ -16,6 +16,12 @@ import {
   formatPlaylistClock,
   wallClockStartMsForScheduleIndex,
 } from "@/lib/tv/playlistDisplay";
+import {
+  resolveSegmentVisualKind,
+  segmentAirTimeClass,
+  segmentMetricClass,
+  segmentRowClass,
+} from "@/lib/tv/segment-visual-style";
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import {
   fetchTvChannelMetricsBatch,
@@ -140,12 +146,8 @@ export function TvPlaylistPreview({
 
   const titleTrim = layout === "mobile" ? 30 : 20;
 
-  const airTimeBadgeClass =
-    "text-muted-foreground shrink-0 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]";
   const metricRowClass =
     "text-muted-foreground flex min-w-0 flex-nowrap items-center gap-1 text-[8px] font-semibold";
-  const metricItemClass =
-    "flex shrink-0 items-center gap-0.5 whitespace-nowrap";
 
   const pickTimeLabel = (originalIndex: number) => {
     if (!showTimes || broadcastEpoch == null || !totalDuration) return "";
@@ -265,14 +267,24 @@ export function TvPlaylistPreview({
               ? playingItemOverride
               : items[originalIndex];
           if (!item) return null;
-          // const isPlaying =
-          //   mode === "GLOBAL"
-          //     ? originalIndex === liveBroadcastIndex
-          //     : !playingItemOverride && originalIndex === currentIndex;
+
+          const segmentKind = resolveSegmentVisualKind(item);
+          const sectionDivider =
+            item.isSectionStart && item.sectionTitle ? (
+              <div
+                key={`section-${item.id}-${originalIndex}`}
+                className="text-muted-foreground border-primary/30 mt-3 mb-1 border-t pt-2 text-[11px] font-semibold tracking-wide uppercase"
+              >
+                {item.sectionTitle}
+              </div>
+            ) : null;
+
           const isPlaying =
             mode === "GLOBAL"
               ? originalIndex === liveBroadcastIndex
-              : schedulePlayingSlot?.rowIndex === originalIndex;
+              : schedulePlayingSlot?.scope === "active" &&
+                schedulePlayingSlot.rowIndex === originalIndex;
+          const isLiveOnBroadcast = originalIndex === liveBroadcastIndex;
           const startLabel = pickTimeLabel(originalIndex);
 
           const { contentLanguage, flagUrl } = resolveContentLocaleDisplay(
@@ -293,94 +305,104 @@ export function TvPlaylistPreview({
             channelMetrics?.encounters ?? item.channel.encounters ?? 0;
 
           return (
-            <div
-              key={`${item.id}-${originalIndex}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelectChannel(originalIndex)}
-              onKeyDown={e => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelectChannel(originalIndex);
-                }
-              }}
-              className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md bg-white px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary z-10 -mt-2 scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} `}
-            >
+            <div key={`wrap-${item.id}-${originalIndex}`}>
+              {sectionDivider}
               <div
-                className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
-              >
-                <h5 className="w-full text-xs font-medium whitespace-nowrap">
-                  {item?.channel?.title
-                    ? trimTitle(item.channel.title, titleTrim)
-                    : "Loading..."}
-                </h5>
-
-                <p className={metricRowClass}>
-                  {showTimes && startLabel ? (
-                    <span className={airTimeBadgeClass}>{startLabel}</span>
-                  ) : null}
-                  <span className={metricItemClass}>
-                    <MessageCircleMore className="size-3 shrink-0" />
-                    {channelComments}
-                  </span>
-                  <span className={metricItemClass}>
-                    <UsersRound className="size-3 shrink-0" />
-                    {item.channel.numOfTips || 0} tips
-                  </span>
-
-                  <span className={`${metricItemClass} `}>
-                    <EyeIcon className="size-3 shrink-0" />
-                    {encounterCount}{" "}
-                    <span className="inline sm:hidden">seen</span>
-                  </span>
-                </p>
-              </div>
-
-              <div
-                className="bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-0.5 px-1 py-0.5 shadow-2xl"
-                onClick={e => {
-                  e.stopPropagation();
-                  openCommentDrawer(item);
+                key={`${item.id}-${originalIndex}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelectChannel(originalIndex)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectChannel(originalIndex);
+                  }
                 }}
+                className={segmentRowClass(segmentKind, isPlaying)}
               >
-                <button
-                  type="button"
-                  className="flex items-center gap-[0.25px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
+                {mode === "LOCAL" && isLiveOnBroadcast && !isPlaying ? (
+                  <span className="bg-primary/10 text-primary absolute top-1 right-2 rounded px-1 py-0.5 text-[9px] font-semibold">
+                    Live TV
+                  </span>
+                ) : null}
+                <div
+                  className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
                 >
-                  <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
-                    <span className="text-[8px] sm:text-[7px]">
-                      Video info:
-                    </span>
-                    <ArrowRight className="size-2 cursor-pointer" />
-                  </span>
-                </button>
+                  <h5 className="w-full text-xs font-medium whitespace-nowrap">
+                    {item?.channel?.title
+                      ? trimTitle(item.channel.title, titleTrim)
+                      : "Loading..."}
+                  </h5>
 
-                <div className="flex w-fit items-center gap-0.5">
-                  <span className="flex items-center gap-0.5 text-[9px]">
-                    <img
-                      src={flagUrl}
-                      alt={contentLanguage}
-                      className="h-3 w-4 sm:h-2 sm:w-3"
-                    />{" "}
-                    <span className="text-[8px] sm:text-[6px]">
-                      {contentLanguage}
+                  <p className={metricRowClass}>
+                    {showTimes && startLabel ? (
+                      <span className={segmentAirTimeClass(segmentKind)}>
+                        {startLabel}
+                      </span>
+                    ) : null}
+                    <span className={segmentMetricClass(segmentKind)}>
+                      <MessageCircleMore className="size-3 shrink-0" />
+                      {channelComments}
                     </span>
-                  </span>
+                    <span className={segmentMetricClass(segmentKind)}>
+                      <UsersRound className="size-3 shrink-0" />
+                      {item.channel.numOfTips || 0} tips
+                    </span>
 
-                  <p className="w-[50px] rounded-md bg-gray-200 px-1 py-0.25 text-center text-[8px] text-black lg:text-[6px]">
-                    {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
+                    <span className={segmentMetricClass(segmentKind)}>
+                      <EyeIcon className="size-3 shrink-0" />
+                      {encounterCount}{" "}
+                      <span className="inline sm:hidden">seen</span>
+                    </span>
                   </p>
                 </div>
-              </div>
 
-              {isPlaying && (
-                <div className="absolute top-0 -left-4 z-20 bg-white lg:-left-6">
-                  <span className="flex flex-col">
-                    <AudioLines className="text-primary wave-icon" />
-                    <AudioLines className="text-primary wave-icon" />
-                  </span>
+                <div
+                  className="bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-0.5 px-1 py-0.5 shadow-2xl"
+                  onClick={e => {
+                    e.stopPropagation();
+                    openCommentDrawer(item);
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="flex items-center gap-[0.25px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
+                  >
+                    <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
+                      <span className="text-[8px] sm:text-[7px]">
+                        Video info:
+                      </span>
+                      <ArrowRight className="size-2 cursor-pointer" />
+                    </span>
+                  </button>
+
+                  <div className="flex w-fit items-center gap-0.5">
+                    <span className="flex items-center gap-0.5 text-[9px]">
+                      <img
+                        src={flagUrl}
+                        alt={contentLanguage}
+                        className="h-3 w-4 sm:h-2 sm:w-3"
+                      />{" "}
+                      <span className="text-[8px] sm:text-[6px]">
+                        {contentLanguage}
+                      </span>
+                    </span>
+
+                    <p className="w-[50px] rounded-md bg-gray-200 px-1 py-0.25 text-center text-[8px] text-black lg:text-[6px]">
+                      {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
+                    </p>
+                  </div>
                 </div>
-              )}
+
+                {isPlaying && (
+                  <div className="absolute top-0 -left-4 z-20 bg-white lg:-left-6">
+                    <span className="flex flex-col">
+                      <AudioLines className="text-primary wave-icon" />
+                      <AudioLines className="text-primary wave-icon" />
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}

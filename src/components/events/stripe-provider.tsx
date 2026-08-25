@@ -8,18 +8,25 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { RoomCharacter } from "@/types";
 import { getStripeBrowserPromise } from "@/lib/stripe-browser";
+import {
+  computeTipCartTotal,
+  stripeElementsAmountMinor,
+} from "@/lib/tip-cart-total";
 
 interface Props {
   children: React.ReactNode;
   tippingCharacters: RoomCharacter[];
   /** When false, Stripe.js is not loaded and children are not rendered (placeholder only). */
   enabled?: boolean;
+  /** Host-configured text tip unit price (GBP). Defaults to 5. */
+  textTipUnitPrice?: number;
 }
 
 export const StripeProvider = ({
   children,
   tippingCharacters,
   enabled = true,
+  textTipUnitPrice = 5,
 }: Props) => {
   const [stripePromise, setStripePromise] =
     useState<Promise<Stripe | null> | null>(null);
@@ -42,29 +49,19 @@ export const StripeProvider = ({
     };
   }, [enabled]);
 
-  const characterMap = useMemo(() => {
-    const map = new Map<string, RoomCharacter>();
-    for (const c of tippingCharacters) {
-      map.set(c.name, c);
-    }
-    return map;
-  }, [tippingCharacters]);
+  const liveTotal = useMemo(
+    () =>
+      computeTipCartTotal(selectedTips, tippingCharacters, textTipUnitPrice),
+    [selectedTips, tippingCharacters, textTipUnitPrice]
+  );
 
-  const totalAmount = useMemo(() => {
-    return selectedTips.reduce((acc, characterName) => {
-      if (characterName === "Comment") return acc + 5;
-      const character = characterMap.get(characterName);
-      return acc + (character?.price || 0);
-    }, 0);
-  }, [selectedTips, characterMap]);
-
-  const deferredAmount = useDeferredValue(totalAmount);
+  const deferredTotal = useDeferredValue(liveTotal);
 
   const options = useMemo<StripeElementsOptions>(
     () =>
       ({
         mode: "payment",
-        amount: deferredAmount * 100 || 100,
+        amount: stripeElementsAmountMinor(deferredTotal),
         currency: "gbp",
         appearance: { variables: {} },
         fields: {
@@ -77,7 +74,7 @@ export const StripeProvider = ({
         },
         syncAddressCheckbox: "none",
       }) as unknown as StripeElementsOptions,
-    [deferredAmount]
+    [deferredTotal]
   );
 
   if (!enabled) {

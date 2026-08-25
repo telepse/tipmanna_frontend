@@ -1,7 +1,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverHostAuthHeaders } from "@/lib/server-auth";
 
 function backendUrl(path: string): string {
   const b = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
@@ -13,7 +13,7 @@ export async function listMyVideosForVideoRequestsAction() {
     backendUrl("/video-requests/me/videos-by-event"),
     {
       method: "GET",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listMyVideosForVideoRequestsAction"
@@ -25,7 +25,7 @@ export async function checkVideoRequestEligibilityAction(qs: URLSearchParams) {
     `${backendUrl("/video-requests/check")}?${qs.toString()}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "checkVideoRequestEligibilityAction"
@@ -37,7 +37,7 @@ export async function createVideoRequestAction(body: Record<string, unknown>) {
     backendUrl("/video-requests"),
     {
       method: "POST",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -53,7 +53,7 @@ export async function listSentVideoRequestsAction(status?: string) {
     `${backendUrl("/video-requests/me/sent")}${q}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listSentVideoRequestsAction"
@@ -65,7 +65,7 @@ export async function listInboxVideoRequestsAction() {
     backendUrl("/video-requests/me/inbox"),
     {
       method: "GET",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listInboxVideoRequestsAction"
@@ -82,7 +82,7 @@ export async function approveInboxVideoRequestAction(
     ),
     {
       method: "POST",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -100,7 +100,7 @@ export async function rejectInboxVideoRequestAction(
     ),
     {
       method: "POST",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({ notes }),
       cache: "no-store",
     },
@@ -113,7 +113,7 @@ export async function cancelSentVideoRequestAction(requestId: string) {
     backendUrl(`/video-requests/${encodeURIComponent(requestId)}/cancel`),
     {
       method: "POST",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "cancelSentVideoRequestAction"
@@ -128,7 +128,7 @@ export async function getVideoRequestPrefsAction() {
     backendUrl("/video-requests/me/preferences"),
     {
       method: "GET",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getVideoRequestPrefsAction"
@@ -140,7 +140,7 @@ export async function patchVideoRequestPrefsAction(featureAcceptMode: string) {
     backendUrl("/video-requests/me/preferences"),
     {
       method: "PATCH",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({ featureAcceptMode }),
       cache: "no-store",
     },
@@ -153,7 +153,7 @@ export async function addWhitelistHostAction(allowedRequesterHostId: string) {
     backendUrl("/video-requests/me/whitelist"),
     {
       method: "POST",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({ allowedRequesterHostId }),
       cache: "no-store",
     },
@@ -166,7 +166,7 @@ export async function deleteWhitelistEntryAction(entryId: string) {
     backendUrl(`/video-requests/me/whitelist/${encodeURIComponent(entryId)}`),
     {
       method: "DELETE",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "deleteWhitelistEntryAction"

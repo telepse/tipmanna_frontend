@@ -8,7 +8,12 @@ import { motion } from "framer-motion";
 import { useSelector } from "react-redux";
 
 // Local imports
-import { cn, formatCurrency, formatUtcTime } from "@/lib/utils";
+import {
+  cn,
+  formatCurrency,
+  formatUtcTime,
+  formatEventMessageDate,
+} from "@/lib/utils";
 import { TipDisplay } from "./tip-display";
 import { DropTip } from "./drop-tip";
 import { RootState } from "@/redux/store";
@@ -120,7 +125,7 @@ export const ChatContainer = ({
               )}
 
               <span className="text-muted-foreground text-[10px]">
-                {formatUtcTime(msg.createdAt)}
+                {formatEventMessageDate(msg.createdAt)}
               </span>
             </div>
 

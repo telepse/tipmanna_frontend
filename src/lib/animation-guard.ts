@@ -22,6 +22,8 @@ export interface TipAnimationEvent {
   /** Slim payloads use `eventId`, `selectedTips`, `serverTs`; backend may add `resolvedTips`. */
   id?: string;
   seq?: number;
+  /** Present on outbox broadcasts — used for cross-path playback dedupe. */
+  transactionId?: string;
   serverTs: number;
   /** Wall-clock end of the full multi-character payment bundle (ms since epoch). */
   playbackEndsAt?: number;

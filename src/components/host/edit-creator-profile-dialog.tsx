@@ -9,8 +9,8 @@ import { CircleStar, Crown, LogOut, Sprout, User } from "lucide-react";
 import { toast } from "react-toastify";
 
 import {
-  getCreatorProfileForEditAction,
-  updateCreatorProfileAction,
+  getCreatorProfileForEditHostAction,
+  updateCreatorProfileHostAction,
 } from "@/actions/host-creator";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +72,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   initialAvatarUrl?: string | null;
   onSaved?: (payload: CreatorProfileSavedPayload) => void;
+  onClose: () => void;
 };
 
 function GrowthPlanNotice({
@@ -100,10 +101,10 @@ export function EditCreatorProfileDialog({
   onOpenChange,
   initialAvatarUrl = null,
   onSaved,
+  onClose,
 }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((state: RootState) => state.auth.user);
-  const token = useSelector((state: RootState) => state.auth.token);
   const { hasActivePremium } = useHostPlanCapabilities();
 
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -201,10 +202,9 @@ export function EditCreatorProfileDialog({
   );
 
   const loadCreatorProfile = useCallback(async () => {
-    if (!token) return;
     setLoadingProfile(true);
     try {
-      const res = await getCreatorProfileForEditAction(token);
+      const res = await getCreatorProfileForEditHostAction();
       if (!res.success || !res.data) {
         toast.error(res.message ?? "Could not load creator profile");
         return;
@@ -236,7 +236,7 @@ export function EditCreatorProfileDialog({
     } finally {
       setLoadingProfile(false);
     }
-  }, [applyProfileImage, creatorForm, token]);
+  }, [applyProfileImage, creatorForm]);
 
   useEffect(() => {
     if (!readableImage?.startsWith("data:")) return;
@@ -252,7 +252,7 @@ export function EditCreatorProfileDialog({
       return;
     }
 
-    if (profileLoadedForOpenRef.current || !token) return;
+    if (profileLoadedForOpenRef.current) return;
     profileLoadedForOpenRef.current = true;
 
     if (initialAvatarUrl) {
@@ -262,7 +262,7 @@ export function EditCreatorProfileDialog({
     }
 
     void loadCreatorProfile();
-  }, [open, token, initialAvatarUrl, loadCreatorProfile, setReadableImage]);
+  }, [open, initialAvatarUrl, loadCreatorProfile, setReadableImage]);
 
   const handleRemovePhoto = () => {
     handleRemoveImage();
@@ -279,11 +279,6 @@ export function EditCreatorProfileDialog({
   };
 
   const onSubmitCreator = async (values: CreatorFormData) => {
-    if (!token) {
-      toast.error("Sign in to update your creator profile");
-      return;
-    }
-
     setSaving(true);
     try {
       let profileImageUrl: string | null;
@@ -306,18 +301,15 @@ export function EditCreatorProfileDialog({
       }
 
       const previousUsername = user?.username ?? "";
-      const res = await updateCreatorProfileAction(
-        {
-          username: values.username.trim(),
-          profileImageUrl,
-          pageDescription: values.pageDescription?.trim() || null,
-          profileCategory: values.profileCategory ?? null,
-          externalLinkUrl: values.externalLinkUrl?.trim() || null,
-          externalLinkLabel: values.externalLinkLabel?.trim() || null,
-          previousUsername,
-        },
-        token
-      );
+      const res = await updateCreatorProfileHostAction({
+        username: values.username.trim(),
+        profileImageUrl,
+        pageDescription: values.pageDescription?.trim() || null,
+        profileCategory: values.profileCategory ?? null,
+        externalLinkUrl: values.externalLinkUrl?.trim() || null,
+        externalLinkLabel: values.externalLinkLabel?.trim() || null,
+        previousUsername,
+      });
 
       if (!res.success || !res.data) {
         toast.error(res.message ?? "Could not update creator profile");
@@ -365,6 +357,7 @@ export function EditCreatorProfileDialog({
   const handleLogout = async () => {
     await performAuthLogout(dispatch);
     toast.success("HOST account logged out");
+    onClose();
     router.refresh();
   };
 
@@ -383,17 +376,6 @@ export function EditCreatorProfileDialog({
         <DialogHeader>
           <DialogTitle>Edit Creator Page Profile</DialogTitle>
         </DialogHeader>
-
-        <div className="absolute top-4 right-12 flex flex-col">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-fit shrink-0 border-0 bg-black text-white"
-            onClick={handleLogout}
-          >
-            <LogOut /> Logout
-          </Button>
-        </div>
 
         {loadingProfile ? (
           <p className="text-muted-foreground text-sm">Loading profile…</p>
@@ -554,26 +536,36 @@ export function EditCreatorProfileDialog({
                       <FormDescription className="text-muted-foreground text-xs">
                         Choose one tag that best describes your page.
                       </FormDescription>
-                      <Select
-                        value={field.value ?? "content_creator"}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CREATOR_PROFILE_CATEGORIES.map(category => (
-                            <SelectItem
-                              key={category}
-                              value={category}
-                            >
-                              {CREATOR_PROFILE_CATEGORY_LABELS[category]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+
+                      <div className="flex items-center gap-4">
+                        <Select
+                          value={field.value ?? "content_creator"}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CREATOR_PROFILE_CATEGORIES.map(category => (
+                              <SelectItem
+                                key={category}
+                                value={category}
+                              >
+                                {CREATOR_PROFILE_CATEGORY_LABELS[category]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <Link
+                          href={manageEventDashboardHref}
+                          className="text-xs underline"
+                        >
+                          Manage my channels and events
+                        </Link>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -665,12 +657,10 @@ export function EditCreatorProfileDialog({
                     type="button"
                     variant="link"
                     size="sm"
-                    className="text-black underline"
-                    asChild
+                    className="text-xs text-black"
+                    onClick={handleLogout}
                   >
-                    <Link href={manageEventDashboardHref}>
-                      Manage my channels and events
-                    </Link>
+                    Sign out
                   </Button>
                 </div>
               </fieldset>

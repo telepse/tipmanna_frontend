@@ -46,6 +46,7 @@ import type { TipQuoteContext } from "@/hooks/use-tip-presentation";
 import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
 import { TippingElementsProvider } from "../payments/tipping-elements-provider";
 import { RoomCharacter } from "@/types";
+import { computeTipCartTotal } from "@/lib/tip-cart-total";
 
 interface Props {
   eventId: string;
@@ -223,15 +224,11 @@ export const TipSection = ({
     });
   };
 
-  const totalAmount = useMemo(() => {
-    return tipsForTotals.reduce((acc, characterName) => {
-      if (characterName === "Comment") {
-        return acc + textTipUnitPrice;
-      }
-      const character = tippingCharacters.find(c => c.name === characterName);
-      return acc + (character?.price || 0);
-    }, 0);
-  }, [tipsForTotals, tippingCharacters, textTipUnitPrice]);
+  const totalAmount = useMemo(
+    () =>
+      computeTipCartTotal(tipsForTotals, tippingCharacters, textTipUnitPrice),
+    [tipsForTotals, tippingCharacters, textTipUnitPrice]
+  );
 
   const rewardEligibility = useMemo(
     () =>
@@ -513,6 +510,7 @@ export const TipSection = ({
       <TippingElementsProvider
         tippingCharacters={tippingCharacters as RoomCharacter[]}
         enabled
+        textTipUnitPrice={textTipUnitPrice}
       >
         <TipDrawer
           open={openDrawer}

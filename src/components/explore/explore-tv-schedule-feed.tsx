@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
+import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
@@ -134,6 +135,14 @@ export function ExploreTvScheduleFeed({
     setTipDrawerOpen
   );
   const tipDrawerStripeMounted = tipDrawerOpen || openWalletModalNonce > 0;
+
+  const tipPres = useTipPresentation(
+    tipEventId ?? undefined,
+    characters as RoomCharacter[],
+    {
+      paymentSurface: "explore_feed",
+    }
+  );
 
   useGlobalTipStream({
     eventId: tipEventId ?? undefined,
@@ -400,6 +409,7 @@ export function ExploreTvScheduleFeed({
         <TippingElementsProvider
           tippingCharacters={characters as RoomCharacter[]}
           enabled
+          textTipUnitPrice={tipPres.textUnitPrice}
         >
           <TipDrawer
             open={tipDrawerOpen}
@@ -411,6 +421,8 @@ export function ExploreTvScheduleFeed({
             paymentChannelId={tipChannelId}
             openWalletModalNonce={openWalletModalNonce}
             stackAboveImmersive
+            textTipUnitPrice={tipPres.textUnitPrice}
+            tipQuoteContext={tipPres.quoteCtx}
           />
         </TippingElementsProvider>
       ) : null}

@@ -133,6 +133,14 @@ export async function exchangeRecoveryStateRequest(params: {
 
   if (!res.ok) {
     const kind = classifyStatus(res.status);
+    const body = await parseJsonSafe(res);
+    const serverMessage =
+      body &&
+      typeof body === "object" &&
+      "message" in body &&
+      typeof (body as { message?: unknown }).message === "string"
+        ? (body as { message: string }).message
+        : "";
     tracePaymentAnimation({
       stage: "payer_recovery_exchange_failed",
       transactionId: params.transactionId,
@@ -143,7 +151,7 @@ export async function exchangeRecoveryStateRequest(params: {
     throw new RecoveryApiError(
       kind,
       res.status,
-      `Exchange failed (${res.status})`
+      serverMessage || `Exchange failed (${res.status})`
     );
   }
 
@@ -302,8 +310,16 @@ export function traceRecoveryApiError(
   tracePaymentAnimationError(stage, err, partial);
 }
 
+export function isIdentityMismatchRejection(err: unknown): boolean {
+  if (!(err instanceof RecoveryApiError)) return false;
+  return (
+    err.kind === "forbidden" && err.message.includes("Payer identity mismatch")
+  );
+}
+
 export function isDefinitiveExchangeRejection(err: unknown): boolean {
   if (!(err instanceof RecoveryApiError)) return false;
+  if (isIdentityMismatchRejection(err)) return false;
   return (
     err.kind === "forbidden" ||
     err.kind === "conflict" ||

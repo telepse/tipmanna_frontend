@@ -35,20 +35,16 @@ export default function TopCommunities({
     >
       {/* <Badge title="Tipmanna Community" /> */}
 
-      <h2
+      <Title
         id="top-communities-heading"
+        size="lg"
         className="w-full"
       >
-        <Title
-          // align="center"
-          size="lg"
-        >
-          Featured{" "}
-          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-            communities
-          </span>
-        </Title>
-      </h2>
+        Featured{" "}
+        <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+          communities
+        </span>
+      </Title>
       {/* <Paragraph
         align="center"
         color="muted"
@@ -87,7 +83,8 @@ export default function TopCommunities({
               className="leading-relaxed"
             >
               Tipmanna grows with you <br className="inline-block sm:hidden" />{" "}
-              - from your first video to your own community-powered media
+              - from your first video to your own{" "}
+              <br className="inline-block sm:hidden" /> community-powered media
               network.
             </Paragraph>
           </div>

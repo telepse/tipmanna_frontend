@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import type { RootState } from "@/redux/store";
 
@@ -39,11 +40,23 @@ interface Props {
   open: boolean;
   onClose: () => void;
   eventId: string;
+  /** Event owner's host id — required for host message API paths. */
+  eventHostId: string;
 }
 
-export function EventRoomDropMessageModal({ open, onClose, eventId }: Props) {
+export function EventRoomDropMessageModal({
+  open,
+  onClose,
+  eventId,
+  eventHostId,
+}: Props) {
   const user = useSelector((state: RootState) => state.auth.user);
-  const token = useSelector((state: RootState) => state.auth.token);
+  const tag = useSelector((state: RootState) => state.auth.tag);
+
+  const { canWriteAsHost, handleAuthRequiredError, HostAuthModal } =
+    useHostCapabilityWithAuth({ cohostEventId: eventId });
+
+  const canManage = tag === "COHOST" || user?.role === "HOST" || canWriteAsHost;
 
   const [messageText, setMessageText] = useState("");
   const [hostMessages, setHostMessages] = useState<HostMessage[]>([]);
@@ -54,19 +67,23 @@ export function EventRoomDropMessageModal({ open, onClose, eventId }: Props) {
   );
 
   useEffect(() => {
-    if (!open || !user?.id || user.role !== "HOST") return;
+    if (!open || !eventHostId || !canManage) return;
 
     let cancelled = false;
 
     const loadMessages = async () => {
       setIsLoadingMessages(true);
       try {
-        const response = await getHostEventMessagesAction(
-          user.id,
-          eventId,
-          token
-        );
+        const response = await getHostEventMessagesAction(eventHostId, eventId);
         if (cancelled) return;
+
+        if (!response.success) {
+          if (handleAuthRequiredError(response, () => void loadMessages())) {
+            return;
+          }
+          toast.error(response.message ?? "Failed to load event messages.");
+          return;
+        }
 
         const data = response.data;
         setHostMessages(Array.isArray(data) ? (data as HostMessage[]) : []);
@@ -90,7 +107,7 @@ export function EventRoomDropMessageModal({ open, onClose, eventId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [open, user?.id, user?.role, eventId, token]);
+  }, [open, eventHostId, eventId, canManage, handleAuthRequiredError]);
 
   useEffect(() => {
     if (!open || !eventId) return;
@@ -130,8 +147,8 @@ export function EventRoomDropMessageModal({ open, onClose, eventId }: Props) {
       return;
     }
 
-    if (!user?.id || user.role !== "HOST") {
-      toast.error("Only the host can post messages.");
+    if (!eventHostId || !canManage) {
+      toast.error("Only the host or cohost can post messages.");
       return;
     }
 
@@ -139,11 +156,23 @@ export function EventRoomDropMessageModal({ open, onClose, eventId }: Props) {
 
     try {
       const createdMessage = await postHostEventMessageAction({
-        hostId: user.id,
+        hostId: eventHostId,
         eventId,
-        token,
         payload: { text },
       });
+
+      if (!createdMessage.success) {
+        if (
+          handleAuthRequiredError(
+            createdMessage,
+            () => void handlePostMessage()
+          )
+        ) {
+          return;
+        }
+        toast.error(createdMessage.message ?? "Failed to send message.");
+        return;
+      }
 
       if (createdMessage.data) {
         setHostMessages(prev => [createdMessage.data as HostMessage, ...prev]);
@@ -161,17 +190,29 @@ export function EventRoomDropMessageModal({ open, onClose, eventId }: Props) {
   };
 
   const handleDeleteMessage = async (messageId: string) => {
-    if (!user?.id || user.role !== "HOST") return;
+    if (!eventHostId || !canManage) return;
 
     try {
       setDeletingMessageId(messageId);
 
-      await deleteHostEventMessageAction({
-        hostId: user.id,
+      const res = await deleteHostEventMessageAction({
+        hostId: eventHostId,
         eventId,
         messageId,
-        token,
       });
+
+      if (!res.success) {
+        if (
+          handleAuthRequiredError(
+            res,
+            () => void handleDeleteMessage(messageId)
+          )
+        ) {
+          return;
+        }
+        toast.error(res.message ?? "Failed to delete message.");
+        return;
+      }
 
       setHostMessages(prev => prev.filter(message => message.id !== messageId));
       toast.success("Message deleted.");
@@ -185,80 +226,86 @@ export function EventRoomDropMessageModal({ open, onClose, eventId }: Props) {
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={value => {
-        if (!value) onClose();
-      }}
-    >
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Drop message in event room</DialogTitle>
-        </DialogHeader>
+    <>
+      {HostAuthModal}
+      <Dialog
+        open={open}
+        onOpenChange={value => {
+          if (!value) onClose();
+        }}
+      >
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Drop message in event room</DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <Textarea
-            placeholder="Send a message to attendees..."
-            className="min-h-32 resize-none bg-gray-100"
-            value={messageText}
-            onChange={event => setMessageText(event.target.value)}
-          />
+          <div className="space-y-4">
+            <Textarea
+              placeholder="Send a message to attendees..."
+              className="min-h-32 resize-none bg-gray-100"
+              value={messageText}
+              onChange={event => setMessageText(event.target.value)}
+              disabled={!canManage}
+            />
 
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              onClick={handlePostMessage}
-              disabled={isPostingMessage || !messageText.trim()}
-            >
-              {isPostingMessage ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                "Send message"
-              )}
-            </Button>
-          </div>
-
-          {isLoadingMessages ? (
-            <p className="text-muted-foreground text-sm">Loading messages…</p>
-          ) : hostMessages.length > 0 ? (
-            <div className="space-y-3">
-              <h5 className="font-semibold">Messages</h5>
-              {hostMessages.map(message => (
-                <div
-                  key={message.id}
-                  className="bg-secondary/30 flex items-center justify-between rounded-md p-4"
-                >
-                  <p className="pr-4">{message.text}</p>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="cursor-pointer"
-                      >
-                        <Ellipsis />
-                      </button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="text-destructive cursor-pointer"
-                        onClick={() => handleDeleteMessage(message.id)}
-                        disabled={deletingMessageId === message.id}
-                      >
-                        Delete message
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={handlePostMessage}
+                disabled={isPostingMessage || !messageText.trim() || !canManage}
+              >
+                {isPostingMessage ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send message"
+                )}
+              </Button>
             </div>
-          ) : null}
-        </div>
-      </DialogContent>
-    </Dialog>
+
+            {isLoadingMessages ? (
+              <p className="text-muted-foreground text-sm">Loading messages…</p>
+            ) : hostMessages.length > 0 ? (
+              <div className="space-y-3">
+                <h5 className="font-semibold">Messages</h5>
+                {hostMessages.map(message => (
+                  <div
+                    key={message.id}
+                    className="bg-secondary/30 flex items-center justify-between rounded-md p-4"
+                  >
+                    <p className="pr-4">{message.text}</p>
+
+                    {canManage ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="cursor-pointer"
+                          >
+                            <Ellipsis />
+                          </button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive cursor-pointer"
+                            onClick={() => handleDeleteMessage(message.id)}
+                            disabled={deletingMessageId === message.id}
+                          >
+                            Delete message
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -13,6 +13,9 @@ export type ScheduleItem = {
   noticePhase?: "pre" | "post";
   enforcementId?: string;
   blockTitle?: string;
+  sectionTitle?: string;
+  sectionHalf?: "FIRST_HALF" | "SECOND_HALF";
+  isSectionStart?: boolean;
   channel: {
     url: string;
     title?: string;

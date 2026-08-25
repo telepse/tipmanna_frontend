@@ -1,8 +1,5 @@
 "use client";
 
-import { useMediaQuery } from "react-responsive";
-
-// Local imports
 import { Paragraph } from "../shared/paragraph";
 import { formatWithCommas } from "@/lib/utils";
 
@@ -19,38 +16,28 @@ export const StatCard = ({
   subtitle,
   isMoney,
 }: StatCardProps) => {
-  const isDesktopOrLaptop = useMediaQuery({
-    query: "(min-width: 1224px)",
-  });
-
   return (
     <div
       className="rounded-2xl border px-2 pt-6 pb-3 shadow-lg sm:px-4 sm:py-6"
       style={{ backgroundImage: `linear-gradient(to left, #FFF, #FFF8F1)` }}
     >
-      <h2
-        className={`open_sans relative text-center text-xl font-medium sm:text-4xl`}
-      >
+      <h3 className="open_sans relative text-center text-2xl font-medium sm:text-4xl">
         {isMoney && <>&pound;</>}
         {formatWithCommas(value)}
 
         {isMoney && (
-          <Paragraph
-            align="center"
-            color="muted"
-            className="absolute -top-4 right-2 text-[10px] sm:-top-6 sm:text-[12px]"
-          >
+          <span className="open_sans text-muted-foreground absolute -top-4 right-2 text-[10px] sm:-top-6 sm:text-[12px]">
             {label}
-          </Paragraph>
+          </span>
         )}
-      </h2>
+      </h3>
 
       {!isMoney && (
         <Paragraph
           align="center"
-          size={isDesktopOrLaptop ? "sm" : "xs"}
+          size="xs"
           color="muted"
-          className="-mt-1"
+          className="-mt-1 sm:text-sm"
         >
           {label}
         </Paragraph>
@@ -60,8 +47,8 @@ export const StatCard = ({
         <Paragraph
           align="center"
           color="muted"
-          size={isDesktopOrLaptop ? "sm" : "xs"}
-          className="-mt-1"
+          size="xs"
+          className="-mt-1 sm:text-sm"
         >
           Supporter Participation
         </Paragraph>

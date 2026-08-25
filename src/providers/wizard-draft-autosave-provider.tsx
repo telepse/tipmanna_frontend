@@ -27,6 +27,7 @@ type WizardDraftAutosaveProviderProps = {
   draftId: string | null;
   onDraftId: (id: string) => void;
   hostEnabled: boolean;
+  verifyStatus?: Record<number, string | undefined>;
   children: ReactNode;
 };
 
@@ -39,6 +40,7 @@ export function WizardDraftAutosaveProvider({
   draftId,
   onDraftId,
   hostEnabled,
+  verifyStatus,
   children,
 }: WizardDraftAutosaveProviderProps) {
   const { lifecycleReady } = useCoOwnerDraftLifecycle();
@@ -49,6 +51,7 @@ export function WizardDraftAutosaveProvider({
     enabled: hostEnabled && lifecycleReady,
     draftId,
     onDraftId,
+    verifyStatus,
   });
 
   const value = useMemo(
@@ -97,6 +100,7 @@ export function WizardDraftSaveIndicator({
       className={className}
       saving={saveState.saving}
       lastSavedAt={saveState.lastSavedAt}
+      saveError={saveState.saveError}
       onSaveNow={() => void saveNow()}
     />
   );

@@ -1,3 +1,5 @@
+"use client";
+
 import { AuthBanner } from "@/components/banners/auth-banner";
 import { SigninForm } from "@/components/auth/signin-form";
 

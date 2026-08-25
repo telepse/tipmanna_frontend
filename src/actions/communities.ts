@@ -1,7 +1,7 @@
 "use server";
 
 import { actionFail, actionOk, runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
 
 export type CommunityContentBankVideo = {
   id: string;
@@ -53,10 +53,7 @@ export async function getCommunityTipFeedAction(communityId: string) {
   );
 }
 
-export async function resumeCommunityTvAction(
-  communityId: string,
-  token?: string | null
-) {
+export async function resumeCommunityTvAction(communityId: string) {
   if (!communityId?.trim()) {
     return actionFail("Community ID is required", "resumeCommunityTvAction");
   }
@@ -64,7 +61,7 @@ export async function resumeCommunityTvAction(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/${encodeURIComponent(communityId.trim())}/tv/resume`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "resumeCommunityTvAction"
@@ -129,13 +126,17 @@ export async function getCommunitySendsAction(
 export async function addCommunityVideoAction(
   token: string | null | undefined,
   communityId: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  options?: { useHostSession?: boolean }
 ) {
+  const headers = options?.useHostSession
+    ? await serverHostAuthHeaders(token)
+    : await serverAuthHeaders(token);
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/${communityId}/content-bank/videos`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers,
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -144,7 +145,6 @@ export async function addCommunityVideoAction(
 }
 
 export async function inviteCoCreatorAction(
-  token: string | null | undefined,
   communityId: string,
   hostEmail: string
 ) {
@@ -152,7 +152,7 @@ export async function inviteCoCreatorAction(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/${communityId}/co-creators/invite`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({ hostEmail }),
       cache: "no-store",
     },
@@ -160,15 +160,12 @@ export async function inviteCoCreatorAction(
   );
 }
 
-export async function listCoCreatorsAction(
-  token: string | null | undefined,
-  communityId: string
-) {
+export async function listCoCreatorsAction(communityId: string) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/${communityId}/co-creators`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listCoCreatorsAction"
@@ -176,7 +173,6 @@ export async function listCoCreatorsAction(
 }
 
 export async function revokeCoCreatorAction(
-  token: string | null | undefined,
   communityId: string,
   hostId: string
 ) {
@@ -184,7 +180,7 @@ export async function revokeCoCreatorAction(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/${communityId}/co-creators/${hostId}`,
     {
       method: "DELETE",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "revokeCoCreatorAction"
@@ -192,7 +188,6 @@ export async function revokeCoCreatorAction(
 }
 
 export async function revokeCoCreatorInviteAction(
-  token: string | null | undefined,
   communityId: string,
   inviteId: string
 ) {
@@ -200,7 +195,7 @@ export async function revokeCoCreatorInviteAction(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/${communityId}/co-creators/invites/${inviteId}`,
     {
       method: "DELETE",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "revokeCoCreatorInviteAction"
@@ -302,15 +297,12 @@ const api = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
 // ----- Phase 4: owner membership admin (host token) -----
 
-export async function getJoinFormAction(
-  token: string | null | undefined,
-  communityId: string
-) {
+export async function getJoinFormAction(communityId: string) {
   return runServerFetch(
     `${api()}/communities/${communityId}/join-form`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getJoinFormAction"
@@ -318,7 +310,6 @@ export async function getJoinFormAction(
 }
 
 export async function updateJoinFormAction(
-  token: string | null | undefined,
   communityId: string,
   body: Record<string, unknown>
 ) {
@@ -326,7 +317,7 @@ export async function updateJoinFormAction(
     `${api()}/communities/${communityId}/join-form`,
     {
       method: "PATCH",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -334,15 +325,12 @@ export async function updateJoinFormAction(
   );
 }
 
-export async function listMembersAction(
-  token: string | null | undefined,
-  communityId: string
-) {
+export async function listMembersAction(communityId: string) {
   return runServerFetch(
     `${api()}/communities/${communityId}/members`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listMembersAction"
@@ -350,7 +338,6 @@ export async function listMembersAction(
 }
 
 export async function listSideChickActivationsAction(
-  token: string | null | undefined,
   communityId: string,
   scope: "active" | "all"
 ) {
@@ -359,7 +346,7 @@ export async function listSideChickActivationsAction(
     `${api()}/communities/${communityId}/side-chick/activations${q}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listSideChickActivationsAction"
@@ -367,7 +354,6 @@ export async function listSideChickActivationsAction(
 }
 
 export async function terminateMemberAction(
-  token: string | null | undefined,
   communityId: string,
   membershipId: string
 ) {
@@ -375,7 +361,7 @@ export async function terminateMemberAction(
     `${api()}/communities/${communityId}/members/${membershipId}`,
     {
       method: "DELETE",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "terminateMemberAction"
@@ -383,7 +369,6 @@ export async function terminateMemberAction(
 }
 
 export async function extendFreeMemberMembershipAction(
-  token: string | null | undefined,
   communityId: string,
   membershipId: string,
   addMonths?: number
@@ -392,7 +377,7 @@ export async function extendFreeMemberMembershipAction(
     `${api()}/communities/${communityId}/members/${membershipId}/extend-free`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(addMonths != null ? { addMonths } : {}),
       cache: "no-store",
     },
@@ -400,15 +385,12 @@ export async function extendFreeMemberMembershipAction(
   );
 }
 
-export async function listAccessCodesOwnerAction(
-  token: string | null | undefined,
-  communityId: string
-) {
+export async function listAccessCodesOwnerAction(communityId: string) {
   return runServerFetch(
     `${api()}/communities/${communityId}/access-codes`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listAccessCodesOwnerAction"
@@ -416,7 +398,6 @@ export async function listAccessCodesOwnerAction(
 }
 
 export async function createAccessCodeAction(
-  token: string | null | undefined,
   communityId: string,
   body: Record<string, unknown>
 ) {
@@ -424,7 +405,7 @@ export async function createAccessCodeAction(
     `${api()}/communities/${communityId}/access-codes`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -433,7 +414,6 @@ export async function createAccessCodeAction(
 }
 
 export async function updateAccessCodeAction(
-  token: string | null | undefined,
   communityId: string,
   codeId: string,
   body: Record<string, unknown>
@@ -442,7 +422,7 @@ export async function updateAccessCodeAction(
     `${api()}/communities/${communityId}/access-codes/${codeId}`,
     {
       method: "PATCH",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -451,7 +431,6 @@ export async function updateAccessCodeAction(
 }
 
 export async function deleteAccessCodeAction(
-  token: string | null | undefined,
   communityId: string,
   codeId: string
 ) {
@@ -459,22 +438,19 @@ export async function deleteAccessCodeAction(
     `${api()}/communities/${communityId}/access-codes/${codeId}`,
     {
       method: "DELETE",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "deleteAccessCodeAction"
   );
 }
 
-export async function listInvitesAction(
-  token: string | null | undefined,
-  communityId: string
-) {
+export async function listInvitesAction(communityId: string) {
   return runServerFetch(
     `${api()}/communities/${communityId}/invites`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listInvitesAction"
@@ -482,7 +458,6 @@ export async function listInvitesAction(
 }
 
 export async function createInviteAction(
-  token: string | null | undefined,
   communityId: string,
   body: Record<string, unknown>
 ) {
@@ -490,7 +465,7 @@ export async function createInviteAction(
     `${api()}/communities/${communityId}/invites`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -499,7 +474,6 @@ export async function createInviteAction(
 }
 
 export async function deleteInviteAction(
-  token: string | null | undefined,
   communityId: string,
   inviteId: string
 ) {
@@ -507,22 +481,19 @@ export async function deleteInviteAction(
     `${api()}/communities/${communityId}/invites/${inviteId}`,
     {
       method: "DELETE",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "deleteInviteAction"
   );
 }
 
-export async function listRequestsAction(
-  token: string | null | undefined,
-  communityId: string
-) {
+export async function listRequestsAction(communityId: string) {
   return runServerFetch(
     `${api()}/communities/${communityId}/requests`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listRequestsAction"
@@ -530,7 +501,6 @@ export async function listRequestsAction(
 }
 
 export async function approveRequestAction(
-  token: string | null | undefined,
   communityId: string,
   requestId: string
 ) {
@@ -538,7 +508,7 @@ export async function approveRequestAction(
     `${api()}/communities/${communityId}/requests/${requestId}/approve`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "approveRequestAction"
@@ -546,7 +516,6 @@ export async function approveRequestAction(
 }
 
 export async function rejectRequestAction(
-  token: string | null | undefined,
   communityId: string,
   requestId: string
 ) {
@@ -554,7 +523,7 @@ export async function rejectRequestAction(
     `${api()}/communities/${communityId}/requests/${requestId}/reject`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "rejectRequestAction"
@@ -779,7 +748,6 @@ export async function getMyCommunitySubscriptionAction(
 }
 
 export async function patchCommunitySubscriptionFeeAction(
-  token: string | null | undefined,
   communityId: string,
   subscriptionFeeGbp: number | null
 ) {
@@ -787,7 +755,7 @@ export async function patchCommunitySubscriptionFeeAction(
     `${api()}/communities/${communityId}/subscription-fee`,
     {
       method: "PATCH",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({ subscriptionFeeGbp }),
       cache: "no-store",
     },
@@ -826,7 +794,6 @@ export async function getCommunityOwedAction(
 }
 
 export async function approveCommunityBankEntryAction(
-  token: string | null | undefined,
   communityId: string,
   entryId: string
 ) {
@@ -834,7 +801,7 @@ export async function approveCommunityBankEntryAction(
     `${api()}/communities/${communityId}/content-bank/${entryId}/approve`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "approveCommunityBankEntryAction"
@@ -842,7 +809,6 @@ export async function approveCommunityBankEntryAction(
 }
 
 export async function rejectCommunityBankEntryAction(
-  token: string | null | undefined,
   communityId: string,
   entryId: string,
   body?: { reason?: string }
@@ -851,7 +817,7 @@ export async function rejectCommunityBankEntryAction(
     `${api()}/communities/${communityId}/content-bank/${entryId}/reject`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(
         body?.reason?.trim() ? { reason: body.reason.trim() } : {}
       ),
@@ -862,7 +828,6 @@ export async function rejectCommunityBankEntryAction(
 }
 
 export async function patchCommunityBankEntryVisibilityAction(
-  token: string | null | undefined,
   communityId: string,
   entryId: string,
   visibility: "public" | "private"
@@ -871,7 +836,7 @@ export async function patchCommunityBankEntryVisibilityAction(
     `${api()}/communities/${communityId}/content-bank/${entryId}/visibility`,
     {
       method: "PATCH",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({ visibility }),
       cache: "no-store",
     },
@@ -910,6 +875,25 @@ export type CommunityExploreCatalogRow = {
   };
 };
 
+export async function getTopCommunitiesAction(limit = 3) {
+  return runServerFetch<{
+    communities: CommunityExploreCatalogRow[];
+    total: number;
+  }>(
+    `${api()}/communities/top?limit=${limit}`,
+    { method: "GET", headers: await serverAuthHeaders(), cache: "no-store" },
+    "getTopCommunitiesAction",
+    raw => {
+      const o = raw as Record<string, unknown>;
+      const communities = Array.isArray(o.communities)
+        ? (o.communities as CommunityExploreCatalogRow[])
+        : [];
+      const total = typeof o.total === "number" ? o.total : communities.length;
+      return { communities, total };
+    }
+  );
+}
+
 export async function getCommunityExploreCatalogAction() {
   return runServerFetch<{
     total: number;
@@ -938,23 +922,20 @@ export async function getCommunityExploreCatalogAction() {
   );
 }
 
-export async function submitCommunityStartInterestAction(
-  token: string | null | undefined,
-  body: {
-    communityName: string;
-    description: string;
-    communityType: string;
-    logoUrl?: string | null;
-    interestedStartDate?: string | null;
-    contactEmail: string;
-    contactPhone?: string | null;
-  }
-) {
+export async function submitCommunityStartInterestAction(body: {
+  communityName: string;
+  description: string;
+  communityType: string;
+  logoUrl?: string | null;
+  interestedStartDate?: string | null;
+  contactEmail: string;
+  contactPhone?: string | null;
+}) {
   return runServerFetch<{ ok?: boolean; id?: string }>(
     `${api()}/communities/start-interest`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -1071,7 +1052,6 @@ export async function getCommunityCustomizationAction(communityId: string) {
 }
 
 export async function patchCommunityDetailsAction(
-  token: string | null | undefined,
   communityId: string,
   body: {
     description?: string | null;
@@ -1086,10 +1066,7 @@ export async function patchCommunityDetailsAction(
     `${api()}/communities/${encodeURIComponent(communityId)}/details`,
     {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(await serverAuthHeaders(token)),
-      },
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -1098,7 +1075,6 @@ export async function patchCommunityDetailsAction(
 }
 
 export async function patchCommunityFeaturedVideosAction(
-  token: string | null | undefined,
   communityId: string,
   featuredContentBankEntryIds: string[]
 ) {
@@ -1109,10 +1085,7 @@ export async function patchCommunityFeaturedVideosAction(
     `${api()}/communities/${encodeURIComponent(communityId)}/featured-videos`,
     {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(await serverAuthHeaders(token)),
-      },
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({ featuredContentBankEntryIds }),
       cache: "no-store",
     },
@@ -1121,7 +1094,6 @@ export async function patchCommunityFeaturedVideosAction(
 }
 
 export async function patchCommunityBrandingAction(
-  token: string | null | undefined,
   communityId: string,
   body: {
     headerColor?: string | null;
@@ -1133,10 +1105,7 @@ export async function patchCommunityBrandingAction(
     `${api()}/communities/${encodeURIComponent(communityId)}/customization`,
     {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(await serverAuthHeaders(token)),
-      },
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },

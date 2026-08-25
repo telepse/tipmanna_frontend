@@ -17,8 +17,10 @@ import { SortedEventSkeleton } from "./sorted-event-skeleton";
 export const HostFeesClient = () => {
   const { events, hostCredit, appliedFees, hostBonus } = useHostFees();
 
+  const eventsData = events || [];
+
   // Sort by most recent and pick the latest as default
-  const sortedEvents = [...events].sort(
+  const sortedEvents = [...eventsData].sort(
     (a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()
   );
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(
@@ -26,15 +28,15 @@ export const HostFeesClient = () => {
   );
 
   useEffect(() => {
-    if (!Array.isArray(events) || events.length === 0) return;
+    if (!Array.isArray(eventsData) || eventsData.length === 0) return;
 
-    const sorted = [...events].sort(
+    const sorted = [...eventsData].sort(
       (a, b) =>
         new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()
     );
 
     setSelectedEvent(sorted[0]);
-  }, [events]);
+  }, [eventsData]);
 
   if (!sortedEvents) {
     return <Loading />;
@@ -73,8 +75,8 @@ export const HostFeesClient = () => {
         />
       </div>
 
-      <div className="space-y-4">
-        {events.length === 0
+      <div className="max-h-[400px] space-y-4 overflow-y-auto pr-2">
+        {eventsData.length === 0
           ? Array.from({ length: 3 }).map((_, idx) => (
               <SortedEventSkeleton key={idx} />
             ))

@@ -4,7 +4,7 @@ import {
   createListenerMiddleware,
 } from "@reduxjs/toolkit";
 import { persistReducer, persistStore } from "redux-persist";
-import storage from "redux-persist/lib/storage"; // defaults to localStorage for web
+import storage from "redux-persist/lib/storage";
 
 // Local imports
 import authReducer, { clearCredentials } from "@/features/auth-slice";
@@ -55,9 +55,9 @@ const rootReducer = combineReducers({
 
 // Redux Persist configuration
 const persistConfig = {
-  key: "root", // storage key name
-  storage, // storage engine (localStorage)
-  whitelist: ["auth", "tip"], // state slices to persist
+  key: "root",
+  storage,
+  whitelist: ["auth", "tip"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

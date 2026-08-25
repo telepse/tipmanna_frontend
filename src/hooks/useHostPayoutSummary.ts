@@ -1,22 +1,16 @@
 "use client";
 
 import useSWR from "swr";
-import { useSelector } from "react-redux";
-
+import { hasActiveHostSession } from "@/lib/host-session-client";
 import { getHostPayoutSummaryAction } from "@/actions/host-payouts";
-import type { RootState } from "@/redux/store";
 
 export function useHostPayoutSummary() {
-  const authToken = useSelector((s: RootState) => s.auth.token);
-  const isHost = useSelector(
-    (s: RootState) =>
-      s.auth.user && "role" in s.auth.user && s.auth.user.role === "HOST"
-  );
+  const hostSessionActive = hasActiveHostSession();
 
   const { data, error, isLoading, mutate } = useSWR(
-    isHost && authToken ? "/me/payouts/summary" : null,
+    hostSessionActive ? "/me/payouts/summary" : null,
     async () => {
-      const res = await getHostPayoutSummaryAction(authToken);
+      const res = await getHostPayoutSummaryAction();
       if (!res.success || !res.data) return null;
       return res.data;
     },

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { mergeDraftPayload } from "@/lib/form-draft-utils";
+import {
+  mergeDraftPayload,
+  splitModalDraftPayload,
+  buildModalVerifyStatusPolicy,
+  modalVerifyStateFromPolicy,
+} from "@/lib/form-draft-utils";
 
 describe("mergeDraftPayload coOwnerDraftKey", () => {
   it("restores a saved key without minting a replacement", () => {
@@ -76,5 +81,59 @@ describe("mergeDraftPayload coOwnerDraftKey", () => {
     );
 
     expect(merged.videoLinks?.[0]?.coOwnerDraftKey).toBe(keyA);
+  });
+});
+
+describe("modal YouTube verify draft policy", () => {
+  it("persists verify state keyed by slot and url", () => {
+    const { policyJson } = splitModalDraftPayload(
+      {
+        title: "T",
+        description: "",
+        url: "https://youtube.com/watch?v=abc",
+        isLive: false,
+        setReminder: false,
+        reminders: {},
+        contentLanguage: "en-GB",
+        contentCountry: "all",
+        eventVideoType: "__inherit__",
+        hostYoutubeSlot: "1",
+        ownershipAnswer: "yes",
+        coOwnerDraftKey: "",
+      },
+      "verified"
+    );
+
+    expect(policyJson.verifyStatus).toEqual({
+      "1:https://youtube.com/watch?v=abc": "verified",
+    });
+  });
+
+  it("restores verify state when url and slot match", () => {
+    const policy = {
+      verifyStatus: {
+        "2:https://youtube.com/watch?v=xyz": "failed",
+      },
+    };
+    expect(
+      modalVerifyStateFromPolicy(policy, "https://youtube.com/watch?v=xyz", "2")
+    ).toBe("failed");
+    expect(
+      modalVerifyStateFromPolicy(
+        policy,
+        "https://youtube.com/watch?v=other",
+        "2"
+      )
+    ).toBe("idle");
+  });
+
+  it("does not persist verify state without host slot", () => {
+    expect(
+      buildModalVerifyStatusPolicy(
+        "https://youtube.com/watch?v=abc",
+        "none",
+        "verified"
+      )
+    ).toBeUndefined();
   });
 });

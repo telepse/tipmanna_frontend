@@ -10,6 +10,9 @@ import { SideChickProvider } from "@/components/community/side-chick-provider";
 import { FeatureCardTipProvider } from "@/components/video-feature/feature-card-tip-context";
 import { PwaInstallController } from "@/components/pwa/pwa-install-controller";
 import { ChunkLoadRecovery } from "@/components/chunk-load-recovery";
+import { VisitorAutoLogoutWrapper } from "@/components/VistorAutoLogoutWrapper";
+import { SessionActivityPinger } from "@/components/auth/session-activity-pinger";
+import { AuthIdentityBootstrap } from "@/components/auth/auth-identity-bootstrap";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -20,13 +23,17 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       >
         <NavigationProgressProvider>
           <ChunkLoadRecovery />
-          <TvAnalyticsAuthBridge />
-          <SideChickProvider>
-            <FeatureCardTipProvider>
-              <PwaInstallController />
-              <ClientErrorBoundary>{children}</ClientErrorBoundary>
-            </FeatureCardTipProvider>
-          </SideChickProvider>
+          <VisitorAutoLogoutWrapper>
+            <SessionActivityPinger />
+            <AuthIdentityBootstrap />
+            <TvAnalyticsAuthBridge />
+            <SideChickProvider>
+              <FeatureCardTipProvider>
+                <PwaInstallController />
+                <ClientErrorBoundary>{children}</ClientErrorBoundary>
+              </FeatureCardTipProvider>
+            </SideChickProvider>
+          </VisitorAutoLogoutWrapper>
         </NavigationProgressProvider>
       </PersistGate>
     </Provider>

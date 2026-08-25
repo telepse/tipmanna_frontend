@@ -12,6 +12,7 @@ import {
 import {
   mergeModalDraftPayload,
   modalDraftStorageKey,
+  modalVerifyStateFromPolicy,
 } from "@/lib/form-draft-utils";
 
 type Options = {
@@ -22,6 +23,9 @@ type Options = {
   draftId: string | null;
   seedDraftId?: string | null;
   onDraftId: (id: string | null) => void;
+  onVerifyStateRestored?: (
+    state: "idle" | "checking" | "verified" | "failed"
+  ) => void;
 };
 
 /** Restore modal add-video draft from sessionStorage + server on open. */
@@ -33,6 +37,7 @@ export function useModalFormDraftRestore({
   draftId,
   seedDraftId,
   onDraftId,
+  onVerifyStateRestored,
 }: Options) {
   const restoredRef = useRef(false);
   const [restoring, setRestoring] = useState(false);
@@ -59,21 +64,46 @@ export function useModalFormDraftRestore({
     setRestoring(true);
     void getFormDraftAction(storedId).then(res => {
       setRestoring(false);
-      if (!res.success || !res.data) return;
+      if (!res.success || !res.data) {
+        restoredRef.current = false;
+        toast.error(res.message ?? "Could not load draft");
+        return;
+      }
       const draft = res.data;
-      if (draft.kind !== kind) return;
+      if (draft.kind !== kind) {
+        restoredRef.current = false;
+        toast.error("This draft belongs to a different form");
+        return;
+      }
       const merged = mergeModalDraftPayload(
         draft.payloadJson,
         draft.policyJson
       ) as DefaultValues<AddVideoFormValues>;
       form.reset(merged);
       onDraftId(draft.id);
+      const verifyState = modalVerifyStateFromPolicy(
+        draft.policyJson,
+        merged.url ?? "",
+        merged.hostYoutubeSlot ?? "none"
+      );
+      if (verifyState !== "idle") {
+        onVerifyStateRestored?.(verifyState);
+      }
       if (typeof window !== "undefined") {
         sessionStorage.setItem(storageKey, draft.id);
       }
       toast.success("Draft restored");
     });
-  }, [enabled, targetId, kind, form, draftId, seedDraftId, onDraftId]);
+  }, [
+    enabled,
+    targetId,
+    kind,
+    form,
+    draftId,
+    seedDraftId,
+    onDraftId,
+    onVerifyStateRestored,
+  ]);
 
   return { restoring };
 }
@@ -82,11 +112,16 @@ export async function clearModalFormDraft(
   kind: FormDraftKind,
   targetId: string,
   draftId: string | null
-): Promise<void> {
+): Promise<boolean> {
   if (typeof window !== "undefined") {
     sessionStorage.removeItem(modalDraftStorageKey(kind, targetId));
   }
   if (draftId) {
-    await deleteFormDraftAction(draftId);
+    const res = await deleteFormDraftAction(draftId);
+    if (!res.success) {
+      toast.error(res.message ?? "Could not delete draft");
+      return false;
+    }
   }
+  return true;
 }

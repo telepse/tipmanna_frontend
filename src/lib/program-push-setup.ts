@@ -10,6 +10,18 @@ export type ProgramPushSetupResult =
   | "merge_failed"
   | "push_failed";
 
+/** Merge guest subscriber reminders onto tipper (email + in-app only). */
+export async function mergeGuestProgramRemindersOnly(params: {
+  email: string;
+  token: string | null | undefined;
+}): Promise<boolean> {
+  const mergeRes = await mergeSubscriberRemindersAction(
+    { email: params.email },
+    params.token
+  );
+  return mergeRes.success;
+}
+
 /** Merge guest subscriber reminders onto tipper, then enable push if needed. */
 export async function completeGuestProgramPushSetup(params: {
   email: string;

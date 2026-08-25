@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { User } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
@@ -17,9 +16,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { uploadImage } from "@/lib/cloudinary";
 import { COMMUNITY_TYPE_LABELS } from "@/lib/community-type-labels";
+import { getHostUserFromCookies } from "@/lib/host-session-client";
 import { normalizeEmail } from "@/lib/normalize-email";
 import {
   COMMUNITY_TYPE_OPTIONS,
@@ -30,11 +31,30 @@ import type { RootState } from "@/redux/store";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSubmittedSuccess?: (eventSlug: string) => void;
 };
 
-export function StartCommunityRequestDialog({ open, onOpenChange }: Props) {
-  const { user, token: authToken } = useSelector((s: RootState) => s.auth);
+function manageHostCommunityHref(eventSlug: string) {
+  return `/host/${encodeURIComponent(eventSlug)}/host-community`;
+}
+
+export function StartCommunityRequestDialog({
+  open,
+  onOpenChange,
+  onSubmittedSuccess,
+}: Props) {
+  const { user } = useSelector((s: RootState) => s.auth);
   const userId = user?.id;
+  const { canWriteAsHost, capability } = useHostCapabilityWithAuth();
+
+  const eventSlug = useMemo(() => {
+    const hostSessionSlug = getHostUserFromCookies()?.eventSlug?.trim() ?? "";
+    if (hostSessionSlug) return hostSessionSlug;
+    if (capability.status === "active") {
+      return capability.eventSlug?.trim() ?? "";
+    }
+    return "";
+  }, [capability]);
 
   const [interestName, setInterestName] = useState("");
   const [interestDesc, setInterestDesc] = useState("");
@@ -45,6 +65,10 @@ export function StartCommunityRequestDialog({ open, onOpenChange }: Props) {
   const [interestEmail, setInterestEmail] = useState("");
   const [interestPhone, setInterestPhone] = useState("");
   const [interestSubmitting, setInterestSubmitting] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
+    null
+  );
+  const redirectSlugRef = useRef("");
 
   const {
     readableImage: interestLogoPreview,
@@ -64,15 +88,49 @@ export function StartCommunityRequestDialog({ open, onOpenChange }: Props) {
     setInterestEmail(email);
   }, [open, user]);
 
+  useEffect(() => {
+    if (redirectCountdown === null) return;
+    if (redirectCountdown <= 0) {
+      const slug = redirectSlugRef.current;
+      if (slug) {
+        window.open(manageHostCommunityHref(slug), "_blank", "noreferrer");
+      }
+      setRedirectCountdown(null);
+      redirectSlugRef.current = "";
+      onOpenChange(false);
+      setInterestName("");
+      setInterestDesc("");
+      setInterestStart("");
+      setInterestPhone("");
+      handleRemoveInterestLogo();
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setRedirectCountdown(current => (current ?? 1) - 1),
+      1000
+    );
+    return () => window.clearTimeout(timer);
+  }, [handleRemoveInterestLogo, onOpenChange, redirectCountdown]);
+
+  const resetForm = () => {
+    setInterestName("");
+    setInterestDesc("");
+    setInterestStart("");
+    setInterestPhone("");
+    setRedirectCountdown(null);
+    redirectSlugRef.current = "";
+    handleRemoveInterestLogo();
+  };
+
   const handleClose = (nextOpen: boolean) => {
+    if (!nextOpen) resetForm();
     onOpenChange(nextOpen);
-    if (!nextOpen) handleRemoveInterestLogo();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !authToken) {
-      toast.error("Sign in to send this request.");
+    if (!userId || !canWriteAsHost) {
+      toast.error("Sign in to your host account to send this request.");
       return;
     }
 
@@ -96,7 +154,7 @@ export function StartCommunityRequestDialog({ open, onOpenChange }: Props) {
         }
       }
 
-      const r = await submitCommunityStartInterestAction(authToken, {
+      const r = await submitCommunityStartInterestAction({
         communityName,
         description,
         communityType: interestType,
@@ -108,11 +166,13 @@ export function StartCommunityRequestDialog({ open, onOpenChange }: Props) {
 
       if (r.success) {
         toast.success("Interest sent — admins have been notified.");
-        handleClose(false);
-        setInterestName("");
-        setInterestDesc("");
-        setInterestStart("");
-        setInterestPhone("");
+        if (eventSlug) {
+          redirectSlugRef.current = eventSlug;
+          onSubmittedSuccess?.(eventSlug);
+          setRedirectCountdown(5);
+        } else {
+          handleClose(false);
+        }
       } else {
         toast.error(r.message ?? "Could not send request");
       }
@@ -127,128 +187,150 @@ export function StartCommunityRequestDialog({ open, onOpenChange }: Props) {
       onOpenChange={handleClose}
     >
       <DialogContent className="flex max-h-[min(90dvh,640px)] flex-col gap-0 overflow-hidden sm:max-w-lg">
-        <DialogHeader className="shrink-0 space-y-2 pr-6 pb-2">
-          <DialogTitle>Tell us about your community idea</DialogTitle>
-          <DialogDescription>
-            Share a few details so our team knows you are interested. This
-            notifies admins only — it does not activate a community
-          </DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <form
-            className="space-y-3 pb-1"
-            onSubmit={e => void handleSubmit(e)}
-          >
-            <div className="space-y-1">
-              <Label htmlFor="creator-sc-name">Community name</Label>
-              <Input
-                id="creator-sc-name"
-                value={interestName}
-                onChange={e => setInterestName(e.target.value)}
-                placeholder="Working title"
-                required
-                autoComplete="organization"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="creator-sc-desc">Short description</Label>
-              <Textarea
-                id="creator-sc-desc"
-                value={interestDesc}
-                onChange={e => setInterestDesc(e.target.value)}
-                placeholder="What is it about?"
-                rows={3}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label id="creator-sc-type-label">Community type</Label>
-              <div
-                className="flex flex-wrap gap-2"
-                role="radiogroup"
-                aria-labelledby="creator-sc-type-label"
+        {redirectCountdown !== null ? (
+          <>
+            <DialogHeader className="shrink-0 space-y-2 pr-6 pb-2">
+              <DialogTitle>Request sent</DialogTitle>
+              <DialogDescription>
+                Opening your host community setup in a new tab…
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center justify-center gap-3 py-10">
+              <p className="text-muted-foreground text-sm">Redirecting in</p>
+              <p
+                className="text-primary text-6xl font-bold tabular-nums"
+                aria-live="polite"
               >
-                {COMMUNITY_TYPE_OPTIONS.map(opt => (
-                  <Button
-                    key={opt}
-                    type="button"
-                    role="radio"
-                    aria-checked={interestType === opt}
-                    variant={interestType === opt ? "default" : "outline"}
-                    size="sm"
-                    className="h-auto shrink-0 rounded-full px-3 py-1.5 font-normal"
-                    onClick={() => setInterestType(opt)}
+                {redirectCountdown}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <DialogHeader className="shrink-0 space-y-2 pr-6 pb-2">
+              <DialogTitle>Tell us about your community idea</DialogTitle>
+              <DialogDescription>
+                Share a few details so our team knows you are interested. This
+                notifies admins only — it does not activate a community
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <form
+                className="space-y-3 pb-1"
+                onSubmit={e => void handleSubmit(e)}
+              >
+                <div className="space-y-1">
+                  <Label htmlFor="creator-sc-name">Community name</Label>
+                  <Input
+                    id="creator-sc-name"
+                    value={interestName}
+                    onChange={e => setInterestName(e.target.value)}
+                    placeholder="Working title"
+                    required
+                    autoComplete="organization"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="creator-sc-desc">Short description</Label>
+                  <Textarea
+                    id="creator-sc-desc"
+                    value={interestDesc}
+                    onChange={e => setInterestDesc(e.target.value)}
+                    placeholder="What is it about?"
+                    rows={3}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label id="creator-sc-type-label">Community type</Label>
+                  <div
+                    className="flex flex-wrap gap-2"
+                    role="radiogroup"
+                    aria-labelledby="creator-sc-type-label"
                   >
-                    {COMMUNITY_TYPE_LABELS[opt]}
+                    {COMMUNITY_TYPE_OPTIONS.map(opt => (
+                      <Button
+                        key={opt}
+                        type="button"
+                        role="radio"
+                        aria-checked={interestType === opt}
+                        variant={interestType === opt ? "default" : "outline"}
+                        size="sm"
+                        className="h-auto shrink-0 rounded-full px-3 py-1.5 font-normal"
+                        onClick={() => setInterestType(opt)}
+                      >
+                        {COMMUNITY_TYPE_LABELS[opt]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="creator-sc-start">
+                    Interested start date{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (optional)
+                    </span>
+                  </Label>
+                  <Input
+                    id="creator-sc-start"
+                    type="date"
+                    value={interestStart}
+                    onChange={e => setInterestStart(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="creator-sc-email">
+                    How can we reach you? (email)
+                  </Label>
+                  <Input
+                    id="creator-sc-email"
+                    type="email"
+                    value={interestEmail}
+                    onChange={e => setInterestEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="creator-sc-phone">
+                    Phone{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (with country code, optional)
+                    </span>
+                  </Label>
+                  <Input
+                    id="creator-sc-phone"
+                    value={interestPhone}
+                    onChange={e => setInterestPhone(e.target.value)}
+                    placeholder="+44 …"
+                    autoComplete="tel"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="submit"
+                    disabled={interestSubmitting}
+                  >
+                    {interestSubmitting ? "Sending…" : "Send interest"}
                   </Button>
-                ))}
-              </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={interestSubmitting}
+                    onClick={() => handleClose(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                <p className="text-muted-foreground text-[11px]">
+                  Your request is stored securely and every admin receives an
+                  in-app notification.
+                </p>
+              </form>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="creator-sc-start">
-                Interested start date{" "}
-                <span className="text-muted-foreground font-normal">
-                  (optional)
-                </span>
-              </Label>
-              <Input
-                id="creator-sc-start"
-                type="date"
-                value={interestStart}
-                onChange={e => setInterestStart(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="creator-sc-email">
-                How can we reach you? (email)
-              </Label>
-              <Input
-                id="creator-sc-email"
-                type="email"
-                value={interestEmail}
-                onChange={e => setInterestEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="creator-sc-phone">
-                Phone{" "}
-                <span className="text-muted-foreground font-normal">
-                  (with country code, optional)
-                </span>
-              </Label>
-              <Input
-                id="creator-sc-phone"
-                value={interestPhone}
-                onChange={e => setInterestPhone(e.target.value)}
-                placeholder="+44 …"
-                autoComplete="tel"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button
-                type="submit"
-                disabled={interestSubmitting}
-              >
-                {interestSubmitting ? "Sending…" : "Send interest"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={interestSubmitting}
-                onClick={() => handleClose(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-            <p className="text-muted-foreground text-[11px]">
-              Your request is stored securely and every admin receives an in-app
-              notification.
-            </p>
-          </form>
-        </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

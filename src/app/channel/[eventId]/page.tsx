@@ -35,6 +35,19 @@ interface ChannelData {
   };
 }
 
+function unwrapChannelList(data: unknown): any[] {
+  if (Array.isArray(data)) return data;
+  if (
+    data &&
+    typeof data === "object" &&
+    "formattedContents" in data &&
+    Array.isArray((data as { formattedContents?: unknown[] }).formattedContents)
+  ) {
+    return (data as { formattedContents: any[] }).formattedContents;
+  }
+  return [];
+}
+
 /**
  * GENERATE METADATA
  * Handles SEO and Social Media tags for LinkedIn, Twitter, etc.
@@ -48,9 +61,9 @@ export async function generateMetadata({
   const initialChannelId = parseChannelSearchParam(sp);
 
   const res = (await getContentChannelAction(eventId)) as ActionResult<
-    ChannelData[]
+    ChannelData[] | { formattedContents: ChannelData[] }
   >;
-  const list = Array.isArray(res.data) ? res.data : [];
+  const list = unwrapChannelList(res.data);
   const defaultChannel = pickInitialChannelContent(list, initialChannelId);
   const hostName = list[0]?.event?.hostName ?? "";
   const creatorFirstName = hostName.split(" ")[0];
@@ -87,7 +100,7 @@ export default async function ChannelPage({ params, searchParams }: Props) {
   const initialChannelId = parseChannelSearchParam(sp);
 
   const [
-    { data: contents },
+    contentsRes,
     { data: characters },
     { data: globalCharacterSets },
     eventRes,
@@ -97,6 +110,8 @@ export default async function ChannelPage({ params, searchParams }: Props) {
     getAllCharacterSets(),
     getEventByIdAction(eventId),
   ]);
+
+  const list = unwrapChannelList(contentsRes.data);
 
   const eventCatalog = parseEventCharacterCatalog(
     eventRes.success ? eventRes.data?.characterSets : []
@@ -116,7 +131,6 @@ export default async function ChannelPage({ params, searchParams }: Props) {
 
   if (!eventId) return <div>Channel not found</div>;
 
-  const list = Array.isArray(contents as any[]) ? (contents as any[]) : [];
   const canonicalEventId = (list[0] as { event?: { id?: string } } | undefined)
     ?.event?.id;
   if (canonicalEventId && canonicalEventId !== eventId) {

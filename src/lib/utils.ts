@@ -184,6 +184,25 @@ export function formatUtcTime(date: Date | string) {
   });
 }
 
+// -------- Format event message date ------- //
+export function formatEventMessageDate(date: Date | string) {
+  const dateObj = new Date(date);
+
+  const formattedDate = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  })
+    .format(dateObj)
+    .replace(/am|pm/i, match => match.toUpperCase());
+
+  return formattedDate;
+}
+
 // ------- Get event stats -------- //
 export { getHostEventStats as getEventStats } from "@/lib/host-event-stats";
 

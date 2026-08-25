@@ -8,16 +8,15 @@ import { Clock, Eye, MoveUpRight, Share2, Star, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
 import { changeEventVideoDisplaySettingsAction } from "@/actions/events";
 import { EventRoomVideosModal } from "@/components/dashboard/event-room-videos-modal";
 import { PremiumFeatureBadge } from "@/components/dashboard/premium-feature-badge";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useHostSession } from "@/hooks/use-host-session";
 import { formatDate } from "@/lib/formatDate";
 import { buildChannelSharePath } from "@/lib/public-video-url";
-import { RootState } from "@/redux/store";
 
 interface DefaultChannelInfo {
   id: string;
@@ -58,7 +57,7 @@ export function ManageEventCard({
   variant = "event",
   defaultChannel,
 }: Props) {
-  const user = useSelector((state: RootState) => state.auth.user);
+  const hostSession = useHostSession();
   const params = useParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const { capabilities } = useHostPlanCapabilities();
@@ -77,10 +76,7 @@ export function ManageEventCard({
     setShowEncounter(showEncounterOnVideos);
   }, [showAmountRaisedOnVideos, showViewCountOnVideos, showEncounterOnVideos]);
 
-  let eventCode;
-  if (user?.role === "HOST") {
-    eventCode = user?.eventCode;
-  }
+  const eventCode = hostSession.eventCode;
 
   const canToggleDisplay = capabilities.toggleVideoDisplaySettings;
   const canAccessTipLayout = capabilities.accessTipLayout;

@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useSelector } from "react-redux";
 
+import {
+  getCommunityAnalyticsSummaryAction,
+  getCommunityAnalyticsVideoRollupsAction,
+} from "@/actions/community-host-dashboard";
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { RootState } from "@/redux/store";
 
 type AnalyticsSummary = {
   dateRange?: { from: string; to: string };
@@ -89,11 +91,6 @@ export function CommunityAnalyticsHostClient({
 }) {
   const searchParams = useSearchParams();
   const communityId = searchParams.get("communityId")?.trim() ?? "";
-  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
-  const userId = useSelector((s: RootState) => s.auth.user?.id);
-  const authToken = useSelector((s: RootState) => s.auth.token);
-
-  const resolvedToken = useMemo(() => authToken?.trim() ?? "", [authToken]);
 
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [rollups, setRollups] = useState<VideoRollupRow[]>([]);
@@ -106,37 +103,28 @@ export function CommunityAnalyticsHostClient({
   );
 
   const load = useCallback(async () => {
-    if (!communityId || !userId) return;
-    const t = resolvedToken;
-    if (!t) {
-      setErr("Sign in");
-      return;
-    }
+    if (!communityId) return;
     setLoading(true);
     setErr(null);
     try {
-      const [s, r] = await Promise.all([
-        fetch(
-          `${base}/communities/${encodeURIComponent(communityId)}/analytics/summary`,
-          { headers: { Authorization: `Bearer ${t}` } }
-        ),
-        fetch(
-          `${base}/communities/${encodeURIComponent(communityId)}/analytics/video-rollups`,
-          { headers: { Authorization: `Bearer ${t}` } }
-        ),
+      const [sRes, rRes] = await Promise.all([
+        getCommunityAnalyticsSummaryAction(communityId),
+        getCommunityAnalyticsVideoRollupsAction(communityId),
       ]);
-      if (!s.ok) throw new Error(`Summary ${s.status}`);
-      if (!r.ok) throw new Error(`Rollups ${r.status}`);
-      const sJson: unknown = await s.json();
-      const rJson: unknown = await r.json();
-      setSummary(extractSummary(sJson));
-      setRollups(extractRollups(rJson));
+      if (!sRes.success) {
+        throw new Error(sRes.message ?? sRes.error ?? "Summary failed");
+      }
+      if (!rRes.success) {
+        throw new Error(rRes.message ?? rRes.error ?? "Rollups failed");
+      }
+      setSummary(extractSummary(sRes.data));
+      setRollups(extractRollups(rRes.data));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");
     } finally {
       setLoading(false);
     }
-  }, [base, communityId, resolvedToken, userId]);
+  }, [communityId]);
 
   useEffect(() => {
     void load();

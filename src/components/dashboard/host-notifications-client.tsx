@@ -1,34 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
 import { Button } from "@/components/ui/button";
 import {
-  listNotificationsMeAction,
-  markAllNotificationsReadAction,
-  markNotificationReadAction,
+  listHostNotificationsMeAction,
+  markAllHostNotificationsReadAction,
+  markHostNotificationReadAction,
   type InAppNotificationRow,
 } from "@/actions/notifications";
 import { HostNotificationPreferences } from "@/components/dashboard/host-notification-preferences";
-import type { RootState } from "@/redux/store";
 import { cn } from "@/lib/utils";
 
 export function HostNotificationsClient() {
-  const user = useSelector((s: RootState) => s.auth.user);
   const [rows, setRows] = useState<InAppNotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!user?.id) {
-      setLoading(false);
-      setRows([]);
-      return;
-    }
     setLoading(true);
-    const res = await listNotificationsMeAction(undefined, { limit: 80 });
+    const res = await listHostNotificationsMeAction({ limit: 80 });
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load notifications");
       setRows([]);
@@ -36,15 +28,14 @@ export function HostNotificationsClient() {
       setRows(res.data.notifications ?? []);
     }
     setLoading(false);
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const markOne = async (id: string) => {
-    if (!user?.id) return;
-    const res = await markNotificationReadAction(id);
+    const res = await markHostNotificationReadAction(id);
     if (!res.success) {
       toast.error(res.message ?? "Could not update");
       return;
@@ -53,8 +44,7 @@ export function HostNotificationsClient() {
   };
 
   const markAll = async () => {
-    if (!user?.id) return;
-    const res = await markAllNotificationsReadAction();
+    const res = await markAllHostNotificationsReadAction();
     if (!res.success) {
       toast.error(res.message ?? "Could not update");
       return;

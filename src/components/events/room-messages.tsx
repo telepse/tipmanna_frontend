@@ -40,6 +40,7 @@ interface Props {
   eventDate: string;
   startTime: string;
   endTime: string;
+  timeZone?: string;
   eventBanner: string;
   venueName?: string;
   venueLocation?: string;
@@ -67,6 +68,7 @@ export const RoomMessages = ({
   eventDate,
   startTime,
   endTime,
+  timeZone,
   eventBanner,
   venueName,
   venueLocation,
@@ -205,6 +207,7 @@ export const RoomMessages = ({
           eventDate={eventDate}
           startTime={startTime}
           endTime={endTime}
+          timeZone={timeZone}
           eventName={eventName}
           organizationName={organizationName}
           eventBanner={eventBanner}

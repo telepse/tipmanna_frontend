@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
-// Third-party imports
 import { Button } from "@/components/ui/button";
-import { Tv } from "lucide-react";
-
-// Local imports
-import { CreateDialog } from "./create-dialog";
 import { ALREADY_WATCHING_FEATURES } from "@/constants";
 import { Paragraph } from "@/components/shared/paragraph";
 import { Title } from "@/components/shared/title";
-import { useMediaQuery } from "react-responsive";
+
+const CreateDialog = dynamic(
+  () => import("./create-dialog").then(m => m.CreateDialog),
+  { ssr: false }
+);
 
 const PARTICLES = [
   { top: "10%", left: "8%" },
@@ -30,11 +30,8 @@ const PARTICLES = [
 export const AlreadyWatching = () => {
   const [openPopup, setOpenPopup] = useState(false);
 
-  const isMobile = useMediaQuery({ query: "(max-width: 768px)" });
-
   return (
     <section className="relative mt-6 overflow-hidden bg-black lg:mt-12">
-      {/* Radial glow at top */}
       <div
         aria-hidden
         className="pointer-events-none absolute top-0 left-1/2 z-0 h-[400px] w-[800px] -translate-x-1/2 -translate-y-1/2"
@@ -57,8 +54,6 @@ export const AlreadyWatching = () => {
         ))}
       </div>
 
-      <div className="blur"></div>
-
       <div className="section relative z-10 flex flex-col items-center px-4 py-12 lg:py-16">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:w-[960px] lg:grid-cols-3 lg:gap-8">
           {ALREADY_WATCHING_FEATURES.map((item, index) => (
@@ -70,14 +65,14 @@ export const AlreadyWatching = () => {
                 size="lg"
                 weight="bold"
                 align="center"
-                className={`text-${item.txtColor}`}
+                className={item.textClassName}
               >
                 {item.title}
               </Paragraph>
               <Paragraph
                 size="sm"
                 align="center"
-                className={`-mt-2 lg:mt-0 text-${item.txtColor}`}
+                className={`-mt-2 lg:mt-0 ${item.textClassName}`}
               >
                 {item.content}
               </Paragraph>
@@ -110,34 +105,33 @@ export const AlreadyWatching = () => {
           </Paragraph>
         </div>
 
-        {/* CTA */}
-        {/* CTA */}
         <div className="mt-4 flex gap-2">
           <Button
-            size={isMobile ? "sm" : "lg"}
-            aria-label="Explore Contents"
+            size="lg"
+            className="h-10 w-fit flex-1 shrink-0 px-3 text-sm sm:h-11 sm:px-8 sm:text-base"
+            aria-label="Create your channel"
             aria-haspopup="dialog"
             onClick={() => setOpenPopup(true)}
-            className="w-fit flex-1 shrink-0"
           >
             Create <span className="hidden sm:inline">Your</span> Channel
           </Button>
 
           <Button
             asChild
-            size={isMobile ? "sm" : "lg"}
-            aria-label="Watch TV"
-            aria-haspopup="dialog"
-            className="w-fit flex-1 shrink-0 bg-white text-black hover:bg-white/80"
+            size="lg"
+            className="h-10 w-fit flex-1 shrink-0 bg-white px-3 text-sm text-black hover:bg-white/80 sm:h-11 sm:px-8 sm:text-base"
+            aria-label="See pricing"
           >
-            <a href="/partner#pricing">See pricing</a>
+            <Link href="/partner#pricing">See pricing</Link>
           </Button>
         </div>
 
-        <CreateDialog
-          openPopup={openPopup}
-          setOpenPopup={setOpenPopup}
-        />
+        {openPopup ? (
+          <CreateDialog
+            openPopup={openPopup}
+            setOpenPopup={setOpenPopup}
+          />
+        ) : null}
       </div>
     </section>
   );

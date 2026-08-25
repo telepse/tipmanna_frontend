@@ -28,6 +28,7 @@ import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { EventChannelModal } from "./event-channel-modal";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 
 interface ChannelModalProps {
   open: boolean;
@@ -54,6 +55,9 @@ export const SelectDefaultVideoModal = ({
   seedDraftId,
 }: ChannelModalProps) => {
   void frameId;
+  const { handleAuthRequiredError, HostAuthModal } = useHostCapabilityWithAuth({
+    cohostEventId: eventId,
+  });
   const [loading, setLoading] = useState(false);
   const [addVideoForm, setAddVideoForm] =
     useState<UseFormReturn<AddVideoFormValues> | null>(null);
@@ -73,6 +77,9 @@ export const SelectDefaultVideoModal = ({
       const payload = buildCreateChannelPayload(values);
       const res = await createEventChannelAction(payload, eventId);
       if (!res.success) {
+        if (handleAuthRequiredError(res, () => void onSubmit(values))) {
+          return;
+        }
         if (addVideoForm) {
           applyServerFormErrors(
             addVideoForm,
@@ -112,7 +119,19 @@ export const SelectDefaultVideoModal = ({
     setUpdatingDefault(true);
 
     try {
-      await updateDefaultChannel(eventId, channelId);
+      const res = await updateDefaultChannel(eventId, channelId);
+      if (!res.success) {
+        if (
+          handleAuthRequiredError(
+            res,
+            () => void handleSetDefaultChannel(channelId)
+          )
+        ) {
+          return;
+        }
+        toast.error(res.message ?? "Failed to set default channel");
+        return;
+      }
 
       setDefaultChannelId(channelId);
       toast.success("Default channel updated!");
@@ -151,69 +170,72 @@ export const SelectDefaultVideoModal = ({
   const [channelModalOpen, setChannelModalOpen] = useState(false);
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onClose}
-    >
-      <DialogContent className="max-h-[70vh] w-full max-w-xs overflow-y-scroll">
-        <h2 className="text-xl font-medium">
-          Select default video for your channel
-        </h2>
+    <>
+      {HostAuthModal}
+      <Dialog
+        open={open}
+        onOpenChange={onClose}
+      >
+        <DialogContent className="max-h-[70vh] w-full max-w-xs overflow-y-scroll">
+          <h2 className="text-xl font-medium">
+            Select default video for your channel
+          </h2>
 
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-muted-foreground text-sm">
-            Select a default video to stream
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-muted-foreground text-sm">
+              Select a default video to stream
+            </p>
 
-          <button
-            className="cursor-pointer rounded-md bg-black p-2 text-white"
-            onClick={() => setChannelModalOpen(prev => !prev)}
-          >
-            Add video
-          </button>
-        </div>
-
-        <EventChannelModal
-          open={channelModalOpen}
-          onClose={() => setChannelModalOpen(false)}
-          channels={channels}
-          isHost={isHost}
-          eventId={eventId}
-          frameId={frameId}
-          liveVideoLink={liveVideoLink}
-          eventEventType={eventEventType}
-          seedDraftId={seedDraftId}
-          resumeSurface="content_room_settings"
-        />
-
-        <div className="text-sm">{liveVideoLink}</div>
-
-        {channels.map(channel => (
-          <div
-            key={channel.id}
-            className="border-primary flex items-center gap-2 rounded-md border-2 p-4 leading-relaxed"
-          >
-            <Checkbox
-              checked={defaultChannelId === channel.id}
-              onCheckedChange={() => handleSetDefaultChannel(channel.id)}
-              disabled={!isHost || updatingDefault}
-              className=""
-            />
-            <span className="text-sm">{channel.title}</span>{" "}
-            {copiedId === channel.id ? (
-              <Check className="size-4" />
-            ) : (
-              <Copy
-                onClick={() => handleCopy(channel.id)}
-                className="size-4 shrink-0"
-              />
-            )}
-            {defaultChannelId === channel.id && (
-              <span className="ml-2 text-sm text-green-600">Default</span>
-            )}
+            <button
+              className="cursor-pointer rounded-md bg-black p-2 text-white"
+              onClick={() => setChannelModalOpen(prev => !prev)}
+            >
+              Add video
+            </button>
           </div>
-        ))}
-      </DialogContent>
-    </Dialog>
+
+          <EventChannelModal
+            open={channelModalOpen}
+            onClose={() => setChannelModalOpen(false)}
+            channels={channels}
+            isHost={isHost}
+            eventId={eventId}
+            frameId={frameId}
+            liveVideoLink={liveVideoLink}
+            eventEventType={eventEventType}
+            seedDraftId={seedDraftId}
+            resumeSurface="content_room_settings"
+          />
+
+          <div className="text-sm">{liveVideoLink}</div>
+
+          {channels.map(channel => (
+            <div
+              key={channel.id}
+              className="border-primary flex items-center gap-2 rounded-md border-2 p-4 leading-relaxed"
+            >
+              <Checkbox
+                checked={defaultChannelId === channel.id}
+                onCheckedChange={() => handleSetDefaultChannel(channel.id)}
+                disabled={!isHost || updatingDefault}
+                className=""
+              />
+              <span className="text-sm">{channel.title}</span>{" "}
+              {copiedId === channel.id ? (
+                <Check className="size-4" />
+              ) : (
+                <Copy
+                  onClick={() => handleCopy(channel.id)}
+                  className="size-4 shrink-0"
+                />
+              )}
+              {defaultChannelId === channel.id && (
+                <span className="ml-2 text-sm text-green-600">Default</span>
+              )}
+            </div>
+          ))}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

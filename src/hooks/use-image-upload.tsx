@@ -1,5 +1,8 @@
 import { useState, useRef } from "react";
 
+// Third-party imports
+import imageCompression from "browser-image-compression";
+
 export const useImageUpload = ({
   maxSizeMB = 1,
   allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jiff"],
@@ -9,9 +12,16 @@ export const useImageUpload = ({
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const img = e.target.files?.[0];
     if (!img) return;
+
+    const options = {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+      fileType: "image/webp",
+    };
 
     if (!allowedTypes.includes(img.type)) {
       setError(`${img.name} format is not supported`);
@@ -23,8 +33,13 @@ export const useImageUpload = ({
       return;
     }
 
-    setError("");
-    setImage(img);
+    try {
+      const compressedImg = await imageCompression(img, options);
+      setImage(compressedImg);
+      setError("");
+    } catch (error) {
+      console.error("Error compressing image:", error);
+    }
 
     const reader = new FileReader();
     reader.onload = event => {

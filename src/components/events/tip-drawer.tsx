@@ -85,6 +85,7 @@ import {
   postTipQuote,
 } from "@/lib/build-tip-quote-request";
 import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
+import { computeTipCartTotal, toMinorUnits } from "@/lib/tip-cart-total";
 
 interface Character {
   id: string;
@@ -493,15 +494,10 @@ export const TipDrawer = ({
     dispatch(setSelectedTips(updated));
   };
 
-  const totalAmount = useMemo(() => {
-    return tipsForTotals.reduce((acc, characterName) => {
-      if (characterName === "Comment") {
-        return acc + textUnit;
-      }
-      const character = tippingCharacters.find(c => c.name === characterName);
-      return acc + (character?.price || 0);
-    }, 0);
-  }, [tipsForTotals, tippingCharacters, textUnit]);
+  const totalAmount = useMemo(
+    () => computeTipCartTotal(tipsForTotals, tippingCharacters, textUnit),
+    [tipsForTotals, tippingCharacters, textUnit]
+  );
 
   const rewardEligibility = useMemo(
     () =>
@@ -603,6 +599,53 @@ export const TipDrawer = ({
   const stripe = useStripe();
   const elements = useElements();
 
+  const ensureVisitorAccount = useCallback(async () => {
+    if (userId) return;
+
+    const visitorRes = await createVisitorTipperAction(getDeviceKey());
+
+    if (!visitorRes?.visitor) {
+      throw new Error("Unable to create visitor account");
+    }
+
+    const v = visitorRes.visitor as {
+      id: string;
+      fullName: string;
+      email?: string;
+      username: string;
+    };
+    const { id, fullName, email, username } = v;
+    const token = visitorRes.token as string;
+
+    dispatch(
+      setCredentials({
+        user: {
+          id,
+          fullName,
+          email: email ?? "",
+          username,
+          role: "VISITOR",
+        },
+        token,
+      })
+    );
+
+    await persistAuthSession(
+      token ?? "",
+      {
+        id,
+        fullName,
+        email: email ?? "",
+        username,
+        role: "VISITOR",
+      },
+      { expiresDays: 1 }
+    );
+    touchVisitorTimestamp();
+    invalidateProfileDrawerCache();
+    dispatchAuthChanged();
+  }, [userId, dispatch]);
+
   const handleDefaultPayButton = async () => {
     await onConfirm();
   };
@@ -628,61 +671,10 @@ export const TipDrawer = ({
 
     setIsProcessing(true);
 
-    let finalUserId = userId;
-    let finalRole = role;
-
-    // If user is not logged in, create a visitor/tipper account
-    if (!userId) {
-      const visitorRes = await createVisitorTipperAction(getDeviceKey());
-
-      if (!visitorRes || !visitorRes.visitor) {
-        setErrorMessage("Unable to create visitor account");
-        setIsProcessing(false);
-        return;
-      }
-
-      const v = visitorRes.visitor as {
-        id: string;
-        fullName: string;
-        email?: string;
-        username: string;
-      };
-      const { id, fullName, email, username } = v;
-      const token = visitorRes.token as string;
-
-      if (visitorRes.visitor) {
-        dispatch(
-          setCredentials({
-            user: {
-              id,
-              fullName,
-              email: email ?? "",
-              username,
-              role: "VISITOR",
-            },
-            token,
-          })
-        );
-        finalUserId = v.id;
-        finalRole = "VISITOR";
-
-        await persistAuthSession(
-          token ?? "",
-          {
-            id,
-            fullName,
-            email: email ?? "",
-            username,
-            role: "VISITOR",
-          },
-          { expiresDays: 1 }
-        );
-        touchVisitorTimestamp();
-        invalidateProfileDrawerCache();
-        dispatchAuthChanged();
-      } else {
-        throw new Error("Failed to create visitor account");
-      }
+    try {
+      elements.update({ amount: toMinorUnits(walletPayTotal) });
+    } catch {
+      /* Elements may reject if cart is empty; submit will surface the error */
     }
 
     const { error: submitError } = await elements.submit();
@@ -755,8 +747,8 @@ export const TipDrawer = ({
         body: JSON.stringify({
           amount: Number(walletPayTotal),
           eventId,
-          userId: finalUserId,
-          role: finalRole,
+          userId,
+          role,
           characters: walletPayLines,
           confirmationTokenId: confirmationToken?.id,
           performerId,
@@ -868,23 +860,40 @@ export const TipDrawer = ({
       setIsProcessing(false);
       setIsRedirecting(false);
       return;
-    } else {
-      // The payment UI automatically closes with a success animation.
-      // Your customer is redirected to your `return_url`.
-      // router.push("/success");
-      // window.location.href = `${process.env.NEXT_PUBLIC_FRONTEND_APP_URL}/success`;
-      setIsRedirecting(true);
-      // router.replace(`${process.env.NEXT_PUBLIC_FRONTEND_APP_URL}/success`);
     }
 
-    if (!confirmError) {
-      // updateAfterPayment(Number(totalAmount))
+    try {
+      await ensureVisitorAccount();
+    } catch {
+      // Payment succeeded; visitor session is best-effort for welcome/onboarding.
     }
+
+    // The payment UI automatically closes with a success animation.
+    // Your customer is redirected to your `return_url`.
+    setIsRedirecting(true);
   };
 
   useEffect(() => {
     router.prefetch("/success");
   }, [router]);
+
+  /** Clear redirect overlay if Stripe navigation fails to leave the page. */
+  useEffect(() => {
+    if (!isRedirecting) return;
+    const watchdog = window.setTimeout(() => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "visible"
+      ) {
+        setIsRedirecting(false);
+        setIsProcessing(false);
+        setErrorMessage(
+          "Payment is processing. If you are not redirected, refresh this page."
+        );
+      }
+    }, 8000);
+    return () => window.clearTimeout(watchdog);
+  }, [isRedirecting]);
 
   const isMobile = useMediaQuery({ maxWidth: 768 });
 
@@ -1272,6 +1281,9 @@ export const TipDrawer = ({
             : undefined
         }
         onWalletDebitSuccess={() => {
+          void ensureVisitorAccount().catch(() => {
+            /* best-effort after successful wallet debit */
+          });
           setIsProcessing(false);
           setIsRedirecting(false);
           setWalletDebitSnapshot(null);

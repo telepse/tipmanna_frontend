@@ -129,7 +129,7 @@ export default function CommunityInviteAcceptPage() {
           className="mt-6"
           variant="outline"
         >
-          <Link href="/">Back to home</Link>
+          <Link href="/explore">Back to home</Link>
         </Button>
       </div>
     );
@@ -148,7 +148,7 @@ export default function CommunityInviteAcceptPage() {
           asChild
           className="mt-6"
         >
-          <Link href="/">Back to home</Link>
+          <Link href="/explore">Back to home</Link>
         </Button>
       </div>
     );

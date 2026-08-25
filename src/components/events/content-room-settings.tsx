@@ -31,6 +31,7 @@ export const ContentRoomSettings = ({
   isHost,
   isCohost,
   eventId,
+  eventHostId,
   channels,
   frameId,
   liveVideoLink,
@@ -43,6 +44,7 @@ export const ContentRoomSettings = ({
   isHost: boolean;
   isCohost: boolean;
   eventId: string;
+  eventHostId: string;
   channels: EventRoomVideoChannel[];
   frameId: string;
   liveVideoLink: string;
@@ -62,30 +64,24 @@ export const ContentRoomSettings = ({
   const [performersModalOpen, setPerformersModalOpen] = useState(false);
   const [projectsModalOpen, setProjectsModalOpen] = useState(false);
 
+  const canManageChannel = isHost || isCohost;
+
   useEffect(() => {
-    if (searchParams.get("openAddVideo") === "1" && isHost) {
+    if (searchParams.get("openAddVideo") === "1" && canManageChannel) {
       setChannelModalOpen(true);
     }
-  }, [searchParams, isHost]);
+  }, [searchParams, canManageChannel]);
 
   const sections: SectionItem[] = [
-    // {
-    //   title: "Drop message in event room",
-    //   // icon: <Settings className="size-5" />,
-    //   onClick: () => setDropMessageModalOpen(true),
-    //   show: isHost,
-    // },
     {
       title: "Select streaming video",
-      // icon: <Youtube className="size-5" />,
       onClick: () => setSelectDefaultVideoModalOpen(true),
-      show: isHost || isCohost,
+      show: canManageChannel,
     },
     {
       title: "Add videos to room channel",
-      // icon: <Youtube className="size-5" />,
       onClick: () => setChannelModalOpen(true),
-      show: isHost || isCohost,
+      show: canManageChannel,
     },
 
     {
@@ -94,12 +90,10 @@ export const ContentRoomSettings = ({
         contributionType === "PERFORMER"
           ? () => setPerformersModalOpen(true)
           : () => setProjectsModalOpen(true),
-      show: isHost || isCohost,
+      show: canManageChannel,
       isPremium: true,
     },
   ];
-
-  console.log("isCohost", isCohost);
 
   return (
     <Dialog
@@ -140,13 +134,14 @@ export const ContentRoomSettings = ({
             open={dropMessageModalOpen}
             onClose={() => setDropMessageModalOpen(false)}
             eventId={eventId}
+            eventHostId={eventHostId}
           />
 
           <SelectDefaultVideoModal
             open={selectDefaultVideoModalOpen}
             onClose={() => setSelectDefaultVideoModalOpen(false)}
             channels={channels}
-            isHost={isHost}
+            isHost={canManageChannel}
             eventId={eventId}
             frameId={frameId}
             liveVideoLink={liveVideoLink}
@@ -158,7 +153,7 @@ export const ContentRoomSettings = ({
             open={channelModalOpen}
             onClose={() => setChannelModalOpen(false)}
             channels={channels}
-            isHost={isHost}
+            isHost={canManageChannel}
             eventId={eventId}
             frameId={frameId}
             liveVideoLink={liveVideoLink}
@@ -170,7 +165,7 @@ export const ContentRoomSettings = ({
           <AddPerformersModal
             open={performersModalOpen}
             onClose={() => setPerformersModalOpen(false)}
-            isHost={isHost}
+            isHost={canManageChannel}
             eventId={eventId}
             performers={performers} // fetch existing projects if you want
             setPerformers={updatedPerformers =>
@@ -181,7 +176,7 @@ export const ContentRoomSettings = ({
           <AddProjectsModal
             open={projectsModalOpen}
             onClose={() => setProjectsModalOpen(false)}
-            isHost={isHost}
+            isHost={canManageChannel}
             eventId={eventId}
             projects={projects} // fetch existing projects if you want
             setProjects={updatedProjects =>

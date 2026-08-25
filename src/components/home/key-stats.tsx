@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
-import { getImpactInNumbersAction } from "@/actions/home";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Local imports
 import { StatCard } from "./stat-card";
@@ -13,8 +12,6 @@ import { Badge } from "../shared/badge";
 interface Props {
   stats: KeyStat;
 }
-
-export const revalidate = 30;
 
 function defaultKeyStatLastWeek(): KeyStatLastWeek {
   return {
@@ -107,19 +104,46 @@ export default function KeyStats({ stats }: Props) {
   const [liveStats, setLiveStats] = useState<KeyStat>(() =>
     normalizeKeyStat(stats)
   );
+  const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
-    const res = await getImpactInNumbersAction();
-    if (res.success && res.data) {
-      setLiveStats(normalizeKeyStat(res.data));
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch("/api/impact-in-numbers", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setLiveStats(normalizeKeyStat(data));
+    } catch {
+      // Keep last known stats on transient failures.
     }
   }, []);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
+    const tick = () => {
+      if (document.hidden) return;
       void refresh();
-    }, 30_000);
-    return () => window.clearInterval(id);
+    };
+
+    const id = window.setInterval(tick, 30_000);
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        void refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      abortRef.current?.abort();
+    };
   }, [refresh]);
 
   return (
@@ -143,12 +167,12 @@ export default function KeyStats({ stats }: Props) {
 
             <Image
               src="/vectors/impact_vector.webp"
-              alt="Impact vector"
+              alt=""
               width={100}
               height={100}
-              priority
+              loading="lazy"
               className="absolute right-0 bottom-0 size-40 rounded-b-2xl object-contain"
-              aria-hidden="true"
+              aria-hidden
             />
 
             <Image

@@ -87,6 +87,8 @@ import {
   buildContentShareUrl,
   pickInitialChannelContent,
 } from "@/lib/public-video-url";
+import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
+import { DefaultVideoSwitchPrompt } from "./default-video-switch-prompt";
 import { getCurrentUser } from "./event-room-client";
 import {
   flushTvAnalytics,
@@ -222,6 +224,68 @@ export const ChannelClient = ({
       playableInitial[0]
     )
   );
+  const [defaultChannelId, setDefaultChannelId] = useState<string | null>(
+    () => {
+      const row = playableInitial.find((c: any) => c?.isDefault);
+      return row?.id != null ? String(row.id) : null;
+    }
+  );
+  const [defaultSwitchPrompt, setDefaultSwitchPrompt] = useState<{
+    channelId: string;
+    title: string;
+    url: string;
+  } | null>(null);
+
+  const refreshChannelPlaylist = useCallback(async () => {
+    const res = await getContentChannelAction(eventId);
+    const raw = res.data;
+    const rows = Array.isArray(raw)
+      ? raw
+      : raw &&
+          typeof raw === "object" &&
+          "formattedContents" in raw &&
+          Array.isArray(
+            (raw as { formattedContents?: any[] }).formattedContents
+          )
+        ? (raw as { formattedContents: any[] }).formattedContents
+        : [];
+    const playable = rows.filter((c: any) => !c?.restricted);
+    if (playable.length) {
+      setPlaylist(playable);
+    }
+    return playable;
+  }, [eventId]);
+
+  const currentContentRef = useRef(currentContent);
+  currentContentRef.current = currentContent;
+  const defaultChannelIdRef = useRef(defaultChannelId);
+  defaultChannelIdRef.current = defaultChannelId;
+
+  useDefaultChannelRealtime(eventId, payload => {
+    void refreshChannelPlaylist().then(() => {
+      const prevDefault = defaultChannelIdRef.current;
+      setDefaultChannelId(payload.channelId);
+      const watchingId =
+        currentContentRef.current?.id != null
+          ? String(currentContentRef.current.id)
+          : null;
+      const hasExplicitDeepLink = Boolean(initialChannelId?.trim());
+      if (
+        !watchingId ||
+        watchingId === payload.channelId ||
+        (hasExplicitDeepLink && watchingId !== prevDefault)
+      ) {
+        return;
+      }
+      if (watchingId === prevDefault || !hasExplicitDeepLink) {
+        setDefaultSwitchPrompt({
+          channelId: payload.channelId,
+          title: payload.title,
+          url: payload.url,
+        });
+      }
+    });
+  });
 
   const needsContentEnrichment =
     playableInitial.length === 0 ||
@@ -292,12 +356,20 @@ export const ChannelClient = ({
   const showViewCount = showViewCountOnVideos === true;
   const showEncounterCount = showEncounterOnVideos === true;
 
-  const { amountRaised: liveAmountRaised, numOfTips: liveNumOfTips } =
-    useEventRoomRealtime({
-      eventId,
-      initialAmountRaised: initialEvent?.amountRaised ?? 0,
-      initialNumOfTips: initialEvent?.numOfTips ?? 0,
-    });
+  const {
+    amountRaised: liveAmountRaised,
+    numOfTips: liveNumOfTips,
+    channelNumOfTips: liveChannelNumOfTips,
+  } = useEventRoomRealtime({
+    eventId,
+    initialAmountRaised: initialEvent?.amountRaised ?? 0,
+    initialNumOfTips: initialEvent?.numOfTips ?? 0,
+    channelId: currentContent?.id ? String(currentContent.id) : null,
+    initialChannelNumOfTips:
+      typeof currentContent?.numOfTips === "number"
+        ? currentContent.numOfTips
+        : 0,
+  });
 
   const [currentUser] = useState(() => getCurrentUser());
   const { activeUsers, trackActivity } = usePusherTracking({
@@ -578,7 +650,6 @@ export const ChannelClient = ({
   useEffect(() => {
     setIsMuted(true);
   }, [currentContent?.id]);
-  const [, setAudioUnlocked] = useState(false);
   const [openPlaylist, setOpenPlaylist] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
   const {
@@ -648,15 +719,8 @@ export const ChannelClient = ({
 
   const toggleMute = () => {
     if (!videoRef.current) return;
-
-    if (isMuted) {
-      videoRef.current.unmute();
-      setIsMuted(false);
-    } else {
-      videoRef.current.mute();
-      setIsMuted(true);
-      setAudioUnlocked(true);
-    }
+    if (isMuted) videoRef.current.unmute();
+    else videoRef.current.mute();
   };
 
   const goToContent = (content: any) => {
@@ -696,8 +760,8 @@ export const ChannelClient = ({
     : false;
 
   const handleSaveToggle = async () => {
-    if (!user?.id) {
-      toast.error("Sign in to save videos");
+    if (!user?.id || user.role === "VISITOR") {
+      toast.error("Sign in as a tipper to save videos");
       return;
     }
     if (!saveChannelId) {
@@ -990,6 +1054,23 @@ export const ChannelClient = ({
           )}
         >
           <div className="relative h-full w-full">
+            {defaultSwitchPrompt ? (
+              <DefaultVideoSwitchPrompt
+                newTitle={defaultSwitchPrompt.title}
+                onSwitch={() => {
+                  const next = playlist.find(
+                    (p: any) => String(p.id) === defaultSwitchPrompt.channelId
+                  ) ?? {
+                    id: defaultSwitchPrompt.channelId,
+                    url: defaultSwitchPrompt.url,
+                    title: defaultSwitchPrompt.title,
+                  };
+                  setCurrentContent(next);
+                  setDefaultSwitchPrompt(null);
+                }}
+                onDismiss={() => setDefaultSwitchPrompt(null)}
+              />
+            ) : null}
             <VideoSurfaceBadges
               {...pickVideoSurfaceBadgeProps(currentContent, eventId)}
               position="top-right"
@@ -1412,6 +1493,7 @@ export const ChannelClient = ({
             {tipPreviewOpen && (
               <TippingElementsProvider
                 tippingCharacters={tipStrip as RoomCharacter[]}
+                textTipUnitPrice={tipPres.textUnitPrice}
               >
                 <div className="absolute -bottom-6 left-1/2 mx-auto h-[240px] w-[40%] -translate-x-1/2 rounded-t-xl bg-white/80 px-4 py-2 lg:w-[45%]">
                   <div className="relative">
@@ -1643,6 +1725,7 @@ export const ChannelClient = ({
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
           tippingCharacters={tipStrip as RoomCharacter[]}
+          textTipUnitPrice={tipPres.textUnitPrice}
         >
           <TipDrawer
             open={isTipDrawerOpen}
@@ -1756,7 +1839,10 @@ export const ChannelClient = ({
       </div>
 
       {/* Tip section - MOBILE */}
-      <TippingElementsProvider tippingCharacters={tipStrip as RoomCharacter[]}>
+      <TippingElementsProvider
+        tippingCharacters={tipStrip as RoomCharacter[]}
+        textTipUnitPrice={tipPres.textUnitPrice}
+      >
         <div
           className={cn(
             "absolute sm:hidden",
@@ -1798,11 +1884,7 @@ export const ChannelClient = ({
         eventId={eventId}
         channelId={currentContent?.id ? String(currentContent.id) : null}
         eventRoomTipCount={liveNumOfTips}
-        videoTipCount={
-          typeof currentContent?.numOfTips === "number"
-            ? currentContent.numOfTips
-            : liveNumOfTips
-        }
+        videoTipCount={liveChannelNumOfTips}
       />
 
       {/* PROFILE DRAWER */}

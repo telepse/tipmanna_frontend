@@ -1,7 +1,7 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { LoaderCircle } from "lucide-react";
 
@@ -13,7 +13,6 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const [checking, setChecking] = useState(true);
 
   const { user, token, isAuthenticated, requiresVerification } = useSelector(
@@ -38,14 +37,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       return;
     }
 
-    const isHostPath = pathname.startsWith("/host");
-    if (user?.role === "TIPPER" && isHostPath) {
-      router.replace(`/tipper/${user.username}`);
-      return;
-    }
-
     setChecking(false);
-  }, [isAuthenticated, requiresVerification, user, token, pathname, router]);
+  }, [isAuthenticated, requiresVerification, user, token, router]);
 
   if (checking) {
     return (

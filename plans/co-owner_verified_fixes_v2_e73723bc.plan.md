@@ -4,22 +4,22 @@ overview: "Regression-safe, scope-minimal rollout of verified bugs A1–A11 acro
 todos:
   - id: pr1-a11
     content: "PR-1: Move assertVideoLinksCoOwnerForCreate before event.create in event.controller.ts + test event.create never called on assert failure"
-    status: pending
+    status: completed
   - id: pr2-a4
     content: "PR-2: Remove mergeDraftPayload UUID fallback; flush saveNow on invite send; unit tests for key restore invariants"
-    status: pending
+    status: completed
   - id: pr3-a5
     content: "PR-3: Fix lastSavedAt to update only on successful upsert; optional saveError in DraftSaveIndicator"
-    status: pending
+    status: completed
   - id: pr4-gating
     content: "PR-4: Add evaluateCoOwnerSubmitReadiness; refactor hook, validateCoOwnerDraftsForSubmit, modal AddVideoForm, Pusher refresh (A1+A2+A3+A10)"
-    status: pending
+    status: completed
   - id: pr5-a8
     content: "PR-5 (optional early): Hide co-owned ownership No for create-dialog co-create tab (A8)"
-    status: pending
+    status: completed
   - id: pr6-errors
     content: "PR-6: Error path mapping A6+A7+A9 with snapshot and API contract tests for details[].path"
-    status: pending
+    status: completed
   - id: pr7-residual
     content: "PR-7: Only if PR-4 QA finds remaining A10 submit paths; otherwise skip"
     status: pending
@@ -34,19 +34,19 @@ Scope: **verified bugs A1–A11 only**. No new features. No business-rule change
 
 ## Verified bugs in scope
 
-| ID  | Defect                                                      | Primary location                                                                                                                                                             |
-| --- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1  | Event wizard Pusher approval does not refresh submit gating | [`event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx)                                                                            |
-| A2  | Submit hook starts unblocked before first poll              | [`use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts)                                                                              |
-| A3  | Frontend `some(approved)` vs backend `any(pending)`         | [`coowner-draft-submit.util.ts`](frontend/src/lib/coowner-draft-submit.util.ts), [`event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts) |
-| A4  | `mergeDraftPayload` mints replacement UUID                  | [`form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts)                                                                                                                |
-| A5  | Draft indicator shows saved when upsert failed              | [`use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts)                                                                                                |
-| A6  | Co-owner errors mapped to hidden `coOwnerDraftKey`          | [`coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts)                                                                                                 |
-| A7  | Multi-link errors always use `videoLinks.0.*`               | [`event.controller.ts`](backend/src/controllers/event.controller.ts)                                                                                                         |
-| A8  | Co-creator UI allows co-owned path; backend 403             | [`create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx)                                                                                                        |
-| A9  | Community 403 strings unmapped                              | [`coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts)                                                                                                 |
-| A10 | Modal submit gated on email-based status not in draft       | [`add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx)                                                                                                    |
-| A11 | `event.create` before co-owner validation                   | [`event.controller.ts`](backend/src/controllers/event.controller.ts)                                                                                                         |
+| ID | Defect | Primary location |
+|----|--------|------------------|
+| A1 | Event wizard Pusher approval does not refresh submit gating | [`event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx) |
+| A2 | Submit hook starts unblocked before first poll | [`use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts) |
+| A3 | Frontend `some(approved)` vs backend `any(pending)` | [`coowner-draft-submit.util.ts`](frontend/src/lib/coowner-draft-submit.util.ts), [`event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts) |
+| A4 | `mergeDraftPayload` mints replacement UUID | [`form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts) |
+| A5 | Draft indicator shows saved when upsert failed | [`use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts) |
+| A6 | Co-owner errors mapped to hidden `coOwnerDraftKey` | [`coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts) |
+| A7 | Multi-link errors always use `videoLinks.0.*` | [`event.controller.ts`](backend/src/controllers/event.controller.ts) |
+| A8 | Co-creator UI allows co-owned path; backend 403 | [`create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx) |
+| A9 | Community 403 strings unmapped | [`coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts) |
+| A10 | Modal submit gated on email-based status not in draft | [`add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx) |
+| A11 | `event.create` before co-owner validation | [`event.controller.ts`](backend/src/controllers/event.controller.ts) |
 
 ---
 
@@ -67,12 +67,12 @@ Where `CoOwnerSubmitReadiness` is `{ blocked: boolean; reason: CoOwnerBlockReaso
 
 **Mandatory consumers (no duplicated logic):**
 
-| Consumer                                                                                 | Today                                        | After                                                                  |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
-| [`useCoOwnerDraftSubmitBlocked`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts) | Inline `some(approved)`                      | Calls `evaluateCoOwnerSubmitReadiness` after fetch                     |
-| [`validateCoOwnerDraftsForSubmit`](frontend/src/lib/coowner-draft-submit.util.ts)        | Inline `some(approved)`                      | Same utility + user-facing message from `reason`                       |
-| [`add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx) modal gating   | `coOwnerInviteStatus !== "approved"` (email) | Hook or thin wrapper over same utility + draftKey poll (**fixes A10**) |
-| Pusher immediate refresh (A1)                                                            | N/A                                          | Triggers hook `refresh()`; refresh uses same utility                   |
+| Consumer | Today | After |
+|----------|-------|-------|
+| [`useCoOwnerDraftSubmitBlocked`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts) | Inline `some(approved)` | Calls `evaluateCoOwnerSubmitReadiness` after fetch |
+| [`validateCoOwnerDraftsForSubmit`](frontend/src/lib/coowner-draft-submit.util.ts) | Inline `some(approved)` | Same utility + user-facing message from `reason` |
+| [`add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx) modal gating | `coOwnerInviteStatus !== "approved"` (email) | Hook or thin wrapper over same utility + draftKey poll (**fixes A10**) |
+| Pusher immediate refresh (A1) | N/A | Triggers hook `refresh()`; refresh uses same utility |
 
 **Rule:** No other file may implement approve/pending checks. Future consumers must import this utility only.
 
@@ -129,11 +129,11 @@ prisma.event.create(...)
 
 **Invariants:**
 
-| Scenario                                     | Expected behavior                                                                                                                |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Fresh form, step 4 / modal open              | Existing `useEffect` assigns new UUID                                                                                            |
-| Restore draft with saved key in `policyJson` | Merge restores key; init `useEffect` sees key → **no overwrite**                                                                 |
-| Restore draft without key                    | Merge leaves empty; init `useEffect` assigns new UUID when user reaches step 4 / opens modal — **no silent link to old invites** |
+| Scenario | Expected behavior |
+|----------|-------------------|
+| Fresh form, step 4 / modal open | Existing `useEffect` assigns new UUID |
+| Restore draft with saved key in `policyJson` | Merge restores key; init `useEffect` sees key → **no overwrite** |
+| Restore draft without key | Merge leaves empty; init `useEffect` assigns new UUID when user reaches step 4 / opens modal — **no silent link to old invites** |
 
 **Additional A4 fix (verified bug):** Call `saveNow()` after successful co-owner invite send (event + modal) so key is persisted before 1.5s debounce.
 
@@ -285,19 +285,19 @@ prisma.event.create(...)
 
 ## Per-bug fix summary
 
-| Bug | Fix                                                       | Business rule change?      |
-| --- | --------------------------------------------------------- | -------------------------- |
-| A11 | Move assert before `event.create`                         | No                         |
-| A4  | Remove merge UUID fallback; flush draft on invite         | No                         |
-| A5  | `lastSavedAt` only on success                             | No                         |
-| A1  | Pusher → hook refresh                                     | No                         |
-| A2  | Initial blocked when co-owned links exist                 | No                         |
-| A3  | Shared utility: block if pending                          | No (aligns to backend)     |
-| A10 | Modal uses shared draft-key gating                        | No                         |
-| A8  | Hide/disable co-owned UI for co-creators in create dialog | No (reflects existing 403) |
-| A6  | Map errors to `ownershipAnswer`                           | No                         |
-| A7  | Propagate link index in errors                            | No                         |
-| A9  | Add message map entries                                   | No                         |
+| Bug | Fix | Business rule change? |
+|-----|-----|----------------------|
+| A11 | Move assert before `event.create` | No |
+| A4 | Remove merge UUID fallback; flush draft on invite | No |
+| A5 | `lastSavedAt` only on success | No |
+| A1 | Pusher → hook refresh | No |
+| A2 | Initial blocked when co-owned links exist | No |
+| A3 | Shared utility: block if pending | No (aligns to backend) |
+| A10 | Modal uses shared draft-key gating | No |
+| A8 | Hide/disable co-owned UI for co-creators in create dialog | No (reflects existing 403) |
+| A6 | Map errors to `ownershipAnswer` | No |
+| A7 | Propagate link index in errors | No |
+| A9 | Add message map entries | No |
 
 ---
 
@@ -305,49 +305,49 @@ prisma.event.create(...)
 
 ### PR-1 (A11)
 
-| Type                   | Requirement                                                                                                     |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Type | Requirement |
+|------|-------------|
 | **Unit / integration** | When `assertVideoLinksCoOwnerForCreate` throws, **`prisma.event.create` is not invoked** (mock/spy or DB count) |
-| **Integration**        | POST create with pending co-owner → 400/403/409, no new Event row                                               |
-| **Regression**         | Successful create unchanged                                                                                     |
+| **Integration** | POST create with pending co-owner → 400/403/409, no new Event row |
+| **Regression** | Successful create unchanged |
 
 ### PR-2 (A4)
 
-| Type           | Requirement                                                                                                            |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Unit**       | `mergeDraftPayload`: with saved key in policy → restored key identical; **never emits new UUID when valid key exists** |
-| **Unit**       | `mergeDraftPayload`: without key → returns empty/missing key (no fallback UUID)                                        |
-| **Regression** | Fresh form behavior delegated to existing init effects (integration/E2E)                                               |
+| Type | Requirement |
+|------|-------------|
+| **Unit** | `mergeDraftPayload`: with saved key in policy → restored key identical; **never emits new UUID when valid key exists** |
+| **Unit** | `mergeDraftPayload`: without key → returns empty/missing key (no fallback UUID) |
+| **Regression** | Fresh form behavior delegated to existing init effects (integration/E2E) |
 
 ### PR-3 (A5)
 
-| Type     | Requirement                                                    |
-| -------- | -------------------------------------------------------------- |
+| Type | Requirement |
+|------|-------------|
 | **Unit** | `persistDraft`: failed `res.success` → no `lastSavedAt` update |
 
 ### PR-4 (A1–A3, A10)
 
-| Type            | Requirement                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| **Unit**        | `evaluateCoOwnerSubmitReadiness`: matrix — none/pending only/approved only/approved+pending/API failure |
-| **Unit**        | Assert **all gating paths import and call** shared utility (lint test or explicit imports test file)    |
-| **Integration** | Hook + modal both block/unblock per matrix                                                              |
-| **E2E**         | Pusher/mock approval → immediate unblock (event wizard)                                                 |
-| **E2E**         | Modal draft restore + DB approved → submit enabled without email                                        |
+| Type | Requirement |
+|------|-------------|
+| **Unit** | `evaluateCoOwnerSubmitReadiness`: matrix — none/pending only/approved only/approved+pending/API failure |
+| **Unit** | Assert **all gating paths import and call** shared utility (lint test or explicit imports test file) |
+| **Integration** | Hook + modal both block/unblock per matrix |
+| **E2E** | Pusher/mock approval → immediate unblock (event wizard) |
+| **E2E** | Modal draft restore + DB approved → submit enabled without email |
 
 ### PR-5 (A8)
 
-| Type             | Requirement                              |
-| ---------------- | ---------------------------------------- |
+| Type | Requirement |
+|------|-------------|
 | **E2E / manual** | Co-create tab cannot select ownership No |
 
 ### PR-6 (A6, A7, A9)
 
-| Type         | Requirement                                                                                     |
-| ------------ | ----------------------------------------------------------------------------------------------- |
-| **Snapshot** | `coOwnerErrorFieldPath` / `CO_OWNER_FIELD_MESSAGES` — snapshot of message → path map            |
-| **Contract** | API response tests: `error.details[].path` for each mapped message (including index 1)          |
-| **Unit**     | Assert throws from link index 1 produce `videoLinks.1.ownershipAnswer` or `.url` as appropriate |
+| Type | Requirement |
+|------|-------------|
+| **Snapshot** | `coOwnerErrorFieldPath` / `CO_OWNER_FIELD_MESSAGES` — snapshot of message → path map |
+| **Contract** | API response tests: `error.details[].path` for each mapped message (including index 1) |
+| **Unit** | Assert throws from link index 1 produce `videoLinks.1.ownershipAnswer` or `.url` as appropriate |
 
 ### Cross-PR regression checklist
 
@@ -376,27 +376,27 @@ prisma.event.create(...)
 
 ## Database, API, draft compatibility
 
-| Area                       | Change                                | Migration                                                |
-| -------------------------- | ------------------------------------- | -------------------------------------------------------- |
-| Prisma schema              | None                                  | No                                                       |
-| Draft `policyJson`         | Same fields; keys saved reliably (A4) | No — backward compatible                                 |
-| API success bodies         | Unchanged                             | —                                                        |
-| API error `details[].path` | More accurate paths (PR-6)            | Backward compatible (clients using `message` unaffected) |
-| PII in drafts              | **None introduced**                   | —                                                        |
+| Area | Change | Migration |
+|------|--------|-----------|
+| Prisma schema | None | No |
+| Draft `policyJson` | Same fields; keys saved reliably (A4) | No — backward compatible |
+| API success bodies | Unchanged | — |
+| API error `details[].path` | More accurate paths (PR-6) | Backward compatible (clients using `message` unaffected) |
+| PII in drafts | **None introduced** | — |
 
 ---
 
 ## Risk and Go / No-Go
 
-| PR   | Risk                   | Merge alone?               |
-| ---- | ---------------------- | -------------------------- |
-| PR-1 | Medium (critical path) | Yes                        |
-| PR-2 | Medium                 | Yes                        |
-| PR-3 | Very low               | Yes                        |
-| PR-4 | Medium                 | No — A1+A2+A3+A10 together |
-| PR-5 | Low                    | Yes                        |
-| PR-6 | Low                    | Yes                        |
-| PR-7 | Low                    | Only if needed             |
+| PR | Risk | Merge alone? |
+|----|------|--------------|
+| PR-1 | Medium (critical path) | Yes |
+| PR-2 | Medium | Yes |
+| PR-3 | Very low | Yes |
+| PR-4 | Medium | No — A1+A2+A3+A10 together |
+| PR-5 | Low | Yes |
+| PR-6 | Low | Yes |
+| PR-7 | Low | Only if needed |
 
 **Go** when:
 

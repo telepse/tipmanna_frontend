@@ -107,6 +107,8 @@ type Props = {
   transitionLoadingOverlay?: boolean;
   /** When true, skip window-level click/touch audio unlock (Explore reels manage sound). */
   disableGlobalAudioUnlock?: boolean;
+  /** Applied on player ready; avoids delayed setMuted races on slide changes. */
+  initialMuted?: boolean;
   /** YouTube iframe player error (YT onError `data` code). */
   onError?: (errorCode?: number) => void;
 };
@@ -122,6 +124,8 @@ export type VideoPlayerRef = {
   getTitle: () => string;
   mute: () => void;
   unmute: () => void;
+  /** Unmute and start playback in one user-gesture stack. */
+  unmuteAndPlay: () => void;
   isMuted: () => boolean;
   setMuted: (muted: boolean) => void;
   setvolume: (v: number) => void;
@@ -147,6 +151,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       showLoadingLabel = true,
       transitionLoadingOverlay = true,
       disableGlobalAudioUnlock = false,
+      initialMuted = true,
       onError,
     },
     ref
@@ -165,7 +170,9 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
     const pendingPlayAfterReadyRef = useRef(false);
 
     const [loading, setLoading] = useState(true);
-    const [isMuted, setIsMuted] = useState(true);
+    const [isMuted, setIsMuted] = useState(initialMuted);
+    const initialMutedRef = useRef(initialMuted);
+    initialMutedRef.current = initialMuted;
     const [playerError, setPlayerError] = useState<number | null>(null);
 
     const videoId = extractYoutubeID(videoUrl);
@@ -337,12 +344,17 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
 
             const preferSound =
               playbackActiveRef.current && loadReelSoundPref();
+            const startMuted = preferSound
+              ? false
+              : initialMutedRef.current !== false;
 
             if (wantPlay) {
               event.target.playVideo();
-              if (preferSound) {
+              if (!startMuted) {
                 event.target.unMute();
                 event.target.setVolume(100);
+              } else {
+                event.target.mute();
               }
             } else {
               event.target.pauseVideo();
@@ -414,33 +426,25 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       stop: () => playerRef.current?.stopVideo(),
       mute: () => {
         playerRef.current?.mute();
-        setPlayerMuteState(true);
+        syncMuteFromPlayer();
         persistReelSoundPref(false);
       },
-      // unmute: () => {
-      //   playerRef.current?.unMute();
-      //   setPlayerMuteState(false);
-      //   persistReelSoundPref(true);
-      // },
       unmute: () => {
         const p = playerRef.current;
         if (!p) return;
-
-        const wasPlaying =
-          p.getPlayerState?.() === window.YT.PlayerState.PLAYING;
-        const state = p.getPlayerState?.();
-
         p.unMute();
-        setPlayerMuteState(false);
+        p.setVolume(100);
+        syncMuteFromPlayer();
         persistReelSoundPref(true);
-
-        if (
-          !wasPlaying &&
-          (state === window.YT.PlayerState.PAUSED ||
-            state === window.YT.PlayerState.CUED)
-        ) {
-          p.playVideo();
-        }
+      },
+      unmuteAndPlay: () => {
+        const p = playerRef.current;
+        if (!p) return;
+        p.unMute();
+        p.setVolume(100);
+        syncMuteFromPlayer();
+        persistReelSoundPref(true);
+        p.playVideo();
       },
       isMuted: () => playerRef.current?.isMuted?.() ?? isMuted,
 
@@ -449,25 +453,25 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         if (!p) return;
         if (muted) {
           p.mute();
-          setPlayerMuteState(true);
           persistReelSoundPref(false);
         } else {
           p.unMute();
           p.setVolume(100);
-          setPlayerMuteState(false);
           persistReelSoundPref(true);
         }
+        syncMuteFromPlayer();
       },
 
       setvolume: (v: number) => {
         playerRef.current?.setVolume(v);
         if (v === 0) {
-          setPlayerMuteState(true);
+          playerRef.current?.mute();
           persistReelSoundPref(false);
         } else {
-          setPlayerMuteState(false);
+          playerRef.current?.unMute();
           persistReelSoundPref(true);
         }
+        syncMuteFromPlayer();
       },
       getCurrentTime: () => playerRef.current?.getCurrentTime() ?? 0,
       getDuration: () => playerRef.current?.getDuration() ?? 0,

@@ -27,6 +27,10 @@ import { EVENT_VIDEO_TYPE_OPTIONS } from "@/lib/event-video-type-options";
 import { AddVideoPolicyFields } from "@/components/events/add-video-policy-fields";
 import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
 import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
+import {
+  coOwnerBlockReasonMessage,
+  coOwnerDropWarningMessage,
+} from "@/lib/coowner-submit-readiness.util";
 import { useCoOwnerPusherApprovalRefresh } from "@/hooks/use-coowner-pusher-approval-refresh";
 import {
   mintYoutubeVerifyRequest,
@@ -49,6 +53,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFormDraftAutosave } from "@/hooks/use-form-draft-autosave";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { DraftSaveIndicator } from "@/components/events/draft-save-indicator";
 import { useModalFormDraftRestore } from "@/hooks/use-modal-form-draft-restore";
 import type { FormDraftKind } from "@/actions/form-drafts";
@@ -87,10 +92,6 @@ export type AddVideoFormValues = {
 };
 
 const reminderKeys = ["r1", "r2", "r3"] as const;
-
-function isHostRole(role: string | undefined): boolean {
-  return role?.toUpperCase() === "HOST";
-}
 
 type YoutubeChannelRow = { slot: number; url: string; locked: boolean };
 
@@ -174,7 +175,7 @@ export function AddVideoForm({
   coOwnerPolicyMode = "full",
 }: AddVideoFormProps) {
   const authUser = useSelector((s: RootState) => s.auth.user);
-  const isHost = isHostRole(authUser?.role);
+  const { canWriteAsHost } = useHostCapabilityWithAuth();
   const [youtubeChannels, setYoutubeChannels] = useState<YoutubeChannelRow[]>(
     []
   );
@@ -217,7 +218,7 @@ export function AddVideoForm({
   }, [form, onFormReady]);
 
   useEffect(() => {
-    if (!showHostYoutubeSlot || !isHost) {
+    if (!showHostYoutubeSlot || !canWriteAsHost) {
       setYoutubeChannels([]);
       setYoutubeChannelsLoaded(false);
       return;
@@ -236,7 +237,7 @@ export function AddVideoForm({
         toast.error(res.message ?? "Could not load your YouTube channels");
       }
     });
-  }, [showHostYoutubeSlot, isHost, authUser?.id]);
+  }, [showHostYoutubeSlot, canWriteAsHost, authUser?.id]);
 
   const slotLabel = (slot: 1 | 2) => {
     const row = youtubeChannels.find(c => c.slot === slot);
@@ -249,8 +250,13 @@ export function AddVideoForm({
 
   const watchedUrl = form.watch("url");
   const watchedSlot = form.watch("hostYoutubeSlot");
+  const skipVerifyResetRef = useRef(false);
 
   useEffect(() => {
+    if (skipVerifyResetRef.current) {
+      skipVerifyResetRef.current = false;
+      return;
+    }
     setVerifyState("idle");
   }, [watchedUrl, watchedSlot]);
 
@@ -265,6 +271,10 @@ export function AddVideoForm({
       setModalDraftId(id);
       onDraftIdChange?.(id);
     },
+    onVerifyStateRestored: state => {
+      skipVerifyResetRef.current = true;
+      setVerifyState(state);
+    },
   });
 
   const setReminder = form.watch("setReminder");
@@ -272,13 +282,20 @@ export function AddVideoForm({
   const coOwnerDraftKey = form.watch("coOwnerDraftKey");
   const coOwnerLinkSlice =
     requirePolicyFields && ownershipAnswer === "no"
-      ? [{ ownershipAnswer: "no" as const, coOwnerDraftKey }]
+      ? [
+          {
+            ownershipAnswer: "no" as const,
+            coOwnerDraftKey,
+            title: form.watch("title"),
+          },
+        ]
       : [];
   const {
     blocked: coOwnerSubmitBlocked,
-    checking: coOwnerSubmitChecking,
+    reason: coOwnerBlockReason,
+    warnings: coOwnerWarnings,
     refresh: refreshCoOwnerSubmit,
-  } = useCoOwnerDraftSubmitBlocked(coOwnerLinkSlice);
+  } = useCoOwnerDraftSubmitBlocked(coOwnerLinkSlice, { singleVideo: true });
 
   useCoOwnerPusherApprovalRefresh({
     draftKeys:
@@ -292,7 +309,13 @@ export function AddVideoForm({
     successMessage: `Co-owner approved: ${form.watch("title") || "video"}`,
   });
 
-  const coOwnerSubmitDisabled = coOwnerSubmitBlocked || coOwnerSubmitChecking;
+  const coOwnerSubmitDisabled = coOwnerSubmitBlocked;
+  const verifySubmitDisabled =
+    showHostYoutubeSlot &&
+    (watchedSlot === "1" || watchedSlot === "2") &&
+    (verifyState === "checking" || verifyState !== "verified");
+  const submitDisabled =
+    loading || coOwnerSubmitDisabled || verifySubmitDisabled;
 
   const inheritEventTypeLabel =
     eventEventType &&
@@ -314,6 +337,7 @@ export function AddVideoForm({
         draftAutosave={draftAutosave}
         modalDraftId={modalDraftId}
         modalRestoring={modalRestoring}
+        verifyState={verifyState}
         setModalDraftId={setModalDraftId}
         onDraftIdChange={onDraftIdChange}
       >
@@ -324,6 +348,7 @@ export function AddVideoForm({
                 className="mb-3 px-1"
                 saving={draftSave.saving}
                 lastSavedAt={draftSave.lastSavedAt}
+                saveError={draftSave.saveError}
                 onSaveNow={() => void draftSave.saveNow()}
               />
             ) : null}
@@ -367,12 +392,15 @@ export function AddVideoForm({
                     );
                     return;
                   }
-                  const coOwnerErr = await validateCoOwnerDraftsForSubmit([
-                    {
-                      ownershipAnswer: values.ownershipAnswer,
-                      coOwnerDraftKey: values.coOwnerDraftKey,
-                    },
-                  ]);
+                  const coOwnerErr = await validateCoOwnerDraftsForSubmit(
+                    [
+                      {
+                        ownershipAnswer: values.ownershipAnswer,
+                        coOwnerDraftKey: values.coOwnerDraftKey,
+                      },
+                    ],
+                    { singleVideo: true }
+                  );
                   if (coOwnerErr) {
                     toast.error(coOwnerErr);
                     return;
@@ -518,7 +546,7 @@ export function AddVideoForm({
 
               {showHostYoutubeSlot ? (
                 <>
-                  {isHost ? (
+                  {canWriteAsHost ? (
                     <div
                       className={cn(
                         "space-y-2 rounded-lg border p-3",
@@ -658,7 +686,7 @@ export function AddVideoForm({
                           );
                           return;
                         }
-                        if (!isHost) {
+                        if (!canWriteAsHost) {
                           toast.error(
                             "Host account required for YouTube verification"
                           );
@@ -843,23 +871,38 @@ export function AddVideoForm({
                 </div>
               )}
 
+              {coOwnerWarnings.length > 0 ? (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
+                  {coOwnerWarnings.map(w => (
+                    <p key={w}>{w}</p>
+                  ))}
+                </div>
+              ) : null}
+
               <Button
                 type="submit"
                 variant="default"
                 size="lg"
                 className="w-full"
-                disabled={loading || coOwnerSubmitDisabled}
+                disabled={submitDisabled}
               >
                 {loading
                   ? "Saving video..."
-                  : coOwnerSubmitDisabled
-                    ? "Awaiting co-owner approval"
-                    : "Save video"}
+                  : verifyState === "checking"
+                    ? "Verifying on YouTube…"
+                    : coOwnerSubmitDisabled
+                      ? coOwnerBlockReason === "will_be_dropped"
+                        ? coOwnerDropWarningMessage("will_be_dropped")
+                        : coOwnerBlockReason
+                          ? coOwnerBlockReasonMessage(coOwnerBlockReason)
+                          : "Awaiting co-owner approval"
+                      : "Save video"}
               </Button>
               {coOwnerSubmitDisabled ? (
                 <p className="text-muted-foreground text-center text-xs">
-                  Submit unlocks after the co-owner approves the email invite.
-                  You can save to draft while waiting.
+                  {coOwnerBlockReason
+                    ? coOwnerBlockReasonMessage(coOwnerBlockReason)
+                    : "Submit unlocks after the co-owner approves the email invite. You can save to draft while waiting."}
                 </p>
               ) : null}
             </form>
@@ -875,6 +918,7 @@ type AddVideoFormDraftLayerProps = {
   draftAutosave?: AddVideoFormProps["draftAutosave"];
   modalDraftId: string | null;
   modalRestoring: boolean;
+  verifyState: "idle" | "checking" | "verified" | "failed";
   setModalDraftId: (id: string | null) => void;
   onDraftIdChange?: (id: string | null) => void;
   children: (draftSave: ReturnType<typeof useFormDraftAutosave>) => ReactNode;
@@ -885,6 +929,7 @@ function AddVideoFormDraftLayer({
   draftAutosave,
   modalDraftId,
   modalRestoring,
+  verifyState,
   setModalDraftId,
   onDraftIdChange,
   children,
@@ -902,6 +947,7 @@ function AddVideoFormDraftLayer({
     payloadKind: "modal",
     modalTargetId: draftAutosave?.targetId,
     resumeOrigin: draftAutosave?.resumeOrigin,
+    modalVerifyState: verifyState,
     onDraftId: id => {
       setModalDraftId(id);
       onDraftIdChange?.(id);

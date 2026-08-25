@@ -1,8 +1,6 @@
 import { toast } from "react-toastify";
 import type { UseFormReturn } from "react-hook-form";
-import type { HostUser } from "@/features/auth-slice";
 import type { NewEventFormData } from "@/schemas";
-import type { RootState } from "@/redux/store";
 
 export type PrivacyVideoLink = NonNullable<
   NewEventFormData["videoLinks"]
@@ -14,17 +12,14 @@ type Options = {
   liveVideoLink?: string | null;
 };
 
-/** Run privacy checks from a create-event form + signed-in host (if any). */
+/** Run privacy checks from a create-event form + host subscription tier. */
 export function runPrivacyChecksFromForm(
   form: Pick<UseFormReturn<NewEventFormData>, "getValues">,
-  user: RootState["auth"]["user"]
+  hostSubscriptionTier?: string | null
 ): boolean {
   return validatePrivacyVideoLinks({
     links: form.getValues("videoLinks") ?? [],
-    hostSubscriptionTier:
-      user?.role === "HOST"
-        ? (user as HostUser).hostSubscriptionTier
-        : undefined,
+    hostSubscriptionTier,
     liveVideoLink: form.getValues("liveVideoLink"),
   });
 }

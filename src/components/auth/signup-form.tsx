@@ -40,10 +40,11 @@ import { setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { parseAuthResponse } from "@/lib/auth-response";
+import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import { persistAuthSession } from "@/lib/session-client";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
-import type { RootState } from "@/redux/store";
+import type { AppDispatch, RootState } from "@/redux/store";
 
 function safeInternalPath(next: string | null): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
@@ -69,7 +70,7 @@ export const SignupForm = () => {
   );
 
   const { push } = useAppRouter();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const authUser = useSelector((s: RootState) => s.auth.user);
   const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
 
@@ -205,21 +206,12 @@ export const SignupForm = () => {
         return;
       }
 
-      const { user, token, message } = parsed;
+      const { message } = parsed;
       toast.success(message);
 
-      dispatch(
-        setCredentials({
-          user: {
-            ...user,
-            role: "HOST",
-          },
-          token,
-          requiresVerification: true,
-        })
-      );
-
-      await persistAuthSession(token, user, { expiresDays: 7 });
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
 
       push(hostVerifyRedirectPath(values.username));
     } catch (err: unknown) {
@@ -268,12 +260,8 @@ export const SignupForm = () => {
 
       await persistAuthSession(token, user, { expiresDays: 60 });
 
-      const next = safeInternalPath(redirectParam);
-      push(
-        next
-          ? `/verify-email?next=${encodeURIComponent(next)}`
-          : "/verify-email"
-      );
+      const next = safeInternalPath(redirectParam) ?? "/explore";
+      push(`/verify-email?next=${encodeURIComponent(next)}`);
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);

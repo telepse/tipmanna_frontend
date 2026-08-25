@@ -14,9 +14,20 @@ export function getPrimaryOrigin(): string {
   const raw = process.env.NEXT_PUBLIC_PRIMARY_ORIGIN?.trim() || SITE_URL;
   try {
     const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-    return new URL(normalized).origin;
+    const origin = new URL(normalized).origin;
+    assertProductionOrigin(origin);
+    return origin;
   } catch {
     return "https://tipmanna.tv";
+  }
+}
+
+function assertProductionOrigin(origin: string): void {
+  if (process.env.NODE_ENV !== "production") return;
+  if (/localhost|127\.0\.0\.1/i.test(origin)) {
+    throw new Error(
+      `Invalid NEXT_PUBLIC_PRIMARY_ORIGIN for production build: ${origin}. Set NEXT_PUBLIC_PRIMARY_ORIGIN to your live domain before building.`
+    );
   }
 }
 

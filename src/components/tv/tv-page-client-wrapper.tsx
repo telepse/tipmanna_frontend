@@ -12,8 +12,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
-import { useMediaQuery } from "react-responsive";
-
 import { Channel } from "@/types/channel.types";
 
 import {
@@ -47,6 +45,8 @@ import { tvTrace } from "@/lib/tvDebugLog";
 import { schedulePostTtfvIdle } from "@/lib/tv-post-ttfv-idle";
 import { prefetchTvScheduleTips } from "@/lib/drawer-prefetch-cache";
 import { useTvLazyCharacters } from "@/hooks/use-tv-lazy-characters";
+import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
+import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 
 interface Character {
   id: string;
@@ -107,6 +107,7 @@ export default function TVPageClientWrapper({
     playingItemOverride,
     scheduleSourceCommunityId,
     playEnforcementProgram,
+    schedulePlayingSlot,
   } = useTV();
 
   const {
@@ -121,7 +122,8 @@ export default function TVPageClientWrapper({
   const dispatch = useDispatch();
   const selectedTips = useSelector((s: RootState) => s.tip.selectedTips);
 
-  const isMobile = useMediaQuery({ maxWidth: "500px" });
+  const viewportWidth = useClientViewportWidth();
+  const isMobile = viewportWidth > 0 && viewportWidth <= SURFACE_MOBILE_MAX_PX;
 
   useTvEnforcementDeepLink({
     tvReady,
@@ -258,6 +260,23 @@ export default function TVPageClientWrapper({
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollProgress, setScrollProgress] = useState(10);
+
+  useEffect(() => {
+    if (
+      schedulePlayingSlot?.scope !== "active" ||
+      schedulePlayingSlot.source !== "preview"
+    ) {
+      return;
+    }
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: 0, behavior: "smooth" });
+  }, [
+    schedulePlayingSlot?.scope === "active" ? schedulePlayingSlot.source : null,
+    schedulePlayingSlot?.scope === "active"
+      ? schedulePlayingSlot.rowIndex
+      : null,
+  ]);
 
   const handleScroll = () => {
     const el = scrollRef.current;

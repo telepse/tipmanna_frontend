@@ -29,6 +29,7 @@ import { ScreenDisplay } from "./screen-display";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { Dialog, DialogContent } from "../ui/dialog";
 import Image from "next/image";
+import { EventDetailDialog } from "./event-detail-dialog";
 
 interface Props {
   eventName: string;
@@ -115,7 +116,7 @@ export const EventInfo = ({
     }
   };
 
-  const [showEventDetails, setShowEventDetails] = useState(false);
+  const [openEventDetail, setOpenEventDetail] = useState(false);
 
   return (
     <div className="relative flex items-center gap-2">
@@ -124,7 +125,7 @@ export const EventInfo = ({
       <div className="relative flex items-center gap-2">
         <Info
           onClick={() => {
-            setShowEventDetails(prev => !prev);
+            setOpenEventDetail(prev => !prev);
             setShowShare(false);
           }}
           className="size-4 cursor-pointer"
@@ -224,106 +225,20 @@ export const EventInfo = ({
             </div>
           </div>
         )}
-        {showEventDetails && (
-          <Dialog
-            open={showEventDetails}
-            onOpenChange={() => setShowEventDetails(prev => !prev)}
-          >
-            <DialogContent className="max-w-sm">
-              <Image
-                src={eventBanner}
-                alt={eventName}
-                width={400}
-                height={320}
-                className="w-full object-cover"
-              />
-
-              {venueName?.trim() ? (
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                    Venue name
-                  </p>
-                  <p className="font-medium">{venueName}</p>
-                </div>
-              ) : null}
-
-              {venueLocation?.trim() ? (
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                    Location
-                  </p>
-                  <p className="font-medium">{venueLocation}</p>
-                </div>
-              ) : null}
-
-              {eventDate ? (
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                    Event date
-                  </p>
-                  <p className="font-medium">
-                    {/* {format(eventDate, "EEEE, dd MMM yyyy")} */}
-                  </p>
-                </div>
-              ) : null}
-
-              {startTime?.trim() || endTime?.trim() ? (
-                <div className="grid grid-cols-2 gap-4">
-                  {startTime?.trim() ? (
-                    <div className="space-y-1">
-                      <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                        Start time
-                      </p>
-                      <p className="font-medium">{startTime}</p>
-                    </div>
-                  ) : null}
-                  {endTime?.trim() ? (
-                    <div className="space-y-1">
-                      <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                        End time
-                      </p>
-                      <p className="font-medium">{endTime}</p>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {/* {eventType ? (
-                          <div className="space-y-1">
-                            <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                              Event type
-                            </p>
-                            <p className="font-medium">
-                              {formatEventTypeLabel(eventType)}
-                            </p>
-                          </div>
-                        ) : null} */}
-
-              {Array.isArray(activities) && activities.length > 0 ? (
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                    Activities
-                  </p>
-                  <p className="font-medium">
-                    {activities
-                      .map(activity =>
-                        String(activity).replace(/_/g, " ").toLowerCase()
-                      )
-                      .join(", ")}
-                  </p>
-                </div>
-              ) : null}
-
-              {eventDescription?.trim() ? (
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                    Description
-                  </p>
-                  <p className="leading-relaxed">{eventDescription}</p>
-                </div>
-              ) : null}
-            </DialogContent>
-          </Dialog>
+        {openEventDetail && (
+          <EventDetailDialog
+            eventBanner={eventBanner}
+            eventName={eventName}
+            eventDescription={eventDescription}
+            venueName={venueName}
+            venueLocation={venueLocation}
+            eventDate={eventDate}
+            startTime={startTime}
+            endTime={endTime}
+            activities={activities}
+            open={openEventDetail}
+            onOpenChange={open => setOpenEventDetail(open)}
+          />
         )}
       </div>
     </div>

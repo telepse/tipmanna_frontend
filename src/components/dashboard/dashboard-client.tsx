@@ -30,9 +30,11 @@ import { useHostEvents } from "@/hooks/useHostEvents";
 import { HostSubscriptionQuickLinks } from "@/components/dashboard/host-subscription-quick-links";
 import { CreateDialog } from "@/components/home/create-dialog";
 import { FormDraftsPanel } from "@/components/dashboard/form-drafts-panel";
+import { useHostSession } from "@/hooks/use-host-session";
 
 export const DashboardClient = () => {
   const user = useSelector((state: RootState) => state.auth.user);
+  const { eventSlug: hostEventSlug, username: hostUsername } = useHostSession();
   const params = useParams();
   const [createOpen, setCreateOpen] = useState(false);
   const hostEventSlugParam =
@@ -63,7 +65,7 @@ export const DashboardClient = () => {
             <Bell className="size-5" />
           </div>
           <Link
-            href={`/host/${"eventSlug" in user && user.eventSlug ? user.eventSlug : user.username}/profile`}
+            href={`/host/${hostEventSlug ?? hostUsername ?? user.username}/profile`}
             className="rounded-full border p-2 transition-all duration-300 hover:bg-black hover:text-white"
           >
             <UserRound className="size-5" />
@@ -71,11 +73,9 @@ export const DashboardClient = () => {
         </div>
       </div>
 
-      {"role" in user && user.role === "HOST" && (
-        <HostSubscriptionQuickLinks eventSlug={hostEventSlugParam} />
-      )}
+      <HostSubscriptionQuickLinks eventSlug={hostEventSlugParam} />
 
-      {"role" in user && user.role === "HOST" && <FormDraftsPanel />}
+      <FormDraftsPanel />
 
       {/* New host check */}
       {/* {events?.length < 1 && (

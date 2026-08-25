@@ -202,7 +202,7 @@ export function CommunityCustomizationHostClient({
     if (!communityId || !authToken) return;
     setSavingBranding(true);
     try {
-      const res = await patchCommunityBrandingAction(authToken, communityId, {
+      const res = await patchCommunityBrandingAction(communityId, {
         headerColor: headerColor || null,
         brandColor: brandColor || null,
         tvLogoUrl: "",
@@ -232,7 +232,7 @@ export function CommunityCustomizationHostClient({
         }
       }
 
-      const res = await patchCommunityDetailsAction(authToken, communityId, {
+      const res = await patchCommunityDetailsAction(communityId, {
         description: description.trim() || null,
         communityType,
         logoUrl: nextLogoUrl,
@@ -263,7 +263,6 @@ export function CommunityCustomizationHostClient({
     setSavingFeatured(true);
     try {
       const res = await patchCommunityFeaturedVideosAction(
-        authToken,
         communityId,
         featuredContentBankEntryIds
       );
@@ -654,47 +653,60 @@ export function CommunityCustomizationHostClient({
               {filteredBankVideos.map(item => {
                 const checked = selectedFeaturedIds.includes(item.id);
                 const canFeature = item.status === "approved";
+
                 const hostLabel =
                   item.submittedBy?.fullName ||
                   item.submittedBy?.username ||
                   "Community host";
 
+                const videoId = extractYoutubeID(item.channel.url);
+
+                const thumbnailUrl = videoId
+                  ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                  : "/default-event-image.jpg";
+
                 return (
                   <div
                     key={item.id}
                     className={cn(
-                      "flex items-center justify-between gap-4 rounded-md border p-4",
+                      "w-full rounded-md border p-3 sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-4",
                       !canFeature && "bg-muted/20"
                     )}
                   >
-                    <div className="flex min-w-0 items-center gap-4">
+                    {/* Video thumbnail */}
+                    <img
+                      src={thumbnailUrl}
+                      alt={item.channel.title}
+                      className="aspect-video h-auto w-full rounded-md object-cover sm:h-14 sm:w-28 sm:shrink-0"
+                    />
+
+                    {/* Video details + checkbox */}
+                    <div className="mt-3 flex min-w-0 items-start gap-3 sm:mt-0 sm:flex-1">
                       <Checkbox
                         checked={checked}
                         disabled={!canFeature}
                         onCheckedChange={value =>
                           toggleFeatured(item.id, value === true)
                         }
-                        className="cursor-pointer border-black"
-                      />
-                      <img
-                        src={(() => {
-                          const videoId = extractYoutubeID(item.channel.url);
-                          return videoId
-                            ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                            : "/default-event-image.jpg";
-                        })()}
-                        alt={item.channel.title}
-                        className="h-14 w-28 shrink-0 object-cover"
+                        className="mt-1 shrink-0 cursor-pointer border-black"
                       />
 
-                      <div className="min-w-0 space-y-1">
-                        <h5 className="font-semibold">{item.channel.title}</h5>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <h5 className="font-semibold break-words">
+                          {item.channel.title}
+                        </h5>
+
                         <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-                          {hostLabel}
+                          <span className="break-words">{hostLabel}</span>
+
                           <span className="bg-primary size-2 shrink-0 rounded-full" />
-                          {formatEventVideoTypeLabel(
-                            item.channel.eventVideoType
-                          )}
+
+                          <span className="break-words">
+                            {formatEventVideoTypeLabel(
+                              item.channel.eventVideoType
+                            )}
+                          </span>
+
                           {!canFeature ? (
                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">
                               {item.status === "pending"
@@ -707,6 +719,7 @@ export function CommunityCustomizationHostClient({
                             </span>
                           ) : null}
                         </p>
+
                         <p className="text-muted-foreground text-xs">
                           Duration:{" "}
                           {formatBankDuration(item.metrics.durationSeconds)}

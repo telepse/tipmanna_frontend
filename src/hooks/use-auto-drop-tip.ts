@@ -14,7 +14,7 @@ import { ANIMATION_DURATION } from "@/lib/animationContract";
 import { notifyTextTipDraftSync } from "@/lib/tip-text-selection";
 import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
 
-const DROP_DELAY_MS = 1500;
+const DROP_DELAY_MS = 400;
 
 /**
  * After Stripe success + redirect back (non–Event Room surfaces): posts the tip message via

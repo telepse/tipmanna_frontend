@@ -6,7 +6,7 @@ export async function persistAuthSession(
   user: AuthUserPayload,
   options?: { expiresDays?: number }
 ): Promise<boolean> {
-  const expiresDays = options?.expiresDays ?? (user.role === "TIPPER" ? 60 : 7);
+  const expiresDays = options?.expiresDays ?? 60;
   try {
     const res = await fetch("/api/auth/session", {
       method: "POST",
@@ -23,6 +23,36 @@ export async function persistAuthSession(
 export async function clearAuthSession(): Promise<void> {
   try {
     await fetch("/api/auth/session", {
+      method: "DELETE",
+      credentials: "include",
+    });
+  } catch {
+    /* noop */
+  }
+}
+
+export async function persistHostSession(
+  token: string,
+  user: AuthUserPayload,
+  options?: { expiresDays?: number }
+): Promise<boolean> {
+  const expiresDays = options?.expiresDays ?? 7;
+  try {
+    const res = await fetch("/api/auth/host-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ token, user, expiresDays }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function clearHostSession(): Promise<void> {
+  try {
+    await fetch("/api/auth/host-session", {
       method: "DELETE",
       credentials: "include",
     });

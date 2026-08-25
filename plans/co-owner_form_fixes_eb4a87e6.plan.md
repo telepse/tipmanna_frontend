@@ -31,19 +31,19 @@ Based solely on verified bugs **A1–A11** from the latest audit. No performance
 
 ## Part 1 — Verified Bug Review
 
-| Bug ID  | Root cause                                                                      | Files                                                                                                                                                                                                                                                                                                                                          | Functions                                                                       | Why it occurs                                                                | Severity | User impact                                           | Confidence |
-| ------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------- | ----------------------------------------------------- | ---------- |
-| **A1**  | Event wizard Pusher handler does not refresh submit-gating state                | [`frontend/src/components/events/event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx), [`frontend/src/hooks/use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts)                                                                                           | `CoOwnerInviteBlock` Pusher handler, `useCoOwnerDraftSubmitBlocked`             | Approval toast fires but hook only polls every 5s                            | Medium   | Submit stays disabled after approval for up to ~5s    | 95%        |
-| **A2**  | Submit hook initializes `blocked = false` before first async poll               | [`frontend/src/hooks/use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts)                                                                                                                                                                                                                             | `useCoOwnerDraftSubmitBlocked`                                                  | `useState(false)` until first `refresh()` completes                          | Medium   | Brief window where submit is clickable while pending  | 90%        |
-| **A3**  | Frontend checks `some(approved)`; backend rejects if `any(pending)`             | [`frontend/src/hooks/use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts), [`frontend/src/lib/coowner-draft-submit.util.ts`](frontend/src/lib/coowner-draft-submit.util.ts), [`backend/src/services/coOwner/event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts) | `refresh`, `validateCoOwnerDraftsForSubmit`, `assertVideoLinksCoOwnerForCreate` | Contract never aligned on pending invites                                    | High     | UI enables submit; API returns 400                    | 98%        |
-| **A4**  | `mergeDraftPayload` mints new UUID when saved key missing                       | [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts), [`frontend/src/hooks/use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts)                                                                                                                                                               | `mergeDraftPayload`, `splitDraftPayload`, `persistDraft`                        | Key only saved if non-empty; 1.5s debounce; restore fallback generates UUID  | Critical | Approved invites orphaned; submit permanently blocked | 92%        |
-| **A5**  | `lastSavedAt` set even when `upsertFormDraftAction` fails                       | [`frontend/src/hooks/use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts)                                                                                                                                                                                                                                               | `persistDraft`                                                                  | Unconditional `setSaveState({ lastSavedAt: new Date() })` after try          | Medium   | False “saved” indicator                               | 100%       |
-| **A6**  | Backend maps errors to `coOwnerDraftKey`; no visible field                      | [`backend/src/utils/coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts), [`frontend/src/lib/form-error-mapper.ts`](frontend/src/lib/form-error-mapper.ts)                                                                                                                                                               | `coOwnerErrorFieldPath`, `applyServerFormErrors`                                | Hidden field path; scroll/highlight misses                                   | Medium   | Toast-only errors on ownership issues                 | 98%        |
-| **A7**  | `createEvent` catch always passes `videoLinkIndex: 0`                           | [`backend/src/controllers/event.controller.ts`](backend/src/controllers/event.controller.ts)                                                                                                                                                                                                                                                   | `createEvent` catch, `respondCoOwnerValidationError`                            | Hard-coded index in error responder                                          | Medium   | Wrong video URL highlighted (multi-link events)       | 95%        |
-| **A8**  | UI allows co-owned path; backend forbids non-owner community co-owned           | [`frontend/src/components/home/create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx), [`backend/src/controllers/community-content-bank.controller.ts`](backend/src/controllers/community-content-bank.controller.ts)                                                                                                             | `AddVideoForm` render, `addCommunityVideo`                                      | No frontend guard for `hostTab === "cocreator"` + `ownershipAnswer === "no"` | High     | Full invite flow then 403                             | 97%        |
-| **A9**  | Unmapped 403 tier string for community co-owned                                 | [`backend/src/utils/coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts), [`backend/src/controllers/community-content-bank.controller.ts`](backend/src/controllers/community-content-bank.controller.ts)                                                                                                                 | `CO_OWNER_FIELD_MESSAGES`, `addCommunityVideo`                                  | Message literal mismatch vs mapped strings                                   | Medium   | Generic toast for tier/permission errors              | 96%        |
-| **A10** | Modal gating uses `useCoOwnerInviteStatus(draftKey, email)`; email not in draft | [`frontend/src/components/events/add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx), [`frontend/src/components/events/add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx), [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts)                           | `coOwnerSubmitBlocked`, `useCoOwnerInviteStatus`, `splitModalDraftPayload`      | Email is local `useState`; restore leaves status `null`                      | High     | Submit blocked after restore despite DB approval      | 94%        |
-| **A11** | `event.create` runs before `assertVideoLinksCoOwnerForCreate`                   | [`backend/src/controllers/event.controller.ts`](backend/src/controllers/event.controller.ts)                                                                                                                                                                                                                                                   | `createEvent`                                                                   | Validation ordered after event persistence                                   | Critical | Orphan events when co-owner/video validation fails    | 99%        |
+| Bug ID | Root cause | Files | Functions | Why it occurs | Severity | User impact | Confidence |
+|--------|------------|-------|-----------|---------------|----------|-------------|------------|
+| **A1** | Event wizard Pusher handler does not refresh submit-gating state | [`frontend/src/components/events/event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx), [`frontend/src/hooks/use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts) | `CoOwnerInviteBlock` Pusher handler, `useCoOwnerDraftSubmitBlocked` | Approval toast fires but hook only polls every 5s | Medium | Submit stays disabled after approval for up to ~5s | 95% |
+| **A2** | Submit hook initializes `blocked = false` before first async poll | [`frontend/src/hooks/use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts) | `useCoOwnerDraftSubmitBlocked` | `useState(false)` until first `refresh()` completes | Medium | Brief window where submit is clickable while pending | 90% |
+| **A3** | Frontend checks `some(approved)`; backend rejects if `any(pending)` | [`frontend/src/hooks/use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts), [`frontend/src/lib/coowner-draft-submit.util.ts`](frontend/src/lib/coowner-draft-submit.util.ts), [`backend/src/services/coOwner/event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts) | `refresh`, `validateCoOwnerDraftsForSubmit`, `assertVideoLinksCoOwnerForCreate` | Contract never aligned on pending invites | High | UI enables submit; API returns 400 | 98% |
+| **A4** | `mergeDraftPayload` mints new UUID when saved key missing | [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts), [`frontend/src/hooks/use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts) | `mergeDraftPayload`, `splitDraftPayload`, `persistDraft` | Key only saved if non-empty; 1.5s debounce; restore fallback generates UUID | Critical | Approved invites orphaned; submit permanently blocked | 92% |
+| **A5** | `lastSavedAt` set even when `upsertFormDraftAction` fails | [`frontend/src/hooks/use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts) | `persistDraft` | Unconditional `setSaveState({ lastSavedAt: new Date() })` after try | Medium | False “saved” indicator | 100% |
+| **A6** | Backend maps errors to `coOwnerDraftKey`; no visible field | [`backend/src/utils/coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts), [`frontend/src/lib/form-error-mapper.ts`](frontend/src/lib/form-error-mapper.ts) | `coOwnerErrorFieldPath`, `applyServerFormErrors` | Hidden field path; scroll/highlight misses | Medium | Toast-only errors on ownership issues | 98% |
+| **A7** | `createEvent` catch always passes `videoLinkIndex: 0` | [`backend/src/controllers/event.controller.ts`](backend/src/controllers/event.controller.ts) | `createEvent` catch, `respondCoOwnerValidationError` | Hard-coded index in error responder | Medium | Wrong video URL highlighted (multi-link events) | 95% |
+| **A8** | UI allows co-owned path; backend forbids non-owner community co-owned | [`frontend/src/components/home/create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx), [`backend/src/controllers/community-content-bank.controller.ts`](backend/src/controllers/community-content-bank.controller.ts) | `AddVideoForm` render, `addCommunityVideo` | No frontend guard for `hostTab === "cocreator"` + `ownershipAnswer === "no"` | High | Full invite flow then 403 | 97% |
+| **A9** | Unmapped 403 tier string for community co-owned | [`backend/src/utils/coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts), [`backend/src/controllers/community-content-bank.controller.ts`](backend/src/controllers/community-content-bank.controller.ts) | `CO_OWNER_FIELD_MESSAGES`, `addCommunityVideo` | Message literal mismatch vs mapped strings | Medium | Generic toast for tier/permission errors | 96% |
+| **A10** | Modal gating uses `useCoOwnerInviteStatus(draftKey, email)`; email not in draft | [`frontend/src/components/events/add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx), [`frontend/src/components/events/add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx), [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts) | `coOwnerSubmitBlocked`, `useCoOwnerInviteStatus`, `splitModalDraftPayload` | Email is local `useState`; restore leaves status `null` | High | Submit blocked after restore despite DB approval | 94% |
+| **A11** | `event.create` runs before `assertVideoLinksCoOwnerForCreate` | [`backend/src/controllers/event.controller.ts`](backend/src/controllers/event.controller.ts) | `createEvent` | Validation ordered after event persistence | Critical | Orphan events when co-owner/video validation fails | 99% |
 
 ---
 
@@ -85,23 +85,23 @@ flowchart TD
   end
 ```
 
-| Cluster         | Bugs        | Shared code                                                              |
-| --------------- | ----------- | ------------------------------------------------------------------------ |
-| Submit gating   | A1, A2, A3  | `use-coowner-draft-submit-blocked.ts`, `coowner-draft-submit.util.ts`    |
+| Cluster | Bugs | Shared code |
+|---------|------|-------------|
+| Submit gating | A1, A2, A3 | `use-coowner-draft-submit-blocked.ts`, `coowner-draft-submit.util.ts` |
 | Draft lifecycle | A4, A5, A10 | `form-draft-utils.ts`, `use-form-draft-autosave.ts`, modal policy fields |
-| Error surfacing | A6, A7, A9  | `coowner-form-error.util.ts`, `form-error-mapper.ts`                     |
-| Permissions UX  | A8, A9      | `create-dialog.tsx`, community controller messages                       |
-| Data integrity  | A11         | `event.controller.ts` only                                               |
+| Error surfacing | A6, A7, A9 | `coowner-form-error.util.ts`, `form-error-mapper.ts` |
+| Permissions UX | A8, A9 | `create-dialog.tsx`, community controller messages |
+| Data integrity | A11 | `event.controller.ts` only |
 
 ### Fix dependencies
 
-| Fix                  | Depends on                         | Never ship alone                                                   |
-| -------------------- | ---------------------------------- | ------------------------------------------------------------------ |
-| A3 alignment         | None (but same files as A1/A2)     | **Do not** ship A1/A2 without A3 (same hook/util edits)            |
-| A10 modal restore    | A4 recommended first (stable keys) | Can ship after A4                                                  |
-| A6 error paths       | A7/A9 (mapping consistency)        | Prefer single error-mapping PR                                     |
-| A4 draft key         | None                               | Safe alone; enables A10 testing                                    |
-| A11 validation order | None                               | **Do not** combine with large event.controller refactor in same PR |
+| Fix | Depends on | Never ship alone |
+|-----|------------|------------------|
+| A3 alignment | None (but same files as A1/A2) | **Do not** ship A1/A2 without A3 (same hook/util edits) |
+| A10 modal restore | A4 recommended first (stable keys) | Can ship after A4 |
+| A6 error paths | A7/A9 (mapping consistency) | Prefer single error-mapping PR |
+| A4 draft key | None | Safe alone; enables A10 testing |
+| A11 validation order | None | **Do not** combine with large event.controller refactor in same PR |
 
 ### Never implement independently
 
@@ -280,7 +280,7 @@ flowchart TD
 2. **Recommended fix:** Add entries:
    - `"Host Community subscription required for co-owned community uploads"` → `ownershipAnswer`
    - `"Only the community owner can submit co-owned videos to this bank"` → `ownershipAnswer`
-     Map in both backend util and frontend `mapCoOwnerInviteErrors` if used at submit.
+   Map in both backend util and frontend `mapCoOwnerInviteErrors` if used at submit.
 3. **Safest because:** Additive mapping only.
 4. **Alternatives rejected:** Change backend message to match old string — breaks log/monitoring consistency.
 5. **Regressions:** None.
@@ -328,16 +328,16 @@ flowchart TD
 
 ### Phase 0 (A11)
 
-| Type            | Cases                                                                                                            |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Unit**        | Mock `assertVideoLinksCoOwnerForCreate` throw → assert `event.create` not called (new controller unit test file) |
-| **Integration** | POST `/events/new` with invalid co-owner draft → 400/403 and no new `Event` row (DB count)                       |
-| **E2E**         | Event wizard submit with pending co-owner → no redirect; no event in host list                                   |
-| **Manual QA**   | Submit co-owned event without approval → verify no orphan in admin/host events                                   |
-| **Regression**  | Fully-owned event still creates; banner upload path unchanged                                                    |
-| **Negative**    | Missing draftKey, pending invite, YouTube duplicate                                                              |
-| **Edge**        | Empty `videoLinks`, live-only path                                                                               |
-| **Performance** | None required (correctness only)                                                                                 |
+| Type | Cases |
+|------|-------|
+| **Unit** | Mock `assertVideoLinksCoOwnerForCreate` throw → assert `event.create` not called (new controller unit test file) |
+| **Integration** | POST `/events/new` with invalid co-owner draft → 400/403 and no new `Event` row (DB count) |
+| **E2E** | Event wizard submit with pending co-owner → no redirect; no event in host list |
+| **Manual QA** | Submit co-owned event without approval → verify no orphan in admin/host events |
+| **Regression** | Fully-owned event still creates; banner upload path unchanged |
+| **Negative** | Missing draftKey, pending invite, YouTube duplicate |
+| **Edge** | Empty `videoLinks`, live-only path |
+| **Performance** | None required (correctness only) |
 
 **Journey:** Host → event-only wizard → step 4 → co-owned pending → submit → expect error, no event.
 
@@ -345,15 +345,15 @@ flowchart TD
 
 ### Phase 1 (A4, A5)
 
-| Type            | Cases                                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Unit**        | `mergeDraftPayload` does not mint UUID when policy key missing; `splitDraftPayload` retains assigned keys; autosave sets `lastSavedAt` only on success |
-| **Integration** | Upsert draft with policyJson keys → get draft → keys identical                                                                                         |
-| **E2E**         | Send co-owner invite → immediate refresh with `?draftId=` → same draftKey → submit still viable after approval                                         |
-| **Manual QA**   | Draft indicator on simulated API failure                                                                                                               |
-| **Regression**  | Draft restore step navigation; modal sessionStorage restore                                                                                            |
-| **Negative**    | Restore draft with missing key → explicit error/toast, no silent UUID                                                                                  |
-| **Edge**        | Multi-video links each with own key                                                                                                                    |
+| Type | Cases |
+|------|-------|
+| **Unit** | `mergeDraftPayload` does not mint UUID when policy key missing; `splitDraftPayload` retains assigned keys; autosave sets `lastSavedAt` only on success |
+| **Integration** | Upsert draft with policyJson keys → get draft → keys identical |
+| **E2E** | Send co-owner invite → immediate refresh with `?draftId=` → same draftKey → submit still viable after approval |
+| **Manual QA** | Draft indicator on simulated API failure |
+| **Regression** | Draft restore step navigation; modal sessionStorage restore |
+| **Negative** | Restore draft with missing key → explicit error/toast, no silent UUID |
+| **Edge** | Multi-video links each with own key |
 
 **Journey:** Step 4 → invite → manual “Save now” → dashboard Resume → approve → submit enabled.
 
@@ -361,15 +361,15 @@ flowchart TD
 
 ### Phase 2 (A1–A3)
 
-| Type            | Cases                                                                                           |
-| --------------- | ----------------------------------------------------------------------------------------------- |
-| **Unit**        | `getCoOwnerSubmitBlockReason`: approved+pending → blocked; approved only → open; none → blocked |
-| **Integration** | Status action returns mixed invites → hook state                                                |
-| **E2E**         | Pusher/mock approval → submit enables without 5s wait (event wizard)                            |
-| **Manual QA**   | Initial load step 4 co-owned → button disabled immediately                                      |
-| **Regression**  | Modal still uses Pusher path; non-co-owned submit                                               |
-| **Negative**    | Declined-only invites; API failure → stay blocked                                               |
-| **Edge**        | Two co-owned links, one approved one pending → blocked                                          |
+| Type | Cases |
+|------|-------|
+| **Unit** | `getCoOwnerSubmitBlockReason`: approved+pending → blocked; approved only → open; none → blocked |
+| **Integration** | Status action returns mixed invites → hook state |
+| **E2E** | Pusher/mock approval → submit enables without 5s wait (event wizard) |
+| **Manual QA** | Initial load step 4 co-owned → button disabled immediately |
+| **Regression** | Modal still uses Pusher path; non-co-owned submit |
+| **Negative** | Declined-only invites; API failure → stay blocked |
+| **Edge** | Two co-owned links, one approved one pending → blocked |
 
 **Journey:** Co-owner approves via email → host sees button enable immediately (event wizard).
 
@@ -377,41 +377,41 @@ flowchart TD
 
 ### Phase 3 (A6–A9)
 
-| Type            | Cases                                                                              |
-| --------------- | ---------------------------------------------------------------------------------- |
-| **Unit**        | `coOwnerErrorFieldPath` maps all messages; index 1 paths; frontend mapper redirect |
-| **Integration** | Multi-link create error returns `videoLinks.1.url`                                 |
-| **E2E**         | Create-dialog co-create tab → no “No” option; owner tab unchanged                  |
-| **Manual QA**   | HOST_PREMIUM owner community co-owned → tier message on ownership field            |
-| **Regression**  | Invite errors still on email/name fields                                           |
-| **Negative**    | Unmapped 403 before fix → mapped after                                             |
-| **Edge**        | Community owner co-owned happy path                                                |
+| Type | Cases |
+|------|-------|
+| **Unit** | `coOwnerErrorFieldPath` maps all messages; index 1 paths; frontend mapper redirect |
+| **Integration** | Multi-link create error returns `videoLinks.1.url` |
+| **E2E** | Create-dialog co-create tab → no “No” option; owner tab unchanged |
+| **Manual QA** | HOST_PREMIUM owner community co-owned → tier message on ownership field |
+| **Regression** | Invite errors still on email/name fields |
+| **Negative** | Unmapped 403 before fix → mapped after |
+| **Edge** | Community owner co-owned happy path |
 
 ---
 
 ### Phase 4 (A10)
 
-| Type            | Cases                                                                                         |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| **Unit**        | `mergeModalDraftPayload` restores email; draftKey-only readiness unblocks button              |
-| **Integration** | Modal draft round-trip with co-owner fields                                                   |
-| **E2E**         | Community add-video → draft restore → approved invite → submit enabled without retyping email |
-| **Manual QA**   | Room modal + create-dialog owner tab                                                          |
-| **Regression**  | Fresh modal co-owner flow unchanged                                                           |
+| Type | Cases |
+|------|-------|
+| **Unit** | `mergeModalDraftPayload` restores email; draftKey-only readiness unblocks button |
+| **Integration** | Modal draft round-trip with co-owner fields |
+| **E2E** | Community add-video → draft restore → approved invite → submit enabled without retyping email |
+| **Manual QA** | Room modal + create-dialog owner tab |
+| **Regression** | Fresh modal co-owner flow unchanged |
 
 ---
 
 ## Part 6 — Risk Analysis
 
-| Fix   | Risk           | Rationale                                                            |
-| ----- | -------------- | -------------------------------------------------------------------- |
-| A11   | **Medium**     | Controller ordering; touches critical create path — but minimal diff |
-| A4    | **Medium**     | Draft restore affects all event wizards                              |
-| A1–A3 | **Low–Medium** | Hook shared across 3 pages; contract change may block edge cases     |
-| A5    | **Very Low**   | Indicator only                                                       |
-| A6–A9 | **Low**        | Additive mapping + UI guard                                          |
-| A8    | **Low**        | UI restriction only                                                  |
-| A10   | **Low–Medium** | Draft JSON shape + gating logic                                      |
+| Fix | Risk | Rationale |
+|-----|------|-----------|
+| A11 | **Medium** | Controller ordering; touches critical create path — but minimal diff |
+| A4 | **Medium** | Draft restore affects all event wizards |
+| A1–A3 | **Low–Medium** | Hook shared across 3 pages; contract change may block edge cases |
+| A5 | **Very Low** | Indicator only |
+| A6–A9 | **Low** | Additive mapping + UI guard |
+| A8 | **Low** | UI restriction only |
+| A10 | **Low–Medium** | Draft JSON shape + gating logic |
 
 **Critical risk:** None if A11 limited to reorder (not full transaction refactor).
 
@@ -421,13 +421,13 @@ flowchart TD
 
 **Recommendation: Option B — Multiple small PRs**, phased as above.
 
-| PR   | Bugs           | Rationale                                                 |
-| ---- | -------------- | --------------------------------------------------------- |
-| PR-1 | A11            | Backend-only; deploy/verify independently                 |
-| PR-2 | A4, A5         | Draft integrity; enables QA for later phases              |
-| PR-3 | A1, A2, A3     | Single cohesive gating PR — **never split A3 from A1/A2** |
-| PR-4 | A6, A7, A8, A9 | Error + permissions UX                                    |
-| PR-5 | A10            | Depends on PR-2 + PR-3 utilities                          |
+| PR | Bugs | Rationale |
+|----|------|-----------|
+| PR-1 | A11 | Backend-only; deploy/verify independently |
+| PR-2 | A4, A5 | Draft integrity; enables QA for later phases |
+| PR-3 | A1, A2, A3 | Single cohesive gating PR — **never split A3 from A1/A2** |
+| PR-4 | A6, A7, A8, A9 | Error + permissions UX |
+| PR-5 | A10 | Depends on PR-2 + PR-3 utilities |
 
 **Not recommended:** One large PR (hard rollback). **Feature flags:** Not needed — all correctness fixes with low blast radius. **Incremental rollout:** Deploy PR-1 to prod first; monitor orphan event rate.
 
@@ -437,13 +437,13 @@ flowchart TD
 
 ### Files to change (by phase)
 
-| Phase | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 0     | [`backend/src/controllers/event.controller.ts`](backend/src/controllers/event.controller.ts)                                                                                                                                                                                                                                                                                                                                                                                                           |
-| 1     | [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts), [`frontend/src/hooks/use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts), [`frontend/src/components/events/draft-save-indicator.tsx`](frontend/src/components/events/draft-save-indicator.tsx), [`event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx), [`add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx) |
-| 2     | [`use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts), [`coowner-draft-submit.util.ts`](frontend/src/lib/coowner-draft-submit.util.ts), event pages (3), [`event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx), [`add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx)                                                                                                                        |
-| 3     | [`coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts), [`event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts), [`event.controller.ts`](backend/src/controllers/event.controller.ts), [`form-error-mapper.ts`](frontend/src/lib/form-error-mapper.ts), [`create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx), [`add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx)                   |
-| 4     | [`form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts), [`add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx), [`add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx)                                                                                                                                                                                                                                                                  |
+| Phase | Files |
+|-------|-------|
+| 0 | [`backend/src/controllers/event.controller.ts`](backend/src/controllers/event.controller.ts) |
+| 1 | [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts), [`frontend/src/hooks/use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts), [`frontend/src/components/events/draft-save-indicator.tsx`](frontend/src/components/events/draft-save-indicator.tsx), [`event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx), [`add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx) |
+| 2 | [`use-coowner-draft-submit-blocked.ts`](frontend/src/hooks/use-coowner-draft-submit-blocked.ts), [`coowner-draft-submit.util.ts`](frontend/src/lib/coowner-draft-submit.util.ts), event pages (3), [`event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx), [`add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx) |
+| 3 | [`coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts), [`event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts), [`event.controller.ts`](backend/src/controllers/event.controller.ts), [`form-error-mapper.ts`](frontend/src/lib/form-error-mapper.ts), [`create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx), [`add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx) |
+| 4 | [`form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts), [`add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx), [`add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx) |
 
 ### Must NOT modify (unless explicitly required later)
 
@@ -468,11 +468,11 @@ flowchart TD
 
 ## Part 9 — Performance (deferred)
 
-| Category                     | Items                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------- |
-| **Correctness only**         | A1–A11 all phases                                                                           |
-| **May incidentally improve** | A11 fail-fast (less wasted work after failed create)                                        |
-| **Postpone**                 | Duplicate YouTube verify removal, parallel status checks, email async, poll interval tuning |
+| Category | Items |
+|----------|-------|
+| **Correctness only** | A1–A11 all phases |
+| **May incidentally improve** | A11 fail-fast (less wasted work after failed create) |
+| **Postpone** | Duplicate YouTube verify removal, parallel status checks, email async, poll interval tuning |
 
 ---
 
@@ -484,14 +484,14 @@ flowchart TD
 
 ### Complexity & merge independence
 
-| Bug   | Complexity | Regression risk | Time est. | Independent merge?  |
-| ----- | ---------- | --------------- | --------- | ------------------- |
-| A11   | S          | Medium          | 2–4h      | Yes (PR-1)          |
-| A4    | M          | Medium          | 4–6h      | With A5 (PR-2)      |
-| A5    | S          | Very Low        | 1–2h      | With A4             |
-| A1–A3 | M          | Medium          | 6–8h      | Single PR-3 only    |
-| A6–A9 | M          | Low             | 6–8h      | Single PR-4         |
-| A10   | M          | Low–Med         | 4–6h      | After PR-2+3 (PR-5) |
+| Bug | Complexity | Regression risk | Time est. | Independent merge? |
+|-----|------------|-----------------|-----------|-------------------|
+| A11 | S | Medium | 2–4h | Yes (PR-1) |
+| A4 | M | Medium | 4–6h | With A5 (PR-2) |
+| A5 | S | Very Low | 1–2h | With A4 |
+| A1–A3 | M | Medium | 6–8h | Single PR-3 only |
+| A6–A9 | M | Low | 6–8h | Single PR-4 |
+| A10 | M | Low–Med | 4–6h | After PR-2+3 (PR-5) |
 
 **Total estimate:** ~25–35 engineering hours + QA.
 

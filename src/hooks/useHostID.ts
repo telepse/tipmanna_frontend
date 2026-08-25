@@ -1,18 +1,22 @@
 "use client";
 
-import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
+import {
+  getHostUserFromCookies,
+  hasActiveHostSession,
+} from "@/lib/host-session-client";
+import { useHostCapability } from "@/hooks/use-host-capability";
 
-/**
- * Returns the current host user's ID from Redux state.
- * Returns null if no user is logged in or if the user is not a host.
- */
+/** Active host id from host session cookie / capability — never primary Redux. */
 export function useHostID(): string | null {
-  const user = useSelector((state: RootState) => state.auth.user);
+  const { capability, hostSessionActive } = useHostCapability();
 
-  // Only return ID if user exists and role is HOST
-  if (user && user.role === "HOST") {
-    return user.id;
+  if (hostSessionActive && capability.status === "active") {
+    return capability.hostId;
+  }
+
+  const hostUser = getHostUserFromCookies();
+  if (hostUser?.id && hasActiveHostSession(hostUser.id)) {
+    return hostUser.id;
   }
 
   return null;

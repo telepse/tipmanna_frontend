@@ -19,8 +19,19 @@ export interface PlaybackKeyTraceMeta {
 }
 
 const playbackKeyStates = new Map<string, "reserved" | "committed">();
+const aliasByPrimary = new Map<string, string>();
 const committedOrder: string[] = [];
 const MAX_COMMITTED_ENTRIES = 500;
+
+function linkedKeys(key: string): string[] {
+  const keys = new Set<string>([key]);
+  const alias = aliasByPrimary.get(key);
+  if (alias) keys.add(alias);
+  for (const [primary, linkedAlias] of aliasByPrimary) {
+    if (linkedAlias === key) keys.add(primary);
+  }
+  return [...keys];
+}
 
 function traceStateChange(
   stage: string,
@@ -45,7 +56,11 @@ function traceStateChange(
 }
 
 export function getPlaybackKeyState(key: string): PlaybackKeyState {
-  return playbackKeyStates.get(key) ?? "unseen";
+  for (const linked of linkedKeys(key)) {
+    const state = playbackKeyStates.get(linked);
+    if (state) return state;
+  }
+  return "unseen";
 }
 
 /** Atomic claim while enqueue is attempted. Returns false when key is reserved or committed. */
@@ -91,26 +106,94 @@ export function reservePlaybackKey(
   return true;
 }
 
+/**
+ * Reserve a primary playback key and its transaction alias together so either
+ * key blocks duplicate realtime vs fallback playback for the same occurrence.
+ */
+export function reservePlaybackKeyWithAlias(
+  primaryKey: string,
+  aliasKey: string,
+  meta?: PlaybackKeyTraceMeta
+): boolean {
+  if (primaryKey === aliasKey) {
+    return reservePlaybackKey(primaryKey, meta);
+  }
+
+  tracePaymentAnimation({
+    stage: "playback_key_reservation_requested",
+    playbackKey: primaryKey,
+    surface: meta?.surface,
+    eventId: meta?.eventId,
+    bundleId: meta?.bundleId,
+    seq: meta?.seq,
+    characterName: meta?.characterName,
+    styleName: meta?.styleName,
+  });
+
+  const primaryState = getPlaybackKeyState(primaryKey);
+  const aliasState = getPlaybackKeyState(aliasKey);
+  if (primaryState !== "unseen" || aliasState !== "unseen") {
+    const blocked = primaryState !== "unseen" ? primaryState : aliasState;
+    traceStateChange(
+      blocked === "committed"
+        ? "playback_key_duplicate_committed"
+        : "playback_key_duplicate_reserved",
+      primaryKey,
+      blocked,
+      blocked,
+      meta
+    );
+    return false;
+  }
+
+  aliasByPrimary.set(primaryKey, aliasKey);
+  playbackKeyStates.set(primaryKey, "reserved");
+  playbackKeyStates.set(aliasKey, "reserved");
+  traceStateChange(
+    "playback_key_reserved",
+    primaryKey,
+    "unseen",
+    "reserved",
+    meta
+  );
+  traceStateChange(
+    "playback_key_reserved",
+    aliasKey,
+    "unseen",
+    "reserved",
+    meta
+  );
+  return true;
+}
+
 /** Commit reserved → committed when the queue task actually starts. */
 export function commitPlaybackKey(
   key: string,
   meta?: PlaybackKeyTraceMeta
 ): boolean {
-  const previous = getPlaybackKeyState(key);
-  if (previous !== "reserved") {
+  const keys = linkedKeys(key);
+  const reservedKey = keys.find(k => playbackKeyStates.get(k) === "reserved");
+  if (!reservedKey) {
     return false;
   }
-  playbackKeyStates.set(key, "committed");
-  committedOrder.push(key);
+
+  for (const linked of keys) {
+    if (playbackKeyStates.get(linked) === "reserved") {
+      playbackKeyStates.set(linked, "committed");
+      committedOrder.push(linked);
+    }
+  }
+
   while (committedOrder.length > MAX_COMMITTED_ENTRIES) {
     const evicted = committedOrder.shift();
     if (evicted && playbackKeyStates.get(evicted) === "committed") {
       playbackKeyStates.delete(evicted);
     }
   }
+
   traceStateChange(
     "playback_key_committed_task_started",
-    key,
+    reservedKey,
     "reserved",
     "committed",
     meta
@@ -124,11 +207,22 @@ export function releasePlaybackKey(
   reason: PlaybackKeyReleaseReason,
   meta?: PlaybackKeyTraceMeta
 ): boolean {
-  const previous = getPlaybackKeyState(key);
-  if (previous !== "reserved") {
-    return false;
+  const keys = linkedKeys(key);
+  let released = false;
+  for (const linked of keys) {
+    if (playbackKeyStates.get(linked) !== "reserved") continue;
+    playbackKeyStates.delete(linked);
+    released = true;
   }
-  playbackKeyStates.delete(key);
+
+  if (!released) return false;
+
+  for (const linked of keys) {
+    if (aliasByPrimary.has(linked)) {
+      aliasByPrimary.delete(linked);
+    }
+  }
+
   const stageByReason: Record<PlaybackKeyReleaseReason, string> = {
     queue_disabled: "playback_key_released_queue_disabled",
     queue_full: "playback_key_released_queue_full",
@@ -141,6 +235,7 @@ export function releasePlaybackKey(
 
 export function clearPlaybackKeyState(): void {
   playbackKeyStates.clear();
+  aliasByPrimary.clear();
   committedOrder.length = 0;
 }
 

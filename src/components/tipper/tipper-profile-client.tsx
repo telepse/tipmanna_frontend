@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 import Footer from "@/components/shared/footer";
 import { TipperBanner } from "./tipper-banner";
 import { ProfileTabs } from "./profile-tabs";
@@ -55,13 +56,15 @@ export const TipperProfileClient = ({
       <section
         className={
           isDrawer
-            ? "flex flex-col items-center px-2 pb-6"
-            : "flex min-h-screen flex-col items-center justify-center bg-cover bg-center bg-no-repeat"
+            ? "flex w-full flex-col items-center px-2 pb-6"
+            : "flex w-full flex-col items-center bg-cover bg-center bg-no-repeat px-2 py-6 sm:px-4 lg:py-10"
         }
         style={
           isDrawer
             ? undefined
-            : { backgroundImage: `url(/vectors/tipping_pattern_new.webp)` }
+            : {
+                backgroundImage: `url(/vectors/tipping_pattern_new.webp)`,
+              }
         }
       >
         <ProfileTabs
@@ -72,6 +75,7 @@ export const TipperProfileClient = ({
           variant={variant}
         />
       </section>
+
       {!isDrawer ? <Footer /> : null}
     </>
   );

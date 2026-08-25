@@ -128,6 +128,7 @@ export const CommentDrawer = ({
   const [draftModalOpen, setDraftModalOpen] = useState(false);
   const [modalDraft, setModalDraft] = useState("");
   const [signInOpen, setSignInOpen] = useState(false);
+  const pendingLikeIdRef = useRef<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("deceptive");
   const [reportOther, setReportOther] = useState("");
@@ -265,7 +266,8 @@ export const CommentDrawer = ({
   });
 
   const handleLike = async (messageId: string) => {
-    if (!authUser) {
+    if (!authUser || authUser.role === "VISITOR") {
+      pendingLikeIdRef.current = messageId;
       setSignInOpen(true);
       return;
     }
@@ -453,13 +455,13 @@ export const CommentDrawer = ({
           className={cn(
             stackAboveImmersive && "!z-[100019]",
             drawerContentClassName,
-            "pointer-events-auto flex h-[72vh] flex-col overflow-hidden rounded-t-[32px] bg-white p-0"
+            "pointer-events-auto flex max-h-[72vh] flex-col overflow-y-auto rounded-t-[32px] bg-white p-0"
           )}
           style={{ zIndex: drawerContentZIndex }}
         >
           <div className="sticky top-0 z-10 shrink-0 bg-white">
             {/* Top Bar */}
-            <div className="relative border-b">
+            <div className="relative -mt-4 border-b sm:mt-0">
               <div className="flex items-end justify-between p-4">
                 {/* Left side metrics */}
                 <div className="space-y-1">
@@ -498,6 +500,10 @@ export const CommentDrawer = ({
               </div>
             </div>
 
+            <h5 className="bg-primary mx-auto h-[1px] w-[320px] px-4 py-0.5 lg:w-full">
+              {" "}
+            </h5>
+
             <div className="space-y-2 p-4">
               <h4 className="flex items-center gap-1 text-sm font-semibold">
                 <span className="text-primary">Creator</span>
@@ -529,7 +535,7 @@ export const CommentDrawer = ({
                 </p>
               )}
               {resolvedDescription ? (
-                <div>
+                <div className="border p-4">
                   <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
                     {resolvedDescription}
                   </p>
@@ -544,37 +550,9 @@ export const CommentDrawer = ({
                   ) : null}
                 </div>
               ) : null}
-              <p className="flex flex-wrap items-center gap-2 text-xs text-black">
-                {showMetricsSkeleton ? (
-                  <span className="flex flex-wrap gap-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <span
-                        key={i}
-                        className="inline-block h-3 w-16 animate-pulse rounded bg-gray-100"
-                      />
-                    ))}
-                  </span>
-                ) : (
-                  <>
-                    <span>
-                      Channel tips:{" "}
-                      {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
-                    </span>
-                    <span>·</span>
-                    <span>Video tips: {metrics?.videoTipCount ?? 0}</span>
-                  </>
-                )}
-              </p>
+
               {channelMeta ? (
                 <div className="flex flex-col gap-1">
-                  <p className="text-muted-foreground text-[11px]">
-                    Created:{" "}
-                    {new Date(channelMeta.createdAt).toLocaleDateString(
-                      "en-US",
-                      { month: "short", day: "numeric", year: "numeric" }
-                    )}
-                  </p>
-
                   <p className="text-muted-foreground text-[11px]">
                     {channelMeta.communityName ? "Community" : ""}{" "}
                     {channelMeta.communityName
@@ -589,43 +567,78 @@ export const CommentDrawer = ({
                     <p className="text-muted-foreground text-[11px]">
                       · {channelMeta.contentLanguage} ·{" "}
                       {channelMeta.contentCountry}
+                    </p>{" "}
+                    &middot;
+                    <p className="text-muted-foreground text-[11px]">
+                      Created:{" "}
+                      {new Date(channelMeta.createdAt).toLocaleDateString(
+                        "en-US",
+                        { month: "short", day: "numeric", year: "numeric" }
+                      )}
                     </p>
                   </div>
                 </div>
               ) : null}
-            </div>
 
-            {(showViewCount || showEncounterCount || amountRaisedLabel) && (
-              <div className="ml-4 flex w-fit flex-wrap items-center gap-2 rounded-sm border p-2 text-xs">
-                {showViewCount ? (
-                  <>
-                    <span>
-                      Views {resolvedViewCount.toLocaleString()} (10s+)
-                    </span>
-                    {(showEncounterCount || amountRaisedLabel) && (
-                      <span>&middot;</span>
-                    )}
-                  </>
-                ) : null}
-                {showEncounterCount ? (
-                  <>
-                    <span>
-                      Encounters {resolvedEncounterCount.toLocaleString()}
-                    </span>
-                    {amountRaisedLabel ? <span>&middot;</span> : null}
-                  </>
-                ) : null}
-
-                {amountRaisedLabel ? (
-                  <span>{amountRaisedLabel} raised</span>
-                ) : null}
-                {resolvedEncounterCount > 0 ? (
-                  <span className="flex items-center gap-1">
-                    <EyeIcon className="size-3" /> {resolvedEncounterCount} seen
+              <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs text-black">
+                {showMetricsSkeleton ? (
+                  <span className="flex flex-wrap gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <span
+                        key={i}
+                        className="inline-block h-3 w-16 animate-pulse rounded bg-gray-100"
+                      />
+                    ))}
                   </span>
-                ) : null}
-              </div>
-            )}
+                ) : (
+                  <div className="-mt-2 flex items-center gap-2">
+                    <span className="text-[11px]">
+                      Event tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
+                    </span>
+                    <span>·</span>
+                    <span className="text-[11px]">
+                      Video tips: {metrics?.videoTipCount ?? 0}
+                    </span>
+
+                    {(showViewCount ||
+                      showEncounterCount ||
+                      amountRaisedLabel) && (
+                      <div className="flex w-fit flex-wrap items-center gap-2 rounded-sm border p-2 text-xs text-black">
+                        {showViewCount ? (
+                          <>
+                            <span>
+                              Views {resolvedViewCount.toLocaleString()} (10s+)
+                            </span>
+                            {(showEncounterCount || amountRaisedLabel) && (
+                              <span>&middot;</span>
+                            )}
+                          </>
+                        ) : null}
+                        {showEncounterCount ? (
+                          <>
+                            <span>
+                              Encounters{" "}
+                              {resolvedEncounterCount.toLocaleString()}
+                            </span>
+                            {amountRaisedLabel ? <span>&middot;</span> : null}
+                          </>
+                        ) : null}
+
+                        {amountRaisedLabel ? (
+                          <span>£{amountRaisedLabel} raised</span>
+                        ) : null}
+                        {resolvedEncounterCount > 0 ? (
+                          <span className="flex items-center gap-1">
+                            <EyeIcon className="size-3" />{" "}
+                            {resolvedEncounterCount} seen
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </p>
+            </div>
 
             {reportOpen ? (
               <div className="space-y-2 border-b px-4 pb-3">
@@ -678,8 +691,10 @@ export const CommentDrawer = ({
               </div>
             ) : null}
 
+            <h5 className="bg-primary mx-auto h-[1px] w-[320px] px-4 py-0.5 lg:w-full"></h5>
+
             {/* Existing Draft + Pay Area */}
-            <div className="border-b px-4 pt-4 pb-3">
+            <div className="-mt-2 border-t border-b px-4 pt-4 pb-3">
               <div className="flex gap-2">
                 <Input
                   readOnly
@@ -722,70 +737,67 @@ export const CommentDrawer = ({
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Comments List */}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-5 pb-8">
-            {!channelId?.trim() ? (
-              <p className="text-muted-foreground text-center text-sm">
-                Select a video to see comments.
-              </p>
-            ) : loading && items.length === 0 ? (
-              <ul
-                className="space-y-3"
-                aria-busy="true"
-              >
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <li
-                    key={i}
-                    className="animate-pulse rounded-lg border bg-gray-50 px-4 py-6"
-                  />
-                ))}
-              </ul>
-            ) : items.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
-                <p className="text-lg text-gray-600">
-                  Be the first to drop a comment on this video
+            {/* Comments List */}
+            <div className="min-h-0 flex-1 p-4">
+              {!channelId?.trim() ? (
+                <p className="text-muted-foreground text-center text-sm">
+                  Select a video to see comments.
                 </p>
-                <p className="text-sm text-gray-500">
-                  Purchase a comment below to share your message.
-                </p>
-              </div>
-            ) : (
-              <ul className="space-y-4">
-                {items.map(row => (
-                  <li
-                    key={row.id}
-                    className="rounded-lg border px-4 py-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold">{row.username}</p>
-                      <span className="text-muted-foreground text-[10px]">
-                        {new Date(row.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm whitespace-pre-wrap">
-                      {row.message}
-                    </p>
-                    <button
-                      type="button"
-                      disabled={likeBusyId === row.id}
-                      onClick={() => void handleLike(row.id)}
-                      className={`mt-2 inline-flex items-center gap-1 text-xs ${row.likedByMe ? "text-primary" : "text-gray-600"}`}
+              ) : loading && items.length === 0 ? (
+                <ul
+                  className="space-y-3"
+                  aria-busy="true"
+                >
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <li
+                      key={i}
+                      className="animate-pulse rounded-lg border bg-gray-50 px-4 py-6"
+                    />
+                  ))}
+                </ul>
+              ) : items.length === 0 ? (
+                <div className="-mt-8 flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+                  <p className="text-sm text-gray-600">
+                    Be the first to drop a comment on this video
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-4">
+                  {items.map(row => (
+                    <li
+                      key={row.id}
+                      className="rounded-lg border px-4 py-3"
                     >
-                      <Heart
-                        className="size-3.5"
-                        fill={row.likedByMe ? "currentColor" : "none"}
-                      />
-                      {row.likeCount}
-                    </button>
-                  </li>
-                ))}
-                <p className="text-center text-xs text-gray-500">
-                  Add your comment or like one above.
-                </p>
-              </ul>
-            )}
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold">{row.username}</p>
+                        <span className="text-muted-foreground text-[10px]">
+                          {new Date(row.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm whitespace-pre-wrap">
+                        {row.message}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={likeBusyId === row.id}
+                        onClick={() => void handleLike(row.id)}
+                        className={`mt-2 inline-flex items-center gap-1 text-xs ${row.likedByMe ? "text-primary" : "text-gray-600"}`}
+                      >
+                        <Heart
+                          className="size-3.5"
+                          fill={row.likedByMe ? "currentColor" : "none"}
+                        />
+                        {row.likeCount}
+                      </button>
+                    </li>
+                  ))}
+                  <p className="text-center text-xs text-gray-500">
+                    Add your comment or like one above.
+                  </p>
+                </ul>
+              )}
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
@@ -818,11 +830,20 @@ export const CommentDrawer = ({
 
       <SignInDialog
         open={signInOpen}
-        onOpenChange={setSignInOpen}
+        onOpenChange={open => {
+          setSignInOpen(open);
+          if (!open) pendingLikeIdRef.current = null;
+        }}
         title="Sign in to like comments"
         defaultUserType="tipper"
         overlayClassName={SIGN_IN_NESTED_OVERLAY_Z_INDEX}
         contentClassName={SIGN_IN_NESTED_Z_INDEX}
+        onSuccess={() => {
+          setSignInOpen(false);
+          const messageId = pendingLikeIdRef.current;
+          pendingLikeIdRef.current = null;
+          if (messageId) void handleLike(messageId);
+        }}
       />
     </>
   );

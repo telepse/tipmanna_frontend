@@ -1,7 +1,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverHostAuthHeaders } from "@/lib/server-auth";
 
 export type FormDraftKind =
   | "content_only"
@@ -24,43 +24,41 @@ export type FormDraftRow = FormDraftSummary & {
   policyJson?: unknown;
 };
 
-export async function listFormDraftsAction(token?: string | null) {
+export async function listFormDraftsAction(kind?: FormDraftKind) {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
+  const q = kind ? `?kind=${encodeURIComponent(kind)}` : "";
   return runServerFetch<FormDraftSummary[]>(
-    `${base.replace(/\/$/, "")}/form-drafts`,
+    `${base.replace(/\/$/, "")}/form-drafts${q}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listFormDraftsAction"
   );
 }
 
-export async function getFormDraftAction(id: string, token?: string | null) {
+export async function getFormDraftAction(id: string) {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
   return runServerFetch<FormDraftRow>(
     `${base.replace(/\/$/, "")}/form-drafts/${encodeURIComponent(id)}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getFormDraftAction"
   );
 }
 
-export async function upsertFormDraftAction(
-  body: {
-    id?: string;
-    kind: FormDraftKind;
-    title?: string;
-    step?: number;
-    payloadJson?: unknown;
-    policyJson?: unknown;
-  },
-  token?: string | null
-) {
+export async function upsertFormDraftAction(body: {
+  id?: string;
+  kind: FormDraftKind;
+  title?: string;
+  step?: number;
+  payloadJson?: unknown;
+  policyJson?: unknown;
+}) {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
   const path = body.id
     ? `/form-drafts/${encodeURIComponent(body.id)}`
@@ -69,20 +67,20 @@ export async function upsertFormDraftAction(
     `${base.replace(/\/$/, "")}${path}`,
     {
       method: body.id ? "PUT" : "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
     },
     "upsertFormDraftAction"
   );
 }
 
-export async function deleteFormDraftAction(id: string, token?: string | null) {
+export async function deleteFormDraftAction(id: string) {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
   return runServerFetch(
     `${base.replace(/\/$/, "")}/form-drafts/${encodeURIComponent(id)}`,
     {
       method: "DELETE",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
     },
     "deleteFormDraftAction"
   );

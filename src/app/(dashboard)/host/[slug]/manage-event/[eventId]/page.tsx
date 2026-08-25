@@ -5,7 +5,6 @@ import {
 } from "@/actions/host";
 import { getHostID } from "@/lib/getHostId";
 import { ProtectedRoute } from "@/components/protected-route";
-import { getToken } from "@/lib/getToken";
 import { EventDetailClient } from "@/components/host/event-detail-client";
 
 interface Props {
@@ -22,18 +21,15 @@ interface HostMessage {
 
 export default async function ManageEventDetailPage({ params }: Props) {
   const hostId = await getHostID();
-  const token = await getToken();
   const { eventId } = await params;
 
   const { data: eventDetails } = await getHostEventDetailsAction(
     hostId!,
-    eventId,
-    token
+    eventId
   );
   const { data: hostMessages } = await getHostEventMessagesAction(
     hostId!,
-    eventId,
-    token
+    eventId
   );
   // const [data, hostMessages] = await Promise.all([
   //   getHostEventDetailsAction(hostId!, eventId, token),
@@ -49,6 +45,7 @@ export default async function ManageEventDetailPage({ params }: Props) {
     eventDate,
     startTime,
     endTime,
+    timeZone,
     cohosts,
     performers,
     projects,
@@ -62,6 +59,8 @@ export default async function ManageEventDetailPage({ params }: Props) {
     submissionKind,
     host: { email: hostEmail },
   } = eventDetails as any;
+
+  console.log("eventDetails", eventDetails);
 
   return (
     <ProtectedRoute>
@@ -77,6 +76,7 @@ export default async function ManageEventDetailPage({ params }: Props) {
         venueName={venueName}
         startTime={startTime}
         endTime={endTime}
+        timeZone={timeZone}
         performers={performers}
         projects={projects}
         cohosts={cohosts}

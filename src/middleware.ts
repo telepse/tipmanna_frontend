@@ -10,15 +10,6 @@ function normalizeHostname(host: string | null): string {
   return (host ?? "").split(":")[0].toLowerCase();
 }
 
-function canonicalTvHost(host: string): string | null {
-  if (host === "tipmanna.tv" || host.endsWith(".tipmanna.tv")) {
-    return host === "www.tipmanna.tv" || host === "tipmanna.tv"
-      ? host
-      : "tipmanna.tv";
-  }
-  return null;
-}
-
 export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const rawHost = request.headers.get("host");
@@ -42,20 +33,17 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  const tvHost = canonicalTvHost(hostname);
-  if (tvHost) {
-    if (url.pathname === "/") {
-      url.pathname = "/explore";
-      return NextResponse.redirect(url);
-    }
-  }
-
   if (hostname === "tipmanna.live" || hostname === "www.tipmanna.live") {
     const dest = url.clone();
     dest.hostname =
       hostname === "www.tipmanna.live" ? "www.tipmanna.tv" : "tipmanna.tv";
     dest.protocol = "https:";
     return NextResponse.redirect(dest, 308);
+  }
+
+  if (url.pathname === "/") {
+    url.pathname = "/explore";
+    return NextResponse.redirect(url, 308);
   }
 
   const creatorHandleMatch = url.pathname.match(/^\/@([^/]+)\/?$/);

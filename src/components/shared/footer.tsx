@@ -19,12 +19,12 @@ import { FooterSection } from "./footer-section";
 import { FooterLinks } from "./footer-links";
 import { SocialIcon } from "./social-icon";
 import { CreateDialog } from "../home/create-dialog";
-import { HostUpgradeDialog } from "@/components/auth/host-upgrade-dialog";
 import { getAccountNavHref, getAddEventNavHref } from "@/lib/account-nav-href";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 
 const supportLinks = [
-  { href: "#faq", label: "FAQ" },
+  { href: "/partner#faq", label: "FAQ" },
   { href: "https://wa.link/9b3ibh", label: "Contact Us" },
 ];
 
@@ -43,6 +43,9 @@ const paymentOptions = [
 
 const currentYear = new Date().getFullYear();
 
+const communityFeatureOn =
+  process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
+
 export default function Footer() {
   const { push } = useAppRouter();
   const [showPrompt, setShowPrompt] = useState(false);
@@ -51,9 +54,19 @@ export default function Footer() {
     (state: RootState) => state.auth
   );
 
+  const { canReadAsHost, requestHostAuth, HostAuthModal } =
+    useHostCapabilityWithAuth({ requireHostAccount: true });
+
+  const linkedHost = user?.role === "TIPPER" && canReadAsHost;
+
   const addEventHref = useMemo(
-    () => getAddEventNavHref(user, isAuthenticated),
-    [user, isAuthenticated]
+    () =>
+      getAddEventNavHref(
+        user,
+        isAuthenticated,
+        user?.role === "TIPPER" ? linkedHost : undefined
+      ),
+    [user, isAuthenticated, linkedHost]
   );
 
   const accountHref = useMemo(
@@ -66,7 +79,37 @@ export default function Footer() {
   };
 
   const [openPopup, setOpenPopup] = useState(false);
-  const [hostUpgradeOpen, setHostUpgradeOpen] = useState(false);
+
+  const openCreateFlow = () => {
+    if (communityFeatureOn) {
+      setOpenPopup(true);
+      return;
+    }
+    push("/event-only");
+  };
+
+  const handleAddEventClick = () => {
+    if (!isAuthenticated || !user) {
+      push(addEventHref);
+      return;
+    }
+
+    if (user.role === "HOST") {
+      openCreateFlow();
+      return;
+    }
+
+    if (user.role === "TIPPER") {
+      if (canReadAsHost) {
+        requestHostAuth(openCreateFlow);
+        return;
+      }
+      requestHostAuth();
+      return;
+    }
+
+    push(addEventHref);
+  };
 
   return (
     <footer className="wrapper section">
@@ -131,6 +174,15 @@ export default function Footer() {
               <li className="text-muted-foreground open_sans cursor-pointer text-sm">
                 <a href="/partner#pricing">Pricing</a>
               </li>
+              <li className="text-muted-foreground open_sans cursor-pointer text-sm">
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={handleAddEventClick}
+                >
+                  Create Event
+                </button>
+              </li>
             </ul>
           </FooterSection>
 
@@ -139,13 +191,7 @@ export default function Footer() {
             setOpenPopup={setOpenPopup}
           />
 
-          {user?.role === "TIPPER" && user.email ? (
-            <HostUpgradeDialog
-              open={hostUpgradeOpen}
-              onOpenChange={setHostUpgradeOpen}
-              email={user.email}
-            />
-          ) : null}
+          {HostAuthModal}
 
           {/* Support */}
           <FooterSection title="Support">

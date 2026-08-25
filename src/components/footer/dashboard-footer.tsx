@@ -25,7 +25,7 @@ import {
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 
 const supportLinks = [
-  { href: "#faq", label: "FAQ" },
+  { href: "/partner#faq", label: "FAQ" },
   { href: "https://wa.link/9b3ibh", label: "Contact Us" },
   { href: "#community", label: "Community" },
 ];

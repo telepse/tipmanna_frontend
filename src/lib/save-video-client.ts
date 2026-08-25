@@ -13,11 +13,10 @@ import type { ApiError } from "@/types/api-error.types";
 export function buildChannelSaveOwner(
   role: string | undefined,
   userId: string | undefined
-): { hostId?: string; tipperId?: string; visitorId?: string } | null {
+): { hostId?: string; tipperId?: string } | null {
   if (!userId) return null;
-  if (role === "HOST") return { hostId: userId };
+  if (role === "VISITOR") return null;
   if (role === "TIPPER") return { tipperId: userId };
-  if (role === "VISITOR") return { visitorId: userId };
   return null;
 }
 
@@ -65,7 +64,7 @@ export async function toggleChannelSaveForUser(params: {
   const owner = buildChannelSaveOwner(role, userId);
   if (!owner) {
     return actionFail<ToggleSaveResult>(
-      "Sign in as a host, tipper, or visitor to save this video."
+      "Sign in as a tipper to save this video."
     );
   }
 
@@ -113,9 +112,7 @@ export async function saveChannelForCurrentUser(params: {
   const { channelId, token, role, userId } = params;
   const owner = buildChannelSaveOwner(role, userId);
   if (!owner) {
-    return actionFail<unknown>(
-      "Sign in as a host, tipper, or visitor to save this video."
-    );
+    return actionFail<unknown>("Sign in as a tipper to save this video.");
   }
   return saveVideo(channelId, token, owner);
 }

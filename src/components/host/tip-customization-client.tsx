@@ -1,17 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
+import {
+  getHostAnimationLibraryAction,
+  initHostTipConfigAction,
+  loadHostTipConfigAction,
+  publishHostTipConfigAction,
+  resetHostTipConfigAction,
+  saveHostTipConfigDraftAction,
+  submitPremiumAnimationRequestAction,
+} from "@/actions/tip-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RootState } from "@/redux/store";
 import type { TipConfigPayload } from "@/lib/tip-config-types";
+import { hasActiveHostSession } from "@/lib/host-session-client";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
 import {
@@ -22,9 +30,6 @@ import {
   SelectValue,
 } from "../ui/select";
 
-const api = () =>
-  (process.env.NEXT_PUBLIC_BACKEND_API_URL || "").replace(/\/$/, "");
-
 export default function TipCustomizationClient({
   hostSlug,
   eventId,
@@ -32,9 +37,7 @@ export default function TipCustomizationClient({
   hostSlug: string;
   eventId: string;
 }) {
-  const userId = useSelector((s: RootState) => s.auth.user?.id);
-  const authToken = useSelector((s: RootState) => s.auth.token);
-  const token = authToken;
+  const hostSessionActive = hasActiveHostSession();
   const { capabilities, isLoading: planLoading } = useHostPlanCapabilities();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,22 +46,14 @@ export default function TipCustomizationClient({
   const [draft, setDraft] = useState<TipConfigPayload | null>(null);
   const [library, setLibrary] = useState<any[]>([]);
 
-  const authHeaders = useMemo(
-    () => ({
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    }),
-    [token]
-  );
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${api()}/host/tip-config/${eventId}`, {
-        headers: authHeaders,
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.message || "Failed to load");
+      const res = await loadHostTipConfigAction(eventId);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? "Failed to load");
+      }
+      const j = res.data;
       setInitialized(Boolean(j.initialized));
       setFrozen(Boolean(j.frozen));
       if (j.draft) setDraft(j.draft as TipConfigPayload);
@@ -69,40 +64,32 @@ export default function TipCustomizationClient({
     } finally {
       setLoading(false);
     }
-  }, [authHeaders, eventId]);
+  }, [eventId]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!hostSessionActive) return;
     void load();
-  }, [load, userId]);
+  }, [load, hostSessionActive]);
 
   useEffect(() => {
     const run = async () => {
       try {
-        const res = await fetch(
-          `${api()}/host/animation-library?library=premium`,
-          {
-            headers: authHeaders,
-          }
-        );
-        const j = await res.json();
-        if (res.ok && Array.isArray(j.items)) setLibrary(j.items);
+        const res = await getHostAnimationLibraryAction({ library: "premium" });
+        if (res.success && res.data && Array.isArray(res.data.items)) {
+          setLibrary(res.data.items);
+        }
       } catch {
         /* ignore */
       }
     };
-    if (token) void run();
-  }, [authHeaders, token, userId]);
+    if (hostSessionActive) void run();
+  }, [hostSessionActive]);
 
   const init = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${api()}/host/tip-config/${eventId}/init`, {
-        method: "POST",
-        headers: authHeaders,
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.message || "Init failed");
+      const res = await initHostTipConfigAction(eventId);
+      if (!res.success) throw new Error(res.message ?? "Init failed");
       toast.success("Tip customization initialized");
       setInitialized(true);
       await load();
@@ -116,13 +103,8 @@ export default function TipCustomizationClient({
   const saveDraft = async (payload: TipConfigPayload): Promise<boolean> => {
     setSaving(true);
     try {
-      const res = await fetch(`${api()}/host/tip-config/${eventId}/draft`, {
-        method: "PUT",
-        headers: authHeaders,
-        body: JSON.stringify(payload),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.message || "Save failed");
+      const res = await saveHostTipConfigDraftAction(eventId, payload);
+      if (!res.success) throw new Error(res.message ?? "Save failed");
       toast.success("Draft saved");
       return true;
     } catch (e) {
@@ -139,14 +121,12 @@ export default function TipCustomizationClient({
     if (!saved) return;
     setSaving(true);
     try {
-      const res = await fetch(`${api()}/host/tip-config/${eventId}/publish`, {
-        method: "POST",
-        headers: authHeaders,
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.message || "Publish failed");
+      const res = await publishHostTipConfigAction(eventId);
+      if (!res.success) throw new Error(res.message ?? "Publish failed");
       toast.success(
-        j.reviewNeeded ? "Published (flagged for review)" : "Published live"
+        res.data?.reviewNeeded
+          ? "Published (flagged for review)"
+          : "Published live"
       );
       await load();
     } catch (e) {
@@ -159,16 +139,9 @@ export default function TipCustomizationClient({
   const reset = async () => {
     setSaving(true);
     try {
-      const res = await fetch(
-        `${api()}/host/tip-config/${eventId}/reset-default`,
-        {
-          method: "POST",
-          headers: authHeaders,
-        }
-      );
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.message || "Reset failed");
-      if (j.config) setDraft(j.config as TipConfigPayload);
+      const res = await resetHostTipConfigAction(eventId);
+      if (!res.success) throw new Error(res.message ?? "Reset failed");
+      if (res.data?.config) setDraft(res.data.config as TipConfigPayload);
       toast.success("Draft reset from your event’s catalog layout");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Reset failed");
@@ -192,17 +165,12 @@ export default function TipCustomizationClient({
         .map(s => s.trim())
         .filter(Boolean)
         .slice(0, 5);
-      const res = await fetch(`${api()}/host/premium-animation-requests`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          eventId,
-          description: reqDesc.trim().slice(0, 2000),
-          inspirationUrls: urls.length ? urls : undefined,
-        }),
+      const res = await submitPremiumAnimationRequestAction({
+        eventId,
+        description: reqDesc.trim().slice(0, 2000),
+        inspirationUrls: urls.length ? urls : undefined,
       });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.message || "Request failed");
+      if (!res.success) throw new Error(res.message ?? "Request failed");
       toast.success("Request submitted");
       setReqDesc("");
       setReqUrls("");
@@ -281,7 +249,7 @@ export default function TipCustomizationClient({
             into the new editor. Requires Host Premium or Community.
           </p>
           <Button
-            disabled={saving || !userId || frozen}
+            disabled={saving || !hostSessionActive || frozen}
             onClick={() => void init()}
           >
             Initialize for this event

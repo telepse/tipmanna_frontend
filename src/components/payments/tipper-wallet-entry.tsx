@@ -45,7 +45,7 @@ import {
 } from "@/constants/wallet";
 
 function isWalletRole(role: string | undefined): boolean {
-  return role === "TIPPER" || role === "HOST";
+  return role === "TIPPER";
 }
 
 export type TipperWalletDialogMode = "tip" | "topup";
@@ -588,9 +588,8 @@ export function TipperWalletDialog({
 
         {!debitSuccess && !canUseWallet && (
           <p className="text-muted-foreground text-sm">
-            Sign in with your tipper or host account to use your wallet, view
-            your balance, and pay in one tap after you have activated your
-            wallet.
+            Sign in with your tipper account to use your wallet, view your
+            balance, and pay in one tap after you have activated your wallet.
           </p>
         )}
 

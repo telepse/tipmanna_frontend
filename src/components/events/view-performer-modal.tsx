@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// UI Components
 import {
   Dialog,
   DialogContent,
@@ -10,10 +9,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Pin, PinOff, Loader2 } from "lucide-react"; // Icons for pins and loading
+import { Pin, PinOff, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
-import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
+import { togglePerformerPinAction } from "@/actions/events";
 
 interface Performer {
   id?: string;
@@ -26,7 +24,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   performers: Performer[];
-  setPerformers?: React.Dispatch<React.SetStateAction<Performer[]>>; // Made optional to prevent crashes
+  setPerformers?: React.Dispatch<React.SetStateAction<Performer[]>>;
 }
 
 export const ViewPerformersModal = ({
@@ -36,14 +34,9 @@ export const ViewPerformersModal = ({
   setPerformers,
 }: Props) => {
   const [loadingId, setLoadingId] = useState<string | null>(null);
-
-  // 1. Create a local state mapped from props to handle instant icon toggling
   const [localPerformers, setLocalPerformers] =
     useState<Performer[]>(performers);
 
-  const { token } = useSelector((state: RootState) => state.auth);
-
-  // Sync local state when performers prop changes or modal opens
   useEffect(() => {
     setLocalPerformers(performers);
   }, [performers, open]);
@@ -51,34 +44,18 @@ export const ViewPerformersModal = ({
   const handleTogglePin = async (performerId: string) => {
     setLoadingId(performerId);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/performers/${performerId}/toggle-pin`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to toggle pin state");
+      const res = await togglePerformerPinAction(performerId);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? res.error ?? "Failed to toggle pin");
       }
-
-      // 2. Update the local state so the icon changes instantly
+      const data = res.data as { isPinned?: boolean };
       const updatedList = localPerformers.map(p =>
-        p.id === performerId ? { ...p, isPinned: data.isPinned } : p
+        p.id === performerId ? { ...p, isPinned: Boolean(data.isPinned) } : p
       );
       setLocalPerformers(updatedList);
-
-      // 3. Safely update the parent state if it was actually provided
       if (typeof setPerformers === "function") {
         setPerformers(updatedList);
       }
-
       toast.success(
         data.isPinned ? "Performer pinned!" : "Performer unpinned."
       );

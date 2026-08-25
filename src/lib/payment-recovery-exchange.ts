@@ -9,6 +9,7 @@ import { writePaymentRecoverySession } from "@/lib/payment-recovery-session";
 import {
   exchangeRecoveryStateRequest,
   isDefinitiveExchangeRejection,
+  isIdentityMismatchRejection,
   isTransientExchangeFailure,
   traceRecoveryApiError,
 } from "@/lib/payment-recovery-client";
@@ -26,6 +27,7 @@ export type ExchangeRecoveryResult =
   | { outcome: "skipped_flag_off" }
   | { outcome: "skipped_no_pending" }
   | { outcome: "definitive_rejection" }
+  | { outcome: "identity_retry" }
   | { outcome: "transient_failure" }
   | { outcome: "legacy_continue" };
 
@@ -98,6 +100,14 @@ export async function runPaymentRecoveryExchange(params: {
       return { outcome: "exchanged", sessionStored: true };
     } catch (err) {
       lastErr = err;
+      if (isIdentityMismatchRejection(err)) {
+        traceRecoveryApiError("payer_recovery_exchange_failed", err, {
+          transactionId: pending.transactionId,
+          eventId: pending.eventId,
+          result: "identity_retry",
+        });
+        return { outcome: "identity_retry" };
+      }
       if (isDefinitiveExchangeRejection(err)) {
         clearInvalidRecoveryState();
         traceRecoveryApiError("payer_recovery_exchange_failed", err, {
@@ -145,10 +155,54 @@ export function normalizePaymentOriginUrl(url: string): string {
   }
 }
 
+/** Params surfaces add after mount — ignored for payment-origin intent matching. */
+const SURFACE_MANAGED_QUERY_PARAMS = new Set([
+  "community",
+  "feedTab",
+  "tab",
+  "feedTypes",
+  "feedLang",
+  "feedCountry",
+  "communities",
+  "tvSource",
+  "exploreReturnTo",
+  "joinCommunity",
+]);
+
+/** Params that identify the payment context — compared when present on saved origin. */
+const IDENTITY_QUERY_PARAMS = ["channel", "eventId", "v", "videoId"] as const;
+
+/**
+ * Intent key for payment-origin matching: origin + pathname + identity params only.
+ * Tolerates surface-owned query rewrites (e.g. TV `?community=`, Explore `feedTab=`).
+ */
+export function paymentOriginIntentKey(url: string): string {
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    const pathname = u.pathname.replace(/\/$/, "") || "/";
+    const parts: string[] = [u.origin, pathname];
+    for (const key of IDENTITY_QUERY_PARAMS) {
+      const value = u.searchParams.get(key)?.trim();
+      if (value) parts.push(`${key}=${value}`);
+    }
+    return parts.join("|");
+  } catch {
+    return url;
+  }
+}
+
 export function isCurrentRoutePaymentOrigin(paymentOrigin: string): boolean {
   if (typeof window === "undefined") return false;
+  const savedKey = paymentOriginIntentKey(paymentOrigin);
+  const currentKey = paymentOriginIntentKey(window.location.href);
+  if (savedKey === currentKey) return true;
+
+  // Exact match fallback for origins without surface-managed param drift.
   return (
     normalizePaymentOriginUrl(window.location.href) ===
     normalizePaymentOriginUrl(paymentOrigin)
   );
 }
+
+export { SURFACE_MANAGED_QUERY_PARAMS, IDENTITY_QUERY_PARAMS };

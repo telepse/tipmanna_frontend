@@ -8,17 +8,22 @@ import { useSelector } from "react-redux";
 
 import {
   getCommunityExploreCatalogAction,
+  getTopCommunitiesAction,
   getMeJoinedCommunitiesAction,
   getMyCommunitiesAction,
   leaveJoinedCommunityAction,
   patchMembershipFeedActiveAction,
   rejoinCommunityMembershipAction,
   searchCommunitiesPreviewAction,
-  submitCommunityStartInterestAction,
   type CommunityExploreCatalogRow,
 } from "@/actions/communities";
 import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import SignInDialog, {
+  type SignInModalPayload,
+} from "@/components/auth/sign-in-dialog";
+import { StartCommunityRequestDialog } from "@/components/community/start-community-request-dialog";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,10 +47,8 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 import { cn } from "@/lib/utils";
-import { normalizeEmail } from "@/lib/normalize-email";
 import type { RootState } from "@/redux/store";
 import { toast } from "react-toastify";
 
@@ -53,16 +56,6 @@ const TIPMANNA_COMMUNITY_ID =
   process.env.NEXT_PUBLIC_TIPMANNA_COMMUNITY_ID?.trim() ?? "";
 
 const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
-
-const COMMUNITY_TYPE_OPTIONS = [
-  "Religious",
-  "Educational",
-  "Lifestyle",
-  "Sports",
-  "Arts & culture",
-  "Professional",
-  "Other",
-] as const;
 
 function exploreCommunityJoinHref(communityId: string) {
   return `/explore?tab=join&joinCommunity=${encodeURIComponent(communityId)}`;
@@ -194,6 +187,13 @@ export default function CommunityHubClient() {
     token: authToken,
   } = useSelector((s: RootState) => s.auth);
   const userId = user?.id;
+  const {
+    canReadAsHost,
+    canWriteAsHost,
+    capability,
+    requestHostAuth,
+    HostAuthModal,
+  } = useHostCapabilityWithAuth();
 
   const [memberships, setMemberships] = useState<HubMembership[]>([]);
   const [searchQ, setSearchQ] = useState("");
@@ -206,33 +206,44 @@ export default function CommunityHubClient() {
   const [catalog, setCatalog] = useState<{
     total: number;
     alphabetical: CommunityExploreCatalogRow[];
-    topByTips: CommunityExploreCatalogRow[];
   } | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [topCommunities, setTopCommunities] = useState<
+    CommunityExploreCatalogRow[]
+  >([]);
+  const [topLoading, setTopLoading] = useState(true);
 
-  const [signInOpen, setSignInOpen] = useState(false);
-  const [signInReturnTo, setSignInReturnTo] = useState<string | null>(null);
-  const [signInModalTitle, setSignInModalTitle] = useState("Sign in required");
+  const [joinSignInOpen, setJoinSignInOpen] = useState(false);
+  const [joinSignInReturnTo, setJoinSignInReturnTo] = useState<string | null>(
+    null
+  );
+  const [hostSignInOpen, setHostSignInOpen] = useState(false);
+  const [pendingStartCommunity, setPendingStartCommunity] = useState(false);
 
   const [owned, setOwned] = useState<CommunityBrief[]>([]);
   const [coCreated, setCoCreated] = useState<CommunityBrief[]>([]);
 
-  const [interestName, setInterestName] = useState("");
-  const [interestDesc, setInterestDesc] = useState("");
-  const [interestType, setInterestType] = useState<string>(
-    COMMUNITY_TYPE_OPTIONS[0]
-  );
-  const [interestStart, setInterestStart] = useState("");
-  const [interestEmail, setInterestEmail] = useState("");
-  const [interestPhone, setInterestPhone] = useState("");
-  const [interestSubmitting, setInterestSubmitting] = useState(false);
   const [startCommunityModalOpen, setStartCommunityModalOpen] = useState(false);
   const [leaveConfirmTarget, setLeaveConfirmTarget] = useState<{
     communityId: string;
     name: string;
   } | null>(null);
   const [leaveInProgress, setLeaveInProgress] = useState(false);
+
+  const loadTopCommunities = useCallback(async () => {
+    setTopLoading(true);
+    try {
+      const r = await getTopCommunitiesAction(3);
+      if (r.success && r.data?.communities) {
+        setTopCommunities(r.data.communities);
+      } else {
+        setTopCommunities([]);
+      }
+    } finally {
+      setTopLoading(false);
+    }
+  }, []);
 
   const loadCatalog = useCallback(async () => {
     setCatalogLoading(true);
@@ -243,7 +254,6 @@ export default function CommunityHubClient() {
         setCatalog({
           total: r.data.total,
           alphabetical: r.data.alphabetical,
-          topByTips: r.data.topByTips,
         });
       } else {
         setCatalog(null);
@@ -253,6 +263,10 @@ export default function CommunityHubClient() {
       setCatalogLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    void loadTopCommunities();
+  }, [loadTopCommunities]);
 
   useEffect(() => {
     void loadCatalog();
@@ -327,31 +341,9 @@ export default function CommunityHubClient() {
   }, [searchQ]);
 
   useEffect(() => {
-    if (user?.role !== "HOST" || !userId) {
-      if (user?.role === "TIPPER" && userId && authToken) {
-        void (async () => {
-          const hostRes = await getMyCommunitiesAction(authToken);
-          if (hostRes.success && hostRes.data) {
-            const raw = hostRes.data as {
-              owned: CommunityBrief[];
-              coCreator: CommunityBrief[];
-            };
-            if (
-              (raw.owned?.length ?? 0) > 0 ||
-              (raw.coCreator?.length ?? 0) > 0
-            ) {
-              setOwned(raw.owned ?? []);
-              setCoCreated(raw.coCreator ?? []);
-              return;
-            }
-          }
-          setOwned([]);
-          setCoCreated([]);
-        })();
-      } else {
-        setOwned([]);
-        setCoCreated([]);
-      }
+    if (!canReadAsHost || !authToken) {
+      setOwned([]);
+      setCoCreated([]);
       return;
     }
 
@@ -369,15 +361,7 @@ export default function CommunityHubClient() {
         setCoCreated([]);
       }
     })();
-  }, [authToken, user?.role, userId]);
-
-  useEffect(() => {
-    const email =
-      user && "email" in user && typeof user.email === "string"
-        ? user.email
-        : "";
-    setInterestEmail(email);
-  }, [user]);
+  }, [authToken, canReadAsHost]);
 
   const defaultSystemRows = useMemo(() => {
     const fromApi = memberships.filter(isDefaultSystemCommunity);
@@ -418,7 +402,9 @@ export default function CommunityHubClient() {
   const eventSlug =
     user?.role === "HOST" && "eventSlug" in user
       ? (user.eventSlug?.trim() ?? "")
-      : "";
+      : capability.status === "active"
+        ? (capability.eventSlug?.trim() ?? "")
+        : "";
 
   const showStartCommunityForm =
     Boolean(isAuthenticated) &&
@@ -485,9 +471,12 @@ export default function CommunityHubClient() {
 
   const filteredCatalog = useMemo(() => {
     if (!catalog?.alphabetical.length) return [];
+    const base = catalog.alphabetical.filter(
+      c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem)
+    );
     const q = catalogFilter.trim().toLowerCase();
-    if (!q) return catalog.alphabetical;
-    return catalog.alphabetical.filter(
+    if (!q) return base;
+    return base.filter(
       c =>
         c.name.toLowerCase().includes(q) ||
         (c.description?.toLowerCase().includes(q) ?? false)
@@ -495,76 +484,47 @@ export default function CommunityHubClient() {
   }, [catalog, catalogFilter]);
 
   const openJoinSignIn = useCallback((communityId: string) => {
-    setSignInReturnTo(exploreCommunityJoinHref(communityId));
-    setSignInOpen(true);
+    setJoinSignInReturnTo(exploreCommunityJoinHref(communityId));
+    setJoinSignInOpen(true);
+  }, []);
+
+  const openStartCommunityForm = useCallback(() => {
+    setStartCommunityModalOpen(true);
   }, []);
 
   const openStartCommunityFlow = useCallback(() => {
-    if (isAuthenticated && userId && authToken) {
-      setStartCommunityModalOpen(true);
+    if (!isAuthenticated || !userId || !authToken) {
+      setPendingStartCommunity(true);
+      setHostSignInOpen(true);
       return;
     }
-    setSignInModalTitle("Sign in to start a community");
-    setSignInOpen(true);
-  }, [authToken, isAuthenticated, userId]);
+    if (canWriteAsHost) {
+      openStartCommunityForm();
+      return;
+    }
+    requestHostAuth(openStartCommunityForm);
+  }, [
+    authToken,
+    canWriteAsHost,
+    isAuthenticated,
+    openStartCommunityForm,
+    requestHostAuth,
+    userId,
+  ]);
 
-  const handleInterestSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!userId || !authToken) {
-        toast.error("Sign in to send this request.");
-        return;
-      }
-      const communityName = interestName.trim();
-      const description = interestDesc.trim();
-      const contactEmail = normalizeEmail(interestEmail.trim());
-      if (!communityName || !description || !contactEmail) {
-        toast.error("Please fill in community name, description, and email.");
-        return;
-      }
-      setInterestSubmitting(true);
-      try {
-        const r = await submitCommunityStartInterestAction(authToken, {
-          communityName,
-          description,
-          communityType: interestType,
-          interestedStartDate: interestStart.trim() || null,
-          contactEmail,
-          contactPhone: interestPhone.trim() || null,
-        });
-        if (r.success) {
-          toast.success("Interest sent — admins have been notified.");
-          setStartCommunityModalOpen(false);
-          setInterestName("");
-          setInterestDesc("");
-          setInterestStart("");
-          setInterestPhone("");
-          const email =
-            user && "email" in user && typeof user.email === "string"
-              ? user.email
-              : "";
-          setInterestEmail(email);
-        } else if (r.message?.includes("(401)")) {
-          setSignInModalTitle("Sign in to send this request");
-          setSignInOpen(true);
+  const handleHostSignInSuccess = useCallback(
+    (payload: SignInModalPayload) => {
+      setHostSignInOpen(false);
+      if (pendingStartCommunity) {
+        setPendingStartCommunity(false);
+        if (payload.role === "HOST") {
+          openStartCommunityForm();
         } else {
-          toast.error(r.message ?? "Could not send request");
+          requestHostAuth(openStartCommunityForm);
         }
-      } finally {
-        setInterestSubmitting(false);
       }
     },
-    [
-      authToken,
-      interestDesc,
-      interestEmail,
-      interestName,
-      interestPhone,
-      interestStart,
-      interestType,
-      user,
-      userId,
-    ]
+    [openStartCommunityForm, pendingStartCommunity, requestHostAuth]
   );
 
   const catalogTotalDisplay = catalogLoading
@@ -576,144 +536,31 @@ export default function CommunityHubClient() {
   return (
     <div className="bg-background min-h-0 pb-10">
       <TipperEmailOtpSignInDialog
-        open={signInOpen}
+        open={joinSignInOpen}
         onOpenChange={open => {
-          setSignInOpen(open);
-          if (!open) setSignInModalTitle("Sign in required");
+          setJoinSignInOpen(open);
+          if (!open) setJoinSignInReturnTo(null);
         }}
-        signInTitle={signInModalTitle}
-        onVerified={() => {
-          setStartCommunityModalOpen(true);
-        }}
+        signInTitle="Sign in required"
+        getRedirectPathAfterVerify={() => joinSignInReturnTo ?? undefined}
       />
-      <Dialog
+      <SignInDialog
+        open={hostSignInOpen}
+        onOpenChange={open => {
+          setHostSignInOpen(open);
+          if (!open) setPendingStartCommunity(false);
+        }}
+        title="Sign in to start a community"
+        defaultUserType="host"
+        hostRequiredNotice
+        allowInlineSignUp
+        onSuccess={handleHostSignInSuccess}
+      />
+      {HostAuthModal}
+      <StartCommunityRequestDialog
         open={startCommunityModalOpen}
         onOpenChange={setStartCommunityModalOpen}
-      >
-        <DialogContent className="flex max-h-[min(90dvh,640px)] flex-col gap-0 overflow-hidden sm:max-w-lg">
-          <DialogHeader className="shrink-0 space-y-2 pr-6 pb-2">
-            <DialogTitle>Tell us about your community idea</DialogTitle>
-            <DialogDescription>
-              Share a few details so our team knows you are interested. This
-              notifies admins only — it does not activate a community or link an
-              event room.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <form
-              className="space-y-3 pb-1"
-              onSubmit={e => void handleInterestSubmit(e)}
-            >
-              <div className="space-y-1">
-                <Label htmlFor="sc-name">Community name</Label>
-                <Input
-                  id="sc-name"
-                  value={interestName}
-                  onChange={e => setInterestName(e.target.value)}
-                  placeholder="Working title"
-                  required
-                  autoComplete="organization"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="sc-desc">Short description</Label>
-                <Textarea
-                  id="sc-desc"
-                  value={interestDesc}
-                  onChange={e => setInterestDesc(e.target.value)}
-                  placeholder="What is it about?"
-                  rows={3}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label id="sc-type-label">Community type</Label>
-                <div
-                  className="flex flex-wrap gap-2"
-                  role="radiogroup"
-                  aria-labelledby="sc-type-label"
-                >
-                  {COMMUNITY_TYPE_OPTIONS.map(opt => (
-                    <Button
-                      key={opt}
-                      type="button"
-                      role="radio"
-                      aria-checked={interestType === opt}
-                      variant={interestType === opt ? "default" : "outline"}
-                      size="sm"
-                      className="h-auto shrink-0 rounded-full px-3 py-1.5 font-normal"
-                      onClick={() => setInterestType(opt)}
-                    >
-                      {opt}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="sc-start">
-                  Interested start date{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  id="sc-start"
-                  type="date"
-                  value={interestStart}
-                  onChange={e => setInterestStart(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="sc-email">How can we reach you? (email)</Label>
-                <Input
-                  id="sc-email"
-                  type="email"
-                  value={interestEmail}
-                  onChange={e => setInterestEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  autoComplete="email"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="sc-phone">
-                  Phone{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (with country code, optional)
-                  </span>
-                </Label>
-                <Input
-                  id="sc-phone"
-                  value={interestPhone}
-                  onChange={e => setInterestPhone(e.target.value)}
-                  placeholder="+44 …"
-                  autoComplete="tel"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button
-                  type="submit"
-                  disabled={interestSubmitting}
-                >
-                  {interestSubmitting ? "Sending…" : "Send interest"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={interestSubmitting}
-                  onClick={() => setStartCommunityModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-              <p className="text-muted-foreground text-[11px]">
-                Your request is stored securely and every admin receives an
-                in-app notification.
-              </p>
-            </form>
-          </div>
-        </DialogContent>
-      </Dialog>
+      />
 
       <AlertDialog
         open={leaveConfirmTarget != null}
@@ -965,18 +812,18 @@ export default function CommunityHubClient() {
             </p>
           </div>
 
-          {catalogLoading ? (
+          {topLoading ? (
             <div className="grid gap-3 sm:grid-cols-3">
               <Skeleton className="h-28 rounded-lg" />
               <Skeleton className="h-28 rounded-lg" />
               <Skeleton className="h-28 rounded-lg" />
             </div>
-          ) : (catalog?.topByTips?.length ?? 0) === 0 ? (
+          ) : topCommunities.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               No active communities to rank yet.
             </p>
           ) : (
-            <ExploreTopCommunitiesGrid communities={catalog?.topByTips ?? []} />
+            <ExploreTopCommunitiesGrid communities={topCommunities} />
           )}
         </section>
 
@@ -985,7 +832,7 @@ export default function CommunityHubClient() {
             <h2 className="text-lg font-semibold">Communities you own</h2>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* {canCreateCommunity && (
+              {canCreateCommunity && (
                 <Button
                   type="button"
                   variant="secondary"
@@ -994,7 +841,7 @@ export default function CommunityHubClient() {
                 >
                   Start community
                 </Button>
-              )} */}
+              )}
               {/* {user?.role === "HOST" && eventSlug ? (
                 <Button
                   type="button"
@@ -1052,20 +899,41 @@ export default function CommunityHubClient() {
               className="flex flex-wrap items-center justify-between gap-2"
             >
               <p className="min-w-0 truncate font-medium">{c.name}</p>
-              {user?.role === "HOST" && eventSlug ? (
-                <Button
-                  asChild
-                  size="sm"
-                  variant="secondary"
-                >
-                  <a
-                    href={manageHostCommunityHref(eventSlug)}
-                    target="_blank"
-                    rel="noreferrer"
+              {canReadAsHost && eventSlug ? (
+                capability.status === "stale" ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    type="button"
+                    onClick={() =>
+                      requestHostAuth(() => {
+                        if (eventSlug) {
+                          window.open(
+                            manageHostCommunityHref(eventSlug),
+                            "_blank",
+                            "noreferrer"
+                          );
+                        }
+                      })
+                    }
                   >
-                    Manage
-                  </a>
-                </Button>
+                    Sign in to manage
+                  </Button>
+                ) : (
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="secondary"
+                  >
+                    <a
+                      href={manageHostCommunityHref(eventSlug)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Manage
+                    </a>
+                  </Button>
+                )
               ) : (
                 <Button
                   asChild

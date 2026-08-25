@@ -1,12 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-// Third-party imports
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
-import { useMediaQuery } from "react-responsive";
-
-// Local imports
 import { Paragraph } from "@/components/shared/paragraph";
 
 interface Props {
@@ -22,7 +17,6 @@ interface Props {
 
 export const PricingCard = ({
   name,
-  desc,
   price,
   discountPrice,
   features,
@@ -30,18 +24,12 @@ export const PricingCard = ({
   onButtonClick,
   onSeeMoreChange,
 }: Props) => {
-  const isMobile = useMediaQuery({
-    query: "(max-width: 500px)",
-  });
-
   const [seeMore, setSeeMore] = useState(false);
 
   const handleSeeMore = () => {
     setSeeMore(previous => {
       const next = !previous;
-
       onSeeMoreChange?.(next);
-
       return next;
     });
   };
@@ -111,28 +99,26 @@ export const PricingCard = ({
         {btnText}
       </button>
 
-      {isMobile && (
-        <button
-          type="button"
-          className="w-full cursor-pointer transition-all"
-          onClick={handleSeeMore}
-        >
-          {seeMore ? (
-            <span className="flex items-center gap-2">
-              See less
-              <ChevronUp className="size-4" />
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              See more
-              <ChevronDown className="size-4" />
-            </span>
-          )}
-        </button>
-      )}
+      <button
+        type="button"
+        className="w-full cursor-pointer transition-all lg:hidden"
+        onClick={handleSeeMore}
+      >
+        {seeMore ? (
+          <span className="flex items-center gap-2">
+            See less
+            <ChevronUp className="size-4" />
+          </span>
+        ) : (
+          <span className="flex items-center gap-2">
+            See more
+            <ChevronDown className="size-4" />
+          </span>
+        )}
+      </button>
 
-      {isMobile && seeMore && (
-        <ul className="w-full space-y-4">
+      {seeMore ? (
+        <ul className="w-full space-y-4 lg:hidden">
           {features.map((feature, index) => (
             <li
               key={index}
@@ -143,7 +129,7 @@ export const PricingCard = ({
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
 
       <ul className="hidden space-y-4 lg:block">
         {features.map((feature, index) => (

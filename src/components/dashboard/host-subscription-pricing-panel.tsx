@@ -3,10 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { RootState } from "@/redux/store";
+import {
+  getHostSubscriptionMeAction,
+  hostSubscriptionBillingPortalAction,
+  hostSubscriptionCheckoutAction,
+} from "@/actions/host";
+import { useHostSession } from "@/hooks/use-host-session";
 import { updateTipper } from "@/features/auth-slice";
 import type { HostSubscriptionMe } from "@/lib/host-plan-capabilities";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
@@ -18,33 +23,48 @@ type Props = {
   renewLabel?: string;
 };
 
+const GROWTH_FEATURES = [
+  "Everything in Free",
+  "Advanced analytics",
+  "Enhanced discovery opportunities",
+  "Program promotion requests",
+  "Custom engagement experiences",
+  "Co-owner management",
+  "Creator growth tools",
+  "Priority feature access",
+];
+
+const COMMUNTIY_FEATURES = [
+  "Everything in Premium",
+  "Community TV Channel",
+  "Community memberships",
+  "Whitelabel community mode",
+  "Program scheduling",
+  "Community branding",
+  "Broadcast messaging",
+  "Community analytics",
+  "Co-creator management",
+];
+
 export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
   const dispatch = useDispatch();
-  const user = useSelector((s: RootState) => s.auth.user);
-  const authToken = useSelector((s: RootState) => s.auth.token);
+  const { isActive: hostSessionActive } = useHostSession();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [info, setInfo] = useState<HostSubscriptionMe | null>(null);
 
   const refresh = useCallback(async () => {
-    const token = authToken;
-    if (!token) {
+    if (!hostSessionActive) {
       setLoading(false);
       return;
     }
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/me`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        }
-      );
-      if (!res.ok) {
+      const res = await getHostSubscriptionMeAction();
+      if (!res.success || !res.data) {
         setInfo(null);
         return;
       }
-      const data = (await res.json()) as HostSubscriptionMe;
+      const data = res.data as HostSubscriptionMe;
       setInfo(data);
       const t = data.tier;
       const hostSubscriptionTier =
@@ -57,41 +77,30 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [authToken, dispatch]);
+  }, [dispatch, hostSessionActive]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const checkout = async (tier: "premium" | "community") => {
-    const token = authToken;
-    if (!token) {
-      toast.error("Please sign in again.");
+    if (!hostSessionActive) {
+      toast.error("Host session required.");
       return;
     }
     setBusy(tier);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/checkout`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ tier }),
-        }
-      );
-      const data = (await res.json()) as {
+      const res = await hostSubscriptionCheckoutAction(tier);
+      if (!res.success) {
+        toast.error(res.message ?? "Unable to start checkout.");
+        return;
+      }
+      const data = res.data as {
         url?: string;
         upgraded?: boolean;
         redirectUrl?: string;
         message?: string;
       };
-      if (!res.ok) {
-        toast.error(data.message ?? "Unable to start checkout.");
-        return;
-      }
       if (data.upgraded && data.redirectUrl) {
         window.location.href = data.redirectUrl;
         return;
@@ -109,22 +118,15 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
   };
 
   const openBillingPortal = async () => {
-    const token = authToken;
-    if (!token) return;
+    if (!hostSessionActive) return;
     setBusy("portal");
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/billing-portal`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const data = (await res.json()) as { url?: string; message?: string };
-      if (!res.ok) {
-        toast.error(data.message ?? "Billing portal unavailable.");
+      const res = await hostSubscriptionBillingPortalAction();
+      if (!res.success) {
+        toast.error(res.message ?? "Billing portal unavailable.");
         return;
       }
+      const data = res.data as { url?: string; message?: string };
       if (data.url) window.location.href = data.url;
     } catch {
       toast.error("Network error.");
@@ -175,17 +177,30 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
         </div>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {showPremium ? (
-          <div className="flex flex-col rounded-lg border p-4">
-            <h3 className="font-semibold">Host Premium</h3>
+          <div className="flex flex-col gap-4 rounded-lg border bg-white p-4">
+            <h3 className="font-semibold">Host Growth</h3>
             <p className="text-muted-foreground mt-1 text-sm">
               Video display controls, tip layout, co-owners, and video requests.
             </p>
-            <p className="mt-3 text-2xl font-bold">£19.99</p>
-            <p className="text-muted-foreground text-xs">per 30 days</p>
+            <p className="text-2xl font-semibold">
+              £19.99{" "}
+              <span className="text-muted-foreground text-xs">per 30 days</span>
+            </p>
+            <ul className="w-full space-y-4 lg:hidden">
+              {GROWTH_FEATURES.map((feature, index) => (
+                <li
+                  key={index}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <Check className="text-primary size-4 shrink-0" />
+                  {feature}
+                </li>
+              ))}
+            </ul>
             <Button
-              className="mt-4 w-full bg-black text-white"
+              className="w-full bg-black text-white"
               disabled={
                 premiumActive ||
                 busy !== null ||
@@ -222,6 +237,17 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
             </p>
             <p className="mt-3 text-2xl font-bold">£99</p>
             <p className="text-muted-foreground text-xs">per 30 days</p>
+            <ul className="w-full space-y-4 lg:hidden">
+              {COMMUNTIY_FEATURES.map((feature, index) => (
+                <li
+                  key={index}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <Check className="text-primary size-4 shrink-0" />
+                  {feature}
+                </li>
+              ))}
+            </ul>
             <Button
               className="mt-4 w-full bg-black text-white"
               disabled={

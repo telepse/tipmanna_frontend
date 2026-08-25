@@ -163,8 +163,13 @@ export function FormDraftsPanel() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  void deleteFormDraftAction(draft.id).then(() => {
+                  void deleteFormDraftAction(draft.id).then(res => {
+                    if (!res.success) {
+                      toast.error(res.message ?? "Could not delete draft");
+                      return;
+                    }
                     setDrafts(prev => prev.filter(d => d.id !== draft.id));
+                    toast.success("Draft deleted");
                   });
                 }}
               >

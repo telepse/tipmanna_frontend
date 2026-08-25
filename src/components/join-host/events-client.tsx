@@ -159,7 +159,7 @@ export const EventsClient = ({ events }: Props) => {
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => router.push("/")}
+                  onClick={() => router.push("/explore")}
                 >
                   <ArrowLeft /> Home
                 </Button>

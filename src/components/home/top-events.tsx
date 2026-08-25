@@ -11,7 +11,6 @@ import { useMediaQuery } from "react-responsive";
 // import "swiper/css/pagination";
 
 // Local imports
-import { Badge } from "@/components/shared/badge";
 import { Title } from "@/components/shared/title";
 import { TopEventCard } from "./top-event-card";
 import { Event } from "@/types/event.types";
@@ -32,8 +31,7 @@ export default function TopEvents({ events = [] }: Props) {
     setShowPrompt(true);
   }, []);
 
-  const handleLocationAllow = useCallback((country: string) => {
-    console.log("Allowed in", country);
+  const handleLocationAllow = useCallback(() => {
     setShowPrompt(false);
   }, []);
 
@@ -53,17 +51,16 @@ export default function TopEvents({ events = [] }: Props) {
   return (
     <section className="wrapper section py-12">
       <div className="flex items-center justify-between gap-3 lg:justify-normal">
-        <h2
+        <Title
           id="top-events-heading"
+          size="lg"
           className="min-w-0 whitespace-nowrap"
         >
-          <Title size="lg">
-            Top{" "}
-            <span className="bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-              live events
-            </span>
-          </Title>
-        </h2>
+          Top{" "}
+          <span className="bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+            live events
+          </span>
+        </Title>
 
         <button
           onClick={handleJoinClick}

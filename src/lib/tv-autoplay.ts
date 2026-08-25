@@ -7,30 +7,77 @@ export type PendingAudioRestore = {
   shouldPlay: boolean;
 };
 
-export function unmuteWithUserGesture(
-  player: TvPlayerRef,
-  source: string
-): void {
+export const TV_MUTE_PREF_KEY = "tipmanna_tv_mute_pref";
+export const TV_AUDIO_UNLOCKED_SESSION_KEY = "tipmanna_tv_audio_unlocked";
+
+export function readTvMutePref(): boolean {
+  try {
+    return (
+      typeof window !== "undefined" &&
+      window.sessionStorage?.getItem(TV_MUTE_PREF_KEY) !== "0"
+    );
+  } catch {
+    return true;
+  }
+}
+
+export function writeTvMutePref(muted: boolean): void {
+  try {
+    if (typeof window === "undefined") return;
+    window.sessionStorage?.setItem(TV_MUTE_PREF_KEY, muted ? "1" : "0");
+    if (!muted) {
+      window.sessionStorage?.setItem(TV_AUDIO_UNLOCKED_SESSION_KEY, "1");
+    }
+  } catch {
+    /* noop */
+  }
+}
+
+export function hasTvAudioUnlockedThisSession(): boolean {
+  try {
+    return (
+      typeof window !== "undefined" &&
+      window.sessionStorage?.getItem(TV_AUDIO_UNLOCKED_SESSION_KEY) === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Unmute only — does not change play/pause (mute button). */
+export function unmuteOnly(player: TvPlayerRef, source: string): void {
+  if (!player.isReady()) return;
+  player.unmute();
+  player.setVolume(100);
+  tvTrace("autoplay", "unmute_only", { source });
+}
+
+/** Unmute and play in one user-gesture stack (playlist clicks). */
+export function unmuteAndPlay(player: TvPlayerRef, source: string): void {
   if (!player.isReady()) return;
   player.unmute();
   player.setVolume(100);
   tracePlayVideoResult(`${source}.play`, player.play());
 }
 
-/**
- * Mute before programmatic load when unmuted so autoplay policy allows play().
- * Returns pending restore state (never auto-unmutes without gesture).
- */
+/** @deprecated Use unmuteAndPlay — kept for gradual migration */
+export function unmuteWithUserGesture(
+  player: TvPlayerRef,
+  source: string
+): void {
+  unmuteAndPlay(player, source);
+}
+
 export function prepareMutedLoadForAutoplay(
   player: TvPlayerRef,
   shouldPlay = true
 ): PendingAudioRestore {
-  const wasUnmuted = player.isReady() && !player.isMuted();
-  if (wasUnmuted) {
+  const wantsAudio = !readTvMutePref() && hasTvAudioUnlockedThisSession();
+  if (player.isReady() && !player.isMuted()) {
     player.mute();
-    tvTrace("autoplay", "mute_before_load", { shouldPlay });
+    tvTrace("autoplay", "mute_before_load", { shouldPlay, wantsAudio });
   }
-  return { restoreUnmuted: wasUnmuted, shouldPlay };
+  return { restoreUnmuted: wantsAudio, shouldPlay };
 }
 
 /** Play in user-gesture stack after load (LOCAL playlist clicks). */
@@ -41,7 +88,7 @@ export function playWithUserGesture(
 ): void {
   if (!player.isReady()) return;
   if (pending?.restoreUnmuted) {
-    unmuteWithUserGesture(player, source);
+    unmuteAndPlay(player, source);
     return;
   }
   if (pending?.shouldPlay ?? true) {
@@ -50,7 +97,8 @@ export function playWithUserGesture(
 }
 
 /**
- * After programmatic load reaches PLAYING/CUED: play if needed; defer unmute to user gesture.
+ * After programmatic load reaches PLAYING/CUED: play if needed.
+ * Restores audio immediately when user has unlocked audio this session.
  */
 export function applyPendingAudioRestore(
   player: TvPlayerRef,
@@ -64,10 +112,14 @@ export function applyPendingAudioRestore(
   }
 
   if (pending.restoreUnmuted) {
-    tvTrace("autoplay", "audio_restore_deferred", {
-      source,
-      reason: "gesture_required",
-    });
+    if (hasTvAudioUnlockedThisSession()) {
+      unmuteOnly(player, `${source}.session_restore`);
+    } else {
+      tvTrace("autoplay", "audio_restore_deferred", {
+        source,
+        reason: "gesture_required",
+      });
+    }
   }
 
   return null;

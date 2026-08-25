@@ -23,6 +23,10 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { NewEventFormData } from "@/schemas";
+import {
+  buildEventTimezoneOptions,
+  defaultEventTimeZone,
+} from "@/lib/event-timezones";
 import { useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -572,6 +576,33 @@ export const HostEventInfo = ({ control }: Props) => {
                 />
               </div>
             </div>
+
+            <FormField
+              control={control}
+              name="timeZone"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Event timezone</FormLabel>
+                  <FormControl>
+                    <select
+                      className="border-input w-full rounded-md border bg-black/25 px-3 py-2 text-sm"
+                      value={field.value ?? defaultEventTimeZone()}
+                      onChange={field.onChange}
+                    >
+                      {buildEventTimezoneOptions().map(tz => (
+                        <option
+                          key={tz}
+                          value={tz}
+                        >
+                          {tz}
+                        </option>
+                      ))}
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         </div>
 

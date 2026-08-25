@@ -1,7 +1,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
 
 const base = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
@@ -56,6 +56,25 @@ export async function listNotificationsFeedAction(opts?: {
   );
 }
 
+export async function listHostNotificationsMeAction(opts?: {
+  unreadOnly?: boolean;
+  limit?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (opts?.unreadOnly) qs.set("unreadOnly", "true");
+  if (opts?.limit != null) qs.set("limit", String(opts.limit));
+  const q = qs.toString();
+  return runServerFetch<{ notifications: InAppNotificationRow[] }>(
+    `${base()}/notifications/me${q ? `?${q}` : ""}`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "listHostNotificationsMeAction"
+  );
+}
+
 export async function listNotificationsMeAction(
   token?: string | null,
   opts?: { unreadOnly?: boolean; limit?: number }
@@ -72,6 +91,18 @@ export async function listNotificationsMeAction(
       cache: "no-store",
     },
     "listNotificationsMeAction"
+  );
+}
+
+export async function getHostNotificationsUnreadCountAction() {
+  return runServerFetch<{ count: number }>(
+    `${base()}/notifications/me/unread-count`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getHostNotificationsUnreadCountAction"
   );
 }
 
@@ -162,6 +193,42 @@ export async function deleteNotificationAction(
       cache: "no-store",
     },
     "deleteNotificationAction"
+  );
+}
+
+export async function markHostNotificationReadAction(id: string) {
+  return runServerFetch<{ ok: boolean }>(
+    `${base()}/notifications/${encodeURIComponent(id)}/read`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "markHostNotificationReadAction"
+  );
+}
+
+export async function markAllHostNotificationsReadAction() {
+  return runServerFetch<{ ok: boolean }>(
+    `${base()}/notifications/me/read-all`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "markAllHostNotificationsReadAction"
+  );
+}
+
+export async function deleteHostNotificationAction(id: string) {
+  return runServerFetch<{ ok: boolean }>(
+    `${base()}/notifications/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "deleteHostNotificationAction"
   );
 }
 

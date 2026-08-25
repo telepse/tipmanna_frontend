@@ -27,7 +27,7 @@ export default async function RestrictedCommunityPage({
       ? (data as { name: string }).name
       : "This community";
 
-  const signInHref = `/signin?next=${encodeURIComponent(safeNext)}`;
+  const signInHref = `/sign-in?next=${encodeURIComponent(safeNext)}`;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 text-zinc-100">

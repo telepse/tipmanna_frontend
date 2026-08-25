@@ -134,7 +134,7 @@ export default function JoinEventPage() {
       style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
     >
       <Link
-        href="/"
+        href="/explore"
         className="open_sans absolute top-4 left-4 flex items-center gap-2 rounded-full border px-4 py-2 text-sm sm:text-base"
       >
         <ArrowLeft className="size-5" />

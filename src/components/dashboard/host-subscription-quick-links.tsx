@@ -32,8 +32,12 @@ export function HostSubscriptionQuickLinks({
           asChild
           variant="outline"
           size="sm"
+          className="min-w-0 flex-1"
         >
-          <Link href={`/host/${eventSlug}/host-premium`}>
+          <Link
+            href={`/host/${eventSlug}/host-premium`}
+            className="flex min-w-0 items-center justify-center gap-1.5"
+          >
             <Crown className="size-4" />
             Host Premium
           </Link>
@@ -42,8 +46,12 @@ export function HostSubscriptionQuickLinks({
           asChild
           variant="outline"
           size="sm"
+          className="min-w-0 flex-1"
         >
-          <Link href={`/host/${eventSlug}/host-community`}>
+          <Link
+            href={`/host/${eventSlug}/host-community`}
+            className="flex min-w-0 items-center justify-center gap-1.5"
+          >
             <Users className="size-4" />
             Host Community
           </Link>
