@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
 import type { RoomCharacter } from "@/types";
 import { useAnimationQueue } from "@/hooks/use-animation-queue";
 import { isPayerOriginRecoveryEnabled } from "@/lib/payer-origin-recovery-flag";
@@ -17,10 +17,12 @@ import {
   claimRecoveryOccurrencesRequest,
   renewRecoveryClaimRequest,
   reportRecoveryProgressRequest,
+  RecoveryApiError,
   traceRecoveryApiError,
   type OccurrenceProgressRow,
 } from "@/lib/payment-recovery-client";
 import { enqueuePayerOriginRecoveryBundle } from "@/lib/enqueue-payer-origin-recovery";
+import { tryPayerLocalAnimationFallback } from "@/lib/payer-local-animation-fallback";
 import {
   isCurrentRoutePaymentOrigin,
   normalizePaymentOriginUrl,
@@ -58,11 +60,23 @@ export function usePayerOriginAnimationRecovery({
   surface,
   playbackKeyPrefix = "",
 }: UsePayerOriginAnimationRecoveryOptions): void {
-  const startedRef = useRef(false);
+  const startedTransactionIdRef = useRef<string | null>(null);
+  const claimMadeRef = useRef(false);
   const renewTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const claimIdRef = useRef<string | null>(null);
   const sessionTokenRef = useRef<string | null>(null);
   const pendingReportsRef = useRef<OccurrenceProgressRow[]>([]);
+
+  const allowedSurfaces = useMemo(
+    () => (Array.isArray(paymentSurface) ? paymentSurface : [paymentSurface]),
+    [paymentSurface]
+  );
+  const surfaceKey = useMemo(
+    () => allowedSurfaces.slice().sort().join("|"),
+    [allowedSurfaces]
+  );
+  const paymentSurfaceRef = useRef(allowedSurfaces);
+  paymentSurfaceRef.current = allowedSurfaces;
 
   const eventIdRef = useRef(eventId);
   eventIdRef.current = eventId;
@@ -89,8 +103,7 @@ export function usePayerOriginAnimationRecovery({
     if (
       typeof window === "undefined" ||
       !enabled ||
-      !isPayerOriginRecoveryEnabled() ||
-      startedRef.current
+      !isPayerOriginRecoveryEnabled()
     ) {
       return;
     }
@@ -101,26 +114,35 @@ export function usePayerOriginAnimationRecovery({
 
     const pending = readPendingPaymentReturn();
     const session = readPaymentRecoverySession();
+    const fallbackOnly = Boolean(pending?.recoveryUnavailable && !session);
 
-    if (!pending || !session || session.recoveryCompleted) {
+    if (!pending) {
+      return;
+    }
+    if (session?.recoveryCompleted) {
+      return;
+    }
+    if (!fallbackOnly && !session) {
       return;
     }
     if (!pending.isRedirectPayment) {
       return;
     }
-    const allowedSurfaces = Array.isArray(paymentSurface)
-      ? paymentSurface
-      : [paymentSurface];
-    if (!allowedSurfaces.includes(pending.paymentSurface)) {
+    if (!paymentSurfaceRef.current.includes(pending.paymentSurface)) {
       return;
     }
     if (pending.eventId.trim() !== eventIdRef.current.trim()) {
       return;
     }
-    if (session.transactionId !== pending.transactionId) {
-      return;
+    if (!fallbackOnly) {
+      if (!session || session.transactionId !== pending.transactionId) {
+        return;
+      }
+      if (!isPaymentPendingReturn() && !session.sessionToken) {
+        return;
+      }
     }
-    if (!isPaymentPendingReturn() && !session.sessionToken) {
+    if (startedTransactionIdRef.current === pending.transactionId) {
       return;
     }
     if (!isCurrentRoutePaymentOrigin(pending.paymentOrigin)) {
@@ -128,18 +150,38 @@ export function usePayerOriginAnimationRecovery({
     }
 
     const pendingSurface = pending.paymentSurface;
+    const transactionId = pending.transactionId;
 
     tracePaymentAnimation({
       stage: "payer_recovery_origin_detected",
-      transactionId: pending.transactionId,
+      transactionId,
       eventId: pending.eventId,
       surface: pendingSurface,
     });
 
-    startedRef.current = true;
-    sessionTokenRef.current = session.sessionToken;
+    startedTransactionIdRef.current = transactionId;
+    claimMadeRef.current = false;
+    sessionTokenRef.current = session?.sessionToken ?? null;
 
     let cancelled = false;
+
+    const attemptLocalFallback = (): boolean => {
+      const played = tryPayerLocalAnimationFallback({
+        eventId: pending.eventId,
+        transactionId,
+        characterMap: characterMapRef.current,
+        enqueue: enqueueRef.current,
+        animationMount: animationMountRef.current?.current ?? undefined,
+        playbackKeyPrefix: playbackKeyPrefixRef.current,
+        surface,
+      });
+      if (played) {
+        markPaymentRecoverySessionCompleted();
+        clearPendingPaymentReturn();
+        clearPaymentRecoverySession();
+      }
+      return played;
+    };
 
     const finalizeRecoverySession = (claimId: string) => {
       markPaymentRecoverySessionCompleted();
@@ -151,8 +193,8 @@ export function usePayerOriginAnimationRecovery({
       }
       tracePaymentAnimation({
         stage: "payer_recovery_session_completed",
-        transactionId: session.transactionId,
-        eventId: session.eventId,
+        transactionId,
+        eventId: pending.eventId,
         claimId,
         surface: pendingSurface,
       });
@@ -169,7 +211,7 @@ export function usePayerOriginAnimationRecovery({
       }
       try {
         const result = await reportRecoveryProgressRequest(token, {
-          transactionId: session.transactionId,
+          transactionId,
           bundleId: canonicalBundleId,
           claimId,
           surface: pendingSurface,
@@ -189,20 +231,43 @@ export function usePayerOriginAnimationRecovery({
       await new Promise(r => setTimeout(r, PUSHER_GRACE_MS));
       if (cancelled) return;
 
+      if (fallbackOnly) {
+        attemptLocalFallback();
+        if (!claimMadeRef.current) {
+          startedTransactionIdRef.current = null;
+        }
+        return;
+      }
+
       const token = sessionTokenRef.current;
-      if (!token) return;
+      if (!token) {
+        attemptLocalFallback();
+        return;
+      }
 
       let claimResult;
       try {
         claimResult = await claimRecoveryOccurrencesRequest(token);
       } catch (err) {
         traceRecoveryApiError("payer_recovery_claim_started", err);
-        startedRef.current = false;
+        const isDefinitiveClaimFailure =
+          err instanceof RecoveryApiError &&
+          (err.kind === "forbidden" ||
+            err.kind === "not_found" ||
+            err.kind === "conflict" ||
+            err.kind === "gone");
+        if (isDefinitiveClaimFailure) {
+          attemptLocalFallback();
+        }
+        if (!claimMadeRef.current) {
+          startedTransactionIdRef.current = null;
+        }
         return;
       }
 
       if (cancelled) return;
 
+      claimMadeRef.current = true;
       claimIdRef.current = claimResult.claimId;
       const bundleId =
         claimResult.canonicalPayload.id ??
@@ -272,6 +337,11 @@ export function usePayerOriginAnimationRecovery({
         }
       };
 
+      if (!claimResult.remainingOccurrenceIds.length) {
+        finalizeRecoverySession(claimResult.claimId);
+        return;
+      }
+
       enqueuePayerOriginRecoveryBundle({
         canonicalPayload: claimResult.canonicalPayload,
         remainingOccurrenceIds: claimResult.remainingOccurrenceIds,
@@ -302,12 +372,15 @@ export function usePayerOriginAnimationRecovery({
 
     return () => {
       cancelled = true;
+      if (!claimMadeRef.current) {
+        startedTransactionIdRef.current = null;
+      }
       if (renewTimerRef.current) {
         clearInterval(renewTimerRef.current);
         renewTimerRef.current = null;
       }
     };
-  }, [enabled, eventId, paymentSurface, surface]);
+  }, [enabled, eventId, surfaceKey, surface]);
 }
 
 export { normalizePaymentOriginUrl };

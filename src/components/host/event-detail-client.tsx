@@ -71,6 +71,8 @@ import {
 } from "@/actions/host";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { formatEventSubmissionKindLabel } from "@/lib/event-submission-kind";
+import { EventTimezoneField } from "@/components/events/event-timezone-field";
+import { useHostSession } from "@/hooks/use-host-session";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -119,6 +121,7 @@ interface Props {
   eventDate: string;
   startTime: string;
   endTime: string;
+  timeZone?: string;
   cohosts: Cohost[];
   performers: Performer[];
   projects: Project[];
@@ -144,6 +147,7 @@ interface EventFormValues {
   eventDate: string;
   startTime: string;
   endTime: string;
+  timeZone?: string;
   cohosts: Cohost[];
   performers: Performer[];
   projects: Project[];
@@ -262,6 +266,7 @@ export const EventDetailClient = ({
   eventDate,
   startTime,
   endTime,
+  timeZone,
   cohosts,
   performers,
   projects,
@@ -281,16 +286,11 @@ export const EventDetailClient = ({
   >("event_info");
 
   const user = useSelector((state: RootState) => state.auth.user) as HostUser;
-  const token = useSelector((state: RootState) => state.auth.token);
-
   const userType = (user as HostUser)?.individualLegalFirstName
     ? "INDIVIDUAL"
     : "ORGANIZATION";
 
-  let eventSlug;
-  if (user?.role === "HOST") {
-    eventSlug = user?.eventSlug;
-  }
+  const { eventSlug, isActive: hostSessionActive } = useHostSession();
 
   let displayText;
   if (userType === "INDIVIDUAL") {
@@ -310,6 +310,7 @@ export const EventDetailClient = ({
       eventDate,
       startTime,
       endTime,
+      timeZone: timeZone ?? "Europe/London",
       cohosts,
       performers,
       projects,
@@ -432,7 +433,6 @@ export const EventDetailClient = ({
       await updateHostEventDetailsAction({
         hostId: user.id,
         eventId,
-        token,
         payload: {
           eventName: values.eventName,
           eventDescription: values.eventDescription,
@@ -440,6 +440,7 @@ export const EventDetailClient = ({
           eventDate: values.eventDate,
           startTime: values.startTime,
           endTime: values.endTime,
+          timeZone: values.timeZone,
 
           cohosts: values.cohosts.map(cohost => ({
             id: cohost.id,
@@ -493,7 +494,6 @@ export const EventDetailClient = ({
       const createdMessage = await postHostEventMessageAction({
         hostId: user.id,
         eventId,
-        token,
         payload: {
           text: message,
         },
@@ -538,7 +538,6 @@ export const EventDetailClient = ({
       const result = await sendHostEventReportAction({
         hostId: user.id,
         eventId,
-        token,
         payload: {
           sendToHost: values.sendReportToHost,
           cohosts: values.reportRecipients,
@@ -614,7 +613,6 @@ export const EventDetailClient = ({
         hostId: user.id,
         eventId,
         messageId,
-        token,
       });
 
       // Optimistic removal
@@ -669,19 +667,22 @@ export const EventDetailClient = ({
   return (
     <Form {...form}>
       <section className="flex flex-col gap-6">
-        <div className="flex justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href={`/host/${eventSlug}/manage-event`}
-            className="flex w-fit items-center gap-2 text-xl font-bold"
+            className="flex w-fit max-w-full min-w-0 items-center gap-2 text-lg font-bold sm:text-xl"
           >
-            <MoveLeft /> {eventName}
+            <MoveLeft className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+
+            <span className="break-words">{eventName}</span>
           </Link>
 
-          <div className="flex gap-4">
+          <div className="flex w-auto flex-row gap-2 sm:gap-4">
             <Button
               variant="default"
               onClick={handleSaveChanges}
               disabled={isSaving}
+              className="w-auto"
             >
               {isSaving ? (
                 <>
@@ -692,20 +693,32 @@ export const EventDetailClient = ({
                 "Save Changes"
               )}
             </Button>
+
             <Button
               variant="destructive"
               onClick={() => {}}
+              className="w-auto"
             >
               Delete Event
             </Button>
-            {/* <Button variant="destructive" onClick={handleDeleteEvent} disabled={isDeleting}>
-              {isDeleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : "Delete Event"}
-            </Button> */}
+
+            {/*
+    <Button
+      variant="destructive"
+      onClick={handleDeleteEvent}
+      disabled={isDeleting}
+      className="w-full sm:w-auto"
+    >
+      {isDeleting ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Deleting...
+        </>
+      ) : (
+        "Delete Event"
+      )}
+    </Button>
+    */}
           </div>
         </div>
 
@@ -722,28 +735,31 @@ export const EventDetailClient = ({
           }
           className="section -mt-6 space-y-4 px-0"
         >
-          <TabsList className="flex h-14! w-full gap-1">
+          <TabsList className="scrollbar-hide flex h-14! w-full max-w-full touch-pan-x justify-start gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain sm:justify-center">
             <TabsTrigger
               value="event_info"
-              className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+              className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
             >
               Event info
             </TabsTrigger>
+
             <TabsTrigger
               value="contents"
-              className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+              className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
             >
               Contents
             </TabsTrigger>
+
             <TabsTrigger
               value="post_to_event"
-              className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+              className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
             >
               Post to event
             </TabsTrigger>
+
             <TabsTrigger
               value="generate_report"
-              className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
+              className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
             >
               Generate report
             </TabsTrigger>
@@ -1004,6 +1020,11 @@ export const EventDetailClient = ({
                               <FormMessage />
                             </FormItem>
                           )}
+                        />
+
+                        <EventTimezoneField
+                          control={form.control}
+                          name="timeZone"
                         />
                       </div>
                     ) : (
@@ -1400,66 +1421,86 @@ export const EventDetailClient = ({
 
           <TabsContent value="contents">
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {contents.map((content: Content) => (
-                <div
-                  key={content.id}
-                  className="flex items-center justify-between rounded-md border bg-white p-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <Image
-                      src={(() => {
-                        const videoId = extractYoutubeID(content.url);
-                        return videoId
-                          ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                          : "/default-event-image.jpg";
-                      })()}
-                      alt={eventName}
-                      className="h-14 w-28 object-cover"
-                      width={100}
-                      height={100}
-                    />
+              {contents.map((content: Content) => {
+                const contentIndex = contents.findIndex(
+                  item => item.id === content.id
+                );
 
-                    <div className="flex-1 space-y-2">
+                return (
+                  <div
+                    key={content.id}
+                    className="w-full rounded-md border bg-white p-3 sm:p-4"
+                  >
+                    {/* =========================================================
+          TOP ROW
+          Desktop: Thumbnail + Title
+          Mobile: Thumbnail + Title stacked
+      ========================================================= */}
+                    <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
+                      {/* Thumbnail */}
+                      <div className="w-full shrink-0 md:w-28">
+                        <Image
+                          src={(() => {
+                            const videoId = extractYoutubeID(content.url);
+
+                            return videoId
+                              ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                              : "/default-event-image.jpg";
+                          })()}
+                          alt={eventName}
+                          width={100}
+                          height={100}
+                          className="h-auto max-h-64 w-full rounded-md object-cover md:h-20 md:max-h-none md:w-28"
+                        />
+                      </div>
+
+                      {/* Title */}
+                      <div className="w-full min-w-0 flex-1">
+                        <FormField
+                          control={form.control}
+                          name={`contents.${contentIndex}.title`}
+                          render={({ field }) => (
+                            <FormItem className="w-full">
+                              {isEditable(`content-${content.id}`) ? (
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    className="h-9 w-full text-base font-semibold sm:text-xl"
+                                  />
+                                </FormControl>
+                              ) : (
+                                <h5 className="text-base font-semibold break-words sm:text-xl">
+                                  {field.value}
+                                </h5>
+                              )}
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    {/* =========================================================
+          FULL-WIDTH EVENT INFORMATION
+          Desktop: spans underneath BOTH thumbnail + title
+          Mobile: remains full width underneath title
+      ========================================================= */}
+                    <div className="mt-4 w-full space-y-3">
+                      {/* Description */}
                       <FormField
                         control={form.control}
-                        name={`contents.${contents.findIndex(
-                          item => item.id === content.id
-                        )}.title`}
+                        name={`contents.${contentIndex}.description`}
                         render={({ field }) => (
-                          <FormItem>
-                            {isEditable(`content-${content.id}`) ? (
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  className="h-8 text-xl font-semibold"
-                                />
-                              </FormControl>
-                            ) : (
-                              <h5 className="text-xl font-semibold">
-                                {field.value}
-                              </h5>
-                            )}
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name={`contents.${contents.findIndex(
-                          item => item.id === content.id
-                        )}.description`}
-                        render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="w-full">
                             {isEditable(`content-${content.id}`) ? (
                               <FormControl>
                                 <Textarea
                                   {...field}
                                   rows={4}
-                                  className="min-h-20 resize-y bg-gray-50 text-sm"
+                                  className="min-h-20 w-full resize-y bg-gray-50 text-sm"
                                 />
                               </FormControl>
                             ) : (
-                              <p className="text-sm whitespace-pre-wrap">
+                              <p className="text-sm break-words whitespace-pre-wrap">
                                 {field.value}
                               </p>
                             )}
@@ -1467,41 +1508,39 @@ export const EventDetailClient = ({
                         )}
                       />
 
+                      {/* YouTube Link */}
                       <FormField
                         control={form.control}
-                        name={`contents.${contents.findIndex(
-                          item => item.id === content.id
-                        )}.url`}
+                        name={`contents.${contentIndex}.url`}
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="w-full">
                             {isEditable(`content-${content.id}`) ? (
                               <FormControl>
                                 <Input
                                   {...field}
-                                  className="h-8 text-sm"
+                                  className="h-9 w-full text-sm"
                                 />
                               </FormControl>
                             ) : (
-                              <p className="text-sm">{field.value}</p>
+                              <p className="text-sm break-all">{field.value}</p>
                             )}
                           </FormItem>
                         )}
                       />
 
+                      {/* Event Video Type */}
                       <FormField
                         control={form.control}
-                        name={`contents.${contents.findIndex(
-                          item => item.id === content.id
-                        )}.eventVideoType`}
+                        name={`contents.${contentIndex}.eventVideoType`}
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="w-full">
                             {isEditable(`content-${content.id}`) ? (
                               <Select
                                 value={field.value}
                                 onValueChange={field.onChange}
                               >
                                 <FormControl>
-                                  <SelectTrigger className="h-8 text-sm">
+                                  <SelectTrigger className="h-9 w-full text-sm">
                                     <SelectValue placeholder="Select category" />
                                   </SelectTrigger>
                                 </FormControl>
@@ -1519,40 +1558,43 @@ export const EventDetailClient = ({
                               </Select>
                             ) : (
                               <div className="flex items-center gap-2 text-sm">
-                                <span className="bg-primary size-2 rounded-full"></span>{" "}
-                                {EVENT_TYPE_OPTIONS.find(
-                                  option => option.value === field.value
-                                )?.label ?? field.value}
+                                <span className="bg-primary size-2 shrink-0 rounded-full" />
+
+                                <span className="break-words">
+                                  {EVENT_TYPE_OPTIONS.find(
+                                    option => option.value === field.value
+                                  )?.label ?? field.value}
+                                </span>
                               </div>
                             )}
                           </FormItem>
                         )}
                       />
+                    </div>
 
-                      {/* <p className="text-muted-foreground flex items-center gap-2 text-sm">
-                        <span className="bg-primary size-2 rounded-full"></span>{" "}
-                        {content.eventVideoType.toLowerCase()}
-                      </p> */}
+                    {/* =========================================================
+          EDIT / SAVE BUTTON
+      ========================================================= */}
+                    <div className="mt-4 flex w-full justify-end">
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          handleEditableToggle(`content-${content.id}`, () => {
+                            console.log(form.getValues("contents"));
+                          })
+                        }
+                        className="bg-secondary/20 hover:bg-secondary/40 text-black"
+                      >
+                        {isEditable(`content-${content.id}`) ? (
+                          <Check />
+                        ) : (
+                          <PencilLine />
+                        )}
+                      </Button>
                     </div>
                   </div>
-
-                  <Button
-                    type="button"
-                    onClick={() =>
-                      handleEditableToggle(`content-${content.id}`, () => {
-                        console.log(form.getValues("contents"));
-                      })
-                    }
-                    className="bg-secondary/20 hover:bg-secondary/40 text-black"
-                  >
-                    {isEditable(`content-${content.id}`) ? (
-                      <Check />
-                    ) : (
-                      <PencilLine />
-                    )}
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </TabsContent>
 

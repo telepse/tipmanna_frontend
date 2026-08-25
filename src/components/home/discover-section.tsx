@@ -19,8 +19,9 @@ export const DiscoverSection = () => {
           </Title>
 
           <Paragraph className="leading-relaxed">
-            Your content becomes part <br className="hidden sm:block" /> of a
-            living discovery system <br /> - not a static profile page.
+            Your content becomes part <br className="hidden sm:block" /> of{" "}
+            <br className="inline-block sm:hidden" /> a living discovery system{" "}
+            <br /> - not a static profile page.
           </Paragraph>
         </div>
 
@@ -52,8 +53,8 @@ export const DiscoverSection = () => {
           size="sm"
           className="leading-relaxed"
         >
-          Your content doesn&apos;t stay confined{" "}
-          <br className="inline-block sm:hidden" /> to your audience.{" "}
+          Your content doesn&apos;t stay constrained{" "}
+          <br className="inline-block sm:hidden" /> to your limited audience.{" "}
           <br className="inline-block sm:hidden" /> Tipmanna helps people
           discover creators, <br className="hidden sm:block" />
           communities, events, and experiences through TV Explore, Channels, and

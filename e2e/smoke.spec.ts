@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("smoke", () => {
-  test("home page loads", async ({ page }) => {
+  test("root redirects to explore", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle(/Tipmanna/i);
+    await expect(page).toHaveURL(/\/explore/);
   });
 
   test("explore page loads", async ({ page }) => {

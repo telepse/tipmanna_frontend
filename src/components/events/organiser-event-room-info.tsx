@@ -236,13 +236,10 @@ export const OrganiserEventRoomInfo = ({ control }: EventRoomInfoProps) => {
         return;
       }
 
-      const res = await updateHostAction(
-        {
-          fullName: values.fullName,
-          email: values.email,
-        },
-        token
-      );
+      const res = await updateHostAction({
+        fullName: values.fullName,
+        email: values.email,
+      });
 
       if (!res.success) {
         toast.error(res.message);

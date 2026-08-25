@@ -63,6 +63,7 @@ import { useMediaQuery } from "react-responsive";
 import { ApiError } from "@/types";
 import { performAuthLogout } from "@/lib/auth-logout";
 import { HostUpgradeDialog } from "@/components/auth/host-upgrade-dialog";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { setCredentials, updateTipper } from "@/features/auth-slice";
 import Image from "next/image";
 
@@ -73,6 +74,8 @@ interface Props {
 export const TipperBanner = ({ iTipped }: Props) => {
   const [openSettings, setOpenSettings] = useState(false);
   const [hostUpgradeOpen, setHostUpgradeOpen] = useState(false);
+  const { canReadAsHost, requestHostAuth, HostAuthModal, capability } =
+    useHostCapabilityWithAuth();
   const [openEditProfile, setOpenEditProfile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -334,7 +337,7 @@ export const TipperBanner = ({ iTipped }: Props) => {
   };
 
   const handleBack = () => {
-    router.push(from || "/");
+    router.push(from || "/explore");
   };
 
   const form = useForm<EditProfileFormData>({
@@ -352,7 +355,15 @@ export const TipperBanner = ({ iTipped }: Props) => {
     if (user.role === "HOST") {
       router.push(`/sign-in?email=${encodeURIComponent(user.email)}`);
     } else if (user.role === "TIPPER") {
-      setHostUpgradeOpen(true);
+      if (canReadAsHost) {
+        requestHostAuth(() => {
+          const slug =
+            capability.status === "active" ? capability.eventSlug : null;
+          if (slug) router.push(`/host/${slug}`);
+        });
+      } else {
+        setHostUpgradeOpen(true);
+      }
     }
   };
 
@@ -1053,6 +1064,7 @@ export const TipperBanner = ({ iTipped }: Props) => {
           </Dialog>
         </DialogContent>
       </Dialog>
+      {HostAuthModal}
       {user?.email ? (
         <HostUpgradeDialog
           open={hostUpgradeOpen}

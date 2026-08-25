@@ -1,15 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 
+import {
+  getCommunityTvEnforcementAutoApproveStatusAction,
+  getCommunityTvEnforcementHistoryAction,
+  postCommunityTvEnforcementDraftAction,
+  postCommunityTvEnforcementLifecycleAction,
+  searchCommunityTvChannelsAction,
+} from "@/actions/community-tv-host";
+import { patchCommunityProgramLandingBannerAction } from "@/actions/program-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { RootState } from "@/redux/store";
-import { patchCommunityProgramLandingBannerAction } from "@/actions/program-actions";
 import {
   communityProgramLandingUrl,
   copyProgramLink,
@@ -39,15 +44,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function CommunityTvEnforcementHostTab({
   communityId,
-  apiBase,
 }: {
   communityId: string;
-  apiBase: string;
+  apiBase?: string;
 }) {
-  const authToken = useSelector((s: RootState) => s.auth.token);
-  const base = apiBase.replace(/\/$/, "");
-  const prefix = `${base}/communities/${encodeURIComponent(communityId)}/tv`;
-
   const [autoApprove, setAutoApprove] = useState(false);
   const [history, setHistory] = useState<EnforcementRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,37 +72,25 @@ export function CommunityTvEnforcementHostTab({
   const [bannerDrafts, setBannerDrafts] = useState<Record<string, string>>({});
   const [bannerSavingId, setBannerSavingId] = useState<string | null>(null);
 
-  const authHeaders = useCallback((): HeadersInit => {
-    return authToken ? { Authorization: `Bearer ${authToken}` } : {};
-  }, [authToken]);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [histRes, aaRes] = await Promise.all([
-        fetch(`${prefix}/enforcement/history`, {
-          cache: "no-store",
-          headers: authHeaders(),
-        }),
-        fetch(`${prefix}/enforcement/auto-approve-status`, {
-          cache: "no-store",
-          headers: authHeaders(),
-        }),
+        getCommunityTvEnforcementHistoryAction(communityId),
+        getCommunityTvEnforcementAutoApproveStatusAction(communityId),
       ]);
-      if (histRes.ok) {
-        const data = await histRes.json();
-        setHistory((data.items ?? []) as EnforcementRow[]);
+      if (histRes.success && histRes.data) {
+        setHistory((histRes.data.items ?? []) as EnforcementRow[]);
       }
-      if (aaRes.ok) {
-        const data = await aaRes.json();
-        setAutoApprove(Boolean(data.autoApprove));
+      if (aaRes.success && aaRes.data) {
+        setAutoApprove(Boolean(aaRes.data.autoApprove));
       }
     } catch {
       toast.error("Could not load enforcement data");
     } finally {
       setLoading(false);
     }
-  }, [prefix, authHeaders]);
+  }, [communityId]);
 
   useEffect(() => {
     void load();
@@ -115,13 +103,9 @@ export function CommunityTvEnforcementHostTab({
       return;
     }
     try {
-      const res = await fetch(
-        `${prefix}/channels/search?q=${encodeURIComponent(q)}`,
-        { headers: authHeaders() }
-      );
-      if (!res.ok) throw new Error("search failed");
-      const data = await res.json();
-      setSearchHits((data.items ?? []) as typeof searchHits);
+      const res = await searchCommunityTvChannelsAction(communityId, q);
+      if (!res.success || !res.data) throw new Error("search failed");
+      setSearchHits((res.data.items ?? []) as typeof searchHits);
     } catch {
       toast.error("Channel search failed");
     }
@@ -140,24 +124,14 @@ export function CommunityTvEnforcementHostTab({
     }
     setBusy(true);
     try {
-      const res = await fetch(`${prefix}/enforcement/draft`, {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          kind,
-          title: title.trim(),
-          scheduledAt: new Date(scheduledAt).toISOString(),
-          channelIds: selectedIds,
-        }),
+      const res = await postCommunityTvEnforcementDraftAction(communityId, {
+        kind,
+        title: title.trim(),
+        scheduledAt: new Date(scheduledAt).toISOString(),
+        channelIds: selectedIds,
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { message?: string }).message ?? `Failed (${res.status})`
-        );
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Draft failed");
       }
       toast.success("Draft saved");
       void load();
@@ -193,18 +167,20 @@ export function CommunityTvEnforcementHostTab({
     }
   };
 
-  const act = async (path: string, label: string) => {
+  const act = async (
+    action: "submit" | "withdraw" | "revocation-request" | "cancel-revocation",
+    enforcementId: string,
+    label: string
+  ) => {
     setBusy(true);
     try {
-      const res = await fetch(path, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { message?: string }).message ?? `Failed (${res.status})`
-        );
+      const res = await postCommunityTvEnforcementLifecycleAction(
+        communityId,
+        enforcementId,
+        action
+      );
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Action failed");
       }
       toast.success(label);
       void load();
@@ -408,7 +384,8 @@ export function CommunityTvEnforcementHostTab({
                         disabled={busy}
                         onClick={() =>
                           void act(
-                            `${prefix}/enforcement/${row.id}/submit`,
+                            "submit",
+                            row.id,
                             autoApprove
                               ? "Submitted & authorized"
                               : "Submitted for approval"
@@ -422,10 +399,7 @@ export function CommunityTvEnforcementHostTab({
                         variant="outline"
                         disabled={busy}
                         onClick={() =>
-                          void act(
-                            `${prefix}/enforcement/${row.id}/withdraw`,
-                            "Withdrawn"
-                          )
+                          void act("withdraw", row.id, "Withdrawn")
                         }
                       >
                         Withdraw
@@ -437,12 +411,7 @@ export function CommunityTvEnforcementHostTab({
                       size="sm"
                       variant="outline"
                       disabled={busy}
-                      onClick={() =>
-                        void act(
-                          `${prefix}/enforcement/${row.id}/withdraw`,
-                          "Withdrawn"
-                        )
-                      }
+                      onClick={() => void act("withdraw", row.id, "Withdrawn")}
                     >
                       Withdraw
                     </Button>
@@ -472,7 +441,8 @@ export function CommunityTvEnforcementHostTab({
                       disabled={busy}
                       onClick={() =>
                         void act(
-                          `${prefix}/enforcement/${row.id}/revocation-request`,
+                          "revocation-request",
+                          row.id,
                           "Revocation requested"
                         )
                       }
@@ -487,7 +457,8 @@ export function CommunityTvEnforcementHostTab({
                       disabled={busy}
                       onClick={() =>
                         void act(
-                          `${prefix}/enforcement/${row.id}/cancel-revocation`,
+                          "cancel-revocation",
+                          row.id,
                           "Revocation request cancelled"
                         )
                       }

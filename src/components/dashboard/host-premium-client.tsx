@@ -61,44 +61,50 @@ export const HostPremiumClient = () => {
     <Tabs
       value={tabType}
       onValueChange={val => setTabType(val as PremiumTab)}
-      className="section px-0"
+      className="px-0"
     >
-      <TabsList className="flex h-14! w-full flex-wrap gap-1">
-        <TabsTrigger
-          value="video_requests"
-          className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-        >
-          Video Requests
-        </TabsTrigger>
-        <TabsTrigger
-          value="video_coowners"
-          className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-        >
-          Video Co-owners
-        </TabsTrigger>
-        <TabsTrigger
-          value="advanced_video_analytics"
-          className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-        >
-          Advanced video analytics
-        </TabsTrigger>
-        <TabsTrigger
-          value="playlist"
-          className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-        >
-          Playlist
-        </TabsTrigger>
-        <TabsTrigger
-          value="event_room_access_control"
-          className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-        >
-          Event room access control
-        </TabsTrigger>
-      </TabsList>
+      <div className="w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden">
+        <TabsList className="flex h-14! w-max min-w-full flex-nowrap gap-1">
+          <TabsTrigger
+            value="video_requests"
+            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+          >
+            Video Requests
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="video_coowners"
+            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+          >
+            Video Co-owners
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="advanced_video_analytics"
+            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+          >
+            Advanced video analytics
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="playlist"
+            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+          >
+            Playlist
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="event_room_access_control"
+            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+          >
+            Event room access control
+          </TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent
         value="channel_manage"
-        className="mt-6 space-y-6"
+        className="space-y-6"
       >
         <p className="text-muted-foreground text-sm">
           Manage the default channel for each event room - toggle show view
@@ -109,21 +115,23 @@ export const HostPremiumClient = () => {
 
       <TabsContent
         value="video_requests"
-        className="mt-6 space-y-6"
+        className="space-y-6"
       >
         <HostVideoRequestsClient />
       </TabsContent>
 
       <TabsContent
         value="video_coowners"
-        className="mt-6 space-y-6"
+        forceMount
+        className="space-y-6"
       >
         <HostVideoCoOwnersClient />
       </TabsContent>
 
       <TabsContent
         value="advanced_video_analytics"
-        className="mt-6 space-y-6"
+        forceMount
+        className="space-y-6"
       >
         <VideoAnalyticsPanel variant="advanced" />
       </TabsContent>
@@ -133,7 +141,10 @@ export const HostPremiumClient = () => {
   );
 
   return (
-    <section className="flex flex-col gap-6">
+    <section
+      className="relative min-h-screen w-full space-y-4"
+      style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
+    >
       <DashboardHeading
         title="Host Growth"
         subtitle="Manage your premium plan and features."

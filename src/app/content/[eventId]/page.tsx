@@ -68,7 +68,17 @@ export async function generateMetadata({
   const res = (await getContentChannelAction(eventId)) as ActionResult<
     ContentData[]
   >;
-  const list = Array.isArray(res.data) ? res.data : [];
+  const raw = res.data;
+  const list = Array.isArray(raw)
+    ? raw
+    : raw &&
+        typeof raw === "object" &&
+        "formattedContents" in raw &&
+        Array.isArray(
+          (raw as { formattedContents?: ContentData[] }).formattedContents
+        )
+      ? (raw as { formattedContents: ContentData[] }).formattedContents
+      : [];
   const videoRes = pickContentForPage(list, initialChannelId);
 
   const videoHasCoOwner =
@@ -151,7 +161,7 @@ export default async function ContentPage({ params, searchParams }: Props) {
   }
 
   const [
-    { data: contents },
+    { data: contentsRes },
     { data: characters },
     { data: globalCharacterSets },
     eventRes,
@@ -161,6 +171,13 @@ export default async function ContentPage({ params, searchParams }: Props) {
     getAllCharacterSets(),
     getEventByIdAction(eventId),
   ]);
+
+  const contents = (contentsRes as { formattedContents: ContentData[] })
+    .formattedContents;
+  const isCommunity = (contentsRes as { isCommunity: boolean }).isCommunity;
+  const communityId = (contentsRes as { communityId: string }).communityId;
+  const communityName = (contentsRes as { communityName: string })
+    .communityName;
 
   const eventCatalog = parseEventCharacterCatalog(
     eventRes.success ? eventRes.data?.characterSets : []
@@ -244,6 +261,9 @@ export default async function ContentPage({ params, searchParams }: Props) {
               ? (initialProgramPlaylist as any[])
               : null
           }
+          isCommunity={isCommunity}
+          communityId={communityId}
+          communityName={communityName}
         />
       </div>
     </>

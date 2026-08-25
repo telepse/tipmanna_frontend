@@ -34,6 +34,7 @@ type Props = {
   communityPickerMultiRef: React.MutableRefObject<boolean>;
   topCommunities: CommunityExploreCatalogRow[];
   catalogAlphabetical: CommunityExploreCatalogRow[];
+  topCommunitiesLoading: boolean;
   catalogLoading: boolean;
   onBrowseAllAz: () => void;
 };
@@ -58,6 +59,7 @@ export function ExploreCommunityPickerMenu({
   communityPickerMultiRef,
   topCommunities,
   catalogAlphabetical,
+  topCommunitiesLoading,
   catalogLoading,
   onBrowseAllAz,
 }: Props) {
@@ -177,9 +179,9 @@ export function ExploreCommunityPickerMenu({
           </h5>
 
           <div className="px-4">
-            {catalogLoading ? (
+            {topCommunitiesLoading ? (
               <p className="text-muted-foreground px-1 py-2 text-xs">
-                Loading communities…
+                Loading top communities…
               </p>
             ) : null}
 

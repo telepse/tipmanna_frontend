@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 describe("frontend audit remediation smoke", () => {
-  it("TVProvider is scoped to tv layout and homepage embed only", () => {
+  it("TVProvider is scoped to tv layout routes only", () => {
     const tvRoutes = ["/tv", "/tv/community/foo"];
-    const homepageEmbed = "/";
-    expect(tvRoutes.every(r => r.startsWith("/tv") || r === "/")).toBe(true);
-    expect(homepageEmbed).toBe("/");
+    expect(tvRoutes.every(r => r.startsWith("/tv"))).toBe(true);
   });
 
   it("Stripe should defer until payment UI opens", () => {

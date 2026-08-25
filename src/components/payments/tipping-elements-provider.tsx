@@ -8,23 +8,18 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import type { RoomCharacter } from "@/types";
 import { getStripeBrowserPromise } from "@/lib/stripe-browser";
-
-function totalFromSelection(
-  selectedTips: string[],
-  characterMap: Map<string, RoomCharacter>
-): number {
-  return selectedTips.reduce((acc, characterName) => {
-    if (characterName === "Comment") return acc + 5;
-    const character = characterMap.get(characterName);
-    return acc + (character?.price || 0);
-  }, 0);
-}
+import {
+  computeTipCartTotal,
+  stripeElementsAmountMinor,
+} from "@/lib/tip-cart-total";
 
 type Props = {
   tippingCharacters: RoomCharacter[];
   children: ReactNode;
   /** When false, Stripe.js is not loaded and children render without Elements. */
   enabled?: boolean;
+  /** Host-configured text tip unit price (GBP). Defaults to 5. */
+  textTipUnitPrice?: number;
 };
 
 /**
@@ -35,6 +30,7 @@ export function TippingElementsProvider({
   tippingCharacters,
   children,
   enabled = true,
+  textTipUnitPrice = 5,
 }: Props) {
   const { selectedTips } = useSelector((state: RootState) => state.tip);
 
@@ -43,17 +39,10 @@ export function TippingElementsProvider({
     return getStripeBrowserPromise();
   }, [enabled]);
 
-  const characterMap = useMemo(() => {
-    const map = new Map<string, RoomCharacter>();
-    for (const c of tippingCharacters) {
-      map.set(c.name, c);
-    }
-    return map;
-  }, [tippingCharacters]);
-
   const liveTotal = useMemo(
-    () => totalFromSelection(selectedTips, characterMap),
-    [selectedTips, characterMap]
+    () =>
+      computeTipCartTotal(selectedTips, tippingCharacters, textTipUnitPrice),
+    [selectedTips, tippingCharacters, textTipUnitPrice]
   );
   const deferredTotal = useDeferredValue(liveTotal);
 
@@ -61,7 +50,7 @@ export function TippingElementsProvider({
     () =>
       ({
         mode: "payment",
-        amount: Math.max(100, Math.round(deferredTotal * 100)),
+        amount: stripeElementsAmountMinor(deferredTotal),
         currency: "gbp",
         appearance: {
           variables: {

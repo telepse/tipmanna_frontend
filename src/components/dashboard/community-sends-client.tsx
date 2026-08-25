@@ -52,7 +52,7 @@ function SendRow({ item }: { item: SendItem }) {
   };
 
   return (
-    <div className="bg-muted/40 rounded-lg border p-4">
+    <div className="bg-card rounded-md border p-4">
       <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
         {item.community.name}
       </p>

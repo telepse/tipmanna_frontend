@@ -51,6 +51,8 @@ import {
 import { SelectDefaultVideoModal } from "./select-default-video-modal";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
+import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
+import { toast } from "react-toastify";
 
 interface Props {
   liveVideoLink: string;
@@ -124,6 +126,13 @@ export const EventLive = ({
   const roomPathRef = useRef<string | null>(null);
   const [open, setOpen] = useState(!!liveVideoLink && autoOpen);
   const videoRef = useRef<VideoPlayerRef>(null);
+  const [channelList, setChannelList] = useState<any[]>(() =>
+    Array.isArray(channels) ? channels : []
+  );
+
+  useEffect(() => {
+    setChannelList(Array.isArray(channels) ? channels : []);
+  }, [channels]);
 
   const [showProgress] = useState(false);
 
@@ -146,12 +155,25 @@ export const EventLive = ({
     (typeof frameId === "string" && frameId.trim()) ||
     null;
 
+  useDefaultChannelRealtime(eventId, payload => {
+    if (frameParam?.trim()) return;
+    setChannelList(prev =>
+      prev.map(c => ({
+        ...c,
+        isDefault: String(c.id) === payload.channelId,
+      }))
+    );
+    toast.info(`Host switched streaming to "${payload.title}"`);
+    const roomPath = buildRoomSharePath(eventId);
+    router.replace(roomPath, { scroll: false });
+  });
+
   const currentChannel =
     (resolvedChannelId
-      ? channels?.find(c => String(c.id) === resolvedChannelId)
+      ? channelList?.find(c => String(c.id) === resolvedChannelId)
       : undefined) ??
-    channels?.find(c => c.isDefault) ??
-    channels?.[0];
+    channelList?.find(c => c.isDefault) ??
+    channelList?.[0];
 
   const syncLightboxUrl = useCallback(
     (channelId: string | null | undefined, mode: "push" | "replace") => {
@@ -871,8 +893,8 @@ export const EventLive = ({
       <SelectDefaultVideoModal
         open={selectDefaultVideoModalOpen}
         onClose={() => setSelectDefaultVideoModalOpen(false)}
-        channels={channels}
-        isHost={isEventOwner === user?.id}
+        channels={channelList}
+        isHost={eventOwner}
         eventId={eventId}
         frameId={frameId}
         liveVideoLink={liveVideoLink}

@@ -2,21 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { useSelector } from "react-redux";
 import { useSearchParams } from "next/navigation";
 
+import { patchCommunityRoomScreenSettingsAction } from "@/actions/community-host-dashboard";
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import type { RootState } from "@/redux/store";
 
 export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
-  const authToken = useSelector((s: RootState) => s.auth.token);
   const searchParams = useSearchParams();
   const communityId = searchParams.get("communityId")?.trim() ?? "";
-  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
   const [background, setBackground] = useState("");
   const [moneyFor, setMoneyFor] = useState("");
@@ -27,28 +24,18 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
 
   const save = useCallback(async () => {
     if (!communityId) return;
-    const t = authToken;
-    if (!t) return;
     setSaving(true);
     setMsg(null);
     try {
-      const res = await fetch(
-        `${base}/communities/${encodeURIComponent(communityId)}/screen-settings`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${t}`,
-          },
-          body: JSON.stringify({
-            background: background || undefined,
-            moneyFor: moneyFor || undefined,
-            showLatest,
-            hideProgressAmount: hideProgress,
-          }),
-        }
-      );
-      if (!res.ok) throw new Error(`Save failed (${res.status})`);
+      const res = await patchCommunityRoomScreenSettingsAction(communityId, {
+        background: background || undefined,
+        moneyFor: moneyFor || undefined,
+        showLatest,
+        hideProgressAmount: hideProgress,
+      });
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Save failed");
+      }
       setMsg(
         "Saved. Viewers on the community channel may take a moment to refresh."
       );
@@ -57,15 +44,7 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
     } finally {
       setSaving(false);
     }
-  }, [
-    base,
-    communityId,
-    background,
-    moneyFor,
-    showLatest,
-    hideProgress,
-    authToken,
-  ]);
+  }, [communityId, background, moneyFor, showLatest, hideProgress]);
 
   const backHref = `/host/${hostSlug}/host-community`;
 

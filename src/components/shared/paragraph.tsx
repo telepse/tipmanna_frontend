@@ -1,3 +1,5 @@
+import type { ElementType } from "react";
+
 interface ParagraphProps {
   children: React.ReactNode;
   align?: "left" | "center" | "right";
@@ -6,6 +8,8 @@ interface ParagraphProps {
   color?: "black" | "white" | "muted";
   className?: string;
   style?: React.CSSProperties;
+  as?: "p" | "span" | "div" | "h2" | "h3";
+  id?: string;
 }
 
 export const Paragraph = ({
@@ -16,8 +20,9 @@ export const Paragraph = ({
   color = "black",
   className,
   style,
+  as: Tag = "p",
+  id,
 }: ParagraphProps) => {
-  // Size map
   const sizeClasses: Record<NonNullable<ParagraphProps["size"]>, string> = {
     xs: "text-xs sm:text-sm",
     sm: "text-sm sm:text-base",
@@ -26,33 +31,33 @@ export const Paragraph = ({
     xl: "text-xl sm:text-2xl",
   };
 
-  // Weight map
   const weightClasses: Record<NonNullable<ParagraphProps["weight"]>, string> = {
     normal: "font-normal",
     medium: "font-medium",
     bold: "font-semibold",
   };
 
-  // Alignment map
   const alignClasses: Record<NonNullable<ParagraphProps["align"]>, string> = {
     left: "text-left",
     center: "text-center",
     right: "text-right",
   };
 
-  // Color map
   const colorClasses: Record<NonNullable<ParagraphProps["color"]>, string> = {
     black: "text-black",
     white: "text-white",
     muted: "text-muted-foreground",
   };
 
+  const Component = Tag as ElementType;
+
   return (
-    <p
+    <Component
+      id={id}
       style={style}
-      className={`open_sans leading-loose break-words whitespace-normal ${sizeClasses[size]} ${weightClasses[weight]} ${alignClasses[align]} ${colorClasses[color]} ${className}`}
+      className={`open_sans leading-loose break-words whitespace-normal ${sizeClasses[size]} ${weightClasses[weight]} ${alignClasses[align]} ${colorClasses[color]} ${className ?? ""}`}
     >
       {children}
-    </p>
+    </Component>
   );
 };

@@ -1,3 +1,5 @@
+import type { ElementType } from "react";
+
 interface TitleProps {
   children: React.ReactNode;
   align?: "left" | "center" | "right";
@@ -5,6 +7,8 @@ interface TitleProps {
   weight?: "normal" | "medium" | "bold";
   color?: "black" | "white" | "primary";
   className?: string;
+  as?: "h1" | "h2" | "h3" | "h4" | "p" | "span" | "div";
+  id?: string;
 }
 
 export const Title = ({
@@ -14,8 +18,9 @@ export const Title = ({
   weight = "medium",
   color = "black",
   className,
+  as: Tag = "h2",
+  id,
 }: TitleProps) => {
-  // Size map
   const sizeClasses: Record<NonNullable<TitleProps["size"]>, string> = {
     xs: "text-base sm:text-lg",
     sm: "text-xl sm:text-2xl",
@@ -24,32 +29,32 @@ export const Title = ({
     xl: "text-5xl sm:text-[67px]",
   };
 
-  // Weight map
   const weightClasses: Record<NonNullable<TitleProps["weight"]>, string> = {
     normal: "font-normal",
     medium: "font-medium",
     bold: "font-semibold",
   };
 
-  // Alignment map
   const alignClasses: Record<NonNullable<TitleProps["align"]>, string> = {
     left: "text-left",
     center: "text-center",
     right: "text-right",
   };
 
-  // Color map
   const colorClasses: Record<NonNullable<TitleProps["color"]>, string> = {
     black: "text-black",
     white: "text-white",
     primary: "text-primary",
   };
 
+  const Component = Tag as ElementType;
+
   return (
-    <h2
-      className={`racing_sans_one ${sizeClasses[size]} ${weightClasses[weight]} ${alignClasses[align]} ${colorClasses[color]} ${className}`}
+    <Component
+      id={id}
+      className={`racing_sans_one ${sizeClasses[size]} ${weightClasses[weight]} ${alignClasses[align]} ${colorClasses[color]} ${className ?? ""}`}
     >
       {children}
-    </h2>
+    </Component>
   );
 };

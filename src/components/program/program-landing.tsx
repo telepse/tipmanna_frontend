@@ -95,35 +95,66 @@ export function ProgramLanding({
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl space-y-6 px-4 py-8">
-      <div className="flex flex-col items-start justify-between gap-1 sm:flex-row sm:items-center">
-        {program.community ? (
-          <div className="flex items-center gap-4">
-            {program.community.logoUrl ? (
-              <Image
-                src={program.community.logoUrl}
-                alt=""
-                width={40}
-                height={40}
-                className="rounded-full object-cover"
-              />
-            ) : null}
-            <div>
-              <p className="text-lg font-semibold tracking-wide">
-                Community program
-              </p>
-              <p className="font-semibold">{program.community.name}</p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-lg font-semibold tracking-wide">
-            Tipmanna TV program
-          </p>
-        )}
+      <div className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between">
+        {/* Community / Tipmanna TV */}
+        <div className="flex w-full items-center justify-between sm:w-auto">
+          {program.community ? (
+            <div className="flex min-w-0 items-center gap-3">
+              {program.community.logoUrl ? (
+                <Image
+                  src={program.community.logoUrl}
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="size-10 shrink-0 rounded-full object-cover"
+                />
+              ) : null}
 
-        <ProgramCountdown
-          scheduledAt={program.scheduledAt}
-          durationSec={program.durationSec}
-        />
+              <div className="min-w-0">
+                <p className="text-muted-foreground text-sm font-medium sm:text-lg sm:font-semibold sm:tracking-wide">
+                  Community program
+                </p>
+
+                <p className="truncate font-semibold">
+                  {program.community.name}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-lg font-semibold tracking-wide">
+              Tipmanna TV program
+            </p>
+          )}
+
+          {/* Mobile Share Button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="ml-3 shrink-0 sm:hidden"
+            aria-label="Share program"
+            onClick={() => {
+              if (typeof navigator !== "undefined" && navigator.share) {
+                void navigator.share({
+                  title: program.title,
+                  url: shareUrl,
+                });
+              } else {
+                void copyLink();
+              }
+            }}
+          >
+            <Share2 className="size-5" />
+          </Button>
+        </div>
+
+        {/* Countdown */}
+        <div className="w-full sm:w-auto">
+          <ProgramCountdown
+            scheduledAt={program.scheduledAt}
+            durationSec={program.durationSec}
+          />
+        </div>
       </div>
 
       <div className="bg-card border-muted-foreground/20 relative -mt-4 overflow-hidden rounded-md border-2 shadow-lg sm:mt-0">
@@ -177,7 +208,8 @@ export function ProgramLanding({
                 )
               }
             >
-              <Tv /> Watch on TV
+              <Tv />
+              {program.community ? "Watch Community TV" : "Watch Tipmanna TV"}
             </Button>
 
             <div className="flex gap-2">
@@ -193,11 +225,12 @@ export function ProgramLanding({
                 />
               </div>
 
+              {/* Share - hidden on mobile */}
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="flex-1 sm:flex-none"
+                className="hidden flex-1 sm:flex sm:flex-none"
                 onClick={() => {
                   if (typeof navigator !== "undefined" && navigator.share) {
                     void navigator.share({

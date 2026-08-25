@@ -79,6 +79,7 @@ import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import { Button } from "@/components/ui/button";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
+import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
@@ -425,15 +426,17 @@ function ExploreFeedSlideVideo({
 
   const handleReelTap = () => {
     if (!playbackActive) return;
+    const soundPrefOn = loadReelSoundPref();
     if (!engageUnlocked) {
       setEngageUnlocked(true);
       onEngageUnlocked?.();
-      const p = slideIndex === activeIndex ? videoRef.current : null;
-      if (p?.isReady()) {
-        p.unmute();
-        onActiveReelMuteChange?.(false);
+      if (!soundPrefOn) {
+        const p = slideIndex === activeIndex ? videoRef.current : null;
+        if (p?.isReady()) {
+          p.unmute();
+        }
+        return;
       }
-      return;
     }
     const p = slideIndex === activeIndex ? videoRef.current : null;
     if (!p?.isReady()) return;
@@ -511,6 +514,7 @@ function ExploreFeedSlideVideo({
             videoUrl={item.url}
             playbackActive={playbackActive}
             disableGlobalAudioUnlock
+            initialMuted={!loadReelSoundPref()}
             suppressLoadingChrome={!playbackActive}
             loadingBackdropClassName="bg-black"
             showLoadingLabel={false}
@@ -679,6 +683,7 @@ type ExploreReelSlideTitleProps = {
   metricsRestrictedCommunity: { id: string; name: string } | null;
   onOpenCreatorDrawer: (username: string) => void;
   onPrefetchCreator?: (username: string) => void;
+  onEngageUnlocked?: () => void;
   className?: string;
 };
 
@@ -694,6 +699,7 @@ function ExploreReelSlideTitle({
   metricsRestrictedCommunity,
   onOpenCreatorDrawer,
   onPrefetchCreator,
+  onEngageUnlocked,
   className,
 }: ExploreReelSlideTitleProps) {
   const hostUsername = resolveExploreItemHostUsername(item);
@@ -715,9 +721,12 @@ function ExploreReelSlideTitle({
               e.stopPropagation();
               const p = videoRef.current;
               if (!p?.isReady()) return;
-              if (reelMuted) p.unmute();
-              else p.mute();
-              setReelMuted(p.isMuted());
+              if (reelMuted) {
+                p.unmute();
+                onEngageUnlocked?.();
+              } else {
+                p.mute();
+              }
             }}
           >
             {reelMuted ? (
@@ -874,6 +883,7 @@ export const ExploreFeedClient = forwardRef<
       ? `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`
       : "/explore";
   const [signInOpen, setSignInOpen] = useState(false);
+  const pendingSaveAfterSignInRef = useRef(false);
   const [savesRefreshEpoch, setSavesRefreshEpoch] = useState(0);
   const videoRef = useRef<VideoPlayerRef>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1024,12 +1034,7 @@ export const ExploreFeedClient = forwardRef<
   }, []);
 
   useEffect(() => {
-    const muted = !loadReelSoundPref();
-    setReelMuted(muted);
-    const tid = window.setTimeout(() => {
-      videoRef.current?.setMuted(muted);
-    }, 80);
-    return () => window.clearTimeout(tid);
+    setReelMuted(!loadReelSoundPref());
   }, [activeIndex]);
 
   const initialLoadingRef = useRef(initialLoading);
@@ -1099,6 +1104,15 @@ export const ExploreFeedClient = forwardRef<
     ? (videoTipCatalog.characters as RoomCharacter[])
     : (characters as RoomCharacter[]);
 
+  const tipPres = useTipPresentation(
+    activeEventId || undefined,
+    tippingCharactersForDrawer,
+    {
+      paymentSurface:
+        feedMode === "community" ? "community_feed" : "explore_feed",
+    }
+  );
+
   const dispatch = useDispatch();
   const prevPlayingVideoKeyRef = useRef("");
 
@@ -1144,7 +1158,8 @@ export const ExploreFeedClient = forwardRef<
     : false;
 
   const handleExploreSaveToggle = useCallback(async () => {
-    if (!user) {
+    if (!user || user.role === "VISITOR") {
+      pendingSaveAfterSignInRef.current = true;
       setSignInOpen(true);
       return;
     }
@@ -1198,6 +1213,14 @@ export const ExploreFeedClient = forwardRef<
       setSaveBusy(false);
     }
   }, [refreshSavedContents, saveExploreChannelId, savedContents, user]);
+
+  const handleSaveSignInVerified = useCallback(() => {
+    setSavesRefreshEpoch(e => e + 1);
+    if (pendingSaveAfterSignInRef.current) {
+      pendingSaveAfterSignInRef.current = false;
+      void handleExploreSaveToggle();
+    }
+  }, [handleExploreSaveToggle]);
 
   const [baseMetrics, setBaseMetrics] =
     useState<ExploreReelSlideMetrics | null>(null);
@@ -1354,20 +1377,26 @@ export const ExploreFeedClient = forwardRef<
   });
   usePayerOriginAnimationRecovery({
     eventId: activeEventId,
-    paymentSurface: "explore_feed",
+    paymentSurface: ["explore_feed", "community_feed"],
     characters: characters as RoomCharacter[],
     enabled: feedSurfaceActive,
     surface: "explore_feed",
   });
   useAutoDropTip(activeEventId, Boolean(activeEventId) && feedSurfaceActive);
 
-  const { amountRaised: liveAmountRaised, numOfTips: liveNumOfTips } =
-    useEventRoomRealtime({
-      eventId: activeEventId,
-      initialAmountRaised: active?.event?.amountRaised ?? 0,
-      initialNumOfTips: active?.event?.numOfTips ?? 0,
-      enabled: Boolean(activeEventId) && feedSurfaceActive,
-    });
+  const {
+    amountRaised: liveAmountRaised,
+    numOfTips: liveNumOfTips,
+    channelNumOfTips: liveChannelNumOfTips,
+  } = useEventRoomRealtime({
+    eventId: activeEventId,
+    initialAmountRaised: active?.event?.amountRaised ?? 0,
+    initialNumOfTips: active?.event?.numOfTips ?? 0,
+    channelId: active?.id ? String(active.id) : null,
+    initialChannelNumOfTips:
+      typeof active?.numOfTips === "number" ? active.numOfTips : 0,
+    enabled: Boolean(activeEventId) && feedSurfaceActive,
+  });
 
   /** `null` = request failed (retry later). `[]` = success but no more items. */
   const [savesBlocked, setSavesBlocked] = useState<null | "auth" | "min_saves">(
@@ -2184,7 +2213,7 @@ export const ExploreFeedClient = forwardRef<
             signInTitle="Sign in to view your saves feed"
             onVerified={() => {
               setSavesBlocked(null);
-              setSavesRefreshEpoch(e => e + 1);
+              handleSaveSignInVerified();
             }}
           />
         </>
@@ -2209,7 +2238,7 @@ export const ExploreFeedClient = forwardRef<
             open={signInOpen}
             onOpenChange={setSignInOpen}
             signInTitle="Sign in to browse community clips"
-            onVerified={() => setSavesRefreshEpoch(e => e + 1)}
+            onVerified={handleSaveSignInVerified}
           />
         </>
       );
@@ -2435,6 +2464,7 @@ export const ExploreFeedClient = forwardRef<
                             }
                             onOpenCreatorDrawer={openCreatorDrawer}
                             onPrefetchCreator={prefetchCreatorProfile}
+                            onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelTitleOnVideoClassName(
                               slideLayoutMode
                             )}
@@ -2455,6 +2485,7 @@ export const ExploreFeedClient = forwardRef<
                             }
                             onOpenCreatorDrawer={openCreatorDrawer}
                             onPrefetchCreator={prefetchCreatorProfile}
+                            onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelTitleAboveDockClassName(
                               slideLayoutMode
                             )}
@@ -2518,11 +2549,7 @@ export const ExploreFeedClient = forwardRef<
                                   ? active.event.eventName
                                   : "Watch on Tipmanna"
                             }
-                            videoTipCount={
-                              typeof active?.numOfTips === "number"
-                                ? active.numOfTips
-                                : undefined
-                            }
+                            videoTipCount={liveChannelNumOfTips}
                             eventRoomTipCount={liveNumOfTips}
                           />
                         ) : null}
@@ -2671,6 +2698,7 @@ export const ExploreFeedClient = forwardRef<
         <TippingElementsProvider
           tippingCharacters={tippingCharactersForDrawer}
           enabled
+          textTipUnitPrice={tipPres.textUnitPrice}
         >
           <TipDrawer
             key={playingVideoKey || activeEventId}
@@ -2688,6 +2716,8 @@ export const ExploreFeedClient = forwardRef<
             paymentChannelId={active?.id ?? null}
             openWalletModalNonce={openWalletModalNonce}
             stackAboveImmersive
+            textTipUnitPrice={tipPres.textUnitPrice}
+            tipQuoteContext={tipPres.quoteCtx}
           />
         </TippingElementsProvider>
       ) : null}
@@ -2699,11 +2729,7 @@ export const ExploreFeedClient = forwardRef<
           eventId={activeEventId}
           channelId={activeChannelId != null ? String(activeChannelId) : null}
           eventRoomTipCount={liveNumOfTips}
-          videoTipCount={
-            typeof active?.numOfTips === "number"
-              ? active.numOfTips
-              : liveNumOfTips
-          }
+          videoTipCount={liveChannelNumOfTips}
         />
       ) : null}
 
@@ -2734,6 +2760,12 @@ export const ExploreFeedClient = forwardRef<
         open={creatorDrawerOpen}
         onOpenChange={handleCreatorDrawerOpenChange}
         username={creatorDrawerUsername}
+      />
+      <TipperEmailOtpSignInDialog
+        open={signInOpen}
+        onOpenChange={setSignInOpen}
+        signInTitle="Sign in as a tipper to save videos"
+        onVerified={handleSaveSignInVerified}
       />
     </div>
   );

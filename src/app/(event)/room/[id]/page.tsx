@@ -19,6 +19,8 @@ import type { Message } from "@/types";
 import { getPrimaryOrigin } from "@/lib/site-config";
 import { buildRoomShareUrl } from "@/lib/public-video-url";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
+import { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import { extractYoutubeID } from "@/lib/extractYoutubeID";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -40,6 +42,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const trimmedId = typeof id === "string" ? id.trim() : id;
   const eventRes = await getEventByIdAction(trimmedId);
+  const channelsRes = await getEventChannels(trimmedId);
+
+  const channels = channelsRes.data;
+
   const eventPayload = eventRes.data;
   if (!eventRes.success || !eventPayload) {
     return { title: "Event Not Found" };
@@ -48,14 +54,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const event = eventPayload;
   const baseUrl = getPrimaryOrigin();
 
-  // Clean background path logic
-  const cleanBackground = event.eventBackground?.startsWith("/")
-    ? event.eventBackground
-    : `/${event.eventBackground}`;
+  const defaultContent = (channels as EventRoomVideoChannel[])?.find(
+    channel => channel.isDefault === true
+  );
 
-  const imageUrl = event.eventBackground
-    ? `${baseUrl}${cleanBackground}`
-    : `${baseUrl}/events/together.png`;
+  const defaultThumbnailUrl = extractYoutubeID(defaultContent?.url ?? "");
+
+  const imageUrl = defaultThumbnailUrl || (event.eventBanner ?? "");
 
   const title = `Join ${event.eventName} hosted by ${event.hostName?.split(" ")[0]} on Tipmanna 💎⚡`;
 
@@ -124,6 +129,7 @@ export default async function EventRoomPage({ params }: Props) {
     eventDate,
     startTime,
     endTime,
+    timeZone,
     amountToRaise,
     amountRaised: initialAmountRaised,
     numOfTips: initialNumOfTips,
@@ -186,6 +192,7 @@ export default async function EventRoomPage({ params }: Props) {
           eventDate={eventDate ?? ""}
           startTime={startTime ?? ""}
           endTime={endTime ?? ""}
+          timeZone={timeZone ?? "Europe/London"}
           liveVideoLink={liveVideoLink ?? ""}
           defaultAdminVideo={defaultAdminVideo ?? ""}
           amountToRaise={amountToRaise ?? 0}

@@ -5,6 +5,8 @@ import { toast } from "react-toastify";
 import {
   createVideoCoOwnerInviteAction,
   getVideoCoOwnerInviteStatusAction,
+  resendVideoCoOwnerInviteAction,
+  revokeVideoCoOwnerInviteAction,
 } from "@/actions/events";
 import { mapCoOwnerInviteErrors } from "@/lib/coowner-invite-error.util";
 import {
@@ -16,19 +18,30 @@ import {
   type CoOwnerDraftSlice,
 } from "@/lib/form-draft-utils";
 import { useCoOwnerDraftLifecycle } from "@/providers/co-owner-draft-lifecycle-provider";
+import {
+  COOWNER_RESEND_MAX_COUNT,
+  COOWNER_RESEND_MIN_INTERVAL_MINUTES,
+} from "@/lib/coowner-config";
 
 export type CoOwnerInvitePhase =
   | "idle"
   | "typing"
   | "pending"
   | "approved"
-  | "declined";
+  | "declined"
+  | "expired"
+  | "revoked";
 
 type InviteRow = {
+  id: string;
   coOwnerName: string;
   coOwnerEmail: string;
   payoutPercentBp: number;
   status: string;
+  expiresAt?: string;
+  resentAt?: string | null;
+  resendCount?: number;
+  youtubeLink?: string | null;
 };
 
 export type UseCoOwnerDraftFieldsOptions = {
@@ -43,7 +56,6 @@ export type UseCoOwnerDraftFieldsOptions = {
   onCoOwnerInvitePending?: (inviteId: string) => void;
   onDraftSaveNow?: () => void | Promise<void>;
   onRefreshSubmitReadiness?: () => void;
-  /** Increment to re-fetch invite status (e.g. after Pusher approval). */
   refreshToken?: number;
 };
 
@@ -54,14 +66,25 @@ function invitePhaseFromRows(
   if (invites.some(i => i.status === "pending")) return "pending";
   if (invites.some(i => i.status === "approved")) return "approved";
   if (invites.some(i => i.status === "declined")) return "declined";
+  if (invites.some(i => i.status === "expired")) return "expired";
+  if (invites.some(i => i.status === "revoked")) return "revoked";
   return "typing";
 }
 
 function activeInviteRow(invites: InviteRow[] | undefined): InviteRow | null {
   if (!invites?.length) return null;
-  return (
-    invites.find(i => i.status === "approved" || i.status === "pending") ?? null
-  );
+  const priority = [
+    "approved",
+    "pending",
+    "expired",
+    "declined",
+    "revoked",
+  ] as const;
+  for (const status of priority) {
+    const row = invites.find(i => i.status === status);
+    if (row) return row;
+  }
+  return null;
 }
 
 function sliceFromInvite(row: InviteRow): CoOwnerDraftSlice {
@@ -72,7 +95,9 @@ function sliceFromInvite(row: InviteRow): CoOwnerDraftSlice {
   };
 }
 
-/** Single source of truth for co-owner draft fields, hydration, and invite locking. */
+/**
+ * Single source of truth for co-owner draft fields, hydration, and invite locking.
+ */
 export function useCoOwnerDraftFields({
   draftKey,
   ownershipAnswer,
@@ -87,71 +112,169 @@ export function useCoOwnerDraftFields({
   onRefreshSubmitReadiness,
   refreshToken = 0,
 }: UseCoOwnerDraftFieldsOptions) {
-  const { lifecycleReady, setCoOwnerHydrating } = useCoOwnerDraftLifecycle();
+  const { restoreReady, setCoOwnerHydrating } = useCoOwnerDraftLifecycle();
+
   const [invitePhase, setInvitePhase] = useState<CoOwnerInvitePhase>("idle");
   const [readOnlyInvite, setReadOnlyInvite] = useState(false);
   const [pending, setPending] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [activeInvite, setActiveInvite] = useState<InviteRow | null>(null);
+
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
     name?: string;
   }>({});
+
   const hydrationRequestRef = useRef(0);
+
+  /*
+   * Keep callback references stable so effects do not depend on the
+   * inline callbacks passed from CoOwnerInviteBlock.
+   */
+  const setCoOwnerRef = useRef(setCoOwner);
+  const setDraftKeyRef = useRef(setDraftKey);
+  const onDraftSaveNowRef = useRef(onDraftSaveNow);
+  const onCoOwnerInvitePendingRef = useRef(onCoOwnerInvitePending);
+  const onRefreshSubmitReadinessRef = useRef(onRefreshSubmitReadiness);
+
+  setCoOwnerRef.current = setCoOwner;
+  setDraftKeyRef.current = setDraftKey;
+  onDraftSaveNowRef.current = onDraftSaveNow;
+  onCoOwnerInvitePendingRef.current = onCoOwnerInvitePending;
+  onRefreshSubmitReadinessRef.current = onRefreshSubmitReadiness;
+
+  /*
+   * Prevent draft-key initialization from happening more than once
+   * for the same mounted hook instance.
+   */
+  const draftKeyInitializationRef = useRef(false);
+
+  /*
+   * Keep the latest draft key available to the initialization effect.
+   */
+  const draftKeyRef = useRef(draftKey);
+
+  useEffect(() => {
+    draftKeyRef.current = draftKey;
+  }, [draftKey]);
 
   const patchCoOwner = useCallback(
     (patch: Partial<CoOwnerDraftSlice>) => {
-      setCoOwner({
+      setCoOwnerRef.current({
         name: coOwner?.name ?? "",
         email: coOwner?.email ?? "",
         payoutPercent: coOwner?.payoutPercent ?? 25,
         ...patch,
       });
     },
-    [coOwner, setCoOwner]
+    [coOwner]
   );
 
   const name = coOwner?.name ?? "";
   const email = coOwner?.email ?? "";
   const pct = coOwner?.payoutPercent ?? 25;
 
+  /*
+   * ------------------------------------------------------------
+   * INITIALIZE CO-OWNER DRAFT KEY
+   * ------------------------------------------------------------
+   *
+   * This must be strictly one-time for a mounted co-owner block.
+   * Otherwise setting the RHF value can cause the parent form to
+   * rerender while this effect is still participating in the
+   * co-owner lifecycle.
+   */
   useEffect(() => {
-    if (!lifecycleReady || ownershipAnswer !== "no") return;
-    const current = draftKey?.trim();
-    if (!current) {
-      const next = ensureCoOwnerDraftKey();
-      setDraftKey(next);
+    if (!restoreReady || ownershipAnswer !== "no") {
+      return;
     }
-  }, [lifecycleReady, ownershipAnswer, draftKey, setDraftKey]);
 
+    if (draftKeyInitializationRef.current) {
+      return;
+    }
+
+    const current = draftKeyRef.current?.trim();
+
+    if (current) {
+      draftKeyInitializationRef.current = true;
+      return;
+    }
+
+    draftKeyInitializationRef.current = true;
+
+    const next = ensureCoOwnerDraftKey();
+
+    setDraftKeyRef.current(next);
+    draftKeyRef.current = next;
+  }, [restoreReady, ownershipAnswer]);
+
+  /*
+   * ------------------------------------------------------------
+   * HYDRATE EXISTING INVITE
+   * ------------------------------------------------------------
+   */
   useEffect(() => {
     const dk = draftKey?.trim();
-    if (!lifecycleReady || !dk || ownershipAnswer !== "no") {
+
+    if (!restoreReady || !dk || ownershipAnswer !== "no") {
       setInvitePhase("idle");
       setReadOnlyInvite(false);
+      setActiveInvite(null);
       return;
     }
 
     hydrationRequestRef.current += 1;
     const requestId = hydrationRequestRef.current;
+
+    let cancelled = false;
+    let hydrating = true;
+
     setCoOwnerHydrating(true);
 
-    void getVideoCoOwnerInviteStatusAction(dk).then(res => {
-      if (requestId !== hydrationRequestRef.current) return;
+    const releaseHydrating = () => {
+      if (!hydrating) return;
+      hydrating = false;
       setCoOwnerHydrating(false);
+    };
+
+    void getVideoCoOwnerInviteStatusAction(dk).then(res => {
+      releaseHydrating();
+
+      if (cancelled || requestId !== hydrationRequestRef.current) {
+        return;
+      }
 
       if (!res.success || !res.data) {
         setInvitePhase("typing");
         setReadOnlyInvite(false);
+        setActiveInvite(null);
         return;
       }
 
-      const invites = (res.data as { invites?: InviteRow[] }).invites;
+      const invites = (
+        res.data as {
+          invites?: InviteRow[];
+        }
+      ).invites;
+
       const phase = invitePhaseFromRows(invites);
+
       setInvitePhase(phase);
 
       const active = activeInviteRow(invites);
+
+      setActiveInvite(active);
+
       if (active) {
-        setCoOwner(sliceFromInvite(active));
-        setReadOnlyInvite(true);
+        setCoOwnerRef.current(sliceFromInvite(active));
+
+        setReadOnlyInvite(
+          active.status === "pending" ||
+            active.status === "approved" ||
+            active.status === "expired"
+        );
+
         return;
       }
 
@@ -159,15 +282,16 @@ export function useCoOwnerDraftFields({
     });
 
     return () => {
+      cancelled = true;
       hydrationRequestRef.current += 1;
+      releaseHydrating();
     };
   }, [
     draftKey,
-    lifecycleReady,
+    restoreReady,
     ownershipAnswer,
-    setCoOwner,
-    setCoOwnerHydrating,
     refreshToken,
+    setCoOwnerHydrating,
   ]);
 
   const statusIndicator: CoOwnerInviteStatusValue =
@@ -177,25 +301,74 @@ export function useCoOwnerDraftFields({
         ? "approved"
         : invitePhase === "declined"
           ? "declined"
-          : null;
+          : invitePhase === "expired"
+            ? "expired"
+            : invitePhase === "revoked"
+              ? "revoked"
+              : null;
+
+  const canResend =
+    (invitePhase === "expired" ||
+      invitePhase === "declined" ||
+      invitePhase === "revoked" ||
+      (invitePhase === "pending" && Boolean(activeInvite?.id))) &&
+    (activeInvite?.resendCount ?? 0) < COOWNER_RESEND_MAX_COUNT;
+
+  const [resendCooldownSec, setResendCooldownSec] = useState(0);
+
+  useEffect(() => {
+    const resentAt = activeInvite?.resentAt;
+    if (!resentAt) {
+      setResendCooldownSec(0);
+      return;
+    }
+    const minMs = COOWNER_RESEND_MIN_INTERVAL_MINUTES * 60_000;
+    const tick = () => {
+      const remaining = Math.ceil(
+        (minMs - (Date.now() - new Date(resentAt).getTime())) / 1000
+      );
+      setResendCooldownSec(Math.max(0, remaining));
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [activeInvite?.resentAt]);
+
+  const canResendNow = canResend && resendCooldownSec <= 0;
 
   const sendInvite = useCallback(async () => {
-    if (readOnlyInvite) return;
+    if (
+      readOnlyInvite &&
+      invitePhase !== "expired" &&
+      invitePhase !== "declined"
+    ) {
+      return;
+    }
+
     if (!canInvite) {
       toast.error(
         "Upgrade to Host Premium or Host Community to invite co-owners."
       );
       return;
     }
+
     const dk = draftKey?.trim();
+
     if (!dk) {
       toast.error("Missing session or draft id");
       return;
     }
+
+    if (!youtubeLink.trim()) {
+      toast.error("Add the YouTube video link before inviting a co-owner");
+      return;
+    }
+
     if (!email.trim()) {
       toast.error("Co-owner email is required");
       return;
     }
+
     if (!name.trim()) {
       toast.error("Co-owner legal name is required");
       return;
@@ -203,6 +376,7 @@ export function useCoOwnerDraftFields({
 
     setPending(true);
     setFieldErrors({});
+
     const res = await createVideoCoOwnerInviteAction({
       draftKey: dk,
       coOwnerName: name.trim(),
@@ -211,30 +385,73 @@ export function useCoOwnerDraftFields({
       contentTitle: videoTitle.trim(),
       youtubeLink: youtubeLink.trim(),
     });
+
     setPending(false);
 
     if (!res.success) {
+      const body = res.validationBody as
+        | {
+            error?: {
+              code?: string;
+              inviteId?: string;
+            };
+          }
+        | undefined;
+
+      if (body?.error?.code === "invite_resendable" && body.error.inviteId) {
+        const inviteId = body.error.inviteId;
+        setActiveInvite({
+          id: inviteId,
+          coOwnerName: name.trim(),
+          coOwnerEmail: email.trim(),
+          payoutPercentBp: Math.round(pct * 100),
+          status: "expired",
+        });
+
+        setInvitePhase("expired");
+
+        toast.info("An invite already exists — use Resend invitation");
+
+        return;
+      }
+
       const mapped = mapCoOwnerInviteErrors(
         res.validationBody,
         res.message ?? undefined
       );
+
       if (Object.keys(mapped).length > 0) {
         setFieldErrors(mapped);
       } else {
         toast.error(res.message ?? "Invite failed");
       }
+
       return;
     }
 
-    const inv = (res.data as { invite?: { id?: string } })?.invite;
+    const inv = (
+      res.data as {
+        invite?: {
+          id?: string;
+        };
+      }
+    )?.invite;
+
     toast.success("Invite sent — co-owner must approve via email");
+
     setReadOnlyInvite(true);
     setInvitePhase("pending");
-    if (inv?.id) onCoOwnerInvitePending?.(inv.id);
-    onRefreshSubmitReadiness?.();
-    await onDraftSaveNow?.();
+
+    if (inv?.id) {
+      onCoOwnerInvitePendingRef.current?.(inv.id);
+    }
+
+    onRefreshSubmitReadinessRef.current?.();
+
+    await onDraftSaveNowRef.current?.();
   }, [
     readOnlyInvite,
+    invitePhase,
     canInvite,
     draftKey,
     email,
@@ -242,10 +459,115 @@ export function useCoOwnerDraftFields({
     pct,
     videoTitle,
     youtubeLink,
-    onCoOwnerInvitePending,
-    onRefreshSubmitReadiness,
-    onDraftSaveNow,
   ]);
+
+  const resendInvite = useCallback(async () => {
+    if (!activeInvite?.id) {
+      toast.error("No invite to resend");
+      return;
+    }
+
+    if (!youtubeLink.trim()) {
+      toast.error("Add the YouTube video link before resending the invite");
+      return;
+    }
+
+    setResending(true);
+
+    const res = await resendVideoCoOwnerInviteAction(activeInvite.id, {
+      contentTitle: videoTitle.trim(),
+      youtubeLink: youtubeLink.trim(),
+    });
+
+    setResending(false);
+
+    if (!res.success) {
+      toast.error(res.message ?? "Resend failed");
+      return;
+    }
+
+    const inv = (
+      res.data as {
+        invite?: InviteRow & { status?: string };
+      }
+    )?.invite;
+
+    toast.success("Invitation resent");
+
+    setInvitePhase("pending");
+    setReadOnlyInvite(true);
+
+    if (inv?.id) {
+      setActiveInvite({
+        id: inv.id,
+        coOwnerName: name.trim(),
+        coOwnerEmail: email.trim(),
+        payoutPercentBp: Math.round(pct * 100),
+        status: "pending",
+        expiresAt:
+          typeof inv.expiresAt === "string"
+            ? inv.expiresAt
+            : inv.expiresAt != null
+              ? String(inv.expiresAt)
+              : undefined,
+        resentAt:
+          typeof inv.resentAt === "string"
+            ? inv.resentAt
+            : inv.resentAt != null
+              ? String(inv.resentAt)
+              : new Date().toISOString(),
+        resendCount: inv.resendCount ?? (activeInvite?.resendCount ?? 0) + 1,
+        youtubeLink: inv.youtubeLink ?? youtubeLink.trim(),
+      });
+    }
+
+    onRefreshSubmitReadinessRef.current?.();
+
+    await onDraftSaveNowRef.current?.();
+  }, [
+    activeInvite?.id,
+    activeInvite?.resendCount,
+    videoTitle,
+    youtubeLink,
+    name,
+    email,
+    pct,
+  ]);
+
+  const removeInvite = useCallback(async () => {
+    if (!activeInvite?.id) {
+      toast.error("No invite to remove");
+      return;
+    }
+
+    if (invitePhase === "pending") {
+      const ok = window.confirm(
+        "Remove this pending invitation? The co-owner will no longer be able to approve it."
+      );
+      if (!ok) return;
+    }
+
+    setRemoving(true);
+    const res = await revokeVideoCoOwnerInviteAction(activeInvite.id);
+    setRemoving(false);
+
+    if (!res.success) {
+      toast.error(res.message ?? "Could not remove invite");
+      return;
+    }
+
+    toast.success("Invitation removed");
+    setActiveInvite(null);
+    setInvitePhase("typing");
+    setReadOnlyInvite(false);
+    onRefreshSubmitReadinessRef.current?.();
+    await onDraftSaveNowRef.current?.();
+  }, [activeInvite?.id, invitePhase]);
+
+  const canRemove =
+    invitePhase === "pending" ||
+    invitePhase === "expired" ||
+    invitePhase === "declined";
 
   return {
     name,
@@ -254,12 +576,25 @@ export function useCoOwnerDraftFields({
     readOnlyInvite,
     invitePhase,
     pending,
+    resending,
+    removing,
+    canResend: canResendNow,
+    resendCooldownSec,
+    activeInvite,
     fieldErrors,
     sendInvite,
+    resendInvite,
+    removeInvite,
+    canRemove,
+
     statusIndicatorClass: coOwnerStatusIndicatorClass(statusIndicator),
+
     inviteStatusLabel: statusIndicator,
+
     setName: (value: string) => patchCoOwner({ name: value }),
+
     setEmail: (value: string) => patchCoOwner({ email: value }),
+
     setPct: (value: number) => patchCoOwner({ payoutPercent: value }),
   };
 }

@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+// TEST_REVERT_DEBUG_123
+
 import {
   useCallback,
   useEffect,
@@ -32,12 +34,15 @@ import {
   getMeJoinedCommunitiesAction,
   getMyCommunitiesAction,
   getCommunityExploreCatalogAction,
+  getTopCommunitiesAction,
   type CommunityExploreCatalogRow,
 } from "@/actions/communities";
+import { ExploreCommunityPickerMenu } from "@/components/explore/explore-community-picker-menu";
 import { cn } from "@/lib/utils";
 import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 import {
   buildTvPickerOptionsForUser,
+  isTipmannaSystemCommunity,
   type TvCommunityBrief,
 } from "@/lib/tv-community-picker";
 
@@ -48,6 +53,9 @@ import {
   exploreOpenTargetFromUrl,
   buildExploreVideoHandoffHref,
   exploreVideoHandoffKeyFromUrl,
+  readExplorePendingHandoff,
+  clearExplorePendingHandoff,
+  handoffKeyForTarget,
 } from "@/lib/explore-video-navigation";
 import { warmExploreVideoHandoff } from "@/lib/explore-video-handoff-warm";
 import {
@@ -112,16 +120,11 @@ import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { usePusherTrackingGlobalTV } from "@/hooks/use-global-viewer-count";
 import type { UserInfo } from "@/types/tracking.types";
 import { useSelector } from "react-redux";
@@ -211,17 +214,21 @@ function isEligibleForCommunityFeedDropdown(m: JoinedMembershipRow): boolean {
 
 /** Hide Tipmanna Public / system global feed from the multi-select community picker. */
 function isTipmannaPublicCommunityRow(m: JoinedMembershipRow): boolean {
-  const n = (m.community?.name ?? "").trim().toLowerCase();
-  if (
-    n === "tipmanna public" ||
-    n === "tipmanna-public" ||
-    n.includes("tipmanna public")
-  ) {
-    return true;
-  }
-  return Boolean(
-    m.community?.isSystem && /\btipmanna\b/.test(n) && /\bpublic\b/.test(n)
+  return isTipmannaSystemCommunity(
+    m.communityId,
+    m.community?.name,
+    m.community?.isSystem
   );
+}
+
+function pickerVisibleCommunityIds(
+  membershipIds: string[],
+  memberships: JoinedMembershipRow[]
+): string[] {
+  const hidden = new Set(
+    memberships.filter(isTipmannaPublicCommunityRow).map(m => m.communityId)
+  );
+  return membershipIds.filter(id => !hidden.has(id));
 }
 
 function initialFeedUrlStateFromKey(searchParamsKey: string) {
@@ -389,6 +396,19 @@ export default function ExplorePageClient({
   const [topCommunities, setTopCommunities] = useState<
     CommunityExploreCatalogRow[]
   >([]);
+  const [exploreCatalogAlphabetical, setExploreCatalogAlphabetical] = useState<
+    CommunityExploreCatalogRow[]
+  >([]);
+  const [communityPickerCatalogLoading, setCommunityPickerCatalogLoading] =
+    useState(false);
+  const [topCommunitiesLoading, setTopCommunitiesLoading] = useState(false);
+  const communityCatalogStatusRef = useRef<
+    "idle" | "loading" | "loaded" | "error"
+  >("idle");
+  const topCommunitiesStatusRef = useRef<
+    "idle" | "loading" | "loaded" | "error"
+  >("idle");
+  const communityCatalogLoadedRef = useRef(false);
   const [tippers, setTippers] = useState<any[]>([]);
   const [tipperEvents, setTipperEvents] = useState<any[]>([]);
   const [iTipped, setITipped] = useState(0);
@@ -853,7 +873,9 @@ export default function ExplorePageClient({
     const eligible = joinedMemberships.filter(
       isEligibleForCommunityFeedDropdown
     );
-    const ids = eligible.map(m => m.communityId);
+    const ids = eligible
+      .filter(m => !isTipmannaPublicCommunityRow(m))
+      .map(m => m.communityId);
     if (ids.length) setCommunityFeedSelIds(ids);
   }, [
     feedSubTab,
@@ -885,14 +907,24 @@ export default function ExplorePageClient({
     if (sideChickLocked && dedicatedCommunityId) {
       return [dedicatedCommunityId];
     }
+    const visible = pickerVisibleCommunityIds(
+      communityFeedSelIds,
+      joinedMemberships
+    );
     if (feedSubTab === "community") {
-      return communityFeedSelIds;
+      return visible;
     }
-    if (communityFeedSelIds.length > 0) {
-      return communityFeedSelIds;
+    if (visible.length > 0) {
+      return visible;
     }
     return undefined;
-  }, [sideChickLocked, dedicatedCommunityId, feedSubTab, communityFeedSelIds]);
+  }, [
+    sideChickLocked,
+    dedicatedCommunityId,
+    feedSubTab,
+    communityFeedSelIds,
+    joinedMemberships,
+  ]);
 
   const reelsKey = useMemo(() => {
     if (feedSubTab === "saves") return "saves";
@@ -1019,6 +1051,7 @@ export default function ExplorePageClient({
       const client = exploreFeedRef.current;
       if (client) {
         pendingExploreOpenRef.current = null;
+        clearExplorePendingHandoff();
         void client.openInExplore(target);
         return;
       }
@@ -1028,20 +1061,30 @@ export default function ExplorePageClient({
   );
 
   useLayoutEffect(() => {
-    const sp = new URLSearchParams(searchParamsKey);
-    const handoffKey = exploreVideoHandoffKeyFromUrl(sp);
-    if (!handoffKey) {
+    const liveKey = exploreLiveSearchParamsKey(searchParamsKey);
+    const sp = new URLSearchParams(liveKey);
+
+    const pending = readExplorePendingHandoff();
+    const target =
+      pending ??
+      (() => {
+        const handoffKey = exploreVideoHandoffKeyFromUrl(sp);
+        if (!handoffKey) return null;
+        return exploreOpenTargetFromUrl(sp);
+      })();
+
+    if (!target) {
       lastHandledVideoHandoffKeyRef.current = null;
       return;
     }
+
+    const handoffKey = handoffKeyForTarget(target);
     if (handoffKey === lastHandledVideoHandoffKeyRef.current) return;
 
-    const target = exploreOpenTargetFromUrl(sp);
-    if (!target) return;
-
     lastHandledVideoHandoffKeyRef.current = handoffKey;
+    clearExplorePendingHandoff();
     handlePlayInExplore(target);
-  }, [searchParamsKey, handlePlayInExplore]);
+  }, [searchParamsKey, handlePlayInExplore, historySyncGen]);
 
   /** Runs after Feed subtree commits so refs/layout exist; restores pending target if aborted before open (Strict Mode / cancel). */
   useLayoutEffect(() => {
@@ -1078,6 +1121,68 @@ export default function ExplorePageClient({
     };
   }, [tab, feedSubTab, exploreOpenNonce]);
 
+  const loadTopCommunities = useCallback(async () => {
+    if (e2eFixtures) return;
+    if (
+      topCommunitiesStatusRef.current === "loading" ||
+      topCommunitiesStatusRef.current === "loaded"
+    ) {
+      return;
+    }
+    topCommunitiesStatusRef.current = "loading";
+    setTopCommunitiesLoading(true);
+    try {
+      const res = await getTopCommunitiesAction(3);
+      if (res.success && res.data) {
+        setTopCommunities(
+          Array.isArray(res.data.communities) ? res.data.communities : []
+        );
+        topCommunitiesStatusRef.current = "loaded";
+      } else {
+        topCommunitiesStatusRef.current = "error";
+      }
+    } catch {
+      topCommunitiesStatusRef.current = "error";
+    } finally {
+      setTopCommunitiesLoading(false);
+    }
+  }, [e2eFixtures]);
+
+  const loadCommunityCatalogForPicker = useCallback(async () => {
+    if (e2eFixtures) return;
+    if (
+      communityCatalogStatusRef.current === "loading" ||
+      communityCatalogStatusRef.current === "loaded"
+    ) {
+      return;
+    }
+    communityCatalogStatusRef.current = "loading";
+    setCommunityPickerCatalogLoading(true);
+    try {
+      const commRes = await getCommunityExploreCatalogAction();
+      if (commRes.success && commRes.data) {
+        setExploreCatalogAlphabetical(
+          Array.isArray(commRes.data.alphabetical)
+            ? commRes.data.alphabetical
+            : []
+        );
+        communityCatalogStatusRef.current = "loaded";
+        communityCatalogLoadedRef.current = true;
+      } else {
+        communityCatalogStatusRef.current = "error";
+      }
+    } catch {
+      communityCatalogStatusRef.current = "error";
+    } finally {
+      setCommunityPickerCatalogLoading(false);
+    }
+  }, [e2eFixtures]);
+
+  useEffect(() => {
+    if (tab !== "feed" || e2eFixtures) return;
+    void loadTopCommunities();
+  }, [tab, e2eFixtures, loadTopCommunities]);
+
   const loadExploreCatalog = useCallback(async () => {
     if (e2eFixtures) {
       setCatalogLoading(false);
@@ -1098,6 +1203,7 @@ export default function ExplorePageClient({
         tipEv,
         iTip,
         causesRes,
+        topCommRes,
         commRes,
       ] = await Promise.all([
         getAllFeaturedContentsAction(),
@@ -1115,6 +1221,7 @@ export default function ExplorePageClient({
           ? getTotalAmountTippedByTipper()
           : Promise.resolve({ success: true, data: 0 }),
         getAllCausesAction(),
+        getTopCommunitiesAction(3),
         getCommunityExploreCatalogAction(),
       ]);
 
@@ -1159,10 +1266,17 @@ export default function ExplorePageClient({
         causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : []
       );
       setTopCommunities(
-        commRes.success && Array.isArray(commRes.data?.topByTips)
-          ? commRes.data.topByTips
+        topCommRes.success && Array.isArray(topCommRes.data?.communities)
+          ? topCommRes.data.communities
           : []
       );
+      topCommunitiesStatusRef.current = "loaded";
+      setExploreCatalogAlphabetical(
+        commRes.success && Array.isArray(commRes.data?.alphabetical)
+          ? commRes.data.alphabetical
+          : []
+      );
+      communityCatalogLoadedRef.current = true;
     } finally {
       // Always clear loading so the Discover skeleton can never hang on a
       // rejected action (root cause of the "skeleton forever" regression).
@@ -1223,6 +1337,11 @@ export default function ExplorePageClient({
     catalogLoadedRef.current = true;
     void loadExploreCatalog();
   }, [tab, discoverSheetOpen, loadExploreCatalog]);
+
+  const visibleCommunityFeedSelIds = useMemo(
+    () => pickerVisibleCommunityIds(communityFeedSelIds, joinedMemberships),
+    [communityFeedSelIds, joinedMemberships]
+  );
 
   const eligibleCommunityPickerRows = useMemo(
     () =>
@@ -1485,7 +1604,6 @@ export default function ExplorePageClient({
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.stopPropagation();
-                  openDiscoverSheetWithTerm(e.currentTarget.value);
                 }
               }}
               onClick={e => e.stopPropagation()}
@@ -1515,7 +1633,6 @@ export default function ExplorePageClient({
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     e.stopPropagation();
-                    openDiscoverSheetWithTerm(e.currentTarget.value);
                   }
                 }}
                 onClick={e => e.stopPropagation()}
@@ -1809,7 +1926,11 @@ export default function ExplorePageClient({
                 </div>
               ) : (
                 <div className="flex min-h-5 min-w-0">
-                  <DropdownMenu>
+                  <DropdownMenu
+                    onOpenChange={open => {
+                      if (open) void loadCommunityCatalogForPicker();
+                    }}
+                  >
                     <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
@@ -1817,6 +1938,7 @@ export default function ExplorePageClient({
                         size="sm"
                         className="h-8 max-w-full justify-between border-none bg-transparent px-2 text-xs font-normal shadow-none outline-none sm:max-w-md"
                         onPointerEnter={() => {
+                          void loadCommunityCatalogForPicker();
                           if (eligibleCommunityIdsForPrefetch.length) {
                             prefetchExploreCommunityFeed(
                               eligibleCommunityIdsForPrefetch
@@ -1827,76 +1949,25 @@ export default function ExplorePageClient({
                         <span>
                           {eligibleCommunityPickerRows.length === 0
                             ? "My Communities"
-                            : communityFeedSelIds.length === 0
+                            : visibleCommunityFeedSelIds.length === 0
                               ? "My Communities"
-                              : `${communityFeedSelIds.length} communit${communityFeedSelIds.length === 1 ? "y" : "ies"} selected`}
+                              : `${visibleCommunityFeedSelIds.length} communit${visibleCommunityFeedSelIds.length === 1 ? "y" : "ies"} selected`}
                         </span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      className="z-[12550] w-[min(100vw-2rem,22rem)]"
-                      align="start"
-                      onPointerDownCapture={e => {
-                        communityPickerMultiRef.current = Boolean(
-                          e.shiftKey || e.metaKey || e.ctrlKey
-                        );
+                    <ExploreCommunityPickerMenu
+                      eligibleCommunityPickerRows={eligibleCommunityPickerRows}
+                      communityFeedSelIds={communityFeedSelIds}
+                      onCommunityFeedPick={onCommunityFeedPick}
+                      communityPickerMultiRef={communityPickerMultiRef}
+                      topCommunities={topCommunities}
+                      catalogAlphabetical={exploreCatalogAlphabetical}
+                      topCommunitiesLoading={topCommunitiesLoading}
+                      catalogLoading={communityPickerCatalogLoading}
+                      onBrowseAllAz={() => {
+                        void loadCommunityCatalogForPicker();
                       }}
-                    >
-                      <DropdownMenuLabel className="text-xs">
-                        Communities in Explore feed
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {eligibleCommunityPickerRows.length === 0 ? (
-                        <div className="text-muted-foreground px-2 py-3 text-xs">
-                          Join a community to see their contents{" "}
-                          <button
-                            type="button"
-                            className="text-primary underline"
-                            onClick={() => navigateMainTab("my-communities")}
-                          >
-                            Communities
-                          </button>{" "}
-                          page.
-                        </div>
-                      ) : (
-                        eligibleCommunityPickerRows.map(m => {
-                          const communityName =
-                            m.community?.name ?? m.communityId;
-                          const included = communityFeedSelIds.includes(
-                            m.communityId
-                          );
-                          return (
-                            <DropdownMenuItem
-                              key={m.communityId}
-                              className="flex items-center justify-between gap-3 text-xs"
-                              onSelect={e => e.preventDefault()}
-                            >
-                              <span className="min-w-0 flex-1 truncate">
-                                {communityName}
-                              </span>
-                              <Switch
-                                checked={included}
-                                aria-label={`Include ${communityName} in Explore feed`}
-                                onCheckedChange={checked => {
-                                  onCommunityFeedPick(
-                                    m.communityId,
-                                    checked,
-                                    communityPickerMultiRef.current
-                                  );
-                                }}
-                                onClick={e => e.stopPropagation()}
-                              />
-                            </DropdownMenuItem>
-                          );
-                        })
-                      )}
-
-                      <div>
-                        <h2>Top communities</h2>
-
-                        {/* <ExploreTopCommunitiesGrid communities={catalog?.topByTips ?? []} /> */}
-                      </div>
-                    </DropdownMenuContent>
+                    />
                   </DropdownMenu>
                 </div>
               )}

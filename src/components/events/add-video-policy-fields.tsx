@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { useSelector } from "react-redux";
 import {
   FormControl,
   FormField,
@@ -21,8 +20,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCoOwnerDraftFields } from "@/hooks/use-coowner-draft-fields";
 import type { CoOwnerDraftSlice } from "@/lib/form-draft-utils";
-import type { RootState } from "@/redux/store";
+import { useHostProfile } from "@/hooks/use-host-profile";
 import type { AddVideoFormValues } from "./add-video-form";
+import { CoOwnerInviteStatusRow } from "./co-owner-invite-status-row";
 import {
   CREATE_FORM_INPUT_CLASS,
   CREATE_FORM_LABEL_CLASS,
@@ -56,11 +56,8 @@ export function AddVideoPolicyFields({
   onRefreshSubmitReadiness,
   refreshToken = 0,
 }: Props) {
-  const user = useSelector((s: RootState) => s.auth.user);
-  const hostTier =
-    user?.role === "HOST"
-      ? (user as { hostSubscriptionTier?: string }).hostSubscriptionTier
-      : undefined;
+  const { profile } = useHostProfile();
+  const hostTier = profile?.hostSubscriptionTier;
   const canInvite =
     hostTier === "HOST_PREMIUM" || hostTier === "HOST_COMMUNITY";
   const allowCoOwned = coOwnerPolicyMode === "full";
@@ -80,8 +77,16 @@ export function AddVideoPolicyFields({
     setPct,
     readOnlyInvite,
     pending,
+    resending,
+    canResend,
+    resendCooldownSec,
+    canRemove,
+    removing,
+    removeInvite,
+    activeInvite,
     fieldErrors,
     sendInvite,
+    resendInvite,
     statusIndicatorClass,
     inviteStatusLabel,
   } = useCoOwnerDraftFields({
@@ -216,17 +221,18 @@ export function AddVideoPolicyFields({
                 <p className="text-destructive text-xs">{fieldErrors.email}</p>
               ) : null}
               {inviteStatusLabel ? (
-                <p
-                  className={`text-xs ${
-                    inviteStatusLabel === "approved"
-                      ? "text-green-600"
-                      : inviteStatusLabel === "pending"
-                        ? "text-amber-600"
-                        : "text-red-600"
-                  }`}
-                >
-                  Co-owner status: {inviteStatusLabel}
-                </p>
+                <CoOwnerInviteStatusRow
+                  status={inviteStatusLabel}
+                  expiresAt={activeInvite?.expiresAt}
+                  resendCount={activeInvite?.resendCount}
+                  canResend={canResend}
+                  resendCooldownSec={resendCooldownSec}
+                  resending={resending}
+                  onResend={resendInvite}
+                  canRemove={canRemove}
+                  removing={removing}
+                  onRemove={removeInvite}
+                />
               ) : null}
               <div className="flex items-center gap-2">
                 <FormLabel
@@ -247,11 +253,13 @@ export function AddVideoPolicyFields({
                   onChange={e => setPct(Number(e.target.value))}
                 />
               </div>
-              {readOnlyInvite ? null : (
+              {readOnlyInvite &&
+              inviteStatusLabel !== "expired" &&
+              inviteStatusLabel !== "declined" ? null : (
                 <Button
                   type="button"
                   size="sm"
-                  disabled={pending}
+                  disabled={pending || !youtubeLink?.trim()}
                   onClick={() => void sendInvite()}
                 >
                   {pending ? "Sending…" : "Send invite email"}

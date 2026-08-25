@@ -1,7 +1,7 @@
 "use server";
 
 import { runServerFetch, type ActionResult } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
 
 const base = () =>
   (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(/\/$/, "");
@@ -120,7 +120,7 @@ export async function createCommunityReminderPostAction(
     `${base()}/communities/${encodeURIComponent(communityId)}/reminder-bucket/posts`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },

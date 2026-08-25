@@ -108,6 +108,7 @@ const UpcomingProgramsPanel = dynamic(
     })),
   { ssr: false }
 );
+import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { TVScheduleDrawer } from "./tv-schedule-drawer";
 import { TvPlaylistPreview } from "./tv-playlist-preview";
@@ -230,6 +231,12 @@ export function TvInteractiveShell({
       enabled={activeTab === "tips" && Boolean(tipDrawerEventId)}
       showTipCount={false}
     />
+  );
+
+  const tipPres = useTipPresentation(
+    tipDrawerEventId,
+    tippingCharactersForDrawer as RoomCharacter[],
+    { paymentSurface: tvAnalyticsSurface }
   );
 
   const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
@@ -392,12 +399,12 @@ export function TvInteractiveShell({
   useEffect(() => {
     const loadTopCommunities = async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/explore-catalog`
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/top?limit=3`
       );
 
       const data = await res.json();
 
-      setTopCommunities(data.topByTips);
+      setTopCommunities(data.communities ?? []);
     };
 
     void loadTopCommunities();
@@ -437,8 +444,8 @@ export function TvInteractiveShell({
       )} */}
 
       {isDesktop && (
-        <div className="mt-16 hidden grid-cols-12 gap-2 lg:grid">
-          <div className="col-span-9 object-cover">
+        <div className="mt-16 grid grid-cols-12 gap-2">
+          <div className="col-span-9 min-h-[60vh] object-cover">
             {tvReady ? (
               <WebTvLooper
                 characters={characters}
@@ -1016,6 +1023,7 @@ export function TvInteractiveShell({
           <TippingElementsProvider
             tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
             enabled
+            textTipUnitPrice={tipPres.textUnitPrice}
           >
             {!isMobileLandscape && (
               <div className="absolute -bottom-12 hidden h-[220px] w-full bg-white/80 px-4 py-1 sm:block">
@@ -1030,9 +1038,9 @@ export function TvInteractiveShell({
                   paymentCommunityId={scheduleSourceCommunityId ?? undefined}
                   paymentChannelId={paymentChannelId}
                   getWatchDurationBeforePayMs={() => 0}
-                  textTipUnitPrice={0}
-                  sectionCtaLabel="Engage"
-                  payLabel="Pay"
+                  textTipUnitPrice={tipPres.textUnitPrice}
+                  sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
+                  payLabel={tipPres.payLabel ?? "Pay"}
                   stackDrawerAboveImmersive
                 />
               </div>
@@ -1045,6 +1053,7 @@ export function TvInteractiveShell({
         <TippingElementsProvider
           tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
           enabled
+          textTipUnitPrice={tipPres.textUnitPrice}
         >
           <TipDrawer
             key={videoTipKey || tipDrawerEventId}
@@ -1059,6 +1068,8 @@ export function TvInteractiveShell({
             openWalletModalNonce={openWalletModalNonce}
             onSnapshotPaymentRedirect={onSnapshotPaymentRedirect}
             stackAboveImmersive
+            textTipUnitPrice={tipPres.textUnitPrice}
+            tipQuoteContext={tipPres.quoteCtx}
           />
         </TippingElementsProvider>
       ) : null}

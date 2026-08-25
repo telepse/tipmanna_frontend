@@ -443,6 +443,9 @@ export function DiscoverPanel({
       items.push({ kind: "livestream", stream });
     }
     for (const community of discoveryResults.communities) {
+      if (isTipmannaSystemCommunity(community.id, community.name)) {
+        continue;
+      }
       items.push({ kind: "community", community });
     }
     return items;

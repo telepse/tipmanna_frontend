@@ -35,7 +35,14 @@ import { deleteFormDraftAction } from "@/actions/form-drafts";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
 import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
 import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
+import { coOwnerBlockReasonMessage } from "@/lib/coowner-submit-readiness.util";
 import { useCoOwnerPusherApprovalRefresh } from "@/hooks/use-coowner-pusher-approval-refresh";
+import {
+  isYoutubeVerifyBlockingSubmit,
+  youtubeVerifyBlockingMessage,
+  type YoutubeVerifyUiState,
+} from "@/lib/youtube-submit-readiness.util";
+import { DraftResumeBanner } from "@/components/events/draft-resume-banner";
 import { CoOwnerDraftLifecycleProvider } from "@/providers/co-owner-draft-lifecycle-provider";
 import {
   useWizardDraftAutosave,
@@ -47,6 +54,9 @@ import {
   resolveLiveVideoOwnershipAnswer,
 } from "@/lib/validate-privacy-video-links";
 import { syncHostAuthFromCreateEventResponse } from "@/lib/sync-host-auth-after-submission";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { useHostProfile } from "@/hooks/use-host-profile";
+import { NavbarShell } from "@/components/shared/navbar-shell";
 
 export default function ContentOnlyPage() {
   const [step, setStep] = useState(1);
@@ -56,6 +66,9 @@ export default function ContentOnlyPage() {
     string[]
   >([]);
   const [coOwnerRefreshToken, setCoOwnerRefreshToken] = useState(0);
+  const [youtubeVerifyStatus, setYoutubeVerifyStatus] = useState<
+    Record<number, YoutubeVerifyUiState>
+  >({});
   const { push } = useAppRouter();
   const dispatch = useDispatch<AppDispatch>();
 
@@ -69,6 +82,8 @@ export default function ContentOnlyPage() {
   // Cast to 'any' or a Record to allow arbitrary property access
   const tag = useSelector((state: RootState) => state.auth.tag);
   const isExistingHost = tag === "EXISTING_HOST";
+  const { canWriteAsHost } = useHostCapabilityWithAuth();
+  const { profile: hostProfile } = useHostProfile();
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof NewEventFormData)[] = [];
@@ -211,12 +226,14 @@ export default function ContentOnlyPage() {
     },
   });
 
-  const runPrivacyChecks = () => runPrivacyChecksFromForm(form, user);
+  const runPrivacyChecks = () =>
+    runPrivacyChecksFromForm(form, hostProfile?.hostSubscriptionTier);
 
   const videoLinks = form.watch("videoLinks") ?? [];
   const {
     blocked: coOwnerSubmitBlocked,
-    checking: coOwnerSubmitChecking,
+    reason: coOwnerBlockReason,
+    warnings: coOwnerWarnings,
     refresh: refreshCoOwnerSubmit,
   } = useCoOwnerDraftSubmitBlocked(videoLinks);
 
@@ -231,7 +248,21 @@ export default function ContentOnlyPage() {
     },
   });
 
-  const coOwnerSubmitDisabled = coOwnerSubmitBlocked || coOwnerSubmitChecking;
+  const coOwnerSubmitDisabled = coOwnerSubmitBlocked;
+  const youtubeVerifyDisabled = isYoutubeVerifyBlockingSubmit(
+    videoLinks,
+    youtubeVerifyStatus
+  );
+  const submitDisabled =
+    isLoading || coOwnerSubmitDisabled || youtubeVerifyDisabled;
+  const submitBlockedLabel = coOwnerSubmitDisabled
+    ? coOwnerBlockReason
+      ? coOwnerBlockReasonMessage(coOwnerBlockReason)
+      : "Awaiting co-owner approval"
+    : youtubeVerifyDisabled
+      ? (youtubeVerifyBlockingMessage(videoLinks, youtubeVerifyStatus) ??
+        "Verify on YouTube")
+      : null;
 
   const onSubmit = async (values: NewEventFormData) => {
     if (!runPrivacyChecks()) {
@@ -272,13 +303,19 @@ export default function ContentOnlyPage() {
 
       toast.success("Content created successfully");
 
-      if (user?.role === "HOST") {
-        syncHostAuthFromCreateEventResponse(
-          dispatch,
-          user as HostUser,
-          token,
-          result.data
+      const excluded = (
+        result.data as {
+          excludedVideos?: Array<{ title: string; reason: string }>;
+        } | null
+      )?.excludedVideos;
+      if (excluded?.length) {
+        toast.info(
+          `${excluded.length} video(s) excluded from submission: ${excluded.map(v => v.title).join(", ")}`
         );
+      }
+
+      if (canWriteAsHost) {
+        syncHostAuthFromCreateEventResponse(dispatch, user, token, result.data);
       }
 
       if (draftId) {
@@ -286,11 +323,10 @@ export default function ContentOnlyPage() {
       }
 
       // redirect to manage event page
-      if (user?.role === "HOST") {
-        // push(`/room/${(result.data as any).event.id}`);
-        push(`/@${user?.username}`);
+      if (canWriteAsHost && user?.username) {
+        push(`/@${user.username}`);
       } else {
-        toast.error("Only hosts can create events");
+        toast.error("Host session required to create events");
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -316,9 +352,14 @@ export default function ContentOnlyPage() {
     }
   }, [user, form]);
 
-  const { restoring: draftRestoring } = useFormDraftRestore(form, {
+  const {
+    restoring: draftRestoring,
+    pendingDraft,
+    resume: resumeDraft,
+    discard: discardDraft,
+  } = useFormDraftRestore(form, {
     kind: "content_only",
-    enabled: user?.role === "HOST",
+    enabled: canWriteAsHost,
     onDraftId: setDraftId,
     onStep: setStep,
   });
@@ -340,6 +381,7 @@ export default function ContentOnlyPage() {
         backgroundColor: "rgba(0, 0, 0, 0.10)",
       }}
     >
+      <NavbarShell />
       <AddEventBanner title="Create new content" />
       <CoOwnerDraftLifecycleProvider draftRestoring={draftRestoring}>
         <WizardDraftAutosaveProvider
@@ -349,10 +391,16 @@ export default function ContentOnlyPage() {
           title={form.watch("eventName") || "Content draft"}
           draftId={draftId}
           onDraftId={setDraftId}
-          hostEnabled={user?.role === "HOST"}
+          hostEnabled={canWriteAsHost}
+          verifyStatus={youtubeVerifyStatus}
         >
-          {user?.role === "HOST" ? (
-            <div className="container mx-auto px-4 pt-2">
+          {canWriteAsHost ? (
+            <div className="container mx-auto space-y-2 px-4 pt-2">
+              <DraftResumeBanner
+                draft={pendingDraft}
+                onResume={resumeDraft}
+                onDiscard={discardDraft}
+              />
               <WizardDraftSaveIndicator />
             </div>
           ) : null}
@@ -383,7 +431,7 @@ export default function ContentOnlyPage() {
               {step === 3 && (
                 <div className="w-full">
                   {user &&
-                  role === "HOST" &&
+                  canWriteAsHost &&
                   !requiresVerification &&
                   !isExistingHost ? (
                     <CreatorEventRoomInfo control={form.control as any} />
@@ -407,6 +455,7 @@ export default function ContentOnlyPage() {
                   }
                   onRefreshSubmitReadiness={() => void refreshCoOwnerSubmit()}
                   coOwnerRefreshToken={coOwnerRefreshToken}
+                  onVerifyStateChange={setYoutubeVerifyStatus}
                 />
               )}
 
@@ -431,11 +480,18 @@ export default function ContentOnlyPage() {
                   </button>
                 ) : (
                   <>
+                    {coOwnerWarnings.length > 0 ? (
+                      <div className="mb-3 w-full max-w-lg rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200">
+                        {coOwnerWarnings.map(w => (
+                          <p key={w}>{w}</p>
+                        ))}
+                      </div>
+                    ) : null}
                     {user && !isExistingHost && !requiresVerification && (
                       <Button
                         type="button"
                         size="lg"
-                        disabled={isLoading || coOwnerSubmitDisabled}
+                        disabled={submitDisabled}
                         onClick={form.handleSubmit(onSubmit)}
                       >
                         {isLoading ? (
@@ -443,8 +499,8 @@ export default function ContentOnlyPage() {
                             <Loader2 className="size-4 animate-spin" />{" "}
                             Submitting for approval...
                           </span>
-                        ) : coOwnerSubmitDisabled ? (
-                          <span>Awaiting co-owner approval</span>
+                        ) : submitBlockedLabel ? (
+                          <span>{submitBlockedLabel}</span>
                         ) : (
                           <span>Submit for approval</span>
                         )}

@@ -38,7 +38,7 @@ export const CreateDrawer = ({
     setIsProceeding(true);
     setIsCreateDrawerOpen(false);
 
-    let href = "/";
+    let href = "/explore";
     switch (selected) {
       case "content":
         href = "/content-only";
@@ -50,7 +50,7 @@ export const CreateDrawer = ({
         href = "/event-and-content";
         break;
       default:
-        href = "/";
+        href = "/explore";
     }
     push(href);
   };

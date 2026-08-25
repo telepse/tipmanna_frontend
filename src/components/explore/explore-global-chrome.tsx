@@ -232,7 +232,7 @@ export function ExploreGlobalChrome({
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Link
-            href="/"
+            href="/explore"
             className="racing_sans_one text-sm sm:text-2xl"
             style={
               headerContrast ? { color: headerContrast.foreground } : undefined

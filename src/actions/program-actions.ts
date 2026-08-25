@@ -7,7 +7,7 @@ import {
 } from "@/lib/program-api";
 import type { ProgramBootstrap } from "@/lib/program-types";
 import { runServerFetch, type ActionResult } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
 
 /** Resolve ordered playable channel rows for “Watch all” on the `/content/[eventId]` surface. */
 export async function resolveProgramWatchAllPlaylist(
@@ -86,7 +86,7 @@ export async function patchCommunityProgramLandingBannerAction(
     `${base.replace(/\/$/, "")}/communities/${encodeURIComponent(communityId)}/tv/program/${encodeURIComponent(enforcementId)}/landing-banner`,
     {
       method: "PATCH",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({ landingBannerUrl }),
       cache: "no-store",
     },

@@ -17,12 +17,16 @@ import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import {
   getPlaybackKeyState,
   reservePlaybackKey,
+  reservePlaybackKeyWithAlias,
 } from "@/lib/playback-key-lifecycle";
 import type {
   AnimationQueueTask,
   EnqueueResult,
 } from "@/lib/animation-queue-core";
-import { buildPaymentPlaybackKey } from "@/lib/payment-playback-key";
+import {
+  buildPaymentPlaybackKey,
+  buildTransactionAliasPlaybackKey,
+} from "@/lib/payment-playback-key";
 import type {
   PaymentCycleOutcome,
   PaymentCharacterPlaybackResult,
@@ -146,19 +150,31 @@ export function enqueuePayerOriginRecoveryBundle(options: {
       styleName: styleCharacter.styleName,
     };
 
+    const txId = data.transactionId?.trim() ?? undefined;
+    const aliasKey = txId
+      ? buildTransactionAliasPlaybackKey({
+          prefix: playbackKeyPrefix,
+          transactionId: txId,
+          characterName: entry.name,
+          occurrenceIndex: entry.occurrenceIndex,
+        })
+      : null;
+
     const existingState = getPlaybackKeyState(key);
-    if (existingState !== "unseen") {
+    const aliasState = aliasKey ? getPlaybackKeyState(aliasKey) : "unseen";
+    if (existingState !== "unseen" || aliasState !== "unseen") {
+      const blocked = existingState !== "unseen" ? existingState : aliasState;
       tracePaymentAnimation({
         stage: "payer_recovery_realtime_won",
         ...traceMeta,
         playbackKey: key,
         occurrenceId,
         claimId,
-        previousState: existingState,
+        previousState: blocked,
         result: "skipped",
       });
       skippedRealtime.push(occurrenceId);
-      if (existingState === "committed") {
+      if (blocked === "committed") {
         onOccurrenceFinished?.({
           occurrenceId,
           playbackResult: "completed",
@@ -169,7 +185,11 @@ export function enqueuePayerOriginRecoveryBundle(options: {
       return;
     }
 
-    if (!reservePlaybackKey(key, traceMeta)) {
+    const reserved =
+      aliasKey && aliasKey !== key
+        ? reservePlaybackKeyWithAlias(key, aliasKey, traceMeta)
+        : reservePlaybackKey(key, traceMeta);
+    if (!reserved) {
       return;
     }
 

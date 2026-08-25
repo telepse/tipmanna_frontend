@@ -5,12 +5,17 @@ import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { NotificationDetailModal } from "@/components/notifications/notification-detail-modal";
 import {
   listNotificationsFeedAction,
+  listHostNotificationsMeAction,
   markAllNotificationsReadAction,
+  markAllHostNotificationsReadAction,
   markNotificationReadAction,
+  markHostNotificationReadAction,
   deleteNotificationAction,
+  deleteHostNotificationAction,
   type FeedNotificationRow,
 } from "@/actions/notifications";
 import { getDeviceKey } from "@/lib/getAuthToken";
@@ -64,6 +69,7 @@ function matchesFilter(row: FeedNotificationRow, filter: Filter): boolean {
 }
 
 export function NotificationsTab({ variant = "drawer" }: Props) {
+  const [accountTab, setAccountTab] = useState<"tipper" | "host">("tipper");
   const [rows, setRows] = useState<FeedNotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -72,11 +78,40 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
   const [selected, setSelected] = useState<FeedNotificationRow | null>(null);
   const [signInOpen, setSignInOpen] = useState(false);
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const { canReadAsHost, capability, requestHostAuth, HostAuthModal } =
+    useHostCapabilityWithAuth();
 
   const load = useCallback(
     async (opts?: { append?: boolean; cursor?: string | null }) => {
       if (opts?.append) setLoadingMore(true);
       else setLoading(true);
+
+      if (accountTab === "host") {
+        if (!canReadAsHost) {
+          setRows([]);
+          setNextCursor(null);
+          setLoading(false);
+          setLoadingMore(false);
+          return;
+        }
+        const res = await listHostNotificationsMeAction({
+          limit: PAGE_SIZE,
+        });
+        if (!res.success || !res.data) {
+          toast.error(res.message ?? "Could not load host notifications");
+          if (!opts?.append) setRows([]);
+        } else {
+          const incoming = (res.data.notifications ?? []).map(n => ({
+            ...n,
+            source: "personal" as const,
+          }));
+          setRows(prev => (opts?.append ? [...prev, ...incoming] : incoming));
+          setNextCursor(null);
+        }
+        setLoading(false);
+        setLoadingMore(false);
+        return;
+      }
 
       const deviceKey = getDeviceKey();
       const res = await listNotificationsFeedAction({
@@ -97,7 +132,7 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
       setLoading(false);
       setLoadingMore(false);
     },
-    []
+    [accountTab, canReadAsHost]
   );
 
   useEffect(() => {
@@ -110,7 +145,18 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
   );
 
   const openRow = async (row: FeedNotificationRow) => {
-    if (authUser && row.source === "personal" && !row.readAt) {
+    if (accountTab === "host") {
+      if (canReadAsHost && !row.readAt) {
+        const res = await markHostNotificationReadAction(row.id);
+        if (res.success) {
+          setRows(prev =>
+            prev.map(r =>
+              r.id === row.id ? { ...r, readAt: new Date().toISOString() } : r
+            )
+          );
+        }
+      }
+    } else if (authUser && row.source === "personal" && !row.readAt) {
       const res = await markNotificationReadAction(row.id);
       if (res.success) {
         setRows(prev =>
@@ -124,6 +170,16 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
   };
 
   const markAll = async () => {
+    if (accountTab === "host") {
+      if (!canReadAsHost) return;
+      const res = await markAllHostNotificationsReadAction();
+      if (!res.success) {
+        toast.error(res.message ?? "Could not update");
+        return;
+      }
+      await load();
+      return;
+    }
     if (!authUser) {
       toast.info("Sign in to mark personal notifications as read");
       return;
@@ -137,6 +193,17 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
   };
 
   const removeOne = async (row: FeedNotificationRow) => {
+    if (accountTab === "host") {
+      if (!canReadAsHost) return;
+      const res = await deleteHostNotificationAction(row.id);
+      if (!res.success) {
+        toast.error(res.message ?? "Could not delete");
+        return;
+      }
+      setSelected(null);
+      await load();
+      return;
+    }
     if (!authUser || row.source !== "personal") return;
     const res = await deleteNotificationAction(row.id);
     if (!res.success) {
@@ -147,12 +214,53 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
     await load();
   };
 
-  const hasUnreadPersonal = rows.some(
-    r => r.source === "personal" && !r.readAt
-  );
+  const hasUnreadPersonal = rows.some(r => !r.readAt);
 
   return (
     <div className={cn("pb-4", variant === "drawer" ? "px-2" : "px-0")}>
+      {canReadAsHost || capability.status === "stale" ? (
+        <div className="mb-3 flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={accountTab === "tipper" ? "default" : "outline"}
+            onClick={() => setAccountTab("tipper")}
+          >
+            Tipper
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={accountTab === "host" ? "default" : "outline"}
+            onClick={() => {
+              if (capability.status === "stale") {
+                requestHostAuth(() => setAccountTab("host"));
+                return;
+              }
+              setAccountTab("host");
+            }}
+          >
+            Host
+          </Button>
+        </div>
+      ) : null}
+
+      {accountTab === "host" && capability.status === "stale" ? (
+        <div className="mb-3 rounded-lg border p-3 text-sm">
+          <p className="text-muted-foreground mb-2">
+            Sign in to your host account to view host dashboard notifications.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => requestHostAuth(() => void load())}
+          >
+            Sign in as host
+          </Button>
+        </div>
+      ) : null}
+
+      {HostAuthModal}
       {variant === "page" ? (
         <div className="mb-3 flex flex-wrap gap-2">
           {FILTERS.map(f => (
@@ -179,7 +287,7 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
         >
           Refresh
         </Button>
-        {authUser ? (
+        {authUser || (accountTab === "host" && canReadAsHost) ? (
           <Button
             type="button"
             size="sm"
@@ -242,8 +350,9 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
                     </p>
                   </button>
                   {variant === "page" &&
-                  authUser &&
-                  row.source === "personal" ? (
+                  (accountTab === "host"
+                    ? canReadAsHost
+                    : authUser && row.source === "personal") ? (
                     <Button
                       type="button"
                       variant="ghost"

@@ -20,13 +20,6 @@ export const AuthBanner = ({ title }: Props) => {
       <div className="mini-wrapper grid grid-cols-12 items-center px-4 pt-6 lg:pt-0">
         {/* Content */}
         <div className="col-span-full space-y-2 lg:col-span-7">
-          <Link
-            href="/"
-            className="flex w-fit gap-2 rounded-full px-4 py-2 text-base text-white hover:bg-black/50 sm:text-lg"
-          >
-            <MoveLeft /> Home
-          </Link>
-
           <h1 className="racing_sans_one text-3xl text-white sm:text-5xl">
             {title}
           </h1>

@@ -315,171 +315,294 @@ export function HostVideoRequestsClient() {
   };
 
   return (
-    <div className="space-y-8 p-6">
-      <DashboardHeading
-        title="Video requests"
-        subtitle="Ask to feature clips on others’ Tipmanna videos or request TV placements."
-      />
+    <div className="bg-card space-y-6 rounded-md border p-4 sm:p-6">
+      <div className="space-y-2">
+        <h3 className="text-xl font-semibold sm:text-2xl">Video requests</h3>
+        <p className="text-muted-foreground text-sm">
+          Ask to feature clips on others&apos; Tipmanna videos or request TV
+          placements.
+        </p>
+      </div>
 
       <Tabs defaultValue="send">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="send">Send requests</TabsTrigger>
-          <TabsTrigger value="outgoing">Outgoing</TabsTrigger>
-          <TabsTrigger value="inbox">Inbox</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+        <TabsList className="bg-secondary/30 grid h-auto w-full grid-cols-2 gap-1 rounded-lg p-1 sm:grid-cols-4">
+          <TabsTrigger
+            value="send"
+            className="rounded-md px-4 py-3 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+          >
+            Send requests
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="outgoing"
+            className="rounded-md px-4 py-3 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+          >
+            Outgoing
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="inbox"
+            className="rounded-md px-4 py-3 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+          >
+            Inbox
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="settings"
+            className="rounded-md px-4 py-3 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+          >
+            Settings
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent
           value="send"
-          className="space-y-8 pt-4"
+          className="space-y-6 pt-4 sm:space-y-8"
         >
-          <section className="rounded-lg border p-4">
-            <h3 className="font-semibold">Cross-video feature</h3>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Promote one of your videos as a banner on another Tipmanna
-              playback. Same-host uploads can auto-approve.
-            </p>
-            <div className="mt-3 grid gap-2 sm:max-w-xl">
-              <label className="text-xs font-medium">Your event</label>
-              <select
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-                value={featEventId}
-                onChange={e => {
-                  setFeatEventId(e.target.value);
-                  setFeatChannelId("");
-                }}
-              >
-                <option value="">Choose event</option>
-                {events.map(e => (
+          {/* Cross-video feature */}
+          <section className="rounded-md border bg-white p-4 sm:p-6">
+            <div className="border-b pb-4">
+              <h3 className="text-base font-semibold sm:text-lg">
+                Cross-video feature
+              </h3>
+
+              <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-relaxed">
+                Promote one of your videos as a banner on another Tipmanna
+                playback. Same-host uploads can auto-approve.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:max-w-xl">
+              {/* Event */}
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium">Your event</label>
+
+                <select
+                  className="border-input bg-background focus:ring-primary/20 h-10 w-full cursor-pointer rounded-md border px-3 text-sm transition outline-none focus:ring-2"
+                  value={featEventId}
+                  onChange={e => {
+                    setFeatEventId(e.target.value);
+                    setFeatChannelId("");
+                  }}
+                >
                   <option
-                    key={e.id}
-                    value={e.id}
+                    value=""
+                    className="cursor-pointer"
                   >
-                    {e.eventName}
+                    Choose event
                   </option>
-                ))}
-              </select>
-              <label className="text-xs font-medium">Your video channel</label>
-              <select
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-                value={featChannelId}
-                onChange={e => setFeatChannelId(e.target.value)}
-                disabled={!featEvent}
-              >
-                <option value="">Choose clip</option>
-                {(featEvent?.channels ?? []).map(c => (
+
+                  {events.map(e => (
+                    <option
+                      key={e.id}
+                      value={e.id}
+                      className="cursor-pointer"
+                    >
+                      {e.eventName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Video */}
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium">
+                  Your video channel
+                </label>
+
+                <select
+                  className="border-input bg-background focus:ring-primary/20 h-10 w-full cursor-pointer rounded-md border px-3 text-sm transition outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={featChannelId}
+                  onChange={e => setFeatChannelId(e.target.value)}
+                  disabled={!featEvent}
+                >
                   <option
-                    key={c.id}
-                    value={c.id}
+                    value=""
+                    className="cursor-pointer"
                   >
-                    {c.title}
+                    Choose clip
                   </option>
-                ))}
-              </select>
-              <label className="text-xs font-medium">
-                Tipmanna video URL or share link you want featured on (target)
-              </label>
-              <Input
-                value={featTargetUrl}
-                onChange={e => setFeatTargetUrl(e.target.value)}
-                placeholder="https://…"
-              />
-              <div className="flex flex-wrap items-end gap-2">
-                <div>
-                  <label className="text-xs font-medium">
-                    Hours (same-host)
+
+                  {(featEvent?.channels ?? []).map(c => (
+                    <option
+                      key={c.id}
+                      value={c.id}
+                      className="cursor-pointer"
+                    >
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Target URL */}
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium">Target video URL</label>
+
+                <p className="text-muted-foreground text-xs">
+                  Enter the Tipmanna video URL or share link where you want your
+                  video featured.
+                </p>
+
+                <Input
+                  value={featTargetUrl}
+                  onChange={e => setFeatTargetUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="h-10"
+                />
+              </div>
+
+              {/* Duration + actions */}
+              <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
+                <div className="grid gap-1.5">
+                  <label className="text-sm font-medium">
+                    Hours
+                    <span className="text-muted-foreground ml-1 text-xs">
+                      (same-host)
+                    </span>
                   </label>
+
                   <Input
                     type="number"
                     min={1}
                     max={168}
-                    className="w-28"
+                    className="h-10 w-full sm:w-28"
                     value={featHours}
                     onChange={e => setFeatHours(e.target.value)}
                   />
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void onCheckFeature()}
-                >
-                  Check eligibility
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => void onSubmitFeature()}
-                >
-                  Submit
-                </Button>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => void onCheckFeature()}
+                  >
+                    Check eligibility
+                  </Button>
+
+                  <Button
+                    type="button"
+                    className="w-full sm:w-auto"
+                    onClick={() => void onSubmitFeature()}
+                  >
+                    Submit
+                  </Button>
+                </div>
               </div>
+
               {checkMsg ? (
-                <p className="text-muted-foreground text-xs">{checkMsg}</p>
+                <div className="bg-muted rounded-md px-3 py-2">
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {checkMsg}
+                  </p>
+                </div>
               ) : null}
             </div>
           </section>
 
-          <section className="rounded-lg border p-4">
-            <h3 className="font-semibold">Tipmanna TV feature</h3>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Admin-reviewed placement on in-app TV loops.
-            </p>
-            <div className="mt-3 grid gap-2 sm:max-w-xl">
-              <label className="text-xs font-medium">Source event</label>
-              <select
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-                value={tvSourceEventId}
-                onChange={e => {
-                  setTvSourceEventId(e.target.value);
-                  setTvSourceChannelId("");
-                }}
-              >
-                <option value="">Choose event</option>
-                {events.map(e => (
-                  <option
-                    key={e.id}
-                    value={e.id}
-                  >
-                    {e.eventName}
-                  </option>
-                ))}
-              </select>
-              <label className="text-xs font-medium">Source clip</label>
-              <select
-                className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-                value={tvSourceChannelId}
-                onChange={e => setTvSourceChannelId(e.target.value)}
-                disabled={!tvEvent}
-              >
-                <option value="">Choose clip</option>
-                {(tvEvent?.channels ?? []).map(c => (
-                  <option
-                    key={c.id}
-                    value={c.id}
-                  >
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-              <label className="text-xs font-medium">Why it fits TV</label>
-              <Textarea
-                rows={4}
-                value={tvReason}
-                onChange={e => setTvReason(e.target.value)}
-              />
-              <label className="text-xs font-medium">
-                Preferred slot note (optional)
-              </label>
-              <Input
-                value={tvNote}
-                onChange={e => setTvNote(e.target.value)}
-              />
-              <Button
-                type="button"
-                className="w-fit"
-                onClick={() => void onSubmitTv()}
-              >
-                Submit TV request
-              </Button>
+          {/* Tipmanna TV feature */}
+          <section className="rounded-md border bg-white p-4 sm:p-6">
+            <div className="border-b pb-4">
+              <h3 className="text-base font-semibold sm:text-lg">
+                Tipmanna TV feature
+              </h3>
+
+              <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-relaxed">
+                Admin-reviewed placement on in-app TV loops.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:max-w-xl">
+              {/* Source event */}
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium">Source event</label>
+
+                <select
+                  className="border-input bg-background focus:ring-primary/20 h-10 w-full cursor-pointer rounded-md border px-3 text-sm transition outline-none focus:ring-2"
+                  value={tvSourceEventId}
+                  onChange={e => {
+                    setTvSourceEventId(e.target.value);
+                    setTvSourceChannelId("");
+                  }}
+                >
+                  <option value="">Choose event</option>
+
+                  {events.map(e => (
+                    <option
+                      key={e.id}
+                      value={e.id}
+                    >
+                      {e.eventName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Source clip */}
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium">Source clip</label>
+
+                <select
+                  className="border-input bg-background focus:ring-primary/20 h-10 w-full cursor-pointer rounded-md border px-3 text-sm transition outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={tvSourceChannelId}
+                  onChange={e => setTvSourceChannelId(e.target.value)}
+                  disabled={!tvEvent}
+                >
+                  <option value="">Choose clip</option>
+
+                  {(tvEvent?.channels ?? []).map(c => (
+                    <option
+                      key={c.id}
+                      value={c.id}
+                    >
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Reason */}
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium">Why it fits TV</label>
+
+                <Textarea
+                  rows={4}
+                  value={tvReason}
+                  onChange={e => setTvReason(e.target.value)}
+                  className="resize-none"
+                  placeholder="Explain why this video would be a good fit for Tipmanna TV..."
+                />
+              </div>
+
+              {/* Preferred slot */}
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium">
+                  Preferred slot note
+                  <span className="text-muted-foreground ml-1 text-xs">
+                    (optional)
+                  </span>
+                </label>
+
+                <Input
+                  value={tvNote}
+                  onChange={e => setTvNote(e.target.value)}
+                  placeholder="e.g. Evening rotation"
+                  className="h-10"
+                />
+              </div>
+
+              {/* Submit */}
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  className="w-full sm:w-fit"
+                  onClick={() => void onSubmitTv()}
+                >
+                  Submit TV request
+                </Button>
+              </div>
             </div>
           </section>
         </TabsContent>

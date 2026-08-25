@@ -11,8 +11,9 @@ import {
   VolumeX,
 } from "lucide-react";
 import TvPlayer, { TvPlayerRef } from "./tv-player";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
+import { readTvMutePref, unmuteOnly, writeTvMutePref } from "@/lib/tv-autoplay";
 
 type Props = {
   videoId: string;
@@ -34,19 +35,58 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
 
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 
-  const [isPlaying] = useState(false);
-  const [isMuted] = useState(false);
+  useEffect(() => {
+    setIsMuted(readTvMutePref());
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (playerRef.current?.isReady()) {
         const time = playerRef.current.getCurrentTime();
         setCurrentTime(time);
+        setIsMuted(playerRef.current.isMuted());
+        const state = playerRef.current.getPlayerState();
+        setIsPlaying(state === "PLAYING" || state === "BUFFERING");
       }
     }, 500);
 
     return () => clearInterval(interval);
+  }, []);
+
+  const togglePlay = useCallback(() => {
+    const player = playerRef.current;
+    if (!player?.isReady()) return;
+    if (isPlaying) {
+      player.pause();
+      setIsPlaying(false);
+    } else {
+      player.play();
+      setIsPlaying(true);
+    }
+  }, [isPlaying]);
+
+  const toggleMute = useCallback(() => {
+    const player = playerRef.current;
+    if (!player?.isReady()) return;
+    if (isMuted) {
+      unmuteOnly(player, "tv_fullscreen_mute_btn");
+      setIsMuted(false);
+      writeTvMutePref(false);
+    } else {
+      player.mute();
+      setIsMuted(true);
+      writeTvMutePref(true);
+    }
+  }, [isMuted]);
+
+  const stopPlayback = useCallback(() => {
+    const player = playerRef.current;
+    if (!player?.isReady()) return;
+    player.stop();
+    setIsPlaying(false);
   }, []);
 
   return (
@@ -54,7 +94,11 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
       <div className="flex h-full w-full gap-4 p-4">
         {/* LEFT CONTROL RAIL */}
         <div className="flex flex-col justify-start gap-4 pt-12">
-          <button onClick={() => {}}>
+          <button
+            type="button"
+            onClick={togglePlay}
+            aria-label={isPlaying ? "Pause" : "Play"}
+          >
             {isPlaying ? (
               <Pause className="size-6 text-black" />
             ) : (
@@ -62,11 +106,19 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
             )}
           </button>
 
-          <button onClick={() => {}}>
+          <button
+            type="button"
+            onClick={stopPlayback}
+            aria-label="Stop"
+          >
             <CircleStop className="size-7 fill-white text-black" />
           </button>
 
-          <button onClick={() => {}}>
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-label={isMuted ? "Unmute" : "Mute"}
+          >
             {isMuted ? (
               <VolumeX className="size-6 text-black" />
             ) : (
@@ -74,7 +126,11 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
             )}
           </button>
 
-          <button onClick={() => router.back()}>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Exit fullscreen"
+          >
             <Minimize className="size-6 text-black" />
           </button>
         </div>
@@ -106,7 +162,9 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
               onPlay={() => {
                 const dur = playerRef.current?.getDuration() ?? 0;
                 setDuration(dur);
+                setIsPlaying(true);
               }}
+              onPause={() => setIsPlaying(false)}
             />
           </div>
 

@@ -7,6 +7,7 @@ import { Trophy, UserRound } from "lucide-react";
 import { useSelector } from "react-redux";
 
 // Local imports
+import { useHostSession } from "@/hooks/use-host-session";
 import { RootState } from "@/redux/store";
 
 interface Props {
@@ -27,10 +28,7 @@ export const TopTipperCard = ({
   const router = useRouter();
   const user = useSelector((state: RootState) => state.auth.user);
 
-  let eventSlug;
-  if (user?.role === "HOST") {
-    eventSlug = user?.eventSlug;
-  }
+  const { eventSlug } = useHostSession();
 
   // Badge unlock conditions
   const localUnlocked = eventsSupported >= 1;

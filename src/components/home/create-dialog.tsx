@@ -53,7 +53,7 @@ import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
 import { useCreateDialogResume } from "@/hooks/use-create-dialog-resume";
 import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { Button } from "@/components/ui/button";
-import { isHostRole } from "@/lib/is-host-role";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
 import { cn } from "@/lib/utils";
 
@@ -148,12 +148,17 @@ export const CreateDialog = ({
   const pendingVideoSubmitRef = useRef<AddVideoFormValues | null>(null);
   const [resumeVideoSubmit, setResumeVideoSubmit] = useState(false);
 
-  const [hostSessionActive, setHostSessionActive] = useState(false);
-  const isHostFromRedux = isHostRole(user?.role);
+  const {
+    canReadAsHost,
+    canWriteAsHost,
+    requestHostAuth,
+    handleAuthRequiredError,
+    HostAuthModal,
+  } = useHostCapabilityWithAuth({
+    enabled: openPopup && communityFeatureOn && !forceTypePicker,
+  });
   const showHostCreateFlow =
-    communityFeatureOn &&
-    !forceTypePicker &&
-    (isHostFromRedux || hostSessionActive);
+    communityFeatureOn && !forceTypePicker && canReadAsHost;
 
   useCreateDialogResume({
     openCreateDialog: () => setOpenPopup(true),
@@ -176,7 +181,6 @@ export const CreateDialog = ({
     if (!openPopup) {
       setIsProceeding(false);
       setShowNewEventRoomPicker(false);
-      setHostSessionActive(false);
       setSelected("");
       return;
     }
@@ -207,8 +211,7 @@ export const CreateDialog = ({
   useEffect(() => {
     if (!openPopup || forceTypePicker || !communityFeatureOn) return;
 
-    if (!user?.id) {
-      setHostSessionActive(false);
+    if (!user?.id || !canReadAsHost) {
       setEvents([]);
       setOwned([]);
       setCoCreated([]);
@@ -227,7 +230,6 @@ export const CreateDialog = ({
       if (cancelled) return;
 
       if (evRes.success && evRes.data) {
-        setHostSessionActive(true);
         const raw = evRes.data as
           | HostEventRow[]
           | { events?: HostEventRow[]; data?: HostEventRow[] };
@@ -240,7 +242,6 @@ export const CreateDialog = ({
               : [];
         setEvents(list);
       } else {
-        setHostSessionActive(false);
         setEvents([]);
       }
 
@@ -262,7 +263,7 @@ export const CreateDialog = ({
     return () => {
       cancelled = true;
     };
-  }, [openPopup, forceTypePicker, user?.id]);
+  }, [openPopup, forceTypePicker, user?.id, canReadAsHost, communityFeatureOn]);
 
   useEffect(() => {
     if (!showHostCreateFlow) return;
@@ -320,7 +321,7 @@ export const CreateDialog = ({
   const handleProceed = () => {
     if (!selected || isProceeding) return;
 
-    let href = "/";
+    let href = "/explore";
     switch (selected) {
       case "content":
         href = "/content-only";
@@ -332,7 +333,7 @@ export const CreateDialog = ({
         href = "/event-and-content";
         break;
       default:
-        href = "/";
+        href = "/explore";
     }
 
     if (needsCreateHostAuth(user)) {
@@ -376,58 +377,85 @@ export const CreateDialog = ({
       toast.error("Choose an event or community first");
       return;
     }
-    setSubmitLoading(true);
-    try {
-      const payload = buildCreateChannelPayload(values);
-      if (hostTab === "event") {
-        const res = await createEventChannelAction(payload, targetId);
-        if (!res.success) {
-          if (addVideoForm) {
-            applyServerFormErrors(
-              addVideoForm,
-              res.validationBody ?? { message: res.message }
-            );
-          } else {
-            toast.error(res.message ?? "Could not add video to event");
+
+    const runSubmit = async () => {
+      setSubmitLoading(true);
+      try {
+        const payload = buildCreateChannelPayload(values);
+        if (hostTab === "event") {
+          const res = await createEventChannelAction(payload, targetId, null, {
+            fromCreateDialog: true,
+          });
+          if (!res.success) {
+            if (handleAuthRequiredError(res, () => void runSubmit())) {
+              return;
+            }
+            if (addVideoForm) {
+              applyServerFormErrors(
+                addVideoForm,
+                res.validationBody ?? { message: res.message }
+              );
+            } else {
+              toast.error(res.message ?? "Could not add video to event");
+            }
+            return;
           }
-          return;
-        }
-        toast.success(
-          (res.data as { message?: string })?.message ?? "Video added"
-        );
-        await clearModalFormDraft("room_add_video", targetId, modalDraftId);
-        setModalDraftId(null);
-      } else {
-        const res = await addCommunityVideoAction(undefined, targetId, payload);
-        if (!res.success) {
-          if (addVideoForm) {
-            applyServerFormErrors(
-              addVideoForm,
-              res.validationBody ?? { message: res.message }
-            );
-          } else {
-            toast.error(res.message ?? "Could not submit to community");
+          toast.success(
+            (res.data as { message?: string })?.message ?? "Video added"
+          );
+          await clearModalFormDraft("room_add_video", targetId, modalDraftId);
+          setModalDraftId(null);
+        } else {
+          const res = await addCommunityVideoAction(
+            undefined,
+            targetId,
+            payload,
+            { useHostSession: true }
+          );
+          if (!res.success) {
+            if (handleAuthRequiredError(res, () => void runSubmit())) {
+              return;
+            }
+            if (addVideoForm) {
+              applyServerFormErrors(
+                addVideoForm,
+                res.validationBody ?? { message: res.message }
+              );
+            } else {
+              toast.error(res.message ?? "Could not submit to community");
+            }
+            return;
           }
-          return;
+          toast.success(
+            (res.data as { message?: string })?.message ?? "Video submitted"
+          );
+          await clearModalFormDraft("community_video", targetId, modalDraftId);
+          setModalDraftId(null);
         }
-        toast.success(
-          (res.data as { message?: string })?.message ?? "Video submitted"
-        );
-        await clearModalFormDraft("community_video", targetId, modalDraftId);
-        setModalDraftId(null);
+        setOpenPopup(false);
+        router.refresh();
+      } catch (err: unknown) {
+        if (err instanceof Error) toast.error(err.message);
+        else if (typeof err === "object" && err !== null && "error" in err) {
+          toast.error((err as ApiError).error.message);
+        } else {
+          toast.error("Something went wrong");
+        }
+      } finally {
+        setSubmitLoading(false);
       }
-      setOpenPopup(false);
-      router.refresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) toast.error(err.message);
-      else if (typeof err === "object" && err !== null && "error" in err) {
-        toast.error((err as ApiError).error.message);
-      } else {
-        toast.error("Something went wrong");
-      }
-    } finally {
-      setSubmitLoading(false);
+    };
+
+    if (hostTab !== "event" && !canWriteAsHost) {
+      pendingVideoSubmitRef.current = values;
+      requestHostAuth(() => {
+        pendingVideoSubmitRef.current = values;
+        setResumeVideoSubmit(true);
+      });
+      return;
     }
+
+    await runSubmit();
   };
 
   useEffect(() => {
@@ -766,7 +794,8 @@ export const CreateDialog = ({
                       onFormReady={setAddVideoForm}
                       onDraftIdChange={setModalDraftId}
                       draftAutosave={
-                        hostTab === "owner" && targetId
+                        (hostTab === "owner" || hostTab === "cocreator") &&
+                        targetId
                           ? {
                               kind: "community_video",
                               targetId,
@@ -886,7 +915,7 @@ export const CreateDialog = ({
               </RadioGroup>
             </div>
 
-            {!isLiveEventEntry ? (
+            {!isLiveEventEntry && (!user || user.role === "VISITOR") ? (
               <p className="mt-3 text-center text-xs text-white/55">
                 * To add videos straight to your existing channels <br /> and
                 communities, sign in as a{" "}
@@ -923,6 +952,7 @@ export const CreateDialog = ({
       ) : null}
 
       {signInDialog}
+      {HostAuthModal}
     </>
   );
 };

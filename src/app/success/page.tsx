@@ -128,7 +128,7 @@
 "use client";
 
 import Image from "next/image";
-import { CSSProperties, useEffect, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // Third-party imports
@@ -140,9 +140,14 @@ import type { RootState } from "@/redux/store";
 import { Paragraph } from "@/components/shared/paragraph";
 import { markPaymentCompleted } from "@/features/tip-slice";
 import {
-  PAYMENT_ORIGIN_STORAGE_KEY,
+  readPendingTipBroadcast,
   readTipResumeCtx,
 } from "@/lib/payment-origin";
+import {
+  readPendingPaymentReturn,
+  patchPendingPaymentReturn,
+} from "@/lib/pending-payment-return";
+import { redirectAfterPaymentSuccess } from "@/lib/payment-success-redirect";
 import { setPaymentPendingReturn } from "@/lib/tv-payment-snapshot";
 import {
   runPaymentRecoveryExchange,
@@ -159,6 +164,8 @@ import { COMMUNITY_SUBSCRIBE_CTX_KEY } from "@/components/community/community-su
 
 import { Gem } from "lucide-react";
 import { markPendingPaymentPrompt } from "@/lib/pwa-install-trigger";
+
+const REDIRECT_SETTLE_MS = 400;
 
 const override: CSSProperties = {
   display: "block",
@@ -183,8 +190,13 @@ export default function PaymentSuccessPage() {
   const dispatch = useDispatch();
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const authUserRef = useRef(authUser);
+  authUserRef.current = authUser;
+  const sessionHandledRef = useRef(false);
 
   useEffect(() => {
+    if (sessionHandledRef.current) return;
+
     // Load eventId and amount from localStorage on mount
     const storedEventId = sanitizeEventIdForRoomRedirect(
       localStorage.getItem("eventId")
@@ -195,163 +207,190 @@ export default function PaymentSuccessPage() {
       setAmount(Number(storedAmount));
     }
 
-    // const redirectTarget = searchParams.get("redirect");
+    const buildOwnership = () => {
+      const user = authUserRef.current;
+      return {
+        clientSessionId: getAnalyticsSessionId(),
+        ...(user?.role === "VISITOR"
+          ? { visitorId: user.id }
+          : user?.id
+            ? { tipperId: user.id }
+            : {}),
+      };
+    };
 
     const loadSession = async () => {
-      if (!paymentIntentId && !paymentIntentSecret) {
-        setLoading(false);
-        return;
-      }
-
-      let walletTopupReconciled = false;
-      let isWalletTopupFlow = false;
-
-      if (paymentIntentId && isAuthenticated) {
-        const maxAttempts = 12;
-        let delayMs = 0;
-        for (let i = 0; i < maxAttempts; i++) {
-          if (delayMs > 0) {
-            await new Promise(r => setTimeout(r, delayMs));
-          }
-          try {
-            const r = await reconcileWalletTopupRequest(paymentIntentId);
-            if (r.outcome === "not_wallet_topup") {
-              break;
-            }
-            isWalletTopupFlow = true;
-            if (r.outcome === "credited" || r.outcome === "already_credited") {
-              walletTopupReconciled = true;
-              await fetchWalletStatus().catch(() => undefined);
-              break;
-            }
-            if (
-              r.outcome === "not_succeeded" ||
-              r.outcome === "transaction_not_found"
-            ) {
-              delayMs = delayMs === 0 ? 500 : Math.min(4000, delayMs * 2);
-              continue;
-            }
-            break;
-          } catch (e) {
-            console.warn("[success] wallet topup reconcile:", e);
-            delayMs = delayMs === 0 ? 500 : Math.min(4000, delayMs * 2);
-          }
-        }
-        if (isWalletTopupFlow && !walletTopupReconciled) {
-          setTopupStillProcessing(true);
-        }
-      }
-
-      if (paymentIntentId && isAuthenticated && !isWalletTopupFlow) {
-        try {
-          const raw = sessionStorage.getItem(COMMUNITY_SUBSCRIBE_CTX_KEY);
-          if (raw) {
-            const { communityId } = JSON.parse(raw) as { communityId?: string };
-            if (communityId) {
-              const maxAttempts = 12;
-              let delayMs = 0;
-              for (let i = 0; i < maxAttempts; i++) {
-                if (delayMs > 0) {
-                  await new Promise(r => setTimeout(r, delayMs));
-                }
-                try {
-                  if (!isAuthenticated) break;
-                  const r = await reconcileCommunitySubscribeAction(
-                    undefined,
-                    communityId,
-                    paymentIntentId
-                  );
-                  if (!r.success) break;
-                  const payload = r.data as {
-                    outcome?: string;
-                    stripeStatus?: string;
-                  };
-                  if (
-                    payload.outcome === "credited" ||
-                    payload.outcome === "already_credited"
-                  ) {
-                    break;
-                  }
-                  if (payload.outcome === "not_succeeded") {
-                    delayMs = delayMs === 0 ? 500 : Math.min(4000, delayMs * 2);
-                    continue;
-                  }
-                  break;
-                } catch {
-                  delayMs = delayMs === 0 ? 500 : Math.min(4000, delayMs * 2);
-                }
-              }
-            }
-            sessionStorage.removeItem(COMMUNITY_SUBSCRIBE_CTX_KEY);
-          }
-        } catch {
-          sessionStorage.removeItem(COMMUNITY_SUBSCRIBE_CTX_KEY);
-        }
-      }
-
-      if (!isWalletTopupFlow) {
-        dispatch(markPaymentCompleted(true));
-        markPendingPaymentPrompt();
-        // Keep `amount` / `textTipValue` in localStorage until the surface runs
-        // useAutoDropTip or DropTip → POST /messages (createMessage + tip-animation).
-        // Clearing here broke TV and any surface that returns via payment_origin.
-      }
+      let blockRedirect = false;
+      let shouldScheduleRedirect = false;
 
       try {
-        if (readTipResumeCtx()) {
-          setPendingTipAfterTopup(true);
+        if (!paymentIntentId && !paymentIntentSecret) {
+          setLoading(false);
+          return;
         }
-      } catch {
-        /* ignore */
-      }
 
-      setLoading(false);
+        shouldScheduleRedirect = true;
 
-      const blockRedirect = isWalletTopupFlow && !walletTopupReconciled;
+        const pendingTipReturn =
+          Boolean(readPendingPaymentReturn()) ||
+          Boolean(readPendingTipBroadcast());
 
-      if (!blockRedirect) {
-        if (paymentIntentId) {
-          const ownership = {
-            clientSessionId: getAnalyticsSessionId(),
-            ...(authUser?.role === "VISITOR"
-              ? { visitorId: authUser.id }
-              : authUser?.id
-                ? { tipperId: authUser.id }
-                : {}),
-          };
-          await runPaymentRecoveryExchange({
+        let walletTopupReconciled = false;
+        let isWalletTopupFlow = false;
+
+        if (paymentIntentId && isAuthenticated && !pendingTipReturn) {
+          const maxAttempts = 12;
+          let delayMs = 0;
+          for (let i = 0; i < maxAttempts; i++) {
+            if (delayMs > 0) {
+              await new Promise(r => setTimeout(r, delayMs));
+            }
+            try {
+              const r = await reconcileWalletTopupRequest(paymentIntentId);
+              if (r.outcome === "not_wallet_topup") {
+                break;
+              }
+              isWalletTopupFlow = true;
+              if (
+                r.outcome === "credited" ||
+                r.outcome === "already_credited"
+              ) {
+                walletTopupReconciled = true;
+                await fetchWalletStatus().catch(() => undefined);
+                break;
+              }
+              if (
+                r.outcome === "not_succeeded" ||
+                r.outcome === "transaction_not_found"
+              ) {
+                delayMs = delayMs === 0 ? 500 : Math.min(4000, delayMs * 2);
+                continue;
+              }
+              break;
+            } catch (e) {
+              console.warn("[success] wallet topup reconcile:", e);
+              delayMs = delayMs === 0 ? 500 : Math.min(4000, delayMs * 2);
+            }
+          }
+          if (isWalletTopupFlow && !walletTopupReconciled) {
+            setTopupStillProcessing(true);
+          }
+        }
+
+        if (
+          paymentIntentId &&
+          isAuthenticated &&
+          !isWalletTopupFlow &&
+          !pendingTipReturn
+        ) {
+          try {
+            const raw = sessionStorage.getItem(COMMUNITY_SUBSCRIBE_CTX_KEY);
+            if (raw) {
+              const { communityId } = JSON.parse(raw) as {
+                communityId?: string;
+              };
+              if (communityId) {
+                const maxAttempts = 12;
+                let delayMs = 0;
+                for (let i = 0; i < maxAttempts; i++) {
+                  if (delayMs > 0) {
+                    await new Promise(r => setTimeout(r, delayMs));
+                  }
+                  try {
+                    if (!isAuthenticated) break;
+                    const r = await reconcileCommunitySubscribeAction(
+                      undefined,
+                      communityId,
+                      paymentIntentId
+                    );
+                    if (!r.success) break;
+                    const payload = r.data as {
+                      outcome?: string;
+                      stripeStatus?: string;
+                    };
+                    if (
+                      payload.outcome === "credited" ||
+                      payload.outcome === "already_credited"
+                    ) {
+                      break;
+                    }
+                    if (payload.outcome === "not_succeeded") {
+                      delayMs =
+                        delayMs === 0 ? 500 : Math.min(4000, delayMs * 2);
+                      continue;
+                    }
+                    break;
+                  } catch {
+                    delayMs = delayMs === 0 ? 500 : Math.min(4000, delayMs * 2);
+                  }
+                }
+              }
+              sessionStorage.removeItem(COMMUNITY_SUBSCRIBE_CTX_KEY);
+            }
+          } catch {
+            sessionStorage.removeItem(COMMUNITY_SUBSCRIBE_CTX_KEY);
+          }
+        }
+
+        if (!isWalletTopupFlow) {
+          dispatch(markPaymentCompleted(true));
+          markPendingPaymentPrompt();
+          // Keep `amount` / `textTipValue` in localStorage until the surface runs
+          // useAutoDropTip or DropTip → POST /messages (createMessage + tip-animation).
+          // Clearing here broke TV and any surface that returns via payment_origin.
+        }
+
+        try {
+          if (readTipResumeCtx()) {
+            setPendingTipAfterTopup(true);
+          }
+        } catch {
+          /* ignore */
+        }
+
+        setLoading(false);
+
+        blockRedirect = isWalletTopupFlow && !walletTopupReconciled;
+
+        if (!blockRedirect && paymentIntentId) {
+          const exchangeResult = await runPaymentRecoveryExchange({
             stripePaymentIntentId: paymentIntentId,
             redirectStatus: searchParams.get("redirect_status"),
-            ownership,
+            ownership: buildOwnership(),
           });
+          if (
+            exchangeResult.outcome !== "exchanged" &&
+            exchangeResult.outcome !== "skipped_no_pending"
+          ) {
+            patchPendingPaymentReturn({ recoveryUnavailable: true });
+          }
+        }
+      } catch (e) {
+        console.warn("[success] loadSession:", e);
+        patchPendingPaymentReturn({ recoveryUnavailable: true });
+        setLoading(false);
+        shouldScheduleRedirect = Boolean(
+          paymentIntentId || paymentIntentSecret
+        );
+      } finally {
+        if (sessionHandledRef.current) return;
+        sessionHandledRef.current = true;
+
+        if (!shouldScheduleRedirect) return;
+
+        if (blockRedirect) {
           sanitizeSuccessUrlInHistory();
+          return;
         }
 
         setTimeout(() => {
-          const origin = localStorage.getItem(PAYMENT_ORIGIN_STORAGE_KEY);
-          if (origin) {
-            localStorage.removeItem(PAYMENT_ORIGIN_STORAGE_KEY);
-            setPaymentPendingReturn(true);
-            window.location.href = origin;
-            return;
-          }
-          if (storedEventId) {
-            router.push(`/room/${storedEventId}`);
-            localStorage.removeItem("eventId");
-            localStorage.removeItem("amount");
-          }
-        }, 1500);
+          setPaymentPendingReturn(true);
+          redirectAfterPaymentSuccess(router, storedEventId, paymentIntentId);
+        }, REDIRECT_SETTLE_MS);
       }
     };
     void loadSession();
-  }, [
-    paymentIntentId,
-    paymentIntentSecret,
-    router,
-    dispatch,
-    searchParams,
-    authUser,
-  ]);
+  }, [paymentIntentId, paymentIntentSecret, router, dispatch, isAuthenticated]);
 
   if (loading) {
     return (

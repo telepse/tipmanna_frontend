@@ -59,6 +59,7 @@ const TipDrawer = dynamic(
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { ProfileDrawer } from "../tv/profile-drawer";
 import { CreateDialog } from "../home/create-dialog";
+import { CohostSessionTouch } from "@/components/auth/cohost-session-touch";
 
 // Actions import
 import {
@@ -155,6 +156,9 @@ interface Props {
   initialProgramPlaylist?: any[] | null;
   /** Deep link from `/content/{eventId}?v=` — selects initial video. */
   initialChannelId?: string | null;
+  isCommunity: boolean;
+  communityId: string;
+  communityName: string;
 }
 
 const formatTime = (seconds: number) => {
@@ -185,6 +189,9 @@ export const ContentClient = ({
   characterSets,
   initialProgramPlaylist,
   initialChannelId,
+  isCommunity,
+  communityId,
+  communityName,
 }: Props) => {
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user);
@@ -292,12 +299,20 @@ export const ContentClient = ({
   const showViewCount = showViewCountOnVideos === true;
   const showEncounterCount = showEncounterOnVideos === true;
 
-  const { amountRaised: liveAmountRaised, numOfTips: liveNumOfTips } =
-    useEventRoomRealtime({
-      eventId,
-      initialAmountRaised: initialEvent?.amountRaised ?? 0,
-      initialNumOfTips: initialEvent?.numOfTips ?? 0,
-    });
+  const {
+    amountRaised: liveAmountRaised,
+    numOfTips: liveNumOfTips,
+    channelNumOfTips: liveChannelNumOfTips,
+  } = useEventRoomRealtime({
+    eventId,
+    initialAmountRaised: initialEvent?.amountRaised ?? 0,
+    initialNumOfTips: initialEvent?.numOfTips ?? 0,
+    channelId: currentContent?.id ? String(currentContent.id) : null,
+    initialChannelNumOfTips:
+      typeof currentContent?.numOfTips === "number"
+        ? currentContent.numOfTips
+        : 0,
+  });
 
   const [currentUser] = useState(() => getCurrentUser());
   const { activeUsers, trackActivity } = usePusherTracking({
@@ -590,8 +605,8 @@ export const ContentClient = ({
   useEffect(() => {
     setIsMuted(true);
   }, [currentContent?.id]);
-  const [, setAudioUnlocked] = useState(false);
   const [openPlaylist, setOpenPlaylist] = useState(false);
+  const [openCommunityModal, setOpenCommunityModal] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
   const {
     isFullView,
@@ -660,15 +675,8 @@ export const ContentClient = ({
 
   const toggleMute = () => {
     if (!videoRef.current) return;
-
-    if (isMuted) {
-      videoRef.current.unmute();
-      setIsMuted(false);
-    } else {
-      videoRef.current.mute();
-      setIsMuted(true);
-      setAudioUnlocked(true);
-    }
+    if (isMuted) videoRef.current.unmute();
+    else videoRef.current.mute();
   };
 
   const goToContent = (content: any) => {
@@ -720,8 +728,8 @@ export const ContentClient = ({
     : false;
 
   const handleSaveToggle = async () => {
-    if (!user?.id) {
-      toast.error("Sign in to save videos");
+    if (!user?.id || user.role === "VISITOR") {
+      toast.error("Sign in as a tipper to save videos");
       return;
     }
     if (!saveChannelId) {
@@ -801,6 +809,7 @@ export const ContentClient = ({
         eventId={eventId}
         canonicalEventId={currentContent?.event?.id ?? playlist[0]?.event?.id}
       />
+      <CohostSessionTouch />
       {isFullView && (
         <ImmersiveMediaTopBar
           onClose={exitFull}
@@ -834,20 +843,32 @@ export const ContentClient = ({
               </Link>
 
               <div className="flex items-center gap-2">
-                <p
-                  className={`border-muted-foreground rounded-md border p-1 text-[10px] sm:text-sm ${openPlaylist ? "bg-primary text-black" : "text-muted-foreground"}`}
-                >
-                  Creator:{" "}
-                  <span
-                    className="cursor-pointer underline"
+                {isCommunity ? (
+                  <p
+                    className={`border-muted-foreground cursor-pointer rounded-md border p-1 text-[10px] sm:text-sm ${openCommunityModal ? "bg-primary text-black" : "text-muted-foreground"}`}
                     onClick={e => {
                       e.stopPropagation();
-                      setOpenPlaylist(prev => !prev);
+                      setOpenCommunityModal(prev => !prev);
                     }}
                   >
-                    {playlist[0]?.event?.hostName.split(" ")[0]}
-                  </span>{" "}
-                </p>
+                    Community
+                  </p>
+                ) : (
+                  <p
+                    className={`border-muted-foreground rounded-md border p-1 text-[10px] sm:text-sm ${openPlaylist ? "bg-primary text-black" : "text-muted-foreground"}`}
+                  >
+                    Creator:{" "}
+                    <span
+                      className="cursor-pointer underline"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setOpenPlaylist(prev => !prev);
+                      }}
+                    >
+                      {playlist[0]?.event?.hostName.split(" ")[0]}
+                    </span>{" "}
+                  </p>
+                )}
 
                 <SaveHostToggleButton
                   channelId={saveChannelId}
@@ -1033,31 +1054,7 @@ export const ContentClient = ({
             className={`pointer-events-none absolute inset-0 ${TV_RAIL_Z_INDEX}`}
           />
 
-          {/* Fast-forward icon */}
-          {/* <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation();
-              setOpenPlaylist(prev => !prev);
-            }}
-            className={cn(
-              "absolute left-1/2 z-50 -translate-x-1/2 cursor-pointer rounded-full border p-2 transition hover:bg-white",
-              isFullView
-                ? cn(
-                    "-top-1 border-white/30 bg-white/20 text-white",
-                    immersiveLayout === "portrait_video" && "top-2"
-                  )
-                : "-top-4 border-black bg-white/70"
-            )}
-          >
-            {openPlaylist ? (
-              <X className="text-primary size-6" />
-            ) : (
-              <FastForward className="fill-primary size-6 rotate-90" />
-            )}
-          </button> */}
-
-          {openPlaylist && (
+          {openPlaylist && !isCommunity && (
             <div className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2">
               {/* Playlist container wrapper */}
               <div className="relative flex max-h-[300px] w-[255px] flex-col gap-2 rounded-md shadow-lg sm:max-h-[450px] sm:w-[350px]">
@@ -1084,7 +1081,7 @@ export const ContentClient = ({
                   Playlist: {playlist.length} videos
                 </p>
 
-                {openPlaylist && (
+                {openPlaylist && !isCommunity && (
                   <button
                     type="button"
                     onClick={e => {
@@ -1203,6 +1200,221 @@ export const ContentClient = ({
                 >
                   <ChevronRight className="size-4 text-black" />
                 </button>
+              </div>
+            </div>
+          )}
+
+          {openPlaylist && !isCommunity && (
+            <div className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2">
+              {/* Playlist container wrapper */}
+              <div className="relative flex max-h-[300px] w-[255px] flex-col gap-2 rounded-md shadow-lg sm:max-h-[450px] sm:w-[350px]">
+                <p className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2 p-2 text-center text-[10px] whitespace-nowrap text-black sm:text-xs">
+                  Creator:{" "}
+                  <span
+                    className="cursor-pointer"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setOpenPlaylist(prev => !prev);
+                    }}
+                  >
+                    {playlist[0]?.event?.hostName.split(" ")[0]}
+                  </span>{" "}
+                  <Link
+                    href={`/channel/${playlist[0]?.event?.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    channel
+                  </Link>
+                </p>
+
+                <p className="absolute top-4 left-1/2 z-[9999] -translate-x-1/2 p-2 text-center text-[10px] whitespace-nowrap text-black/50 sm:text-xs">
+                  Playlist: {playlist.length} videos
+                </p>
+
+                {openPlaylist && !isCommunity && (
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setOpenPlaylist(prev => !prev);
+                    }}
+                    className={cn(
+                      "absolute top-2 left-2 z-[9999] cursor-pointer rounded-full border p-1 transition hover:bg-white",
+                      isFullView
+                        ? cn(
+                            "-top-1 border-white/30 bg-white/20 text-white",
+                            immersiveLayout === "portrait_video" &&
+                              "top-2 -translate-y-0"
+                          )
+                        : "top-2 border-black bg-white/70"
+                    )}
+                  >
+                    <X className="text-primary size-4" />
+                  </button>
+                )}
+
+                {/* Scrollable playlist */}
+                <div
+                  ref={playlistRef}
+                  className="border-moonstone-blue relative z-[999] flex max-h-[310px] overflow-x-auto rounded-md border-2 bg-white/90 p-2 pt-8 sm:max-h-[450px]"
+                  style={{ scrollbarWidth: "none" }}
+                >
+                  {playlist
+                    // .filter(content => content.id !== currentContent?.id)
+                    .map((content, index) => {
+                      const isNext = content.id === nextContent?.id;
+                      const scale = 0.9;
+
+                      return (
+                        <div
+                          key={content.id}
+                          className="relative w-[250px] shrink-0 cursor-pointer rounded-md bg-white p-4"
+                          onClick={() => {
+                            setOpenPlaylist(false);
+                            requestAnimationFrame(() => {
+                              goToContent(content);
+                            });
+                          }}
+                          style={{
+                            transform: `scale(${scale})`,
+                            transition: "all 0.3s ease-in-out",
+                          }}
+                        >
+                          <div className="relative">
+                            <Image
+                              src={`https://img.youtube.com/vi/${extractYoutubeID(content.url)}/hqdefault.jpg`}
+                              alt="Video thumbnail"
+                              width={400}
+                              height={400}
+                              className="h-full w-full object-cover"
+                            />
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/90 p-2">
+                              <Play className="size-8 text-white" />
+                            </div>
+                          </div>
+
+                          <div className="absolute right-4 bottom-4 flex items-center gap-1">
+                            <span className="bg-primary flex size-6 shrink-0 items-center justify-center rounded-full p-2 text-xs text-white">
+                              {index + 1}
+                            </span>
+                            /
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-black p-2 text-xs text-white">
+                              {playlist.length}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1 px-2 py-4">
+                            <div className="flex items-center gap-1 text-sm text-black">
+                              {isNext && (
+                                <span className="flex items-center gap-1 font-semibold">
+                                  <FastForward className="fill-primary size-4" />{" "}
+                                  Next:
+                                </span>
+                              )}
+                              <span>
+                                {content.title.substring(0, 20)}{" "}
+                                {content.title.length > 20 ? "..." : ""}
+                              </span>
+                            </div>
+
+                            <p className="text-muted-foreground text-sm">
+                              {formatTime(content.durationSeconds)} min
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {/* Left arrow - fixed at bottom inside container */}
+                <button
+                  onClick={() =>
+                    playlistRef.current?.scrollBy({
+                      left: -100,
+                      behavior: "smooth",
+                    })
+                  }
+                  className="absolute top-1/2 -left-2 z-[9999] flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-black bg-white/90 p-0.5 shadow transition hover:bg-white"
+                >
+                  <ChevronLeft className="size-4 text-black" />
+                </button>
+                {/* Right arrow - fixed at bottom inside container */}
+                <button
+                  onClick={() =>
+                    playlistRef.current?.scrollBy({
+                      left: 100,
+                      behavior: "smooth",
+                    })
+                  }
+                  className="absolute top-1/2 -right-2 z-[9999] flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border border-black bg-white/90 p-0.5 shadow transition hover:bg-white"
+                >
+                  <ChevronRight className="size-4 text-black" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {openCommunityModal && isCommunity && (
+            <div className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2">
+              {/* Playlist container wrapper */}
+              <div className="relative flex max-h-[300px] w-[255px] flex-col gap-2 rounded-md shadow-lg sm:max-h-[450px] sm:w-[350px]">
+                <p className="absolute top-0 left-1/2 z-[9999] -translate-x-1/2 cursor-pointer p-2 text-center text-[10px] whitespace-nowrap text-black sm:text-xs">
+                  {" "}
+                  {}
+                  <span
+                    className="cursor-pointer"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setOpenPlaylist(prev => !prev);
+                    }}
+                  >
+                    {communityName}
+                  </span>{" "}
+                </p>
+
+                {openCommunityModal && isCommunity && (
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setOpenCommunityModal(prev => !prev);
+                    }}
+                    className={cn(
+                      "absolute top-2 left-2 z-[9999] cursor-pointer rounded-full border p-1 transition hover:bg-white",
+                      isFullView
+                        ? cn(
+                            "-top-1 border-white/30 bg-white/20 text-white",
+                            immersiveLayout === "portrait_video" &&
+                              "top-2 -translate-y-0"
+                          )
+                        : "top-2 border-black bg-white/70"
+                    )}
+                  >
+                    <X className="text-primary size-4" />
+                  </button>
+                )}
+
+                {/* Scrollable playlist */}
+                <div
+                  ref={playlistRef}
+                  className="border-moonstone-blue relative z-[999] flex max-h-[310px] flex-col gap-6 overflow-x-auto rounded-md border-2 bg-white/90 p-4 pt-8 sm:max-h-[450px]"
+                  style={{ scrollbarWidth: "none" }}
+                >
+                  <div className="mx-auto flex max-w-sm items-center gap-2">
+                    <Link
+                      href={`/explore?tab=join&joinCommunity=${communityId}`}
+                      className="bg-secondary w-fit rounded-md p-2 text-center text-sm"
+                    >
+                      Join community
+                    </Link>
+                    <Link
+                      href={`/tv?community=${communityId}`}
+                      className="text-sm underline"
+                    >
+                      Watch TV
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1429,6 +1641,7 @@ export const ContentClient = ({
             {tipPreviewOpen && (
               <TippingElementsProvider
                 tippingCharacters={tipStrip as RoomCharacter[]}
+                textTipUnitPrice={tipPres.textUnitPrice}
               >
                 <div className="absolute -bottom-6 left-1/2 mx-auto h-[240px] w-[40%] -translate-x-1/2 rounded-t-xl bg-white/80 px-4 py-2 lg:w-[45%]">
                   <div className="relative">
@@ -1436,7 +1649,7 @@ export const ContentClient = ({
                       eventId={eventId}
                       tippingCharacters={tipStrip as RoomCharacter[]}
                       characterSets={tipSets}
-                      paymentSurface="channel_client"
+                      paymentSurface="content_client"
                       paymentChannelId={paymentChannelIdForTip}
                       getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
                       getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
@@ -1660,6 +1873,7 @@ export const ContentClient = ({
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
           tippingCharacters={tipStrip as RoomCharacter[]}
+          textTipUnitPrice={tipPres.textUnitPrice}
         >
           <TipDrawer
             open={isTipDrawerOpen}
@@ -1769,7 +1983,10 @@ export const ContentClient = ({
       </div>
 
       {/* Tip section - MOBILE */}
-      <TippingElementsProvider tippingCharacters={tipStrip as RoomCharacter[]}>
+      <TippingElementsProvider
+        tippingCharacters={tipStrip as RoomCharacter[]}
+        textTipUnitPrice={tipPres.textUnitPrice}
+      >
         <div
           className={cn(
             "absolute sm:hidden",
@@ -1811,11 +2028,7 @@ export const ContentClient = ({
         eventId={eventId}
         channelId={currentContent?.id ? String(currentContent.id) : null}
         eventRoomTipCount={liveNumOfTips}
-        videoTipCount={
-          typeof currentContent?.numOfTips === "number"
-            ? currentContent.numOfTips
-            : liveNumOfTips
-        }
+        videoTipCount={liveChannelNumOfTips}
       />
 
       {/* PROFILE DRAWER */}

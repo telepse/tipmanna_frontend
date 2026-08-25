@@ -9,6 +9,7 @@ import type { NewEventFormData } from "@/schemas";
 import {
   splitDraftPayload,
   splitModalDraftPayload,
+  buildVerifyStatusPolicy,
   type DraftResumeOrigin,
 } from "@/lib/form-draft-utils";
 
@@ -24,6 +25,8 @@ type Options = {
   /** community id or event id for modal draft resume */
   modalTargetId?: string;
   resumeOrigin?: DraftResumeOrigin;
+  verifyStatus?: Record<number, string | undefined>;
+  modalVerifyState?: "idle" | "checking" | "verified" | "failed";
 };
 
 export type FormDraftSaveState = {
@@ -45,9 +48,16 @@ export function useFormDraftAutosave(
     payloadKind = "event",
     modalTargetId,
     resumeOrigin,
+    verifyStatus,
+    modalVerifyState,
   }: Options
 ) {
   const draftIdRef = useRef<string | null>(draftId ?? null);
+  const payloadRef = useRef(payload);
+  payloadRef.current = payload;
+
+  const payloadFingerprint = JSON.stringify(payload);
+
   const [saveState, setSaveState] = useState<FormDraftSaveState>({
     saving: false,
     lastSavedAt: null,
@@ -59,12 +69,22 @@ export function useFormDraftAutosave(
   }, [draftId]);
 
   const persistDraft = useCallback(async () => {
+    const currentPayload = payloadRef.current;
     const { payloadJson, policyJson: rawPolicy } =
       payloadKind === "modal"
         ? splitModalDraftPayload(
-            payload as import("@/components/events/add-video-form").AddVideoFormValues
+            currentPayload as import("@/components/events/add-video-form").AddVideoFormValues,
+            modalVerifyState
           )
-        : splitDraftPayload(payload as NewEventFormData);
+        : splitDraftPayload(
+            currentPayload as NewEventFormData,
+            payloadKind === "event"
+              ? buildVerifyStatusPolicy(
+                  (currentPayload as NewEventFormData).videoLinks ?? [],
+                  verifyStatus ?? {}
+                )
+              : undefined
+          );
 
     const policyJson =
       payloadKind === "modal" && modalTargetId?.trim()
@@ -116,7 +136,6 @@ export function useFormDraftAutosave(
       }));
     }
   }, [
-    payload,
     kind,
     step,
     title,
@@ -124,6 +143,8 @@ export function useFormDraftAutosave(
     payloadKind,
     modalTargetId,
     resumeOrigin,
+    verifyStatus,
+    modalVerifyState,
   ]);
 
   useEffect(() => {
@@ -134,7 +155,7 @@ export function useFormDraftAutosave(
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [payload, enabled, persistDraft]);
+  }, [payloadFingerprint, enabled, persistDraft]);
 
   return { ...saveState, saveNow: persistDraft };
 }

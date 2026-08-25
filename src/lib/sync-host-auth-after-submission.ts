@@ -1,5 +1,8 @@
-import { setCredentials, type HostUser } from "@/features/auth-slice";
-import type { AppDispatch } from "@/redux/store";
+import Cookies from "js-cookie";
+import {
+  getHostUserFromCookies,
+  type HostUserCookie,
+} from "@/lib/host-session-client";
 
 export type HostAuthSnapshot = {
   numOfEvents?: number;
@@ -7,6 +10,8 @@ export type HostAuthSnapshot = {
   individualLegalFirstName?: string | null;
   individualLegalLastName?: string | null;
   organizationName?: string | null;
+  eventSlug?: string | null;
+  eventCode?: string | null;
 };
 
 function optionalString(value: unknown): string | null {
@@ -30,56 +35,50 @@ export function parseHostAuthSnapshot(data: unknown): HostAuthSnapshot | null {
     individualLegalFirstName: optionalString(raw.individualLegalFirstName),
     individualLegalLastName: optionalString(raw.individualLegalLastName),
     organizationName: optionalString(raw.organizationName),
+    eventSlug: optionalString(raw.eventSlug),
+    eventCode: optionalString(raw.eventCode),
   };
 }
 
-/** Merge host auth fields returned after event/content submission into Redux. */
-export function syncHostAuthAfterSubmission(
-  dispatch: AppDispatch,
-  user: HostUser,
-  token: string,
-  snapshot: HostAuthSnapshot | null | undefined
-) {
-  if (!snapshot) return;
-
-  dispatch(
-    setCredentials({
-      user: {
-        ...user,
-        ...(snapshot.numOfEvents != null
-          ? { numOfEvents: snapshot.numOfEvents }
-          : {}),
-        ...(snapshot.lockedCustomerType
-          ? { lockedCustomerType: snapshot.lockedCustomerType }
-          : {}),
-        ...(snapshot.individualLegalFirstName != null
-          ? { individualLegalFirstName: snapshot.individualLegalFirstName }
-          : {}),
-        ...(snapshot.individualLegalLastName != null
-          ? { individualLegalLastName: snapshot.individualLegalLastName }
-          : {}),
-        ...(snapshot.organizationName != null
-          ? { organizationName: snapshot.organizationName }
-          : {}),
-      },
-      token,
-    })
-  );
+function cookieToHostUser(cookie: HostUserCookie): HostUserCookie {
+  return { ...cookie };
 }
 
+/** Merge host fields from event submission into the hostUser cookie (not primary Redux). */
+export async function syncHostCookieAfterSubmission(
+  snapshot: HostAuthSnapshot | null | undefined
+): Promise<void> {
+  if (!snapshot) return;
+
+  const existing = getHostUserFromCookies();
+  if (!existing?.id) return;
+
+  const merged: HostUserCookie = {
+    ...cookieToHostUser(existing),
+    ...(snapshot.numOfEvents != null
+      ? { numOfEvents: String(snapshot.numOfEvents) }
+      : {}),
+    ...(snapshot.eventSlug != null ? { eventSlug: snapshot.eventSlug } : {}),
+    ...(snapshot.eventCode != null ? { eventCode: snapshot.eventCode } : {}),
+  };
+
+  Cookies.set("hostUser", JSON.stringify(merged), {
+    path: "/",
+    sameSite: "lax",
+  });
+}
+
+/** @deprecated Use syncHostCookieAfterSubmission — never write host fields to primary Redux. */
 export function syncHostAuthFromCreateEventResponse(
-  dispatch: AppDispatch,
-  user: HostUser,
-  token: string | null | undefined,
+  _dispatch: unknown,
+  _user: unknown,
+  _token: string | null | undefined,
   responseData: unknown
 ) {
-  if (!token) return;
-
   const body =
     responseData && typeof responseData === "object"
       ? (responseData as Record<string, unknown>)
       : null;
   const snapshot = parseHostAuthSnapshot(body?.host);
-
-  syncHostAuthAfterSubmission(dispatch, user, token, snapshot);
+  void syncHostCookieAfterSubmission(snapshot);
 }

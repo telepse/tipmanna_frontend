@@ -1,25 +1,22 @@
 "use server";
 
 import { actionFail, runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverHostAuthHeaders } from "@/lib/server-auth";
 
 function api() {
   return (process.env.NEXT_PUBLIC_BACKEND_API_URL || "").replace(/\/$/, "");
 }
 
-export async function createCommunityActivationRequestAction(
-  token?: string | null,
-  body?: {
-    eventId?: string;
-    communityId?: string;
-    kind?: "community" | "tv";
-    communityName?: string | null;
-    description?: string | null;
-    logoUrl?: string | null;
-    contactEmail?: string | null;
-    contactPhone?: string | null;
-  }
-) {
+export async function createCommunityActivationRequestAction(body?: {
+  eventId?: string;
+  communityId?: string;
+  kind?: "community" | "tv";
+  communityName?: string | null;
+  description?: string | null;
+  logoUrl?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+}) {
   const eventId = body?.eventId?.trim() ?? "";
   const communityId = body?.communityId?.trim() ?? "";
   if (!eventId && !communityId) {
@@ -38,7 +35,7 @@ export async function createCommunityActivationRequestAction(
     `${api()}/communities/activation-requests`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify({
         ...(eventId ? { eventId } : {}),
         ...(communityId ? { communityId } : {}),
@@ -63,14 +60,12 @@ export async function createCommunityActivationRequestAction(
   );
 }
 
-export async function listMyCommunityActivationRequestsAction(
-  token?: string | null
-) {
+export async function listMyCommunityActivationRequestsAction() {
   return runServerFetch(
     `${api()}/communities/activation-requests/me`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "listMyCommunityActivationRequestsAction"

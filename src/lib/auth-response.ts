@@ -1,11 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type AuthUserPayload = {
+/** Primary session user — always tipper or visitor. */
+export type TipperAuthUser = {
   id: string;
   fullName: string;
   email: string;
   username: string;
-  role: "HOST" | "TIPPER" | "VISITOR";
+  role: "TIPPER";
+  anonymous?: boolean;
+};
+
+export type VisitorAuthUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  username: string;
+  role: "VISITOR";
+};
+
+/** Host session payload (stored in hostUser cookie, not primary Redux). */
+export type HostSessionUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  username: string;
+  role: "HOST";
   eventCode?: string | null;
   eventSlug?: string | null;
   numOfEvents?: number;
@@ -13,23 +32,31 @@ export type AuthUserPayload = {
   individualLegalLastName?: string | null;
   organizationName?: string | null;
   lockedCustomerType?: "INDIVIDUAL" | "ORGANIZATION" | null;
-  anonymous?: boolean;
   hostSubscriptionTier?: "NONE" | "HOST_PREMIUM" | "HOST_COMMUNITY";
 };
+
+/** @deprecated Use TipperAuthUser for primary session. Kept for gradual migration. */
+export type AuthUserPayload =
+  | TipperAuthUser
+  | VisitorAuthUser
+  | HostSessionUser;
 
 export type ParsedAuthResponse = {
   message: string;
   token: string;
-  user: AuthUserPayload;
-  role: "HOST" | "TIPPER";
+  user: TipperAuthUser;
+  role: "TIPPER";
   tag?: string | null;
+  hasHostAccount?: boolean;
   requiresVerification?: boolean;
+  /** Present when host sign-in returns dual tokens. */
+  hostSession?: {
+    token: string;
+    user: HostSessionUser;
+  };
 };
 
-function pickUser(
-  raw: any,
-  role: "HOST" | "TIPPER" | "VISITOR"
-): AuthUserPayload | null {
+function pickTipperUser(raw: any): TipperAuthUser | null {
   if (!raw || typeof raw !== "object") return null;
   const id = raw.id;
   if (!id) return null;
@@ -38,7 +65,21 @@ function pickUser(
     fullName: String(raw.fullName ?? ""),
     email: String(raw.email ?? ""),
     username: String(raw.username ?? ""),
-    role,
+    role: "TIPPER",
+    anonymous: raw.anonymous,
+  };
+}
+
+function pickHostSessionUser(raw: any): HostSessionUser | null {
+  if (!raw || typeof raw !== "object") return null;
+  const id = raw.id;
+  if (!id) return null;
+  return {
+    id: String(id),
+    fullName: String(raw.fullName ?? ""),
+    email: String(raw.email ?? ""),
+    username: String(raw.username ?? ""),
+    role: "HOST",
     eventCode: raw.eventCode ?? null,
     eventSlug: raw.eventSlug ?? null,
     numOfEvents: raw.numOfEvents ?? 0,
@@ -50,75 +91,69 @@ function pickUser(
       raw.lockedCustomerType === "ORGANIZATION"
         ? raw.lockedCustomerType
         : null,
-    anonymous: raw.anonymous,
-    ...(role === "HOST"
-      ? {
-          hostSubscriptionTier:
-            raw.hostSubscriptionTier === "HOST_PREMIUM" ||
-            raw.hostSubscriptionTier === "HOST_COMMUNITY" ||
-            raw.hostSubscriptionTier === "NONE"
-              ? raw.hostSubscriptionTier
-              : undefined,
-        }
-      : {}),
+    hostSubscriptionTier:
+      raw.hostSubscriptionTier === "HOST_PREMIUM" ||
+      raw.hostSubscriptionTier === "HOST_COMMUNITY" ||
+      raw.hostSubscriptionTier === "NONE"
+        ? raw.hostSubscriptionTier
+        : undefined,
   };
 }
 
-/** Normalise backend auth payloads (`host` / `user` / `tipper` + token). */
+/** Normalise backend auth payloads — primary is always tipper. */
 export function parseAuthResponse(data: unknown): ParsedAuthResponse | null {
   if (!data || typeof data !== "object") return null;
   const body = data as Record<string, any>;
-  const token = typeof body.token === "string" ? body.token : null;
-  if (!token) return null;
-
   const message = typeof body.message === "string" ? body.message : "Success";
 
-  const explicitRole =
-    body.role === "HOST" || body.role === "TIPPER" ? body.role : null;
-
-  if (body.host) {
-    const user = pickUser(body.host, "HOST");
+  // Dual host login: primary tipper + host session
+  if (body.primary?.token && body.primary?.user) {
+    const user = pickTipperUser(body.primary.user);
     if (!user) return null;
+    const hostRaw = body.host?.user ?? body.hostUser;
+    const hostToken = body.host?.token ?? body.hostToken;
+    const hostUser = hostRaw ? pickHostSessionUser(hostRaw) : null;
     return {
       message,
-      token,
-      user,
-      role: "HOST",
-      tag: body.tag ?? null,
-      requiresVerification: body.requiresVerification === true,
-    };
-  }
-
-  if (body.tipper) {
-    const user = pickUser(body.tipper, "TIPPER");
-    if (!user) return null;
-    return {
-      message,
-      token,
+      token: body.primary.token,
       user,
       role: "TIPPER",
       tag: body.tag ?? null,
-      requiresVerification: body.requiresVerification !== false,
+      requiresVerification: body.requiresVerification === true,
+      hostSession:
+        hostToken && hostUser
+          ? { token: hostToken, user: hostUser }
+          : undefined,
     };
   }
 
-  if (body.user) {
-    const role =
-      explicitRole ??
-      (body.tag === "EXISTING_HOST" ? "HOST" : ("TIPPER" as const));
-    const user = pickUser(body.user, role);
-    if (!user) return null;
-    return {
-      message,
-      token,
-      user,
-      role,
-      tag: body.tag ?? null,
-      requiresVerification: body.requiresVerification !== false,
-    };
-  }
+  const token =
+    typeof body.token === "string"
+      ? body.token
+      : typeof body.primary?.token === "string"
+        ? body.primary.token
+        : null;
+  if (!token) return null;
 
-  return null;
+  const tipperRaw = body.tipper ?? body.user ?? body.primary?.user;
+  const user = pickTipperUser(tipperRaw);
+  if (!user) return null;
+
+  const hostRaw = body.host ?? body.hostUser;
+  const hostToken = body.hostToken ?? body.host?.token;
+  const hostUser = hostRaw ? pickHostSessionUser(hostRaw) : null;
+
+  return {
+    message,
+    token,
+    user,
+    role: "TIPPER",
+    tag: body.tag ?? null,
+    hasHostAccount: body.hasHostAccount === true || Boolean(hostUser),
+    requiresVerification: body.requiresVerification !== false,
+    hostSession:
+      hostToken && hostUser ? { token: hostToken, user: hostUser } : undefined,
+  };
 }
 
 export function isUnverifiedHostMessage(

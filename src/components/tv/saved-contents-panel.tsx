@@ -72,7 +72,7 @@ export function SavedContentsPanel() {
       {!isAuthenticated ? (
         <p className="text-muted-foreground text-sm">
           <Link
-            href="/login"
+            href="/sign-in"
             className="underline"
           >
             Sign in

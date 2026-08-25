@@ -68,7 +68,8 @@ import {
 } from "@/actions/communities";
 import { ApiError } from "@/types/api-error.types";
 import { CommunityMembershipOwnerPanel } from "@/components/dashboard/community-membership-owner-panel";
-import { RootState } from "@/redux/store";
+import { useHostSession } from "@/hooks/use-host-session";
+import type { RootState } from "@/redux/store";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel";
 import { getHostEventsAction } from "@/actions/events";
@@ -306,7 +307,6 @@ function OwnerBankCard({
                 }
                 void run(async () => {
                   const res = await rejectCommunityBankEntryAction(
-                    authToken,
                     communityId,
                     item.id,
                     { reason: rejectReason || undefined }
@@ -360,7 +360,6 @@ function OwnerBankCard({
                 }
                 void run(async () => {
                   const res = await approveCommunityBankEntryAction(
-                    authToken,
                     communityId,
                     item.id
                   );
@@ -398,7 +397,6 @@ function OwnerBankCard({
                 }
                 void run(async () => {
                   const res = await patchCommunityBankEntryVisibilityAction(
-                    authToken,
                     communityId,
                     item.id,
                     v
@@ -514,6 +512,7 @@ export function HostCommunityClient() {
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authUserId = authUser?.id;
+  const hostSession = useHostSession();
   const authToken = useSelector((s: RootState) => s.auth.token);
   const {
     status: planStatus,
@@ -648,7 +647,7 @@ export function HostCommunityClient() {
   }, [payoutSummary]);
 
   const loadPayoutSummary = useCallback(async () => {
-    if (!authUser || authUser.role !== "HOST") return;
+    if (!hostSession.isActive) return;
     const res = await getHostPayoutSummaryAction();
     if (res.success && res.data) {
       setPayoutSummary(
@@ -673,7 +672,7 @@ export function HostCommunityClient() {
         }
       );
     }
-  }, [authUser]);
+  }, [hostSession.isActive]);
 
   useEffect(() => {
     void loadPayoutSummary();
@@ -775,7 +774,7 @@ export function HostCommunityClient() {
   const loadActivationRequests = useCallback(async () => {
     if (!authUser || !authToken) return;
     setActivationListLoading(true);
-    const res = await listMyCommunityActivationRequestsAction(authToken);
+    const res = await listMyCommunityActivationRequestsAction();
     setActivationListLoading(false);
     if (!res.success || !res.data) {
       if (!isCommunityApiUnavailable(res.message)) {
@@ -819,7 +818,7 @@ export function HostCommunityClient() {
       setActivationOpen(true);
       setActivationEventsLoading(true);
       try {
-        const evRes = await getHostEventsAction(authToken);
+        const evRes = await getHostEventsAction({ limit: 100 });
         if (!evRes.success || evRes.data == null) {
           toast.error(evRes.message ?? "Could not load your events");
           setHostEventsPick([]);
@@ -867,7 +866,7 @@ export function HostCommunityClient() {
         }
       }
 
-      const res = await createCommunityActivationRequestAction(authToken, {
+      const res = await createCommunityActivationRequestAction({
         eventId: pickEventId,
         kind: activationKind === "tv" ? "tv" : "community",
         communityName: communityName || null,
@@ -915,7 +914,7 @@ export function HostCommunityClient() {
 
     setActivationBusy(true);
     try {
-      const res = await createCommunityActivationRequestAction(authToken, {
+      const res = await createCommunityActivationRequestAction({
         ...(pickEventId.trim() || selected.eventId?.trim()
           ? { eventId: pickEventId.trim() || selected.eventId!.trim() }
           : {}),
@@ -944,7 +943,7 @@ export function HostCommunityClient() {
 
   const resumeCommunityTv = useCallback(async () => {
     if (!selected?.id) return;
-    const res = await resumeCommunityTvAction(selected.id, authToken);
+    const res = await resumeCommunityTvAction(selected.id);
     if (!res.success) {
       toast.error(res.message ?? "Resume failed");
       return;
@@ -1007,7 +1006,7 @@ export function HostCommunityClient() {
         options?.background ?? coCreatorsLoadedForRef.current === selectedId;
       if (!background) setLoadingCo(true);
       try {
-        const res = await listCoCreatorsAction(authToken, selectedId);
+        const res = await listCoCreatorsAction(selectedId);
         if (!res.success || !res.data) {
           toast.error(res.message ?? "Could not load co-creators");
           return;
@@ -1103,10 +1102,10 @@ export function HostCommunityClient() {
   }, [mainTab, memberships.length, loadActivationRequests]);
 
   useEffect(() => {
-    if (!authUserId || authUser?.role !== "HOST") {
+    const hostId = hostSession.hostId;
+    if (!hostId) {
       return;
     }
-    const hostId = authUserId;
     const hostChannelName = `community-host-${hostId}`;
     const hostChannel = subscribeChannel(hostChannelName);
 
@@ -1145,14 +1144,7 @@ export function HostCommunityClient() {
         unsubscribeChannel(`community-${communityIdForPusher}`);
       }
     };
-  }, [
-    authUser?.role,
-    authUserId,
-    selectedId,
-    selectedRole,
-    loadOwed,
-    loadBank,
-  ]);
+  }, [hostSession.hostId, selectedId, selectedRole, loadOwed, loadBank]);
 
   useEffect(() => {
     if (!communityFeatureOn || !selectedId || !selectedRole) return;
@@ -1184,9 +1176,10 @@ export function HostCommunityClient() {
     try {
       const payload = buildCreateChannelPayload(values);
       const res = await addCommunityVideoAction(
-        authToken,
+        undefined,
         selected.id,
-        payload
+        payload,
+        { useHostSession: true }
       );
       if (!res.success) {
         if (addVideoForm) {
@@ -1228,7 +1221,7 @@ export function HostCommunityClient() {
     if (!authUser) return;
     setInviteLoading(true);
     try {
-      const res = await inviteCoCreatorAction(authToken, selected.id, email);
+      const res = await inviteCoCreatorAction(selected.id, email);
       if (!res.success) {
         toast.error(res.message ?? "Invite failed");
         return;
@@ -1245,7 +1238,7 @@ export function HostCommunityClient() {
   const onRevokeCoCreatorMember = async (hostId: string) => {
     if (!selected || selected.role !== "owner") return;
     if (!authUser) return;
-    const res = await revokeCoCreatorAction(authToken, selected.id, hostId);
+    const res = await revokeCoCreatorAction(selected.id, hostId);
     if (!res.success) {
       toast.error(res.message ?? "Could not revoke");
       return;
@@ -1258,11 +1251,7 @@ export function HostCommunityClient() {
   const onRevokePendingInvite = async (inviteId: string) => {
     if (!selected || selected.role !== "owner") return;
     if (!authUser) return;
-    const res = await revokeCoCreatorInviteAction(
-      authToken,
-      selected.id,
-      inviteId
-    );
+    const res = await revokeCoCreatorInviteAction(selected.id, inviteId);
     if (!res.success) {
       toast.error(res.message ?? "Could not revoke invite");
       return;
@@ -1392,90 +1381,103 @@ export function HostCommunityClient() {
             )}
 
             {selected?.role === "owner" && communityFeatureOn ? (
-              <div className="flex flex-row gap-2">
-                {tvUnpaused ? (
-                  <>
-                    <Button
-                      asChild
-                      variant="secondary"
-                      size="sm"
-                    >
-                      <Link
-                        href={`/tv?community=${encodeURIComponent(selected.id)}`}
+              <div className="scrollbar-none w-full min-w-0 overflow-x-auto">
+                <div className="flex w-max min-w-full flex-nowrap gap-2">
+                  {tvUnpaused ? (
+                    <>
+                      <Button
+                        asChild
+                        variant="secondary"
+                        size="sm"
+                        className="w-auto shrink-0 whitespace-nowrap"
                       >
-                        Watch community TV
-                      </Link>
+                        <Link
+                          href={`/tv?community=${encodeURIComponent(selected.id)}`}
+                        >
+                          Watch community TV
+                        </Link>
+                      </Button>
+
+                      {hostSlug ? (
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="w-auto shrink-0 whitespace-nowrap"
+                        >
+                          <Link
+                            href={`/host/${hostSlug}/community-tv?communityId=${encodeURIComponent(selected.id)}`}
+                          >
+                            TV schedule reorder
+                          </Link>
+                        </Button>
+                      ) : null}
+                    </>
+                  ) : selected.tvActivatedAt && selected.tvHostPaused ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="w-auto shrink-0 whitespace-nowrap"
+                      onClick={() => void resumeCommunityTv()}
+                    >
+                      Resume community TV
                     </Button>
-                    {hostSlug ? (
+                  ) : selected.eventId ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="w-auto shrink-0 whitespace-nowrap"
+                      onClick={() => void openActivationDialog("tv")}
+                    >
+                      Request TV activation
+                    </Button>
+                  ) : null}
+
+                  {hostSlug ? (
+                    <>
                       <Button
                         asChild
                         variant="outline"
                         size="sm"
+                        className="w-auto shrink-0 whitespace-nowrap"
                       >
                         <Link
-                          href={`/host/${hostSlug}/community-tv?communityId=${encodeURIComponent(selected.id)}`}
+                          href={`/host/${hostSlug}/community-analytics?communityId=${encodeURIComponent(selected.id)}`}
                         >
-                          TV schedule (reorder)
+                          Community analytics
                         </Link>
                       </Button>
-                    ) : null}
-                  </>
-                ) : selected.tvActivatedAt && selected.tvHostPaused ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => void resumeCommunityTv()}
-                  >
-                    Resume community TV
-                  </Button>
-                ) : selected.eventId ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => void openActivationDialog("tv")}
-                  >
-                    Request TV activation
-                  </Button>
-                ) : null}
-                {hostSlug ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Link
-                        href={`/host/${hostSlug}/community-analytics?communityId=${encodeURIComponent(selected.id)}`}
+
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="w-auto shrink-0 whitespace-nowrap"
                       >
-                        Community analytics
-                      </Link>
-                    </Button>
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Link
-                        href={`/host/${hostSlug}/community-display?communityId=${encodeURIComponent(selected.id)}`}
+                        <Link
+                          href={`/host/${hostSlug}/community-display?communityId=${encodeURIComponent(selected.id)}`}
+                        >
+                          Room display
+                        </Link>
+                      </Button>
+
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="w-auto shrink-0 whitespace-nowrap"
                       >
-                        Room display
-                      </Link>
-                    </Button>
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Link
-                        href={`/host/${hostSlug}/community-customization?communityId=${encodeURIComponent(selected.id)}`}
-                      >
-                        Branding (dedicated mode)
-                      </Link>
-                    </Button>
-                  </div>
-                ) : null}
+                        <Link
+                          href={`/host/${hostSlug}/community-customization?communityId=${encodeURIComponent(selected.id)}`}
+                        >
+                          Branding (dedicated mode)
+                        </Link>
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
@@ -1565,59 +1567,67 @@ export function HostCommunityClient() {
               value={mainTab}
               onValueChange={setMainTab}
               key={selected?.id ?? "x"}
-              className="w-full"
+              className="w-full max-w-full min-w-0"
             >
-              <TabsList className="flex h-14! w-full gap-1">
-                {selected?.role === "owner" && (
-                  <TabsTrigger
-                    value="bank"
-                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-                  >
-                    Content Bank
-                  </TabsTrigger>
-                )}
-                {selected?.role === "owner" && (
-                  <TabsTrigger
-                    value="cocreators"
-                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-                  >
-                    Co-creators
-                  </TabsTrigger>
-                )}
-                {selected?.role === "owner" && (
-                  <TabsTrigger
-                    value="membership"
-                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-                  >
-                    Membership
-                  </TabsTrigger>
-                )}
-                {selected?.role === "owner" && (
-                  <TabsTrigger
-                    value="subscribers"
-                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-                  >
-                    <Users className="mr-1 inline size-4" />
-                    Subscribers
-                  </TabsTrigger>
-                )}
-                {selected?.role === "owner" && (
-                  <TabsTrigger
-                    value="activation"
-                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-                  >
-                    Activations
-                  </TabsTrigger>
-                )}
-                {selected?.role === "coCreator" && (
-                  <TabsTrigger
-                    value="sends"
-                    className="data-[state=active]:border-b-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2"
-                  >
-                    Community Sends
-                  </TabsTrigger>
-                )}
-              </TabsList>
+              {/* Scrollable tab navigation on mobile */}
+              <div className="w-full max-w-full overflow-x-auto overflow-y-hidden">
+                <TabsList className="flex h-14! w-max min-w-full flex-nowrap gap-1">
+                  {selected?.role === "owner" && (
+                    <TabsTrigger
+                      value="bank"
+                      className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+                    >
+                      Content Bank
+                    </TabsTrigger>
+                  )}
+
+                  {selected?.role === "owner" && (
+                    <TabsTrigger
+                      value="cocreators"
+                      className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+                    >
+                      Co-creators
+                    </TabsTrigger>
+                  )}
+
+                  {selected?.role === "owner" && (
+                    <TabsTrigger
+                      value="membership"
+                      className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+                    >
+                      Membership
+                    </TabsTrigger>
+                  )}
+
+                  {selected?.role === "owner" && (
+                    <TabsTrigger
+                      value="subscribers"
+                      className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+                    >
+                      <Users className="mr-1 inline size-4" />
+                      Subscribers
+                    </TabsTrigger>
+                  )}
+
+                  {selected?.role === "owner" && (
+                    <TabsTrigger
+                      value="activation"
+                      className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+                    >
+                      Activations
+                    </TabsTrigger>
+                  )}
+
+                  {selected?.role === "coCreator" && (
+                    <TabsTrigger
+                      value="sends"
+                      className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+                    >
+                      Community Sends
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </div>
 
               {selected?.role === "owner" && (
                 <TabsContent
@@ -1626,6 +1636,7 @@ export function HostCommunityClient() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-lg font-semibold">Videos</h2>
+
                     <Button
                       type="button"
                       size="sm"
@@ -1708,6 +1719,7 @@ export function HostCommunityClient() {
                       Invite hosts by work email. They must sign in with the
                       same address to accept.
                     </p>
+
                     <Button
                       type="button"
                       size="sm"
@@ -1724,6 +1736,7 @@ export function HostCommunityClient() {
                     <>
                       <section>
                         <h3 className="mb-2 text-sm font-medium">Active</h3>
+
                         <ul className="space-y-2">
                           {coCreators.active.map(row => (
                             <li
@@ -1734,10 +1747,12 @@ export function HostCommunityClient() {
                                 <p className="text-sm font-medium">
                                   {row.host.fullName}
                                 </p>
+
                                 <p className="text-muted-foreground text-xs">
                                   @{row.host.username} · {row.host.email}
                                 </p>
                               </div>
+
                               <Button
                                 type="button"
                                 variant="outline"
@@ -1752,6 +1767,7 @@ export function HostCommunityClient() {
                             </li>
                           ))}
                         </ul>
+
                         {!coCreators.active.length && (
                           <p className="text-muted-foreground text-sm">
                             No active co-creators yet.
@@ -1763,6 +1779,7 @@ export function HostCommunityClient() {
                         <h3 className="mb-2 text-sm font-medium">
                           Pending invites
                         </h3>
+
                         <ul className="space-y-2">
                           {coCreators.pendingInvites.map(inv => (
                             <li
@@ -1773,11 +1790,13 @@ export function HostCommunityClient() {
                                 <p className="text-sm font-medium">
                                   {inv.email}
                                 </p>
+
                                 <p className="text-muted-foreground text-xs">
                                   Expires{" "}
                                   {new Date(inv.expiresAt).toLocaleString()}
                                 </p>
                               </div>
+
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1791,6 +1810,7 @@ export function HostCommunityClient() {
                             </li>
                           ))}
                         </ul>
+
                         {!coCreators.pendingInvites.length && (
                           <p className="text-muted-foreground text-sm">
                             No pending email invites.
@@ -1802,6 +1822,7 @@ export function HostCommunityClient() {
                         coCreators.revoked.length > 0) && (
                         <section>
                           <h3 className="mb-2 text-sm font-medium">Other</h3>
+
                           {coCreators.pendingMemberships.length > 0 && (
                             <p className="text-muted-foreground mb-2 text-xs">
                               Pending memberships:{" "}
@@ -1810,6 +1831,7 @@ export function HostCommunityClient() {
                                 .join(", ")}
                             </p>
                           )}
+
                           {coCreators.revoked.length > 0 && (
                             <p className="text-muted-foreground text-xs">
                               Revoked:{" "}
@@ -1844,6 +1866,7 @@ export function HostCommunityClient() {
                     Paid subscriptions (Stripe or Tipper Wallet). History
                     includes expired rows.
                   </p>
+
                   {loadingSubs ? (
                     <p className="text-muted-foreground text-sm">Loading…</p>
                   ) : subscribers.length === 0 ? (
@@ -1864,20 +1887,27 @@ export function HostCommunityClient() {
                                   s.tipper?.username ||
                                   "Tipper"}
                               </p>
+
                               <p className="text-muted-foreground text-xs">
                                 @{s.tipper?.username}
                                 {s.tipper?.email ? ` · ${s.tipper.email}` : ""}
                               </p>
                             </div>
+
                             <Badge variant="secondary">{s.status}</Badge>
                           </div>
+
                           <div className="text-muted-foreground mt-2 grid gap-1 text-xs">
                             <span>£{s.amount}</span>
+
                             <span>
                               {s.expiresAt
-                                ? `Expires ${new Date(s.expiresAt).toLocaleString()}`
+                                ? `Expires ${new Date(
+                                    s.expiresAt
+                                  ).toLocaleString()}`
                                 : "No expiry"}
                             </span>
+
                             {s.paymentRef && (
                               <span className="break-all">
                                 Ref: {s.paymentRef}
@@ -1894,6 +1924,7 @@ export function HostCommunityClient() {
                       <h3 className="mb-2 text-sm font-medium">
                         Recent payment activity
                       </h3>
+
                       <ul className="text-muted-foreground space-y-1 text-xs">
                         {owed.recentSubs.map(r => (
                           <li key={r.id}>
@@ -1919,20 +1950,20 @@ export function HostCommunityClient() {
                       size="sm"
                       variant="outline"
                       onClick={() => void openActivationDialog("community")}
-                      // disabled={hostAlreadyHasCommunity}exploore
                     >
                       New community request
                     </Button>
+
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       onClick={() => void openActivationDialog("tv")}
-                      // disabled={hostAlreadyHasCommunity}
                     >
                       New TV request
                     </Button>
                   </div>
+
                   {activationListLoading ? (
                     <p className="text-muted-foreground text-sm">Loading…</p>
                   ) : activationRows.length === 0 ? (
@@ -1950,6 +1981,7 @@ export function HostCommunityClient() {
                             {String(row.kind ?? "")} ·{" "}
                             {String((row.status as string) ?? "")}
                           </p>
+
                           <p className="text-muted-foreground text-xs">
                             {new Date(
                               String(row.createdAt ?? "")
@@ -1971,6 +2003,7 @@ export function HostCommunityClient() {
                     <p className="text-muted-foreground text-sm">
                       Your submissions. Copy link to share a specific video.
                     </p>
+
                     <Button
                       type="button"
                       size="sm"
@@ -1980,6 +2013,7 @@ export function HostCommunityClient() {
                       Add video
                     </Button>
                   </div>
+
                   {loadingSends && sends === null ? (
                     <p className="text-muted-foreground text-sm">Loading…</p>
                   ) : (
@@ -1993,6 +2027,7 @@ export function HostCommunityClient() {
                       ))}
                     </div>
                   )}
+
                   {sends !== null && sends.length === 0 && (
                     <p className="text-muted-foreground text-sm">
                       You have not submitted any videos yet.

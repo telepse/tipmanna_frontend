@@ -166,7 +166,7 @@ export const VisitorProfileBanner = ({ iTipped, variant = "page" }: Props) => {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const handleBack = () => {
-    router.push(from || "/");
+    router.push(from || "/explore");
   };
 
   return (

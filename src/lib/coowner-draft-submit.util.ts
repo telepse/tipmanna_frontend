@@ -1,6 +1,7 @@
 import { getVideoCoOwnerInviteStatusAction } from "@/actions/events";
 import {
   coOwnerBlockReasonMessage,
+  coOwnerDropWarningMessage,
   evaluateCoOwnerSubmitReadiness,
 } from "@/lib/coowner-submit-readiness.util";
 
@@ -19,7 +20,8 @@ type LinkSlice = {
 
 /** Returns an error message when co-owned videos lack an approved invite. */
 export async function validateCoOwnerDraftsForSubmit(
-  links: LinkSlice[]
+  links: LinkSlice[],
+  opts?: { singleVideo?: boolean }
 ): Promise<string | null> {
   for (const link of links) {
     if (link.ownershipAnswer !== "no") continue;
@@ -37,6 +39,14 @@ export async function validateCoOwnerDraftsForSubmit(
     const invites = (res.data as { invites?: { status: string }[] } | null)
       ?.invites;
     const readiness = evaluateCoOwnerSubmitReadiness(invites);
+
+    if (readiness.willDropOnSubmit) {
+      if (opts?.singleVideo) {
+        return coOwnerDropWarningMessage("will_be_dropped");
+      }
+      continue;
+    }
+
     if (readiness.blocked) {
       if (
         link.isDefault &&

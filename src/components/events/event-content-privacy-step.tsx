@@ -27,11 +27,15 @@ import { verifyYoutubeOwnershipAction } from "@/actions/policy";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useCoOwnerDraftFields } from "@/hooks/use-coowner-draft-fields";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { useHostProfile } from "@/hooks/use-host-profile";
 import type { CoOwnerDraftSlice } from "@/lib/form-draft-utils";
 import {
   mintYoutubeVerifyRequest,
   resolveYoutubeVerifyOutcome,
 } from "@/lib/youtube-verify-request.util";
+import type { YoutubeVerifyUiState } from "@/lib/youtube-submit-readiness.util";
+import { CoOwnerInviteStatusRow } from "./co-owner-invite-status-row";
 import { toast } from "react-toastify";
 import {
   CREATE_FORM_INPUT_CLASS,
@@ -51,38 +55,40 @@ export function EventContentPrivacyStep({
   onDraftSaveNow,
   onRefreshSubmitReadiness,
   coOwnerRefreshToken = 0,
+  onVerifyStateChange,
 }: {
   control: Control<NewEventFormData>;
   onCoOwnerInvitePending?: (inviteId: string) => void;
   onDraftSaveNow?: () => void | Promise<void>;
   onRefreshSubmitReadiness?: () => void;
   coOwnerRefreshToken?: number;
+  onVerifyStateChange?: (status: Record<number, YoutubeVerifyUiState>) => void;
 }) {
   const { watch, setValue, getValues } = useFormContext<NewEventFormData>();
   const user = useSelector((s: RootState) => s.auth.user);
   const token = useSelector((s: RootState) => s.auth.token);
+  const { canWriteAsHost } = useHostCapabilityWithAuth();
+  const { profile } = useHostProfile();
   const videoLinks = watch("videoLinks") || [];
   const [channels, setChannels] = useState<YtRow[]>([]);
   const [loadingYt, setLoadingYt] = useState(false);
   const [slot1Input, setSlot1Input] = useState("");
   const [slot2Input, setSlot2Input] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<
-    Record<number, "idle" | "checking" | "verified" | "failed">
+    Record<number, YoutubeVerifyUiState>
   >({});
   const nextVerifyRequestIdRef = useRef(0);
   const latestVerifyRequestIdByIndexRef = useRef<Record<number, number>>({});
 
-  const hostTier =
-    user?.role === "HOST"
-      ? (user as { hostSubscriptionTier?: string }).hostSubscriptionTier
-      : undefined;
+  const hostTier = profile?.hostSubscriptionTier;
+  console.log(hostTier);
   const canInvite =
     hostTier === "HOST_PREMIUM" || hostTier === "HOST_COMMUNITY";
 
   useEffect(() => {
-    if (!user?.id || user?.role !== "HOST") return;
+    if (!user?.id || !canWriteAsHost) return;
     setLoadingYt(true);
-    void getYoutubeChannelsAction(token).then(res => {
+    void getYoutubeChannelsAction().then(res => {
       setLoadingYt(false);
       if (res.success && res.data && typeof res.data === "object") {
         const c = (res.data as { channels?: YtRow[] }).channels;
@@ -91,27 +97,24 @@ export function EventContentPrivacyStep({
         toast.error(res.message ?? "Could not load your YouTube channels");
       }
     });
-  }, [user?.id, user?.role, token]);
+  }, [user?.id, canWriteAsHost]);
 
   const saveSlot = async (slot: number, url: string) => {
     if (!user?.id) {
       toast.error("Sign in required");
       return;
     }
-    const res = await upsertYoutubeChannelAction(
-      {
-        slot,
-        url: url.trim(),
-        rawUrl: url.trim(),
-      },
-      token
-    );
+    const res = await upsertYoutubeChannelAction({
+      slot,
+      url: url.trim(),
+      rawUrl: url.trim(),
+    });
     if (!res.success) {
       toast.error(res.message ?? "Could not save channel");
       return;
     }
     toast.success("YouTube channel saved");
-    const r = await getYoutubeChannelsAction(token);
+    const r = await getYoutubeChannelsAction();
     if (r.success && r.data && typeof r.data === "object") {
       const c = (r.data as { channels?: YtRow[] }).channels;
       if (Array.isArray(c)) setChannels(c);
@@ -122,7 +125,7 @@ export function EventContentPrivacyStep({
     const url = getValues(`videoLinks.${videoIndex}.url`)?.trim();
     const slot = getValues(`videoLinks.${videoIndex}.onYoutubeChannelSlot`);
     const ownership = getValues(`videoLinks.${videoIndex}.ownershipAnswer`);
-    if (!user?.id || user.role !== "HOST") {
+    if (!user?.id || !canWriteAsHost) {
       toast.error("Sign in as host to verify YouTube ownership");
       return;
     }
@@ -156,7 +159,7 @@ export function EventContentPrivacyStep({
 
     setVerifyStatus(prev => ({ ...prev, [videoIndex]: "checking" }));
     setValue(`videoLinks.${videoIndex}.isOnHostYoutube`, false);
-    const res = await verifyYoutubeOwnershipAction(url, slot, token);
+    const res = await verifyYoutubeOwnershipAction(url, slot);
 
     const currentUrl = getValues(`videoLinks.${videoIndex}.url`)?.trim() ?? "";
     const currentSlot = getValues(
@@ -223,6 +226,10 @@ export function EventContentPrivacyStep({
       setValue(`videoLinks.${i}.isOnHostYoutube`, false);
     });
   }, [verificationFingerprint, getValues, setValue]);
+
+  useEffect(() => {
+    onVerifyStateChange?.(verifyStatus);
+  }, [verifyStatus, onVerifyStateChange]);
 
   const slotLabel = (slot: 1 | 2) => {
     const row = channels.find(c => c.slot === slot);
@@ -495,8 +502,16 @@ function CoOwnerInviteBlock({
     setPct,
     readOnlyInvite,
     pending,
+    resending,
+    canResend,
+    resendCooldownSec,
+    canRemove,
+    removing,
+    removeInvite,
+    activeInvite,
     fieldErrors,
     sendInvite,
+    resendInvite,
     statusIndicatorClass,
     inviteStatusLabel,
   } = useCoOwnerDraftFields({
@@ -560,17 +575,19 @@ function CoOwnerInviteBlock({
         <p className="text-destructive text-xs">{fieldErrors.email}</p>
       ) : null}
       {inviteStatusLabel ? (
-        <p
-          className={`text-xs ${
-            inviteStatusLabel === "approved"
-              ? "text-green-400"
-              : inviteStatusLabel === "pending"
-                ? "text-amber-400"
-                : "text-red-400"
-          }`}
-        >
-          Co-owner status: {inviteStatusLabel}
-        </p>
+        <CoOwnerInviteStatusRow
+          status={inviteStatusLabel}
+          expiresAt={activeInvite?.expiresAt}
+          resendCount={activeInvite?.resendCount}
+          canResend={canResend}
+          resendCooldownSec={resendCooldownSec}
+          resending={resending}
+          onResend={resendInvite}
+          canRemove={canRemove}
+          removing={removing}
+          onRemove={removeInvite}
+          className="text-white/90"
+        />
       ) : null}
       <div className="flex items-center gap-2">
         <FormLabel className={`shrink-0 ${CREATE_FORM_LABEL_CLASS}`}>
@@ -589,12 +606,16 @@ function CoOwnerInviteBlock({
           }}
         />
       </div>
-      {readOnlyInvite ? null : (
+      {readOnlyInvite &&
+      inviteStatusLabel !== "expired" &&
+      inviteStatusLabel !== "declined" ? null : (
         <Button
           type="button"
           size="sm"
           className="bg-white text-black hover:bg-white/80"
-          disabled={pending}
+          disabled={
+            pending || !(getValues(`videoLinks.${index}.url`) ?? "").trim()
+          }
           onClick={() => void sendInvite()}
         >
           {pending ? "Sending…" : "Send invite email"}

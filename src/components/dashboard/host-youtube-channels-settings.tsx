@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useHostSession } from "@/hooks/use-host-session";
 import type { RootState } from "@/redux/store";
 
 type YtRow = {
@@ -21,7 +22,7 @@ type YtRow = {
 
 export function HostYoutubeChannelsSettings() {
   const user = useSelector((state: RootState) => state.auth.user);
-  const token = useSelector((state: RootState) => state.auth.token);
+  const hostSession = useHostSession();
 
   const [channels, setChannels] = useState<YtRow[]>([]);
   const [loadingYt, setLoadingYt] = useState(false);
@@ -29,11 +30,11 @@ export function HostYoutubeChannelsSettings() {
   const [slot2Input, setSlot2Input] = useState("");
 
   useEffect(() => {
-    if (!user?.id || user.role !== "HOST") return;
+    if (!user?.id || !hostSession.isActive) return;
 
     setLoadingYt(true);
 
-    void getYoutubeChannelsAction(token)
+    void getYoutubeChannelsAction()
       .then(res => {
         if (res.success && res.data && typeof res.data === "object") {
           const rows = (res.data as { channels?: YtRow[] }).channels;
@@ -48,7 +49,7 @@ export function HostYoutubeChannelsSettings() {
       .finally(() => {
         setLoadingYt(false);
       });
-  }, [user?.id, user?.role, token]);
+  }, [user?.id, hostSession.isActive]);
 
   const saveSlot = async (slot: number, url: string) => {
     if (!user?.id) {
@@ -63,14 +64,11 @@ export function HostYoutubeChannelsSettings() {
       return;
     }
 
-    const res = await upsertYoutubeChannelAction(
-      {
-        slot,
-        url: trimmed,
-        rawUrl: trimmed,
-      },
-      token
-    );
+    const res = await upsertYoutubeChannelAction({
+      slot,
+      url: trimmed,
+      rawUrl: trimmed,
+    });
 
     if (!res.success) {
       toast.error(res.message ?? "Could not save channel");
@@ -79,7 +77,7 @@ export function HostYoutubeChannelsSettings() {
 
     toast.success("YouTube channel saved");
 
-    const refreshed = await getYoutubeChannelsAction(token);
+    const refreshed = await getYoutubeChannelsAction();
 
     if (
       refreshed.success &&

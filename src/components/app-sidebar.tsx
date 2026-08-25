@@ -47,6 +47,9 @@ import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel
 import { getNotificationsUnreadCountAction } from "@/actions/notifications";
 import { cn } from "@/lib/utils";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useHostSession } from "@/hooks/use-host-session";
+import { useHostID } from "@/hooks/useHostID";
+import { getHostNotificationsUnreadCountAction } from "@/actions/notifications";
 
 interface Props {
   numOfEvents: number;
@@ -58,24 +61,22 @@ export function AppSidebar({ numOfEvents }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [notifUnread, setNotifUnread] = useState(0);
-  const { hasActivePremium } = useHostPlanCapabilities();
+  const { hasActivePremium, hostSubscriptionTier } = useHostPlanCapabilities();
+  const { eventSlug, isActive: hostSessionActive } = useHostSession();
+  const hostId = useHostID();
 
-  const role = user?.role;
-  const hostSubscriptionTier =
-    user?.role === "HOST" ? user.hostSubscriptionTier : undefined;
   const hasCommunityPlan = hostSubscriptionTier === "HOST_COMMUNITY";
   const communityFeatureOn =
     process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
 
   useEffect(() => {
-    if (role !== "HOST" || !user || !("id" in user) || !user.id) {
+    if (!hostSessionActive || !hostId) {
       setNotifUnread(0);
       return;
     }
-    const hostId = user.id;
 
     const refreshUnread = async () => {
-      const r = await getNotificationsUnreadCountAction();
+      const r = await getHostNotificationsUnreadCountAction();
       if (r.success && r.data) setNotifUnread(r.data.count);
       else setNotifUnread(0);
     };
@@ -85,7 +86,7 @@ export function AppSidebar({ numOfEvents }: Props) {
     return subscribeHostInAppNotifications(hostId, () => {
       void refreshUnread();
     });
-  }, [role, user]);
+  }, [hostSessionActive, hostId]);
 
   if (!user) {
     return <p>Loading...</p>;
@@ -112,11 +113,6 @@ export function AppSidebar({ numOfEvents }: Props) {
   const showCoOwnerNav = hasPremiumPlan || hasCommunityPlan;
   const videoRequestsUiOn =
     process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false";
-
-  let eventSlug;
-  if (userRole === "HOST") {
-    eventSlug = user.eventSlug;
-  }
 
   const items = [
     {

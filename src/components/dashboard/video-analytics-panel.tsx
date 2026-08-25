@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useSelector } from "react-redux";
+import { getHostVideoAnalyticsSubpathAction } from "@/actions/host";
 import { Crown, Loader2 } from "lucide-react";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
@@ -33,7 +33,6 @@ import {
   type VideoRollupRow,
 } from "@/components/dashboard/video-analytics/video-columns";
 import { useHostID } from "@/hooks/useHostID";
-import type { RootState } from "@/redux/store";
 import {
   getVideoOverviewPerSurfaceStats,
   HOST_OVERVIEW_SURFACES,
@@ -88,8 +87,6 @@ export function VideoAnalyticsPanel({
   const params = useParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const hostId = useHostID();
-  const token = useSelector((s: RootState) => s.auth.token);
-  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
   const [reportsTab, setReportsTab] = useState<
     "video_views" | "payment_analytics"
@@ -148,20 +145,20 @@ export function VideoAnalyticsPanel({
 
   const fetchHostAnalytics = useCallback(
     async (path: string, params?: Record<string, string>) => {
-      if (!hostId || !token) {
+      if (!hostId) {
         throw new Error("Sign in as host to view analytics.");
       }
-      const qs = params ? `?${new URLSearchParams(params)}` : "";
-      const res = await fetch(
-        `${base}/hosts/${encodeURIComponent(hostId)}/video-analytics/${path}${qs}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const res = await getHostVideoAnalyticsSubpathAction(
+        hostId,
+        path,
+        params
       );
-      if (!res.ok) {
-        throw new Error(`Request failed (${res.status})`);
+      if (!res.success) {
+        throw new Error(res.message ?? "Request failed");
       }
-      return res.json() as Promise<unknown>;
+      return res.data;
     },
-    [base, hostId, token]
+    [hostId]
   );
 
   const loadOverview = useCallback(async () => {
@@ -223,7 +220,7 @@ export function VideoAnalyticsPanel({
   );
 
   const loadAll = useCallback(async () => {
-    if (!hostId || !token) {
+    if (!hostId) {
       setError("Sign in as host to view analytics.");
       return;
     }
@@ -246,7 +243,6 @@ export function VideoAnalyticsPanel({
     }
   }, [
     hostId,
-    token,
     isReports,
     loadOverview,
     loadVideoRollups,

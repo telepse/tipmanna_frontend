@@ -91,7 +91,10 @@ export function ensureCoOwnerDraftKey(existing?: string | null): string {
 }
 
 /** Split policy fields for separate draft storage (co-owner keys, ownership answers). */
-export function splitDraftPayload(payload: NewEventFormData): {
+export function splitDraftPayload(
+  payload: NewEventFormData,
+  verifyStatus?: FormDraftPolicyJson["verifyStatus"]
+): {
   payloadJson: NewEventFormData;
   policyJson: FormDraftPolicyJson;
 } {
@@ -132,7 +135,12 @@ export function splitDraftPayload(payload: NewEventFormData): {
 
   return {
     payloadJson,
-    policyJson: { videoLinks: policyVideoLinks },
+    policyJson: {
+      videoLinks: policyVideoLinks,
+      ...(verifyStatus && Object.keys(verifyStatus).length > 0
+        ? { verifyStatus }
+        : {}),
+    },
   };
 }
 
@@ -170,6 +178,13 @@ export function mergeDraftPayload(
     ...mergedBase,
     videoLinks: links.map((link, i) => {
       const policySlice = policy.videoLinks?.[i];
+      const slot =
+        policySlice?.onYoutubeChannelSlot ?? link.onYoutubeChannelSlot ?? null;
+      const url = link.url?.trim() ?? "";
+      const verifyKey = slot === 1 || slot === 2 ? `${slot}:${url}` : null;
+      const storedVerify =
+        verifyKey && policy.verifyStatus?.[verifyKey] === "verified";
+
       return {
         ...link,
         ownershipAnswer: policySlice?.ownershipAnswer ?? link.ownershipAnswer,
@@ -177,12 +192,12 @@ export function mergeDraftPayload(
           policySlice?.coOwnerDraftKey,
           link.coOwnerDraftKey
         ),
-        onYoutubeChannelSlot:
-          policySlice?.onYoutubeChannelSlot ??
-          link.onYoutubeChannelSlot ??
-          null,
+        onYoutubeChannelSlot: slot,
         isOnHostYoutube:
-          policySlice?.isOnHostYoutube ?? link.isOnHostYoutube ?? false,
+          storedVerify ||
+          policySlice?.isOnHostYoutube ||
+          link.isOnHostYoutube ||
+          false,
         coOwner: policySlice?.coOwner ?? link.coOwner,
       };
     }),
@@ -190,7 +205,10 @@ export function mergeDraftPayload(
 }
 
 /** Split modal add-video form for draft storage. */
-export function splitModalDraftPayload(payload: AddVideoFormValues): {
+export function splitModalDraftPayload(
+  payload: AddVideoFormValues,
+  verifyState?: "idle" | "checking" | "verified" | "failed"
+): {
   payloadJson: Omit<
     AddVideoFormValues,
     "ownershipAnswer" | "coOwnerDraftKey" | "hostYoutubeSlot" | "coOwner"
@@ -221,9 +239,19 @@ export function splitModalDraftPayload(payload: AddVideoFormValues): {
     }
     if (Object.keys(co).length > 0) modalPolicy.coOwner = co;
   }
+
+  const verifyStatus = buildModalVerifyStatusPolicy(
+    rest.url ?? "",
+    hostYoutubeSlot ?? "none",
+    verifyState
+  );
+
   return {
     payloadJson: rest,
-    policyJson: { modal: modalPolicy },
+    policyJson: {
+      modal: modalPolicy,
+      ...(verifyStatus ? { verifyStatus } : {}),
+    },
   };
 }
 
@@ -257,6 +285,57 @@ export function mergeModalDraftPayload(
 
 export function modalDraftStorageKey(kind: string, targetId: string): string {
   return `formDraft:${kind}:${targetId}`;
+}
+
+export function buildModalVerifyStatusPolicy(
+  url: string,
+  slot: "none" | "1" | "2" | undefined,
+  verifyState?: "idle" | "checking" | "verified" | "failed"
+): FormDraftPolicyJson["verifyStatus"] {
+  const trimmed = url.trim();
+  if (!trimmed || (slot !== "1" && slot !== "2")) return undefined;
+  if (
+    verifyState !== "checking" &&
+    verifyState !== "verified" &&
+    verifyState !== "failed"
+  ) {
+    return undefined;
+  }
+  return { [`${slot}:${trimmed}`]: verifyState };
+}
+
+/** Restore modal YouTube verify UI state when slot + url still match saved policy. */
+export function modalVerifyStateFromPolicy(
+  policyJson: unknown,
+  url: string,
+  slot: "none" | "1" | "2" | undefined
+): "idle" | "checking" | "verified" | "failed" {
+  const policy = (policyJson ?? {}) as FormDraftPolicyJson;
+  const trimmed = url.trim();
+  if (!trimmed || (slot !== "1" && slot !== "2")) return "idle";
+  const key = `${slot}:${trimmed}`;
+  const stored = policy.verifyStatus?.[key];
+  if (stored === "checking" || stored === "verified" || stored === "failed") {
+    return stored;
+  }
+  return "idle";
+}
+
+export function buildVerifyStatusPolicy(
+  videoLinks: NonNullable<NewEventFormData["videoLinks"]>,
+  verifyStatus: Record<number, string | undefined>
+): FormDraftPolicyJson["verifyStatus"] {
+  const out: NonNullable<FormDraftPolicyJson["verifyStatus"]> = {};
+  videoLinks.forEach((link, i) => {
+    const slot = link.onYoutubeChannelSlot;
+    const url = link.url?.trim();
+    if (!url || (slot !== 1 && slot !== 2)) return;
+    const status = verifyStatus[i];
+    if (status === "checking" || status === "verified" || status === "failed") {
+      out[`${slot}:${url}`] = status;
+    }
+  });
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 export function isModalDraftRecoverable(policyJson: unknown): boolean {

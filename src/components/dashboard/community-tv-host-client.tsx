@@ -2,9 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
 import { useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, Loader2, Tv } from "lucide-react";
+
+import {
+  deactivateCommunityTvAction,
+  excludeCommunityTvChannelAction,
+  listCommunityTvContentBlocksAction,
+  listCommunityTvGlobalBansAction,
+  removeCommunityTvContentBlockAction,
+  reorderCommunityTvScheduleAction,
+  searchCommunityTvChannelsAction,
+} from "@/actions/community-tv-host";
 
 import { CommunityTvAdjustmentHostTab } from "@/components/dashboard/community-tv-adjustment-host-tab";
 import { CommunityTvEnforcementHostTab } from "@/components/dashboard/community-tv-enforcement-host-tab";
@@ -15,7 +24,6 @@ import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { RootState } from "@/redux/store";
 
 type ScheduleRow = {
   id: string;
@@ -25,7 +33,6 @@ type ScheduleRow = {
 };
 
 export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
-  const authToken = useSelector((s: RootState) => s.auth.token);
   const searchParams = useSearchParams();
   const communityId = searchParams.get("communityId")?.trim() ?? "";
 
@@ -75,8 +82,6 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
   const [upcomingBatchTitle, setUpcomingBatchTitle] =
     useState("Upcoming batch");
   const [upcomingRevision, setUpcomingRevision] = useState<number | null>(null);
-
-  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
   const load = useCallback(async () => {
     if (!communityId) {
@@ -138,32 +143,30 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
     } finally {
       setLoading(false);
     }
-  }, [base, communityId]);
+  }, [communityId]);
 
   const loadBlocks = useCallback(async () => {
-    if (!communityId || !authToken) return;
+    if (!communityId) return;
     try {
       const [exRes, gbRes] = await Promise.all([
-        fetch(
-          `${base}/communities/${encodeURIComponent(communityId)}/tv/content-blocks`,
-          { headers: { Authorization: `Bearer ${authToken}` } }
-        ),
-        fetch(
-          `${base}/communities/${encodeURIComponent(communityId)}/tv/global-bans`,
-          { headers: { Authorization: `Bearer ${authToken}` } }
-        ),
+        listCommunityTvContentBlocksAction(communityId),
+        listCommunityTvGlobalBansAction(communityId),
       ]);
-      const exData = (await exRes.json()) as {
-        items?: typeof communityExclusions;
-      };
-      const gbData = (await gbRes.json()) as { items?: typeof globalBans };
-      setCommunityExclusions(Array.isArray(exData.items) ? exData.items : []);
-      setGlobalBans(Array.isArray(gbData.items) ? gbData.items : []);
+      const exData = exRes.success ? exRes.data : null;
+      const gbData = gbRes.success ? gbRes.data : null;
+      setCommunityExclusions(
+        Array.isArray(exData?.items)
+          ? (exData.items as typeof communityExclusions)
+          : []
+      );
+      setGlobalBans(
+        Array.isArray(gbData?.items) ? (gbData.items as typeof globalBans) : []
+      );
     } catch {
       setCommunityExclusions([]);
       setGlobalBans([]);
     }
-  }, [authToken, base, communityId]);
+  }, [communityId]);
 
   useEffect(() => {
     void load();
@@ -176,22 +179,17 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
       setChannelHits([]);
       return;
     }
-    const token = authToken;
-    if (!token) {
-      setError("Sign in as the community owner to search.");
-      return;
-    }
     setChannelSearchLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `${base}/communities/${encodeURIComponent(communityId)}/tv/channels/search?q=${encodeURIComponent(q)}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const data = (await res.json()) as {
-        items?: {
+      const res = await searchCommunityTvChannelsAction(communityId, q);
+      if (!res.success || !res.data) {
+        setError(res.message ?? res.error ?? "Channel search failed.");
+        setChannelHits([]);
+        return;
+      }
+      setChannelHits(
+        (res.data.items ?? []) as {
           id: string;
           title: string;
           eventName?: string;
@@ -200,15 +198,14 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
           faultReason?: string | null;
           tvPlayable?: boolean;
           globallyBanned?: boolean;
-        }[];
-      };
-      setChannelHits(Array.isArray(data.items) ? data.items : []);
+        }[]
+      );
     } catch {
       setChannelHits([]);
     } finally {
       setChannelSearchLoading(false);
     }
-  }, [base, channelSearch, communityId]);
+  }, [channelSearch, communityId]);
 
   const move = useCallback((idx: number, dir: -1 | 1) => {
     setOrderedIds(prev => {
@@ -222,31 +219,19 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
 
   const save = useCallback(async () => {
     if (!communityId || !scheduleId) return;
-    const token = authToken;
-    if (!token) {
-      setError("Sign in as the community owner to save order.");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(
-        `${base}/communities/${encodeURIComponent(communityId)}/tv/daily-schedule/${encodeURIComponent(scheduleId)}/reorder`,
+      const res = await reorderCommunityTvScheduleAction(
+        communityId,
+        scheduleId,
         {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            orderedItemIds: orderedIds,
-            expectedRevision: revision,
-          }),
+          orderedItemIds: orderedIds,
+          expectedRevision: revision,
         }
       );
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || `Save failed (${res.status})`);
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Save failed");
       }
       await load();
     } catch (e) {
@@ -254,7 +239,7 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
     } finally {
       setSaving(false);
     }
-  }, [base, communityId, load, orderedIds, revision, scheduleId]);
+  }, [communityId, load, orderedIds, revision, scheduleId]);
 
   const deactivateTv = useCallback(async () => {
     if (!communityId) return;
@@ -264,25 +249,16 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
       )
     )
       return;
-    const token = authToken;
-    if (!token) return;
     try {
-      const res = await fetch(
-        `${base}/communities/${encodeURIComponent(communityId)}/tv/deactivate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (!res.ok) throw new Error(`Deactivate failed (${res.status})`);
+      const res = await deactivateCommunityTvAction(communityId);
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Deactivate failed");
+      }
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Deactivate failed");
     }
-  }, [base, communityId, load]);
+  }, [communityId, load]);
 
   const backHref = useMemo(
     () => `/host/${hostSlug}/host-community`,
@@ -428,19 +404,17 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
                         size="sm"
                         className="h-7 shrink-0 text-xs"
                         onClick={async () => {
-                          const token = authToken;
-                          if (!token || !communityId) return;
+                          if (!communityId) return;
                           try {
-                            const res = await fetch(
-                              `${base}/communities/${encodeURIComponent(communityId)}/tv/content-blocks/${encodeURIComponent(b.eventChannelId)}`,
-                              {
-                                method: "DELETE",
-                                headers: { Authorization: `Bearer ${token}` },
-                              }
-                            );
-                            if (!res.ok) {
-                              const t = await res.text();
-                              throw new Error(t || "Remove failed");
+                            const res =
+                              await removeCommunityTvContentBlockAction(
+                                communityId,
+                                b.eventChannelId
+                              );
+                            if (!res.success) {
+                              throw new Error(
+                                res.message ?? res.error ?? "Remove failed"
+                              );
                             }
                             await Promise.all([load(), loadBlocks()]);
                           } catch (e) {
@@ -511,35 +485,19 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
                       size="sm"
                       className="h-7 shrink-0 text-xs"
                       onClick={async () => {
-                        const token = authToken;
-                        if (!token || !communityId) return;
+                        if (!communityId) return;
                         try {
-                          const res = await fetch(
-                            `${base}/communities/${encodeURIComponent(communityId)}/tv/content-blocks/exclude`,
+                          const res = await excludeCommunityTvChannelAction(
+                            communityId,
                             {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${token}`,
-                              },
-                              body: JSON.stringify({
-                                eventChannelId: h.id,
-                                reason: "Host excluded from Community TV",
-                              }),
+                              eventChannelId: h.id,
+                              reason: "Host excluded from Community TV",
                             }
                           );
-                          if (!res.ok) {
-                            const t = await res.text();
-                            let msg = t || "Exclude failed";
-                            try {
-                              const parsed = JSON.parse(t) as {
-                                message?: string;
-                              };
-                              if (parsed.message) msg = parsed.message;
-                            } catch {
-                              /* plain text */
-                            }
-                            throw new Error(msg);
+                          if (!res.success) {
+                            throw new Error(
+                              res.message ?? res.error ?? "Exclude failed"
+                            );
                           }
                           await Promise.all([load(), loadBlocks()]);
                         } catch (e) {
@@ -641,20 +599,14 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
           value="control"
           className="mt-4"
         >
-          <CommunityTvEnforcementHostTab
-            communityId={communityId}
-            apiBase={base}
-          />
+          <CommunityTvEnforcementHostTab communityId={communityId} />
         </TabsContent>
 
         <TabsContent
           value="reports"
           className="mt-4"
         >
-          <CommunityTvProgramReportHostTab
-            communityId={communityId}
-            apiBase={base}
-          />
+          <CommunityTvProgramReportHostTab communityId={communityId} />
         </TabsContent>
 
         <TabsContent
@@ -665,10 +617,7 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
         </TabsContent>
 
         <TabsContent value="themes">
-          <CommunityTvAdjustmentHostTab
-            communityId={communityId}
-            apiBase={base}
-          />
+          <CommunityTvAdjustmentHostTab communityId={communityId} />
         </TabsContent>
       </Tabs>
     </>

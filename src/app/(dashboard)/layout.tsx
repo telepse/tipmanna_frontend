@@ -9,6 +9,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 // Local imports
 import { ProtectedRoute } from "@/components/protected-route";
 import { SuperadminLoginHandler } from "@/components/auth/superadmin-login-handler";
+import { HostDashboardSessionTouch } from "@/components/auth/host-dashboard-session-touch";
+import { HostDashboardGate } from "@/components/auth/host-dashboard-gate";
 import { DashboardFooter } from "@/components/footer/dashboard-footer";
 import { SidebarWrapper } from "@/components/dashboard/sidebar-wrapper";
 
@@ -28,14 +30,15 @@ export default async function DashboardLayout({
     <ProtectedRoute>
       <SidebarProvider>
         <SidebarWrapper />
-        <main className="flex flex-1">
-          <div className="bg-gray flex-1">
-            <div className="section bg-gray">
+        <main className="flex max-w-full min-w-0 flex-1 overflow-x-hidden">
+          <div className="bg-gray max-w-full min-w-0 flex-1 overflow-x-hidden">
+            <div className="section bg-gray max-w-full min-w-0 overflow-x-hidden">
               <SuperadminLoginHandler />
+              <HostDashboardSessionTouch />
 
-              <div className="overflow-y-auto pb-16">
+              <div className="max-w-full min-w-0 overflow-x-hidden overflow-y-auto pb-16">
                 <SidebarTrigger />
-                {children}
+                <HostDashboardGate>{children}</HostDashboardGate>
               </div>
 
               <div className="sticky bottom-10">

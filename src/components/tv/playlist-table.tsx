@@ -19,6 +19,12 @@ import {
   wallClockStartMsForScheduleIndex,
   type WallClockLabelMode,
 } from "@/lib/tv/playlistDisplay";
+import {
+  resolveSegmentVisualKind,
+  segmentAirTimeClass,
+  segmentMetricClass,
+  segmentRowClass,
+} from "@/lib/tv/segment-visual-style";
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import {
   fetchTvChannelMetricsBatch,
@@ -104,17 +110,8 @@ type Props = {
   tippingCharacters?: RoomCharacter[];
 };
 
-const isNoticeItemClass = "bg-black text-white";
-
-const airTimeBadgeClass =
-  "text-muted-foreground shrink-0 rounded border border-black bg-white px-1 py-0.5 text-[9.5px] lg:text-[8px]";
-const airTimeBadgeNoticeItemClass =
-  "text-white/80 shrink-0 rounded border border-white/80 bg-black px-1 py-0.5 text-[9.5px] lg:text-[8px] text-white/80";
 const metricRowClass =
   "text-muted-foreground flex min-w-0 flex-nowrap items-center gap-1 text-[8px] font-semibold";
-const metricItemClass = "flex shrink-0 items-center gap-0.5 whitespace-nowrap";
-const metricNoticeItemClass =
-  "flex shrink-0 items-center gap-0.5 whitespace-nowrap text-white/80";
 
 export default function PlaylistTable({
   showTimes,
@@ -281,6 +278,9 @@ export default function PlaylistTable({
     );
   };
 
+  const isRowLiveOnBroadcast = (rowIndex: number) =>
+    variant === "activeBatch" && rowIndex === liveBroadcastIndex;
+
   return (
     <>
       <div className="w-full space-y-2">
@@ -288,7 +288,19 @@ export default function PlaylistTable({
           const item = list[rowIndex];
           if (!item) return null;
 
+          const segmentKind = resolveSegmentVisualKind(item);
+          const sectionDivider =
+            item.isSectionStart && item.sectionTitle ? (
+              <div
+                key={`section-${item.id}-${rowIndex}`}
+                className="text-muted-foreground border-primary/30 mt-3 mb-1 border-t pt-2 text-[11px] font-semibold tracking-wide uppercase"
+              >
+                {item.sectionTitle}
+              </div>
+            ) : null;
+
           const isPlaying = isRowPlaying(rowIndex);
+          const isLiveOnBroadcast = isRowLiveOnBroadcast(rowIndex);
           const showAired =
             variant === "activeBatch" &&
             forceGlobalTimes &&
@@ -312,121 +324,107 @@ export default function PlaylistTable({
           const encounterCount =
             channelMetrics?.encounters ?? item.channel.encounters ?? 0;
 
-          const isNoticeItem =
-            item?.channel?.title?.startsWith("Program Start") ||
-            item?.channel?.title?.startsWith("Program End");
-
           return (
-            <div
-              key={item.id || liveIndex}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelectChannel(rowIndex)}
-              onKeyDown={e => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelectChannel(rowIndex);
-                }
-              }}
-              className={`relative flex cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-0.5 transition-all duration-300 ${isPlaying ? "ring-primary z-10 -mt-2 scale-100 shadow-lg ring-4" : "-mt-2 scale-100 rounded-none border-b-4"} ${showAired ? "opacity-80" : ""} ${isNoticeItem ? "bg-black text-white" : "bg-white text-black"}`}
-            >
+            <div key={`wrap-${item.id || liveIndex}`}>
+              {sectionDivider}
               <div
-                className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
-              >
-                <h5 className="w-full text-xs font-medium whitespace-nowrap">
-                  {typeof item?.channel?.title === "string" &&
-                  item.channel.title.trim()
-                    ? trimTitle(item.channel.title, 20)
-                    : "Loading..."}
-                </h5>
-
-                <p className={metricRowClass}>
-                  {effectiveShowTimes && startLabel ? (
-                    <span
-                      className={
-                        isNoticeItem
-                          ? airTimeBadgeNoticeItemClass
-                          : airTimeBadgeClass
-                      }
-                    >
-                      {showAired ? `Aired ${startLabel}` : startLabel}
-                    </span>
-                  ) : null}
-                  <span
-                    className={
-                      isNoticeItem ? metricNoticeItemClass : metricItemClass
-                    }
-                  >
-                    <MessageCircleMore className="size-3 shrink-0" />
-                    {channelComments}
-                  </span>
-                  <span
-                    className={
-                      isNoticeItem ? metricNoticeItemClass : metricItemClass
-                    }
-                  >
-                    <UsersRound className="size-3 shrink-0" />
-                    {item.channel.numOfTips || 0} tips
-                  </span>
-
-                  <span
-                    className={
-                      isNoticeItem ? metricNoticeItemClass : metricItemClass
-                    }
-                  >
-                    <EyeIcon className="size-3 shrink-0" />
-                    {encounterCount} seen
-                  </span>
-                </p>
-              </div>
-
-              <div
-                className={`flex shrink-0 flex-col items-end justify-end gap-1 rounded-md border px-0.5 py-0.25 shadow-lg ${isNoticeItem ? "border-white/50" : "border-gray-300"}`}
-                onClick={e => {
-                  e.stopPropagation();
-                  openCommentDrawer(item);
+                key={item.id || liveIndex}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelectChannel(rowIndex)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectChannel(rowIndex);
+                  }
                 }}
+                className={`${segmentRowClass(segmentKind, isPlaying)} ${showAired ? "opacity-80" : ""}`}
               >
-                <button
-                  type="button"
-                  className={`flex items-center gap-[0.5px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline ${isNoticeItem ? "outline-white/50" : "outline-gray-400"}`}
+                {isLiveOnBroadcast && !isPlaying ? (
+                  <span className="bg-primary/10 text-primary absolute top-1 right-2 rounded px-1 py-0.5 text-[9px] font-semibold">
+                    Live TV
+                  </span>
+                ) : null}
+                <div
+                  className={`min-w-0 flex-1 space-y-1 ${isPlaying ? "sticky top-0" : ""}`}
                 >
-                  <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
-                    <span className="text-[8px] sm:text-[7px]">
-                      Video info:
-                    </span>
-                    <ArrowRight className="size-2 cursor-pointer" />
-                  </span>
-                </button>
+                  <h5 className="w-full text-xs font-medium whitespace-nowrap">
+                    {typeof item?.channel?.title === "string" &&
+                    item.channel.title.trim()
+                      ? trimTitle(item.channel.title, 20)
+                      : "Loading..."}
+                  </h5>
 
-                <div className="flex w-fit items-center gap-1">
-                  <span className="flex items-center gap-0.5 text-[9px]">
-                    <img
-                      src={flagUrl}
-                      alt={contentLanguage}
-                      className="h-3 w-4 sm:h-2 sm:w-3"
-                    />{" "}
-                    <span className="text-[8px] sm:text-[6px]">
-                      {contentLanguage}
+                  <p className={metricRowClass}>
+                    {effectiveShowTimes && startLabel ? (
+                      <span className={segmentAirTimeClass(segmentKind)}>
+                        {showAired ? `Aired ${startLabel}` : startLabel}
+                      </span>
+                    ) : null}
+                    <span className={segmentMetricClass(segmentKind)}>
+                      <MessageCircleMore className="size-3 shrink-0" />
+                      {channelComments}
                     </span>
-                  </span>
+                    <span className={segmentMetricClass(segmentKind)}>
+                      <UsersRound className="size-3 shrink-0" />
+                      {item.channel.numOfTips || 0} tips
+                    </span>
 
-                  <p
-                    className={`w-fit rounded-md px-1 py-0.5 text-[8px] lg:text-[6px] ${isNoticeItem ? "bg-gray-500 text-white/80" : "bg-gray-200 text-black"}`}
-                  >
-                    {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
+                    <span className={segmentMetricClass(segmentKind)}>
+                      <EyeIcon className="size-3 shrink-0" />
+                      {encounterCount} seen
+                    </span>
                   </p>
                 </div>
-              </div>
 
-              {isPlaying && (
-                <div className="absolute top-0 -left-4 z-20 bg-white lg:-left-6">
-                  <span className="flex flex-col">
-                    <AudioLines className="text-primary wave-icon" />
-                    <AudioLines className="text-primary wave-icon" />
-                  </span>
+                <div
+                  className={`bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-1 rounded-md border px-1 py-0.5 shadow-lg ${segmentKind === "notice" ? "border-white/50" : "border-gray-300"}`}
+                  onClick={e => {
+                    e.stopPropagation();
+                    openCommentDrawer(item);
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={`flex items-center gap-[0.25px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline ${segmentKind === "notice" ? "outline-white/50" : ""}`}
+                  >
+                    <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
+                      <span className="text-[8px] sm:text-[7px]">
+                        Video info:
+                      </span>
+                      <ArrowRight className="size-2 cursor-pointer" />
+                    </span>
+                  </button>
+
+                  <div className="flex w-fit items-center gap-1">
+                    <span className="flex items-center gap-0.5 text-[9px]">
+                      <img
+                        src={flagUrl}
+                        alt={contentLanguage}
+                        className="h-3 w-4 sm:h-2 sm:w-3"
+                      />{" "}
+                      <span className="text-[8px] sm:text-[6px]">
+                        {contentLanguage}
+                      </span>
+                    </span>
+
+                    <p
+                      className={`w-fit rounded-md px-1 py-0.5 text-[8px] lg:text-[6px] ${segmentKind === "notice" ? "bg-gray-500 text-white/80" : "bg-gray-200 text-black"}`}
+                    >
+                      {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
+                    </p>
+                  </div>
                 </div>
-              )}
+
+                {isPlaying && (
+                  <div className="absolute top-0 -left-4 z-20 bg-white lg:-left-6">
+                    <span className="flex flex-col">
+                      <AudioLines className="text-primary wave-icon" />
+                      <AudioLines className="text-primary wave-icon" />
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}

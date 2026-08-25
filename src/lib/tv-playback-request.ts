@@ -23,3 +23,14 @@ export function isSameOrchestratedPlayback(
     a.videoId === b.videoId && Math.abs(a.startSeconds - b.startSeconds) < 1
   );
 }
+
+const USER_INTENT_REASONS = new Set<TvPlaybackRequestReason>([
+  "loadLocal",
+  "enforcement",
+]);
+
+export function isUserIntentPlaybackReason(
+  reason: TvPlaybackRequestReason
+): boolean {
+  return USER_INTENT_REASONS.has(reason);
+}

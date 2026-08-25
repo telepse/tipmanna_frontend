@@ -18,6 +18,8 @@ export type PendingPaymentReturnV1 = {
   stripePaymentIntentId?: string;
   /** True when confirmPayment uses return_url (redirect), not wallet/no-redirect. */
   isRedirectPayment: boolean;
+  /** Set on /success when server recovery exchange failed; enables local fallback only. */
+  recoveryUnavailable?: boolean;
   createdAt: number;
 };
 
@@ -75,7 +77,10 @@ export function patchPendingPaymentReturn(
   patch: Partial<
     Pick<
       PendingPaymentReturnV1,
-      "recoveryState" | "stripePaymentIntentId" | "paymentOrigin"
+      | "recoveryState"
+      | "stripePaymentIntentId"
+      | "paymentOrigin"
+      | "recoveryUnavailable"
     >
   >
 ): void {

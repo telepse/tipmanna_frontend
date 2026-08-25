@@ -9,7 +9,7 @@ import {
   getRecommendedContents,
   getSpotlightContents,
 } from "@/actions/contents";
-import { getCommunityExploreCatalogAction } from "@/actions/communities";
+import { getTopCommunitiesAction } from "@/actions/communities";
 import { getAllTopTippers } from "@/actions/events";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
@@ -44,7 +44,7 @@ async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
       getLiveStreamContents(),
       getDiscoveryProgramsAction(),
       getAllTopTippers(),
-      getCommunityExploreCatalogAction(),
+      getTopCommunitiesAction(3),
     ]);
 
   const liveData =
@@ -72,8 +72,8 @@ async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
     },
     tippers: normalizeListPayload(tipRes.data),
     topCommunities:
-      commRes.success && Array.isArray(commRes.data?.topByTips)
-        ? commRes.data.topByTips
+      commRes.success && Array.isArray(commRes.data?.communities)
+        ? commRes.data.communities
         : [],
   };
 }

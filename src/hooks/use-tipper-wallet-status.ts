@@ -9,7 +9,7 @@ import {
 } from "@/lib/wallet-client";
 
 function isWalletRole(role: string | undefined): boolean {
-  return role === "TIPPER" || role === "HOST";
+  return role === "TIPPER";
 }
 
 /**

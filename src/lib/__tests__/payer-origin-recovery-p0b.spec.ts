@@ -92,8 +92,21 @@ vi.mock("@/lib/payment-recovery-client", () => ({
   renewRecoveryClaimRequest: vi.fn(),
   reportRecoveryProgressRequest: vi.fn(),
   isDefinitiveExchangeRejection: vi.fn((err: unknown) => {
-    const e = err as { kind?: string };
+    const e = err as { kind?: string; message?: string };
+    if (
+      e?.kind === "forbidden" &&
+      e.message?.includes("Payer identity mismatch")
+    ) {
+      return false;
+    }
     return e?.kind === "forbidden" || e?.kind === "conflict";
+  }),
+  isIdentityMismatchRejection: vi.fn((err: unknown) => {
+    const e = err as { kind?: string; message?: string };
+    return (
+      e?.kind === "forbidden" &&
+      Boolean(e.message?.includes("Payer identity mismatch"))
+    );
   }),
   isTransientExchangeFailure: vi.fn((err: unknown) => {
     const e = err as { kind?: string };
@@ -268,7 +281,7 @@ describe("P0-B payer-origin recovery", () => {
     expect(readPaymentRecoverySession()?.sessionToken).toBe("sess-tok");
   });
 
-  it("7. definitive exchange rejection clears invalid state but continues", async () => {
+  it("7. identity mismatch keeps recovery state for retry", async () => {
     vi.mocked(isPayerOriginRecoveryEnabled).mockReturnValue(true);
     writePendingPaymentReturn({
       transactionId: "00000000-0000-4000-8000-000000000002",
@@ -280,7 +293,30 @@ describe("P0-B payer-origin recovery", () => {
     });
     const { RecoveryApiError } = await import("@/lib/payment-recovery-client");
     vi.mocked(exchangeRecoveryStateRequest).mockRejectedValue(
-      new RecoveryApiError("forbidden", 403, "invalid")
+      new RecoveryApiError("forbidden", 403, "Payer identity mismatch")
+    );
+    const result = await runPaymentRecoveryExchange({
+      stripePaymentIntentId: "pi_bad",
+      redirectStatus: "succeeded",
+      ownership: {},
+    });
+    expect(result.outcome).toBe("identity_retry");
+    expect(readPendingPaymentReturn()?.recoveryState).toBe("bad-state");
+  });
+
+  it("7b. terminal forbidden rejection clears invalid state", async () => {
+    vi.mocked(isPayerOriginRecoveryEnabled).mockReturnValue(true);
+    writePendingPaymentReturn({
+      transactionId: "00000000-0000-4000-8000-000000000099",
+      eventId: "ev-1",
+      paymentOrigin: "http://localhost/room/1",
+      paymentSurface: "event_room",
+      isRedirectPayment: true,
+      recoveryState: "bad-state",
+    });
+    const { RecoveryApiError } = await import("@/lib/payment-recovery-client");
+    vi.mocked(exchangeRecoveryStateRequest).mockRejectedValue(
+      new RecoveryApiError("forbidden", 403, "Invalid recovery state")
     );
     const result = await runPaymentRecoveryExchange({
       stripePaymentIntentId: "pi_bad",

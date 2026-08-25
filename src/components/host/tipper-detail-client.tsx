@@ -3,11 +3,10 @@
 import Link from "next/link";
 
 // Third-party imports
-import { useSelector } from "react-redux";
 import { MoveLeft, Trophy, User } from "lucide-react";
 
 // Local imports
-import { RootState } from "@/redux/store";
+import { useHostSession } from "@/hooks/use-host-session";
 import { EventBreakdownCard } from "./event-breakdown-card";
 
 interface Props {
@@ -32,12 +31,8 @@ export const TipperDetailClient = ({
   eventsSupported,
   contributionHistory,
 }: Props) => {
-  const user = useSelector((state: RootState) => state.auth.user);
-
-  let eventSlug;
-  if (user?.role === "HOST") {
-    eventSlug = user?.eventSlug;
-  }
+  const hostSession = useHostSession();
+  const eventSlug = hostSession.eventSlug ?? "";
 
   // Badge unlock conditions
   const localUnlocked = eventsSupported >= 1;
@@ -53,16 +48,13 @@ export const TipperDetailClient = ({
       </Link>
 
       {/* Tipper detail */}
-      <div className="bg-secondary/10 flex flex-col justify-between gap-2 rounded-md border px-6 py-12 sm:flex-row">
-        <div className="flex items-center gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-full border bg-white">
-            <User className="text-primary size-10 font-semibold" />
+      <div className="bg-card space-y-6 rounded-md border p-6">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="rounded-full border bg-white p-2">
+            <User className="text-primary size-10" />
           </div>
-
           <div className="space-y-2">
-            <h5 className="text-xl font-medium">{username}</h5>
-
-            {/* Badges unlocked */}
+            <h2 className="text-2xl font-semibold">{username}</h2>
             <div className="flex gap-2">
               <span
                 className={`bg-primary flex items-center gap-1 rounded-md px-4 py-1 text-sm font-medium text-white ${
@@ -82,52 +74,39 @@ export const TipperDetailClient = ({
           </div>
         </div>
 
-        {/* Total contribution, highest single tip, and events supported */}
-        <div className="flex gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="space-y-1">
-            <h6 className="text-primary font-semibold">
+            <h6 className="text-primary text-xl font-semibold">
               &pound;{totalContribution}
             </h6>
-            <p className="text-muted-foreground text-xs sm:text-sm">
-              Total Contribution
-            </p>
+            <p className="text-muted-foreground text-sm">Total contribution</p>
           </div>
-
           <div className="space-y-1">
-            <h6 className="text-primary font-semibold">
-              &pound; {highestSingleTip}
-            </h6>
-            <p className="text-muted-foreground text-xs sm:text-sm">
-              Highest Single Tip
-            </p>
+            <h6 className="text-xl font-semibold">&pound;{highestSingleTip}</h6>
+            <p className="text-muted-foreground text-sm">Highest single tip</p>
           </div>
-
           <div className="space-y-1">
-            <h6 className="font-semibold">{eventsSupported}</h6>
-            <p className="text-muted-foreground text-xs sm:text-sm">
-              Events Supported
-            </p>
+            <h6 className="text-xl font-semibold">{eventsSupported}</h6>
+            <p className="text-muted-foreground text-sm">Events supported</p>
           </div>
         </div>
       </div>
 
-      {/* Contribution history */}
-      <div className="bg-card space-y-6 rounded-md border p-6">
-        <h5 className="font-semibold">
-          Contribution History (Event Breakdown)
-        </h5>
-
-        <div className="space-y-6">
-          {contributionHistory.map((event: Event, index: number) => (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Contribution breakdown</h3>
+        {contributionHistory.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No event history yet.</p>
+        ) : (
+          contributionHistory.map((event: Event, index) => (
             <EventBreakdownCard
-              key={index}
+              key={`${event.eventName}-${index}`}
               eventName={event.eventName}
               totalContribution={event.totalContribution}
               numOfTips={event.numOfTips}
               recentTips={event.recentTips}
             />
-          ))}
-        </div>
+          ))
+        )}
       </div>
     </section>
   );

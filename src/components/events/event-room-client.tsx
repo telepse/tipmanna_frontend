@@ -39,6 +39,7 @@ interface Props {
   eventDate: string;
   startTime: string;
   endTime: string;
+  timeZone?: string;
   liveVideoLink: string;
   defaultAdminVideo: string;
   amountToRaise: number;
@@ -119,6 +120,7 @@ export const EventRoomClient = ({
   eventDate,
   startTime,
   endTime,
+  timeZone,
   liveVideoLink,
   defaultAdminVideo,
   amountToRaise,
@@ -543,6 +545,7 @@ export const EventRoomClient = ({
               eventDate={eventDate}
               startTime={startTime}
               endTime={endTime}
+              timeZone={timeZone}
               eventBanner={eventBanner}
               venueName={venueName}
               venueLocation={venueLocation}
@@ -558,6 +561,7 @@ export const EventRoomClient = ({
             <StripeProvider
               enabled={enableStripe}
               tippingCharacters={tipStripCharacters}
+              textTipUnitPrice={tipTextUnitPrice}
             >
               <EventFooter
                 eventId={eventId}

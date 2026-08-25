@@ -16,7 +16,9 @@ import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import {
   getPlaybackKeyState,
   reservePlaybackKey,
+  reservePlaybackKeyWithAlias,
 } from "@/lib/playback-key-lifecycle";
+import { buildTransactionAliasPlaybackKey } from "@/lib/payment-playback-key";
 import type {
   AnimationQueueTask,
   EnqueueResult,
@@ -142,23 +144,38 @@ export function enqueuePaymentBundleForValidatedTip(options: {
       styleName: character.styleName,
     };
 
+    const txId = data.transactionId?.trim();
+    const aliasKey = txId
+      ? buildTransactionAliasPlaybackKey({
+          transactionId: txId,
+          characterName: character.name,
+          occurrenceIndex: characterIndex,
+        })
+      : null;
+
     const existingState = getPlaybackKeyState(key);
-    if (existingState !== "unseen") {
+    const aliasState = aliasKey ? getPlaybackKeyState(aliasKey) : "unseen";
+    if (existingState !== "unseen" || aliasState !== "unseen") {
+      const blocked = existingState !== "unseen" ? existingState : aliasState;
       tracePaymentAnimation({
         stage:
-          existingState === "committed"
+          blocked === "committed"
             ? "playback_key_duplicate_committed"
             : "playback_key_duplicate_reserved",
         ...traceMeta,
         playbackKey: key,
-        previousState: existingState,
-        resultingState: existingState,
+        previousState: blocked,
+        resultingState: blocked,
         result: "skipped",
       });
       return;
     }
 
-    if (!reservePlaybackKey(key, traceMeta)) {
+    const reserved =
+      aliasKey && aliasKey !== key
+        ? reservePlaybackKeyWithAlias(key, aliasKey, traceMeta)
+        : reservePlaybackKey(key, traceMeta);
+    if (!reserved) {
       return;
     }
 

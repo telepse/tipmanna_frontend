@@ -111,13 +111,13 @@ export default function VerifyEmailPage() {
       }
 
       if (sessionUser.role === "HOST" && tag === "EXISTING_HOST") {
-        router.push(`/tipper/${sessionUser.username}`);
+        router.push("/explore");
       } else if (sessionUser.role === "TIPPER") {
-        router.push(`/tipper/${sessionUser.username}`);
+        router.push("/explore");
       } else if (sessionUser.role === "HOST") {
         router.push(buildCreatorProfileSharePath(sessionUser.username));
       } else {
-        router.push("/");
+        router.push("/explore");
       }
 
       setCode("");

@@ -1,18 +1,16 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverHostAuthHeaders } from "@/lib/server-auth";
+import { serverEventActorAuthHeaders } from "@/lib/server-event-auth";
 
 // -------- Get top tippers -------- /
-export async function getTopTippersAction(
-  hostId: string,
-  token?: string | null
-) {
+export async function getTopTippersAction(hostId: string) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/top-tippers`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getTopTippersAction"
@@ -28,9 +26,7 @@ export async function getTopTipperDetailsAction(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/top-tippers/${tipperId}`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getTopTipperDetailsAction"
@@ -40,17 +36,13 @@ export async function getTopTipperDetailsAction(
 // -------- Get host event details -------- /
 export async function getHostEventDetailsAction(
   hostId: string,
-  eventId: string,
-  token?: string | null
+  eventId: string
 ) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? await serverAuthHeaders(token) : {}),
-      },
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostEventDetailsAction"
@@ -87,6 +79,7 @@ export interface UpdateHostEventDetailsPayload {
   eventDate?: string;
   startTime?: string;
   endTime?: string;
+  timeZone?: string;
 
   cohosts?: UpdateEventCohostPayload[];
 
@@ -101,21 +94,16 @@ export async function updateHostEventDetailsAction({
   hostId,
   eventId,
   payload,
-  token,
 }: {
   hostId: string;
   eventId: string;
   payload: UpdateHostEventDetailsPayload;
-  token?: string | null;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
     {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? await serverAuthHeaders(token) : {}),
-      },
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(payload),
       cache: "no-store",
     },
@@ -127,19 +115,15 @@ export async function updateHostEventDetailsAction({
 export async function deleteHostEventDetailsAction({
   hostId,
   eventId,
-  token,
 }: {
   hostId: string;
   eventId: string;
-  token?: string | null;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}`,
     {
       method: "DELETE",
-      headers: {
-        ...(token ? await serverAuthHeaders(token) : {}),
-      },
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "deleteHostEventDetailsAction"
@@ -161,22 +145,17 @@ export interface SendHostEventReportPayload {
 export async function sendHostEventReportAction({
   hostId,
   eventId,
-  token,
   payload,
 }: {
   hostId: string;
   eventId: string;
-  token?: string | null;
   payload: SendHostEventReportPayload;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/send-report`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? await serverAuthHeaders(token) : {}),
-      },
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(payload),
       cache: "no-store",
     },
@@ -193,12 +172,10 @@ export interface PostHostEventMessagePayload {
 export async function postHostEventMessageAction({
   hostId,
   eventId,
-  token,
   payload,
 }: {
   hostId: string;
   eventId: string;
-  token?: string | null;
   payload: PostHostEventMessagePayload;
 }) {
   return runServerFetch(
@@ -207,7 +184,7 @@ export async function postHostEventMessageAction({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? await serverAuthHeaders(token) : {}),
+        ...(await serverEventActorAuthHeaders()),
       },
       body: JSON.stringify(payload),
       cache: "no-store",
@@ -218,8 +195,7 @@ export async function postHostEventMessageAction({
 
 export async function getHostEventMessagesAction(
   hostId: string,
-  eventId: string,
-  token?: string | null
+  eventId: string
 ) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/messages`,
@@ -227,7 +203,7 @@ export async function getHostEventMessagesAction(
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? await serverAuthHeaders(token) : {}),
+        ...(await serverEventActorAuthHeaders()),
       },
       cache: "no-store",
     },
@@ -239,19 +215,17 @@ export async function deleteHostEventMessageAction({
   hostId,
   eventId,
   messageId,
-  token,
 }: {
   hostId: string;
   eventId: string;
   messageId: string;
-  token?: string | null;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events/${eventId}/messages/${messageId}`,
     {
       method: "DELETE",
       headers: {
-        ...(token ? await serverAuthHeaders(token) : {}),
+        ...(await serverEventActorAuthHeaders()),
       },
       cache: "no-store",
     },
@@ -260,18 +234,12 @@ export async function deleteHostEventMessageAction({
 }
 
 // -------- Get host event summaries -------- /
-export async function getHostEventSummaries(
-  hostId: string,
-  token?: string | null
-) {
+export async function getHostEventSummaries(hostId: string) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/events`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? await serverAuthHeaders(token) : {}),
-      },
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostEventSummaries"
@@ -279,15 +247,12 @@ export async function getHostEventSummaries(
 }
 
 // -------- Get host transactions -------- /
-export async function getHostTransactionsAction(
-  hostId: string,
-  token?: string | null
-) {
+export async function getHostTransactionsAction(hostId: string) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/transactions`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostTransactionsAction"
@@ -296,7 +261,6 @@ export async function getHostTransactionsAction(
 
 export async function getHostVideoAnalyticsAction(
   hostId: string,
-  token?: string | null,
   opts?: { from?: string; to?: string; eventId?: string }
 ) {
   const params = new URLSearchParams();
@@ -308,24 +272,91 @@ export async function getHostVideoAnalyticsAction(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/video-analytics${q ? `?${q}` : ""}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostVideoAnalyticsAction"
   );
 }
 
-export async function getHostStatsAction(
+/** Host video analytics sub-resources (overview, rollups, payments, etc.). */
+export async function getHostVideoAnalyticsSubpathAction(
   hostId: string,
-  token?: string | null
+  subpath: string,
+  params?: Record<string, string>
 ) {
+  const qs = params ? `?${new URLSearchParams(params)}` : "";
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${encodeURIComponent(hostId)}/video-analytics/${subpath}${qs}`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getHostVideoAnalyticsSubpathAction"
+  );
+}
+
+export async function getHostStatsAction(hostId: string) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/${hostId}/stats`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostStatsAction"
+  );
+}
+
+export async function getHostSubscriptionMeAction() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/me`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getHostSubscriptionMeAction"
+  );
+}
+
+export async function hostSubscriptionCheckoutAction(
+  tier: "premium" | "community"
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/checkout`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ tier }),
+    },
+    "hostSubscriptionCheckoutAction"
+  );
+}
+
+export async function hostSubscriptionBillingPortalAction() {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/billing-portal`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+    },
+    "hostSubscriptionBillingPortalAction"
+  );
+}
+
+export async function hostSubscriptionRequestAction(
+  tier: "HOST_PREMIUM" | "HOST_COMMUNITY",
+  hostId: string
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/request`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ tier, hostId }),
+    },
+    "hostSubscriptionRequestAction"
   );
 }

@@ -27,6 +27,7 @@ import {
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 
 interface ChannelModalProps {
   open: boolean;
@@ -55,6 +56,9 @@ export const EventChannelModal = ({
   resumeSurface = "event_channel_modal",
 }: ChannelModalProps) => {
   void frameId;
+  const { handleAuthRequiredError, HostAuthModal } = useHostCapabilityWithAuth({
+    cohostEventId: eventId,
+  });
   const [loading, setLoading] = useState(false);
   const [addVideoForm, setAddVideoForm] =
     useState<UseFormReturn<AddVideoFormValues> | null>(null);
@@ -74,6 +78,9 @@ export const EventChannelModal = ({
       const payload = buildCreateChannelPayload(values);
       const res = await createEventChannelAction(payload, eventId);
       if (!res.success) {
+        if (handleAuthRequiredError(res, () => void onSubmit(values))) {
+          return;
+        }
         if (addVideoForm) {
           applyServerFormErrors(
             addVideoForm,
@@ -113,7 +120,19 @@ export const EventChannelModal = ({
     setUpdatingDefault(true);
 
     try {
-      await updateDefaultChannel(eventId, channelId);
+      const res = await updateDefaultChannel(eventId, channelId);
+      if (!res.success) {
+        if (
+          handleAuthRequiredError(
+            res,
+            () => void handleSetDefaultChannel(channelId)
+          )
+        ) {
+          return;
+        }
+        toast.error(res.message ?? "Failed to set default channel");
+        return;
+      }
 
       setDefaultChannelId(channelId);
       toast.success("Default channel updated!");
@@ -150,33 +169,36 @@ export const EventChannelModal = ({
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onClose}
-    >
-      <DialogContent className="sm:max-w-nd max-h-[70vh] w-full overflow-y-scroll">
-        <AddVideoForm
-          onSubmit={onSubmit}
-          loading={loading}
-          eventEventType={eventEventType}
-          showHostYoutubeSlot
-          requirePolicyFields
-          onFormReady={setAddVideoForm}
-          onDraftIdChange={setModalDraftId}
-          draftAutosave={{
-            kind: "room_add_video",
-            targetId: eventId,
-            enabled: isHost,
-            resumeOrigin: {
-              surface: resumeSurface,
-              pathname: pathname ?? `/room/${eventId}`,
+    <>
+      {HostAuthModal}
+      <Dialog
+        open={open}
+        onOpenChange={onClose}
+      >
+        <DialogContent className="sm:max-w-nd max-h-[70vh] w-full overflow-y-scroll">
+          <AddVideoForm
+            onSubmit={onSubmit}
+            loading={loading}
+            eventEventType={eventEventType}
+            showHostYoutubeSlot
+            requirePolicyFields
+            onFormReady={setAddVideoForm}
+            onDraftIdChange={setModalDraftId}
+            draftAutosave={{
+              kind: "room_add_video",
               targetId: eventId,
-            },
-          }}
-          seedDraftId={seedDraftId ?? modalDraftId}
-          aboveForm={<></>}
-        />
-      </DialogContent>
-    </Dialog>
+              enabled: isHost,
+              resumeOrigin: {
+                surface: resumeSurface,
+                pathname: pathname ?? `/room/${eventId}`,
+                targetId: eventId,
+              },
+            }}
+            seedDraftId={seedDraftId ?? modalDraftId}
+            aboveForm={<></>}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

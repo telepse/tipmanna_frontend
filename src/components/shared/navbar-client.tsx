@@ -115,15 +115,15 @@ export default function NavbarClient() {
               Communities
             </Link>
           ) : null}
-          <a
+          <Link
             href="/partner#pricing"
             className={`hover:text-primary open_sans`}
           >
             Pricing
-          </a>
+          </Link>
 
           <Link
-            href="/#faq"
+            href="/partner#faq"
             className={`hover:text-primary open_sans`}
           >
             FAQs
@@ -234,15 +234,15 @@ export default function NavbarClient() {
                   </Link>
                 ) : null}
 
-                <a
+                <Link
                   href="/partner#pricing"
                   className={`hover:text-primary open_sans`}
                 >
                   Pricing
-                </a>
+                </Link>
 
                 <Link
-                  href="/#faq"
+                  href="/partner#faq"
                   className={`hover:text-primary open_sans`}
                 >
                   FAQs

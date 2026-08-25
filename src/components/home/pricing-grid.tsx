@@ -5,30 +5,30 @@ import { Badge } from "../shared/badge";
 import { Paragraph } from "../shared/paragraph";
 import { Title } from "../shared/title";
 import { PricingCard } from "./pricing-card";
-import { CreateDialog } from "./create-dialog";
-import SignInDialog, {
-  type SignInModalPayload,
-} from "@/components/auth/sign-in-dialog";
-
-// Swiper
-import { SwiperSlide } from "swiper/react";
-import { Pagination, Autoplay, A11y } from "swiper/modules";
-import type { Swiper as SwiperType } from "swiper";
-
-// Swiper styles
-import "swiper/css";
-import "swiper/css/pagination";
-import "swiper/css/a11y";
-
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { isHostRole } from "@/lib/is-host-role";
 import { toast } from "react-toastify";
-import { Item } from "@radix-ui/react-select";
+import type { SignInModalPayload } from "@/components/auth/sign-in-dialog";
+import type { Swiper as SwiperType } from "swiper";
+import { SwiperSlide } from "swiper/react";
+import { Pagination, Autoplay, A11y } from "swiper/modules";
+
+import "swiper/css";
+import "swiper/css/pagination";
+import "swiper/css/a11y";
+
+const CreateDialog = dynamic(
+  () => import("./create-dialog").then(m => m.CreateDialog),
+  { ssr: false }
+);
+
+const SignInDialog = dynamic(() => import("@/components/auth/sign-in-dialog"), {
+  ssr: false,
+});
 
 const Swiper = dynamic(() => import("swiper/react").then(m => m.Swiper), {
   ssr: false,
@@ -36,12 +36,8 @@ const Swiper = dynamic(() => import("swiper/react").then(m => m.Swiper), {
 
 function hostDashboardSlug(user: RootState["auth"]["user"]): string | null {
   if (!user || !isHostRole(user.role)) return null;
-
-  if ("eventSlug" in user && user.eventSlug) {
-    return user.eventSlug;
-  }
-
-  return user.username ?? null;
+  if ("eventSlug" in user && user.eventSlug) return user.eventSlug;
+  return null;
 }
 
 export default function NewPricingGrid() {
@@ -52,11 +48,6 @@ export default function NewPricingGrid() {
   const [visible, setVisible] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
-
-  const pathname = usePathname();
-
-  // const pricingReturnPath = `${pathname ?? "/"}#pricing`;
-  let pricingReturnPath;
 
   const { push } = useAppRouter();
 
@@ -162,28 +153,12 @@ export default function NewPricingGrid() {
     />
   );
 
-  const getPricingReturnPath = (tier: PricingTier | null) => {
-    const slug = hostDashboardSlug(user);
-
-    console.log(slug);
-
-    switch (tier) {
-      case "free":
-        return `/partner#pricing`;
-      case "premium":
-        return `/host/${slug}/host-premium`;
-      case "community":
-        return `/host/${slug}/host-community`;
-    }
-  };
-
-  console.log("selectedTier", selectedTier);
-
-  console.log("pricingReturnPath", getPricingReturnPath(selectedTier));
-
   const handlePricingSignInSuccess = useCallback(
     (payload: SignInModalPayload) => {
-      if (payload.role !== "HOST") return;
+      if (payload.role !== "HOST") {
+        toast.error("Please sign in with a host account to continue.");
+        return;
+      }
 
       const slug = payload.eventSlug ?? payload.username;
 
@@ -219,20 +194,17 @@ export default function NewPricingGrid() {
       <Badge title="Pricing" />
 
       <div className="space-y-3">
-        <h2
-          id="features-heading"
+        <Title
+          id="pricing-heading"
+          align="center"
+          size="lg"
           className="w-full"
         >
-          <Title
-            align="center"
-            size="lg"
-          >
-            Free to start with <br />
-            <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-              scalable pricing
-            </span>
-          </Title>
-        </h2>
+          Free to start with <br />
+          <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+            scalable pricing
+          </span>
+        </Title>
 
         <Paragraph
           align="center"
@@ -240,7 +212,8 @@ export default function NewPricingGrid() {
         >
           Launch your channel, grow participation, and{" "}
           <br className="hidden sm:inline-block" />
-          unlock more powerful tools as your audience grows.
+          unlock more powerful tools <br className="inline-block sm:hidden" />{" "}
+          as your audience grows.
         </Paragraph>
       </div>
 
@@ -298,19 +271,23 @@ export default function NewPricingGrid() {
         {PRICING.map((item, index) => renderCard(item, index))}
       </div>
 
-      <CreateDialog
-        openPopup={createOpen}
-        setOpenPopup={setCreateOpen}
-      />
+      {createOpen ? (
+        <CreateDialog
+          openPopup={createOpen}
+          setOpenPopup={setCreateOpen}
+        />
+      ) : null}
 
-      <SignInDialog
-        open={signInOpen}
-        onOpenChange={setSignInOpen}
-        title="Sign in as host to continue"
-        defaultUserType="host"
-        allowInlineSignUp
-        onSuccess={handlePricingSignInSuccess}
-      />
+      {signInOpen ? (
+        <SignInDialog
+          open={signInOpen}
+          onOpenChange={setSignInOpen}
+          title="Sign in as host to continue"
+          defaultUserType="host"
+          allowInlineSignUp
+          onSuccess={handlePricingSignInSuccess}
+        />
+      ) : null}
     </section>
   );
 }

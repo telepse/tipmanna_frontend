@@ -43,7 +43,7 @@ export class ClientErrorBoundary extends Component<Props, State> {
               Try again
             </button>
             <Link
-              href="/"
+              href="/explore"
               className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
             >
               Go home

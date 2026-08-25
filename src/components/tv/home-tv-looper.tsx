@@ -119,8 +119,9 @@ import {
 import { isTvInitialLiveOffsetEmbedEnabled } from "@/lib/tv-feature-flags";
 import { resolveBroadcastPosition } from "@/lib/tv/broadcastEngine";
 import { computeInitialEmbedPosition } from "@/lib/tv-initial-live-offset-embed";
-import { unmuteWithUserGesture } from "@/lib/tv-autoplay";
+import { useTvPlayerControls } from "@/hooks/use-tv-player-controls";
 import HomeTvPlayer from "./home-tv-player";
+import { EnforcementPreNoticeOverlay } from "./enforcement-pre-notice-overlay";
 
 /**
  * TvLooper renders the TvPlayer, local playback controls (play/pause, mute, seek),
@@ -185,6 +186,10 @@ export const HomeTvLooper = ({
     getSyncedNow,
     onInitialLiveOffsetEmbedCommitted,
     onInitialLiveOffsetEmbedConfirmed,
+    livePreNotice,
+    localPreNoticeSnapshot,
+    restorePreNoticeLocal,
+    isPreNoticeDismissed,
   } = useTV();
 
   useLayoutEffect(() => {
@@ -216,17 +221,31 @@ export const HomeTvLooper = ({
   const lastSegmentChannelIdRef = useRef<string | undefined>(undefined);
   const segmentStartMsRef = useRef(0);
   const videoErrorReloadsRef = useRef(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  /** Mute-first on cold load for autoplay policy; unmute only via user gesture. */
-  const TV_MUTE_PREF_KEY = "tipmanna_tv_mute_pref";
-  const [isMuted, setIsMuted] = useState(true);
-  const [miniPlayerActive, setMiniPlayerActive] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
   const [isPlayerLoading, setIsPlayerLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedContents, setSavedContents] = useState<unknown[]>([]);
+
+  const {
+    isPlaying,
+    setIsPlaying,
+    isMuted,
+    setIsMuted,
+    togglePlayPause,
+    toggleMute,
+    stopPlayer,
+    onPlayerReady,
+    notifyPlayerPlaying,
+    notifyPlayerPaused,
+    syncFromPlayer,
+  } = useTvPlayerControls({
+    playerRef,
+    mode,
+    enterLocalMode,
+    setPlayerPlayingState,
+  });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerAreaRef = useRef<HTMLDivElement | null>(null);
@@ -247,6 +266,13 @@ export const HomeTvLooper = ({
     return typeof d === "number" && d > 0 ? d : 0;
   }, [current]);
   const isNotice = current?.segmentKind === "notice";
+  const isPreNotice = isNotice && current?.noticePhase !== "post";
+  const isPostNotice = isNotice && current?.noticePhase === "post";
+  const showPreNoticeOverlay =
+    (mode === "GLOBAL" && isPreNotice) ||
+    (mode === "LOCAL" &&
+      livePreNotice != null &&
+      !isPreNoticeDismissed(livePreNotice.enforcementId));
   const lastPlayableUrlRef = useRef<string>("");
 
   useEffect(() => {
@@ -644,13 +670,21 @@ export const HomeTvLooper = ({
       0)
     : (scheduleEvent?.numOfTips ?? channelFinancial?.numOfTips ?? 0);
 
-  const { amountRaised: liveAmountRaised, numOfTips: liveNumOfTips } =
-    useEventRoomRealtime({
-      eventId: fundraisingEventId,
-      initialAmountRaised,
-      initialNumOfTips,
-      enabled: tipsAndPaymentsEnabled,
-    });
+  const {
+    amountRaised: liveAmountRaised,
+    numOfTips: liveNumOfTips,
+    channelNumOfTips: liveChannelNumOfTips,
+  } = useEventRoomRealtime({
+    eventId: fundraisingEventId,
+    initialAmountRaised,
+    initialNumOfTips,
+    channelId: currentChannelId ? String(currentChannelId) : null,
+    initialChannelNumOfTips:
+      channelFinancial?.numOfTips ??
+      (current?.channel as { numOfTips?: number } | undefined)?.numOfTips ??
+      0,
+    enabled: tipsAndPaymentsEnabled,
+  });
 
   const progressAmountRaised = liveAmountRaised;
   const progressAmountToRaise =
@@ -659,10 +693,7 @@ export const HomeTvLooper = ({
     channelFinancial?.amountToRaise ??
     0;
 
-  const videoTipCount =
-    channelFinancial?.numOfTips ??
-    (current?.channel as { numOfTips?: number } | undefined)?.numOfTips ??
-    liveNumOfTips;
+  const videoTipCount = liveChannelNumOfTips;
   const eventRoomTipCount = scheduleEvent?.numOfTips ?? liveNumOfTips;
 
   const { user, token } = useSelector((state: RootState) => state.auth);
@@ -742,10 +773,6 @@ export const HomeTvLooper = ({
   }, [current?.channel, currentEventId]);
 
   useEffect(() => {
-    setPlayerPlayingState(isPlaying);
-  }, [isPlaying, setPlayerPlayingState]);
-
-  useEffect(() => {
     setPlayerVisible(true);
     return () => {
       setPlayerVisible(false);
@@ -781,105 +808,6 @@ export const HomeTvLooper = ({
     return () => clearInterval(interval);
   }, [playerRef, isSeeking]);
 
-  // ---- Tab visibility: pause/mute while hidden in LOCAL; clear flag when visible or GLOBAL ----
-  useEffect(() => {
-    if (mode === "GLOBAL") {
-      setMiniPlayerActive(false);
-      return;
-    }
-    setMiniPlayerActive(document.hidden);
-    const onVisibility = () => setMiniPlayerActive(document.hidden);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [mode]);
-
-  useEffect(() => {
-    if (mode === "GLOBAL") return;
-    const handleBeforeUnload = () => setMiniPlayerActive(true);
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [mode]);
-
-  // useEffect(() => {
-  //   const player = playerRef.current;
-  //   if (!player || !player.isReady()) return;
-  //   if (mode === "GLOBAL") {
-  //     if (isMuted) player.mute();
-  //     else player.unmute();
-  //     return;
-  //   }
-  //   if (miniPlayerActive) {
-  //     player.pause();
-  //     player.mute();
-  //   } else {
-  //     if (!isMuted) player.unmute();
-  //     if (isPlaying) player.play();
-  //   }
-  // }, [miniPlayerActive, isMuted, isPlaying, playerRef, mode]);
-
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player || !player.isReady()) return;
-
-    if (isMuted) player.mute();
-    // Never programmatically unmute — audio unlock requires toggleMute user gesture.
-  }, [isMuted, playerRef]);
-
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player || !player.isReady()) return;
-
-    if (miniPlayerActive) {
-      player.pause();
-    } else if (isPlaying) {
-      player.play();
-    }
-  }, [miniPlayerActive, isPlaying, playerRef]);
-
-  // ---- Local controls (cosmetic -- do not affect broadcast state) ----
-  const togglePlayPause = () => {
-    const player = playerRef.current;
-    if (!player || !player.isReady()) return;
-    if (isPlaying) {
-      player.pause();
-      setIsPlaying(false);
-    } else {
-      player.play();
-      setIsPlaying(true);
-    }
-  };
-
-  const toggleMute = () => {
-    const player = playerRef.current;
-    if (!player || !player.isReady()) return;
-    if (isMuted) {
-      unmuteWithUserGesture(player, "TvLooper.toggleMute");
-      setIsMuted(false);
-      setIsPlaying(true);
-      try {
-        window.sessionStorage.setItem(TV_MUTE_PREF_KEY, "0");
-      } catch {
-        /* noop */
-      }
-    } else {
-      player.mute();
-      setIsMuted(true);
-      try {
-        window.sessionStorage.setItem(TV_MUTE_PREF_KEY, "1");
-      } catch {
-        /* noop */
-      }
-    }
-  };
-
-  const stopPlayer = () => {
-    const player = playerRef.current;
-    if (!player) return;
-    if (mode === "GLOBAL") enterLocalMode("manual");
-    player.stop();
-    setIsPlaying(false);
-  };
-
   const seekTo = (time: number) => {
     const player = playerRef.current;
     if (!player || !player.isReady()) return;
@@ -905,8 +833,8 @@ export const HomeTvLooper = ({
     : false;
 
   const handleSaveToggle = async () => {
-    if (!token) {
-      toast.error("Missing session");
+    if (!token || user?.role === "VISITOR") {
+      toast.error("Sign in as a tipper to save videos");
       return;
     }
     if (!channelId) {
@@ -1318,7 +1246,28 @@ export const HomeTvLooper = ({
             </div>
           ) : null}
 
-          {isNotice && (
+          {showPreNoticeOverlay ? (
+            <EnforcementPreNoticeOverlay
+              title={
+                mode === "GLOBAL"
+                  ? (current.channel?.title ?? "Program notice")
+                  : (livePreNotice?.title ?? "Program notice")
+              }
+              remainingSec={livePreNotice?.remainingSec ?? 60}
+              onReturnToLocal={
+                mode === "LOCAL" && localPreNoticeSnapshot
+                  ? restorePreNoticeLocal
+                  : undefined
+              }
+              className={
+                widePlayer || (fillViewport && isMobileTv)
+                  ? "min-h-[200px]"
+                  : ""
+              }
+            />
+          ) : null}
+
+          {isPostNotice ? (
             <div
               className={cn(
                 "absolute inset-0 z-[35] flex flex-col items-center justify-center gap-4 bg-black/95 px-6 text-center",
@@ -1334,7 +1283,7 @@ export const HomeTvLooper = ({
                 Live schedule continues automatically after this notice.
               </p>
             </div>
-          )}
+          ) : null}
 
           {isPlayerLoading && !showPlaybackError && (
             <div
@@ -1423,25 +1372,13 @@ export const HomeTvLooper = ({
                   onInitialEmbedConfirmed={onInitialLiveOffsetEmbedConfirmed}
                   onReady={() => {
                     setIsPlayerLoading(false);
-
-                    const player = playerRef.current;
-                    player?.syncMuteFromPlayer?.();
-                    if (player?.isReady() && isMuted) {
-                      player.mute();
-                    }
-
+                    onPlayerReady();
                     setPlayerVisible(true);
                     emitEncounterWhenVideoLoads();
                   }}
                   onPlaybackReady={() => {
                     setIsPlayerLoading(false);
-
-                    const player = playerRef.current;
-                    player?.syncMuteFromPlayer?.();
-                    if (player?.isReady() && isMuted) {
-                      player.mute();
-                    }
-
+                    syncFromPlayer();
                     applyPendingPlaybackRestore();
                     applyPendingAudioRestore();
                     emitEncounterWhenVideoLoads();
@@ -1450,7 +1387,7 @@ export const HomeTvLooper = ({
                   }}
                   onPlay={() => {
                     setIsPlayerLoading(false);
-                    setIsPlaying(true);
+                    notifyPlayerPlaying();
                     notifyStartupPlayerPlaying();
                     applyPendingPlaybackRestore();
                     applyPendingAudioRestore();
@@ -1485,7 +1422,7 @@ export const HomeTvLooper = ({
                       );
                     }
                   }}
-                  onPause={() => setIsPlaying(false)}
+                  onPause={() => notifyPlayerPaused()}
                   onUserPause={onPlayerPause}
                   onUserSeek={onPlayerSeek}
                   onEnd={handleVideoEnd}
@@ -1616,45 +1553,6 @@ export const HomeTvLooper = ({
           </div>
         </div>
       ) : null}
-
-      {/* Mini Player Overlay (LOCAL mode only) */}
-      {/* {miniPlayerActive && mode !== "GLOBAL" && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 16,
-            right: 16,
-            width:
-              typeof window !== "undefined" && window.innerWidth < 500
-                ? 250
-                : 310,
-            height:
-              typeof window !== "undefined" && window.innerWidth < 500
-                ? 140
-                : 174,
-            zIndex: 9999,
-            overflow: "hidden",
-            background: "black",
-          }}
-        >
-          <button
-            onClick={() => setMiniPlayerActive(false)}
-            className="absolute top-1 right-1 z-50 flex items-center justify-center rounded-full bg-white/80 p-1 text-black"
-          >
-            <X />
-          </button>
-
-          <TvPlayer
-            key="pip-player"
-            videoUrl={playbackUrl}
-            autoplay
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onMuteChange={muted => setIsMuted(muted)}
-            miniPlayerActive={true}
-          />
-        </div>
-      )} */}
     </div>
   );
 };

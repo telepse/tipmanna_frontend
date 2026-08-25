@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import OTPInput from "react-otp-input";
 import { useForm } from "react-hook-form";
 import { persistAuthSession } from "@/lib/session-client";
-import { useMediaQuery } from "react-responsive";
 import { ChevronLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
@@ -33,10 +32,12 @@ import {
 } from "@/actions/auth";
 import { setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
-import { RootState } from "@/redux/store";
+import { RootState, type AppDispatch } from "@/redux/store";
 import { parseAuthResponse, type AuthUserPayload } from "@/lib/auth-response";
+import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import type { HostUser, TipperUser, VisitorUser } from "@/features/auth-slice";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import { useMediaQuery } from "react-responsive";
 
 type signIn_Step = "signIn" | "signInVerifyCode" | "signUp";
 
@@ -51,7 +52,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((state: RootState) => state.auth.user);
   const token = useSelector((state: RootState) => state.auth.token);
 
@@ -101,7 +102,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
       const res = await loginOrRegisterHostAction({
         fullName: values.fullName,
         password: values.password,
-        emailOrUsername: values.emailOrUsername,
+        emailOrUsername: values.emailOrUsername || values.email,
         email: values.email,
         username: values.username,
         acceptedTerms: values.acceptedTerms,
@@ -113,54 +114,15 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
         return;
       }
 
-      const {
-        id,
-        fullName,
-        email,
-        username,
-        eventCode,
-        eventSlug,
-        numOfEvents,
-        individualLegalFirstName,
-        individualLegalLastName,
-        organizationName,
-      } = (res.data as any)?.user as any;
-      const token = (res.data as unknown as { token: string })?.token;
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Unexpected sign-in response — please try again");
+        return;
+      }
 
-      dispatch(
-        setCredentials({
-          user: {
-            id,
-            fullName,
-            email,
-            username,
-            role: "HOST",
-            eventCode,
-            eventSlug,
-            numOfEvents,
-            individualLegalFirstName,
-            individualLegalLastName,
-            organizationName,
-          },
-          token,
-          requiresVerification: true,
-        })
-      );
-
-      await persistAuthSession(
-        token,
-        {
-          id,
-          fullName,
-          email,
-          username,
-          role: "HOST",
-          eventCode,
-          eventSlug,
-          numOfEvents,
-        },
-        { expiresDays: 7 }
-      );
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
 
       if (res.success) setSignInStep("signInVerifyCode");
     } catch (err: unknown) {
@@ -266,54 +228,15 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
 
       toast.success((res.data as any)?.message as string);
 
-      const {
-        id,
-        fullName,
-        email,
-        username,
-        eventCode,
-        eventSlug,
-        numOfEvents,
-        individualLegalFirstName,
-        individualLegalLastName,
-        organizationName,
-      } = (res.data as any)?.user as any;
-      const token = (res.data as unknown as { token: string })?.token;
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Unexpected sign-in response — please try again");
+        return;
+      }
 
-      dispatch(
-        setCredentials({
-          user: {
-            id,
-            fullName,
-            email,
-            username,
-            role: "HOST",
-            eventCode,
-            eventSlug,
-            numOfEvents,
-            individualLegalFirstName,
-            individualLegalLastName,
-            organizationName,
-          },
-          token,
-          requiresVerification: true,
-        })
-      );
-
-      await persistAuthSession(
-        token,
-        {
-          id,
-          fullName,
-          email,
-          username,
-          role: "HOST",
-          eventCode,
-          eventSlug,
-          numOfEvents,
-        },
-        { expiresDays: 7 }
-      );
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
 
       setCode("");
       setSignInStep("signInVerifyCode");

@@ -221,6 +221,7 @@ export const newEventSchema = z.object({
   eventDate: z.string().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  timeZone: z.string().optional(),
 
   // 🏛️ Venue
   venueName: z.string().optional(),

@@ -70,8 +70,9 @@ export function ReminderBucketTab({
   const [section, setSection] = useState<"available" | "mine" | "history">(
     "available"
   );
+  const authUser = useSelector((s: RootState) => s.auth.user);
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
-  const userId = useSelector((s: RootState) => s.auth.user?.id);
+  const userId = authUser?.id;
   const loadedRef = useRef(false);
 
   const load = useCallback(
@@ -93,7 +94,7 @@ export function ReminderBucketTab({
         }
 
         const token = getAuthToken();
-        if (isAuthenticated && userId) {
+        if (isAuthenticated && userId && authUser?.role !== "VISITOR") {
           const [entriesRes, historyRes] = await Promise.all([
             listMyReminderEntriesAction(token),
             listMyReminderHistoryAction(token),
@@ -119,7 +120,7 @@ export function ReminderBucketTab({
         setLoading(false);
       }
     },
-    [deferLoad, isAuthenticated, userId]
+    [deferLoad, isAuthenticated, userId, authUser?.role]
   );
 
   useEffect(() => {
@@ -127,8 +128,8 @@ export function ReminderBucketTab({
   }, [load]);
 
   const setReminder = async (post: ReminderPost, offsetMinutes: number) => {
-    if (!isAuthenticated || !userId) {
-      toast.info("Sign in to set a reminder");
+    if (!isAuthenticated || !userId || authUser?.role === "VISITOR") {
+      toast.info("Sign in as a tipper to set a reminder");
       return;
     }
     const token = getAuthToken();

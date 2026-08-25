@@ -45,6 +45,7 @@ import { VideoLinksEventVideoTypeField } from "@/components/events/video-links-e
 import { VideoLinkContentCountryCombobox } from "@/components/events/video-link-content-country-combobox";
 import { VideoLinkContentLanguageCombobox } from "@/components/events/video-link-content-language-combobox";
 import { NewEventFormData } from "@/schemas";
+import { EventTimezoneField } from "@/components/events/event-timezone-field";
 import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
 
 interface Props {
@@ -533,6 +534,12 @@ export const HostEventAndContentInfo = ({ control }: Props) => {
                 />
               </div>
             </div>
+
+            <EventTimezoneField
+              control={control}
+              name="timeZone"
+              className="sm:col-span-2"
+            />
           </div>
         </div>
 

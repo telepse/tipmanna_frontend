@@ -27,6 +27,8 @@ export function useCoOwnerPusherApprovalRefresh({
 }: Options) {
   const onApprovedRef = useRef(onApproved);
   onApprovedRef.current = onApproved;
+  const successMessageRef = useRef(successMessage);
+  successMessageRef.current = successMessage;
 
   const keysFingerprint = useMemo(
     () =>
@@ -59,7 +61,7 @@ export function useCoOwnerPusherApprovalRefresh({
 
       const handler = (data: { status?: string }) => {
         if (data?.status === "approved") {
-          toast.success(successMessage);
+          toast.success(successMessageRef.current);
           onApprovedRef.current();
         }
       };
@@ -97,11 +99,5 @@ export function useCoOwnerPusherApprovalRefresh({
         unsubscribeChannel(channelName);
       }
     };
-  }, [
-    enabled,
-    keysFingerprint,
-    extraFingerprint,
-    extraInviteIds,
-    successMessage,
-  ]);
+  }, [enabled, keysFingerprint, extraFingerprint]);
 }

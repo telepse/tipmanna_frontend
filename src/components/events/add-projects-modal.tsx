@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-// Third-party imports
+import { addEventProjectsAction } from "@/actions/events";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { toast } from "react-toastify";
 import { X, Plus } from "lucide-react";
 
@@ -31,16 +32,17 @@ interface Props {
 export const AddProjectsModal = ({
   open,
   onClose,
-  isHost,
   eventId,
   projects,
   setProjects,
 }: Props) => {
+  const { handleAuthRequiredError, HostAuthModal } = useHostCapabilityWithAuth({
+    cohostEventId: eventId,
+  });
   const [localProjects, setLocalProjects] = useState(projects);
 
   useEffect(() => {
     if (open) {
-      // If parent has performers, use them. Otherwise, give a single blank input.
       setLocalProjects(
         projects.length > 0 ? projects : [{ name: "", amountReceived: "" }]
       );
@@ -57,7 +59,7 @@ export const AddProjectsModal = ({
 
   const updateProject = (
     index: number,
-    field: "name" | "description",
+    field: "name" | "amountReceived",
     value: string
   ) => {
     setLocalProjects(prev => {
@@ -70,33 +72,31 @@ export const AddProjectsModal = ({
     });
   };
 
+  const submitProjects = async (cleaned: Project[]) => {
+    const res = await addEventProjectsAction(eventId, cleaned);
+    if (!res.success) {
+      if (handleAuthRequiredError(res, () => void submitProjects(cleaned))) {
+        return;
+      }
+      toast.error(res.error ?? "Failed to add projects");
+      return;
+    }
+    toast.success("Projects added successfully!");
+    if (res.data) setProjects(res.data as Project[]);
+    onClose();
+  };
+
   const onSubmit = async () => {
     const cleaned = localProjects.filter(p => p.name.trim() !== "");
-
     if (cleaned.length === 0) {
       toast.error("Add at least one project");
       return;
     }
-
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/projects`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projects: cleaned }),
-        }
-      );
-
-      if (!res.ok) throw new Error("Failed to add projects");
-
-      const data = await res.json();
-      toast.success("Projects added successfully!");
-      setProjects(data); // update parent state
-      onClose();
+      await submitProjects(cleaned);
     } catch (err) {
       console.error(err);
-      toast.error("Error adding performers");
+      toast.error("Error adding projects");
     }
   };
 
@@ -105,62 +105,65 @@ export const AddProjectsModal = ({
   }, [projects]);
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onClose}
-    >
-      <DialogContent className="max-h-[70vh] w-full overflow-y-scroll rounded-md sm:max-w-sm">
-        <DialogHeader className="flex items-center justify-between">
-          <DialogTitle>Add projects to pin to screen display</DialogTitle>
-        </DialogHeader>
+    <>
+      {HostAuthModal}
+      <Dialog
+        open={open}
+        onOpenChange={onClose}
+      >
+        <DialogContent className="max-h-[70vh] w-full overflow-y-scroll rounded-md sm:max-w-sm">
+          <DialogHeader className="flex items-center justify-between">
+            <DialogTitle>Add projects to pin to screen display</DialogTitle>
+          </DialogHeader>
 
-        <button
-          type="button"
-          onClick={addProject}
-          className="flex w-fit items-center gap-2 rounded-md bg-black p-2 text-sm text-white"
-        >
-          <Plus /> Add project
-        </button>
-
-        {localProjects.map((project, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-1 rounded-md"
+          <button
+            type="button"
+            onClick={addProject}
+            className="flex w-fit items-center gap-2 rounded-md bg-black p-2 text-sm text-white"
           >
-            <Input
-              placeholder="Title"
-              value={project.name}
-              onChange={e => updateProject(index, "name", e.target.value)}
-            />
+            <Plus /> Add project
+          </button>
 
-            <Input
-              placeholder="0"
-              value={project.amountReceived}
-              onChange={e =>
-                updateProject(index, "description", e.target.value)
-              }
-              disabled={true}
-            />
+          {localProjects.map((project, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-1 rounded-md"
+            >
+              <Input
+                placeholder="Title"
+                value={project.name}
+                onChange={e => updateProject(index, "name", e.target.value)}
+              />
 
-            {localProjects.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeProject(index)}
-                className="text-destructive"
-              >
-                <X />
-              </button>
-            )}
-          </div>
-        ))}
+              <Input
+                placeholder="0"
+                value={project.amountReceived}
+                onChange={e =>
+                  updateProject(index, "amountReceived", e.target.value)
+                }
+                disabled={true}
+              />
 
-        <Button
-          type="button"
-          onClick={onSubmit}
-        >
-          Submit
-        </Button>
-      </DialogContent>
-    </Dialog>
+              {localProjects.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeProject(index)}
+                  className="text-destructive"
+                >
+                  <X />
+                </button>
+              )}
+            </div>
+          ))}
+
+          <Button
+            type="button"
+            onClick={() => void onSubmit()}
+          >
+            Submit
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

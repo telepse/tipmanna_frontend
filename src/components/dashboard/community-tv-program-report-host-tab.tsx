@@ -1,13 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSelector } from "react-redux";
 import { ChevronDown, FileDown, Loader2, Mail } from "lucide-react";
 import { toast } from "react-toastify";
 
+import {
+  emailCommunityTvProgramReportAction,
+  exportCommunityTvProgramReportCombinedAction,
+  exportCommunityTvProgramReportItemAction,
+  getCommunityTvProgramReportDetailAction,
+  listCommunityTvProgramReportsAction,
+} from "@/actions/community-tv-host";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { RootState } from "@/redux/store";
+import { downloadBase64File } from "@/lib/download-base64";
 import {
   Collapsible,
   CollapsibleContent,
@@ -70,14 +76,11 @@ function ProgramDetail({
   communityId,
   programId,
   applicationId,
-  apiBase,
 }: {
   communityId: string;
   programId: string;
   applicationId: string | null;
-  apiBase: string;
 }) {
-  const authToken = useSelector((s: RootState) => s.auth.token);
   const [detail, setDetail] = useState<{
     title: string;
     videos: VideoRow[];
@@ -89,22 +92,21 @@ function ProgramDetail({
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
 
-  const base = apiBase.replace(/\/$/, "");
-  const prefix = `${base}/communities/${encodeURIComponent(communityId)}/tv/program-report`;
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const token = authToken;
-      const q =
-        applicationId != null && applicationId !== ""
-          ? `?applicationId=${encodeURIComponent(applicationId)}`
-          : "";
-      const res = await fetch(`${prefix}/${programId}${q}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to load detail");
-      const data = await res.json();
+      const res = await getCommunityTvProgramReportDetailAction(
+        communityId,
+        programId,
+        applicationId
+      );
+      if (!res.success || !res.data) throw new Error("Failed to load detail");
+      const data = res.data as {
+        title: string;
+        videos?: VideoRow[];
+        applicationId?: string | null;
+        programTotals?: ProgramTotals | null;
+      };
       setDetail({
         title: data.title,
         videos: data.videos ?? [],
@@ -116,35 +118,26 @@ function ProgramDetail({
     } finally {
       setLoading(false);
     }
-  }, [prefix, programId, applicationId]);
+  }, [communityId, programId, applicationId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const exportCsv = async (itemId: string, appId: string | null) => {
-    const token = authToken;
-    if (!token) {
-      toast.error("Sign in required");
-      return;
-    }
-    const q =
-      appId != null && appId !== ""
-        ? `?applicationId=${encodeURIComponent(appId)}`
-        : "";
     try {
-      const res = await fetch(
-        `${prefix}/${programId}/item/${itemId}/export${q}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const res = await exportCommunityTvProgramReportItemAction(
+        communityId,
+        programId,
+        itemId,
+        appId
       );
-      if (!res.ok) throw new Error("Export failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `community-program-report-${itemId.slice(0, 8)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      if (!res.success || !res.data) throw new Error("Export failed");
+      downloadBase64File(
+        res.data.base64,
+        `community-program-report-${itemId.slice(0, 8)}.csv`,
+        res.data.contentType
+      );
       toast.success("Downloaded");
     } catch {
       toast.error("Export failed");
@@ -152,29 +145,19 @@ function ProgramDetail({
   };
 
   const exportCombined = async () => {
-    const token = authToken;
-    if (!token) {
-      toast.error("Sign in required");
-      return;
-    }
-    const q =
-      detail?.applicationId != null && detail.applicationId !== ""
-        ? `?applicationId=${encodeURIComponent(detail.applicationId)}`
-        : applicationId != null && applicationId !== ""
-          ? `?applicationId=${encodeURIComponent(applicationId)}`
-          : "";
+    const appId = detail?.applicationId ?? applicationId;
     try {
-      const res = await fetch(`${prefix}/${programId}/export${q}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Export failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `community-program-combined.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const res = await exportCommunityTvProgramReportCombinedAction(
+        communityId,
+        programId,
+        appId
+      );
+      if (!res.success || !res.data) throw new Error("Export failed");
+      downloadBase64File(
+        res.data.base64,
+        "community-program-combined.csv",
+        res.data.contentType
+      );
       toast.success("Combined report downloaded");
     } catch {
       toast.error("Export failed");
@@ -182,28 +165,21 @@ function ProgramDetail({
   };
 
   const emailReport = async () => {
-    const token = authToken;
-    if (!token || !emailTo.trim()) {
+    if (!emailTo.trim()) {
       toast.error("Enter recipient email");
       return;
     }
-    const q =
-      detail?.applicationId != null && detail.applicationId !== ""
-        ? `?applicationId=${encodeURIComponent(detail.applicationId)}`
-        : applicationId != null && applicationId !== ""
-          ? `?applicationId=${encodeURIComponent(applicationId)}`
-          : "";
+    const appId = detail?.applicationId ?? applicationId;
     setEmailSending(true);
     try {
-      const res = await fetch(`${prefix}/${programId}/email${q}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ to: emailTo.trim() }),
-      });
-      if (!res.ok) throw new Error("Email failed");
+      const res = await emailCommunityTvProgramReportAction(
+        communityId,
+        programId,
+        emailTo.trim(),
+        appId
+      );
+      if (!res.success)
+        throw new Error(res.message ?? res.error ?? "Email failed");
       toast.success("Report emailed");
       setEmailOpen(false);
       setEmailTo("");
@@ -336,36 +312,31 @@ function ProgramDetail({
 
 export function CommunityTvProgramReportHostTab({
   communityId,
-  apiBase,
 }: {
   communityId: string;
-  apiBase: string;
+  apiBase?: string;
 }) {
-  const authToken = useSelector((s: RootState) => s.auth.token);
   const [rows, setRows] = useState<ListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  const base = apiBase.replace(/\/$/, "");
-  const prefix = `${base}/communities/${encodeURIComponent(communityId)}/tv/program-report`;
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const token = authToken;
-      const res = await fetch(`${prefix}?page=${page}&pageSize=25`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("list failed");
-      const data = await res.json();
-      setRows((data.rows ?? []) as ListRow[]);
+      const res = await listCommunityTvProgramReportsAction(
+        communityId,
+        page,
+        25
+      );
+      if (!res.success || !res.data) throw new Error("list failed");
+      setRows((res.data.rows ?? []) as ListRow[]);
     } catch {
       toast.error("Could not load program reports");
     } finally {
       setLoading(false);
     }
-  }, [prefix, page]);
+  }, [communityId, page]);
 
   useEffect(() => {
     void load();
@@ -412,7 +383,6 @@ export function CommunityTvProgramReportHostTab({
                   communityId={communityId}
                   programId={row.id}
                   applicationId={row.applicationId}
-                  apiBase={apiBase}
                 />
               ) : null}
             </CollapsibleContent>

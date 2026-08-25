@@ -1,19 +1,39 @@
 import type { RootState } from "@/redux/store";
 import { getTipperUsername } from "@/lib/utils";
+import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 
 type AuthUser = RootState["auth"]["user"];
+
+type HostNavContext = {
+  linkedHost?: boolean;
+  hostEventSlug?: string | null;
+  hostUsername?: string | null;
+  hostSessionActive?: boolean;
+};
 
 /** Stable internal href for "My account" / sign-in entry points from nav chrome. */
 export function getAccountNavHref(
   user: AuthUser,
-  isAuthenticated: boolean
+  isAuthenticated: boolean,
+  hostCtx?: HostNavContext
 ): string {
   if (!isAuthenticated || !user) return "/sign-in";
   switch (user.role) {
-    case "TIPPER":
+    case "TIPPER": {
+      if (hostCtx?.hostSessionActive && hostCtx.hostEventSlug) {
+        return `/host/${hostCtx.hostEventSlug}`;
+      }
       return `/tipper/${user.username}`;
-    case "HOST":
-      return `/host/${user.eventSlug}`;
+    }
+    case "HOST": {
+      const profilePath = buildCreatorProfileSharePath(
+        hostCtx?.hostUsername ?? user.username
+      );
+      if (profilePath !== "/") return profilePath;
+      return hostCtx?.hostEventSlug
+        ? `/host/${hostCtx.hostEventSlug}`
+        : `/tipper/${user.username}`;
+    }
     case "VISITOR":
       return user.username ? `/visitor/${user.username}` : "/tv";
     default:
@@ -21,41 +41,56 @@ export function getAccountNavHref(
   }
 }
 
-/** Footer / CTA "add or create event" primary href. */
+/**
+ * Footer / CTA "add or create event" primary href.
+ * Pass `linkedHost: true` when useHostCapability reports a linked host account.
+ */
 export function getAddEventNavHref(
   user: AuthUser,
-  isAuthenticated: boolean
+  isAuthenticated: boolean,
+  linkedHost?: boolean
 ): string {
   if (!isAuthenticated || !user) return "/sign-in";
-  switch (user.role) {
-    case "TIPPER":
-      return `/create-account?email=${encodeURIComponent(user.email)}`;
-    case "HOST":
-      return "/event-only";
-    case "VISITOR":
-    default:
-      return "/sign-in";
+  if (user.role === "TIPPER" && linkedHost === true) return "/event-only";
+  if (user.role === "TIPPER") {
+    return `/create-account?email=${encodeURIComponent(user.email)}`;
   }
-}
-
-/** Dashboard footer "Create event" targets tipper profile or add-event (legacy behavior). */
-export function getDashboardFooterCreateHref(
-  user: AuthUser,
-  isAuthenticated: boolean
-): string {
-  if (!isAuthenticated || !user) return "/sign-in";
-  if (user.role === "TIPPER") return `/tipper/${getTipperUsername(user.email)}`;
   if (user.role === "HOST") return "/event-only";
   return "/sign-in";
 }
 
-/** Dashboard footer "My account" (host uses user id in path). */
-export function getDashboardFooterAccountHref(
+/** Dashboard footer "Create event" — linked hosts use event-only flow. */
+export function getDashboardFooterCreateHref(
   user: AuthUser,
-  isAuthenticated: boolean
+  isAuthenticated: boolean,
+  linkedHost?: boolean
 ): string {
   if (!isAuthenticated || !user) return "/sign-in";
-  if (user.role === "TIPPER") return `/tipper/${user.username}`;
-  if (user.role === "HOST") return `/host/${user.id}`;
+  if (user.role === "TIPPER") {
+    if (linkedHost) return "/event-only";
+    return `/tipper/${getTipperUsername(user.email)}`;
+  }
+  if (user.role === "HOST") return "/event-only";
+  return "/sign-in";
+}
+
+/** Dashboard footer "My account" — host dashboard when host session active. */
+export function getDashboardFooterAccountHref(
+  user: AuthUser,
+  isAuthenticated: boolean,
+  hostCtx?: HostNavContext
+): string {
+  if (!isAuthenticated || !user) return "/sign-in";
+  if (user.role === "TIPPER") {
+    if (hostCtx?.hostSessionActive && hostCtx.hostEventSlug) {
+      return `/host/${hostCtx.hostEventSlug}`;
+    }
+    return `/tipper/${user.username}`;
+  }
+  if (user.role === "HOST") {
+    return hostCtx?.hostEventSlug
+      ? `/host/${hostCtx.hostEventSlug}`
+      : `/tipper/${user.username}`;
+  }
   return "/sign-in";
 }

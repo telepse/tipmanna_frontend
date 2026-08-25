@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
+import { useHostSession } from "@/hooks/use-host-session";
 import { getHostProfileAction } from "@/actions/auth";
 
 export function usePayoutProfileGuard() {
-  const token = useSelector((state: RootState) => state.auth.token);
+  const { isActive: hostSessionActive } = useHostSession();
   const [profileComplete, setProfileComplete] = useState(true);
   const [profileLabel, setProfileLabel] = useState("profile");
   const [profileAccountType, setProfileAccountType] = useState<
@@ -16,9 +15,9 @@ export function usePayoutProfileGuard() {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!token) return;
+    if (!hostSessionActive) return;
 
-    void getHostProfileAction(token).then(response => {
+    void getHostProfileAction().then(response => {
       if (!response.success || !response.data) {
         setChecked(true);
         return;
@@ -38,7 +37,7 @@ export function usePayoutProfileGuard() {
       setProfileAccountType(data.profileAccountType ?? "INDIVIDUAL");
       setChecked(true);
     });
-  }, [token]);
+  }, [hostSessionActive]);
 
   const guardPayoutNavigation = useCallback(
     (event?: { preventDefault: () => void }) => {

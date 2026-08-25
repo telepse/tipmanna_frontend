@@ -8,7 +8,10 @@ import {
 } from "@/components/ui/dialog";
 
 // Local imports
+import { AlreadySignedInNotice } from "@/components/auth/already-signed-in-notice";
 import { SigninForm } from "./signin-form";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
 
 export type SignInModalPayload = {
   role: "HOST" | "TIPPER";
@@ -29,6 +32,8 @@ type SignInDialogProps = {
   overlayClassName?: string;
   contentClassName?: string;
   allowInlineSignUp?: boolean;
+  /** Shows a banner directing users to the Host creator tab. */
+  hostRequiredNotice?: boolean;
 };
 
 /**
@@ -45,7 +50,10 @@ export default function SignInDialog({
   overlayClassName,
   contentClassName,
   allowInlineSignUp = false,
+  hostRequiredNotice = false,
 }: SignInDialogProps) {
+  const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
+
   return (
     <Dialog
       open={open}
@@ -60,6 +68,18 @@ export default function SignInDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
+        {hostRequiredNotice ? (
+          <div
+            role="alert"
+            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+          >
+            This action requires your host creator account — use the Host
+            creator tab below.
+          </div>
+        ) : null}
+
+        {isAuthenticated && user ? <AlreadySignedInNotice compact /> : null}
+
         <SigninForm
           key={open ? "open" : "closed"}
           mode="modal"
@@ -70,8 +90,8 @@ export default function SignInDialog({
             onSuccess?.(payload);
             onOpenChange(false);
           }}
-          onModalTipperSuccess={() => {
-            onSuccess?.({ role: "TIPPER" });
+          onModalTipperSuccess={payload => {
+            onSuccess?.(payload);
             onOpenChange(false);
           }}
           className="py-4"

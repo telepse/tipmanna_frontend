@@ -319,7 +319,7 @@ export const AutoDetectLocationPrompt = ({ open, onClose }: Props) => {
       onOpenChange={isOpen => {
         if (!isOpen) {
           closeModal(); // Reset modal state
-          router.push("/"); // Redirect to homepage
+          router.push("/explore");
         }
       }}
     >
@@ -331,7 +331,7 @@ export const AutoDetectLocationPrompt = ({ open, onClose }: Props) => {
         {step === "askAndDetect" && (
           <div className="flex flex-col items-center gap-6 px-4 pt-6">
             <Link
-              href="/"
+              href="/explore"
               className="flex items-center gap-4"
             >
               <House />

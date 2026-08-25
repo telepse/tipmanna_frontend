@@ -77,3 +77,53 @@ export function buildOrganizationJsonLd(input: {
     ...(input.logo ? { logo: input.logo } : {}),
   };
 }
+
+export function buildFaqPageJsonLd(
+  faqs: ReadonlyArray<{ question: string; answer: string }>
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map(faq => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
+}
+
+export function buildPartnerOffersJsonLd(
+  plans: ReadonlyArray<{
+    name: string;
+    price: string;
+    description: string;
+    features: string[];
+  }>,
+  pageUrl: string
+) {
+  return plans.map(plan => {
+    const numericPrice = plan.price.replace(/[^\d.]/g, "");
+    return {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: `Tipmanna ${plan.name}`,
+      description: plan.description,
+      url: pageUrl,
+      brand: {
+        "@type": "Organization",
+        name: "Tipmanna",
+      },
+      offers: {
+        "@type": "Offer",
+        price: numericPrice || "0",
+        priceCurrency: "GBP",
+        availability: "https://schema.org/InStock",
+        url: `${pageUrl}#pricing`,
+        description: plan.features.join(". "),
+      },
+    };
+  });
+}

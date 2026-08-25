@@ -125,7 +125,7 @@ export const ReportsClient = () => {
   };
 
   return (
-    <section className="space-y-4 sm:space-y-6">
+    <section className="w-full max-w-full min-w-0 space-y-4 overflow-x-clip sm:space-y-6">
       <DashboardHeading
         title="Reports & Insights"
         subtitle="Track your earnings, manage payouts, and generate reports"
@@ -186,37 +186,43 @@ export const ReportsClient = () => {
         onValueChange={val =>
           setTabType(val as "events" | "transaction" | "reports" | "video")
         }
-        className="space-y-4 sm:space-y-6"
+        className="w-full max-w-full min-w-0 space-y-4 overflow-x-clip sm:space-y-6"
       >
-        <TabsList className="flex h-14! w-full gap-1">
+        <TabsList className="flex h-14! w-full min-w-0 gap-1 overflow-hidden">
           <TabsTrigger
             value="events"
-            className="data-[state=active]:bg-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white"
+            className="data-[state=active]:bg-primary h-13! min-w-0 flex-1 rounded-none bg-white px-2 text-xs font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white sm:text-sm"
           >
             Events
           </TabsTrigger>
+
           <TabsTrigger
             value="transaction"
-            className="data-[state=active]:bg-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white"
+            className="data-[state=active]:bg-primary h-13! min-w-0 flex-1 rounded-none bg-white px-2 text-xs font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white sm:text-sm"
           >
             Transaction
           </TabsTrigger>
+
           <TabsTrigger
             value="reports"
-            className="data-[state=active]:bg-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white"
+            className="data-[state=active]:bg-primary h-13! min-w-0 flex-1 rounded-none bg-white px-2 text-xs font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white sm:text-sm"
           >
             Reports
           </TabsTrigger>
+
           <TabsTrigger
             value="video"
-            className="data-[state=active]:bg-primary h-13! rounded-none bg-white font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white"
+            className="data-[state=active]:bg-primary h-13! min-w-0 flex-1 rounded-none bg-white px-2 text-xs font-semibold data-[state=active]:border-b-2 data-[state=active]:text-white sm:text-sm"
           >
-            Video analytics
+            <span className="truncate">Video analytics</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="events">
-          <div className="bg-card space-y-4 rounded-md p-6">
+        <TabsContent
+          value="events"
+          className="w-full max-w-full min-w-0"
+        >
+          <div className="bg-card max-w-full min-w-0 space-y-4 rounded-md p-3 sm:p-6">
             <div className="space-y-2 font-medium">
               <h5 className="text-xl">Event Payment Breakdown</h5>
               <p className="text-muted-foreground text-sm">
@@ -233,9 +239,9 @@ export const ReportsClient = () => {
 
         <TabsContent
           value="transaction"
-          className="space-y-6"
+          className="w-full max-w-full min-w-0 space-y-6"
         >
-          <div className="bg-card space-y-4 rounded-md p-6">
+          <div className="bg-card max-w-full min-w-0 space-y-4 rounded-md p-3 sm:p-6">
             <div className="space-y-2 font-medium">
               <h5 className="text-xl">Transaction History</h5>
               <p className="text-muted-foreground text-sm">
@@ -250,66 +256,99 @@ export const ReportsClient = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="reports">
+        <TabsContent
+          value="reports"
+          className="w-full max-w-full min-w-0"
+        >
           <div
-            className="bg-card space-y-4 rounded-md p-6"
+            className="bg-card max-w-full min-w-0 space-y-4 rounded-md p-3 sm:p-6"
             ref={reportRef}
           >
-            <div className="flex items-center justify-between">
-              <div className="space-y-2 font-medium">
+            {/* Header */}
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              {/* Title */}
+              <div className="min-w-0 space-y-1 font-medium">
                 <h5 className="text-xl">Monthly Earnings</h5>
+
                 <p className="text-muted-foreground text-sm">
                   Your earning reports
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-black"
-                  onClick={() => setShowDateRange(!showDateRange)}
-                >
-                  <Calendar />{" "}
-                  {showDateRange ? "Hide Date Range" : "Select Date Range"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-black"
-                  onClick={exportReport}
-                >
-                  Export Report
-                </Button>
+              {/* Actions */}
+              <div className="relative flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                {/* Buttons */}
+                <div className="flex w-full gap-2 sm:w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-w-0 flex-1 border-black px-2 text-xs sm:flex-none sm:px-4 sm:text-sm"
+                    onClick={() => setShowDateRange(!showDateRange)}
+                  >
+                    <Calendar className="size-4 shrink-0" />
+
+                    <span className="truncate">
+                      {showDateRange ? "Hide Date Range" : "Select Date Range"}
+                    </span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-w-0 flex-1 border-black px-2 text-xs sm:flex-none sm:px-4 sm:text-sm"
+                    onClick={exportReport}
+                  >
+                    <span className="truncate">Export Report</span>
+                  </Button>
+                </div>
+
+                {/* Date picker */}
                 {showDateRange && (
-                  <DateRange
-                    editableDateInputs={true}
-                    onChange={item => setDateRange([item.selection])}
-                    moveRangeOnFirstSelection={false}
-                    ranges={dateRange}
-                    months={2}
-                    direction="horizontal"
-                    showMonthAndYearPickers={true}
-                  />
+                  <div className="w-full max-w-full overflow-x-auto sm:absolute sm:top-full sm:right-0 sm:z-20 sm:mt-2 sm:w-auto">
+                    <DateRange
+                      editableDateInputs={true}
+                      onChange={item => setDateRange([item.selection])}
+                      moveRangeOnFirstSelection={false}
+                      ranges={dateRange}
+                      months={1}
+                      direction="horizontal"
+                      showMonthAndYearPickers={true}
+                    />
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="h-[350px] w-full">
+            {/* Chart */}
+            <div className="h-[280px] w-full min-w-0 sm:h-[350px]">
               <ResponsiveContainer
                 width="100%"
                 height="100%"
               >
-                <LineChart data={filteredMonthlyData}>
+                <LineChart
+                  data={filteredMonthlyData}
+                  margin={{
+                    top: 10,
+                    right: 10,
+                    left: 0,
+                    bottom: 5,
+                  }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
+
                   <XAxis
                     dataKey="month"
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 10 }}
+                    tickMargin={8}
+                    interval="preserveStartEnd"
                   />
+
                   <YAxis
                     tickFormatter={value => `£${value}`}
-                    tick={{ fontSize: 12 }}
+                    tick={{ fontSize: 10 }}
+                    width={45}
                   />
+
                   <Tooltip
                     labelStyle={{ fontWeight: 600 }}
                     formatter={(value: number) => [
@@ -317,6 +356,7 @@ export const ReportsClient = () => {
                       "Total",
                     ]}
                   />
+
                   <Line
                     type="monotone"
                     dataKey="total"
@@ -330,7 +370,10 @@ export const ReportsClient = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="video">
+        <TabsContent
+          value="video"
+          className="w-full max-w-full min-w-0"
+        >
           <VideoAnalyticsPanel variant="reports" />
         </TabsContent>
       </Tabs>

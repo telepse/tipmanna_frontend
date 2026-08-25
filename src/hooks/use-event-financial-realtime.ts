@@ -11,6 +11,9 @@ export interface UseEventFinancialRealtimeInput {
   initialNumOfTips: number;
   initialLatestTipAmount: number;
   initialSessionAmountToRaise?: number;
+  /** When set, applies channelNumOfTips from Pusher only for this video. */
+  channelId?: string | null;
+  initialChannelNumOfTips?: number;
   enabled?: boolean;
   /** When false (e.g. TV strip), only bind event-amount-updated — fewer handlers on the channel. */
   includeOptionalEvents?: boolean;
@@ -26,16 +29,22 @@ export function useEventFinancialRealtime({
   initialNumOfTips,
   initialLatestTipAmount,
   initialSessionAmountToRaise,
+  channelId,
+  initialChannelNumOfTips = 0,
   enabled = true,
   includeOptionalEvents = true,
 }: UseEventFinancialRealtimeInput): {
   amountRaised: number;
   numOfTips: number;
+  channelNumOfTips: number;
   latestTipAmount: number;
   sessionAmountToRaise: number | undefined;
 } {
   const [amountRaised, setAmountRaised] = useState(initialAmountRaised);
   const [numOfTips, setNumOfTips] = useState(initialNumOfTips);
+  const [channelNumOfTips, setChannelNumOfTips] = useState(
+    initialChannelNumOfTips
+  );
   const [latestTipAmount, setLatestTipAmount] = useState(
     initialLatestTipAmount
   );
@@ -49,12 +58,14 @@ export function useEventFinancialRealtime({
   useEffect(() => {
     setAmountRaised(initialAmountRaised);
     setNumOfTips(initialNumOfTips);
+    setChannelNumOfTips(initialChannelNumOfTips);
     setLatestTipAmount(initialLatestTipAmount);
     setSessionAmountToRaise(initialSessionAmountToRaise);
   }, [
     eventId,
     initialAmountRaised,
     initialNumOfTips,
+    initialChannelNumOfTips,
     initialLatestTipAmount,
     initialSessionAmountToRaise,
   ]);
@@ -82,10 +93,24 @@ export function useEventFinancialRealtime({
     const channel = subscribeChannel(channelName);
     if (!channel) return;
 
-    const onAmount = (data: { amountRaised?: number; numOfTips?: number }) => {
+    const scopedChannelId = channelId?.trim() || "";
+
+    const onAmount = (data: {
+      amountRaised?: number;
+      numOfTips?: number;
+      paymentContentId?: string;
+      channelNumOfTips?: number;
+    }) => {
       if (typeof data.amountRaised === "number")
         setAmountRaised(data.amountRaised);
       if (typeof data.numOfTips === "number") setNumOfTips(data.numOfTips);
+      if (
+        scopedChannelId &&
+        data.paymentContentId === scopedChannelId &&
+        typeof data.channelNumOfTips === "number"
+      ) {
+        setChannelNumOfTips(data.channelNumOfTips);
+      }
     };
 
     const onLatest = (data: { latestTipAmount?: number }) => {
@@ -112,11 +137,12 @@ export function useEventFinancialRealtime({
       }
       unsubscribeChannel(channelName);
     };
-  }, [wiredEventId, enabled, includeOptionalEvents]);
+  }, [wiredEventId, enabled, includeOptionalEvents, channelId]);
 
   return {
     amountRaised,
     numOfTips,
+    channelNumOfTips,
     latestTipAmount,
     sessionAmountToRaise,
   };

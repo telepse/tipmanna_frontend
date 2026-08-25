@@ -26,6 +26,7 @@ import {
   hasBackendPushSubscription,
 } from "@/lib/program-push-setup";
 import type { RootState } from "@/redux/store";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 
 const OFFSET_LABELS: Record<number, string> = {
   5: "5 minutes before",
@@ -53,13 +54,12 @@ export function SetReminderButton({
   communityId?: string;
 }) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
-  const requiresVerification = useSelector(
-    (s: RootState) => s.auth.requiresVerification
-  );
+  const user = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
   const { subscribe, state: pushState } = usePushPermission();
 
   const [open, setOpen] = useState(false);
+  const [tipperSignInOpen, setTipperSignInOpen] = useState(false);
   const [offset, setOffset] = useState(defaultOffset);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,10 +69,11 @@ export function SetReminderButton({
   const [guestEmailUsed, setGuestEmailUsed] = useState("");
   const [guestPushFlowActive, setGuestPushFlowActive] = useState(false);
 
+  const postId = globalEnforcementId ?? enforcementId;
+  const needsEmail = !isAuthenticated || user?.role === "VISITOR";
+
   const apiBase = () =>
     (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(/\/$/, "");
-
-  const postId = globalEnforcementId ?? enforcementId ?? "program";
 
   const handleAuthenticatedPushPrompt = async () => {
     const result = await ensurePushForSignedInTipper({
@@ -93,6 +94,11 @@ export function SetReminderButton({
   const isProgramOver = new Date() > new Date(scheduledAt);
 
   const setReminder = async () => {
+    if (!postId) {
+      toast.error("This program cannot accept reminders yet.");
+      return;
+    }
+
     setBusy(true);
     try {
       const body: Record<string, unknown> = {
@@ -105,7 +111,7 @@ export function SetReminderButton({
       if (globalEnforcementId) body.globalEnforcementId = globalEnforcementId;
       if (communityId) body.communityId = communityId;
 
-      if (isAuthenticated) {
+      if (isAuthenticated && user?.role !== "VISITOR") {
         const res = await setProgramReminderAction(postId, body);
         if (!res.success) {
           throw new Error(res.message ?? "Failed to set reminder");
@@ -141,12 +147,10 @@ export function SetReminderButton({
         setGuestEmailUsed(email.trim());
         setGuestPushFlowActive(true);
         setPushOfferOpen(true);
+        toast.success("Reminder set");
       }
 
       setDone(true);
-      if (!isAuthenticated) {
-        toast.success("Reminder set");
-      }
       setOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not set reminder");
@@ -156,13 +160,11 @@ export function SetReminderButton({
   };
 
   const showGuestPushOffer =
-    guestEmailUsed &&
-    guestPushFlowActive &&
-    (!isAuthenticated || requiresVerification);
+    Boolean(guestEmailUsed) && guestPushFlowActive && pushOfferOpen;
 
-  if (done) {
-    return (
-      <>
+  return (
+    <>
+      {done ? (
         <Button
           type="button"
           variant="outline"
@@ -172,126 +174,142 @@ export function SetReminderButton({
           <Check />
           Reminder set
         </Button>
-
-        {showGuestPushOffer ? (
-          <GuestReminderPushOffer
-            email={guestEmailUsed}
-            open={pushOfferOpen}
-            onOpenChange={open => {
-              setPushOfferOpen(open);
-              if (!open) setGuestPushFlowActive(false);
+      ) : (
+        <div className="relative w-full rounded-md border shadow-md sm:w-fit">
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              isProgramOver
+                ? "bg-gray-300 text-gray-500"
+                : "outline-primary outline",
+              "w-full sm:w-fit"
+            )}
+            size="sm"
+            disabled={isProgramOver || !postId}
+            onClick={() => {
+              if (needsEmail) {
+                setTipperSignInOpen(true);
+                return;
+              }
+              setOpen(v => !v);
             }}
-            onComplete={() => setGuestPushFlowActive(false)}
-          />
-        ) : null}
+          >
+            👍🏽 yes, i will watch this program
+          </Button>
 
-        <Dialog
-          open={authPushPromptOpen}
-          onOpenChange={setAuthPushPromptOpen}
-        >
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Bell className="size-5" />
-                Enable push for this program?
-              </DialogTitle>
-              <DialogDescription>
-                Your reminder is saved. Turn on push alerts on this device to
-                get notified before the program starts.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                type="button"
-                className="bg-black"
-                onClick={() => void handleAuthenticatedPushPrompt()}
-              >
-                Enable push alerts
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setAuthPushPromptOpen(false)}
-              >
-                Email & in-app only
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </>
-    );
-  }
+          {open ? (
+            <div className="absolute bottom-full left-0 z-[100030000] max-h-[320px] w-72 space-y-2 overflow-y-auto rounded-md border bg-white p-4 shadow-md">
+              <p className="text-sm font-medium">Remind me</p>
 
-  return (
-    <div className="relative w-full rounded-md border shadow-md sm:w-fit">
-      <Button
-        type="button"
-        variant="outline"
-        className={cn(
-          isProgramOver
-            ? "bg-gray-300 text-gray-500"
-            : "outline-primary outline",
-          "w-full sm:w-fit"
-        )}
-        size="sm"
-        disabled={isProgramOver}
-        onClick={() => setOpen(v => !v)}
-      >
-        <Bell />
-        Set reminder
-      </Button>
+              <div className="space-y-1">
+                {offsetOptions.map(min => (
+                  <label
+                    key={min}
+                    className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
+                  >
+                    <input
+                      type="radio"
+                      name="reminder-offset"
+                      checked={offset === min}
+                      onChange={() => setOffset(min)}
+                    />
+                    {OFFSET_LABELS[min] ?? `${min} min before`}
+                  </label>
+                ))}
+              </div>
 
-      {open ? (
-        <div className="absolute bottom-full left-0 z-[100030000] max-h-[320px] w-72 space-y-2 overflow-y-auto rounded-md border bg-white p-4 shadow-md">
-          <p className="text-sm font-medium">Remind me</p>
-
-          <div className="space-y-1">
-            {offsetOptions.map(min => (
-              <label
-                key={min}
-                className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
-              >
-                <input
-                  type="radio"
-                  name="reminder-offset"
-                  checked={offset === min}
-                  onChange={() => setOffset(min)}
+              {needsEmail ? (
+                <Input
+                  type="email"
+                  placeholder="Email (guest)"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
                 />
-                {OFFSET_LABELS[min] ?? `${min} min before`}
-              </label>
-            ))}
-          </div>
+              ) : null}
 
-          {!isAuthenticated ? (
-            <Input
-              type="email"
-              placeholder="Email (guest)"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void setReminder()}
+                >
+                  {busy ? <Loader2 className="animate-spin" /> : null}
+                  Confirm
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
           ) : null}
+        </div>
+      )}
 
-          <div className="flex gap-2">
+      {showGuestPushOffer ? (
+        <GuestReminderPushOffer
+          email={guestEmailUsed}
+          open={pushOfferOpen}
+          onOpenChange={open => {
+            setPushOfferOpen(open);
+            if (!open) setGuestPushFlowActive(false);
+          }}
+          onComplete={() => {
+            setGuestPushFlowActive(false);
+            setPushOfferOpen(false);
+          }}
+        />
+      ) : null}
+
+      <Dialog
+        open={authPushPromptOpen}
+        onOpenChange={setAuthPushPromptOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="size-5" />
+              Enable push for this program?
+            </DialogTitle>
+            <DialogDescription>
+              Your reminder is saved. Turn on push alerts on this device to get
+              notified before the program starts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               type="button"
-              size="sm"
-              disabled={busy}
-              onClick={() => void setReminder()}
+              className="bg-black"
+              onClick={() => void handleAuthenticatedPushPrompt()}
             >
-              {busy ? <Loader2 className="animate-spin" /> : null}
-              Confirm
+              Enable push alerts
             </Button>
             <Button
               type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setOpen(false)}
+              variant="ghost"
+              onClick={() => setAuthPushPromptOpen(false)}
             >
-              Cancel
+              Email & in-app only
             </Button>
           </div>
-        </div>
-      ) : null}
-    </div>
+        </DialogContent>
+      </Dialog>
+
+      <TipperEmailOtpSignInDialog
+        open={tipperSignInOpen}
+        onOpenChange={setTipperSignInOpen}
+        signInTitle="Sign in to set program reminders"
+        onVerified={() => {
+          setTipperSignInOpen(false);
+          setOpen(true);
+        }}
+      />
+    </>
   );
 }

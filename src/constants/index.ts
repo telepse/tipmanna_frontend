@@ -21,12 +21,6 @@ import {
   Wallet,
 } from "lucide-react";
 
-export const NAV_LINKS = [
-  { label: "Home", href: "/", id: "home" },
-  { label: "Create", href: "", id: "create-event" },
-  { label: "FAQs", href: "#faq", id: "faqs" },
-];
-
 export const HERO_IMAGES = [
   "/heros/creator_channel_slide.png",
   "/heros/event_room_slide.png",
@@ -36,31 +30,74 @@ export const HERO_IMAGES = [
 
 export const CONTINUOUS_ENGAGEMENT_SLIDES = [
   {
-    image: "/partner/creator_channel_slide_partner.png",
+    image: "/partner/creator_channel_slide_partner.webp",
     title: "Creator Channel",
     alt: "A home for content, community, and repeat engagement.",
   },
   {
-    image: "/partner/event_room_slide_partner.png",
+    image: "/partner/event_room_slide_partner.webp",
     title: "Event Room",
     alt: "Live moments with comments, reactions, and supporter activity.",
   },
   {
-    image: "/partner/explore_slide_partner.png",
+    image: "/partner/explore_slide_partner.webp",
     title: "TV Explore",
     alt: "Discovery that reaches beyond existing followers.",
   },
   {
-    image: "/partner/tipmanna_tv_slide_partner.png",
+    image: "/partner/tipmanna_tv_slide_partner.webp",
     title: "Live TV",
-    alt: "24/7 scheduled broadcast of featured contents accross the platform",
+    alt: "24/7 scheduled broadcast of featured contents across the platform",
   },
   {
-    image: "/partner/dashboard_slide_partner.png",
+    image: "/partner/dashboard_slide_partner.webp",
     title: "Dashboard",
     alt: "Broadcast updates, reminders, analytics, and growth tools.",
   },
 ];
+
+export const PARTNER_FAQS = [
+  {
+    question: "Do people need an account to support me?",
+    answer:
+      "No. People can participate and support instantly. Creating an account is optional and can be done later.",
+  },
+  {
+    question: "Can people watch my content for free?",
+    answer:
+      "Yes. Most content on Tipmanna can be watched freely. Support happens when people choose to participate, engage, or contribute.",
+  },
+  {
+    question: "What is Community TV?",
+    answer:
+      "Community TV gives organisations, communities, clubs, and groups their own dedicated 24/7 TV channel within Tipmanna. It can be used to showcase content, schedule programs, engage members, and build recurring community experiences.",
+  },
+  {
+    question: "Can I offer memberships?",
+    answer:
+      "Yes. Community plans allow you to create memberships, offer exclusive experiences, and build recurring supporter relationships.",
+  },
+  {
+    question: "Can I host livestreams and events?",
+    answer:
+      "Yes. You can host livestreams, virtual events, and community experiences through Event Rooms with realtime participation, comments, reactions, and supporter engagement.",
+  },
+  {
+    question: "How does discovery work?",
+    answer:
+      "Your content can be discovered through channels, Explore, featured placements, community experiences, and Tipmanna TV, helping you reach audiences beyond your existing followers.",
+  },
+  {
+    question: "Is Tipmanna only for creators?",
+    answer:
+      "No. Tipmanna is built for creators, charities, event organisers, faith organisations, universities, clubs, sports communities, and anyone looking to bring people together around shared experiences.",
+  },
+  {
+    question: "Is Tipmanna secure?",
+    answer:
+      "Yes. Security, privacy, and trusted payment processing are core platform priorities. We are committed to providing a safe and reliable experience for creators, communities, and supporters.",
+  },
+] as const;
 
 export const CONTENT_TO_GROWTH_STEPS = [
   {
@@ -186,21 +223,21 @@ export const ALREADY_WATCHING_FEATURES = [
     title: "Viewers",
     content: "become participants",
     className: "border-white bg-primary",
-    txtColor: "black",
+    textClassName: "text-black",
   },
   {
     title: "Participation",
     content: "builds connection",
     className: "border-primary bg-primary/50",
-    txtColor: "white",
+    textClassName: "text-white",
   },
   {
     title: "Connection",
-    content: "become lasting",
+    content: "becomes lasting",
     className: "border-white bg-primary",
-    txtColor: "black",
+    textClassName: "text-black",
   },
-];
+] as const;
 
 export const FEATURES = [
   {

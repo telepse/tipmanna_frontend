@@ -3,6 +3,7 @@
 import { useHostEvents } from "@/hooks/useHostEvents";
 import { useHostPayoutSummary } from "@/hooks/useHostPayoutSummary";
 import { useHostStats } from "@/hooks/useHostStats";
+
 import { HostBanner } from "../host/host-banner";
 import { HostStats } from "../host/host-stats";
 
@@ -12,8 +13,9 @@ export const HostProfileClient = () => {
   const { summary } = useHostPayoutSummary();
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex w-full min-w-0 flex-col gap-6 overflow-x-hidden">
       <HostBanner />
+
       <HostStats
         events={events}
         stats={stats}

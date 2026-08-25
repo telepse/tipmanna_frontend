@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 async function openCreateTypePicker(page: import("@playwright/test").Page) {
-  await page.goto("/");
+  await page.goto("/partner");
   await expect(page.locator("body")).toBeVisible();
 
   const createButton = page.getByRole("button", { name: /^create$/i }).first();

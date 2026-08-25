@@ -19,14 +19,13 @@ interface ReportsData {
 
 export function useReportsAndAnalytics() {
   const user = useSelector((s: RootState) => s.auth.user);
-  const token = useSelector((s: RootState) => s.auth.token);
   const hostId = useHostID();
 
   const fetcher = async (): Promise<ReportsData> => {
     if (!hostId || !user?.id) return { events: [], transactions: [] };
 
     const [eventsRes, transactionsRes] = await Promise.all([
-      getHostEventSummaries(hostId, token),
+      getHostEventSummaries(hostId),
       getHostTransactionsAction(hostId),
     ]);
 

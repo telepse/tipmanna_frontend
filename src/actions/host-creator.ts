@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { runServerFetch } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverHostAuthHeaders } from "@/lib/server-auth";
 import type {
   CreatorProfileCategory,
   HostCreatorProfileEdit,
@@ -115,30 +115,43 @@ export async function getHostCreatorPublicProfileAction(username: string) {
   );
 }
 
-export async function getCreatorProfileForEditAction(token?: string | null) {
+export async function getCreatorProfileForEditAction() {
+  return getCreatorProfileForEditHostAction();
+}
+
+export async function getCreatorProfileForEditHostAction() {
   return runServerFetch<HostCreatorProfileEdit>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/creator-profile`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
-    "getCreatorProfileForEditAction"
+    "getCreatorProfileForEditHostAction"
   );
 }
 
-export async function updateCreatorProfileAction(
-  values: {
-    username?: string;
-    profileImageUrl?: string | null;
-    pageDescription?: string | null;
-    profileCategory?: CreatorProfileCategory | null;
-    externalLinkUrl?: string | null;
-    externalLinkLabel?: string | null;
-    previousUsername?: string;
-  },
-  token?: string | null
-) {
+export async function updateCreatorProfileAction(values: {
+  username?: string;
+  profileImageUrl?: string | null;
+  pageDescription?: string | null;
+  profileCategory?: CreatorProfileCategory | null;
+  externalLinkUrl?: string | null;
+  externalLinkLabel?: string | null;
+  previousUsername?: string;
+}) {
+  return updateCreatorProfileHostAction(values);
+}
+
+export async function updateCreatorProfileHostAction(values: {
+  username?: string;
+  profileImageUrl?: string | null;
+  pageDescription?: string | null;
+  profileCategory?: CreatorProfileCategory | null;
+  externalLinkUrl?: string | null;
+  externalLinkLabel?: string | null;
+  previousUsername?: string;
+}) {
   const { previousUsername, ...payload } = values;
   const result = await runServerFetch<
     HostCreatorProfileEdit & {
@@ -150,12 +163,12 @@ export async function updateCreatorProfileAction(
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        ...(await serverAuthHeaders(token)),
+        ...(await serverHostAuthHeaders()),
       },
       body: JSON.stringify(payload),
       cache: "no-store",
     },
-    "updateCreatorProfileAction"
+    "updateCreatorProfileHostAction"
   );
 
   if (result.success && result.data?.username) {

@@ -19,6 +19,7 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
     expect(evaluateCoOwnerSubmitReadiness(null)).toEqual({
       blocked: true,
       reason: "status_fetch_failed",
+      willDropOnSubmit: false,
     });
   });
 
@@ -31,17 +32,20 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
     ).toEqual({
       blocked: true,
       reason: "has_pending",
+      willDropOnSubmit: false,
     });
   });
 
-  it("blocks when no approved invite exists", () => {
+  it("blocks when no approved invite exists and not terminal-only", () => {
     expect(evaluateCoOwnerSubmitReadiness([{ status: "pending" }])).toEqual({
       blocked: true,
       reason: "has_pending",
+      willDropOnSubmit: false,
     });
-    expect(evaluateCoOwnerSubmitReadiness([{ status: "declined" }])).toEqual({
+    expect(evaluateCoOwnerSubmitReadiness([])).toEqual({
       blocked: true,
       reason: "missing_approved",
+      willDropOnSubmit: false,
     });
   });
 
@@ -49,6 +53,28 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
     expect(evaluateCoOwnerSubmitReadiness([{ status: "approved" }])).toEqual({
       blocked: false,
       reason: null,
+      willDropOnSubmit: false,
+    });
+  });
+
+  it("approved wins over declined sibling invites", () => {
+    expect(
+      evaluateCoOwnerSubmitReadiness([
+        { status: "declined" },
+        { status: "approved" },
+      ])
+    ).toEqual({
+      blocked: false,
+      reason: null,
+      willDropOnSubmit: false,
+    });
+  });
+
+  it("terminal-only invites will drop on submit", () => {
+    expect(evaluateCoOwnerSubmitReadiness([{ status: "expired" }])).toEqual({
+      blocked: false,
+      reason: "will_be_dropped",
+      willDropOnSubmit: true,
     });
   });
 });
@@ -208,5 +234,36 @@ describe("validateCoOwnerDraftsForSubmit", () => {
       { ownershipAnswer: "yes" },
     ]);
     expect(err).toBe(coOwnerBlockReasonMessage("default_awaiting_approval"));
+  });
+
+  it("allows wizard drop when only terminal invites exist", async () => {
+    mockStatus.mockResolvedValueOnce({
+      success: true,
+      data: { invites: [{ status: "declined" }] },
+    } as never);
+    const err = await validateCoOwnerDraftsForSubmit([
+      {
+        ownershipAnswer: "no",
+        coOwnerDraftKey: "draft-1",
+      },
+    ]);
+    expect(err).toBeNull();
+  });
+
+  it("blocks single-video modal when only terminal invites exist", async () => {
+    mockStatus.mockResolvedValueOnce({
+      success: true,
+      data: { invites: [{ status: "declined" }] },
+    } as never);
+    const err = await validateCoOwnerDraftsForSubmit(
+      [
+        {
+          ownershipAnswer: "no",
+          coOwnerDraftKey: "draft-1",
+        },
+      ],
+      { singleVideo: true }
+    );
+    expect(err).toContain("not be included");
   });
 });

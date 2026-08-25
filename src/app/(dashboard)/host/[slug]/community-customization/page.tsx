@@ -14,9 +14,7 @@ export default async function HostCommunityCustomizationPage({
       <Suspense
         fallback={<p className="text-muted-foreground p-4 text-sm">Loading…</p>}
       >
-        <div className="p-4">
-          <CommunityCustomizationHostClient hostSlug={slug} />
-        </div>
+        <CommunityCustomizationHostClient hostSlug={slug} />
       </Suspense>
     </ProtectedRoute>
   );

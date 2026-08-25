@@ -2,7 +2,8 @@
 
 import { EventFormData, NewCreateEventPayload } from "@/schemas";
 import { runServerFetch, actionFail, actionOk } from "@/lib/action-fetch";
-import { serverAuthHeaders } from "@/lib/server-auth";
+import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
+import { serverEventActorAuthHeaders } from "@/lib/server-event-auth";
 import { unwrapPaginatedList } from "@/lib/unwrap-paginated-list";
 
 // -------- Create event -------- //
@@ -23,15 +24,12 @@ export async function createEventAction(
 }
 
 // -------- New create event -------- //
-export async function newCreateEventAction(
-  formData: NewCreateEventPayload,
-  token?: string | null
-) {
+export async function newCreateEventAction(formData: NewCreateEventPayload) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/new`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(formData),
       cache: "no-store",
     },
@@ -53,10 +51,10 @@ export async function getHostEventsSummaryAction(token?: string | null) {
 }
 
 // -------- Get host events -------- //
-export async function getHostEventsAction(
-  token?: string | null,
-  options?: { limit?: number; page?: number }
-) {
+export async function getHostEventsAction(options?: {
+  limit?: number;
+  page?: number;
+}) {
   const params = new URLSearchParams();
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
@@ -66,7 +64,7 @@ export async function getHostEventsAction(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/me${query ? `?${query}` : ""}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostEventsAction"
@@ -90,13 +88,22 @@ export async function createEventChannelAction(
     isOnHostYoutube?: boolean;
   },
   eventId: string,
-  token?: string | null
+  token?: string | null,
+  options?: { fromCreateDialog?: boolean; useHostSession?: boolean }
 ) {
+  const headers = options?.fromCreateDialog
+    ? await serverAuthHeaders(token)
+    : options?.useHostSession
+      ? await serverHostAuthHeaders(token)
+      : await serverEventActorAuthHeaders();
+  if (options?.fromCreateDialog) {
+    headers["X-Create-Surface"] = "create_dialog";
+  }
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/channel`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers,
       body: JSON.stringify(values),
       cache: "no-store",
     },
@@ -106,27 +113,28 @@ export async function createEventChannelAction(
 
 const COOWNER_API = process.env.NEXT_PUBLIC_BACKEND_API_URL;
 
-export async function getYoutubeChannelsAction(token?: string | null) {
+export async function getYoutubeChannelsAction() {
   return runServerFetch(
     `${COOWNER_API}/me/youtube-channels`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getYoutubeChannelsAction"
   );
 }
 
-export async function upsertYoutubeChannelAction(
-  body: { slot: number; url: string; rawUrl?: string },
-  token?: string | null
-) {
+export async function upsertYoutubeChannelAction(body: {
+  slot: number;
+  url: string;
+  rawUrl?: string;
+}) {
   return runServerFetch(
     `${COOWNER_API}/me/youtube-channels`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -134,38 +142,32 @@ export async function upsertYoutubeChannelAction(
   );
 }
 
-export async function getVideoCoOwnerInviteStatusAction(
-  draftKey: string,
-  token?: string | null
-) {
+export async function getVideoCoOwnerInviteStatusAction(draftKey: string) {
   const q = new URLSearchParams({ draftKey });
   return runServerFetch(
     `${COOWNER_API}/host/video-co-owner-invites/status?${q}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getVideoCoOwnerInviteStatusAction"
   );
 }
 
-export async function createVideoCoOwnerInviteAction(
-  body: {
-    draftKey: string;
-    coOwnerName: string;
-    coOwnerEmail: string;
-    payoutPercentBp: number;
-    contentTitle?: string;
-    youtubeLink?: string;
-  },
-  token?: string | null
-) {
+export async function createVideoCoOwnerInviteAction(body: {
+  draftKey: string;
+  coOwnerName: string;
+  coOwnerEmail: string;
+  payoutPercentBp: number;
+  contentTitle?: string;
+  youtubeLink?: string;
+}) {
   return runServerFetch(
     `${COOWNER_API}/host/video-co-owner-invites`,
     {
       method: "POST",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
     },
@@ -173,14 +175,40 @@ export async function createVideoCoOwnerInviteAction(
   );
 }
 
-export async function getHostCoOwnedVideosDashboardAction(
-  token?: string | null
+export async function resendVideoCoOwnerInviteAction(
+  inviteId: string,
+  body?: { contentTitle?: string; youtubeLink?: string }
 ) {
+  return runServerFetch(
+    `${COOWNER_API}/host/video-co-owner-invites/${encodeURIComponent(inviteId)}/resend`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify(body ?? {}),
+      cache: "no-store",
+    },
+    "resendVideoCoOwnerInviteAction"
+  );
+}
+
+export async function revokeVideoCoOwnerInviteAction(inviteId: string) {
+  return runServerFetch(
+    `${COOWNER_API}/host/video-co-owner-invites/${encodeURIComponent(inviteId)}/revoke`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "revokeVideoCoOwnerInviteAction"
+  );
+}
+
+export async function getHostCoOwnedVideosDashboardAction() {
   return runServerFetch(
     `${COOWNER_API}/host/me/co-owned-videos`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostCoOwnedVideosDashboardAction"
@@ -188,12 +216,12 @@ export async function getHostCoOwnedVideosDashboardAction(
 }
 
 // -------- Get host events -------- //
-export async function getHostEventsTabsAction(token?: string | null) {
+export async function getHostEventsTabsAction() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/tabs`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostEventsTabsAction"
@@ -221,12 +249,12 @@ export type HostDefaultChannelItem = {
   };
 };
 
-export async function getHostDefaultChannelsAction(token?: string | null) {
+export async function getHostDefaultChannelsAction() {
   return runServerFetch<{ items: HostDefaultChannelItem[] }>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/default-channels`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostDefaultChannelsAction"
@@ -234,12 +262,12 @@ export async function getHostDefaultChannelsAction(token?: string | null) {
 }
 
 // -------- Get host events for tabs by status -------- //
-export async function getHostEventsForTabsByStatus(token?: string | null) {
+export async function getHostEventsForTabsByStatus() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/tabs-status`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostEventsForTabsByStatus"
@@ -247,12 +275,12 @@ export async function getHostEventsForTabsByStatus(token?: string | null) {
 }
 
 // -------- Get host fees -------- //
-export async function getHostFeesAction(token?: string | null) {
+export async function getHostFeesAction() {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/host/fees`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
     },
     "getHostFeesAction"
@@ -325,6 +353,7 @@ export type EventByIdData = {
   contributionType?: string;
   EventSession?: unknown[];
   eventType?: string;
+  timeZone?: string;
   host?: {
     id?: string;
     fullName?: string;
@@ -430,6 +459,7 @@ export async function updateDefaultChannel(eventId: string, channelId: string) {
     {
       method: "PUT",
       headers: {
+        ...(await serverEventActorAuthHeaders()),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ eventId }),
@@ -674,8 +704,7 @@ export async function changeEventScreenSettings(
     performers: { id?: string; name: string; description?: string }[];
     projects: { id?: string; name: string; description?: string }[];
   },
-  eventId: string,
-  token?: string | null
+  eventId: string
 ) {
   const formattedData = {
     background: values.eventBackground,
@@ -691,7 +720,7 @@ export async function changeEventScreenSettings(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/screen-settings`,
     {
       method: "PATCH",
-      headers: await serverAuthHeaders(token),
+      headers: await serverEventActorAuthHeaders(),
       body: JSON.stringify(formattedData),
       cache: "no-store",
     },
@@ -706,18 +735,29 @@ export async function changeEventVideoDisplaySettingsAction(
     showViewCountOnVideos: boolean;
     showEncounterOnVideos: boolean;
   },
-  eventId: string,
-  token?: string | null
+  eventId: string
 ) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/video-display-settings`,
     {
       method: "PATCH",
-      headers: await serverAuthHeaders(token),
+      headers: await serverEventActorAuthHeaders(),
       body: JSON.stringify(values),
       cache: "no-store",
     },
     "changeEventVideoDisplaySettingsAction"
+  );
+}
+
+export async function togglePerformerPinAction(performerId: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/performers/${encodeURIComponent(performerId)}/toggle-pin`,
+    {
+      method: "PATCH",
+      headers: await serverEventActorAuthHeaders(),
+      cache: "no-store",
+    },
+    "togglePerformerPinAction"
   );
 }
 
@@ -813,5 +853,37 @@ export async function getSavedVideosForTipper(token?: string | null) {
       cache: "no-store",
     },
     "getSavedVideosForTipper"
+  );
+}
+
+export async function addEventPerformersAction(
+  eventId: string,
+  performers: { name: string; amountReceived?: string }[]
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/performers`,
+    {
+      method: "POST",
+      headers: await serverEventActorAuthHeaders(),
+      body: JSON.stringify({ performers }),
+      cache: "no-store",
+    },
+    "addEventPerformersAction"
+  );
+}
+
+export async function addEventProjectsAction(
+  eventId: string,
+  projects: { name: string; amountReceived?: string }[]
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/projects`,
+    {
+      method: "POST",
+      headers: await serverEventActorAuthHeaders(),
+      body: JSON.stringify({ projects }),
+      cache: "no-store",
+    },
+    "addEventProjectsAction"
   );
 }

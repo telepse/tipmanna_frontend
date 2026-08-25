@@ -155,7 +155,7 @@ export function CommunityMembershipOwnerPanel({
 
   const loadJoinForm = useCallback(async () => {
     if (!userId) return;
-    const res = await getJoinFormAction(undefined, communityId);
+    const res = await getJoinFormAction(communityId);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load join form");
       return;
@@ -182,7 +182,7 @@ export function CommunityMembershipOwnerPanel({
 
   const loadMembers = useCallback(async () => {
     if (!userId) return;
-    const res = await listMembersAction(undefined, communityId);
+    const res = await listMembersAction(communityId);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load members");
       return;
@@ -193,7 +193,7 @@ export function CommunityMembershipOwnerPanel({
 
   const loadCodes = useCallback(async () => {
     if (!userId) return;
-    const res = await listAccessCodesOwnerAction(undefined, communityId);
+    const res = await listAccessCodesOwnerAction(communityId);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load codes");
       return;
@@ -204,7 +204,7 @@ export function CommunityMembershipOwnerPanel({
 
   const loadInvites = useCallback(async () => {
     if (!userId) return;
-    const res = await listInvitesAction(undefined, communityId);
+    const res = await listInvitesAction(communityId);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load invites");
       return;
@@ -215,7 +215,7 @@ export function CommunityMembershipOwnerPanel({
 
   const loadRequests = useCallback(async () => {
     if (!userId) return;
-    const res = await listRequestsAction(undefined, communityId);
+    const res = await listRequestsAction(communityId);
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not load requests");
       return;
@@ -227,7 +227,6 @@ export function CommunityMembershipOwnerPanel({
   const loadDedicated = useCallback(async () => {
     if (!userId) return;
     const res = await listSideChickActivationsAction(
-      undefined,
       communityId,
       sideChickScope
     );
@@ -285,7 +284,7 @@ export function CommunityMembershipOwnerPanel({
     if (!userId) return;
     setLoading(true);
     try {
-      const res = await updateJoinFormAction(undefined, communityId, {
+      const res = await updateJoinFormAction(communityId, {
         officialEmailDomain: joinOfficialDomain.trim() || null,
         officialEmailDomainRequired: joinDomainRequired,
         joinFormRequireAccessCode: joinCodeRequired,
@@ -309,7 +308,6 @@ export function CommunityMembershipOwnerPanel({
         feeVal = n;
       }
       const feeRes = await patchCommunitySubscriptionFeeAction(
-        undefined,
         communityId,
         feeVal
       );
@@ -325,11 +323,7 @@ export function CommunityMembershipOwnerPanel({
 
   const onTerminate = async (membershipId: string) => {
     if (!userId) return;
-    const res = await terminateMemberAction(
-      undefined,
-      communityId,
-      membershipId
-    );
+    const res = await terminateMemberAction(communityId, membershipId);
     if (!res.success) {
       toast.error(res.message ?? "Could not remove member");
       return;
@@ -351,7 +345,6 @@ export function CommunityMembershipOwnerPanel({
     }
     if (!userId) return;
     const res = await extendFreeMemberMembershipAction(
-      undefined,
       communityId,
       membershipId,
       addMonths
@@ -378,7 +371,7 @@ export function CommunityMembershipOwnerPanel({
       usesLeft: uses,
     };
     if (newCodeCustom.trim()) body.code = newCodeCustom.trim();
-    const res = await createAccessCodeAction(undefined, communityId, body);
+    const res = await createAccessCodeAction(communityId, body);
     if (!res.success) {
       toast.error(res.message ?? "Could not create code");
       return;
@@ -391,7 +384,7 @@ export function CommunityMembershipOwnerPanel({
 
   const onToggleCode = async (row: AccessCodeRow) => {
     if (!userId) return;
-    const res = await updateAccessCodeAction(undefined, communityId, row.id, {
+    const res = await updateAccessCodeAction(communityId, row.id, {
       active: !row.active,
     });
     if (!res.success) {
@@ -403,7 +396,7 @@ export function CommunityMembershipOwnerPanel({
 
   const onDeleteCode = async (id: string) => {
     if (!userId) return;
-    const res = await deleteAccessCodeAction(undefined, communityId, id);
+    const res = await deleteAccessCodeAction(communityId, id);
     if (!res.success) {
       toast.error(res.message ?? "Delete failed");
       return;
@@ -420,7 +413,7 @@ export function CommunityMembershipOwnerPanel({
     if (inviteKind === "email") body.email = inviteEmail.trim();
     if (inviteExpires.trim())
       body.expiresAt = new Date(inviteExpires).toISOString();
-    const res = await createInviteAction(undefined, communityId, body);
+    const res = await createInviteAction(communityId, body);
     if (!res.success) {
       toast.error(res.message ?? "Could not create invite");
       return;
@@ -433,7 +426,7 @@ export function CommunityMembershipOwnerPanel({
 
   const onDeleteInvite = async (id: string) => {
     if (!userId) return;
-    const res = await deleteInviteAction(undefined, communityId, id);
+    const res = await deleteInviteAction(communityId, id);
     if (!res.success) {
       toast.error(res.message ?? "Could not delete");
       return;
@@ -461,14 +454,15 @@ export function CommunityMembershipOwnerPanel({
       : `/explore?tab=join&joinCommunity=${encodeURIComponent(communityId)}`;
 
   return (
-    <div className="space-y-4">
-      <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
+    <div className="bg-card space-y-4 rounded-md border p-4 sm:p-6">
+      <div className="bg-muted flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
         <div>
-          <p className="text-sm font-medium">Public join page</p>
+          <h5 className="text-sm font-medium">Public join page</h5>
           <p className="text-muted-foreground max-w-xl truncate text-xs">
             {joinUrlDisplay}
           </p>
         </div>
+
         <Button
           type="button"
           variant="outline"
@@ -492,100 +486,260 @@ export function CommunityMembershipOwnerPanel({
         onValueChange={setSubTab}
         className="w-full"
       >
-        <TabsList className="flex h-auto min-h-10 w-full flex-wrap gap-1">
-          <TabsTrigger value="join">Join form</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="dedicated">Dedicated mode</TabsTrigger>
-          <TabsTrigger value="invites">Invites</TabsTrigger>
-          <TabsTrigger value="codes">Access codes</TabsTrigger>
-          <TabsTrigger value="requests">Requests</TabsTrigger>
-        </TabsList>
+        <div className="scrollbar-none w-full min-w-0 overflow-x-auto">
+          <TabsList className="bg-secondary/30 flex h-auto w-max min-w-full gap-1 rounded-lg p-1">
+            <TabsTrigger
+              value="join"
+              className="shrink-0 rounded-md px-4 py-3 text-sm font-medium whitespace-nowrap transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+            >
+              Join form
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="members"
+              className="shrink-0 rounded-md px-4 py-3 text-sm font-medium whitespace-nowrap transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+            >
+              Members
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="dedicated"
+              className="shrink-0 rounded-md px-4 py-3 text-sm font-medium whitespace-nowrap transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+            >
+              Dedicated mode
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="invites"
+              className="shrink-0 rounded-md px-4 py-3 text-sm font-medium whitespace-nowrap transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+            >
+              Invites
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="codes"
+              className="shrink-0 rounded-md px-4 py-3 text-sm font-medium whitespace-nowrap transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+            >
+              Access codes
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="requests"
+              className="shrink-0 rounded-md px-4 py-3 text-sm font-medium whitespace-nowrap transition-all data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm"
+            >
+              Requests
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent
           value="join"
-          className="mt-4 space-y-4"
+          className="mt-4 space-y-6 pt-1"
         >
-          <div className="grid max-w-xl gap-3">
-            <div>
-              <Label htmlFor="official-domain">Official email domain</Label>
-              <Input
-                id="official-domain"
-                className="mt-1"
-                placeholder="company.com"
-                value={joinOfficialDomain}
-                onChange={e => setJoinOfficialDomain(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="domain-req"
-                checked={joinDomainRequired}
-                onCheckedChange={setJoinDomainRequired}
-              />
-              <Label htmlFor="domain-req">
-                Require OTP verification for this domain before join/request
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="code-req"
-                checked={joinCodeRequired}
-                onCheckedChange={setJoinCodeRequired}
-              />
-              <Label htmlFor="code-req">Require access code to join</Label>
-            </div>
-            <div>
-              <Label htmlFor="default-months">
-                Default membership length (months)
-              </Label>
-              <Input
-                id="default-months"
-                type="number"
-                min={1}
-                className="mt-1 max-w-[120px]"
-                value={joinDefaultMonths}
-                onChange={e =>
-                  setJoinDefaultMonths(Number(e.target.value) || 1)
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="sub-fee">
-                Paid membership — monthly price (£, optional)
-              </Label>
-              <Input
-                id="sub-fee"
-                type="number"
-                min={0}
-                step="0.01"
-                className="mt-1 max-w-[180px]"
-                placeholder="e.g. 4.99 — leave empty for invite/code only"
-                value={joinSubscriptionFee}
-                onChange={e => setJoinSubscriptionFee(e.target.value)}
-              />
-              <p className="text-muted-foreground mt-1 text-xs">
-                When set, tippers can pay monthly via card or Tipper Wallet on
-                the join page (Host Community plan required).
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="custom-q">Custom question (optional)</Label>
-              <Textarea
-                id="custom-q"
-                className="mt-1"
-                rows={3}
-                value={joinQuestion}
-                onChange={e => setJoinQuestion(e.target.value)}
-                placeholder="Why do you want to join?"
-              />
-            </div>
-            <Button
-              type="button"
-              disabled={loading}
-              onClick={() => void onSaveJoinForm()}
-            >
-              Save join settings
-            </Button>
+          <div className="max-w-3xl space-y-6">
+            {/* Join form settings */}
+            <section className="rounded-lg border bg-white p-4 sm:p-6">
+              <div className="border-b pb-4">
+                <h3 className="text-base font-semibold sm:text-lg">
+                  Join form settings
+                </h3>
+
+                <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+                  Configure how people can request or join your community.
+                </p>
+              </div>
+
+              <div className="mt-5 space-y-5">
+                {/* Official email domain */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="official-domain">Official email domain</Label>
+
+                  <Input
+                    id="official-domain"
+                    className="h-10 w-full sm:max-w-md"
+                    placeholder="company.com"
+                    value={joinOfficialDomain}
+                    onChange={e => setJoinOfficialDomain(e.target.value)}
+                  />
+
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Optionally restrict membership requests to people using an
+                    approved email domain.
+                  </p>
+                </div>
+
+                {/* Verification settings */}
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="text-sm font-medium">
+                      Verification requirements
+                    </h4>
+
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Choose which additional requirements applicants must
+                      satisfy.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* Domain verification */}
+                    <div className="flex items-start gap-3 rounded-md border p-3">
+                      <Switch
+                        id="domain-req"
+                        className="mt-0.5 shrink-0"
+                        checked={joinDomainRequired}
+                        onCheckedChange={setJoinDomainRequired}
+                      />
+
+                      <div className="min-w-0">
+                        <Label
+                          htmlFor="domain-req"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Require email verification
+                        </Label>
+
+                        <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
+                          Require OTP verification for the official domain
+                          before someone can join or submit a request.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Access code */}
+                    <div className="flex items-start gap-3 rounded-md border p-3">
+                      <Switch
+                        id="code-req"
+                        className="mt-0.5 shrink-0"
+                        checked={joinCodeRequired}
+                        onCheckedChange={setJoinCodeRequired}
+                      />
+
+                      <div className="min-w-0">
+                        <Label
+                          htmlFor="code-req"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Require access code
+                        </Label>
+
+                        <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
+                          Require applicants to provide a valid access code
+                          before joining the community.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Membership settings */}
+                <div className="space-y-4 border-t pt-5">
+                  <div>
+                    <h4 className="text-sm font-medium">Membership settings</h4>
+
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Set the default membership duration and optional monthly
+                      subscription price.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {/* Default membership */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="default-months">
+                        Default membership length
+                      </Label>
+
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="default-months"
+                          type="number"
+                          min={1}
+                          className="h-10 w-full sm:max-w-[140px]"
+                          value={joinDefaultMonths}
+                          onChange={e =>
+                            setJoinDefaultMonths(Number(e.target.value) || 1)
+                          }
+                        />
+
+                        <span className="text-muted-foreground text-sm">
+                          month{joinDefaultMonths === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Subscription fee */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sub-fee">
+                        Monthly subscription price
+                      </Label>
+
+                      <div className="relative">
+                        <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm">
+                          £
+                        </span>
+
+                        <Input
+                          id="sub-fee"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          className="h-10 w-full pl-7"
+                          placeholder="4.99"
+                          value={joinSubscriptionFee}
+                          onChange={e => setJoinSubscriptionFee(e.target.value)}
+                        />
+                      </div>
+
+                      <p className="text-muted-foreground text-xs leading-relaxed">
+                        Optional. Leave empty for invite/code-only membership.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/40 rounded-md px-3 py-2.5">
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                      When a subscription price is set, tippers can pay monthly
+                      via card or Tipper Wallet on the join page. Host Community
+                      plan required.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Custom question */}
+                <div className="space-y-1.5 border-t pt-5">
+                  <div>
+                    <Label htmlFor="custom-q">Custom question</Label>
+
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Optional question applicants will answer when requesting
+                      to join.
+                    </p>
+                  </div>
+
+                  <Textarea
+                    id="custom-q"
+                    className="min-h-[100px] resize-none"
+                    rows={4}
+                    value={joinQuestion}
+                    onChange={e => setJoinQuestion(e.target.value)}
+                    placeholder="Why do you want to join?"
+                  />
+                </div>
+
+                {/* Save */}
+                <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-end">
+                  <Button
+                    type="button"
+                    disabled={loading}
+                    className="w-full sm:w-auto"
+                    onClick={() => void onSaveJoinForm()}
+                  >
+                    {loading ? "Saving..." : "Save join settings"}
+                  </Button>
+                </div>
+              </div>
+            </section>
           </div>
         </TabsContent>
 
@@ -876,7 +1030,6 @@ export function CommunityMembershipOwnerPanel({
                       onClick={async () => {
                         if (!userId) return;
                         const res = await approveRequestAction(
-                          undefined,
                           communityId,
                           r.id
                         );
@@ -898,7 +1051,6 @@ export function CommunityMembershipOwnerPanel({
                       onClick={async () => {
                         if (!userId) return;
                         const res = await rejectRequestAction(
-                          undefined,
                           communityId,
                           r.id
                         );

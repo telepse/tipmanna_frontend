@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 
 import { CONTINUOUS_ENGAGEMENT_SLIDES } from "@/constants";
-import { Slide } from "react-slideshow-image";
-import "react-slideshow-image/dist/styles.css";
 import { Title } from "../shared/title";
 import { Paragraph } from "../shared/paragraph";
+
+import "react-slideshow-image/dist/styles.css";
+
+const Slide = dynamic(
+  () => import("react-slideshow-image").then(m => m.Slide),
+  { ssr: false }
+);
 
 const slideProperties = {
   duration: 5000,
@@ -19,22 +25,44 @@ const slideProperties = {
   pauseOnHover: true,
 };
 
-export const ContinousEngagement = () => {
+export const ContinuousEngagement = () => {
+  const sectionRef = useRef<HTMLElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const activeSlide = CONTINUOUS_ENGAGEMENT_SLIDES[activeIndex];
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const node = sectionRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <section className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-fixed bg-center bg-no-repeat pb-12 lg:mt-12">
+    <section
+      ref={sectionRef}
+      className="relative mt-6 flex flex-col items-center justify-center bg-cover bg-center bg-no-repeat pb-12 lg:mt-12"
+    >
       <div className="wrapper section flex w-full flex-col items-center">
         <div className="space-y-3">
           <Title
             align="center"
             size="lg"
           >
-            One system, <br />{" "}
+            One system, <br />
             <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
-              continous engagement
-            </span>{" "}
+              continuous engagement
+            </span>
           </Title>
 
           <Paragraph
@@ -48,32 +76,39 @@ export const ContinousEngagement = () => {
         </div>
 
         <div
-          className="continuous-engagement-slideshow -mt-16 w-full sm:-mt-8"
+          className="-mt-16 w-full sm:-mt-8"
           role="region"
           aria-label="Continuous engagement showcase"
         >
-          <Slide
-            {...slideProperties}
-            onStartChange={(_, to) => setActiveIndex(to)}
-          >
-            {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
-              <div
-                key={slide.image}
-                className="w-full"
-              >
-                <div className="border-primary relative mx-auto h-[200px] w-full overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px] lg:w-[960px]">
-                  <Image
-                    src={slide.image}
-                    alt={slide.alt}
-                    fill
-                    className="h-[200px] w-full object-contain lg:h-[400px]"
-                    sizes="90vw"
-                    quality={90}
-                  />
+          {visible ? (
+            <Slide
+              {...slideProperties}
+              onStartChange={(_, to) => setActiveIndex(to)}
+            >
+              {CONTINUOUS_ENGAGEMENT_SLIDES.map(slide => (
+                <div
+                  key={slide.image}
+                  className="w-full"
+                >
+                  <div className="border-primary relative mx-auto h-[200px] w-full overflow-hidden rounded-2xl border-2 sm:h-[360px] lg:h-[530px] lg:w-[960px]">
+                    <Image
+                      src={slide.image}
+                      alt={slide.alt}
+                      fill
+                      className="h-[200px] w-full object-contain lg:h-[400px]"
+                      sizes="(max-width: 1024px) 90vw, 960px"
+                      quality={85}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </Slide>
+              ))}
+            </Slide>
+          ) : (
+            <div
+              className="border-primary bg-muted mx-auto h-[200px] w-full animate-pulse rounded-2xl border-2 sm:h-[360px] lg:h-[530px] lg:w-[960px]"
+              aria-hidden
+            />
+          )}
         </div>
 
         <div
@@ -109,3 +144,6 @@ export const ContinousEngagement = () => {
     </section>
   );
 };
+
+/** @deprecated Use ContinuousEngagement */
+export const ContinousEngagement = ContinuousEngagement;

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 // Third-party imports
-import { Settings, Pin, Plus, Bell, PencilLine } from "lucide-react";
+import { Settings, Pin, Plus, PencilLine, Ellipsis } from "lucide-react";
 import { useSelector } from "react-redux";
 
 // Local imports
@@ -19,6 +19,9 @@ import { CreateDialog } from "../home/create-dialog";
 import { Dialog, DialogContent } from "../ui/dialog";
 import Image from "next/image";
 import { EventRoomDropMessageModal } from "./event-room-drop-message-modal";
+import { EventDetailDialog } from "./event-detail-dialog";
+import { EventSetReminderButton } from "./event-set-reminder-button";
+import { isEventUpcomingClient } from "@/lib/event-schedule-client";
 
 export function formatEventDateTime(
   eventDate: string,
@@ -67,6 +70,30 @@ export function formatEventDateTime(
   return `${formattedDate} | ${formattedStartTime} - ${formattedEndTime}`;
 }
 
+const formatEventTime = (time: string) => {
+  const [hoursString, minutesString = "00"] = time.split(":");
+
+  const hours = Number(hoursString);
+  const minutes = Number(minutesString);
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return "";
+  }
+
+  const period = hours >= 12 && hours < 24 ? "PM" : "AM";
+
+  const hour12 = hours % 12 || 12;
+
+  return `${hour12}:${String(minutes).padStart(2, "0")} ${period}`;
+};
+
 interface Props {
   eventId: string;
   iTipped: number;
@@ -81,6 +108,7 @@ interface Props {
   eventDate: string;
   startTime: string;
   endTime: string;
+  timeZone?: string;
   eventName: string;
   organizationName: string;
   eventBanner: string;
@@ -104,6 +132,7 @@ export const MessageHeader = ({
   eventDate,
   startTime,
   endTime,
+  timeZone,
   eventName,
   organizationName,
   eventBanner,
@@ -151,8 +180,7 @@ export const MessageHeader = ({
   const [dropMessageModalOpen, setDropMessageModalOpen] = useState(false);
 
   const [openPopup, setOpenPopup] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
-  const [showEventDetails, setShowEventDetails] = useState(false);
+  const [openEventDetail, setOpenEventDetail] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("openAddVideo") === "1" && eventOwner) {
@@ -160,7 +188,12 @@ export const MessageHeader = ({
     }
   }, [searchParams, eventOwner]);
 
-  const isEventOver = false;
+  const isEventOver = !isEventUpcomingClient({
+    eventDate,
+    startTime,
+    endTime,
+    timeZone,
+  });
 
   return (
     <div className="sticky top-0 z-10">
@@ -231,30 +264,52 @@ export const MessageHeader = ({
         open={dropMessageModalOpen}
         onClose={() => setDropMessageModalOpen(false)}
         eventId={eventId}
+        eventHostId={isEventOwner}
       />
 
       {/* Small event date/time bar BELOW the white message bar */}
       {eventDate && (
-        <div className="bg-secondary absolute top-full right-0 left-0 z-20 flex h-8 w-full items-center justify-normal gap-2 rounded-b-lg border-t border-gray-200 px-3 text-xs shadow-sm lg:justify-between">
-          <div className="flex flex-wrap items-center gap-1">
+        <div className="bg-secondary absolute top-full right-0 left-0 z-20 flex h-8 w-full items-center justify-between gap-2 rounded-b-lg border-t border-black px-3 text-xs shadow-sm sm:justify-normal lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-1">
             <div
-              className="flex cursor-pointer flex-col items-center gap-1 text-xs text-black sm:flex-row"
-              onClick={() => setShowEventDetails(prev => !prev)}
+              className="flex cursor-pointer flex-col items-center gap-1 text-[10px] text-black sm:flex-row sm:text-xs"
+              onClick={() => setOpenEventDetail(prev => !prev)}
             >
-              <span className="underline">Event info:</span>
+              <div className="hidden flex-row items-center gap-1 underline sm:inline-flex">
+                <Ellipsis className="size-5" />
+                <span>Event info:</span>
+              </div>
+
+              <span className="block flex flex-col items-center border-r border-black pr-2 underline sm:hidden">
+                <Ellipsis className="-mt-1 size-5" />
+                <span className="-mt-1">Event info:</span>
+              </span>
             </div>
 
-            <span className="text-xs text-black">
+            <span className="hidden text-[10px] text-black sm:inline-block sm:text-xs">
               {formatEventDateTime(eventDate, startTime, endTime)}
             </span>
           </div>
 
-          <button
-            type="button"
-            className="outline-primary flex w-fit cursor-pointer items-center gap-1 rounded-md bg-white px-2 py-1 text-black outline hover:bg-white/80"
-          >
-            <Bell className="size-3" /> Set reminder
-          </button>
+          <span className="block flex flex-col text-[10px] text-black sm:hidden sm:text-xs">
+            <span>
+              {new Date(eventDate).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+
+            <span>
+              {formatEventTime(startTime)} - {formatEventTime(endTime)}
+            </span>
+          </span>
+
+          <EventSetReminderButton
+            eventId={eventId}
+            eventName={eventName}
+            isEventOver={isEventOver}
+          />
         </div>
       )}
 
@@ -264,106 +319,20 @@ export const MessageHeader = ({
         </div>
       )}
 
-      {showEventDetails && (
-        <Dialog
-          open={showEventDetails}
-          onOpenChange={() => setShowEventDetails(prev => !prev)}
-        >
-          <DialogContent className="max-w-sm">
-            <Image
-              src={eventBanner ?? "/events/event_banner.webp"}
-              alt={eventName}
-              width={400}
-              height={320}
-              className="w-full object-cover"
-            />
-
-            {venueName?.trim() ? (
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                  Venue name
-                </p>
-                <p className="font-medium">{venueName}</p>
-              </div>
-            ) : null}
-
-            {venueLocation?.trim() ? (
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                  Location
-                </p>
-                <p className="font-medium">{venueLocation}</p>
-              </div>
-            ) : null}
-
-            {eventDate ? (
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                  Event date
-                </p>
-                <p className="font-medium">
-                  {/* {format(eventDate, "EEEE, dd MMM yyyy")} */}
-                </p>
-              </div>
-            ) : null}
-
-            {startTime?.trim() || endTime?.trim() ? (
-              <div className="grid grid-cols-2 gap-4">
-                {startTime?.trim() ? (
-                  <div className="space-y-1">
-                    <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                      Start time
-                    </p>
-                    <p className="font-medium">{startTime}</p>
-                  </div>
-                ) : null}
-                {endTime?.trim() ? (
-                  <div className="space-y-1">
-                    <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                      End time
-                    </p>
-                    <p className="font-medium">{endTime}</p>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {/* {eventType ? (
-                  <div className="space-y-1">
-                    <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                      Event type
-                    </p>
-                    <p className="font-medium">
-                      {formatEventTypeLabel(eventType)}
-                    </p>
-                  </div>
-                ) : null} */}
-
-            {Array.isArray(activities) && activities.length > 0 ? (
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                  Activities
-                </p>
-                <p className="font-medium">
-                  {activities
-                    .map(activity =>
-                      String(activity).replace(/_/g, " ").toLowerCase()
-                    )
-                    .join(", ")}
-                </p>
-              </div>
-            ) : null}
-
-            {eventDescription?.trim() ? (
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                  Description
-                </p>
-                <p className="leading-relaxed">{eventDescription}</p>
-              </div>
-            ) : null}
-          </DialogContent>
-        </Dialog>
+      {openEventDetail && (
+        <EventDetailDialog
+          eventBanner={eventBanner}
+          eventName={eventName}
+          eventDescription={eventDescription}
+          venueName={venueName}
+          venueLocation={venueLocation}
+          eventDate={eventDate}
+          startTime={startTime}
+          endTime={endTime}
+          activities={activities}
+          open={openEventDetail}
+          onOpenChange={open => setOpenEventDetail(open)}
+        />
       )}
 
       {/* Event Room Settings Modal */}
@@ -373,9 +342,10 @@ export const MessageHeader = ({
         >
           <div className="w-full max-w-md rounded-xl bg-white p-4 shadow-lg">
             <ContentRoomSettings
-              isHost={isEventOwner === user?.id}
+              isHost={eventOwner}
               isCohost={tag === "COHOST"}
               eventId={eventId}
+              eventHostId={isEventOwner}
               channels={safeChannels}
               frameId={frameId}
               liveVideoLink={liveVideoLink}

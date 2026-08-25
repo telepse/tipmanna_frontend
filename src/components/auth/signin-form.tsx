@@ -37,6 +37,8 @@ import {
   tipperSignInSchema,
 } from "@/schemas/tipper.schema";
 import { Paragraph } from "@/components/shared/paragraph";
+import { type SignInModalPayload } from "@/components/auth/sign-in-dialog";
+import { AlreadySignedInNotice } from "@/components/auth/already-signed-in-notice";
 import {
   checkCoOwnerSignupEligibilityAction,
   checkHostUsernameAvailabilityAction,
@@ -55,10 +57,16 @@ import {
   isUnverifiedHostMessage,
   parseAuthResponse,
 } from "@/lib/auth-response";
-import { persistAuthSession } from "@/lib/session-client";
+import {
+  persistAuthSession,
+  persistHostSession,
+  clearHostSession,
+} from "@/lib/session-client";
+import { performAuthLogout } from "@/lib/auth-logout";
+import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
-import { store, type RootState } from "@/redux/store";
+import { store, type AppDispatch, type RootState } from "@/redux/store";
 
 type HostAuthView = "signIn" | "signUp" | "forgotPassword" | "verifyEmail";
 
@@ -80,7 +88,7 @@ export type SigninFormProps = {
     eventSlug: string | null;
   }) => void;
   /** Called when tipper verifies email inside a modal (no navigation). */
-  onModalTipperSuccess?: () => void;
+  onModalTipperSuccess?: (payload: SignInModalPayload) => void;
   /** When true, host tab can toggle inline sign-up instead of navigating away. */
   allowInlineSignUp?: boolean;
   className?: string;
@@ -95,9 +103,18 @@ export const SigninForm = ({
   allowInlineSignUp = false,
   className,
 }: SigninFormProps = {}) => {
-  const [userType, setUserType] = useState<"host" | "tipper">(
-    () => defaultUserType
+  const searchParams = useSearchParams();
+  const emailParam = searchParams.get("email");
+  const nameParam = searchParams.get("name");
+  const tabParam = searchParams.get("tab");
+  const returnTo = safeInternalPath(
+    returnToProp ?? searchParams.get("next") ?? searchParams.get("redirect")
   );
+
+  const [userType, setUserType] = useState<"host" | "tipper">(() => {
+    if (tabParam === "tipper" || tabParam === "host") return tabParam;
+    return defaultUserType;
+  });
   const [hostStep, setHostStep] = useState<"signIn" | "signUp">("signIn");
   const [hostAuthView, setHostAuthView] = useState<HostAuthView>("signIn");
   const [hostVerifyEmail, setHostVerifyEmail] = useState("");
@@ -111,13 +128,6 @@ export const SigninForm = ({
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
   const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
-
-  const searchParams = useSearchParams();
-  const emailParam = searchParams.get("email");
-  const nameParam = searchParams.get("name");
-  const returnTo = safeInternalPath(
-    returnToProp ?? searchParams.get("next") ?? searchParams.get("redirect")
-  );
 
   const [checkingCoOwnerEmail, setCheckingCoOwnerEmail] = useState(false);
   const [coOwnerEligible, setCoOwnerEligible] = useState<boolean | null>(null);
@@ -135,7 +145,7 @@ export const SigninForm = ({
   const [isTipperLoading, setIsTipperLoading] = useState(false);
 
   const { push } = useAppRouter();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const isMobile = useMediaQuery({ query: "(max-width: 500px)" });
   const otpInputStyle = {
     background: "#f7c87c80",
@@ -168,8 +178,6 @@ export const SigninForm = ({
       password: "",
     },
   });
-  const username = hostForm.watch("emailOrUsername");
-
   const hostSignInEmailOrUsername = hostForm.watch("emailOrUsername");
 
   useEffect(() => {
@@ -207,7 +215,6 @@ export const SigninForm = ({
     defaultValues: {
       fullName: "",
       email: emailParam || "",
-      emailOrUsername: "",
       username: "",
       password: "",
       confirmPassword: "",
@@ -223,52 +230,81 @@ export const SigninForm = ({
     },
   });
 
+  const signUpUsername = signUpForm.watch("username");
+
   const finishHostAuth = async (
     parsed: NonNullable<ReturnType<typeof parseAuthResponse>>
   ) => {
-    const { user, token, message } = parsed;
-    toast.success(message);
-    dispatch(
-      setCredentials({
-        user: { ...user, role: "HOST" },
-        token,
-      })
-    );
-    await persistAuthSession(token, user, { expiresDays: 7 });
-    if (mode === "modal" && onModalHostSuccess) {
-      onModalHostSuccess({
+    toast.success(parsed.message);
+
+    const hostUser = parsed.hostSession?.user;
+    const hostSlug = hostUser?.eventSlug ?? null;
+    const hostUsername = hostUser?.username ?? parsed.user.username;
+
+    const tipperKeepsPrimarySession =
+      mode === "modal" &&
+      authUser?.role === "TIPPER" &&
+      Boolean(onModalHostSuccess);
+
+    if (tipperKeepsPrimarySession) {
+      const tipperEmail = authUser?.email?.trim().toLowerCase();
+      const hostEmail = (hostUser?.email ?? parsed.user.email)
+        ?.trim()
+        .toLowerCase();
+
+      if (tipperEmail && hostEmail && tipperEmail !== hostEmail) {
+        await performAuthLogout(dispatch);
+        await clearHostSession();
+        await applyPrimaryAndHostSessions(parsed, dispatch);
+        onModalHostSuccess?.({
+          role: "HOST",
+          username: hostUsername,
+          eventSlug: hostSlug,
+        });
+        return;
+      }
+
+      if (parsed.hostSession) {
+        await persistHostSession(
+          parsed.hostSession.token,
+          parsed.hostSession.user,
+          { expiresDays: 7 }
+        );
+      }
+      onModalHostSuccess?.({
         role: "HOST",
-        username: user.username,
-        eventSlug: user.eventSlug ?? null,
+        username: hostUsername,
+        eventSlug: hostSlug,
       });
       return;
     }
-    // const dest =
-    //   returnTo ??
-    //   (coOwnerEligible === true
-    //     ? buildCreatorProfileSharePath(user.username)
-    //     : `/host/${user.eventSlug ?? user.username}`);
+
+    await applyPrimaryAndHostSessions(parsed, dispatch);
+
+    if (mode === "modal" && onModalHostSuccess) {
+      onModalHostSuccess({
+        role: "HOST",
+        username: hostUsername,
+        eventSlug: hostSlug,
+      });
+      return;
+    }
+
     const dest =
       returnTo ??
       (coOwnerEligible === true
-        ? buildCreatorProfileSharePath(user.username)
-        : buildCreatorProfileSharePath(user.username));
+        ? buildCreatorProfileSharePath(hostUsername)
+        : buildCreatorProfileSharePath(hostUsername));
     push(dest);
   };
 
   const onSubmitHostSignUp = async (values: HostSignUpFormData) => {
-    console.log(values);
-    if (values.password !== values.confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
-
     try {
       setIsHostLoading(true);
 
       const res = await loginOrRegisterHostAction({
         fullName: values.fullName,
-        emailOrUsername: values.emailOrUsername,
+        emailOrUsername: values.email,
         email: values.email,
         username: values.username,
         password: values.password,
@@ -285,13 +321,9 @@ export const SigninForm = ({
         return;
       }
       if (mode === "modal") {
-        dispatch(
-          setCredentials({
-            user: { ...parsed.user, role: "HOST" },
-            token: parsed.token,
-            requiresVerification: true,
-          })
-        );
+        await applyPrimaryAndHostSessions(parsed, dispatch, {
+          requiresVerification: true,
+        });
         setHostVerifyEmail(values.email);
         setHostAuthView("verifyEmail");
         toast.success(parsed.message);
@@ -394,7 +426,7 @@ export const SigninForm = ({
 
       dispatch(
         setCredentials({
-          user: { ...user, role },
+          user: parsed.user,
           token,
           requiresVerification: true,
           tag: tag ?? null,
@@ -406,16 +438,12 @@ export const SigninForm = ({
         return;
       }
 
-      if (role === "TIPPER") {
-        await persistAuthSession(token, user, { expiresDays: 60 });
-      } else {
-        await persistAuthSession(token, user, { expiresDays: 7 });
-      }
+      await persistAuthSession(token, parsed.user, { expiresDays: 60 });
 
       push(
         returnTo
           ? `/verify-email?next=${encodeURIComponent(returnTo)}`
-          : "/verify-email"
+          : "/verify-email?next=%2Fexplore"
       );
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -444,28 +472,26 @@ export const SigninForm = ({
         return;
       }
 
+      const parsed = parseAuthResponse(verifyRes.data);
+      const sessionUser = parsed?.user ?? user;
+      const sessionToken = parsed?.token ?? token;
+
       dispatch(
         setCredentials({
-          user,
-          token,
+          user: sessionUser,
+          token: sessionToken,
           requiresVerification: false,
         })
       );
 
-      await persistAuthSession(
-        token,
-        {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-          username: user.username,
-          role: user.role,
-        },
-        { expiresDays: user.role === "HOST" ? 7 : 60 }
-      );
+      await persistAuthSession(sessionToken, sessionUser, { expiresDays: 60 });
 
       toast.success("Email verified successfully!");
-      onModalTipperSuccess?.();
+      onModalTipperSuccess?.({
+        role: "TIPPER",
+        username: sessionUser.username,
+        eventSlug: null,
+      });
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -534,37 +560,26 @@ export const SigninForm = ({
       const email = hostVerifyEmail || user?.email;
       if (!email || !token) return;
 
-      const verifyRes = await verifyCodeAction(email, hostVerifyCode);
+      const verifyRes = await verifyCodeAction(email, hostVerifyCode, "HOST");
       if (!verifyRes.success) {
         toast.error(verifyRes.message ?? "Verification failed");
         return;
       }
 
       const parsed = parseAuthResponse(verifyRes.data);
-      const sessionUser = parsed?.user ?? user;
-      const sessionToken = parsed?.token ?? token;
-      if (!sessionUser || !sessionToken) {
+      if (!parsed) {
         toast.error("Verification succeeded but session could not be restored");
         return;
       }
 
-      dispatch(
-        setCredentials({
-          user: { ...sessionUser, role: "HOST" },
-          token: sessionToken,
-          requiresVerification: false,
-        })
-      );
-
-      await persistAuthSession(sessionToken, sessionUser, { expiresDays: 7 });
+      await applyPrimaryAndHostSessions(parsed, dispatch);
       toast.success("Email verified successfully!");
       setHostAuthView("signIn");
       setHostStep("signIn");
       onModalHostSuccess?.({
         role: "HOST",
-        username: sessionUser.username,
-        eventSlug:
-          "eventSlug" in sessionUser ? (sessionUser.eventSlug ?? null) : null,
+        username: parsed.hostSession?.user.username ?? parsed.user.username,
+        eventSlug: parsed.hostSession?.user.eventSlug ?? null,
       });
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -602,14 +617,14 @@ export const SigninForm = ({
   };
 
   useEffect(() => {
-    if (!username) {
+    if (!signUpUsername) {
       setUsernameAvailable(null);
       return;
     }
 
     const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
 
-    if (!usernameRegex.test(username)) {
+    if (!usernameRegex.test(signUpUsername)) {
       setUsernameAvailable(null);
       return;
     }
@@ -618,7 +633,9 @@ export const SigninForm = ({
       try {
         setCheckingUsername(true);
 
-        const res = await checkHostUsernameAvailabilityAction({ username });
+        const res = await checkHostUsernameAvailabilityAction({
+          username: signUpUsername,
+        });
 
         if (res.success) {
           setUsernameAvailable(true);
@@ -633,10 +650,11 @@ export const SigninForm = ({
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [username]);
+  }, [signUpUsername]);
 
   return (
     <div className={className ? "" : "mx-auto max-w-2xl"}>
+      {mode === "page" && authUser ? <AlreadySignedInNotice /> : null}
       <Tabs
         value={userType}
         onValueChange={val => setUserType(val as "host" | "tipper")}
@@ -676,6 +694,9 @@ export const SigninForm = ({
           value="host"
           className="mt-6 space-y-6"
         >
+          {mode === "modal" && authUser ? (
+            <AlreadySignedInNotice compact />
+          ) : null}
           <div key={`host-${hostAuthView}-${hostStep}`}>
             {mode === "modal" && hostAuthView === "forgotPassword" ? (
               <div className="space-y-6">
@@ -829,7 +850,7 @@ export const SigninForm = ({
                           )}
 
                           {!checkingUsername &&
-                            username &&
+                            signUpUsername &&
                             usernameAvailable === true && (
                               <p className="text-success text-sm">
                                 Username is available ✓
@@ -837,7 +858,7 @@ export const SigninForm = ({
                             )}
 
                           {!checkingUsername &&
-                            username &&
+                            signUpUsername &&
                             usernameAvailable === false && (
                               <p className="text-destructive text-sm">
                                 Username is already taken
@@ -1085,6 +1106,9 @@ export const SigninForm = ({
           value="tipper"
           className="space-y-6"
         >
+          {mode === "modal" && authUser ? (
+            <AlreadySignedInNotice compact />
+          ) : null}
           {mode === "modal" && tipperStep === "verify" ? (
             <div className="relative flex flex-col items-center justify-center gap-6 px-2">
               <h2 className="mt-2 text-center text-2xl font-semibold">

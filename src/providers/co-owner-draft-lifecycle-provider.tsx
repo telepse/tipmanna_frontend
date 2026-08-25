@@ -11,7 +11,10 @@ import {
 } from "react";
 
 type CoOwnerDraftLifecycleContextValue = {
+  /** True when draft restore finished and co-owner hydration is not in flight. */
   lifecycleReady: boolean;
+  /** True when draft/modal restore finished (ignores hydration). Safe for co-owner effects. */
+  restoreReady: boolean;
   setCoOwnerHydrating: (active: boolean) => void;
 };
 
@@ -40,14 +43,19 @@ export function CoOwnerDraftLifecycleProvider({
     setCoOwnerHydratingState(hydratingCountRef.current > 0);
   }, []);
 
+  const restoreReady = useMemo(
+    () => !draftRestoring && !modalRestoring,
+    [draftRestoring, modalRestoring]
+  );
+
   const lifecycleReady = useMemo(
-    () => !draftRestoring && !modalRestoring && !coOwnerHydrating,
-    [draftRestoring, modalRestoring, coOwnerHydrating]
+    () => restoreReady && !coOwnerHydrating,
+    [restoreReady, coOwnerHydrating]
   );
 
   const value = useMemo(
-    () => ({ lifecycleReady, setCoOwnerHydrating }),
-    [lifecycleReady, setCoOwnerHydrating]
+    () => ({ lifecycleReady, restoreReady, setCoOwnerHydrating }),
+    [lifecycleReady, restoreReady, setCoOwnerHydrating]
   );
 
   return (
@@ -62,6 +70,7 @@ export function useCoOwnerDraftLifecycle(): CoOwnerDraftLifecycleContextValue {
   if (!ctx) {
     return {
       lifecycleReady: true,
+      restoreReady: true,
       setCoOwnerHydrating: () => {},
     };
   }

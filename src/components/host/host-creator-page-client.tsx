@@ -57,6 +57,7 @@ import {
 } from "@/lib/creator-profile-url";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { cn } from "@/lib/utils";
+import { useHostSession } from "@/hooks/use-host-session";
 import type { RootState } from "@/redux/store";
 import { formatCreatorProfileCategoryLabel } from "@/schemas/creator.schema";
 import { usePathname, useRouter } from "next/navigation";
@@ -75,6 +76,7 @@ import {
 } from "@/components/home/create-dialog";
 import { ProfileDrawer } from "@/components/tv/profile-drawer";
 import { StartCommunityRequestDialog } from "@/components/community/start-community-request-dialog";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { awaitProfileDrawerPrefetch } from "@/lib/drawer-prefetch-cache";
 
@@ -125,31 +127,35 @@ export function HostCreatorPageClient({
   const router = useRouter();
 
   const user = useSelector((state: RootState) => state.auth.user);
+  const hostSession = useHostSession();
   const isAuthenticated = useSelector(
     (state: RootState) => state.auth.isAuthenticated
   );
 
   const isOwnProfile =
-    user?.role === "HOST" &&
+    user != null &&
     (user.id === host.id ||
       user.username?.toLowerCase() === host.username.toLowerCase());
 
   const showBottomExpressNav =
     !isDrawer &&
     !isOwnProfile &&
-    (!isAuthenticated || user?.role === "HOST" || user?.role === "VISITOR");
+    (!isAuthenticated ||
+      user?.role === "HOST" ||
+      user?.role === "TIPPER" ||
+      user?.role === "VISITOR");
 
   const viewerCreatorProfileHref =
     isAuthenticated &&
-    user?.role === "HOST" &&
-    !isOwnProfile &&
-    user.username?.trim()
-      ? buildCreatorProfileSharePath(user.username)
+    hostSession.isActive &&
+    hostSession.username?.trim() &&
+    !isOwnProfile
+      ? buildCreatorProfileSharePath(hostSession.username)
       : null;
 
   const editProfileHref =
-    isOwnProfile && user && "eventSlug" in user && user.eventSlug
-      ? `/host/${user.eventSlug}/profile`
+    isOwnProfile && hostSession.isActive && hostSession.eventSlug
+      ? `/host/${hostSession.eventSlug}/profile`
       : host.eventSlug
         ? `/host/${host.eventSlug}/profile`
         : null;
@@ -193,9 +199,33 @@ export function HostCreatorPageClient({
     useSelector((s: RootState) => s.auth.isAuthenticated) &&
     (userRole === "HOST" || userRole === "TIPPER");
 
+  const { canWriteAsHost, requestHostAuth, HostAuthModal } =
+    useHostCapabilityWithAuth();
+
   const accountHref = getAccountNavHref(user, isAuthenticated);
 
-  console.log("accountHref", accountHref);
+  const openStartCommunityForm = useCallback(() => {
+    setStartCommunityOpen(true);
+  }, []);
+
+  const openStartCommunityFlow = useCallback(() => {
+    if (!isAuthenticated || !user) {
+      setPendingStartCommunity(true);
+      setSignInOpen(true);
+      return;
+    }
+    if (canWriteAsHost) {
+      openStartCommunityForm();
+      return;
+    }
+    requestHostAuth(openStartCommunityForm);
+  }, [
+    canWriteAsHost,
+    isAuthenticated,
+    openStartCommunityForm,
+    requestHostAuth,
+    user,
+  ]);
 
   const openCreateDialog = (entry: CreateDialogEntry) => {
     setCreateDialogEntry(entry);
@@ -211,39 +241,29 @@ export function HostCreatorPageClient({
           (user && "username" in user ? user.username : undefined))
         : undefined;
 
-    if (hostUsername) {
+    if (hostUsername && !pendingStartCommunity) {
       router.push(buildCreatorProfileSharePath(hostUsername));
     }
 
-    console.log(
-      "buildCreatorProfileSharePath(hostUsername)",
-      buildCreatorProfileSharePath(hostUsername!)
-    );
-
     if (pendingStartCommunity) {
       setPendingStartCommunity(false);
-      setStartCommunityOpen(true);
+      if (canWriteAsHost) {
+        openStartCommunityForm();
+      } else {
+        requestHostAuth(openStartCommunityForm);
+      }
     }
   };
 
   const handleMyAccountClick = () => {
     if (isAuthenticated && user) {
-      if (viewerCreatorProfileHref) {
+      if (hostSession.isActive && viewerCreatorProfileHref) {
         router.push(viewerCreatorProfileHref);
         return;
       }
       router.push(accountHref);
       return;
     }
-    setSignInOpen(true);
-  };
-
-  const openStartCommunityFlow = () => {
-    if (isAuthenticated && user) {
-      setStartCommunityOpen(true);
-      return;
-    }
-    setPendingStartCommunity(true);
     setSignInOpen(true);
   };
 
@@ -346,6 +366,8 @@ export function HostCreatorPageClient({
         allowInlineSignUp
         onSuccess={handleSignInSuccess}
       />
+
+      {HostAuthModal}
 
       <CreateDialog
         openPopup={isCreatePopupOpen}
@@ -542,6 +564,7 @@ function ProfileHeader({
   editProfileHref: string | null;
 }) {
   const router = useRouter();
+  const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
   const [showSecondaryStats, setShowSecondaryStats] = useState(false);
   const [openCreatorDialog, setOpenCreatorDialog] = useState(false);
   const [displayUsername, setDisplayUsername] = useState(host.username);
@@ -618,7 +641,10 @@ function ProfileHeader({
         onOpenChange={setOpenCreatorDialog}
         initialAvatarUrl={profileImageUrl}
         onSaved={handleProfileSaved}
+        onClose={() => setOpenCreatorDialog(false)}
       />
+
+      {HostAuthModal}
 
       <div className="relative z-10 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
         <div className="relative size-24 shrink-0 overflow-hidden rounded-full sm:size-28">
@@ -730,7 +756,9 @@ function ProfileHeader({
                 variant="outline"
                 size="sm"
                 className="w-fit px-1! py-0.5! text-xs"
-                onClick={() => setOpenCreatorDialog(true)}
+                onClick={() =>
+                  requestHostAuth(() => setOpenCreatorDialog(true))
+                }
               >
                 <SquarePen className="size-3.5" />
                 Edit
