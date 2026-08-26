@@ -29,35 +29,50 @@ export function sanitizeEventIdForRoomRedirect(
 type SharePathArgs = {
   eventId: string;
   channelId?: string | null;
+  playlistWatch?: boolean;
+  playlistId?: string | null;
 };
 
 function appendVideoDeepLinkQuery(
   path: string,
-  channelId?: string | null
+  channelId?: string | null,
+  extra?: { playlistWatch?: boolean; playlistId?: string | null }
 ): string {
   const cid = channelId?.trim();
-  if (!cid) return path;
-  return `${path}?${VIDEO_DEEP_LINK_PARAM}=${encodeURIComponent(cid)}`;
+  const params = new URLSearchParams();
+  if (cid) params.set(VIDEO_DEEP_LINK_PARAM, cid);
+  if (extra?.playlistWatch && extra.playlistId?.trim()) {
+    params.set("playlistWatch", "all");
+    params.set("playlistId", extra.playlistId.trim());
+  }
+  const q = params.toString();
+  return q ? `${path}?${q}` : path;
 }
 
 /** Path segment is always the parent event UUID; `?v=` selects a video. */
 export function buildChannelSharePath({
   eventId,
   channelId,
+  playlistWatch,
+  playlistId,
 }: SharePathArgs): string {
   return appendVideoDeepLinkQuery(
     `/channel/${encodeURIComponent(eventId.trim())}`,
-    channelId
+    channelId,
+    { playlistWatch, playlistId }
   );
 }
 
 export function buildContentSharePath({
   eventId,
   channelId,
+  playlistWatch,
+  playlistId,
 }: SharePathArgs): string {
   return appendVideoDeepLinkQuery(
     `/content/${encodeURIComponent(eventId.trim())}`,
-    channelId
+    channelId,
+    { playlistWatch, playlistId }
   );
 }
 

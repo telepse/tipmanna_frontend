@@ -1,19 +1,39 @@
-# Authorization Policy — Tipper / Host / Cohost / Visitor
+# Authorization Policy — Six User Sets
 
-**Last aligned:** 2026-08-20 (tipper-primary identity + hybrid tiers)
+**Last aligned:** 2026-08-25 (tipper-primary identity + hybrid tiers + staff plane + plans)
+
+## Six user sets (only these)
+
+| Set                                  | Primary session                        | Secondary session                                | Inactivity                                   |
+| ------------------------------------ | -------------------------------------- | ------------------------------------------------ | -------------------------------------------- |
+| **1. Host creator**                  | Tipper JWT 60d (never host in primary) | `hostToken` + `hostUser` 7d                      | Host 7d sliding                              |
+| **2. Tipper**                        | Tipper JWT 60d                         | — (optional host secondary if signed in as host) | Tipper 60d sliding                           |
+| **3. Tracked visitor (dummy guest)** | Visitor JWT (reminted on claim)        | —                                                | 24h sliding on `Visitor.lastActiveAt`        |
+| **4. Untracked visitor**             | None                                   | —                                                | Not stored                                   |
+| **5. Super admin**                   | Staff JWT 7d (`role: superadmin`)      | —                                                | Staff session                                |
+| **6. Admin**                         | Staff JWT 7d (`role: admin`)           | —                                                | Staff session; **assigned permissions only** |
+
+**Derived capabilities (not separate account types):** cohost (tipper + event-scoped cohost JWT), co-owner (Growth+ video entitlement), co-creator (Community host invited into content bank).
 
 ## Golden product rule
 
-The **tipper account is the primary identifier** across the entire product. The primary session (`token` cookie + Redux `auth.user`) is always **tipper** or **visitor** — never host.
+The **tipper account is the primary identifier** across the entire product. The primary session (`token` cookie + Redux `auth.user`) is always **tipper**, **visitor**, or **staff** — never host.
 
 Host identity lives **only** in the secondary session:
 
-| Cookie | Purpose |
-|--------|---------|
-| `hostToken` (HttpOnly) | Host-role JWT for Tier B/C API calls |
-| `hostUser` (readable) | Stable host identity marker: `id`, `username`, `eventSlug`, `eventCode`, `email`, `hostSessionExpiresAt` |
+| Cookie                 | Purpose                                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `hostToken` (HttpOnly) | Host-role JWT for Tier B/C API calls                                                                     |
+| `hostUser` (readable)  | Stable host identity marker: `id`, `username`, `eventSlug`, `eventCode`, `email`, `hostSessionExpiresAt` |
 
-Host sign-in mints **both**: tipper 60d JWT → primary, host 7d JWT → `hostToken`.
+Cohost identity uses the same pattern:
+
+| Cookie                   | Purpose                                 |
+| ------------------------ | --------------------------------------- |
+| `cohostToken` (HttpOnly) | Cohost-role JWT scoped to one `eventId` |
+| `cohostUser` (readable)  | `eventId`, `cohostId`, `email`          |
+
+Host sign-in mints **both**: tipper 60d JWT → primary, host 7d JWT → `hostToken`. Cohost invite accept mints tipper 60d primary + cohost 7d secondary.
 
 Never infer host authorization from `auth.user.role === "HOST"`, `tag === "EXISTING_HOST"`, or primary JWT role alone.
 
@@ -21,37 +41,51 @@ Never infer host authorization from `auth.user.role === "HOST"`, `tag === "EXIST
 
 `Tipper.id === Host.id` for every linked pair. Linkage is resolved only by `GET /auth/me/host-link` / `getHostLinkForUserId`. A linked tipper has Tier A reads; Tier B/C writes require an **active host session** (`hostToken` + unexpired `hostUser` marker where `hostUser.id === link.hostId`).
 
-```mermaid
-flowchart TD
-  tipperLogin["Tipper sign-in"] --> primary["Primary: tipper JWT 60d"]
-  hostLogin["Host sign-in"] --> primary
-  hostLogin --> hostCookie["Secondary: host JWT 7d + hostUser"]
-  primary --> tierA["Tier A: requireHostOrPairedTipper"]
-  hostCookie --> tierBC["Tier B/C: requireActiveHostSession"]
-```
+## Visitor (sets 3 and 4)
+
+- **Untracked (set 4):** browse public content; no `Visitor` row; no JWT.
+- **Tracked dummy (set 3):** created **only after a succeeded payment** (Stripe webhook or wallet debit). Identified by device key + IP + timestamps.
+- **24h inactivity:** when `Visitor.lastActiveAt` is older than 24h, the row is **dead**. A new payment creates a **new** visitor; expired rows are never revived by device reuse.
+- **Claim:** client calls `POST /visitors/claim-after-payment` after payment to receive a visitor JWT; merge into tipper only while unexpired (`410 Gone` after expiry).
 
 ## Session lifetimes (sliding, server-enforced)
 
-| Role | Inactivity window | Stored in | Refreshed by |
-|------|-------------------|-----------|--------------|
-| Tipper (primary) | 60 days | `token` + Tipper.lastActiveAt | Any product page |
-| Host (secondary) | 7 days | `hostToken` + Host.lastActiveAt | Host login, dashboard visit, host-session touch |
-| Cohost | 7 days | cohost JWT + EventCohost.lastActiveAt | Event-room activity |
-| Visitor | 24 hours | visitor JWT + Visitor.lastActiveAt | Any visitor request |
+| Role               | Inactivity window | JWT mint (max)  | Stored in                                |
+| ------------------ | ----------------- | --------------- | ---------------------------------------- |
+| Tipper (primary)   | 60 days           | 60d             | `token` + Tipper.lastActiveAt            |
+| Host (secondary)   | 7 days            | 7d              | `hostToken` + Host.lastActiveAt          |
+| Cohost (secondary) | 7 days            | 7d              | `cohostToken` + EventCohost.lastActiveAt |
+| Visitor            | 24 hours          | remint on claim | visitor JWT + Visitor.lastActiveAt       |
+| Staff              | 7 days            | 7d              | staff token                              |
 
 Forced re-auth: set `AUTH_TOKEN_MIN_IAT` (unix) at deploy to invalidate pre-migration JWTs.
+
+## Host plans (entitlements)
+
+| Plan             | Enum             | Includes                                                |
+| ---------------- | ---------------- | ------------------------------------------------------- |
+| Free             | `NONE`           | Basic host features                                     |
+| Growth (Premium) | `HOST_PREMIUM`   | Advanced analytics, co-owners, tip layout, playlists, … |
+| Community        | `HOST_COMMUNITY` | All Growth + community TV, memberships, co-creators, …  |
+
+Subscription status: `none` | `active` | `lapsed`.
+
+- **none:** pricing surfaces; no premium actions.
+- **active:** full feature UI and mutations.
+- **lapsed:** **keep feature chrome visible; freeze mutations**; renew modal on action.
+- **admin_grant:** super admin assigns tier + `subscriptionPeriodEnd`; Stripe webhooks must not wipe active grants.
+
+Pricing, VAT, and system-wide discounts are owned by super admin + Stripe (`automatic_tax`, coupon on checkout/renewals).
+
+## Staff plane (sets 5 and 6)
+
+- **Super admin:** all permissions; creates/terminates admins; grants plans; system discount.
+- **Admin:** only permissions assigned at creation (`Admin.permissions[]`). Cannot create/delete other admins.
+- Routes: `requireSuperadmin` for admin CRUD, grant-plan, system-discount. `requireAdminPermission(key)` for delegated features.
 
 ## Tier A — linkage detection alone (no host login)
 
 Reads and affordances only. Uses **tipper JWT** + `requireHostOrPairedTipper`. Never mutates host-owned data; never exposes host-private data.
-
-- `GET /auth/me/host-link`
-- List owned / co-created communities (`GET /communities/me`, `/communities/sends/me`)
-- List own event rooms for create dialog / TV picker (`GET /events/host/me/summary`)
-- Recognize own creator profile (Edit visible; click gated Tier B)
-- Owner / co-creator badges and Manage affordances
-- Nav routes linked tipper to host sign-in instead of `/create-account`
-- Add videos to existing owned event room **from create dialog only** (`X-Create-Surface: create_dialog`)
 
 Frontend: `useHostCapability().canReadAsHost` (active **or** stale linkage).
 
@@ -59,14 +93,7 @@ Frontend: `useHostCapability().canReadAsHost` (active **or** stale linkage).
 
 Requires **host-role JWT** in `hostToken`. Stale ⇒ host login modal via `requestHostAuth()`, then resume.
 
-- All `/host/*` dashboard routes (`HostDashboardGate` → `canWriteAsHost`)
-- Creator profile Edit / save (`PUT /auth/creator-profile`, `PUT /auth/host-profile`)
-- Event room administration from event room UI (not create-dialog surface)
-- Add videos to community / co-creator community
-- Start-community request form
-- Community management, co-creator invites, payouts, revenue
-- Host notifications fetch and host Pusher binding
-- Event creation wizards (`/event-only`, etc.) — require `canWriteAsHost`
+Existing host may re-enter with **password or email code** (`verify-code` accountType HOST). First-time tipper→host **must set a host password**.
 
 Frontend: `useHostCapability().canWriteAsHost` + `serverHostAuthHeaders()` for server actions.
 
@@ -78,41 +105,26 @@ Frontend: `canManageRoomContent` (host session **or** cohost session for that ev
 
 ## Identity issuance (backend)
 
-| Endpoint | Primary JWT | Host JWT | Notes |
-|----------|-------------|----------|-------|
-| `POST /auth/login-tipper` | tipper 60d | — | Linked host email → tipper + `hasHostAccount` + `tag: EXISTING_HOST` (copy only) |
-| `POST /auth/login-or-register-tipper` | tipper 60d | — | Same |
-| `POST /auth/verify-code` (accountType TIPPER) | tipper 60d | — | Default |
-| `POST /auth/verify-code` (accountType HOST) | tipper 60d | host 7d | Dual response |
-| `POST /auth/login-host` | tipper 60d | host 7d | Dual response |
-| `POST /auth/login-or-register-host` | tipper 60d | host 7d | Dual response |
-
-## Frontend helpers
-
-| Helper | Use for |
-|--------|---------|
-| `useHostCapability()` | Tier A/B gating: `canReadAsHost`, `canWriteAsHost`, `requestHostAuth` |
-| `useHostSession()` | Stable host id/slug from `hostUser` cookie |
-| `useHostProfile()` | Volatile host fields via host token (subscription, legal names, numOfEvents) |
-| `serverHostAuthHeaders()` | Server actions for Tier B host APIs |
-| `serverEventActorAuthHeaders()` | Event-room mutations (prefers host session) |
-| `applyPrimaryAndHostSessions()` | After host sign-in: tipper primary + host cookie |
-
-## Adding a new host feature
-
-1. Pick tier in `backend/src/configs/authorization-policy.ts` and `frontend/src/lib/authorization-policy.ts`.
-2. Register route via `enforce(capability)`.
-3. Gate UI with matching tier from `useHostCapabilityWithAuth`.
-4. Event-scoped: default Tier C (cohost parity) unless dashboard-only.
-5. **Never** use `user.role === "HOST"` on primary Redux for authorization.
+| Endpoint                             | Primary JWT      | Host JWT | Cohost JWT |
+| ------------------------------------ | ---------------- | -------- | ---------- |
+| `POST /auth/login-tipper`            | tipper 60d       | —        | —          |
+| `POST /auth/verify-code` (HOST)      | tipper 60d       | host 7d  | —          |
+| `POST /auth/login-host`              | tipper 60d       | host 7d  | —          |
+| `POST /auth/login-or-register-host`  | tipper 60d       | host 7d  | —          |
+| `POST /cohost/invite/verify-code`    | tipper 60d       | —        | cohost 7d  |
+| `POST /visitors/claim-after-payment` | visitor (remint) | —        | —          |
 
 ## Error codes
 
 - `403 { code: "HOST_SESSION_REQUIRED" }` — open host login modal, resume task
 - `403 { code: "COHOST_SESSION_REQUIRED" }` — open cohost login modal, resume task
+- `403 { code: "SUBSCRIPTION_LAPSED" }` — open renew modal
+- `410 Gone` — visitor session expired; cannot merge activity
 
 ## Machine-readable sources
 
 - Backend: `backend/src/configs/authorization-policy.ts` (`enforce()` factory)
 - Frontend mirror: `frontend/src/lib/authorization-policy.ts`
-- Verification: `npm run verify:hybrid-auth` (51+ checks including identity contract)
+- Admin permissions: `backend/src/configs/admin-permissions.config.ts`
+- Host plan capabilities: `backend/src/configs/host-plan-capabilities.config.ts`
+- Verification: `npm run verify:hybrid-auth`

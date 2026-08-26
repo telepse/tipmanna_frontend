@@ -61,6 +61,7 @@ export function usePayerOriginAnimationRecovery({
   playbackKeyPrefix = "",
 }: UsePayerOriginAnimationRecoveryOptions): void {
   const startedTransactionIdRef = useRef<string | null>(null);
+  const recoveryInFlightRef = useRef<string | null>(null);
   const claimMadeRef = useRef(false);
   const renewTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const claimIdRef = useRef<string | null>(null);
@@ -89,6 +90,11 @@ export function usePayerOriginAnimationRecovery({
 
   const characterMapRef = useRef(new Map<string, RoomCharacter>());
   characterMapRef.current = new Map(characters.map(c => [c.name, c]));
+
+  const catalogKey = useMemo(
+    () => `${characters.length}:${characters[0]?.id ?? ""}`,
+    [characters]
+  );
 
   const queueKey = eventId || "__no-event__";
   const { enqueue } = useAnimationQueue({
@@ -145,7 +151,15 @@ export function usePayerOriginAnimationRecovery({
     if (startedTransactionIdRef.current === pending.transactionId) {
       return;
     }
+    if (recoveryInFlightRef.current === pending.transactionId) {
+      return;
+    }
     if (!isCurrentRoutePaymentOrigin(pending.paymentOrigin)) {
+      return;
+    }
+
+    const catalogReady = fallbackOnly || characters.length > 0;
+    if (!catalogReady) {
       return;
     }
 
@@ -159,7 +173,7 @@ export function usePayerOriginAnimationRecovery({
       surface: pendingSurface,
     });
 
-    startedTransactionIdRef.current = transactionId;
+    recoveryInFlightRef.current = transactionId;
     claimMadeRef.current = false;
     sessionTokenRef.current = session?.sessionToken ?? null;
 
@@ -176,6 +190,7 @@ export function usePayerOriginAnimationRecovery({
         surface,
       });
       if (played) {
+        startedTransactionIdRef.current = transactionId;
         markPaymentRecoverySessionCompleted();
         clearPendingPaymentReturn();
         clearPaymentRecoverySession();
@@ -235,6 +250,7 @@ export function usePayerOriginAnimationRecovery({
         attemptLocalFallback();
         if (!claimMadeRef.current) {
           startedTransactionIdRef.current = null;
+          recoveryInFlightRef.current = null;
         }
         return;
       }
@@ -242,6 +258,9 @@ export function usePayerOriginAnimationRecovery({
       const token = sessionTokenRef.current;
       if (!token) {
         attemptLocalFallback();
+        if (!claimMadeRef.current) {
+          recoveryInFlightRef.current = null;
+        }
         return;
       }
 
@@ -261,6 +280,7 @@ export function usePayerOriginAnimationRecovery({
         }
         if (!claimMadeRef.current) {
           startedTransactionIdRef.current = null;
+          recoveryInFlightRef.current = null;
         }
         return;
       }
@@ -268,6 +288,7 @@ export function usePayerOriginAnimationRecovery({
       if (cancelled) return;
 
       claimMadeRef.current = true;
+      startedTransactionIdRef.current = transactionId;
       claimIdRef.current = claimResult.claimId;
       const bundleId =
         claimResult.canonicalPayload.id ??
@@ -373,14 +394,14 @@ export function usePayerOriginAnimationRecovery({
     return () => {
       cancelled = true;
       if (!claimMadeRef.current) {
-        startedTransactionIdRef.current = null;
+        recoveryInFlightRef.current = null;
       }
       if (renewTimerRef.current) {
         clearInterval(renewTimerRef.current);
         renewTimerRef.current = null;
       }
     };
-  }, [enabled, eventId, surfaceKey, surface]);
+  }, [enabled, eventId, surfaceKey, surface, catalogKey]);
 }
 
 export { normalizePaymentOriginUrl };

@@ -69,11 +69,11 @@ One authoritative deadline: **8,000 ms from the T2 warm-up request** (`performan
 
 Document-scoped states: `idle` → `loading` → `ready` | `failed`.
 
-| Path | Behaviour |
-| ---- | --------- |
-| `window.YT?.Player` exists | Immediate resolve; outcome `reused_existing_object` |
-| Existing `script[src]` matching iframe_api (head or body) | Reuse; attach handlers; outcome `reused_existing_script` |
-| No API, no script | Insert one canonical script (`#youtube-iframe-api`); outcome `script_inserted` |
+| Path                                                      | Behaviour                                                                      |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `window.YT?.Player` exists                                | Immediate resolve; outcome `reused_existing_object`                            |
+| Existing `script[src]` matching iframe_api (head or body) | Reuse; attach handlers; outcome `reused_existing_script`                       |
+| No API, no script                                         | Insert one canonical script (`#youtube-iframe-api`); outcome `script_inserted` |
 
 ### Callback chaining
 
@@ -104,18 +104,18 @@ If warm-up times out and legacy path inserts another script, summary records
 
 ## Trace events
 
-| Event | When |
-| ----- | ---- |
-| `youtube_api_warmup_requested` | T2 fire-and-forget |
-| `youtube_api_warmup_reused_existing_object` | API already present |
-| `youtube_api_warmup_reused_existing_script` | Existing script detected |
-| `youtube_api_warmup_script_inserted` | Loader inserted script |
-| `youtube_api_warmup_resolved` | Warm-up succeeded |
-| `youtube_api_warmup_failed` | Script/load failure |
-| `youtube_api_warmup_timed_out` | Absolute deadline reached |
-| `youtube_child_mount_deferred` | `<YouTube>` deferred |
-| `youtube_child_mount_released` | Child released (success) |
-| `youtube_child_mount_fallback` | Child released (fallback) |
+| Event                                       | When                      |
+| ------------------------------------------- | ------------------------- |
+| `youtube_api_warmup_requested`              | T2 fire-and-forget        |
+| `youtube_api_warmup_reused_existing_object` | API already present       |
+| `youtube_api_warmup_reused_existing_script` | Existing script detected  |
+| `youtube_api_warmup_script_inserted`        | Loader inserted script    |
+| `youtube_api_warmup_resolved`               | Warm-up succeeded         |
+| `youtube_api_warmup_failed`                 | Script/load failure       |
+| `youtube_api_warmup_timed_out`              | Absolute deadline reached |
+| `youtube_child_mount_deferred`              | `<YouTube>` deferred      |
+| `youtube_child_mount_released`              | Child released (success)  |
+| `youtube_child_mount_fallback`              | Child released (fallback) |
 
 Safe fields only: `startupGeneration`, `trigger`, `outcome`, `elapsedMs`, `remainingDeadlineMs`,
 `fallbackReason`. No complete URLs, video IDs, or query strings.

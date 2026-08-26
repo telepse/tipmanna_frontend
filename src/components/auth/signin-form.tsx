@@ -124,6 +124,9 @@ export const SigninForm = ({
   const [tipperCode, setTipperCode] = useState("");
   const [tipperAcceptedTerms, setTipperAcceptedTerms] = useState(false);
   const [tipperAccountTag, setTipperAccountTag] = useState<string | null>(null);
+  const [tipperHasHostAccount, setTipperHasHostAccount] = useState(false);
+  const [tipperHostCodeFlow, setTipperHostCodeFlow] = useState(false);
+  const [tipperHostVerifyCode, setTipperHostVerifyCode] = useState("");
 
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
@@ -423,6 +426,8 @@ export const SigninForm = ({
       const { user, token, message, role, tag } = parsed;
       toast.success(message);
       setTipperAccountTag(tag ?? null);
+      setTipperHasHostAccount(parsed.hasHostAccount === true);
+      setTipperHostCodeFlow(false);
 
       dispatch(
         setCredentials({
@@ -500,6 +505,81 @@ export const SigninForm = ({
         toast.error(apiErr.error.message);
       } else {
         toast.error("Failed to verify tipper");
+      }
+    } finally {
+      setIsTipperLoading(false);
+    }
+  };
+
+  const handleTipperHostEmailCodeRequest = async () => {
+    const email = tipperForm.getValues("email")?.trim();
+    if (!email) {
+      toast.error("Enter your email first");
+      return;
+    }
+
+    try {
+      setIsTipperLoading(true);
+      const res = await requestLoginCodeAction({
+        email,
+        accountType: "HOST",
+      });
+      if (!res.success) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(
+        (res.data as { message?: string })?.message ??
+          "Host verification code sent — check your email"
+      );
+      setTipperHostVerifyCode("");
+      setTipperHostCodeFlow(true);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to send host verification code");
+      }
+    } finally {
+      setIsTipperLoading(false);
+    }
+  };
+
+  const handleTipperHostEmailCodeVerify = async () => {
+    const email = tipperForm.getValues("email")?.trim();
+    if (!email || tipperHostVerifyCode.length < 6) return;
+
+    try {
+      setIsTipperLoading(true);
+      const verifyRes = await verifyCodeAction(
+        email,
+        tipperHostVerifyCode,
+        "HOST"
+      );
+      if (!verifyRes.success) {
+        toast.error(verifyRes.message ?? "Verification failed");
+        return;
+      }
+
+      const parsed = parseAuthResponse(verifyRes.data);
+      if (!parsed) {
+        toast.error("Verification succeeded but session could not be restored");
+        return;
+      }
+
+      await applyPrimaryAndHostSessions(parsed, dispatch);
+      toast.success("Host email verified successfully!");
+      setTipperHostCodeFlow(false);
+      onModalHostSuccess?.({
+        role: "HOST",
+        username: parsed.hostSession?.user.username ?? parsed.user.username,
+        eventSlug: parsed.hostSession?.user.eventSlug ?? null,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to verify host email");
       }
     } finally {
       setIsTipperLoading(false);
@@ -1112,37 +1192,68 @@ export const SigninForm = ({
           {mode === "modal" && tipperStep === "verify" ? (
             <div className="relative flex flex-col items-center justify-center gap-6 px-2">
               <h2 className="mt-2 text-center text-2xl font-semibold">
-                Verify your email
+                {tipperHostCodeFlow ? "Verify host email" : "Verify your email"}
               </h2>
               <Paragraph
                 align="center"
                 size="sm"
                 color="muted"
               >
-                We&apos;ve sent a 6-digit code to{" "}
-                <strong>{tipperForm.getValues("email")}</strong>.
-                {tipperAccountTag === "NEW_TIPPER"
-                  ? " We created a free tipper account for this email."
-                  : tipperAccountTag === "EXISTING_HOST"
-                    ? " This email belongs to a host account — verify to continue."
-                    : null}
+                {tipperHostCodeFlow ? (
+                  <>
+                    We&apos;ve sent a 6-digit host code to{" "}
+                    <strong>{tipperForm.getValues("email")}</strong>.
+                  </>
+                ) : (
+                  <>
+                    We&apos;ve sent a 6-digit code to{" "}
+                    <strong>{tipperForm.getValues("email")}</strong>.
+                    {tipperAccountTag === "NEW_TIPPER"
+                      ? " We created a free tipper account for this email."
+                      : tipperAccountTag === "EXISTING_HOST"
+                        ? " This email belongs to a host account — verify to continue."
+                        : null}
+                  </>
+                )}
               </Paragraph>
               <div className="react-otp-input">
                 <OTPInput
-                  value={tipperCode}
-                  onChange={setTipperCode}
+                  value={tipperHostCodeFlow ? tipperHostVerifyCode : tipperCode}
+                  onChange={
+                    tipperHostCodeFlow ? setTipperHostVerifyCode : setTipperCode
+                  }
                   numInputs={6}
                   renderInput={props => <input {...props} />}
                   inputStyle={otpInputStyle}
                   shouldAutoFocus
                 />
               </div>
+              {(tipperHasHostAccount || tipperAccountTag === "EXISTING_HOST") &&
+              !tipperHostCodeFlow ? (
+                <button
+                  type="button"
+                  className="text-primary text-sm hover:underline"
+                  disabled={isTipperLoading}
+                  onClick={() => void handleTipperHostEmailCodeRequest()}
+                >
+                  Email me a code
+                </button>
+              ) : null}
               <Button
                 type="button"
                 size="lg"
                 className="w-full bg-black"
-                disabled={isTipperLoading || tipperCode.length < 6}
-                onClick={() => void handleModalTipperVerify()}
+                disabled={
+                  isTipperLoading ||
+                  (tipperHostCodeFlow
+                    ? tipperHostVerifyCode.length < 6
+                    : tipperCode.length < 6)
+                }
+                onClick={() =>
+                  void (tipperHostCodeFlow
+                    ? handleTipperHostEmailCodeVerify()
+                    : handleModalTipperVerify())
+                }
               >
                 {isTipperLoading ? "Verifying email..." : "Verify email"}
               </Button>
@@ -1150,7 +1261,13 @@ export const SigninForm = ({
                 type="button"
                 variant="outline"
                 className="hover:bg-gray absolute top-0 left-0 border-none outline-none hover:text-black"
-                onClick={() => setTipperStep("email")}
+                onClick={() => {
+                  if (tipperHostCodeFlow) {
+                    setTipperHostCodeFlow(false);
+                    return;
+                  }
+                  setTipperStep("email");
+                }}
               >
                 <MoveLeft /> Back
               </Button>

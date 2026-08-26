@@ -277,6 +277,7 @@ export const FEATURES = [
 
 export type PricingTier = "free" | "premium" | "community";
 
+/** Marketing defaults — live checkout prices come from GET /api/v1/plan-pricing */
 export const PRICING: {
   name: string;
   price: string;

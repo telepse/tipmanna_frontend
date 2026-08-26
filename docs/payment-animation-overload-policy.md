@@ -19,14 +19,14 @@
 
 ## Unresolved product decisions (require explicit approval before runtime change)
 
-| Topic | Options | Current behaviour |
-|-------|---------|-------------------|
-| Maximum acceptable queue wait | unbounded / 30s / 60s / other | Unbounded until queue cap |
-| Queue-full policy | drop newest (current) / drop oldest / reject with operator alert | Drop newest batch |
-| Late multi-character fairness | always play / skip late / shorten | Always attempt; segment budget may skip with explicit trace |
-| Duplicate same-character playback keys | `<bundleId>-<name>` collision | Keys collide; format unchanged pending product decision |
-| Background-tab segment expiry | continue / expire / shorten | Continue (browser timer throttling unmeasured) |
-| Operator alerts on queue-full | none / dashboard / webhook | None wired |
+| Topic                                  | Options                                                          | Current behaviour                                           |
+| -------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------- |
+| Maximum acceptable queue wait          | unbounded / 30s / 60s / other                                    | Unbounded until queue cap                                   |
+| Queue-full policy                      | drop newest (current) / drop oldest / reject with operator alert | Drop newest batch                                           |
+| Late multi-character fairness          | always play / skip late / shorten                                | Always attempt; segment budget may skip with explicit trace |
+| Duplicate same-character playback keys | `<bundleId>-<name>` collision                                    | Keys collide; format unchanged pending product decision     |
+| Background-tab segment expiry          | continue / expire / shorten                                      | Continue (browser timer throttling unmeasured)              |
+| Operator alerts on queue-full          | none / dashboard / webhook                                       | None wired                                                  |
 
 ## Related invariants (E1–E3B, must not change without programme review)
 

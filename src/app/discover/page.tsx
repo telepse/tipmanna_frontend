@@ -50,6 +50,7 @@ export default async function DiscoverPage() {
           initialLiveStreams={catalog.liveStreams as never}
           initialTippers={catalog.tippers as never[]}
           initialTopCommunities={catalog.topCommunities as never[]}
+          initialPlaylists={catalog.playlists as never[]}
         />
       </Suspense>
     </>

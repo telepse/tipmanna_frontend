@@ -28,25 +28,25 @@ startup time is spent, _before_ selecting any optimization.
 
 ### Canonical event → mark map
 
-| Mark | Event                                | Meaning                                   |
-| ---- | ------------------------------------ | ----------------------------------------- |
-| T0   | `navigation_start`                   | Navigation origin (`performance.timeOrigin`) |
-| T1   | `html_response_start`                | `PerformanceNavigationTiming.responseStart` |
-| T2   | `tv_provider_mounted`                | `TVProvider` mounted (client)             |
-| T3   | `schedule_request_started`           | Schedule network request begins           |
-| —    | `schedule_request_finished`          | Request outcome (success/304/failure/stale) |
-| T4   | `schedule_payload_accepted`          | Payload applied (network/session/fallback) |
-| T5   | `playlist_selected`                  | Playlist chosen (ongoing/alt/fallback/notice) |
-| T6   | `initial_playback_position_resolved` | Live index + offset resolved              |
-| —    | `player_component_mounted`           | `TvPlayer` mounted (pre-iframe)           |
+| Mark | Event                                | Meaning                                              |
+| ---- | ------------------------------------ | ---------------------------------------------------- |
+| T0   | `navigation_start`                   | Navigation origin (`performance.timeOrigin`)         |
+| T1   | `html_response_start`                | `PerformanceNavigationTiming.responseStart`          |
+| T2   | `tv_provider_mounted`                | `TVProvider` mounted (client)                        |
+| T3   | `schedule_request_started`           | Schedule network request begins                      |
+| —    | `schedule_request_finished`          | Request outcome (success/304/failure/stale)          |
+| T4   | `schedule_payload_accepted`          | Payload applied (network/session/fallback)           |
+| T5   | `playlist_selected`                  | Playlist chosen (ongoing/alt/fallback/notice)        |
+| T6   | `initial_playback_position_resolved` | Live index + offset resolved                         |
+| —    | `player_component_mounted`           | `TvPlayer` mounted (pre-iframe)                      |
 | T7   | `youtube_api_available`              | YouTube IFrame API object observed (approx, see §14) |
-| T8   | `player_ready`                       | YouTube `onReady`                         |
-| T9   | `playback_command_issued`            | initial embed / loadVideoById / seekTo / playVideo |
-| T10  | `player_buffering`                   | First player state `3`                    |
-| T11  | `player_playing`                     | First player state `1` (first visible frame) |
-| T12  | `player_overlay_removed`             | `isPlayerLoading` became false            |
-| T13  | `stable_playback`                    | 2s of uninterrupted playback              |
-| —    | `startup_failed`                     | No stable playback achieved               |
+| T8   | `player_ready`                       | YouTube `onReady`                                    |
+| T9   | `playback_command_issued`            | initial embed / loadVideoById / seekTo / playVideo   |
+| T10  | `player_buffering`                   | First player state `3`                               |
+| T11  | `player_playing`                     | First player state `1` (first visible frame)         |
+| T12  | `player_overlay_removed`             | `isPlayerLoading` became false                       |
+| T13  | `stable_playback`                    | 2s of uninterrupted playback                         |
+| —    | `startup_failed`                     | No stable playback achieved                          |
 
 ---
 
@@ -218,7 +218,9 @@ Inspect in the console:
 
 ```js
 performance.getEntriesByName("tv-startup:playing");
-performance.getEntriesByType("mark").filter(m => m.name.startsWith("tv-startup:"));
+performance
+  .getEntriesByType("mark")
+  .filter(m => m.name.startsWith("tv-startup:"));
 ```
 
 These also appear in the DevTools **Performance** panel timeline when you record a
@@ -246,10 +248,10 @@ changing source) before T13, since interaction perturbs the measurement.
 
 ### Result table template
 
-| # | traceId | cell | source | mode(fetch) | cold/warm | T0→T2 | T2→T3 | T3→T4 (req ms) | T4→T6 | T6→T8 | T8→T11 | T11→T12 | totalTTFV | stableTTFV | schedAttempts | retries(10/30/60) | scheduleSource | rebuild? | result |
-|---|---------|------|--------|-------------|-----------|-------|-------|----------------|-------|-------|--------|---------|-----------|------------|---------------|-------------------|----------------|----------|--------|
-| 1 |         |      |        |             |           |       |       |                |       |       |        |         |           |            |               |                   |                |          |        |
-| … |         |      |        |             |           |       |       |                |       |       |        |         |           |            |               |                   |                |          |        |
+| #   | traceId | cell | source | mode(fetch) | cold/warm | T0→T2 | T2→T3 | T3→T4 (req ms) | T4→T6 | T6→T8 | T8→T11 | T11→T12 | totalTTFV | stableTTFV | schedAttempts | retries(10/30/60) | scheduleSource | rebuild? | result |
+| --- | ------- | ---- | ------ | ----------- | --------- | ----- | ----- | -------------- | ----- | ----- | ------ | ------- | --------- | ---------- | ------------- | ----------------- | -------------- | -------- | ------ |
+| 1   |         |      |        |             |           |       |       |                |       |       |        |         |           |            |               |                   |                |          |        |
+| …   |         |      |        |             |           |       |       |                |       |       |        |         |           |            |               |                   |                |          |        |
 
 ## 13. Statistics to compute (per cell)
 
@@ -332,11 +334,11 @@ NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE=1
 
 ### Expected counts (Phase A enabled, tracing on)
 
-| Scenario | `scheduleNetworkAttemptCount` | `scheduleCacheBootstrapCount` | `scheduleRefreshCountDuringStartup` |
-|----------|-------------------------------|-------------------------------|-------------------------------------|
-| Cold global (cleared storage) | **1** | **0** | **0** |
-| Cold community (initial community source) | **1** | **0** | **0** |
-| Warm SWR (valid pre-nav cache) | **1** | **1** | **0** |
+| Scenario                                  | `scheduleNetworkAttemptCount` | `scheduleCacheBootstrapCount` | `scheduleRefreshCountDuringStartup` |
+| ----------------------------------------- | ----------------------------- | ----------------------------- | ----------------------------------- |
+| Cold global (cleared storage)             | **1**                         | **0**                         | **0**                               |
+| Cold community (initial community source) | **1**                         | **0**                         | **0**                               |
+| Warm SWR (valid pre-nav cache)            | **1**                         | **1**                         | **0**                               |
 
 ### Correlation IDs
 
@@ -397,11 +399,11 @@ Backend-only. Default `0`. Restart backend after change (no frontend rebuild).
 
 ### Expected backend trace (warm rows, flag on)
 
-| Stage | Expected |
-|-------|----------|
+| Stage                      | Expected                           |
+| -------------------------- | ---------------------------------- |
 | `schedule_existence_probe` | `outcome: ready`, ~single-digit ms |
-| `schedule_ensure_decision` | `reason: rows_already_ready` |
-| `ensure_tv_schedules` | `invoked: false` |
+| `schedule_ensure_decision` | `reason: rows_already_ready`       |
+| `ensure_tv_schedules`      | `invoked: false`                   |
 
 When rows are missing: `required_window_missing` → `invoked: true`.
 
@@ -451,22 +453,22 @@ TV_STARTUP_BACKEND_TRACE=1
 3. After each run: `copy(window.__TV_STARTUP_TRACE__.copyLatest())`.
 4. Record per run:
 
-| Field | Notes |
-| ----- | ----- |
-| `totalTtfvMs` | End-to-end TTFV |
-| `stableTtfvMs` | T13 stable playback |
-| `segments.T8_T11` | Player ready → first playing |
-| `playerErrorCount` | YouTube errors (may be > 0) |
-| `youtubeErrorCodeCounts` | Numeric codes when errors occur |
-| `initialEmbedCount` | Initial iframe embeds |
-| `loadVideoByIdCount` | ≤ initial + recovery cap + rollovers |
-| `seekToCount` | Pre-first-play executed seeks should be **0** |
-| `prePlaySeekSuppressedCount` | May be > 0 (expected) |
-| `duplicateLoadSuppressedCount` | Duplicate load coalescing |
-| `startupRecoveryCount` | ≤ 3 before first play |
-| `startupRecoveryCapReached` | true only if cap hit |
-| `scheduleNetworkAttemptCount` | Should remain 1 (Phase A) |
-| `finalState` | `stable` or `failed` |
+| Field                          | Notes                                         |
+| ------------------------------ | --------------------------------------------- |
+| `totalTtfvMs`                  | End-to-end TTFV                               |
+| `stableTtfvMs`                 | T13 stable playback                           |
+| `segments.T8_T11`              | Player ready → first playing                  |
+| `playerErrorCount`             | YouTube errors (may be > 0)                   |
+| `youtubeErrorCodeCounts`       | Numeric codes when errors occur               |
+| `initialEmbedCount`            | Initial iframe embeds                         |
+| `loadVideoByIdCount`           | ≤ initial + recovery cap + rollovers          |
+| `seekToCount`                  | Pre-first-play executed seeks should be **0** |
+| `prePlaySeekSuppressedCount`   | May be > 0 (expected)                         |
+| `duplicateLoadSuppressedCount` | Duplicate load coalescing                     |
+| `startupRecoveryCount`         | ≤ 3 before first play                         |
+| `startupRecoveryCapReached`    | true only if cap hit                          |
+| `scheduleNetworkAttemptCount`  | Should remain 1 (Phase A)                     |
+| `finalState`                   | `stable` or `failed`                          |
 
 ### Acceptance gate (five global cold runs)
 
@@ -518,14 +520,14 @@ NEXT_PUBLIC_TV_INITIAL_LIVE_OFFSET_EMBED=1
 
 ### Clean-path summary expectations
 
-| Field | Expected (clean cold regular-video) |
-| ----- | ------------------------------------- |
-| `initialEmbedCount` | 1 |
-| `initialEmbedUsedResolvedTarget` | true |
-| `initialReloadAvoided` | true |
-| `loadVideoByIdCount` | 0 |
-| Pre-first-play executed `seekToCount` | 0 |
-| `initialEmbedStartOffsetSeconds` | > 0 (when live offset > 0) |
+| Field                                 | Expected (clean cold regular-video) |
+| ------------------------------------- | ----------------------------------- |
+| `initialEmbedCount`                   | 1                                   |
+| `initialEmbedUsedResolvedTarget`      | true                                |
+| `initialReloadAvoided`                | true                                |
+| `loadVideoByIdCount`                  | 0                                   |
+| Pre-first-play executed `seekToCount` | 0                                   |
+| `initialEmbedStartOffsetSeconds`      | > 0 (when live offset > 0)          |
 
 Record also: `T6_T8`, `T8_T11`, `initialEmbedTargetMatchedFirstSync`,
 `initialEmbedGenerationCount`, `initialEmbedStaleReason`.
@@ -550,17 +552,17 @@ Phase C0 seek suppression.
 
 ### Revised clean-path summary expectations
 
-| Field | Expected (clean cold regular-video) |
-| ----- | ------------------------------------- |
-| `initialEmbedCount` | 1 |
-| `initialEmbedUsedResolvedTarget` | true |
-| `initialEmbedTargetConfirmed` | true |
-| `initialReloadAvoided` | true |
-| `loadVideoByIdCount` | 0 |
-| Pre-first-play executed `seekToCount` | 0 |
-| `initialEmbedSuccessTrigger` | one of `first_sync_*` or `first_playing_fallback` |
-| `initialEmbedTargetMatchedFirstSync` | true if sync route; false if fallback-only |
-| `firstBufferingRelativeToPlaying` | record for diagnostics (`before` or `after`) |
+| Field                                 | Expected (clean cold regular-video)               |
+| ------------------------------------- | ------------------------------------------------- |
+| `initialEmbedCount`                   | 1                                                 |
+| `initialEmbedUsedResolvedTarget`      | true                                              |
+| `initialEmbedTargetConfirmed`         | true                                              |
+| `initialReloadAvoided`                | true                                              |
+| `loadVideoByIdCount`                  | 0                                                 |
+| Pre-first-play executed `seekToCount` | 0                                                 |
+| `initialEmbedSuccessTrigger`          | one of `first_sync_*` or `first_playing_fallback` |
+| `initialEmbedTargetMatchedFirstSync`  | true if sync route; false if fallback-only        |
+| `firstBufferingRelativeToPlaying`     | record for diagnostics (`before` or `after`)      |
 
 Also record: `T6_T8`, `T8_T11`, `scheduleRequestTriggers`,
 `scheduleAttemptTriggerById`, `initialEmbedGenerationCount`, `initialEmbedStaleReason`.
@@ -588,14 +590,14 @@ Default `0`. Requires **C0 playback guard enabled** and frontend rebuild.
 
 ### Summary expectations (with flag on)
 
-| Field | Expected (successful cold run) |
-| ----- | ------------------------------ |
-| `startupStabilityGuardReleased` | true |
-| `startupStabilityGuardReleaseReason` | `stable_playback` |
-| `startupStabilityGuardReleasedAtMs` | present (recorded at release, before T13 finalize) |
-| `finalState` | `stable` (T13 present) |
-| `initialEmbedTargetConfirmed` | true (C1 path unchanged) |
-| `initialReloadAvoided` | true (initial reload only; recovery loads may follow) |
+| Field                                | Expected (successful cold run)                        |
+| ------------------------------------ | ----------------------------------------------------- |
+| `startupStabilityGuardReleased`      | true                                                  |
+| `startupStabilityGuardReleaseReason` | `stable_playback`                                     |
+| `startupStabilityGuardReleasedAtMs`  | present (recorded at release, before T13 finalize)    |
+| `finalState`                         | `stable` (T13 present)                                |
+| `initialEmbedTargetConfirmed`        | true (C1 path unchanged)                              |
+| `initialReloadAvoided`               | true (initial reload only; recovery loads may follow) |
 
 **C0.1a sanity gate:** `startup_stability_guard_released` must appear in the event log
 **before** the finalized `summary` event. Never accept `released=false` with a non-null
@@ -636,15 +638,15 @@ C2.0 adds precise supplemental events (`youtube_api_object_detected`,
 
 ### Key summary fields (when flag on)
 
-| Field | Meaning |
-| ----- | ------- |
-| `T6_toPlayerCommitMs` | React commit delay after position resolved |
-| `playerCommitToApiResourceStartMs` | Delay until iframe_api network start |
-| `apiResourceStartToFinishMs` | iframe_api download/parse window |
-| `playerCommitToIframeInsertedMs` | DOM iframe appearance after commit |
-| `iframeInsertedToT8Ms` | YouTube init after iframe |
-| `youtubeApiPresentAtPlayerCommit` | Same-document API reuse indicator |
-| `longTaskCountT6ToT8` | Main-thread long tasks overlapping T6–T8 |
+| Field                              | Meaning                                    |
+| ---------------------------------- | ------------------------------------------ |
+| `T6_toPlayerCommitMs`              | React commit delay after position resolved |
+| `playerCommitToApiResourceStartMs` | Delay until iframe_api network start       |
+| `apiResourceStartToFinishMs`       | iframe_api download/parse window           |
+| `playerCommitToIframeInsertedMs`   | DOM iframe appearance after commit         |
+| `iframeInsertedToT8Ms`             | YouTube init after iframe                  |
+| `youtubeApiPresentAtPlayerCommit`  | Same-document API reuse indicator          |
+| `longTaskCountT6ToT8`              | Main-thread long tasks overlapping T6–T8   |
 
 Full event list, segment formulas, validation runs, and rollback:
 `docs/tv-startup-phase-c2-bootstrap-trace.md`.

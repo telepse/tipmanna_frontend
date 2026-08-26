@@ -93,8 +93,6 @@ flowchart LR
     backend --> superadmin
 ```
 
-
-
 ---
 
 ### 1. Schema migration
@@ -134,7 +132,7 @@ Root cause: `[frontend/src/app/community/[id]/join/page.tsx](frontend/src/app/co
 - Replace `requireTipper` with `requireTipperOrPairedHost` ONLY on community-scoped routes: `[backend/src/routes/community-membership.route.ts](backend/src/routes/community-membership.route.ts)` and `[backend/src/routes/community-subscription.route.ts](backend/src/routes/community-subscription.route.ts)`. Other tipper-only surfaces remain unchanged.
 - In `tipperJoin` and other handlers, treat `req.user._id` as `tipperId` (already does this via `getUserId`); add a sanity guard that `prisma.tipper.findUnique({ where: { id }})` returns a row.
 - Fix `[backend/src/controllers/community-discovery.controller.ts](backend/src/controllers/community-discovery.controller.ts)` `getTipperOrVisitorSubject` (~~11-26) to map `host` role -> `{ tipperId: user._id }` when paired tipper exists, instead of `{ hostId }`. `listMyJoinedCommunities` (~~129-158) then queries `where: { tipperId }`.
-- Relax `[backend/src/controllers/side-chick.controller.ts](backend/src/controllers/side-chick.controller.ts)` `reqTipperId` (~29-36) to allow paired host (tipperId === host._id).
+- Relax `[backend/src/controllers/side-chick.controller.ts](backend/src/controllers/side-chick.controller.ts)` `reqTipperId` (~29-36) to allow paired host (tipperId === host.\_id).
 - Relax `acceptInviteByToken` (~968-984 in `[community-membership.controller.ts](backend/src/controllers/community-membership.controller.ts)`) similarly.
 
 #### 2.4 Side-chick keeps Trends/Saves/TV (observation 13)
@@ -267,4 +265,3 @@ Root cause: `[frontend/src/app/community/[id]/join/page.tsx](frontend/src/app/co
 - 409 -> success normalization is scoped to the same-community case in `enterSideChick`; cross-community 409 still surfaces.
 - `tvHostPaused` is independent of admin enforcement; admin operations remain authoritative.
 - All new admin endpoints reuse `requireAdmin` (which accepts `superadmin` or `admin` per `[backend/src/middlewares/role.middleware.ts](backend/src/middlewares/role.middleware.ts)` lines 18-20).
-

@@ -20,7 +20,12 @@ export type HostCapability =
       eventSlug: string | null;
       username: string | null;
     }
-  | { status: "stale"; hostId: string; eventSlug: string | null };
+  | {
+      status: "stale";
+      hostId: string;
+      eventSlug: string | null;
+      username: string | null;
+    };
 
 type Options = {
   /** Skip fetch when unauthenticated or visitor. */
@@ -92,6 +97,7 @@ export function useHostCapability(options?: Options) {
       status: "stale",
       hostId: link.hostId,
       eventSlug: link.eventSlug,
+      username: link.username,
     };
   })();
 

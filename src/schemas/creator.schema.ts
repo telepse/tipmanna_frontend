@@ -13,6 +13,33 @@ export const CREATOR_PROFILE_CATEGORIES = [
 export type CreatorProfileCategory =
   (typeof CREATOR_PROFILE_CATEGORIES)[number];
 
+export const HOST_CREATOR_DEFAULT_TABS = [
+  "all_videos",
+  "channels",
+  "events",
+  "communities",
+  "playlists",
+] as const;
+
+export type HostCreatorDefaultTab = (typeof HOST_CREATOR_DEFAULT_TABS)[number];
+
+export const HOST_CREATOR_DEFAULT_TAB_LABELS: Record<
+  HostCreatorDefaultTab,
+  string
+> = {
+  all_videos: "All videos",
+  channels: "Channels",
+  events: "Events",
+  communities: "Communities",
+  playlists: "Playlists",
+};
+
+export type CreatorProfileEditStats = {
+  pageVisits90d: number;
+  pendingHostPayoutMinor: number;
+  pendingCoOwnerPayoutPence: number;
+};
+
 export const CREATOR_PROFILE_CATEGORY_LABELS: Record<
   CreatorProfileCategory,
   string
@@ -48,6 +75,7 @@ export const creatorSchema = z
     profileImageUrl: z.string().nullable().optional(),
     externalLinkUrl: z.string().optional().or(z.literal("")),
     externalLinkLabel: z.string().max(100).optional().or(z.literal("")),
+    creatorDefaultTab: z.enum(HOST_CREATOR_DEFAULT_TABS).optional(),
   })
   .superRefine((data, ctx) => {
     const url = data.externalLinkUrl?.trim() ?? "";
@@ -83,4 +111,6 @@ export type HostCreatorProfileEdit = {
   hasActivePremium: boolean;
   profilePhotoChangeRequiresPremium: boolean;
   externalLinkRequiresPremium: boolean;
+  creatorDefaultTab: HostCreatorDefaultTab;
+  editStats: CreatorProfileEditStats;
 };

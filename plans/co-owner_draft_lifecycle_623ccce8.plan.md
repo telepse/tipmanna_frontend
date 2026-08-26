@@ -64,10 +64,10 @@ modal?: {
 
 **Form binding:**
 
-| Surface | Form path |
-|---------|-----------|
-| Wizard (multi-video) | `videoLinks[i].coOwnerName`, `.coOwnerEmail`, `.coOwnerPayoutPercent` |
-| Modal (`AddVideoForm`) | top-level `coOwnerName`, `.coOwnerEmail`, `.coOwnerPayoutPercent` |
+| Surface                | Form path                                                             |
+| ---------------------- | --------------------------------------------------------------------- |
+| Wizard (multi-video)   | `videoLinks[i].coOwnerName`, `.coOwnerEmail`, `.coOwnerPayoutPercent` |
+| Modal (`AddVideoForm`) | top-level `coOwnerName`, `.coOwnerEmail`, `.coOwnerPayoutPercent`     |
 
 Extend [`newEventSchema`](frontend/src/schemas/index.ts) videoLinks object (`:173-192`) and [`AddVideoFormValues`](frontend/src/components/events/add-video-form.tsx) (`:59-77`) with optional nullable string/number fields.
 
@@ -83,16 +83,16 @@ Trigger autosave on field edits via existing `useFormDraftAutosave(form.watch(),
 
 ### Files to modify
 
-| File | Change |
-|------|--------|
-| [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts) | Extend `VideoPolicySlice`, `FormDraftPolicyJson.modal`, `splitDraftPayload`, `mergeDraftPayload`, `splitModalDraftPayload`, `mergeModalDraftPayload` |
-| [`frontend/src/schemas/index.ts`](frontend/src/schemas/index.ts) | Optional co-owner fields on `videoLinks[]` |
-| [`frontend/src/components/events/add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx) | Extend `AddVideoFormValues` + `defaultValues` |
-| [`frontend/src/components/events/event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx) | Replace `useState` in `CoOwnerInviteBlock` with form `watch`/`setValue`; wire hydration hook |
-| [`frontend/src/components/events/add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx) | Same; remove redundant-only reliance on local state |
-| **New** `frontend/src/hooks/use-coowner-draft-fields.ts` | Shared hydration + read-only logic |
-| [`frontend/src/lib/__tests__/form-draft-utils.spec.ts`](frontend/src/lib/form-draft-utils.spec.ts) | Add `mergeModalDraftPayload` + co-owner field round-trip tests |
-| **New** `frontend/src/hooks/__tests__/use-coowner-draft-fields.spec.ts` | Server-wins vs draft-wins cases |
+| File                                                                                                                             | Change                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts)                                                   | Extend `VideoPolicySlice`, `FormDraftPolicyJson.modal`, `splitDraftPayload`, `mergeDraftPayload`, `splitModalDraftPayload`, `mergeModalDraftPayload` |
+| [`frontend/src/schemas/index.ts`](frontend/src/schemas/index.ts)                                                                 | Optional co-owner fields on `videoLinks[]`                                                                                                           |
+| [`frontend/src/components/events/add-video-form.tsx`](frontend/src/components/events/add-video-form.tsx)                         | Extend `AddVideoFormValues` + `defaultValues`                                                                                                        |
+| [`frontend/src/components/events/event-content-privacy-step.tsx`](frontend/src/components/events/event-content-privacy-step.tsx) | Replace `useState` in `CoOwnerInviteBlock` with form `watch`/`setValue`; wire hydration hook                                                         |
+| [`frontend/src/components/events/add-video-policy-fields.tsx`](frontend/src/components/events/add-video-policy-fields.tsx)       | Same; remove redundant-only reliance on local state                                                                                                  |
+| **New** `frontend/src/hooks/use-coowner-draft-fields.ts`                                                                         | Shared hydration + read-only logic                                                                                                                   |
+| [`frontend/src/lib/__tests__/form-draft-utils.spec.ts`](frontend/src/lib/form-draft-utils.spec.ts)                               | Add `mergeModalDraftPayload` + co-owner field round-trip tests                                                                                       |
+| **New** `frontend/src/hooks/__tests__/use-coowner-draft-fields.spec.ts`                                                          | Server-wins vs draft-wins cases                                                                                                                      |
 
 ### Database / migration
 
@@ -155,12 +155,12 @@ type DraftResumeOrigin = {
 
 **Autosave:** [`use-form-draft-autosave.ts`](frontend/src/hooks/use-form-draft-autosave.ts) accepts new optional `draftOrigin: DraftResumeOrigin`. Parents pass origin at save time:
 
-| Parent | `surface` | `pathname` | `hostTab` |
-|--------|-----------|------------|-----------|
-| [`create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx) | `create_dialog` | `usePathname()` | current `hostTab` |
-| [`host-community-client.tsx`](frontend/src/components/dashboard/host-community-client.tsx) | `host_community` | current pathname | — |
-| [`event-channel-modal.tsx`](frontend/src/components/events/event-channel-modal.tsx) | `event_channel_modal` | `/room/{eventId}` | — |
-| [`content-room-settings.tsx`](frontend/src/components/events/content-room-settings.tsx) | `content_room_settings` | `/room/{eventId}` | — |
+| Parent                                                                                     | `surface`               | `pathname`        | `hostTab`         |
+| ------------------------------------------------------------------------------------------ | ----------------------- | ----------------- | ----------------- |
+| [`create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx)                      | `create_dialog`         | `usePathname()`   | current `hostTab` |
+| [`host-community-client.tsx`](frontend/src/components/dashboard/host-community-client.tsx) | `host_community`        | current pathname  | —                 |
+| [`event-channel-modal.tsx`](frontend/src/components/events/event-channel-modal.tsx)        | `event_channel_modal`   | `/room/{eventId}` | —                 |
+| [`content-room-settings.tsx`](frontend/src/components/events/content-room-settings.tsx)    | `content_room_settings` | `/room/{eventId}` | —                 |
 
 **Resume routing** in [`form-drafts-panel.tsx`](frontend/src/components/dashboard/form-drafts-panel.tsx):
 
@@ -248,13 +248,13 @@ Ensure all four modal entry points pass identical `draftAutosave` + `seedDraftId
 
 **Inference rules (strict confidence tiers — never guess on ambiguity):**
 
-| Tier | Rule | Sets `targetId` | Sets `origin` (optional) |
-|------|------|-------------------|---------------------------|
-| **S0 Skip** | `policyJson.modal.targetId` already present | — | — |
-| **S1 High** | `policyJson.modal.coOwnerDraftKey` → `VideoCoOwnerInvite.eventChannelId` set → channel → `event.id` | `room_add_video`: event.id; `community_video`: `event.communityId` (must be non-null) | — |
-| **S2 High** | `payloadJson.url` trimmed → exactly **one** `EventChannel` on host's events (via `Event.hostId`) matching URL | Same as above per kind | — |
-| **S3 Medium** | S2 match + exactly **one** active `Community` where `ownerHostId = hostId` AND `event.communityId = community.id` | `community_video` only | — |
-| **Unrecoverable** | Zero matches, multiple matches, `community_video` but `event.communityId` null, URL missing/invalid | Mark `policyJson.modal.recoverable = false` | — |
+| Tier              | Rule                                                                                                              | Sets `targetId`                                                                       | Sets `origin` (optional) |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------ |
+| **S0 Skip**       | `policyJson.modal.targetId` already present                                                                       | —                                                                                     | —                        |
+| **S1 High**       | `policyJson.modal.coOwnerDraftKey` → `VideoCoOwnerInvite.eventChannelId` set → channel → `event.id`               | `room_add_video`: event.id; `community_video`: `event.communityId` (must be non-null) | —                        |
+| **S2 High**       | `payloadJson.url` trimmed → exactly **one** `EventChannel` on host's events (via `Event.hostId`) matching URL     | Same as above per kind                                                                | —                        |
+| **S3 Medium**     | S2 match + exactly **one** active `Community` where `ownerHostId = hostId` AND `event.communityId = community.id` | `community_video` only                                                                | —                        |
+| **Unrecoverable** | Zero matches, multiple matches, `community_video` but `event.communityId` null, URL missing/invalid               | Mark `policyJson.modal.recoverable = false`                                           | —                        |
 
 **Never infer from:** draft title, host's community list alone, or single-community heuristics without URL/event linkage.
 
@@ -269,16 +269,16 @@ Ensure all four modal entry points pass identical `draftAutosave` + `seedDraftId
 
 **Frontend handling of unrecoverable:**
 
-- [`form-drafts-panel.tsx`](frontend/src/components/dashboard/form-drafts-panel.tsx): if `recoverable === false` or missing `targetId` after backfill, show disabled Resume + tooltip *"This draft can't be reopened automatically. Start a new video or contact support."*; never silent no-op.
+- [`form-drafts-panel.tsx`](frontend/src/components/dashboard/form-drafts-panel.tsx): if `recoverable === false` or missing `targetId` after backfill, show disabled Resume + tooltip _"This draft can't be reopened automatically. Start a new video or contact support."_; never silent no-op.
 
 ### Files to modify
 
-| File | Change |
-|------|--------|
-| **New** `backend/src/scripts/backfill-form-draft-modal-target.ts` | Dry-run/apply/report |
-| **New** `backend/src/scripts/rollback-form-draft-backfill.ts` | Optional restore from audit log |
-| [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts) | `modal.recoverable?: boolean` type |
-| [`frontend/src/components/dashboard/form-drafts-panel.tsx`](frontend/src/components/dashboard/form-drafts-panel.tsx) | Unrecoverable UX |
+| File                                                                                                                 | Change                             |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| **New** `backend/src/scripts/backfill-form-draft-modal-target.ts`                                                    | Dry-run/apply/report               |
+| **New** `backend/src/scripts/rollback-form-draft-backfill.ts`                                                        | Optional restore from audit log    |
+| [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-utils.ts)                                       | `modal.recoverable?: boolean` type |
+| [`frontend/src/components/dashboard/form-drafts-panel.tsx`](frontend/src/components/dashboard/form-drafts-panel.tsx) | Unrecoverable UX                   |
 
 ### Database / migration
 
@@ -334,10 +334,10 @@ Add helper [`reconcileExistingChannelForCoOwnedSubmit`](backend/src/services/coO
 
 **Scenario coverage with existing idempotent finalize (`event-create-coowner.util.ts:275-333`):**
 
-| Scenario | Behavior |
-|----------|----------|
-| **A** Fully-owned channel, co-owned community submit | Reconcile metadata + finalize creates `VideoCoOwner` rows |
-| **B** Channel already has co-owners (same draft) | Finalize reuses rows (`:283-291`), no duplicates |
+| Scenario                                                   | Behavior                                                                          |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **A** Fully-owned channel, co-owned community submit       | Reconcile metadata + finalize creates `VideoCoOwner` rows                         |
+| **B** Channel already has co-owners (same draft)           | Finalize reuses rows (`:283-291`), no duplicates                                  |
 | **C** Co-owner row has payout history on different channel | Finalize throws 409 (`:294-298`) — transaction rolls back, bank entry not created |
 
 **Do not create a separate finalize** — extend call site; existing function is idempotent.
@@ -348,12 +348,12 @@ Change is inside existing `$transaction` (`community-content-bank.controller.ts:
 
 ### Files to modify
 
-| File | Change |
-|------|--------|
+| File                                                                                                                           | Change                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | [`backend/src/controllers/community-content-bank.controller.ts`](backend/src/controllers/community-content-bank.controller.ts) | Call reconcile + finalize on existing-channel branch when co-owned |
-| [`backend/src/services/coOwner/event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts) | New `reconcileExistingChannelForCoOwnedSubmit` |
-| **New** `backend/src/services/__tests__/community-coowner-existing-channel.spec.ts` | Scenarios A/B/C |
-| **New** `backend/src/services/__tests__/finalize-coowners-for-new-channel.spec.ts` | Reuse, payout refusal, already-linked |
+| [`backend/src/services/coOwner/event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts)       | New `reconcileExistingChannelForCoOwnedSubmit`                     |
+| **New** `backend/src/services/__tests__/community-coowner-existing-channel.spec.ts`                                            | Scenarios A/B/C                                                    |
+| **New** `backend/src/services/__tests__/finalize-coowners-for-new-channel.spec.ts`                                             | Reuse, payout refusal, already-linked                              |
 
 ### Database / migration
 
@@ -386,13 +386,13 @@ Backend-only deploy. No backfill needed for past bank entries created without co
 
 ## Global rollout checklist
 
-| Step | Action |
-|------|--------|
-| 1 | Deploy Item 4 backend |
-| 2 | Deploy Items 1 + 2 frontend |
-| 3 | Run Item 3 backfill dry-run on staging → review → apply |
-| 4 | Full manual QA matrix (all items) |
-| 5 | Production deploy + backfill apply |
+| Step | Action                                                  |
+| ---- | ------------------------------------------------------- |
+| 1    | Deploy Item 4 backend                                   |
+| 2    | Deploy Items 1 + 2 frontend                             |
+| 3    | Run Item 3 backfill dry-run on staging → review → apply |
+| 4    | Full manual QA matrix (all items)                       |
+| 5    | Production deploy + backfill apply                      |
 
 ## Revised production verdict (post-remediation)
 

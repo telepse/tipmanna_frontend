@@ -3,8 +3,15 @@ export type DiscoverSurface = "discovery" | "exploreTab";
 export function isLiveStreamContent(content: {
   liveStatus?: string | null;
 }): boolean {
+  return content.liveStatus === "LIVE";
+}
+
+/** Scheduled or ended live streams that should not play in the explore reel. */
+export function isNonReelLiveStatus(content: {
+  liveStatus?: string | null;
+}): boolean {
   const status = content.liveStatus;
-  return status === "LIVE" || status === "ENDED" || status === "UPCOMING";
+  return status === "UPCOMING" || status === "ENDED";
 }
 
 /**

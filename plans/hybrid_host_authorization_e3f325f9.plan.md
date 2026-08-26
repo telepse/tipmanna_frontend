@@ -35,7 +35,6 @@ todos:
 isProject: false
 ---
 
-
 # Hybrid Host Authorization: Policy Codification and Gap Closure
 
 ## Decisions locked from this round
@@ -124,7 +123,7 @@ Only `Visitor` has `lastActiveAt` today; host and tipper tokens are fixed-TTL fr
 - Prisma migration: add `lastActiveAt` to `Host`, `Tipper`, and `EventCohost`, mirroring `Visitor`.
 - `POST /auth/session/touch` (authMiddleware): updates `lastActiveAt` for the token subject and rotates the token once a threshold of its TTL has elapsed.
 - [backend/src/middlewares/auth.middleware.ts](backend/src/middlewares/auth.middleware.ts): reject tipper tokens idle beyond 60 days, host tokens idle beyond 7 days, cohost tokens idle beyond 7 days. Host and cohost staleness return a distinct code (see Phase 2) so the client opens a login modal instead of logging the user out.
-- Frontend: a throttled activity pinger in [frontend/src/app/providers.tsx](frontend/src/app/providers.tsx) for the primary session, plus a host touch in [frontend/src/app/(dashboard)/layout.tsx](frontend/src/app/(dashboard)/layout.tsx) that also re-issues `hostToken`/`hostUser` with a fresh 7-day window. Event-room load touches the cohost record.
+- Frontend: a throttled activity pinger in [frontend/src/app/providers.tsx](frontend/src/app/providers.tsx) for the primary session, plus a host touch in [frontend/src/app/(dashboard)/layout.tsx](<frontend/src/app/(dashboard)/layout.tsx>) that also re-issues `hostToken`/`hostUser` with a fresh 7-day window. Event-room load touches the cohost record.
 - Normalize the contradictory TTLs in [backend/src/controllers/auth.controller.ts](backend/src/controllers/auth.controller.ts): tipper registration `7d` to `60d` (line ~441, and [backend/src/controllers/visitor.controller.ts](backend/src/controllers/visitor.controller.ts) line ~212), `loginCohost` `60d` to `7d` (line ~738). Cap the host cookie route at 7 days - it currently permits up to `MAX_AGE_DAYS = 60`.
 
 ## Phase 2 - Enforcement plumbing and one error contract
@@ -178,7 +177,7 @@ Today `POST /communities/start-interest` in [backend/src/routes/community-discov
 - Host notifications: fetch with the host token from Phase 0; when there is no active host session show the stale note and sign-in button rather than any data. Bind the host Pusher channel only on an active host session.
 - Visitor leftovers: move visitor creation and `emitWelcomeFirstVisit` from checkout start to payment success in [frontend/src/components/events/tip-drawer.tsx](frontend/src/components/events/tip-drawer.tsx); block visitors in `cancelMyEntry` in [backend/src/controllers/reminder-bucket.controller.ts](backend/src/controllers/reminder-bucket.controller.ts) - the only reminder handler still open. Email-only guest reminders stay allowed.
 - Extend [backend/src/scripts/cleanup-visitor-tipper-data.ts](backend/src/scripts/cleanup-visitor-tipper-data.ts) with an owner-membership backfill and run it in the target environment.
-- Update the todo statuses in [c:\Users\Elite\.cursor\plans\account_detector_helper_47041162.plan.md](c:\Users\Elite\.cursor\plans\account_detector_helper_47041162.plan.md), which still reads `pending` throughout.
+- Update the todo statuses in [c:\Users\Elite\.cursor\plans\account_detector_helper_47041162.plan.md](c:\Users\Elite.cursor\plans\account_detector_helper_47041162.plan.md), which still reads `pending` throughout.
 
 ---
 

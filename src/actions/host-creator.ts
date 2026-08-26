@@ -6,8 +6,10 @@ import { runServerFetch } from "@/lib/action-fetch";
 import { serverHostAuthHeaders } from "@/lib/server-auth";
 import type {
   CreatorProfileCategory,
+  HostCreatorDefaultTab,
   HostCreatorProfileEdit,
 } from "@/schemas/creator.schema";
+import type { HostPlaylistSummary } from "@/actions/host-playlist";
 
 export type HostCreatorVideo = {
   id: string;
@@ -80,6 +82,7 @@ export type HostCreatorPublicProfile = {
     pageDescription: string | null;
     profileCategory: CreatorProfileCategory | null;
     externalLink: { url: string; label: string } | null;
+    creatorDefaultTab?: HostCreatorDefaultTab | null;
   };
   stats: {
     totalVideos: number;
@@ -99,7 +102,7 @@ export type HostCreatorPublicProfile = {
   youtubeChannels: HostCreatorYoutubeChannel[];
   events: HostCreatorEvent[];
   communities: HostCreatorCommunity[];
-  playlists: [];
+  playlists: HostPlaylistSummary[];
 };
 
 export async function getHostCreatorPublicProfileAction(username: string) {
@@ -138,6 +141,7 @@ export async function updateCreatorProfileAction(values: {
   profileCategory?: CreatorProfileCategory | null;
   externalLinkUrl?: string | null;
   externalLinkLabel?: string | null;
+  creatorDefaultTab?: HostCreatorDefaultTab;
   previousUsername?: string;
 }) {
   return updateCreatorProfileHostAction(values);
@@ -150,6 +154,7 @@ export async function updateCreatorProfileHostAction(values: {
   profileCategory?: CreatorProfileCategory | null;
   externalLinkUrl?: string | null;
   externalLinkLabel?: string | null;
+  creatorDefaultTab?: HostCreatorDefaultTab;
   previousUsername?: string;
 }) {
   const { previousUsername, ...payload } = values;
@@ -181,4 +186,24 @@ export async function updateCreatorProfileHostAction(values: {
   }
 
   return result;
+}
+
+export async function postCreatorProfileVisitAction(
+  username: string,
+  path: string
+) {
+  const handle = username.replace(/^@/, "").trim();
+  if (!handle) {
+    return { success: false as const, message: "Username required" };
+  }
+  return runServerFetch<{ ok: boolean }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/creator/${encodeURIComponent(handle)}/visit`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+      cache: "no-store",
+    },
+    "postCreatorProfileVisitAction"
+  );
 }

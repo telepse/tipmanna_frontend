@@ -20,7 +20,7 @@ import Link from "next/link";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
-import { useMediaQuery } from "react-responsive";
+import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
 
 /** Portrait mobile TV chrome below navbar — keep in sync with tv-interactive-shell. */
 export const TV_MOBILE_SHELL_TOP =
@@ -69,11 +69,9 @@ export const TVExpressButtons = () => {
 
   const isTVActive = createDialogOpen || isProfileDrawerOpen;
 
-  const isMobileLandscape =
-    useMediaQuery({ query: "(orientation: landscape)" }) &&
-    window.innerWidth <= 768;
+  const { mode: surfaceMode } = useTvSurfaceMode();
 
-  if (isMobileLandscape) return null;
+  if (surfaceMode === "phoneLandscape") return null;
 
   return (
     <div className="fixed top-10 right-0 left-0 z-[1000] flex w-full items-center justify-center border-t border-gray-200 bg-white px-0 py-1 sm:hidden">

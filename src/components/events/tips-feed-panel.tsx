@@ -25,6 +25,8 @@ type Props = {
   className?: string;
   variant?: "standalone" | "drawer";
   showTipCount?: boolean;
+  communityBankName?: string | null;
+  coOwnerName?: string | null;
   onClose?: () => void;
 };
 
@@ -52,6 +54,8 @@ export function TipsFeedPanel({
   className,
   variant = "standalone",
   showTipCount = true,
+  communityBankName = null,
+  coOwnerName = null,
   onClose,
 }: Props) {
   const [scope, setScope] = useState<"event" | "video">("event");
@@ -106,7 +110,7 @@ export function TipsFeedPanel({
           scope === "event" ? "underline" : ""
         )}
       >
-        Channel tips
+        Channel tips{communityBankName ? " (community)" : ""}
       </Button>
       {channelId ? (
         <Button
@@ -198,6 +202,16 @@ export function TipsFeedPanel({
             ) : null}
           </div>
           <div className="mt-3">{scopeToggle}</div>
+          {communityBankName ? (
+            <p className="text-muted-foreground mt-2 text-[11px]">
+              Community bank: c {communityBankName}
+            </p>
+          ) : null}
+          {coOwnerName ? (
+            <p className="text-muted-foreground mt-1 text-[11px]">
+              Co-owner: {coOwnerName}
+            </p>
+          ) : null}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2">
           {listBody}

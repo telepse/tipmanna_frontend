@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -37,7 +38,20 @@ import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 import Image from "next/image";
 import { EventProgressBar } from "./event-progress-bar";
 import { ChannelProgressBar } from "./channel-progress-bar";
-import { ChannelClient } from "./channel-client";
+const ChannelClient = dynamic(
+  () =>
+    import("./channel-client").then(m => ({
+      default: m.ChannelClient,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[50vh] w-full max-w-4xl animate-pulse items-center justify-center rounded-md bg-gray-100 text-sm text-gray-500">
+        Loading player…
+      </div>
+    ),
+  }
+);
 import { TipsDrawer } from "./tips-drawer";
 import {
   AUTH_MODAL_Z_INDEX,
@@ -53,6 +67,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
 import { toast } from "react-toastify";
+import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 
 interface Props {
   liveVideoLink: string;
@@ -91,6 +106,7 @@ interface Props {
   characterSets: any[];
   channels: any[];
   isEventOwner: string;
+  onChannelCreated?: (channel: EventRoomVideoChannel) => void;
 
   // contents: any[];
   // tippers: any[];
@@ -121,18 +137,13 @@ export const EventLive = ({
   numOfTips,
   frameId,
   isEventOwner,
+  onChannelCreated,
 }: Props) => {
   const router = useRouter();
   const roomPathRef = useRef<string | null>(null);
   const [open, setOpen] = useState(!!liveVideoLink && autoOpen);
   const videoRef = useRef<VideoPlayerRef>(null);
-  const [channelList, setChannelList] = useState<any[]>(() =>
-    Array.isArray(channels) ? channels : []
-  );
-
-  useEffect(() => {
-    setChannelList(Array.isArray(channels) ? channels : []);
-  }, [channels]);
+  const channelList = Array.isArray(channels) ? channels : [];
 
   const [showProgress] = useState(false);
 
@@ -157,12 +168,6 @@ export const EventLive = ({
 
   useDefaultChannelRealtime(eventId, payload => {
     if (frameParam?.trim()) return;
-    setChannelList(prev =>
-      prev.map(c => ({
-        ...c,
-        isDefault: String(c.id) === payload.channelId,
-      }))
-    );
     toast.info(`Host switched streaming to "${payload.title}"`);
     const roomPath = buildRoomSharePath(eventId);
     router.replace(roomPath, { scroll: false });
@@ -274,7 +279,7 @@ export const EventLive = ({
   };
 
   const currentChannelIndex = currentChannel
-    ? Math.max(0, channels?.findIndex(c => c.id === currentChannel.id) ?? 0)
+    ? Math.max(0, channelList.findIndex(c => c.id === currentChannel.id) ?? 0)
     : 0;
 
   const handleUnmute = () => {
@@ -880,7 +885,7 @@ export const EventLive = ({
           </div>
         </button>
 
-        {open && !(isEventOwner === user?.id) && (
+        {open && eventOwner && (
           <span
             className="cursor-pointer text-[8px] underline sm:text-[10px]"
             onClick={() => setSelectDefaultVideoModalOpen(prev => !prev)}
@@ -900,6 +905,7 @@ export const EventLive = ({
         liveVideoLink={liveVideoLink}
         eventEventType={""}
         seedDraftId={seedModalDraftId}
+        onChannelCreated={onChannelCreated}
       />
 
       {open && (

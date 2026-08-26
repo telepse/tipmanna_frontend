@@ -58,12 +58,12 @@ flowchart LR
   Embed --> Ready --> Load --> Buffer
 ```
 
-| Layer | Evidence | Approx. share of median TTFV |
-|-------|----------|------------------------------|
-| Frontend bootstrap (T1→T2) | Measured 1.6–3.1s | ~15–25% |
-| Schedule delivery (T2→T4) | 2–4 network attempts; backend 2.8–3.0s typical | ~25–35% |
-| YouTube init (T6→T8) | ~2.5s API→ready | ~15–20% |
-| Post-ready playback (T8→T11) | Position→PLAYING 4.8–9.7s incl. one reload + buffer | ~35–45% |
+| Layer                        | Evidence                                            | Approx. share of median TTFV |
+| ---------------------------- | --------------------------------------------------- | ---------------------------- |
+| Frontend bootstrap (T1→T2)   | Measured 1.6–3.1s                                   | ~15–25%                      |
+| Schedule delivery (T2→T4)    | 2–4 network attempts; backend 2.8–3.0s typical      | ~25–35%                      |
+| YouTube init (T6→T8)         | ~2.5s API→ready                                     | ~15–20%                      |
+| Post-ready playback (T8→T11) | Position→PLAYING 4.8–9.7s incl. one reload + buffer | ~35–45%                      |
 
 **Conclusion:** Repeated player loads are **not** the consistent cause in these five runs. The structural **embed-at-zero then live-offset load** plus **duplicate schedule HTTP passes** and **backend read-path cost** are the highest-confidence levers.
 
@@ -100,6 +100,7 @@ sequenceDiagram
 ```
 
 **Effect order (same commit):**
+
 1. `[scheduleSourceCommunityId]` → `resetPlaybackForScheduleSourceChange()` + `loadSchedule({ resetRetry, trigger: "source_change" })`
 2. `[loadSchedule]` → `loadSchedule({ resetRetry, trigger: "initial" })` — **coalesced** with (1)
 3. After first response: `syncToLive` deps change → **`loadSchedule` recreated** → effect (2) **re-runs** → guaranteed second sequential fetch
@@ -127,12 +128,12 @@ With `NEXT_PUBLIC_TV_SCHEDULE_SWR=1` ([`tv-feature-flags.ts`](frontend/src/lib/t
 
 ## 4. Two to four network attempts
 
-| # | Cause | Real HTTP? | Blocks isReady? |
-|---|--------|------------|-----------------|
-| 1 | Mount coalesced `source_change` | Yes (200) | Yes (first payload) |
-| 2 | **`useEffect([loadSchedule])` re-run** after `syncToLive` deps change | Yes (304 typical) | Re-applies cache; may re-trigger sync |
-| 3 | `TvSourcePickerProvider` late `setScheduleSourceCommunityId` | Sometimes | Yes if source changes |
-| 4 | React Strict Mode dev remount | Dev only | Yes |
+| #   | Cause                                                                 | Real HTTP?        | Blocks isReady?                       |
+| --- | --------------------------------------------------------------------- | ----------------- | ------------------------------------- |
+| 1   | Mount coalesced `source_change`                                       | Yes (200)         | Yes (first payload)                   |
+| 2   | **`useEffect([loadSchedule])` re-run** after `syncToLive` deps change | Yes (304 typical) | Re-applies cache; may re-trigger sync |
+| 3   | `TvSourcePickerProvider` late `setScheduleSourceCommunityId`          | Sometimes         | Yes if source changes                 |
+| 4   | React Strict Mode dev remount                                         | Dev only          | Yes                                   |
 
 **Classification:** **Combination** — ~1 intentional + ~1 **structural duplicate** (effect dependency churn) + optional refresh (`scheduleRefreshCountDuringStartup: 1` = one non-initial trigger, often the second pass counted as refresh or a visibility/source event).
 
@@ -147,6 +148,7 @@ With `NEXT_PUBLIC_TV_SCHEDULE_SWR=1` ([`tv-feature-flags.ts`](frontend/src/lib/t
 Each HTTP request creates a **fresh** backend timer in [`createTvStartupBackendTracer`](backend/src/utils/tv-startup-backend-trace.util.ts) starting at `request_received`. Multiple requests log under the same `traceId` with independent `totalElapsedMs` sequences — **logs interleave** when requests overlap or when reading stdout chronologically.
 
 **Recommended correlation format (instrumentation-only, Phase A):**
+
 - Keep `X-TV-Startup-Trace-Id` (page session)
 - Add `X-TV-Schedule-Attempt-Id: <uuid>` per `schedule_request_started` (frontend-generated, monotonic attempt number in trace summary)
 - Backend logs both IDs on every `[TV_STARTUP_BACKEND_TRACE]` line and in `Server-Timing` comment
@@ -159,15 +161,16 @@ This makes each HTTP attempt independently reconstructable without changing resp
 
 **Location:** [`schedule.controller.ts`](backend/src/controllers/schedule.controller.ts) lines 49–56; implementation via [`withCronLock`](backend/src/lib/distributed-lock) + [`generateSchedule()`](backend/src/jobs/generateTvSchedule.ts).
 
-| Outcome | Stage time | What happens |
-|---------|------------|--------------|
-| Lock **loser** | ~0–5 ms | `pg_try_advisory_lock` fails → immediate return |
-| Lock **winner**, warm | ~200–500 ms | Window probes all populated → skip generation |
-| Lock **winner**, cold | **~2–6 s** | Full batch generation for missing half-day windows |
+| Outcome               | Stage time  | What happens                                       |
+| --------------------- | ----------- | -------------------------------------------------- |
+| Lock **loser**        | ~0–5 ms     | `pg_try_advisory_lock` fails → immediate return    |
+| Lock **winner**, warm | ~200–500 ms | Window probes all populated → skip generation      |
+| Lock **winner**, cold | **~2–6 s**  | Full batch generation for missing half-day windows |
 
 **Why 4.1s sometimes:** This request **won** `cron:tv-schedule:global` and ran cold generation (channel scan + batch build + transactions). Cron runs every 30 min ([`cron-schedule.config.ts`](backend/src/configs/cron-schedule.config.ts)) to pre-warm; concurrent cold starts race.
 
 **Safety guarantees (cannot remove blindly):**
+
 - Ensures half-day schedule rows exist for current + next windows
 - Without it: 404/503 on read if cron hasn't materialized rows
 - Lock is **non-blocking** — losers don't wait for winner (correctness gap under cold start if loser reads before winner commits)
@@ -180,13 +183,13 @@ This makes each HTTP attempt independently reconstructable without changing resp
 
 ## 7. Persistent backend-stage analysis
 
-| Stage | ~Measured | Repository source | Reduction potential |
-|-------|-----------|-------------------|---------------------|
-| `broadcast_context_loaded` | ~350 ms | 1× `tvGlobalSettings.findUnique` — no cache | Low (~100–200 ms with edge cache) |
-| `playlist_loaded` | **~1,050 ms** | 2× parallel deep Prisma loads, up to 2000 items each, nested channel/event/host ([`loadGlobalTvPlaylists`](backend/src/services/tv-schedule-read.service.ts)) | **High** — slimmer include for TV serve, read replica, or playlist summary cache |
-| `ongoing_composed` | ~350 ms | [`composeClientItemsForPlaylist`](backend/src/services/tv-schedule-read.service.ts) — L1+Redis cache 5 min TTL keyed by revision | Medium on cache hit; already optimized |
-| `alternate_composed` | ~0–1 ms | Cache hit (same revision path) | Already fast |
-| `access_safety_resolved` | **~700 ms** | [`resolveSafeFilteredSchedule`](backend/src/utils/tv-schedule-serve.util.ts): 3 parallel DB queries on union channel IDs + 2 filter passes + badge attachment — **no cache** | **High** — cache filter maps per schedule revision; batch size limits |
+| Stage                      | ~Measured     | Repository source                                                                                                                                                            | Reduction potential                                                              |
+| -------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `broadcast_context_loaded` | ~350 ms       | 1× `tvGlobalSettings.findUnique` — no cache                                                                                                                                  | Low (~100–200 ms with edge cache)                                                |
+| `playlist_loaded`          | **~1,050 ms** | 2× parallel deep Prisma loads, up to 2000 items each, nested channel/event/host ([`loadGlobalTvPlaylists`](backend/src/services/tv-schedule-read.service.ts))                | **High** — slimmer include for TV serve, read replica, or playlist summary cache |
+| `ongoing_composed`         | ~350 ms       | [`composeClientItemsForPlaylist`](backend/src/services/tv-schedule-read.service.ts) — L1+Redis cache 5 min TTL keyed by revision                                             | Medium on cache hit; already optimized                                           |
+| `alternate_composed`       | ~0–1 ms       | Cache hit (same revision path)                                                                                                                                               | Already fast                                                                     |
+| `access_safety_resolved`   | **~700 ms**   | [`resolveSafeFilteredSchedule`](backend/src/utils/tv-schedule-serve.util.ts): 3 parallel DB queries on union channel IDs + 2 filter passes + badge attachment — **no cache** | **High** — cache filter maps per schedule revision; batch size limits            |
 
 **Constraints preserved:** ETag/checksum includes filtered counts; access/safety/enforcement semantics must not change without explicit review.
 
@@ -194,18 +197,18 @@ This makes each HTTP attempt independently reconstructable without changing resp
 
 ## 8. Frontend bootstrap analysis
 
-**T1→T2 gap (~1.6–3.1s)** sources ([`(tv)/layout.tsx`](frontend/src/app/(tv)/layout.tsx), [`layout.tsx`](frontend/src/app/layout.tsx), [`providers.tsx`](frontend/src/app/providers.tsx)):
+**T1→T2 gap (~1.6–3.1s)** sources ([`(tv)/layout.tsx`](<frontend/src/app/(tv)/layout.tsx>), [`layout.tsx`](frontend/src/app/layout.tsx), [`providers.tsx`](frontend/src/app/providers.tsx)):
 
-| Source | Blocking? | Deferrable? |
-|--------|-----------|-------------|
-| JS bundle parse (root + TV client layout) | Yes | Partial (code split) |
-| 4 Google fonts (Open Sans preloaded) | Partial | Yes — subset for TV |
-| Redux PersistGate rehydration | Async, non-blocking UI | Yes for TV route |
-| Global providers (SideChick, PWA, analytics bridges) | Hydration cost | Partial — TV-specific layout could slim tree |
-| SSR `getCharactersForTipping()` | Server time before HTML | **Yes** — `NEXT_PUBLIC_TV_LAZY_SSR_CHARACTERS=1` already exists, unwired in prod |
-| `TVProvider` mount + immediate `loadSchedule` | Client | Schedule is on critical path |
+| Source                                               | Blocking?               | Deferrable?                                                                      |
+| ---------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| JS bundle parse (root + TV client layout)            | Yes                     | Partial (code split)                                                             |
+| 4 Google fonts (Open Sans preloaded)                 | Partial                 | Yes — subset for TV                                                              |
+| Redux PersistGate rehydration                        | Async, non-blocking UI  | Yes for TV route                                                                 |
+| Global providers (SideChick, PWA, analytics bridges) | Hydration cost          | Partial — TV-specific layout could slim tree                                     |
+| SSR `getCharactersForTipping()`                      | Server time before HTML | **Yes** — `NEXT_PUBLIC_TV_LAZY_SSR_CHARACTERS=1` already exists, unwired in prod |
+| `TVProvider` mount + immediate `loadSchedule`        | Client                  | Schedule is on critical path                                                     |
 
-**`NEXT_PUBLIC_TV_LAZY_SSR_CHARACTERS`:** Relevant — skips SSR character fetch when enabled ([`tv/page.tsx`](frontend/src/app/(tv)/tv/page.tsx)). Estimated saving **0.3–1.0s** server/HTML phase if currently off in staging.
+**`NEXT_PUBLIC_TV_LAZY_SSR_CHARACTERS`:** Relevant — skips SSR character fetch when enabled ([`tv/page.tsx`](<frontend/src/app/(tv)/tv/page.tsx>)). Estimated saving **0.3–1.0s** server/HTML phase if currently off in staging.
 
 **Payment-animation / Pusher:** [`usePusherTrackingGlobalTV`](frontend/src/components/tv-provider.tsx) and analytics init run at provider mount — deferrable until post-T13 stable playback.
 
@@ -222,6 +225,7 @@ This makes each HTTP attempt independently reconstructable without changing resp
 5. Player re-enters BUFFERING → PLAYING (T10→T11: **4.8–9.7s** measured)
 
 **Avoidable?** Yes, with code changes — not with current wiring:
+
 - Thread `livePosition.offsetSeconds` into initial `playerVars.start` (YouTube IFrame API supports `start`)
 - Seed `orchestratedPlaybackRef` on cold start so `isSameOrchestratedPlayback` skips redundant load ([`tv-playback-request.ts`](frontend/src/lib/tv-playback-request.ts))
 - Preserve: mute-first autoplay, 3s drift `seekTo`, index changes on rollover, notice/enforcement segments
@@ -232,19 +236,19 @@ This makes each HTTP attempt independently reconstructable without changing resp
 
 ## 10. Ranked remediation table
 
-| Rank | Change | Current segment | Expected saving | Confidence | Risk | Rollback |
-|------|--------|-----------------|-----------------|------------|------|----------|
-| 1 | Fix duplicate `loadSchedule` effect re-run | +1 HTTP ~0.3–1.5s | **0.5–1.5s TTFV** | High | Low | Revert effect deps |
-| 2 | Stabilize mount to single initial schedule path | 2 coalesced triggers | **0.2–0.5s** + cleaner traces | High | Low | Flag |
-| 3 | Per-request schedule attempt ID (instrumentation) | N/A | 0ms product; enables Phase B measurement | High | None | N/A |
-| 4 | Backend read fast path (skip ensure when rows exist) | ensure 0–4.1s | **0–3s** on cold winner | Medium | Medium | Env flag |
-| 5 | Slim playlist include / cache playlist load | playlist ~1s | **0.3–0.7s** | Medium | Medium | Feature flag |
-| 6 | Cache access/safety filter maps | access ~700ms | **0.3–0.5s** | Medium | Medium-High | Revision-keyed cache |
-| 7 | Initial embed at live offset + seed orchestrated ref | T8→T11 ~5–10s | **2–5s** | Medium | **High** | Flag revert |
-| 8 | Head preconnect for YouTube on TV route | YT init ~2.5s | **0.2–0.8s** | Medium | Low | Remove link tags |
-| 9 | Lazy SSR characters on TV | HTML phase | **0.3–1.0s** | Medium | Low | Env flag |
-| 10 | Defer non-critical providers post-T13 | T1→T2 ~2s | **0.3–1.0s** | Low-Medium | Medium | Provider split |
-| 11 | Overlay until PLAYING (Phase D) | Perception only | **0s TTFV**; fixes false-ready UX | High | Low | Revert overlay gates |
+| Rank | Change                                               | Current segment      | Expected saving                          | Confidence | Risk        | Rollback             |
+| ---- | ---------------------------------------------------- | -------------------- | ---------------------------------------- | ---------- | ----------- | -------------------- |
+| 1    | Fix duplicate `loadSchedule` effect re-run           | +1 HTTP ~0.3–1.5s    | **0.5–1.5s TTFV**                        | High       | Low         | Revert effect deps   |
+| 2    | Stabilize mount to single initial schedule path      | 2 coalesced triggers | **0.2–0.5s** + cleaner traces            | High       | Low         | Flag                 |
+| 3    | Per-request schedule attempt ID (instrumentation)    | N/A                  | 0ms product; enables Phase B measurement | High       | None        | N/A                  |
+| 4    | Backend read fast path (skip ensure when rows exist) | ensure 0–4.1s        | **0–3s** on cold winner                  | Medium     | Medium      | Env flag             |
+| 5    | Slim playlist include / cache playlist load          | playlist ~1s         | **0.3–0.7s**                             | Medium     | Medium      | Feature flag         |
+| 6    | Cache access/safety filter maps                      | access ~700ms        | **0.3–0.5s**                             | Medium     | Medium-High | Revision-keyed cache |
+| 7    | Initial embed at live offset + seed orchestrated ref | T8→T11 ~5–10s        | **2–5s**                                 | Medium     | **High**    | Flag revert          |
+| 8    | Head preconnect for YouTube on TV route              | YT init ~2.5s        | **0.2–0.8s**                             | Medium     | Low         | Remove link tags     |
+| 9    | Lazy SSR characters on TV                            | HTML phase           | **0.3–1.0s**                             | Medium     | Low         | Env flag             |
+| 10   | Defer non-critical providers post-T13                | T1→T2 ~2s            | **0.3–1.0s**                             | Low-Medium | Medium      | Provider split       |
+| 11   | Overlay until PLAYING (Phase D)                      | Perception only      | **0s TTFV**; fixes false-ready UX        | High       | Low         | Revert overlay gates |
 
 ---
 
@@ -255,6 +259,7 @@ This makes each HTTP attempt independently reconstructable without changing resp
 **Goal:** Exactly one intentional initial network schedule fetch; correct SWR semantics; reconstructable backend correlation.
 
 **Changes:**
+
 - Remove `loadSchedule` from `[loadSchedule]` effect dependency churn — use stable ref for initial-only mount effect
 - Merge redundant mount triggers (`source_change` + `initial`) into one explicit `startup` trigger
 - Set `scheduleSwrBootstrappedRef = true` after first successful network write OR first bootstrap read (prevent misleading bootstrap metric)
@@ -268,6 +273,7 @@ This makes each HTTP attempt independently reconstructable without changing resp
 **Goal:** Reduce p50 backend response from ~2.8s toward ~1.5–2.0s without changing ETag, access, or safety.
 
 **Changes:**
+
 - Replace unconditional `await ensureTvSchedules()` with fast existence probe; only invoke generation when windows missing (async queue or rely on cron + 503 retry)
 - Evaluate slimmer Prisma include for TV serve (defer host/event fields not needed for playback)
 - Add revision-keyed cache for `loadSharedTvFilterMaps` in `resolveSafeFilteredSchedule`
@@ -280,6 +286,7 @@ This makes each HTTP attempt independently reconstructable without changing resp
 **Goal:** Eliminate embed-at-zero → live-reload cycle where offset is known before mount.
 
 **Changes:**
+
 - Pass `lastLivePosition.offsetSeconds` from provider → looper → `TvPlayer` as initial `playerVars.start`
 - Seed `orchestratedPlaybackRef` in `applySchedulePayloadCore` when live position resolved
 - Gate first `syncToLive` load: skip `requestPlayback` if embed already at correct video+offset
@@ -293,6 +300,7 @@ This makes each HTTP attempt independently reconstructable without changing resp
 **Goal:** Overlay reflects actual playback state, not iframe API ready.
 
 **Changes:**
+
 - Default overlay clear on first `PLAYING` (T11), not `onReady` (T8)
 - Optional intermediate "Buffering…" state between ready and playing
 - Do **not** conflate with latency reduction in acceptance criteria
@@ -307,14 +315,14 @@ This makes each HTTP attempt independently reconstructable without changing resp
 
 Assuming median baseline **~11.6s TTFV**:
 
-| Phase | p50 TTFV target | Estimated reduction | p50 after phase |
-|-------|-----------------|---------------------|-----------------|
-| Baseline | — | — | ~11.6s |
-| **A** | — | **0.7–2.0s** | ~9.6–10.9s |
-| **B** | — | **0.5–1.5s** | ~8.1–10.4s |
-| **C** | — | **2.0–4.0s** | ~4.1–8.4s |
-| **D** | — | ~0s (perception) | unchanged TTFV |
-| **Combined (range)** | **≤6s p50** | **3.2–7.5s** | **4.1–8.4s** achievable; **≤6s** requires most of A+B+C landing at high end |
+| Phase                | p50 TTFV target | Estimated reduction | p50 after phase                                                             |
+| -------------------- | --------------- | ------------------- | --------------------------------------------------------------------------- |
+| Baseline             | —               | —                   | ~11.6s                                                                      |
+| **A**                | —               | **0.7–2.0s**        | ~9.6–10.9s                                                                  |
+| **B**                | —               | **0.5–1.5s**        | ~8.1–10.4s                                                                  |
+| **C**                | —               | **2.0–4.0s**        | ~4.1–8.4s                                                                   |
+| **D**                | —               | ~0s (perception)    | unchanged TTFV                                                              |
+| **Combined (range)** | **≤6s p50**     | **3.2–7.5s**        | **4.1–8.4s** achievable; **≤6s** requires most of A+B+C landing at high end |
 
 **p95 target (≤12s):** Phase B specifically addresses the ~6.5s ensureTvSchedules outlier; without it, one cold-generation request per session keeps tail elevated.
 
@@ -323,6 +331,7 @@ Assuming median baseline **~11.6s TTFV**:
 ## 13. Tests and rollback strategy
 
 ### Phase A tests
+
 - Unit: coalescer still dedupes concurrent; mount effect fires **once**; `scheduleNetworkAttemptCount === 1` on cold global run
 - Unit: SWR bootstrap only when cache pre-existed OR after explicit write in same session (document write-then-read)
 - Integration: direct fetch + server action paths; global + community
@@ -331,6 +340,7 @@ Assuming median baseline **~11.6s TTFV**:
 **Rollback:** Feature flag `NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE=1`; revert effect dependency change.
 
 ### Phase B tests
+
 - Backend: ensure fast path when rows exist; generation only when missing; lock loser doesn't block >10ms
 - Load: playlist_loaded p50 regression; access/safety golden fixtures (restricted, enforced, notice rows)
 - ETag: 304 unchanged after filter cache
@@ -339,6 +349,7 @@ Assuming median baseline **~11.6s TTFV**:
 **Rollback:** `TV_ENSURE_SCHEDULES_MODE=blocking|probe` env flag.
 
 ### Phase C tests
+
 - Player: initial embed includes `start` param; no second `loadVideoById` when offset unchanged
 - Live sync: drift seek after 3s; index change on rollover; notice segment behavior
 - Autoplay mute-first preserved
@@ -348,39 +359,42 @@ Assuming median baseline **~11.6s TTFV**:
 **Rollback:** `NEXT_PUBLIC_TV_EMBED_LIVE_OFFSET=0` disables start param seeding.
 
 ### Phase D tests
+
 - Overlay remains until PLAYING; T12 ≥ T11 in traces
 - No regression on error/notice overlays
 
 **Rollback:** Revert looper `onReady` overlay clear.
 
 ### Cross-cutting manual matrix (all phases)
+
 Service worker on/off; Pusher schedule update during startup; visibility tab switch; half-day boundary; payment return snapshot.
 
 ---
 
 ## 14. Acceptance criteria (production readiness)
 
-| Metric | Current (5-run) | Target |
-|--------|-----------------|--------|
-| TTFV p50 | ~11.6s | **≤ 6s** |
-| TTFV p95 | ~17.5s | **≤ 12s** |
-| Stable TTFV p50 | ~13.6s | **≤ 8s** |
-| Backend schedule p50 | ~2.8s | **≤ 2.0s** |
-| Backend schedule p95 | ~6.5s | **≤ 3.5s** |
-| Provider mount (T1→T2) p50 | ~2s | **≤ 1.5s** |
-| Schedule accepted (T2→T4) p50 | ~5–6s | **≤ 3.5s** |
-| Position→player-ready (T6→T8) p50 | ~2.5s | **≤ 2.0s** |
-| Player-ready→playing (T8→T11) p50 | ~5–7s | **≤ 3.5s** |
-| `scheduleNetworkAttemptCount` | 2–4 | **1** (cold), **≤2** (warm revalidate) |
-| `loadVideoByIdCount` | 1 | **0–1** |
-| Startup failure rate | 0/5 | **< 2%** |
-| No routine load >15s | 0/5 over 15s | **0%** over 15s |
+| Metric                            | Current (5-run) | Target                                 |
+| --------------------------------- | --------------- | -------------------------------------- |
+| TTFV p50                          | ~11.6s          | **≤ 6s**                               |
+| TTFV p95                          | ~17.5s          | **≤ 12s**                              |
+| Stable TTFV p50                   | ~13.6s          | **≤ 8s**                               |
+| Backend schedule p50              | ~2.8s           | **≤ 2.0s**                             |
+| Backend schedule p95              | ~6.5s           | **≤ 3.5s**                             |
+| Provider mount (T1→T2) p50        | ~2s             | **≤ 1.5s**                             |
+| Schedule accepted (T2→T4) p50     | ~5–6s           | **≤ 3.5s**                             |
+| Position→player-ready (T6→T8) p50 | ~2.5s           | **≤ 2.0s**                             |
+| Player-ready→playing (T8→T11) p50 | ~5–7s           | **≤ 3.5s**                             |
+| `scheduleNetworkAttemptCount`     | 2–4             | **1** (cold), **≤2** (warm revalidate) |
+| `loadVideoByIdCount`              | 1               | **0–1**                                |
+| Startup failure rate              | 0/5             | **< 2%**                               |
+| No routine load >15s              | 0/5 over 15s    | **0%** over 15s                        |
 
 ---
 
 ## 15. Recommended first implementation phase
 
 **Implement Phase A only** as the first PR series:
+
 - Fixes the proven structural duplicate fetch ([`useEffect([loadSchedule])`](frontend/src/components/tv-provider.tsx) line 1476)
 - Adds per-request attempt correlation
 - Corrects SWR bootstrap semantics for measurement

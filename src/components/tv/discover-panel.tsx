@@ -132,6 +132,15 @@ export interface DiscoverPanelProps {
     recentlyEnded: any[];
   };
   topCommunities?: CommunityExploreCatalogRow[];
+  playlists?: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    imageUrl?: string | null;
+    landingUrl?: string | null;
+    host?: { username?: string; fullName?: string };
+    videoCount?: number;
+  }>;
   catalogLoading?: boolean;
   /** Pre-fill search (e.g. from Explore header). */
   initialSearchTerm?: string;
@@ -203,6 +212,7 @@ export function DiscoverPanel({
   programs = [],
   liveStreams = { upcoming: [], live: [], recentlyEnded: [] },
   topCommunities = [],
+  playlists = [],
   catalogLoading = false,
   initialSearchTerm = "",
   onOpenBookmarks,
@@ -499,6 +509,7 @@ export function DiscoverPanel({
   const recommendedContentsRef = useRef<HTMLDivElement>(null);
   const mostTippedContentsRef = useRef<HTMLDivElement>(null);
   const programsRef = useRef<HTMLDivElement>(null);
+  const playlistsRef = useRef<HTMLDivElement>(null);
   const recentPrograms = useMemo(
     () => takeRecentDiscoveryPrograms(programs),
     [programs]
@@ -1321,6 +1332,73 @@ export function DiscoverPanel({
               <button
                 type="button"
                 onClick={() => scrollNext(programsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* PLAYLISTS */}
+        <div className="space-y-4">
+          <DiscoverRailHeading
+            title="Playlists"
+            railKey="playlists"
+          />
+          <div className="relative">
+            <div
+              ref={playlistsRef}
+              className="scrollbar-none hide__scrollbar overflow-x-auto"
+            >
+              <div className="flex gap-4">
+                {catalogLoading && playlists.length === 0 ? (
+                  carouselSkeleton
+                ) : playlists.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No playlists yet.
+                  </p>
+                ) : (
+                  playlists.map(playlist => (
+                    <Link
+                      key={playlist.id}
+                      href={playlist.landingUrl ?? `/playlist/${playlist.id}`}
+                      className={cn(
+                        "rounded-md border bg-gray-200 p-2",
+                        PROGRAM_CARD_MIN
+                      )}
+                    >
+                      {playlist.imageUrl ? (
+                        <RailCoverImage
+                          src={playlist.imageUrl}
+                          alt={playlist.name}
+                          aspectClassName="aspect-video"
+                        />
+                      ) : (
+                        <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                          <Bookmark className="size-8 text-neutral-500" />
+                        </div>
+                      )}
+                      <div className="space-y-1 p-2">
+                        <h5 className="line-clamp-1 text-sm font-medium">
+                          {trimTitle(playlist.name, 30)}
+                        </h5>
+                        <p className="text-muted-foreground text-xs">
+                          {playlist.videoCount ?? 0} videos
+                          {playlist.host?.username
+                            ? ` · @${playlist.host.username}`
+                            : ""}
+                        </p>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+            {playlists.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => scrollNext(playlistsRef)}
                 className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
               >
                 <ChevronRight size={24} />

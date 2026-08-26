@@ -39,6 +39,11 @@ export type UseMobileVideoViewModeOptions = {
   /** When false, full modes are ignored for layout (surface stays INLINE). */
   isMobile: boolean;
   /**
+   * TV phone landscape: force FULL_LANDSCAPE until unlocked (orientation back to portrait).
+   * Does not remount the player.
+   */
+  lockFullLandscape?: boolean;
+  /**
    * When this identity changes (e.g. TV schedule item id), view resets to INLINE
    * and manual full-variant override is cleared. Omit for channel-style surfaces.
    */
@@ -52,6 +57,7 @@ export type UseMobileVideoViewModeOptions = {
 export function useMobileVideoViewMode({
   videoUrl,
   isMobile,
+  lockFullLandscape = false,
   resetAnchor,
 }: UseMobileVideoViewModeOptions) {
   const { aspectInfo } = useYoutubeVideoAspect(videoUrl);
@@ -73,14 +79,32 @@ export function useMobileVideoViewMode({
     setViewMode(VIEW_MODE.INLINE);
   }, [resetAnchor]);
 
-  const isFullView = isMobile && viewMode !== VIEW_MODE.INLINE;
+  const prevLockFullLandscapeRef = useRef(lockFullLandscape);
+  useEffect(() => {
+    if (lockFullLandscape) {
+      userPinnedFullVariantRef.current = false;
+      setViewMode(VIEW_MODE.FULL_LANDSCAPE);
+    } else if (prevLockFullLandscapeRef.current && !lockFullLandscape) {
+      if (!userPinnedFullVariantRef.current) {
+        enterFullGenerationRef.current += 1;
+        setViewMode(VIEW_MODE.INLINE);
+      }
+    }
+    prevLockFullLandscapeRef.current = lockFullLandscape;
+  }, [lockFullLandscape]);
+
+  const effectiveViewMode = lockFullLandscape
+    ? VIEW_MODE.FULL_LANDSCAPE
+    : viewMode;
+
+  const isFullView = isMobile && effectiveViewMode !== VIEW_MODE.INLINE;
   const immersiveLayout: ImmersiveLayoutMode = isFullView
-    ? viewModeToImmersiveLayout(viewMode)
+    ? viewModeToImmersiveLayout(effectiveViewMode)
     : "landscape_video";
 
   /** FULL_LANDSCAPE: cover stage; FULL_PORTRAIT: contain (no cropping / “shrinking” the frame). */
   const fullPresentationFit: "cover" | "contain" | null = isFullView
-    ? viewMode === VIEW_MODE.FULL_LANDSCAPE
+    ? effectiveViewMode === VIEW_MODE.FULL_LANDSCAPE
       ? "cover"
       : "contain"
     : null;
@@ -89,12 +113,13 @@ export function useMobileVideoViewMode({
 
   /** Full-view UI is mobile-only; avoid desktop/tablet layout with a stale FULL_* mode. */
   useEffect(() => {
+    if (lockFullLandscape) return;
     if (isMobile) return;
     if (viewMode === VIEW_MODE.INLINE) return;
     userPinnedFullVariantRef.current = false;
     enterFullGenerationRef.current += 1;
     setViewMode(VIEW_MODE.INLINE);
-  }, [isMobile, viewMode]);
+  }, [isMobile, viewMode, lockFullLandscape]);
 
   useEffect(() => {
     if (viewMode === VIEW_MODE.INLINE) {
@@ -119,7 +144,7 @@ export function useMobileVideoViewMode({
   }, [videoId, aspectInfo, viewMode]);
 
   const enterFull = useCallback(() => {
-    if (!isMobile) return;
+    if (!isMobile || lockFullLandscape) return;
     tvTrace("fullscreen", "full_view_enter_start", {
       videoUrl: videoUrl ?? null,
     });
@@ -157,21 +182,22 @@ export function useMobileVideoViewMode({
       }
       applyMode(fullViewClassification(info.classification));
     })();
-  }, [isMobile, aspectInfo, videoUrl]);
+  }, [isMobile, lockFullLandscape, aspectInfo, videoUrl]);
 
   const exitFull = useCallback(() => {
+    if (lockFullLandscape) return;
     tvTrace("fullscreen", "full_view_exit", { previousViewMode: viewMode });
     userPinnedFullVariantRef.current = false;
     enterFullGenerationRef.current += 1;
     setViewMode(VIEW_MODE.INLINE);
-  }, [viewMode]);
+  }, [viewMode, lockFullLandscape]);
 
   /**
    * Flip FULL_LANDSCAPE ↔ FULL_PORTRAIT (single `setViewMode`, no player remount).
    * From INLINE: opens full view in the layout opposite oEmbed default (pinned).
    */
   const toggleFullVariant = useCallback(() => {
-    if (!isMobile) return;
+    if (!isMobile || lockFullLandscape) return;
 
     if (viewMode !== VIEW_MODE.INLINE) {
       userPinnedFullVariantRef.current = true;
@@ -217,12 +243,12 @@ export function useMobileVideoViewMode({
       }
       applyFlipped(fullViewClassification(info.classification));
     })();
-  }, [isMobile, viewMode, aspectInfo, videoUrl]);
+  }, [isMobile, lockFullLandscape, viewMode, aspectInfo, videoUrl]);
 
   /** Icon hint: portrait-oriented control when the *next* layout is / will be portrait. */
   const fullLayoutToggleShowsPortraitIcon =
-    viewMode === VIEW_MODE.FULL_LANDSCAPE ||
-    (viewMode === VIEW_MODE.INLINE &&
+    effectiveViewMode === VIEW_MODE.FULL_LANDSCAPE ||
+    (effectiveViewMode === VIEW_MODE.INLINE &&
       !(
         aspectInfo &&
         videoId &&

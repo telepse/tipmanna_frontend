@@ -68,7 +68,9 @@ Do **not** touch these — `/partner` still needs them: `features.tsx`, `pricing
 In [frontend/src/middleware.ts](frontend/src/middleware.ts), replace the `.tv`-only block at lines 45-51 with a host-agnostic rule placed **after** the `.live` host normalization so `.live/` resolves in one hop:
 
 ```ts
-if (hostname === "tipmanna.live" || hostname === "www.tipmanna.live") { /* unchanged */ }
+if (hostname === "tipmanna.live" || hostname === "www.tipmanna.live") {
+  /* unchanged */
+}
 
 if (url.pathname === "/") {
   url.pathname = "/explore";
@@ -101,11 +103,11 @@ Repoint to `HOME_HREF`:
 - [frontend/src/components/client-error-boundary.tsx](frontend/src/components/client-error-boundary.tsx) line 46 ("Go home")
 - [frontend/src/app/community/invite/[token]/page.tsx](frontend/src/app/community/invite/[token]/page.tsx) lines 132, 151
 - [frontend/src/app/cocreator/accept/[token]/page.tsx](frontend/src/app/cocreator/accept/[token]/page.tsx) lines 124, 142
-- [frontend/src/app/(event)/join/page.tsx](frontend/src/app/(event)/join/page.tsx) line 137
+- [frontend/src/app/(event)/join/page.tsx](<frontend/src/app/(event)/join/page.tsx>) line 137
 - [frontend/src/components/explore/explore-global-chrome.tsx](frontend/src/components/explore/explore-global-chrome.tsx) line 235 (logo)
 - [frontend/src/components/shared/autodetect-location-prompt.tsx](frontend/src/components/shared/autodetect-location-prompt.tsx) lines 322, 334
 - [frontend/src/components/join-host/events-client.tsx](frontend/src/components/join-host/events-client.tsx) line 162
-- [frontend/src/app/(auth)/verify-email/page.tsx](frontend/src/app/(auth)/verify-email/page.tsx) line 120
+- [frontend/src/app/(auth)/verify-email/page.tsx](<frontend/src/app/(auth)/verify-email/page.tsx>) line 120
 - [frontend/src/lib/payment-success-redirect.ts](frontend/src/lib/payment-success-redirect.ts) lines 24, 44
 - [frontend/src/components/tipper/tipper-banner.tsx](frontend/src/components/tipper/tipper-banner.tsx) line 340
 - [frontend/src/components/tipper/visitor-profile-banner.tsx](frontend/src/components/tipper/visitor-profile-banner.tsx) line 169

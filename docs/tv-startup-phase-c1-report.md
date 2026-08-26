@@ -47,21 +47,21 @@ iframe is proven valid and no replacement load occurred before first PLAYING.
 
 ### Triggers (`initialEmbedSuccessTrigger`)
 
-| Trigger | Route | Sets `initialEmbedTargetMatchedFirstSync` |
-| ------- | ----- | ----------------------------------------- |
-| `first_sync_request_playback` | A1 — `requestPlayback` skip via elapsed-aware match | yes |
-| `first_sync_same_index` | A2 — same-index `syncToLive` before first PLAYING | yes |
-| `first_playing_fallback` | B — first PLAYING before Route A records | **no** |
+| Trigger                       | Route                                               | Sets `initialEmbedTargetMatchedFirstSync` |
+| ----------------------------- | --------------------------------------------------- | ----------------------------------------- |
+| `first_sync_request_playback` | A1 — `requestPlayback` skip via elapsed-aware match | yes                                       |
+| `first_sync_same_index`       | A2 — same-index `syncToLive` before first PLAYING   | yes                                       |
+| `first_playing_fallback`      | B — first PLAYING before Route A records            | **no**                                    |
 
 ### Summary field semantics
 
-| Field | Meaning |
-| ----- | ------- |
-| `initialEmbedTargetConfirmed` | C1 target safely confirmed by any valid route |
-| `initialEmbedTargetMatchedFirstSync` | Confirmation via an actual sync comparison (A1 or A2) |
-| `initialReloadAvoided` | No replacement `loadVideoById` before first PLAYING |
-| `initialEmbedSuccessTrigger` | Which route recorded success |
-| `firstBufferingRelativeToPlaying` | `before` / `after` / null — diagnostic only; T10/T11 marks unchanged |
+| Field                                | Meaning                                                              |
+| ------------------------------------ | -------------------------------------------------------------------- |
+| `initialEmbedTargetConfirmed`        | C1 target safely confirmed by any valid route                        |
+| `initialEmbedTargetMatchedFirstSync` | Confirmation via an actual sync comparison (A1 or A2)                |
+| `initialReloadAvoided`               | No replacement `loadVideoById` before first PLAYING                  |
+| `initialEmbedSuccessTrigger`         | Which route recorded success                                         |
+| `firstBufferingRelativeToPlaying`    | `before` / `after` / null — diagnostic only; T10/T11 marks unchanged |
 
 A clean autoplay path may show:
 

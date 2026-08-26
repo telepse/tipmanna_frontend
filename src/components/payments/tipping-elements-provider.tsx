@@ -45,12 +45,13 @@ export function TippingElementsProvider({
     [selectedTips, tippingCharacters, textTipUnitPrice]
   );
   const deferredTotal = useDeferredValue(liveTotal);
+  const elementsAmount = liveTotal > 0 ? liveTotal : deferredTotal;
 
   const options = useMemo<StripeElementsOptions>(
     () =>
       ({
         mode: "payment",
-        amount: stripeElementsAmountMinor(deferredTotal),
+        amount: stripeElementsAmountMinor(elementsAmount),
         currency: "gbp",
         appearance: {
           variables: {
@@ -67,7 +68,7 @@ export function TippingElementsProvider({
         },
         syncAddressCheckbox: "none",
       }) as unknown as StripeElementsOptions,
-    [deferredTotal]
+    [elementsAmount]
   );
 
   if (!enabled) {

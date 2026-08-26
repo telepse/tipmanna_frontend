@@ -2,48 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import {
   isLiveStreamContent,
-  resolveDiscoverContentTarget,
+  isNonReelLiveStatus,
 } from "../discover-content-routing";
 
-describe("discover content routing", () => {
-  it("detects live stream statuses", () => {
+describe("discover-content-routing live predicate", () => {
+  it("treats only LIVE as live stream content", () => {
     expect(isLiveStreamContent({ liveStatus: "LIVE" })).toBe(true);
-    expect(isLiveStreamContent({ liveStatus: "ENDED" })).toBe(true);
-    expect(isLiveStreamContent({ liveStatus: "UPCOMING" })).toBe(true);
-    expect(isLiveStreamContent({ liveStatus: null })).toBe(false);
-    expect(isLiveStreamContent({})).toBe(false);
+    expect(isLiveStreamContent({ liveStatus: "ENDED" })).toBe(false);
+    expect(isLiveStreamContent({ liveStatus: "UPCOMING" })).toBe(false);
+    expect(isLiveStreamContent({ liveStatus: "NOT_LIVE" })).toBe(false);
   });
 
-  it("routes live items to channel even when Explore playback is wired", () => {
-    const live = { liveStatus: "LIVE" as const };
-    expect(resolveDiscoverContentTarget(live, "discovery", false)).toBe(
-      "channel"
-    );
-    expect(resolveDiscoverContentTarget(live, "exploreTab", true)).toBe(
-      "channel"
-    );
-  });
-
-  it("routes clips to explore reel on any surface that provides a play handler", () => {
-    const clip = { liveStatus: null };
-    expect(resolveDiscoverContentTarget(clip, "exploreTab", true)).toBe(
-      "explore-reel"
-    );
-    expect(resolveDiscoverContentTarget(clip, "exploreTab", false)).toBe(
-      "content"
-    );
-    // Dedicated Discover page now reuses Explore playback when a handler exists.
-    expect(resolveDiscoverContentTarget(clip, "discovery", true)).toBe(
-      "explore-reel"
-    );
-    expect(resolveDiscoverContentTarget(clip, "discovery", false)).toBe(
-      "content"
-    );
-  });
-
-  it("does not treat missing liveStatus as live stream", () => {
-    expect(resolveDiscoverContentTarget({}, "discovery", false)).toBe(
-      "content"
-    );
+  it("flags upcoming and ended as non-reel live statuses", () => {
+    expect(isNonReelLiveStatus({ liveStatus: "UPCOMING" })).toBe(true);
+    expect(isNonReelLiveStatus({ liveStatus: "ENDED" })).toBe(true);
+    expect(isNonReelLiveStatus({ liveStatus: "LIVE" })).toBe(false);
   });
 });

@@ -47,11 +47,11 @@ TV_STARTUP_BACKEND_TRACE=1
 
 ## Canonical marks (unchanged)
 
-| Mark | Event | Notes |
-| ---- | ----- | ----- |
-| T6 | `initial_playback_position_resolved` | Unchanged |
-| T7 | `youtube_api_available` | **Preserved for backward compatibility** — still approximate |
-| T8 | `player_ready` | Unchanged |
+| Mark | Event                                | Notes                                                        |
+| ---- | ------------------------------------ | ------------------------------------------------------------ |
+| T6   | `initial_playback_position_resolved` | Unchanged                                                    |
+| T7   | `youtube_api_available`              | **Preserved for backward compatibility** — still approximate |
+| T8   | `player_ready`                       | Unchanged                                                    |
 
 C2.0 adds **supplemental events**; it does not redefine T6/T7/T8 semantics.
 
@@ -59,21 +59,21 @@ C2.0 adds **supplemental events**; it does not redefine T6/T7/T8 semantics.
 
 ### React lifecycle
 
-| Event | When | Key fields |
-| ----- | ---- | ---------- |
-| `tv_looper_committed` | Mount-only `useLayoutEffect` in active looper | `looperKind`, `source`, `startupGeneration` |
-| `tv_player_render_requested` | Immediately before active `TvPlayer` render (once per generation) | `startupGeneration`, `source`, `selectedIndex`, `hasPlaybackUrl` |
-| `tv_player_committed` | Mount-only `useLayoutEffect` in `TvPlayer` | `youtubeApiPresentAtCommit`, `youtubePlayerConstructorPresentAtCommit` |
-| `react_youtube_container_committed` | DOM container for react-youtube available | `startupGeneration`, `source` |
-| `youtube_player_creation_requested` | Immediately after container commit | Request boundary only — **not** proof of `new YT.Player()` |
+| Event                               | When                                                              | Key fields                                                             |
+| ----------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `tv_looper_committed`               | Mount-only `useLayoutEffect` in active looper                     | `looperKind`, `source`, `startupGeneration`                            |
+| `tv_player_render_requested`        | Immediately before active `TvPlayer` render (once per generation) | `startupGeneration`, `source`, `selectedIndex`, `hasPlaybackUrl`       |
+| `tv_player_committed`               | Mount-only `useLayoutEffect` in `TvPlayer`                        | `youtubeApiPresentAtCommit`, `youtubePlayerConstructorPresentAtCommit` |
+| `react_youtube_container_committed` | DOM container for react-youtube available                         | `startupGeneration`, `source`                                          |
+| `youtube_player_creation_requested` | Immediately after container commit                                | Request boundary only — **not** proof of `new YT.Player()`             |
 
 ### Resource Timing (derived)
 
-| Event | Source |
-| ----- | ------ |
-| `youtube_api_resource_started` / `_finished` | `iframe_api` path on YouTube hosts |
-| `youtube_widget_resource_started` / `_finished` | `widget_api` |
-| `youtube_embed_document_started` / `_finished` | `/embed/` documents |
+| Event                                           | Source                             |
+| ----------------------------------------------- | ---------------------------------- |
+| `youtube_api_resource_started` / `_finished`    | `iframe_api` path on YouTube hosts |
+| `youtube_widget_resource_started` / `_finished` | `widget_api`                       |
+| `youtube_embed_document_started` / `_finished`  | `/embed/` documents                |
 
 Timestamps use the resource entry's `startTime` / `responseEnd`, not observer
 callback time. First event wins per category; duplicate counts are recorded
@@ -81,8 +81,8 @@ separately.
 
 ### API object
 
-| Event | When |
-| ----- | ---- |
+| Event                         | When                                          |
+| ----------------------------- | --------------------------------------------- |
 | `youtube_api_object_detected` | First reliable `window.YT.Player` observation |
 
 `detectionReason`:
@@ -94,10 +94,10 @@ separately.
 
 ### Iframe
 
-| Event | When |
-| ----- | ---- |
-| `youtube_iframe_inserted` | First iframe descendant in player container |
-| `duplicate_iframe_insertion` | Additional iframe insertions (diagnostic) |
+| Event                        | When                                        |
+| ---------------------------- | ------------------------------------------- |
+| `youtube_iframe_inserted`    | First iframe descendant in player container |
+| `duplicate_iframe_insertion` | Additional iframe insertions (diagnostic)   |
 
 No iframe `src`, video ID, or attributes are logged.
 
@@ -105,19 +105,19 @@ No iframe `src`, video ID, or attributes are logged.
 
 All measured in ms relative to canonical marks / lifecycle timestamps:
 
-| Field | Formula |
-| ----- | ------- |
-| `T6_toLooperCommitMs` | T6 → looper commit |
-| `T6_toPlayerRenderRequestedMs` | T6 → player render requested |
-| `T6_toPlayerCommitMs` | T6 → player commit |
-| `playerCommitToApiResourceStartMs` | player commit → first iframe_api start |
-| `apiResourceStartToFinishMs` | iframe_api start → finish |
+| Field                                 | Formula                                 |
+| ------------------------------------- | --------------------------------------- |
+| `T6_toLooperCommitMs`                 | T6 → looper commit                      |
+| `T6_toPlayerRenderRequestedMs`        | T6 → player render requested            |
+| `T6_toPlayerCommitMs`                 | T6 → player commit                      |
+| `playerCommitToApiResourceStartMs`    | player commit → first iframe_api start  |
+| `apiResourceStartToFinishMs`          | iframe_api start → finish               |
 | `apiResourceFinishToObjectDetectedMs` | iframe_api finish → API object detected |
-| `playerCommitToApiObjectDetectedMs` | player commit → API object |
-| `playerCommitToIframeInsertedMs` | player commit → iframe inserted |
-| `apiObjectDetectedToIframeInsertedMs` | API object → iframe |
-| `iframeInsertedToT8Ms` | iframe → T8 |
-| `playerCommitToT8Ms` | player commit → T8 |
+| `playerCommitToApiObjectDetectedMs`   | player commit → API object              |
+| `playerCommitToIframeInsertedMs`      | player commit → iframe inserted         |
+| `apiObjectDetectedToIframeInsertedMs` | API object → iframe                     |
+| `iframeInsertedToT8Ms`                | iframe → T8                             |
+| `playerCommitToT8Ms`                  | player commit → T8                      |
 
 Additional counters: `youtubeApiResourceCount`, `youtubeWidgetResourceCount`,
 `youtubeEmbedDocumentCount`, `youtubeIframeInsertionCount`,
@@ -150,11 +150,11 @@ See `docs/tv-startup-phase-c2-ssr-preconnect.md`.
 
 ## Cache / same-document semantics
 
-| Scenario | Expected |
-| -------- | -------- |
-| Fresh document, API absent | `youtubeApiPresentAtPlayerCommit: false`, iframe_api resource events likely |
-| Same-document source switch | `youtubeApiPresentAtPlayerCommit: true`, `api_object_detected_before_resource_start` **not** flagged as error |
-| Hard navigation + HTTP cache | API object usually absent; Resource Timing may show cache inference |
+| Scenario                     | Expected                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Fresh document, API absent   | `youtubeApiPresentAtPlayerCommit: false`, iframe_api resource events likely                                   |
+| Same-document source switch  | `youtubeApiPresentAtPlayerCommit: true`, `api_object_detected_before_resource_start` **not** flagged as error |
+| Hard navigation + HTTP cache | API object usually absent; Resource Timing may show cache inference                                           |
 
 `scheduleCacheBootstrapCount: 1` indicates schedule cache reuse — **not** YouTube
 API object reuse.

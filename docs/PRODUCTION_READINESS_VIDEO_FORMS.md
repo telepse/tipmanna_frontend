@@ -30,22 +30,22 @@ All audit gaps are closed, including the **Maximum update depth exceeded** infin
 
 ## Audit scenario closure
 
-| # | Scenario | Resolution |
-|---|----------|------------|
-| 1 | Co-owner invite expires while draft open | Lazy expiry + cron sweep; **Expired** status + **Resend** |
-| 2 | Duplicate invite for same email/draft | 409 `invite_resendable` with `inviteId`; resend affordance |
-| 3 | Resend spam | Server cooldown + max count; UI countdown after resend response applied |
-| 4 | Submit with pending invite | Blocked client + server |
-| 4b | Stale declined/expired + newer approved | **Approved-wins:** submit allowed; stale rows ignored |
-| 4c | Terminal-only co-owned video on wizard | **Dropped** from submission; host warned pre-submit |
-| 4d | Terminal-only on single-video modal | **Blocked** with resend/remove/ownership message |
-| 5 | YouTube verify bypass | Submit disabled until verified |
-| 6–11 | Drafts, verify persistence, public expiry, etc. | As prior pass (verified in code + tests) |
-| 12 | Infinite render loop on co-owner toggle | **Fixed:** `restoreReady` decoupling |
-| 13 | Resend dead-end (no activeInvite) | **Fixed:** synthetic row on 409 |
-| 14 | Revoked resend loop | **Fixed:** revoked allowed in resend |
-| 15 | No Remove control | **Fixed:** revoke API wired; Remove button in UI |
-| 16 | P2002 without inviteId | **Fixed:** duplicate row lookup |
+| #    | Scenario                                        | Resolution                                                              |
+| ---- | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| 1    | Co-owner invite expires while draft open        | Lazy expiry + cron sweep; **Expired** status + **Resend**               |
+| 2    | Duplicate invite for same email/draft           | 409 `invite_resendable` with `inviteId`; resend affordance              |
+| 3    | Resend spam                                     | Server cooldown + max count; UI countdown after resend response applied |
+| 4    | Submit with pending invite                      | Blocked client + server                                                 |
+| 4b   | Stale declined/expired + newer approved         | **Approved-wins:** submit allowed; stale rows ignored                   |
+| 4c   | Terminal-only co-owned video on wizard          | **Dropped** from submission; host warned pre-submit                     |
+| 4d   | Terminal-only on single-video modal             | **Blocked** with resend/remove/ownership message                        |
+| 5    | YouTube verify bypass                           | Submit disabled until verified                                          |
+| 6–11 | Drafts, verify persistence, public expiry, etc. | As prior pass (verified in code + tests)                                |
+| 12   | Infinite render loop on co-owner toggle         | **Fixed:** `restoreReady` decoupling                                    |
+| 13   | Resend dead-end (no activeInvite)               | **Fixed:** synthetic row on 409                                         |
+| 14   | Revoked resend loop                             | **Fixed:** revoked allowed in resend                                    |
+| 15   | No Remove control                               | **Fixed:** revoke API wired; Remove button in UI                        |
+| 16   | P2002 without inviteId                          | **Fixed:** duplicate row lookup                                         |
 
 ---
 
@@ -97,11 +97,11 @@ Wizard create responses include `excludedVideos: [{ title, reason }]`.
 
 ## Sign-off
 
-| Area | Status |
-|------|--------|
-| Infinite render loop | ✅ |
-| Co-owner lifecycle (send/resend/remove) | ✅ |
-| Submit readiness (approved-wins + drop) | ✅ |
-| Draft persistence | ✅ |
-| YouTube gating | ✅ |
-| Tests | ✅ |
+| Area                                    | Status |
+| --------------------------------------- | ------ |
+| Infinite render loop                    | ✅     |
+| Co-owner lifecycle (send/resend/remove) | ✅     |
+| Submit readiness (approved-wins + drop) | ✅     |
+| Draft persistence                       | ✅     |
+| YouTube gating                          | ✅     |
+| Tests                                   | ✅     |

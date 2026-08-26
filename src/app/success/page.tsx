@@ -165,7 +165,7 @@ import { COMMUNITY_SUBSCRIBE_CTX_KEY } from "@/components/community/community-su
 import { Gem } from "lucide-react";
 import { markPendingPaymentPrompt } from "@/lib/pwa-install-trigger";
 
-const REDIRECT_SETTLE_MS = 400;
+const REDIRECT_SETTLE_MS = 200;
 
 const override: CSSProperties = {
   display: "block",
@@ -192,10 +192,13 @@ export default function PaymentSuccessPage() {
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authUserRef = useRef(authUser);
   authUserRef.current = authUser;
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
   const sessionHandledRef = useRef(false);
 
   useEffect(() => {
     if (sessionHandledRef.current) return;
+    sessionHandledRef.current = true;
 
     // Load eventId and amount from localStorage on mount
     const storedEventId = sanitizeEventIdForRoomRedirect(
@@ -238,7 +241,11 @@ export default function PaymentSuccessPage() {
         let walletTopupReconciled = false;
         let isWalletTopupFlow = false;
 
-        if (paymentIntentId && isAuthenticated && !pendingTipReturn) {
+        if (
+          paymentIntentId &&
+          isAuthenticatedRef.current &&
+          !pendingTipReturn
+        ) {
           const maxAttempts = 12;
           let delayMs = 0;
           for (let i = 0; i < maxAttempts; i++) {
@@ -279,7 +286,7 @@ export default function PaymentSuccessPage() {
 
         if (
           paymentIntentId &&
-          isAuthenticated &&
+          isAuthenticatedRef.current &&
           !isWalletTopupFlow &&
           !pendingTipReturn
         ) {
@@ -297,7 +304,7 @@ export default function PaymentSuccessPage() {
                     await new Promise(r => setTimeout(r, delayMs));
                   }
                   try {
-                    if (!isAuthenticated) break;
+                    if (!isAuthenticatedRef.current) break;
                     const r = await reconcileCommunitySubscribeAction(
                       undefined,
                       communityId,
@@ -373,9 +380,6 @@ export default function PaymentSuccessPage() {
           paymentIntentId || paymentIntentSecret
         );
       } finally {
-        if (sessionHandledRef.current) return;
-        sessionHandledRef.current = true;
-
         if (!shouldScheduleRedirect) return;
 
         if (blockRedirect) {
@@ -390,7 +394,7 @@ export default function PaymentSuccessPage() {
       }
     };
     void loadSession();
-  }, [paymentIntentId, paymentIntentSecret, router, dispatch, isAuthenticated]);
+  }, [paymentIntentId, paymentIntentSecret, router, dispatch, searchParams]);
 
   if (loading) {
     return (

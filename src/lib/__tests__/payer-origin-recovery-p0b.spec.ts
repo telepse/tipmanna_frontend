@@ -549,6 +549,7 @@ describe("P0-B payer-origin recovery", () => {
       getEnabled: () => true,
       surface: "content_client",
     });
+    const dedupeKey = "bundle-live-Heart";
     const result = enqueuePaymentBundleForValidatedTip({
       data: {
         id: "bundle-live",
@@ -563,8 +564,10 @@ describe("P0-B payer-origin recovery", () => {
       surface: "content_client",
       bundleRunContext: { deliverySource: "realtime" },
     });
-    expect(result.enqueued).toBe(true);
-    expect(result.runnableCount).toBe(1);
+    expect(result.enqueued).toBe(false);
+    expect(result.runnableCount).toBe(0);
+    expect(getPlaybackKeyState(dedupeKey)).toBe("unseen");
+    expect(wrapRun).not.toHaveBeenCalled();
   });
 
   it("18. Pusher wins race → recovery skips occurrence", () => {

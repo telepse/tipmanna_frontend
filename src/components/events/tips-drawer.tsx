@@ -11,6 +11,7 @@ type Props = {
   channelId: string | null;
   eventRoomTipCount?: number;
   videoTipCount?: number;
+  communityBankName?: string | null;
 };
 
 export function TipsDrawer({
@@ -20,6 +21,7 @@ export function TipsDrawer({
   channelId,
   eventRoomTipCount,
   videoTipCount,
+  communityBankName = null,
 }: Props) {
   return (
     <Drawer
@@ -37,6 +39,7 @@ export function TipsDrawer({
           channelId={channelId}
           eventRoomTipCount={eventRoomTipCount}
           videoTipCount={videoTipCount}
+          communityBankName={communityBankName}
           onClose={() => onOpenChange(false)}
         />
       </DrawerContent>

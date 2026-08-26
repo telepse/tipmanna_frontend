@@ -322,14 +322,18 @@ export async function getHostSubscriptionMeAction() {
 }
 
 export async function hostSubscriptionCheckoutAction(
-  tier: "premium" | "community"
+  tier: "premium" | "community",
+  options?: { upgradeAtPeriodEnd?: boolean }
 ) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/checkout`,
     {
       method: "POST",
       headers: await serverHostAuthHeaders(),
-      body: JSON.stringify({ tier }),
+      body: JSON.stringify({
+        tier,
+        upgradeAtPeriodEnd: options?.upgradeAtPeriodEnd === true,
+      }),
     },
     "hostSubscriptionCheckoutAction"
   );

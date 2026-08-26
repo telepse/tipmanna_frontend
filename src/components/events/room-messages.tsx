@@ -33,6 +33,7 @@ interface Props {
   frameId: string;
   isEventOwner: string;
   liveVideoLink: string;
+  onChannelCreated?: (channel: EventRoomVideoChannel) => void;
   performers: any[];
   projects: any[];
   contributionType: string;
@@ -60,6 +61,7 @@ export const RoomMessages = ({
   frameId,
   isEventOwner,
   liveVideoLink,
+  onChannelCreated,
   performers,
   projects,
   contributionType,
@@ -200,6 +202,7 @@ export const RoomMessages = ({
           frameId={frameId}
           isEventOwner={isEventOwner}
           liveVideoLink={liveVideoLink}
+          onChannelCreated={onChannelCreated}
           performers={safePerformers}
           projects={safeProjects}
           contributionType={contributionType}

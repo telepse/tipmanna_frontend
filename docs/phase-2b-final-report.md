@@ -7,17 +7,19 @@
 
 ## 1. Files modified
 
-| File | Change |
-|------|--------|
-| `backend/prisma/schema.prisma` | Removed `@@index([videoChannelId, day])` from `VideoChannelDailyRollup`; retained `@@index([videoChannelId, type])` on `AnalyticsEvent` |
-| `backend/prisma/migrations/20260716150000_phase2b_drop_unused_rollup_index/migration.sql` | **NEW** forward migration — `DROP INDEX CONCURRENTLY` unused rollup composite |
-| `backend/scripts/phase2b-explain-analyze.ts` | Extended with production OR-shaped SQL, metrics parsing, `pg_indexes` probe |
-| `docs/phase-2b-final-report.md` | This report |
+| File                                                                                      | Change                                                                                                                                  |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/prisma/schema.prisma`                                                            | Removed `@@index([videoChannelId, day])` from `VideoChannelDailyRollup`; retained `@@index([videoChannelId, type])` on `AnalyticsEvent` |
+| `backend/prisma/migrations/20260716150000_phase2b_drop_unused_rollup_index/migration.sql` | **NEW** forward migration — `DROP INDEX CONCURRENTLY` unused rollup composite                                                           |
+| `backend/scripts/phase2b-explain-analyze.ts`                                              | Extended with production OR-shaped SQL, metrics parsing, `pg_indexes` probe                                                             |
+| `docs/phase-2b-final-report.md`                                                           | This report                                                                                                                             |
 
 **Not modified (migration-history safety):**
+
 - `backend/prisma/migrations/20260715180000_phase2b_pool_indexes/migration.sql` — already applied; left intact
 
 **Evidence artifacts:**
+
 - `backend/scripts/phase2b-explain-output/before-1784136750204.txt`
 - `backend/scripts/phase2b-explain-output/after-1784201416239.txt`
 - `backend/scripts/phase2b-explain-output/production-or-1784212146985.txt`
@@ -62,7 +64,12 @@ prisma.analyticsEvent.findMany({
     OR: [{ channelId: { in: chunk } }, { videoChannelId: { in: chunk } }],
     type: AnalyticsEventType.watch_duration,
   },
-  select: { channelId: true, videoChannelId: true, sessionId: true, payload: true },
+  select: {
+    channelId: true,
+    videoChannelId: true,
+    sessionId: true,
+    payload: true,
+  },
 });
 ```
 
@@ -78,14 +85,14 @@ prisma.analyticsEvent.findMany({
 
 Captured via `npx tsx scripts/phase2b-explain-analyze.ts indexes`:
 
-| Table | Index | Status |
-|-------|-------|--------|
-| `VideoChannelDailyRollup` | `VideoChannelDailyRollup_videoChannelId_idx` | Existing (retain) |
+| Table                     | Index                                            | Status                                            |
+| ------------------------- | ------------------------------------------------ | ------------------------------------------------- |
+| `VideoChannelDailyRollup` | `VideoChannelDailyRollup_videoChannelId_idx`     | Existing (retain)                                 |
 | `VideoChannelDailyRollup` | `VideoChannelDailyRollup_videoChannelId_day_idx` | Phase 2B applied — **drop via cleanup migration** |
-| `AnalyticsEvent` | `AnalyticsEvent_videoChannelId_type_idx` | Phase 2B applied — **retain** |
-| `AnalyticsEvent` | `AnalyticsEvent_channelId_idx` | Existing (used in BitmapOr) |
-| `AnalyticsEvent` | `AnalyticsEvent_surface_type_idx` | Existing (used for social/watch OR) |
-| `AnalyticsEvent` | `AnalyticsEvent_videoChannelId_createdAt_idx` | Existing (superseded for type-filtered paths) |
+| `AnalyticsEvent`          | `AnalyticsEvent_videoChannelId_type_idx`         | Phase 2B applied — **retain**                     |
+| `AnalyticsEvent`          | `AnalyticsEvent_channelId_idx`                   | Existing (used in BitmapOr)                       |
+| `AnalyticsEvent`          | `AnalyticsEvent_surface_type_idx`                | Existing (used for social/watch OR)               |
+| `AnalyticsEvent`          | `AnalyticsEvent_videoChannelId_createdAt_idx`    | Existing (superseded for type-filtered paths)     |
 
 **Post-cleanup expected:** `VideoChannelDailyRollup_videoChannelId_day_idx` absent; all others unchanged.
 
@@ -103,15 +110,15 @@ npx tsx scripts/phase2b-explain-analyze.ts indexes   # verify drop
 
 ### 4A. `VideoChannelDailyRollup(videoChannelId, day)` — **REMOVE**
 
-| Metric | Before | After (indexes applied) | Production-or (current) |
-|--------|--------|-------------------------|-------------------------|
-| Index selected | `videoChannelId_idx` | `videoChannelId_idx` | `videoChannelId_idx` |
-| Composite `videoChannelId_day_idx` used? | No | No | No |
-| Execution time | 0.147 ms | 1.256 ms* | 0.118 ms |
-| Output rows | 36 | 38 | 35 |
-| Rows removed by day filter | 16 | 17 | 21 |
-| Buffer shared hits | 6 | 5 | 6 |
-| Heap blocks | 5 | 4 | 5 |
+| Metric                                   | Before               | After (indexes applied) | Production-or (current) |
+| ---------------------------------------- | -------------------- | ----------------------- | ----------------------- |
+| Index selected                           | `videoChannelId_idx` | `videoChannelId_idx`    | `videoChannelId_idx`    |
+| Composite `videoChannelId_day_idx` used? | No                   | No                      | No                      |
+| Execution time                           | 0.147 ms             | 1.256 ms\*              | 0.118 ms                |
+| Output rows                              | 36                   | 38                      | 35                      |
+| Rows removed by day filter               | 16                   | 17                      | 21                      |
+| Buffer shared hits                       | 6                    | 5                       | 6                       |
+| Heap blocks                              | 5                    | 4                       | 5                       |
 
 \*After total time variance is not index-related; heap scan actual time remains sub-ms.
 
@@ -125,15 +132,15 @@ npx tsx scripts/phase2b-explain-analyze.ts indexes   # verify drop
 
 #### `production_batchSocialMetrics_OR`
 
-| Metric | Before (OR) | Production-or (indexes applied) |
-|--------|-------------|--------------------------------|
-| Plan | `surface_type_idx` + channel filter | Same |
-| `videoChannelId_type_idx` used? | No | No |
-| BitmapOr | No | No |
-| Execution time | 127.9 ms (cold) | **0.38 ms** (warm) |
-| Output rows | 36 | 21 |
-| Rows removed by filter | 138 | 153 |
-| Buffer hits | 171 | 158 |
+| Metric                          | Before (OR)                         | Production-or (indexes applied) |
+| ------------------------------- | ----------------------------------- | ------------------------------- |
+| Plan                            | `surface_type_idx` + channel filter | Same                            |
+| `videoChannelId_type_idx` used? | No                                  | No                              |
+| BitmapOr                        | No                                  | No                              |
+| Execution time                  | 127.9 ms (cold)                     | **0.38 ms** (warm)              |
+| Output rows                     | 36                                  | 21                              |
+| Rows removed by filter          | 138                                 | 153                             |
+| Buffer hits                     | 171                                 | 158                             |
 
 **Why index not used:** Single-type-leading scan via `surface_type_idx` returns ~174 rows; only ~21 match channel OR. At this scale (~0.4 ms warm), planner prefers one index + filter over BitmapOr.
 
@@ -143,15 +150,15 @@ npx tsx scripts/phase2b-explain-analyze.ts indexes   # verify drop
 
 #### `production_liveEngagement_OR` (video_encounter + video_complete)
 
-| Metric | Value |
-|--------|-------|
-| Plan | **BitmapOr** |
-| Leg 1 | `AnalyticsEvent_channelId_idx` → 3074 index rows |
-| Leg 2 | **`AnalyticsEvent_videoChannelId_type_idx`** → **1208 index rows** (type in Index Cond) |
-| Post-heap type filter rows removed | 1865 |
-| Execution time | **10.0 ms** |
-| Output rows | 1208 |
-| Buffer hits | 651 (24 in BitmapOr setup) |
+| Metric                             | Value                                                                                   |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| Plan                               | **BitmapOr**                                                                            |
+| Leg 1                              | `AnalyticsEvent_channelId_idx` → 3074 index rows                                        |
+| Leg 2                              | **`AnalyticsEvent_videoChannelId_type_idx`** → **1208 index rows** (type in Index Cond) |
+| Post-heap type filter rows removed | 1865                                                                                    |
+| Execution time                     | **10.0 ms**                                                                             |
+| Output rows                        | 1208                                                                                    |
+| Buffer hits                        | 651 (24 in BitmapOr setup)                                                              |
 
 **Why index IS used:** OR decomposes into `channelId IN (...)` and `(videoChannelId IN (...) AND type IN (...))`. The composite index serves the second leg precisely — type equality is in `Index Cond`, not a heap filter.
 
@@ -161,15 +168,15 @@ npx tsx scripts/phase2b-explain-analyze.ts indexes   # verify drop
 
 #### `production_liveWatchDuration_OR` (watch_duration only)
 
-| Metric | Value |
-|--------|-------|
-| Plan | `surface_type_idx` where `type = watch_duration` + channel OR filter |
-| `videoChannelId_type_idx` used? | No |
-| BitmapOr | No |
-| Execution time | **0.99 ms** |
-| Output rows | 114 |
-| Rows removed by filter | 1123 |
-| Buffer hits | 436 |
+| Metric                          | Value                                                                |
+| ------------------------------- | -------------------------------------------------------------------- |
+| Plan                            | `surface_type_idx` where `type = watch_duration` + channel OR filter |
+| `videoChannelId_type_idx` used? | No                                                                   |
+| BitmapOr                        | No                                                                   |
+| Execution time                  | **0.99 ms**                                                          |
+| Output rows                     | 114                                                                  |
+| Rows removed by filter          | 1123                                                                 |
+| Buffer hits                     | 436                                                                  |
 
 **Why index not used:** Single equality on `watch_duration` via `surface_type_idx` scans ~1237 rows, keeps 114. At sub-ms scale planner prefers type-leading scan.
 
@@ -179,14 +186,14 @@ npx tsx scripts/phase2b-explain-analyze.ts indexes   # verify drop
 
 #### `isolated_videoChannelId_watch_types` (videoChannelId-only, no OR)
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Index | `videoChannelId_createdAt_idx` + type heap filter | **`videoChannelId_type_idx`** |
-| Execution time | **513.2 ms** | **4.95 ms** (after file) / **1.18 ms** (production-or) |
-| Index-qualified rows | 3266 | 1031–1322 |
-| Rows removed by type filter | 2008 | **0** (type in Index Cond) |
-| Buffer hits | 697 | 502–883 |
-| Heap blocks | 644 | 480 |
+| Metric                      | Before                                            | After                                                  |
+| --------------------------- | ------------------------------------------------- | ------------------------------------------------------ |
+| Index                       | `videoChannelId_createdAt_idx` + type heap filter | **`videoChannelId_type_idx`**                          |
+| Execution time              | **513.2 ms**                                      | **4.95 ms** (after file) / **1.18 ms** (production-or) |
+| Index-qualified rows        | 3266                                              | 1031–1322                                              |
+| Rows removed by type filter | 2008                                              | **0** (type in Index Cond)                             |
+| Buffer hits                 | 697                                               | 502–883                                                |
+| Heap blocks                 | 644                                               | 480                                                    |
 
 **Why index IS used:** Predicate is `videoChannelId IN (...) AND type IN (...)` without OR — perfect composite match. Eliminates ~62% wasted row qualification from `createdAt` index path.
 
@@ -194,12 +201,12 @@ npx tsx scripts/phase2b-explain-analyze.ts indexes   # verify drop
 
 ### 4C. Summary: is `AnalyticsEvent(videoChannelId, type)` justified?
 
-| Runtime query | Uses new index? | Measurable benefit? |
-|---------------|-----------------|---------------------|
-| `batchSocialMetrics` OR | No | No (already ~0.4 ms) |
-| `liveEngagement` OR | **Yes (BitmapOr leg)** | **Yes** — precise type+channel qualification |
-| `liveWatchDuration` OR | No | No (already ~1 ms) |
-| `videoChannelId`-only watch/engagement | **Yes** | **Yes** — 513 ms → ~5 ms (prior validation) |
+| Runtime query                          | Uses new index?        | Measurable benefit?                          |
+| -------------------------------------- | ---------------------- | -------------------------------------------- |
+| `batchSocialMetrics` OR                | No                     | No (already ~0.4 ms)                         |
+| `liveEngagement` OR                    | **Yes (BitmapOr leg)** | **Yes** — precise type+channel qualification |
+| `liveWatchDuration` OR                 | No                     | No (already ~1 ms)                           |
+| `videoChannelId`-only watch/engagement | **Yes**                | **Yes** — 513 ms → ~5 ms (prior validation)  |
 
 **Conclusion:** **Keep** `AnalyticsEvent(videoChannelId, type)`. It is selected on production-equivalent engagement OR queries and delivers large gains on videoChannelId+type paths. Social and watch_duration OR queries do not need it but are already fast; they are not harmed.
 
@@ -207,10 +214,10 @@ npx tsx scripts/phase2b-explain-analyze.ts indexes   # verify drop
 
 ## 5. Migration history safety
 
-| Migration | Status | Action |
-|-----------|--------|--------|
-| `20260715180000_phase2b_pool_indexes` | **Already applied** | **Not modified** — preserves audit trail |
-| `20260716150000_phase2b_drop_unused_rollup_index` | **Pending deploy** | Forward-only cleanup |
+| Migration                                         | Status              | Action                                   |
+| ------------------------------------------------- | ------------------- | ---------------------------------------- |
+| `20260715180000_phase2b_pool_indexes`             | **Already applied** | **Not modified** — preserves audit trail |
+| `20260716150000_phase2b_drop_unused_rollup_index` | **Pending deploy**  | Forward-only cleanup                     |
 
 Applying the cleanup migration is **idempotent** (`IF EXISTS`) and **non-destructive** to application data. It only drops an unused index.
 
@@ -218,10 +225,10 @@ Applying the cleanup migration is **idempotent** (`IF EXISTS`) and **non-destruc
 
 ## 6. Write-amplification assessment
 
-| Index | Inserts affected | Assessment |
-|-------|------------------|------------|
-| `VideoChannelDailyRollup_videoChannelId_day_idx` | Daily rollup upserts | **Removing** eliminates redundant index maintenance with zero query benefit |
-| `AnalyticsEvent_videoChannelId_type_idx` | Every `AnalyticsEvent` insert with `videoChannelId` | **Acceptable** — high-volume table, but index proven on hot live-fallback paths; one extra btree update per insert vs large read savings on explore batch |
+| Index                                            | Inserts affected                                    | Assessment                                                                                                                                                |
+| ------------------------------------------------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VideoChannelDailyRollup_videoChannelId_day_idx` | Daily rollup upserts                                | **Removing** eliminates redundant index maintenance with zero query benefit                                                                               |
+| `AnalyticsEvent_videoChannelId_type_idx`         | Every `AnalyticsEvent` insert with `videoChannelId` | **Acceptable** — high-volume table, but index proven on hot live-fallback paths; one extra btree update per insert vs large read savings on explore batch |
 
 ---
 
@@ -248,14 +255,14 @@ Also restore `@@index([videoChannelId, day])` in `schema.prisma` if rolling back
 
 ## 8. Verification results
 
-| Check | Result |
-|-------|--------|
-| `npm test -- channel-public-metrics-batch` | **5/5 passed** |
-| `npm run build` | **Succeeded** (exit 0) |
-| `npx prisma migrate status` | **Not completed** — pool `max clients reached` on staging |
-| `npx prisma migrate deploy` (cleanup) | **Pending user approval** — migration file ready |
-| `npx tsx scripts/phase2b-explain-analyze.ts production-or` | **Completed** — see artifacts |
-| `npx tsx scripts/phase2b-explain-analyze.ts indexes` | **Completed** — pre-cleanup state captured |
+| Check                                                      | Result                                                    |
+| ---------------------------------------------------------- | --------------------------------------------------------- |
+| `npm test -- channel-public-metrics-batch`                 | **5/5 passed**                                            |
+| `npm run build`                                            | **Succeeded** (exit 0)                                    |
+| `npx prisma migrate status`                                | **Not completed** — pool `max clients reached` on staging |
+| `npx prisma migrate deploy` (cleanup)                      | **Pending user approval** — migration file ready          |
+| `npx tsx scripts/phase2b-explain-analyze.ts production-or` | **Completed** — see artifacts                             |
+| `npx tsx scripts/phase2b-explain-analyze.ts indexes`       | **Completed** — pre-cleanup state captured                |
 
 ---
 

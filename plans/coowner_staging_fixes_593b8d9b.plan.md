@@ -70,7 +70,7 @@ PR1 must land first because nothing else is testable while ownership verificatio
 ```ts
 const apiKey = resolveYoutubeDataApiKey();
 if (!apiKey) {
-  if (isYoutubeVerifyDisabled()) return;   // explicit local-dev opt-in only
+  if (isYoutubeVerifyDisabled()) return; // explicit local-dev opt-in only
   throw createHttpError(
     503,
     "YouTube ownership verification is unavailable — contact support"
@@ -78,25 +78,26 @@ if (!apiKey) {
 }
 ```
 
-  This removes the accidental fail-open path: absence of a key now fails closed in every environment unless someone deliberately set the flag.
+This removes the accidental fail-open path: absence of a key now fails closed in every environment unless someone deliberately set the flag.
+
 - Apply the same resolver at [backend/src/controllers/policy.controller.ts](backend/src/controllers/policy.controller.ts) line 56 and [backend/src/controllers/hostChannels.controller.ts](backend/src/controllers/hostChannels.controller.ts) line 52.
 - Add `YOUTUBE_DATA_API_KEY` to `backend/.env` and `backend/.env.production` (same value as the existing key), and document `COOWNER_YT_VERIFY_DISABLED` in the env example file.
 - Add a boot-time assertion in [backend/src/index.ts](backend/src/index.ts): if no key and the flag is not set, log a fatal-level warning naming both variables. Fail loudly at startup rather than at user submit time.
 
 **Tests.** New `backend/src/services/__tests__/youtube-verify-config.spec.ts`: key present takes the real path; no key and flag unset throws 503 for `NODE_ENV` of both `production` and `development`; no key with flag set returns without throwing; legacy `YOUTUBE_API_KEY` alone resolves.
 
-**Manual QA.** With the key deployed, verify a video that *is* on the selected channel (expect success) and one that is *not* (expect "Video not found on the selected YouTube channel"). The second case is the one that silently passed before.
+**Manual QA.** With the key deployed, verify a video that _is_ on the selected channel (expect success) and one that is _not_ (expect "Video not found on the selected YouTube channel"). The second case is the one that silently passed before.
 
 ---
 
 ## PR2 - RC-2: default co-owned video must consider approval
 
-**Problem.** [frontend/src/lib/validate-privacy-video-links.ts](frontend/src/lib/validate-privacy-video-links.ts) lines 69-74 reject `isDefault && ownershipAnswer === "no"` unconditionally, never consulting invite status. The event-only wizard sets `isDefault: true` on the first link ([frontend/src/app/(event)/event-only/page.tsx](frontend/src/app/(event)/event-only/page.tsx) line 158), so a single-video co-owned event can never be submitted even after approval. The backend rule it is meant to mirror *is* approval-aware ([backend/src/services/coOwner/event-create-coowner.util.ts](backend/src/services/coOwner/event-create-coowner.util.ts) lines 129-144).
+**Problem.** [frontend/src/lib/validate-privacy-video-links.ts](frontend/src/lib/validate-privacy-video-links.ts) lines 69-74 reject `isDefault && ownershipAnswer === "no"` unconditionally, never consulting invite status. The event-only wizard sets `isDefault: true` on the first link ([frontend/src/app/(event)/event-only/page.tsx](<frontend/src/app/(event)/event-only/page.tsx>) line 158), so a single-video co-owned event can never be submitted even after approval. The backend rule it is meant to mirror _is_ approval-aware ([backend/src/services/coOwner/event-create-coowner.util.ts](backend/src/services/coOwner/event-create-coowner.util.ts) lines 129-144).
 
 **Changes**
 
 - Delete the block at lines 69-74 of `validate-privacy-video-links.ts`. Keep the function synchronous; it has no access to invite status and should not acquire it.
-- Move the rule into [frontend/src/lib/coowner-draft-submit.util.ts](frontend/src/lib/coowner-draft-submit.util.ts), which already fetches invites per link and already runs immediately after `runPrivacyChecks()` in all three wizards (see [frontend/src/app/(event)/event-only/page.tsx](frontend/src/app/(event)/event-only/page.tsx) lines 203-207). Extend `LinkSlice` with `isDefault?: boolean` and, when `link.isDefault` and readiness is blocked, return a default-video-specific message instead of the generic one. Approved links pass.
+- Move the rule into [frontend/src/lib/coowner-draft-submit.util.ts](frontend/src/lib/coowner-draft-submit.util.ts), which already fetches invites per link and already runs immediately after `runPrivacyChecks()` in all three wizards (see [frontend/src/app/(event)/event-only/page.tsx](<frontend/src/app/(event)/event-only/page.tsx>) lines 203-207). Extend `LinkSlice` with `isDefault?: boolean` and, when `link.isDefault` and readiness is blocked, return a default-video-specific message instead of the generic one. Approved links pass.
 - Add a `default_awaiting_approval` case to `CoOwnerBlockReason` and `coOwnerBlockReasonMessage` in [frontend/src/lib/coowner-submit-readiness.util.ts](frontend/src/lib/coowner-submit-readiness.util.ts) so the message stays in the single source of truth.
 - Confirm during implementation that `runPrivacyChecks()` is not also called from `nextStep` in `content-only` and `event-and-content` (it is called only from `onSubmit` in `event-only`). If it is, the removal is still correct because the rule now lives in the submit-time async validator.
 
@@ -108,7 +109,7 @@ if (!apiKey) {
 
 ## PR3 - RC-5: stabilise the submit-gating hook
 
-**Problem.** In [frontend/src/hooks/use-coowner-draft-submit-blocked.ts](frontend/src/hooks/use-coowner-draft-submit-blocked.ts), `coOwned` is memoised on the *identity* of `links` (line 19), and every caller passes a freshly allocated array each render - `form.watch("videoLinks") ?? []` at [frontend/src/app/(event)/content-only/page.tsx](frontend/src/app/(event)/content-only/page.tsx) line 202 and an inline literal at [frontend/src/components/events/add-video-form.tsx](frontend/src/components/events/add-video-form.tsx) lines 272-275. So `refresh` gets a new identity every render and the effect tears itself down and re-runs continuously. Four consequences: the 5s interval never fires; `blocked` flips true/false in a self-sustaining render loop after approval; concurrent polls can overwrite each other; and `blocked` initialises to `false` so there is a painted frame where the button is enabled.
+**Problem.** In [frontend/src/hooks/use-coowner-draft-submit-blocked.ts](frontend/src/hooks/use-coowner-draft-submit-blocked.ts), `coOwned` is memoised on the _identity_ of `links` (line 19), and every caller passes a freshly allocated array each render - `form.watch("videoLinks") ?? []` at [frontend/src/app/(event)/content-only/page.tsx](<frontend/src/app/(event)/content-only/page.tsx>) line 202 and an inline literal at [frontend/src/components/events/add-video-form.tsx](frontend/src/components/events/add-video-form.tsx) lines 272-275. So `refresh` gets a new identity every render and the effect tears itself down and re-runs continuously. Four consequences: the 5s interval never fires; `blocked` flips true/false in a self-sustaining render loop after approval; concurrent polls can overwrite each other; and `blocked` initialises to `false` so there is a painted frame where the button is enabled.
 
 **Changes**
 
@@ -130,7 +131,7 @@ These two are one PR because both touch the invite block and `form-draft-utils`,
 
 **Problem (RC-3).** Name, email and share percent live in local `useState` inside `CoOwnerInviteBlock` ([frontend/src/components/events/event-content-privacy-step.tsx](frontend/src/components/events/event-content-privacy-step.tsx) lines 503-505), rendered only when `coOwnerBlockIndex === i` (line 472) inside a component mounted only on step 4. Navigating away unmounts everything and nothing rehydrates, so the user retypes the co-owner and hits the duplicate guard at [backend/src/controllers/videoCoOwnerInvite.controller.ts](backend/src/controllers/videoCoOwnerInvite.controller.ts) lines 123-131, producing the "already has an invite ... status: approved" pair.
 
-**Problem (RC-4).** The draft key is minted by a mount-only effect with `[form]` deps at [frontend/src/components/events/add-video-policy-fields.tsx](frontend/src/components/events/add-video-policy-fields.tsx) lines 102-112, so it never re-fires. `form.reset(merged)` in [frontend/src/hooks/use-modal-form-draft-restore.ts](frontend/src/hooks/use-modal-form-draft-restore.ts) line 57 can set it back to `""` because `mergeModalDraftPayload` coerces a missing key to empty string ([frontend/src/lib/form-draft-utils.ts](frontend/src/lib/form-draft-utils.ts) line 161), and if `sessionStorage` is empty the restore never runs at all and a *new* UUID is minted that does not match the approved invite.
+**Problem (RC-4).** The draft key is minted by a mount-only effect with `[form]` deps at [frontend/src/components/events/add-video-policy-fields.tsx](frontend/src/components/events/add-video-policy-fields.tsx) lines 102-112, so it never re-fires. `form.reset(merged)` in [frontend/src/hooks/use-modal-form-draft-restore.ts](frontend/src/hooks/use-modal-form-draft-restore.ts) line 57 can set it back to `""` because `mergeModalDraftPayload` coerces a missing key to empty string ([frontend/src/lib/form-draft-utils.ts](frontend/src/lib/form-draft-utils.ts) line 161), and if `sessionStorage` is empty the restore never runs at all and a _new_ UUID is minted that does not match the approved invite.
 
 **Changes**
 
@@ -150,7 +151,7 @@ These two are one PR because both touch the invite block and `form-draft-utils`,
 
 **Problem.** [backend/src/controllers/event.controller.ts](backend/src/controllers/event.controller.ts) validates at line 248, creates the event at line 255 **outside** any transaction, then creates channels and co-owners in a separate transaction at lines 276-299. A failure after line 291 leaves an `EventChannel` with `VideoCoOwner` rows. Every later retry of the same video then hits the global guard at [backend/src/services/coOwner/youtube-verify.service.ts](backend/src/services/coOwner/youtube-verify.service.ts) lines 30-49, and because `finalizeCoOwnersForNewChannel` filters on `eventChannelId: null` (line 264) the invites are already consumed and cannot be re-linked.
 
-**Decision applied.** Global uniqueness is retained. A retry of the *same* draft and invite set must succeed instead of returning 409.
+**Decision applied.** Global uniqueness is retained. A retry of the _same_ draft and invite set must succeed instead of returning 409.
 
 **Changes**
 
@@ -161,7 +162,7 @@ These two are one PR because both touch the invite block and `form-draft-utils`,
 
 **Tests.** Extend [backend/src/services/\_\_tests\_\_/youtube-coowner-duplicate.spec.ts](backend/src/services/__tests__/youtube-coowner-duplicate.spec.ts): same draft key is excluded and passes; different draft key still throws 409; different host still throws 409. New finalize spec: retry with an already-linked invite reuses the row rather than duplicating; retry when payouts exist throws instead of relocating; approved invites are linked even when `eventChannelId` is already set. New controller spec: a failure inside the channel loop leaves no `Event` row.
 
-**Manual QA.** Submit a co-owned video successfully. Then attempt a second, distinct co-owned submission of the *same* video with a *new* invite - expect the 409, which is the intended rule.
+**Manual QA.** Submit a co-owned video successfully. Then attempt a second, distinct co-owned submission of the _same_ video with a _new_ invite - expect the 409, which is the intended rule.
 
 ---
 

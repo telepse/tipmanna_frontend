@@ -84,14 +84,19 @@ export function HostDashboardGate({ children }: Props) {
   }
 
   if (!ready) {
+    const loadingMessage =
+      capability.status === "loading"
+        ? "Checking host access…"
+        : canReadAsHost && !canWriteAsHost
+          ? "Confirm host access to open the dashboard."
+          : "Sign in to your host account to access the dashboard.";
+
     return (
       <>
         {HostAuthModal}
         <div className="flex h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
           <LoaderCircle className="text-primary size-10 animate-spin" />
-          <p className="text-muted-foreground text-sm">
-            Sign in to your host account to access the dashboard.
-          </p>
+          <p className="text-muted-foreground text-sm">{loadingMessage}</p>
         </div>
       </>
     );

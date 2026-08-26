@@ -44,6 +44,8 @@ import { PushPermissionPrompt } from "@/components/notifications/push-permission
 import { NotificationBadge } from "@/components/notifications/notification-badge";
 import { ProfileDrawerLoginGate } from "@/components/tv/profile-drawer-login-gate";
 import { useProfileDrawerData } from "@/hooks/use-profile-drawer-data";
+import { useHostCapability } from "@/hooks/use-host-capability";
+import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 
 export type ProfileDrawerTab =
   | "notifications"
@@ -93,6 +95,19 @@ export const ProfileDrawer = ({
   const dispatch = useDispatch();
 
   const drawerData = useProfileDrawerData(isProfileDrawerOpen);
+  const { capability } = useHostCapability();
+  const viewerHostUsername = (() => {
+    if (user?.role === "HOST" && user.username?.trim()) {
+      return user.username.trim();
+    }
+    if (capability.status === "active" && capability.username?.trim()) {
+      return capability.username.trim();
+    }
+    if (capability.status === "stale" && capability.username?.trim()) {
+      return capability.username.trim();
+    }
+    return null;
+  })();
 
   const tipperEvents = tipperEventsProp ?? drawerData.tipperEvents;
   const iTipped = iTippedProp ?? drawerData.iTipped;
@@ -240,10 +255,11 @@ export const ProfileDrawer = ({
     if (user?.role === "VISITOR") {
       return (
         <VisitorProfileClient
-          variant="drawer"
+          viewMode="drawer"
           events={tipperEvents}
           iTipped={iTipped}
           tippedVideos={tippedVideos}
+          profileSlug={user.username}
         />
       );
     }
@@ -254,12 +270,13 @@ export const ProfileDrawer = ({
     ) {
       return (
         <TipperProfileClient
-          variant="drawer"
+          viewMode="drawer"
           events={tipperEvents}
           iTipped={iTipped}
           causes={causes}
           contents={savedContents || []}
           tippedVideos={tippedVideos}
+          profileSlug={user?.username}
         />
       );
     }
@@ -401,6 +418,19 @@ export const ProfileDrawer = ({
           onValueChange={v => setActiveTab(v as ProfileDrawerTab)}
           className="flex min-h-0 flex-1 flex-col pt-10"
         >
+          {viewerHostUsername ? (
+            <p className="text-muted-foreground mb-2 shrink-0 px-1 text-center text-xs">
+              Host:{" "}
+              <a
+                href={buildCreatorProfileSharePath(viewerHostUsername)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary font-medium underline underline-offset-2"
+              >
+                @{viewerHostUsername}
+              </a>
+            </p>
+          ) : null}
           <TabsList className="grid w-full shrink-0 grid-cols-4">
             <TabsTrigger
               value="notifications"

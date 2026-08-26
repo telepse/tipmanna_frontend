@@ -98,11 +98,11 @@ Keep `miniPlayerActive` as an optional **TvPlayer layout prop** if still used fo
 
 Enforcement pre-start is already a **virtual 60s axis segment**, not a YouTube video:
 
-| Layer | Today |
-|-------|--------|
-| Backend | `segmentKind: "notice"`, `noticePhase: "pre"`, title e.g. “Program Start (Block)” — [`tv-virtual-playlist.service.ts`](backend/src/services/tv-virtual-playlist.service.ts) |
+| Layer           | Today                                                                                                                                                                                        |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend         | `segmentKind: "notice"`, `noticePhase: "pre"`, title e.g. “Program Start (Block)” — [`tv-virtual-playlist.service.ts`](backend/src/services/tv-virtual-playlist.service.ts)                  |
 | GLOBAL playback | `syncToLive` lands on notice row, pauses player (`syncToLive_notice_pause`), then loads enforcement clip in GLOBAL — [`tv-provider.tsx`](frontend/src/components/tv-provider.tsx) ~1353–1468 |
-| UI | Black overlay when `current?.segmentKind === "notice"` in all loopers — e.g. [`tv-looper.tsx`](frontend/src/components/tv/tv-looper.tsx) ~1257–1272 |
+| UI              | Black overlay when `current?.segmentKind === "notice"` in all loopers — e.g. [`tv-looper.tsx`](frontend/src/components/tv/tv-looper.tsx) ~1257–1272                                          |
 
 **This work extends that slate** — countdown, LOCAL visibility, opt-out actions, clearer copy. No second modal, toast, timer, or backend segment.
 
@@ -156,8 +156,10 @@ flowchart TD
 
 ```ts
 showPreNoticeOverlay =
-  (mode === "GLOBAL" && current.segmentKind === "notice")  // existing
-  || (mode === "LOCAL" && livePreNotice && !dismissedPreNoticeIds.has(enforcementId))
+  (mode === "GLOBAL" && current.segmentKind === "notice") || // existing
+  (mode === "LOCAL" &&
+    livePreNotice &&
+    !dismissedPreNoticeIds.has(enforcementId));
 ```
 
 ### Implementation (regression-safe)
@@ -216,10 +218,10 @@ Keep player mounted under overlay (existing notice pattern: `lastPlayableUrlRef`
 
 ### User journeys
 
-| Viewer | Slate appears | Wait | Return button | Playlist click |
-|--------|---------------|------|---------------|----------------|
-| GLOBAL | Existing sync → notice row + pause | Enforcement on Live TV via syncToLive | N/A (no snapshot) | Dismiss + LOCAL + chosen row |
-| LOCAL | Overlay on axis; local video paused under slate | enterGlobalMode → Live TV program | Restore seek, stay LOCAL | Dismiss + play row (existing skip notice) |
+| Viewer | Slate appears                                   | Wait                                  | Return button            | Playlist click                            |
+| ------ | ----------------------------------------------- | ------------------------------------- | ------------------------ | ----------------------------------------- |
+| GLOBAL | Existing sync → notice row + pause              | Enforcement on Live TV via syncToLive | N/A (no snapshot)        | Dismiss + LOCAL + chosen row              |
+| LOCAL  | Overlay on axis; local video paused under slate | enterGlobalMode → Live TV program     | Restore seek, stay LOCAL | Dismiss + play row (existing skip notice) |
 
 ### Regression checklist
 

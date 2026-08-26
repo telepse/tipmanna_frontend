@@ -22,6 +22,7 @@ export type TipperUser = {
   fullName: string;
   email: string;
   username: string;
+  displayUsername?: string;
   role: "TIPPER";
   anonymous?: boolean;
   numOfEvents?: number;

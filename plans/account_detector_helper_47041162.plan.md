@@ -87,6 +87,7 @@ flowchart TD
 [backend/src/middlewares/role.middleware.ts](backend/src/middlewares/role.middleware.ts) has `requireTipperOrPairedHost` (host acting as tipper) but no reverse. Add `requireHostOrPairedTipper`: pass if role is `host`; if role is `tipper`, pass when `prisma.host.findUnique({ where: { id: req.user._id } })` exists, and set `req.pairedHostId`.
 
 Apply to the read endpoints the frontend already tries to call from tipper sessions, all currently `requireHost`:
+
 - `GET /communities/me` and `GET /communities/sends/me` in [community-host.route.ts](backend/src/routes/community-host.route.ts)
 - `GET /events/host/me/summary` in [event.route.ts:406-411](backend/src/routes/event.route.ts)
 

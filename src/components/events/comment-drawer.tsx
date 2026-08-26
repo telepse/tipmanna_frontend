@@ -54,6 +54,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SaveHostToggleButton } from "./save-host-toggle-button";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
+import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { UserPlus } from "lucide-react";
 
 interface Props {
   isCommentDrawerOpen: boolean;
@@ -133,6 +136,7 @@ export const CommentDrawer = ({
   const [reportReason, setReportReason] = useState("deceptive");
   const [reportOther, setReportOther] = useState("");
   const [likeBusyId, setLikeBusyId] = useState<string | null>(null);
+  const [communityJoinOpen, setCommunityJoinOpen] = useState(false);
   const cancelTextPreviewRef = useRef<(() => void) | null>(null);
   const drawerShellRef = useRef<HTMLDivElement | null>(null);
 
@@ -171,6 +175,11 @@ export const CommentDrawer = ({
   const hostMeta = drawerData?.host;
 
   const resolvedHostUsername = hostMeta?.username ?? hostUsername?.trim() ?? "";
+  const isCommunityBankVideo = Boolean(channelMeta?.communityName);
+  const communityJoinHref =
+    channelMeta?.communityId != null
+      ? exploreCommunityJoinHref(channelMeta.communityId)
+      : null;
 
   const engagementInitial = useMemo(() => {
     if (!metrics) return null;
@@ -505,29 +514,54 @@ export const CommentDrawer = ({
             </h5>
 
             <div className="space-y-2 p-4">
-              <h4 className="flex items-center gap-1 text-sm font-semibold">
-                <span className="text-primary">Creator</span>
-                <span>
-                  {hostMeta?.firstName ?? hostName?.split(" ")[0]}{" "}
-                  <span className="text-muted-foreground text-[10px]">
-                    {resolvedHostUsername
-                      ? `@${resolvedHostUsername}`
-                      : null}{" "}
+              {isCommunityBankVideo ? (
+                <h4 className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="text-primary">Community</span>
+                  <span>c {channelMeta?.communityName}</span>
+                  {channelMeta?.communityId && communityJoinHref ? (
+                    <button
+                      type="button"
+                      className="text-primary inline-flex items-center gap-0.5 rounded bg-black/50 p-1 text-white"
+                      aria-label={`Join ${channelMeta.communityName ?? "community"}`}
+                      onClick={() => setCommunityJoinOpen(true)}
+                    >
+                      <UserPlus className="size-4" />
+                    </button>
+                  ) : null}
+                </h4>
+              ) : (
+                <h4 className="flex items-center gap-1 text-sm font-semibold">
+                  <span className="text-primary">Creator</span>
+                  <span>
+                    {hostMeta?.firstName ?? hostName?.split(" ")[0]}{" "}
+                    <span className="text-muted-foreground text-[10px]">
+                      {resolvedHostUsername
+                        ? `@${resolvedHostUsername}`
+                        : null}{" "}
+                    </span>
                   </span>
-                </span>
-                <SaveHostToggleButton
-                  channelId={channelId != null ? String(channelId) : null}
-                  className="rounded bg-black/50 p-1 text-white"
-                  iconClassName="size-4 text-white"
-                />
-              </h4>
-              {coOwnerNames.length > 0 ? (
+                  <SaveHostToggleButton
+                    channelId={channelId != null ? String(channelId) : null}
+                    className="rounded bg-black/50 p-1 text-white"
+                    iconClassName="size-4 text-white"
+                  />
+                </h4>
+              )}
+              {!isCommunityBankVideo && coOwnerNames.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
                     Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
                     {coOwnerNames.join(", ")}
                   </span>
                 </div>
+              ) : null}
+              {!isCommunityBankVideo && channelMeta?.communityName ? (
+                <p className="text-muted-foreground text-[11px]">
+                  Community bank:{" "}
+                  <span className="text-foreground font-medium">
+                    c {channelMeta.communityName}
+                  </span>
+                </p>
               ) : null}
               {(resolvedTitle || loading) && (
                 <p className="text-sm font-medium">
@@ -553,13 +587,6 @@ export const CommentDrawer = ({
 
               {channelMeta ? (
                 <div className="flex flex-col gap-1">
-                  <p className="text-muted-foreground text-[11px]">
-                    {channelMeta.communityName ? "Community" : ""}{" "}
-                    {channelMeta.communityName
-                      ? ` · ${channelMeta.communityName}`
-                      : ""}
-                  </p>
-
                   <div className="flex items-center gap-1">
                     <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[10px]">
                       {channelMeta.eventVideoType}
@@ -845,6 +872,16 @@ export const CommentDrawer = ({
           if (messageId) void handleLike(messageId);
         }}
       />
+
+      {channelMeta?.communityId && communityJoinHref ? (
+        <JoinCommunityModal
+          open={communityJoinOpen}
+          onOpenChange={setCommunityJoinOpen}
+          communityId={channelMeta.communityId}
+          signInRedirectPath={communityJoinHref}
+          title={`Join ${channelMeta.communityName ?? "community"}`}
+        />
+      ) : null}
     </>
   );
 };

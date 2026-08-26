@@ -24,6 +24,7 @@ import {
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { buildSurfaceTipPriceCatalog } from "@/lib/surface-tip-price-catalog";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
@@ -142,6 +143,17 @@ export function ExploreTvScheduleFeed({
     {
       paymentSurface: "explore_feed",
     }
+  );
+
+  const tipPriceCatalog = useMemo(
+    () =>
+      buildSurfaceTipPriceCatalog({
+        enrichedCatalog: tipPres.catalog as RoomCharacter[],
+        videoCatalog: characters as RoomCharacter[],
+        fallbackCatalog: characters as RoomCharacter[],
+        characterSets: characterSets,
+      }),
+    [tipPres.catalog, characters, characterSets]
   );
 
   useGlobalTipStream({
@@ -407,7 +419,7 @@ export function ExploreTvScheduleFeed({
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
-          tippingCharacters={characters as RoomCharacter[]}
+          tippingCharacters={tipPriceCatalog}
           enabled
           textTipUnitPrice={tipPres.textUnitPrice}
         >
@@ -415,7 +427,7 @@ export function ExploreTvScheduleFeed({
             open={tipDrawerOpen}
             onOpenChange={setTipDrawerOpen}
             eventId={tipEventId ?? ""}
-            tippingCharacters={characters}
+            tippingCharacters={tipPriceCatalog}
             characterSets={characterSets}
             paymentSurface="explore_feed"
             paymentChannelId={tipChannelId}

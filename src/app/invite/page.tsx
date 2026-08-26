@@ -6,10 +6,13 @@ import { useSearchParams } from "next/navigation";
 
 // Third-party imports
 import { useDispatch } from "react-redux";
-import { persistAuthSession } from "@/lib/session-client";
+import type { AppDispatch } from "@/redux/store";
+import {
+  applyPrimaryAndCohostSessions,
+  parseCohostAuthResponse,
+} from "@/lib/apply-cohost-sessions";
 
 // Local imports
-import { setCredentials } from "@/features/auth-slice";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 
 export default function InvitePage() {
@@ -82,7 +85,7 @@ export default function InvitePage() {
     }
   };
 
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   // 3. Verify the 6-digit code
   const handleVerifyCode = async () => {
@@ -112,39 +115,18 @@ export default function InvitePage() {
       const data = await res.json();
       console.log(data);
 
-      const { id, fullName, email, username } = data.user;
-      const { accessToken } = data;
-
-      dispatch(
-        setCredentials({
-          user: {
-            id,
-            fullName,
-            email,
-            username,
-            role: "TIPPER",
-          },
-          token: accessToken!,
-          requiresVerification: false,
-          tag: "COHOST",
-        })
-      );
-
-      await persistAuthSession(
-        accessToken!,
-        {
-          id,
-          fullName,
-          email,
-          username,
-          role: "TIPPER",
-        },
-        { expiresDays: 60 }
-      );
-
       if (!res.ok) {
         throw new Error(data.message || "Invalid code");
       }
+
+      const parsed = parseCohostAuthResponse(data);
+      if (!parsed) {
+        throw new Error(
+          "Verification succeeded but session could not be restored"
+        );
+      }
+
+      await applyPrimaryAndCohostSessions(parsed, dispatch);
 
       // This tells the room that this specific event has a pending welcome modal!
       localStorage.setItem(

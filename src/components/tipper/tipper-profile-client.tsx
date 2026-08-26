@@ -36,7 +36,10 @@ interface Props {
   causes: Cause[];
   contents?: Content[];
   tippedVideos?: TippedVideoSummary[];
-  variant?: "page" | "drawer";
+  viewMode?: "owner" | "public" | "drawer";
+  profileSlug?: string;
+  displayName?: string;
+  isAnonymous?: boolean;
 }
 
 export const TipperProfileClient = ({
@@ -45,13 +48,26 @@ export const TipperProfileClient = ({
   causes,
   contents,
   tippedVideos = [],
-  variant = "page",
+  viewMode = "owner",
+  profileSlug,
+  displayName,
+  isAnonymous,
 }: Props) => {
-  const isDrawer = variant === "drawer";
+  const isDrawer = viewMode === "drawer";
+  const bannerVariant =
+    viewMode === "public" ? "public" : isDrawer ? "drawer" : "owner";
+  const tabsVariant =
+    viewMode === "public" ? "public" : isDrawer ? "drawer" : "owner";
 
   return (
     <>
-      <TipperBanner iTipped={iTipped} />
+      <TipperBanner
+        iTipped={iTipped}
+        variant={bannerVariant}
+        profileSlug={profileSlug}
+        displayName={displayName}
+        isAnonymous={isAnonymous}
+      />
 
       <section
         className={
@@ -72,8 +88,17 @@ export const TipperProfileClient = ({
           causes={causes}
           contents={contents}
           tippedVideos={tippedVideos}
-          variant={variant}
+          variant={tabsVariant}
+          totalTipped={iTipped}
         />
+        {isDrawer && profileSlug ? (
+          <a
+            href={`/tipper/${profileSlug}`}
+            className="text-primary mt-4 text-sm font-medium underline underline-offset-2"
+          >
+            Open full profile
+          </a>
+        ) : null}
       </section>
 
       {!isDrawer ? <Footer /> : null}

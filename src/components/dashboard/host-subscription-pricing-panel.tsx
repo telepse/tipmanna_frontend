@@ -11,6 +11,10 @@ import {
   hostSubscriptionBillingPortalAction,
   hostSubscriptionCheckoutAction,
 } from "@/actions/host";
+import {
+  getPlanPricingAction,
+  type PublicPlanPricing,
+} from "@/actions/plan-pricing";
 import { useHostSession } from "@/hooks/use-host-session";
 import { updateTipper } from "@/features/auth-slice";
 import type { HostSubscriptionMe } from "@/lib/host-plan-capabilities";
@@ -52,6 +56,7 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [info, setInfo] = useState<HostSubscriptionMe | null>(null);
+  const [pricing, setPricing] = useState<PublicPlanPricing | null>(null);
 
   const refresh = useCallback(async () => {
     if (!hostSessionActive) {
@@ -59,12 +64,18 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
       return;
     }
     try {
-      const res = await getHostSubscriptionMeAction();
-      if (!res.success || !res.data) {
+      const [subRes, priceRes] = await Promise.all([
+        getHostSubscriptionMeAction(),
+        getPlanPricingAction(),
+      ]);
+      if (priceRes.success && priceRes.data) {
+        setPricing(priceRes.data as PublicPlanPricing);
+      }
+      if (!subRes.success || !subRes.data) {
         setInfo(null);
         return;
       }
-      const data = res.data as HostSubscriptionMe;
+      const data = subRes.data as HostSubscriptionMe;
       setInfo(data);
       const t = data.tier;
       const hostSubscriptionTier =
@@ -83,14 +94,17 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
     void refresh();
   }, [refresh]);
 
-  const checkout = async (tier: "premium" | "community") => {
+  const checkout = async (
+    tier: "premium" | "community",
+    options?: { upgradeAtPeriodEnd?: boolean }
+  ) => {
     if (!hostSessionActive) {
       toast.error("Host session required.");
       return;
     }
     setBusy(tier);
     try {
-      const res = await hostSubscriptionCheckoutAction(tier);
+      const res = await hostSubscriptionCheckoutAction(tier, options);
       if (!res.success) {
         toast.error(res.message ?? "Unable to start checkout.");
         return;
@@ -98,10 +112,11 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
       const data = res.data as {
         url?: string;
         upgraded?: boolean;
+        scheduled?: boolean;
         redirectUrl?: string;
         message?: string;
       };
-      if (data.upgraded && data.redirectUrl) {
+      if ((data.upgraded || data.scheduled) && data.redirectUrl) {
         window.location.href = data.redirectUrl;
         return;
       }
@@ -153,6 +168,15 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
     tier === "HOST_PREMIUM" || tier === "HOST_COMMUNITY" || status === "active";
   const communityActive = tier === "HOST_COMMUNITY" && status === "active";
 
+  const premiumList = pricing?.premium.listMinor ?? 1999;
+  const premiumSale = pricing?.premium.saleMinor ?? premiumList;
+  const communityList = pricing?.community.listMinor ?? 9900;
+  const communitySale = pricing?.community.saleMinor ?? communityList;
+  const showPremiumDiscount =
+    pricing?.discountActive && premiumSale < premiumList;
+  const showCommunityDiscount =
+    pricing?.discountActive && communitySale < communityList;
+
   return (
     <section className="space-y-4">
       {info?.history && info.history.length > 0 && status === "lapsed" ? (
@@ -185,7 +209,16 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
               Video display controls, tip layout, co-owners, and video requests.
             </p>
             <p className="text-2xl font-semibold">
-              £19.99{" "}
+              {showPremiumDiscount ? (
+                <>
+                  <span className="text-muted-foreground mr-2 text-base line-through">
+                    {formatGbpMinor(premiumList)}
+                  </span>
+                  {formatGbpMinor(premiumSale)}
+                </>
+              ) : (
+                formatGbpMinor(premiumList)
+              )}{" "}
               <span className="text-muted-foreground text-xs">per 30 days</span>
             </p>
             <ul className="w-full space-y-4 lg:hidden">
@@ -235,7 +268,18 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
             <p className="text-muted-foreground mt-1 text-sm">
               Communities, TV, sends — includes all Premium features.
             </p>
-            <p className="mt-3 text-2xl font-bold">£99</p>
+            <p className="mt-3 text-2xl font-bold">
+              {showCommunityDiscount ? (
+                <>
+                  <span className="text-muted-foreground mr-2 text-lg line-through">
+                    {formatGbpMinor(communityList)}
+                  </span>
+                  {formatGbpMinor(communitySale)}
+                </>
+              ) : (
+                formatGbpMinor(communityList)
+              )}
+            </p>
             <p className="text-muted-foreground text-xs">per 30 days</p>
             <ul className="w-full space-y-4 lg:hidden">
               {COMMUNTIY_FEATURES.map((feature, index) => (
@@ -276,6 +320,21 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
                 "Subscribe"
               )}
             </Button>
+            {tier === "HOST_PREMIUM" &&
+            status === "active" &&
+            info?.hasStripeSubscription ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 w-full"
+                disabled={busy !== null}
+                onClick={() =>
+                  void checkout("community", { upgradeAtPeriodEnd: true })
+                }
+              >
+                Upgrade at period end
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>

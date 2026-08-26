@@ -27,6 +27,7 @@ type Props = {
   initialLiveStreams: LiveStreams;
   initialTippers: any[];
   initialTopCommunities?: any[];
+  initialPlaylists?: any[];
 };
 
 export function DiscoverPageClient({
@@ -39,6 +40,7 @@ export function DiscoverPageClient({
   initialLiveStreams,
   initialTippers,
   initialTopCommunities = [],
+  initialPlaylists = [],
 }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -105,6 +107,7 @@ export function DiscoverPageClient({
           liveStreams={initialLiveStreams}
           tippers={initialTippers}
           topCommunities={initialTopCommunities}
+          playlists={initialPlaylists}
           initialSearchTerm={initialSearchTerm}
           catalogLoading={false}
           className="space-y-6"

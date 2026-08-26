@@ -24,6 +24,7 @@ import {
   getSpotlightContents,
   getRecommendedContents,
 } from "@/actions/contents";
+import { getDiscoveryPlaylistsAction } from "@/actions/host-playlist";
 import {
   getAllTopTippers,
   getTippedEventsForTipper,
@@ -383,6 +384,7 @@ export default function ExplorePageClient({
   const [recommendedContents, setRecommendedContents] = useState<any[]>([]);
   const [mostTippedContents, setMostTippedContents] = useState<any[]>([]);
   const [programs, setPrograms] = useState<any[]>([]);
+  const [playlists, setPlaylists] = useState<any[]>([]);
   const [liveStreams, setLiveStreams] = useState<{
     upcoming: any[];
     live: any[];
@@ -649,6 +651,10 @@ export default function ExplorePageClient({
               : "feed";
 
     if (localTabNavRef.current) {
+      // External join links must apply even while a feed-local nav guard is active.
+      if (tabParam === "join" && joinCommunityId) {
+        setTab("join");
+      }
       return;
     }
 
@@ -1064,14 +1070,10 @@ export default function ExplorePageClient({
     const liveKey = exploreLiveSearchParamsKey(searchParamsKey);
     const sp = new URLSearchParams(liveKey);
 
+    const urlTarget = exploreOpenTargetFromUrl(sp);
     const pending = readExplorePendingHandoff();
-    const target =
-      pending ??
-      (() => {
-        const handoffKey = exploreVideoHandoffKeyFromUrl(sp);
-        if (!handoffKey) return null;
-        return exploreOpenTargetFromUrl(sp);
-      })();
+    // Prefer explicit URL handoff over stale sessionStorage pending handoff.
+    const target = urlTarget ?? pending;
 
     if (!target) {
       lastHandledVideoHandoffKeyRef.current = null;
@@ -1205,6 +1207,7 @@ export default function ExplorePageClient({
         causesRes,
         topCommRes,
         commRes,
+        plRes,
       ] = await Promise.all([
         getAllFeaturedContentsAction(),
         getDiscoverPanelLatestContents(),
@@ -1223,6 +1226,7 @@ export default function ExplorePageClient({
         getAllCausesAction(),
         getTopCommunitiesAction(3),
         getCommunityExploreCatalogAction(),
+        getDiscoveryPlaylistsAction(20),
       ]);
 
       setContents(feat.success ? normalizeListPayload<any>(feat.data) : []);
@@ -1254,6 +1258,9 @@ export default function ExplorePageClient({
         progRes.success
           ? takeRecentDiscoveryPrograms(normalizeListPayload<any>(progRes.data))
           : []
+      );
+      setPlaylists(
+        plRes.success && Array.isArray(plRes.data) ? plRes.data : []
       );
       setTippers(tipRes.success ? normalizeListPayload<any>(tipRes.data) : []);
       setTipperEvents(
@@ -2089,6 +2096,7 @@ export default function ExplorePageClient({
             recommendedContents={recommendedContents}
             mostTippedContents={mostTippedContents}
             programs={programs}
+            playlists={playlists}
             liveStreams={liveStreams}
             topCommunities={topCommunities}
             catalogLoading={catalogLoading}
@@ -2115,6 +2123,7 @@ export default function ExplorePageClient({
         recommendedContents={recommendedContents}
         mostTippedContents={mostTippedContents}
         programs={programs}
+        playlists={playlists}
         liveStreams={liveStreams}
         topCommunities={topCommunities}
         catalogLoading={catalogLoading}

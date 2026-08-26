@@ -13,7 +13,7 @@ import { CreateDialog } from "../home/create-dialog";
 import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { TvSourceDropdown } from "./tv-source-dropdown";
 import { useRouter } from "next/navigation";
-import { useMediaQuery } from "react-responsive";
+import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
 import { NotificationBadge } from "../notifications/notification-badge";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -55,9 +55,7 @@ export const TVNavbar = ({ active_users }: Props) => {
     router.push("/explore?feedTab=trends&tab=discover");
   };
 
-  const isMobileLandscape =
-    useMediaQuery({ query: "(orientation: landscape)" }) &&
-    window.innerWidth <= 768;
+  const { mode: surfaceMode } = useTvSurfaceMode();
 
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const userRole = useSelector((s: RootState) => s.auth.user?.role);
@@ -97,7 +95,7 @@ export const TVNavbar = ({ active_users }: Props) => {
     void fetchData();
   }, [userId]);
 
-  if (isMobileLandscape) return null;
+  if (surfaceMode === "phoneLandscape") return null;
 
   return (
     <div className="relative">

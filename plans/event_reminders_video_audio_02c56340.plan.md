@@ -56,8 +56,11 @@ Timezone math: the backend has **no** date library ([backend/package.json](backe
 ```ts
 /** Resolve an event's wall-clock start/end into absolute UTC instants. */
 export function resolveEventInstants(e: {
-  eventDate: Date | null; startTime: string; endTime: string; timeZone: string;
-}): { startsAt: Date | null; endsAt: Date | null }
+  eventDate: Date | null;
+  startTime: string;
+  endTime: string;
+  timeZone: string;
+}): { startsAt: Date | null; endsAt: Date | null };
 ```
 
 This replaces the three inconsistent approaches in use today: `combineDateAndTime` (browser-local), `formatDateUK` (hardcoded `Europe/London`), and `getGoogleCalendarUrl` (`Date.UTC`).
@@ -119,7 +122,10 @@ sequenceDiagram
 
 ```ts
 await pusher.trigger(`event-${channel.eventId}`, "default-channel-updated", {
-  channelId, url: channel.url, title: channel.title, isLive: channel.isLive,
+  channelId,
+  url: channel.url,
+  title: channel.title,
+  isLive: channel.isLive,
 });
 ```
 
@@ -193,11 +199,11 @@ Today a single `GET /api/v1/communities/explore-catalog` scans up to 500 communi
 
 ### D3. Content + channel clients
 
-`toggleMute` in both files sets `isMuted` manually *and* triggers `onMuteStateChange`, and muting oddly sets `setAudioUnlocked(true)`. Drive the icon from `onMuteStateChange` only and drop the bogus flag. Make the muted-on-content-change behaviour explicit via the new initial-mute prop instead of relying on the `key={currentContent?.id}` remount.
+`toggleMute` in both files sets `isMuted` manually _and_ triggers `onMuteStateChange`, and muting oddly sets `setAudioUnlocked(true)`. Drive the icon from `onMuteStateChange` only and drop the bogus flag. Make the muted-on-content-change behaviour explicit via the new initial-mute prop instead of relying on the `key={currentContent?.id}` remount.
 
 ### D4. TV looper "seizing"
 
-- `tipmanna_tv_mute_pref` is written by all three loopers and **never read anywhere** — the TV always starts muted. Read it on mount: keep the *player* muted for autoplay compliance, but record a pending-unmute so the first user gesture restores their preference.
+- `tipmanna_tv_mute_pref` is written by all three loopers and **never read anywhere** — the TV always starts muted. Read it on mount: keep the _player_ muted for autoplay compliance, but record a pending-unmute so the first user gesture restores their preference.
 - Split `unmuteWithUserGesture` in [frontend/src/lib/tv-autoplay.ts](frontend/src/lib/tv-autoplay.ts) (which unconditionally calls `play()`) into `unmuteOnly` and `unmuteAndPlay`. `toggleMute` in [frontend/src/components/tv/web-tv-looper.tsx](frontend/src/components/tv/web-tv-looper.tsx) (lines 830–851) uses `unmuteOnly` and stops calling `setIsPlaying(true)`.
 - `prepareMutedLoadForAutoplay` mutes before every orchestrated load and `applyPendingAudioRestore` defers the unmute indefinitely waiting for a gesture ([frontend/src/components/tv-provider.tsx](frontend/src/components/tv-provider.tsx) lines 982–986, 1804–1826). Add a session flag set on the first successful unmute; once set, restore audio immediately after a schedule rollover instead of leaving the user stuck muted with an unmuted-looking icon.
 - The looper's sync effect only ever mutes and never unmutes (lines 798–804), so `isMuted === false` can diverge from a muted player. Make it bidirectional once audio is unlocked for the session.

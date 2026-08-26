@@ -10,15 +10,15 @@ Do not enable verbose trace in production without an incident ticket.
 
 ## Permanent signals (grep-friendly)
 
-| Signal | Source | When |
-|--------|--------|------|
-| `[TipmannaRealtime]` JSON | Browser console / log drain | tip receive, guard, dispatch, enqueue |
-| `canonical_validated_tip_published` | Payment animation trace | One per accepted bundle (broker path) |
-| `payment_bundle_resolution_summary` | Payment animation trace | Per bundle resolution |
-| `payment_character_playback_finished` | Payment animation trace | Every character task outcome |
-| `payment_cycle_finished` | Payment animation trace | Every attempted cycle |
-| `queue_batch_rejected_full` | Payment animation trace | Queue cap hit |
-| `guard_rejected` | Payment animation trace | Stale/duplicate bundle |
+| Signal                                | Source                      | When                                  |
+| ------------------------------------- | --------------------------- | ------------------------------------- |
+| `[TipmannaRealtime]` JSON             | Browser console / log drain | tip receive, guard, dispatch, enqueue |
+| `canonical_validated_tip_published`   | Payment animation trace     | One per accepted bundle (broker path) |
+| `payment_bundle_resolution_summary`   | Payment animation trace     | Per bundle resolution                 |
+| `payment_character_playback_finished` | Payment animation trace     | Every character task outcome          |
+| `payment_cycle_finished`              | Payment animation trace     | Every attempted cycle                 |
+| `queue_batch_rejected_full`           | Payment animation trace     | Queue cap hit                         |
+| `guard_rejected`                      | Payment animation trace     | Stale/duplicate bundle                |
 
 ## Failure grep patterns
 
@@ -61,15 +61,15 @@ Use existing backend read paths only. Example checks:
 
 ## Rollback checklist
 
-| Phase | Rollback boundary |
-|-------|-------------------|
-| E3C | Revert `wrapPaymentAnimation.ts`, `payment-animation-outcomes.ts` |
-| E4 | Set `NEXT_PUBLIC_SINGLE_TIP_STREAM_BROKER=false`; restore dual `useGlobalTipStream` |
-| E5 | Revert `tip-animation-characters.ts` per-character resolution |
-| E6A | Revert budget formula + screen-shake overlay scoping |
-| E6B | Documentation only |
-| E6C | Remove/disable stress spec from CI |
-| E7 | Re-enable verbose trace flags temporarily |
+| Phase | Rollback boundary                                                                   |
+| ----- | ----------------------------------------------------------------------------------- |
+| E3C   | Revert `wrapPaymentAnimation.ts`, `payment-animation-outcomes.ts`                   |
+| E4    | Set `NEXT_PUBLIC_SINGLE_TIP_STREAM_BROKER=false`; restore dual `useGlobalTipStream` |
+| E5    | Revert `tip-animation-characters.ts` per-character resolution                       |
+| E6A   | Revert budget formula + screen-shake overlay scoping                                |
+| E6B   | Documentation only                                                                  |
+| E6C   | Remove/disable stress spec from CI                                                  |
+| E7    | Re-enable verbose trace flags temporarily                                           |
 
 ## Post-deployment monitoring (48h)
 

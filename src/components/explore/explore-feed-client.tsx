@@ -80,6 +80,7 @@ import { useFeatureCardTipContext } from "@/components/video-feature/feature-car
 import { Button } from "@/components/ui/button";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { buildSurfaceTipPriceCatalog } from "@/lib/surface-tip-price-catalog";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
@@ -106,6 +107,7 @@ import {
   resolveExploreFeedScrollIndex,
 } from "@/lib/explore-feed-open";
 import { cn } from "@/lib/utils";
+import { buildChannelSharePath } from "@/lib/public-video-url";
 import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { CreateDialog } from "@/components/home/create-dialog";
@@ -176,6 +178,11 @@ import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import { useMediaQuery } from "react-responsive";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { CreatorDrawer } from "./creator-drawer";
+import { CommunityDrawer } from "./community-drawer";
+import {
+  parseCommunityDrawerFromUrl,
+  parseCreatorDrawerFromUrl,
+} from "@/lib/playback-return-restore";
 
 const TipDrawer = dynamic(
   () =>
@@ -652,16 +659,19 @@ function resolveExploreItemLocale(item: unknown) {
     (typeof row.event?.contentCountry === "string"
       ? row.event.contentCountry
       : null);
-  return resolveContentLocaleDisplay(contentLanguage, contentCountry);
+  return resolveContentLocaleDisplay(contentLanguage, contentCountry, {
+    countryOnly: true,
+  });
 }
 
 function ExploreReelLocaleFlag({
   flagUrl,
   alt,
 }: {
-  flagUrl: string;
+  flagUrl: string | null;
   alt: string;
 }) {
+  if (!flagUrl) return null;
   return (
     <img
       src={flagUrl}
@@ -682,6 +692,7 @@ type ExploreReelSlideTitleProps = {
   metrics: ExploreReelSlideMetrics | null;
   metricsRestrictedCommunity: { id: string; name: string } | null;
   onOpenCreatorDrawer: (username: string) => void;
+  onOpenCommunityDrawer?: (communityId: string) => void;
   onPrefetchCreator?: (username: string) => void;
   onEngageUnlocked?: () => void;
   className?: string;
@@ -698,11 +709,27 @@ function ExploreReelSlideTitle({
   metrics,
   metricsRestrictedCommunity,
   onOpenCreatorDrawer,
+  onOpenCommunityDrawer,
   onPrefetchCreator,
   onEngageUnlocked,
   className,
 }: ExploreReelSlideTitleProps) {
   const hostUsername = resolveExploreItemHostUsername(item);
+  const community = item.community as
+    | { id?: string; name?: string }
+    | null
+    | undefined;
+  const isCommunityBank = Boolean(community?.id && community?.name);
+  const coOwnerHostUsername =
+    typeof item.coOwnerHostUsername === "string"
+      ? item.coOwnerHostUsername.trim()
+      : "";
+  const coOwnerDrawerUsername = coOwnerHostUsername || null;
+  const coOwnerLabel = coOwnerHostUsername
+    ? `@${coOwnerHostUsername}`
+    : item.coOwnerName
+      ? String(item.coOwnerName)
+      : null;
   const { flagUrl, contentLanguage } = resolveExploreItemLocale(item);
 
   return (
@@ -736,41 +763,74 @@ function ExploreReelSlideTitle({
             )}
           </button>
           <span className="inline-flex min-w-0 items-center gap-1 truncate text-sm">
-            {item.coOwnerName ? (
-              <>
-                <ExploreReelLocaleFlag
-                  flagUrl={flagUrl}
-                  alt={contentLanguage}
-                />
-                <span className="truncate">{item.coOwnerName}</span>
-                <span>and</span>
-              </>
-            ) : null}
-            <span className="inline-flex min-w-0 items-center gap-0.5">
+            {flagUrl ? (
               <ExploreReelLocaleFlag
                 flagUrl={flagUrl}
                 alt={contentLanguage}
               />
-              {hostUsername ? (
+            ) : null}
+            {coOwnerLabel ? (
+              <>
                 <button
                   type="button"
-                  className="cursor-pointer truncate underline"
+                  className="cursor-pointer truncate underline-offset-2 hover:underline"
                   onPointerDown={e => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
                   onClick={e => {
                     e.stopPropagation();
-                    onOpenCreatorDrawer(hostUsername);
+                    if (coOwnerDrawerUsername) {
+                      onOpenCreatorDrawer(coOwnerDrawerUsername);
+                    }
                   }}
-                  onPointerEnter={() => onPrefetchCreator?.(hostUsername)}
                 >
-                  @{hostUsername}
+                  {coOwnerLabel}
                 </button>
-              ) : (
-                <span className="truncate">@{item.event?.username}</span>
-              )}
-            </span>
+                {isCommunityBank || hostUsername ? <span>and</span> : null}
+              </>
+            ) : null}
+            {isCommunityBank ? (
+              <>
+                <button
+                  type="button"
+                  className="cursor-pointer truncate underline-offset-2 hover:underline"
+                  onPointerDown={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onOpenCommunityDrawer?.(community!.id!);
+                  }}
+                >
+                  c {community!.name}
+                </button>
+              </>
+            ) : null}
+            {!isCommunityBank ? (
+              <span className="inline-flex min-w-0 items-center gap-0.5">
+                {hostUsername ? (
+                  <button
+                    type="button"
+                    className="cursor-pointer truncate underline"
+                    onPointerDown={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onOpenCreatorDrawer(hostUsername);
+                    }}
+                    onPointerEnter={() => onPrefetchCreator?.(hostUsername)}
+                  >
+                    @{hostUsername}
+                  </button>
+                ) : (
+                  <span className="truncate">@{item.event?.username}</span>
+                )}
+              </span>
+            ) : null}
           </span>
         </div>
 
@@ -969,6 +1029,10 @@ export const ExploreFeedClient = forwardRef<
   const [creatorDrawerUsername, setCreatorDrawerUsername] = useState<
     string | null
   >(null);
+  const [communityDrawerOpen, setCommunityDrawerOpen] = useState(false);
+  const [communityDrawerId, setCommunityDrawerId] = useState<string | null>(
+    null
+  );
   const [exploreCommentMetricsRefreshKey, setExploreCommentMetricsRefreshKey] =
     useState(0);
   const [tipsListOpen, setTipsListOpen] = useState(false);
@@ -992,6 +1056,33 @@ export const ExploreFeedClient = forwardRef<
       setCreatorDrawerUsername(null);
     }
   }, []);
+
+  const openCommunityDrawer = useCallback((communityId: string) => {
+    const id = communityId.trim();
+    if (!id) return;
+    setCommunityDrawerId(id);
+    setCommunityDrawerOpen(true);
+  }, []);
+
+  const handleCommunityDrawerOpenChange = useCallback((open: boolean) => {
+    setCommunityDrawerOpen(open);
+    if (!open) {
+      setCommunityDrawerId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    const creator = parseCreatorDrawerFromUrl(searchParams);
+    const community = parseCommunityDrawerFromUrl(searchParams);
+    if (creator) {
+      setCreatorDrawerUsername(creator);
+      setCreatorDrawerOpen(true);
+    }
+    if (community) {
+      setCommunityDrawerId(community);
+      setCommunityDrawerOpen(true);
+    }
+  }, [searchParams]);
 
   const { user } = useSelector((s: RootState) => s.auth);
 
@@ -1111,6 +1202,22 @@ export const ExploreFeedClient = forwardRef<
       paymentSurface:
         feedMode === "community" ? "community_feed" : "explore_feed",
     }
+  );
+
+  const tipPriceCatalog = useMemo(
+    () =>
+      buildSurfaceTipPriceCatalog({
+        enrichedCatalog: tipPres.catalog as RoomCharacter[],
+        videoCatalog: tippingCharactersForDrawer,
+        fallbackCatalog: characters as RoomCharacter[],
+        characterSets: characterSetsForDrawer,
+      }),
+    [
+      tipPres.catalog,
+      tippingCharactersForDrawer,
+      characters,
+      characterSetsForDrawer,
+    ]
   );
 
   const dispatch = useDispatch();
@@ -1627,6 +1734,16 @@ export const ExploreFeedClient = forwardRef<
           "string"
           ? String((channelSnapshot as { liveStatus: string }).liveStatus)
           : null;
+      if (snapshotLiveStatus === "LIVE") {
+        openingVideoIdRef.current = null;
+        router.push(
+          buildChannelSharePath({
+            eventId: target.eventId,
+            channelId: videoId,
+          })
+        );
+        return;
+      }
       if (snapshotLiveStatus === "UPCOMING") {
         openingVideoIdRef.current = null;
         return;
@@ -1647,6 +1764,20 @@ export const ExploreFeedClient = forwardRef<
           void resolveExploreOpenChannelRow(target).then(enriched => {
             if (myGen !== openGenerationRef.current) return;
             if (!enriched) return;
+            if (enriched.liveStatus === "LIVE") {
+              openingVideoIdRef.current = null;
+              router.push(
+                buildChannelSharePath({
+                  eventId: target.eventId,
+                  channelId: videoId,
+                })
+              );
+              return;
+            }
+            if (enriched.liveStatus === "UPCOMING") {
+              openingVideoIdRef.current = null;
+              return;
+            }
             setItems(prev => {
               if (myGen !== openGenerationRef.current) return prev;
               const idx = prev.findIndex(i => i.id === videoId);
@@ -1676,6 +1807,20 @@ export const ExploreFeedClient = forwardRef<
         void resolveExploreOpenChannelRow(target).then(enriched => {
           if (myGen !== openGenerationRef.current) return;
           if (!enriched) return;
+          if (enriched.liveStatus === "LIVE") {
+            openingVideoIdRef.current = null;
+            router.push(
+              buildChannelSharePath({
+                eventId: target.eventId,
+                channelId: videoId,
+              })
+            );
+            return;
+          }
+          if (enriched.liveStatus === "UPCOMING") {
+            openingVideoIdRef.current = null;
+            return;
+          }
           setItems(prev => {
             if (myGen !== openGenerationRef.current) return prev;
             const idx = prev.findIndex(i => i.id === videoId);
@@ -1692,6 +1837,16 @@ export const ExploreFeedClient = forwardRef<
       if (myGen !== openGenerationRef.current) return;
       if (!row) {
         openingVideoIdRef.current = null;
+        return;
+      }
+      if (row.liveStatus === "LIVE") {
+        openingVideoIdRef.current = null;
+        router.push(
+          buildChannelSharePath({
+            eventId: target.eventId,
+            channelId: videoId,
+          })
+        );
         return;
       }
       if (row.liveStatus === "UPCOMING") {
@@ -1713,7 +1868,7 @@ export const ExploreFeedClient = forwardRef<
       if (openingVideoIdRef.current !== videoId) return;
       setScrollSyncEpoch(e => e + 1);
     },
-    []
+    [router]
   );
 
   useImperativeHandle(
@@ -2463,6 +2618,7 @@ export const ExploreFeedClient = forwardRef<
                               metricsRestrictedCommunity
                             }
                             onOpenCreatorDrawer={openCreatorDrawer}
+                            onOpenCommunityDrawer={openCommunityDrawer}
                             onPrefetchCreator={prefetchCreatorProfile}
                             onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelTitleOnVideoClassName(
@@ -2484,6 +2640,7 @@ export const ExploreFeedClient = forwardRef<
                               metricsRestrictedCommunity
                             }
                             onOpenCreatorDrawer={openCreatorDrawer}
+                            onOpenCommunityDrawer={openCommunityDrawer}
                             onPrefetchCreator={prefetchCreatorProfile}
                             onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelTitleAboveDockClassName(
@@ -2696,7 +2853,7 @@ export const ExploreFeedClient = forwardRef<
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
-          tippingCharacters={tippingCharactersForDrawer}
+          tippingCharacters={tipPriceCatalog}
           enabled
           textTipUnitPrice={tipPres.textUnitPrice}
         >
@@ -2705,7 +2862,7 @@ export const ExploreFeedClient = forwardRef<
             open={isTipDrawerOpen}
             onOpenChange={setIsTipDrawerOpen}
             eventId={activeEventId}
-            tippingCharacters={tippingCharactersForDrawer}
+            tippingCharacters={tipPriceCatalog}
             characterSets={characterSetsForDrawer}
             paymentSurface={
               feedMode === "community" ? "community_feed" : "explore_feed"
@@ -2730,6 +2887,11 @@ export const ExploreFeedClient = forwardRef<
           channelId={activeChannelId != null ? String(activeChannelId) : null}
           eventRoomTipCount={liveNumOfTips}
           videoTipCount={liveChannelNumOfTips}
+          communityBankName={
+            typeof active?.community?.name === "string"
+              ? active.community.name
+              : null
+          }
         />
       ) : null}
 
@@ -2748,7 +2910,7 @@ export const ExploreFeedClient = forwardRef<
               : ""
           }
           numOfTips={liveNumOfTips}
-          tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+          tippingCharacters={tipPriceCatalog as RoomCharacter[]}
           onContinueToTip={() => setIsTipDrawerOpen(true)}
           hostName={active?.event?.hostName ?? undefined}
           hostUsername={active?.event?.username ?? undefined}
@@ -2760,6 +2922,11 @@ export const ExploreFeedClient = forwardRef<
         open={creatorDrawerOpen}
         onOpenChange={handleCreatorDrawerOpenChange}
         username={creatorDrawerUsername}
+      />
+      <CommunityDrawer
+        open={communityDrawerOpen}
+        onOpenChange={handleCommunityDrawerOpenChange}
+        communityId={communityDrawerId}
       />
       <TipperEmailOtpSignInDialog
         open={signInOpen}

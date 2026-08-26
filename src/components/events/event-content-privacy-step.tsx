@@ -37,6 +37,7 @@ import {
 import type { YoutubeVerifyUiState } from "@/lib/youtube-submit-readiness.util";
 import { CoOwnerInviteStatusRow } from "./co-owner-invite-status-row";
 import { toast } from "react-toastify";
+import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subscription-modal";
 import {
   CREATE_FORM_INPUT_CLASS,
   CREATE_FORM_LABEL_CLASS,
@@ -535,10 +536,19 @@ function CoOwnerInviteBlock({
 
   if (!canInvite) {
     return (
-      <p className="text-destructive text-sm">
-        You need Host Premium or Host Community to add a co-owner for this
-        video.
-      </p>
+      <div className="space-y-2">
+        <p className="text-destructive text-sm">
+          You need Host Growth or Host Community to add a co-owner for this
+          video.
+        </p>
+        <HostSubscriptionUpgradeTrigger
+          focusTier="premium"
+          label="View plans"
+          variant="outline"
+          title="Unlock co-owner invites"
+          description="Subscribe to Host Growth or Community to invite co-owners during event creation."
+        />
+      </div>
     );
   }
 

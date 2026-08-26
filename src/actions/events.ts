@@ -887,3 +887,82 @@ export async function addEventProjectsAction(
     "addEventProjectsAction"
   );
 }
+
+export async function patchEventAccessModeAction(
+  eventId: string,
+  accessMode: "public" | "invite_only"
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/access-mode`,
+    {
+      method: "PATCH",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ accessMode }),
+      cache: "no-store",
+    },
+    "patchEventAccessModeAction"
+  );
+}
+
+export async function getEventRoomInvitesAction(eventId: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-invites`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getEventRoomInvitesAction"
+  );
+}
+
+export async function createEventRoomInviteAction(
+  eventId: string,
+  email: string
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-invites`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ email }),
+      cache: "no-store",
+    },
+    "createEventRoomInviteAction"
+  );
+}
+
+export async function validateEventRoomInviteAction(token: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/room-invites/${encodeURIComponent(token)}/validate`,
+    {
+      method: "GET",
+      cache: "no-store",
+    },
+    "validateEventRoomInviteAction"
+  );
+}
+
+export async function acceptEventRoomInviteAction(token: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/room-invites/accept`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      cache: "no-store",
+    },
+    "acceptEventRoomInviteAction"
+  );
+}
+
+export async function getEventRoomAccessAction(eventId: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access`,
+    {
+      method: "GET",
+      cache: "no-store",
+    },
+    "getEventRoomAccessAction"
+  );
+}

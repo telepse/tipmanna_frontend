@@ -82,6 +82,7 @@ import { parseHostEventsEligibleForCommunity } from "@/lib/parse-host-events";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
+import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subscription-modal";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import { uploadImage } from "@/lib/cloudinary";
@@ -2359,14 +2360,17 @@ export function HostCommunityClient() {
           title="Host Community"
           subtitle="Renew to manage communities, content bank, TV, sends, and subscription payouts."
         />
-        <HostSubscriptionPricingPanel
-          focusTier="community"
-          renewLabel="Renew Community"
-        />
-        <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          Your community plan has expired. The management UI below is read-only
-          until you renew. Premium features remain included with Community.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <p className="text-sm">
+            Your community plan has expired. Management tools below are
+            read-only until you renew.
+          </p>
+          <HostSubscriptionUpgradeTrigger
+            focusTier="community"
+            renewLabel="Renew Community"
+            label="Renew plan"
+          />
+        </div>
         <ReadOnlyOverlay>{communityBody}</ReadOnlyOverlay>
       </section>
     );

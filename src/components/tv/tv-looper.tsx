@@ -122,6 +122,7 @@ import { isTvInitialLiveOffsetEmbedEnabled } from "@/lib/tv-feature-flags";
 import { resolveBroadcastPosition } from "@/lib/tv/broadcastEngine";
 import { computeInitialEmbedPosition } from "@/lib/tv-initial-live-offset-embed";
 import { useTvPlayerControls } from "@/hooks/use-tv-player-controls";
+import type { TvLooperLayout } from "@/lib/tv-surface-layout";
 
 /**
  * TvLooper renders the TvPlayer, local playback controls (play/pause, mute, seek),
@@ -129,8 +130,9 @@ import { useTvPlayerControls } from "@/hooks/use-tv-player-controls";
  */
 export const TvLooper = ({
   characters,
+  layout = "mobileInline",
   playerLayout = "compact",
-  mobileLandscape = false,
+  lockFullLandscape = false,
   analyticsSurface = "tv_looper",
   onContinueCommentToTip,
   onEngage,
@@ -141,10 +143,12 @@ export const TvLooper = ({
   showSideRails = true,
 }: {
   characters: RoomCharacter[];
+  /** Surface layout — mobileInline portrait, mobileImmersive phone landscape / full view. */
+  layout?: TvLooperLayout;
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
   playerLayout?: "compact" | "wide";
-  /** Mobile device landscape layout — keeps one player instance across orientation. */
-  mobileLandscape?: boolean;
+  /** Phone landscape: force FULL_LANDSCAPE immersive chrome. */
+  lockFullLandscape?: boolean;
   /** Defaults to tv_looper; use homepage_preview on the marketing homepage embed */
   analyticsSurface?: PaymentSurface;
   /** Optional: parent opens Stripe tip drawer after comment draft handoff from CommentDrawer. */
@@ -194,12 +198,12 @@ export const TvLooper = ({
 
   useLayoutEffect(() => {
     recordLooperCommitted({
-      looperKind: "mobile",
+      looperKind: layout === "wideInline" ? "desktop" : "mobile",
       source: scheduleSourceCommunityId ? "community" : "global",
       startupGeneration: startupEmbedGeneration,
       traceId: getTvStartupTraceId(),
     });
-  }, []);
+  }, [layout, scheduleSourceCommunityId, startupEmbedGeneration]);
 
   const openEngageDrawer = onEngage ?? onContinueCommentToTip;
 
@@ -250,7 +254,7 @@ export const TvLooper = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerAreaRef = useRef<HTMLDivElement | null>(null);
   /** Full-page payment overlays on mobile; confined to player on desktop web (match tv-page-client-wrapper). */
-  const isMobileTv = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
+  const isMobileTv = layout !== "wideInline";
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [showShare, setShowShare] = useState(false);
@@ -419,11 +423,13 @@ export const TvLooper = ({
   } = useMobileVideoViewMode({
     videoUrl: effectivePlayerUrl || current?.channel?.url,
     isMobile: isMobileTv,
+    lockFullLandscape,
     resetAnchor: current?.id,
   });
 
   const shellEmbedsFullView = Boolean(onFullViewChange);
-  const landscapeChrome = mobileLandscape && isMobileTv;
+  const isMobileImmersiveLayout =
+    layout === "mobileImmersive" || lockFullLandscape || isFullView;
   const { animationMountRef, paymentLayerMetrics, usePlayerBoundsLayer } =
     useTvPaymentAnimationLayer({
       playerAreaRef,
@@ -900,9 +906,15 @@ export const TvLooper = ({
     current.channel as Parameters<typeof pickVideoSurfaceBadgeProps>[0],
     currentEventId || undefined
   );
-  const fillViewport = isFullView || isFullscreen || landscapeChrome;
-  const widePlayer = playerLayout === "wide" && !isMobileTv && !fillViewport;
-  const useFixedFullViewChrome = isFullView && !shellEmbedsFullView;
+  const fillViewport = isFullView || isFullscreen;
+  const widePlayer =
+    (layout === "wideInline" || playerLayout === "wide") &&
+    !isMobileTv &&
+    !fillViewport;
+  const useFixedFullViewChrome =
+    isFullView && !shellEmbedsFullView && !lockFullLandscape;
+  const showActionRails =
+    showSideRails || (isMobileImmersiveLayout && isMobileTv);
 
   return (
     <div
@@ -923,19 +935,19 @@ export const TvLooper = ({
         !fillViewport &&
           !widePlayer &&
           (isMobileTv
-            ? landscapeChrome
+            ? isMobileImmersiveLayout
               ? "h-full min-h-0 w-full"
               : "h-full min-h-0 w-full px-2"
             : "h-[40vh] w-full px-2 lg:!h-[90vh]")
       )}
     >
       {currentEventId ? <SaveEventId eventId={currentEventId} /> : null}
-      {isFullView && (
+      {isFullView && !lockFullLandscape ? (
         <ImmersiveMediaTopBar
           onClose={exitFull}
           title={currentTitle}
         />
-      )}
+      ) : null}
       <div id="preview-animation-root" />
 
       <div
@@ -979,35 +991,41 @@ export const TvLooper = ({
           </button>
 
           <div className="border border-gray-300">
-            {isMobileTv && !isFullView && !landscapeChrome && (
-              <button
-                type="button"
-                onClick={enterFull}
-                aria-label="Full view"
-              >
-                <Maximize2 className="size-5" />
-              </button>
-            )}
+            {isMobileTv &&
+              !isFullView &&
+              !lockFullLandscape &&
+              layout === "mobileInline" && (
+                <button
+                  type="button"
+                  onClick={enterFull}
+                  aria-label="Full view"
+                >
+                  <Maximize2 className="size-5" />
+                </button>
+              )}
           </div>
 
           <div className="border-2 border-gray-300">
-            {isMobileTv && !isFullView && !landscapeChrome && (
-              <button
-                type="button"
-                onClick={toggleFullVariant}
-                aria-label={
-                  fullLayoutToggleShowsPortraitIcon
-                    ? "Portrait full layout"
-                    : "Landscape full layout"
-                }
-              >
-                {fullLayoutToggleShowsPortraitIcon ? (
-                  <RectangleVertical className="size-5" />
-                ) : (
-                  <RectangleHorizontal className="size-5" />
-                )}
-              </button>
-            )}
+            {isMobileTv &&
+              !isFullView &&
+              !lockFullLandscape &&
+              layout === "mobileInline" && (
+                <button
+                  type="button"
+                  onClick={toggleFullVariant}
+                  aria-label={
+                    fullLayoutToggleShowsPortraitIcon
+                      ? "Portrait full layout"
+                      : "Landscape full layout"
+                  }
+                >
+                  {fullLayoutToggleShowsPortraitIcon ? (
+                    <RectangleVertical className="size-5" />
+                  ) : (
+                    <RectangleHorizontal className="size-5" />
+                  )}
+                </button>
+              )}
           </div>
         </div>
 
@@ -1065,7 +1083,7 @@ export const TvLooper = ({
             </button>
           )}
 
-          {showSideRails && (
+          {showActionRails && (
             <div
               className={`${isFullView ? `absolute top-1/2 right-7 items-center ${TV_RAIL_Z_INDEX} flex -translate-y-1/2 flex-col gap-2` : `absolute right-7 bottom-12 ${TV_RAIL_Z_INDEX} flex flex-col items-center gap-2`}`}
             >
@@ -1198,7 +1216,7 @@ export const TvLooper = ({
             </div>
           )}
 
-          {!isNotice && showSideRails && (
+          {!isNotice && showActionRails && (
             <div
               className={`${isFullView ? "absolute top-1/2 right-2 z-40 -translate-y-1/2" : "absolute right-2 bottom-12 z-40"}`}
             >

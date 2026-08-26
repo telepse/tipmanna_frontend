@@ -31,7 +31,6 @@ describe("P0 gate — React mount integration (component source)", () => {
       "components/explore/explore-tv-schedule-feed.tsx"
     );
     expectHookInvokedInComponent("components/tv/tv-looper.tsx");
-    expectHookInvokedInComponent("components/tv/web-tv-looper.tsx");
   });
 
   it("does not mount recovery on Screen Display", () => {

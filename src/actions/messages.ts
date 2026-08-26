@@ -79,6 +79,7 @@ export type CommentDrawerData = {
     videoTipCount: number;
     eventRoomTipCount: number;
     communityName: string | null;
+    communityId: string | null;
     coOwnerName: string | null;
     coOwnerNames: string[];
   };

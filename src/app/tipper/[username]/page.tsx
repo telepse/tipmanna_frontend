@@ -1,57 +1,114 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { notFound, permanentRedirect } from "next/navigation";
+import type { Metadata } from "next";
+
 import {
   getMyTippedVideos,
   getSavedVideosForTipper,
   getTippedEventsForTipper,
   getTotalAmountTippedByTipper,
 } from "@/actions/events";
-import {
-  TippedVideoSummary,
-  TipperProfileClient,
-} from "@/components/tipper/tipper-profile-client";
-import { ProtectedRoute } from "@/components/protected-route";
-import { getToken } from "@/lib/getToken";
+import { getPublicTipperProfileAction } from "@/actions/tipper-profile";
+import { TipperProfileClient } from "@/components/tipper/tipper-profile-client";
 import { getAllCausesAction } from "@/actions/home";
-import { Cause } from "@/types/cause.types";
-import { Content } from "@/types/content.types";
-import type { Metadata } from "next";
+import { getToken } from "@/lib/getToken";
+import { getServerSessionUser } from "@/lib/getUser";
 import { NavbarShell } from "@/components/shared/navbar-shell";
+import type { Cause } from "@/types/cause.types";
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: false },
+type Props = {
+  params: Promise<{ username: string }>;
 };
 
-export default async function TipperProfile() {
-  const token = await getToken();
+async function loadProfile(slug: string) {
+  const res = await getPublicTipperProfileAction(slug);
+  if (!res.success || !res.data) return null;
+  return res;
+}
 
-  // Fetch all data in parallel
-  const [eventsRes, iTippedRes, causesRes, contentsRes, videosRes] =
-    await Promise.all([
-      getTippedEventsForTipper(token!),
-      getTotalAmountTippedByTipper(token!),
-      getAllCausesAction(),
-      getSavedVideosForTipper(token!),
-      getMyTippedVideos(token!),
-    ]);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { username } = await params;
+  const loaded = await loadProfile(username);
+  if (!loaded?.data) {
+    return {
+      title: "Tipper profile · Tipmanna",
+      robots: { index: false, follow: false },
+    };
+  }
 
-  const events = eventsRes.data;
-  const iTipped = iTippedRes.data;
-  const causes = causesRes.data;
-  const contents = contentsRes.data;
-  const tippedVideos = videosRes.data;
+  const profile = loaded.data;
+  const label = profile.isAnonymous ? "Anonymous" : profile.publicLabel;
+
+  return {
+    title: `${label} · Tipmanna Tipper`,
+    description: `View tipping history and milestones for ${label} on Tipmanna.`,
+    robots: profile.isVisitor
+      ? { index: false, follow: false }
+      : { index: true, follow: true },
+  };
+}
+
+export default async function TipperProfilePage({ params }: Props) {
+  const { username } = await params;
+  const loaded = await loadProfile(username);
+
+  if (!loaded?.data) {
+    notFound();
+  }
+
+  if (loaded.redirectSlug && loaded.redirectSlug !== username) {
+    permanentRedirect(`/tipper/${loaded.redirectSlug}`);
+  }
+
+  const profile = loaded.data;
+  if (profile.kind === "visitor") {
+    permanentRedirect(`/visitor/${profile.profileSlug}`);
+  }
+
+  const sessionUser = await getServerSessionUser();
+  const isOwner =
+    sessionUser?.role === "TIPPER" &&
+    sessionUser.username.toLowerCase() === profile.profileSlug.toLowerCase();
+
+  let events = profile.events;
+  let iTipped = profile.totalTipped;
+  let tippedVideos = profile.videos;
+  let causes: Cause[] = [];
+  let contents: unknown[] = [];
+
+  if (isOwner) {
+    const token = await getToken();
+    if (token) {
+      const [eventsRes, iTippedRes, causesRes, contentsRes, videosRes] =
+        await Promise.all([
+          getTippedEventsForTipper(token),
+          getTotalAmountTippedByTipper(token),
+          getAllCausesAction(),
+          getSavedVideosForTipper(token),
+          getMyTippedVideos(token),
+        ]);
+
+      if (Array.isArray(eventsRes.data)) events = eventsRes.data;
+      if (typeof iTippedRes.data === "number") iTipped = iTippedRes.data;
+      if (Array.isArray(causesRes.data)) causes = causesRes.data as Cause[];
+      if (Array.isArray(contentsRes.data)) contents = contentsRes.data;
+      if (Array.isArray(videosRes.data)) tippedVideos = videosRes.data;
+    }
+  }
 
   return (
-    <ProtectedRoute>
-      <div className="overflow-y-auto">
-        <NavbarShell />
-        <TipperProfileClient
-          events={events as any[]}
-          iTipped={iTipped as number}
-          causes={causes as Cause[]}
-          contents={contents as unknown as any[]}
-          tippedVideos={tippedVideos as TippedVideoSummary[]}
-        />
-      </div>
-    </ProtectedRoute>
+    <div className="overflow-y-auto">
+      <NavbarShell />
+      <TipperProfileClient
+        events={events}
+        iTipped={iTipped}
+        causes={causes}
+        contents={contents as any[]}
+        tippedVideos={tippedVideos}
+        viewMode={isOwner ? "owner" : "public"}
+        profileSlug={profile.profileSlug}
+        displayName={profile.publicLabel}
+        isAnonymous={profile.isAnonymous}
+      />
+    </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   type SavedHostRow,
 } from "@/lib/save-host-client";
 import { normalizeSavedVideosList } from "@/lib/save-video-client";
+import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 import { cn } from "@/lib/utils";
 import type { RootState } from "@/redux/store";
 
@@ -239,7 +240,9 @@ export function SavedTab({
             {hosts.map(row => {
               const host = row.host;
               const username = host?.username;
-              const href = username ? `/host/${username}` : "#";
+              const href = username
+                ? buildCreatorProfileSharePath(username)
+                : "#";
               return (
                 <li
                   key={row.id}
@@ -247,6 +250,8 @@ export function SavedTab({
                 >
                   <Link
                     href={href}
+                    target={username ? "_blank" : undefined}
+                    rel={username ? "noopener noreferrer" : undefined}
                     className={cn(
                       "min-w-0 flex-1",
                       !username && "pointer-events-none"
