@@ -31,6 +31,10 @@ interface Character {
   styleName: string;
 }
 
+interface CharacterSet {
+  characters?: Character[];
+}
+
 /**
  * GENERATE METADATA
  * Handles SEO and Social Media tags for LinkedIn, Twitter, etc.
@@ -165,13 +169,42 @@ export default async function EventRoomPage({ params }: Props) {
     activities,
   } = event;
 
+  const isCharacter = (value: unknown): value is Character => {
+    if (!value || typeof value !== "object") return false;
+  
+    const char = value as Record<string, unknown>;
+  
+    return (
+      typeof char.id === "string" &&
+      typeof char.name === "string" &&
+      typeof char.iconUrl === "string" &&
+      typeof char.price === "number" &&
+      typeof char.styleName === "string"
+    );
+  };
+  
+  const isCharacterSet = (value: unknown): value is CharacterSet => {
+    if (!value || typeof value !== "object") return false;
+  
+    const set = value as Record<string, unknown>;
+  
+    if (set.characters === undefined) {
+      return true;
+    }
+  
+    return (
+      Array.isArray(set.characters) &&
+      set.characters.every(isCharacter)
+    );
+  };
+  
   const safeCharacterSets = Array.isArray(eventCharacterSets)
-    ? eventCharacterSets
+    ? eventCharacterSets.filter(isCharacterSet)
     : [];
-
-  const allCharacters = safeCharacterSets.flatMap((set: any) =>
-    Array.isArray(set?.characters)
-      ? set.characters.map((char: Character) => ({
+  
+  const allCharacters = safeCharacterSets.flatMap((set) =>
+    Array.isArray(set.characters)
+      ? set.characters.map((char) => ({
           id: char.id,
           name: char.name,
           iconUrl: char.iconUrl,

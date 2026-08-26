@@ -3,6 +3,7 @@
 import Footer from "@/components/shared/footer";
 import { TipperBanner } from "./tipper-banner";
 import { ProfileTabs } from "./profile-tabs";
+import type { Content } from "@/types/content.types";
 
 type Cause = {
   id: string;
@@ -10,13 +11,7 @@ type Cause = {
   name: string;
 };
 
-type Content = {
-  id: string;
-  url: string;
-  event: {
-    eventType: string;
-  };
-};
+
 
 export type TippedVideoSummary = {
   videoChannelId: string;
