@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Loader2, Play, UserRound } from "lucide-react";
+import { Loader2, Play, Share2, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 
 import type { HostPlaylistSummary } from "@/actions/host-playlist";
@@ -15,6 +15,7 @@ import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { useOpenContentWithReturn } from "@/hooks/use-open-content-with-return";
+import { copyShareUrl } from "@/lib/copy-share-url";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -60,7 +61,7 @@ export function PlaylistPageClient({
   }, [pathname, playlist.id]);
 
   const playItem = useCallback(
-    (index: number) => {
+    (index: number, watchAll = false) => {
       const item = items[index];
       if (!item) return;
       if (locked) {
@@ -73,7 +74,7 @@ export function PlaylistPageClient({
         channelId: item.eventChannelId,
         returnTo: pathname || `/playlist/${playlist.id}`,
         label: `Back to ${playlist.name}`,
-        playlistId: playlist.id,
+        ...(watchAll ? { playlistId: playlist.id } : {}),
       });
     },
     [items, locked, openContent, pathname, playlist.id, playlist.name]
@@ -88,7 +89,7 @@ export function PlaylistPageClient({
       toast.info("This playlist has no videos");
       return;
     }
-    playItem(0);
+    playItem(0, true);
   }, [items.length, locked, playItem]);
 
   const metricsLine = useMemo(() => {
@@ -107,6 +108,24 @@ export function PlaylistPageClient({
     playlist.communityId != null
       ? exploreCommunityJoinHref(playlist.communityId)
       : null;
+
+  const sharePlaylist = useCallback(async () => {
+    const path = pathname || `/playlist/${playlist.id}`;
+    const url =
+      typeof window !== "undefined"
+        ? `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`
+        : path;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: playlist.name, url });
+        return;
+      } catch {
+        return;
+      }
+    }
+    await copyShareUrl(url);
+    toast.success("Playlist link copied");
+  }, [pathname, playlist.id, playlist.name]);
 
   return (
     <div className="mx-auto min-h-screen max-w-4xl space-y-6 px-4 py-6">
@@ -150,14 +169,24 @@ export function PlaylistPageClient({
             </>
           ) : null}
         </div>
-        <Button
-          type="button"
-          onClick={playAll}
-          disabled={locked ? false : items.length === 0}
-        >
-          <Play className="mr-2 size-4" />
-          {locked ? "Join to play" : "Play all"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            onClick={playAll}
+            disabled={locked ? false : items.length === 0}
+          >
+            <Play className="mr-2 size-4" />
+            {locked ? "Join to play" : "Play all"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void sharePlaylist()}
+          >
+            <Share2 className="mr-2 size-4" />
+            Share
+          </Button>
+        </div>
       </header>
 
       {locked && requiresMembership ? (

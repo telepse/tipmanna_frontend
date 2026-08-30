@@ -22,6 +22,7 @@ import {
   COOWNER_RESEND_MAX_COUNT,
   COOWNER_RESEND_MIN_INTERVAL_MINUTES,
 } from "@/lib/coowner-config";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 
 export type CoOwnerInvitePhase =
   | "idle"
@@ -113,6 +114,8 @@ export function useCoOwnerDraftFields({
   refreshToken = 0,
 }: UseCoOwnerDraftFieldsOptions) {
   const { restoreReady, setCoOwnerHydrating } = useCoOwnerDraftLifecycle();
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "premium" });
 
   const [invitePhase, setInvitePhase] = useState<CoOwnerInvitePhase>("idle");
   const [readOnlyInvite, setReadOnlyInvite] = useState(false);
@@ -389,6 +392,10 @@ export function useCoOwnerDraftFields({
     setPending(false);
 
     if (!res.success) {
+      if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
+        return;
+      }
+
       const body = res.validationBody as
         | {
             error?: {
@@ -590,6 +597,8 @@ export function useCoOwnerDraftFields({
     statusIndicatorClass: coOwnerStatusIndicatorClass(statusIndicator),
 
     inviteStatusLabel: statusIndicator,
+
+    SubscriptionPromptModal,
 
     setName: (value: string) => patchCoOwner({ name: value }),
 

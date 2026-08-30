@@ -260,6 +260,7 @@ export const ProfileDrawer = ({
           iTipped={iTipped}
           tippedVideos={tippedVideos}
           profileSlug={user.username}
+          profileId={user.id}
         />
       );
     }

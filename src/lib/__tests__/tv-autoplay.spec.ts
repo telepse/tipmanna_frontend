@@ -4,6 +4,8 @@ import type { TvPlayerRef } from "@/components/tv/tv-player";
 import {
   TV_AUDIO_UNLOCKED_SESSION_KEY,
   TV_MUTE_PREF_KEY,
+  applyPendingAudioRestore,
+  applyPaymentPlaybackRestore,
   hasTvAudioUnlockedThisSession,
   prepareMutedLoadForAutoplay,
   readTvMutePref,
@@ -103,5 +105,66 @@ describe("prepareMutedLoadForAutoplay", () => {
       shouldPlay: true,
     });
     expect(player.mute).toHaveBeenCalled();
+  });
+});
+
+describe("applyPendingAudioRestore", () => {
+  beforeEach(() => {
+    installBrowserGlobals();
+  });
+
+  it("restores from session pref when pending is null", () => {
+    writeTvMutePref(false);
+    const player = makePlayer({ isMuted: () => true });
+
+    expect(applyPendingAudioRestore(player, null, "test")).toBeNull();
+    expect(player.unmute).toHaveBeenCalled();
+  });
+
+  it("clears pending after successful restore", () => {
+    writeTvMutePref(false);
+    const player = makePlayer({ isMuted: () => true });
+    const pending = { restoreUnmuted: true, shouldPlay: true };
+
+    expect(applyPendingAudioRestore(player, pending, "test")).toBeNull();
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).toHaveBeenCalled();
+  });
+});
+
+describe("applyPaymentPlaybackRestore", () => {
+  beforeEach(() => {
+    installBrowserGlobals();
+  });
+
+  it("uses session pref snapshot: queues restore when user was unmuted", () => {
+    writeTvMutePref(false);
+    const player = makePlayer({ isMuted: () => true });
+
+    expect(
+      applyPaymentPlaybackRestore(
+        player,
+        { wasMuted: false, wasPlaying: true },
+        "test"
+      )
+    ).toEqual({ restoreUnmuted: true, shouldPlay: false });
+    expect(player.mute).toHaveBeenCalled();
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+  });
+
+  it("respects muted pref snapshot without queuing restore", () => {
+    writeTvMutePref(true);
+    const player = makePlayer({ isMuted: () => true });
+
+    expect(
+      applyPaymentPlaybackRestore(
+        player,
+        { wasMuted: true, wasPlaying: true },
+        "test"
+      )
+    ).toBeNull();
+    expect(player.mute).toHaveBeenCalled();
+    expect(player.play).toHaveBeenCalled();
   });
 });

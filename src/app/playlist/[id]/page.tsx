@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getPublicPlaylistAction } from "@/actions/host-playlist";
 import { PlaylistPageClient } from "@/components/playlist/playlist-page-client";
 import { getToken } from "@/lib/getToken";
+import { getHostToken } from "@/lib/getHostToken";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -24,8 +25,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PlaylistPage({ params }: Props) {
   const { id } = await params;
-  const token = await getToken();
-  const res = await getPublicPlaylistAction(id, token ?? undefined);
+  const token = (await getToken()) ?? (await getHostToken()) ?? undefined;
+  const res = await getPublicPlaylistAction(id, token);
   if (!res.success || !res.data) {
     notFound();
   }

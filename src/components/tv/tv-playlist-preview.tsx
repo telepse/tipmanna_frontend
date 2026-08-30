@@ -425,6 +425,7 @@ export function TvPlaylistPreview({
           onContinueToTip={onContinueCommentToTip}
           hostName={commentDrawerTarget.hostName}
           hostUsername={commentDrawerTarget.hostUsername}
+          stackAboveImmersive
         />
       ) : null}
     </>

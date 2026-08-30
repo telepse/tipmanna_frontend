@@ -54,7 +54,7 @@ import { writePendingPaymentReturn } from "@/lib/pending-payment-return";
 import { isPayerOriginRecoveryEnabled } from "@/lib/payer-origin-recovery-flag";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import { setPaymentPendingReturn } from "@/lib/tv-payment-snapshot";
-import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
+import { schedulePwaPromptAfterPaymentWithPolicy } from "@/lib/pwa-install-trigger";
 import type { PaymentSurface } from "@/lib/analytics-types";
 import {
   getAnalyticsSessionId,
@@ -1306,7 +1306,7 @@ export const TipDrawer = ({
           const tipCount = Math.max(1, selectedTips.length);
           dispatch(setSelectedTips([]));
           dispatch(markPaymentCompleted(false));
-          schedulePwaPromptAfterPaymentAnimation(tipCount);
+          void schedulePwaPromptAfterPaymentWithPolicy(tipCount);
           void refreshWallet();
           window.setTimeout(() => onOpenChange(false), 400);
         }}

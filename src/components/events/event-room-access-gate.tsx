@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import { getEventRoomAccessAction } from "@/actions/events";
 import { Button } from "@/components/ui/button";
+import { persistEventRoomInviteToken } from "@/lib/event-room-invite-cookie";
 
 const inviteStorageKey = (eventId: string) => `event-room-invite:${eventId}`;
 
@@ -19,6 +20,27 @@ type Props = {
   children: React.ReactNode;
 };
 
+type AccessPayload = {
+  accessMode?: "public" | "invite_only";
+  allowed?: boolean;
+  reason?: string;
+};
+
+export function PrivateEventRoomBlocked() {
+  return (
+    <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center gap-4 px-4 text-center">
+      <h1 className="text-2xl font-semibold">Private event room</h1>
+      <p className="text-muted-foreground text-sm">
+        This event is invite-only. Open the link from your invitation email to
+        enter.
+      </p>
+      <Button asChild>
+        <Link href="/">Back home</Link>
+      </Button>
+    </div>
+  );
+}
+
 export function EventRoomAccessGate({ eventId, children }: Props) {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(true);
@@ -27,23 +49,26 @@ export function EventRoomAccessGate({ eventId, children }: Props) {
   );
 
   useEffect(() => {
-    void getEventRoomAccessAction(eventId).then(res => {
+    const inviteToken = getStoredEventRoomInviteToken(eventId);
+    if (inviteToken) {
+      persistEventRoomInviteToken(eventId, inviteToken);
+    }
+    void getEventRoomAccessAction(eventId, inviteToken).then(res => {
       if (!res.success || !res.data) {
         setAllowed(true);
         setLoading(false);
         return;
       }
-      const mode = (res.data as { accessMode?: string }).accessMode;
-      const normalized =
-        mode === "invite_only" ? "invite_only" : ("public" as const);
-      setAccessMode(normalized);
-      if (normalized === "public") {
+      const data = res.data as AccessPayload;
+      const mode =
+        data.accessMode === "invite_only" ? "invite_only" : ("public" as const);
+      setAccessMode(mode);
+      if (mode === "public") {
         setAllowed(true);
         setLoading(false);
         return;
       }
-      const token = getStoredEventRoomInviteToken(eventId);
-      setAllowed(Boolean(token));
+      setAllowed(Boolean(data.allowed));
       setLoading(false);
     });
   }, [eventId]);
@@ -57,18 +82,7 @@ export function EventRoomAccessGate({ eventId, children }: Props) {
   }
 
   if (!allowed && accessMode === "invite_only") {
-    return (
-      <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center gap-4 px-4 text-center">
-        <h1 className="text-2xl font-semibold">Private event room</h1>
-        <p className="text-muted-foreground text-sm">
-          This event is invite-only. Open the link from your invitation email to
-          enter.
-        </p>
-        <Button asChild>
-          <Link href="/">Back home</Link>
-        </Button>
-      </div>
-    );
+    return <PrivateEventRoomBlocked />;
   }
 
   return <>{children}</>;

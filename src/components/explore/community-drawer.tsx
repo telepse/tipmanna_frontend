@@ -48,6 +48,7 @@ export function CommunityDrawer({ open, onOpenChange, communityId }: Props) {
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {id ? (
             <CommunityJoinPanel
+              key={id}
               communityId={id}
               signInRedirectPath={exploreCommunityJoinHref(id)}
             />

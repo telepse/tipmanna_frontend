@@ -12,7 +12,7 @@ type Props = {
 };
 
 export function liveStreamFeedBadgeVisible(liveStatus: LiveStatus): boolean {
-  return liveStatus === "LIVE" || liveStatus === "ENDED";
+  return liveStatus === "LIVE";
 }
 
 export function liveStreamFeedBadgeLabel(

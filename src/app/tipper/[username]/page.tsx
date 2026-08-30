@@ -12,6 +12,7 @@ import { TipperProfileClient } from "@/components/tipper/tipper-profile-client";
 import { getAllCausesAction } from "@/actions/home";
 import { getToken } from "@/lib/getToken";
 import { getServerSessionUser } from "@/lib/getUser";
+import { isProfileOwner } from "@/lib/tipper-profile-owner";
 import { NavbarShell } from "@/components/shared/navbar-shell";
 import type { Cause } from "@/types/cause.types";
 import type { Content } from "@/types/content.types";
@@ -83,10 +84,7 @@ export default async function TipperProfilePage({ params }: Props) {
   }
 
   const sessionUser = await getServerSessionUser();
-
-  const isOwner =
-    sessionUser?.role === "TIPPER" &&
-    sessionUser.username.toLowerCase() === profile.profileSlug.toLowerCase();
+  const isOwner = isProfileOwner(sessionUser, profile);
 
   let events = profile.events;
   let iTipped = profile.totalTipped;

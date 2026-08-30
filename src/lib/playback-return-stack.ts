@@ -2,6 +2,12 @@
 
 const STORAGE_KEY = "tipmanna:playback-return:v1";
 const TTL_MS = 30 * 60 * 1000;
+export const PLAYBACK_RETURN_CHANGED_EVENT = "tipmanna:playback-return-changed";
+
+function notifyPlaybackReturnChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(PLAYBACK_RETURN_CHANGED_EVENT));
+}
 
 export type PlaybackReturnContext = {
   returnTo: string;
@@ -20,6 +26,14 @@ export type PlaybackReturnContext = {
     tab: string;
     subtabId?: string;
     scrollY: number;
+  };
+  discoverUi?: {
+    surface: "discovery" | "exploreTab" | "explorePanel";
+    scrollTop: number;
+    scrollRoot?: "window" | "container";
+    searchTerm: string;
+    selectedTag: string | null;
+    expandedRails: Record<string, boolean>;
   };
   createdAt: number;
 };
@@ -46,6 +60,7 @@ export function writePlaybackReturn(
       createdAt: Date.now(),
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    notifyPlaybackReturnChanged();
   } catch {
     /* quota / private mode */
   }
@@ -74,6 +89,7 @@ export function clearPlaybackReturn(): void {
   if (typeof window === "undefined") return;
   try {
     sessionStorage.removeItem(STORAGE_KEY);
+    notifyPlaybackReturnChanged();
   } catch {
     /* ignore */
   }

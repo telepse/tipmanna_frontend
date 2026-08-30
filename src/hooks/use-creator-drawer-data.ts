@@ -5,7 +5,6 @@ import type { HostCreatorPublicProfile } from "@/actions/host-creator";
 import {
   creatorProfileKey,
   fetchCreatorProfileCached,
-  getCachedCreatorProfile,
   normalizeCreatorUsername,
 } from "@/lib/drawer-prefetch-cache";
 
@@ -18,15 +17,10 @@ export function useCreatorDrawerData(
 
   const { data, error, isLoading, isValidating } = useSWR(
     swrKey,
-    async () => {
-      const cached = getCachedCreatorProfile(handle);
-      if (cached) return cached;
-      return fetchCreatorProfileCached(handle);
-    },
+    async () => fetchCreatorProfileCached(handle),
     {
       revalidateOnFocus: false,
       dedupingInterval: 60_000,
-      keepPreviousData: true,
     }
   );
 

@@ -105,21 +105,29 @@ export function applyPendingAudioRestore(
   pending: PendingAudioRestore | null,
   source: string
 ): PendingAudioRestore | null {
-  if (!pending || !player.isReady()) return pending;
+  if (!player.isReady()) return pending;
 
-  if (pending.shouldPlay) {
-    tracePlayVideoResult(`${source}.muted_play`, player.play());
+  if (pending) {
+    if (pending.shouldPlay) {
+      tracePlayVideoResult(`${source}.muted_play`, player.play());
+    }
+
+    if (pending.restoreUnmuted) {
+      if (hasTvAudioUnlockedThisSession()) {
+        unmuteOnly(player, `${source}.session_restore`);
+      } else {
+        tvTrace("autoplay", "audio_restore_deferred", {
+          source,
+          reason: "gesture_required",
+        });
+      }
+    }
+
+    return null;
   }
 
-  if (pending.restoreUnmuted) {
-    if (hasTvAudioUnlockedThisSession()) {
-      unmuteOnly(player, `${source}.session_restore`);
-    } else {
-      tvTrace("autoplay", "audio_restore_deferred", {
-        source,
-        reason: "gesture_required",
-      });
-    }
+  if (!readTvMutePref() && hasTvAudioUnlockedThisSession() && player.isMuted()) {
+    unmuteOnly(player, `${source}.pref_fallback_restore`);
   }
 
   return null;

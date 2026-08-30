@@ -23,6 +23,7 @@ describe("explore-url-sync-policy", () => {
       feedSubTab: "saves" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: [] as string[],
+      includeEndedLive: false,
     };
     expect(
       exploreStateAheadOfUrl(
@@ -50,6 +51,7 @@ describe("explore-url-sync-policy", () => {
       feedSubTab: "trends" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: [] as string[],
+      includeEndedLive: false,
     };
     expect(
       exploreStateAheadOfUrl(
@@ -77,6 +79,7 @@ describe("explore-url-sync-policy", () => {
       feedSubTab: "tv" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: [] as string[],
+      includeEndedLive: false,
     };
     const hub = buildExploreFeedHref(
       "/explore",
@@ -111,6 +114,7 @@ describe("explore-url-sync-policy", () => {
         feedSubTab: "saves",
         tvExploreSource: "tipmanna",
         communityFeedSelIds: [],
+        includeEndedLive: false,
       },
       ""
     );
@@ -132,6 +136,7 @@ describe("explore-url-sync-policy", () => {
       feedSubTab: "trends" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: [] as string[],
+      includeEndedLive: false,
     };
     expect(
       exploreStateAheadOfUrl("/explore", { tab: "feed" }, feedState, "")
@@ -154,6 +159,7 @@ describe("explore-url-sync-policy", () => {
       feedSubTab: "saves" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: [] as string[],
+      includeEndedLive: false,
     };
     const href = buildExploreFeedHref(
       "/explore",
@@ -176,6 +182,7 @@ describe("explore-url-sync-policy", () => {
         feedSubTab: "trends",
         tvExploreSource: "tipmanna",
         communityFeedSelIds: [],
+        includeEndedLive: false,
       },
       ""
     );
@@ -206,6 +213,7 @@ describe("explore-url-sync-policy", () => {
       feedSubTab: "trends" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: [] as string[],
+      includeEndedLive: false,
     };
     const bootstrapHref = buildExploreFeedHref(
       "/explore",

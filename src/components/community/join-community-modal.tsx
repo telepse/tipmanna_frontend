@@ -6,7 +6,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
+import {
+  DRAWER_OVERLAY_Z_INDEX,
+  DRAWER_Z_INDEX,
+} from "@/lib/drawer-z-index";
 import { cn } from "@/lib/utils";
 import { CommunityHowToJoinSection } from "@/components/community/community-how-to-join-section";
 
@@ -18,7 +21,12 @@ type Props = {
   signInRedirectPath: string;
   title?: string;
   className?: string;
+  overlayClassName?: string;
+  contentClassName?: string;
+  signInOverlayClassName?: string;
+  signInContentClassName?: string;
   joinDisabled?: boolean;
+  onJoined?: () => void;
 };
 
 export function JoinCommunityModal({
@@ -28,7 +36,12 @@ export function JoinCommunityModal({
   signInRedirectPath,
   title = "Join community",
   className,
+  overlayClassName = DRAWER_OVERLAY_Z_INDEX,
+  contentClassName = DRAWER_Z_INDEX,
+  signInOverlayClassName,
+  signInContentClassName,
   joinDisabled = false,
+  onJoined,
 }: Props) {
   if (!communityId) return null;
 
@@ -38,8 +51,9 @@ export function JoinCommunityModal({
       onOpenChange={onOpenChange}
     >
       <DialogContent
+        overlayClassName={overlayClassName}
         className={cn(
-          DRAWER_Z_INDEX,
+          contentClassName,
           "max-h-[85vh] overflow-y-auto sm:max-w-lg",
           className
         )}
@@ -53,6 +67,9 @@ export function JoinCommunityModal({
           showCancelLink={false}
           showMemberInfo
           joinDisabled={joinDisabled}
+          onJoined={onJoined}
+          signInOverlayClassName={signInOverlayClassName}
+          signInContentClassName={signInContentClassName}
         />
       </DialogContent>
     </Dialog>

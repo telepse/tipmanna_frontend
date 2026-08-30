@@ -8,18 +8,18 @@ export type PrivacyVideoLink = NonNullable<
 
 type Options = {
   links: PrivacyVideoLink[];
-  hostSubscriptionTier?: string | null;
+  hasActivePremium?: boolean;
   liveVideoLink?: string | null;
 };
 
-/** Run privacy checks from a create-event form + host subscription tier. */
+/** Run privacy checks from a create-event form + active premium subscription. */
 export function runPrivacyChecksFromForm(
   form: Pick<UseFormReturn<NewEventFormData>, "getValues">,
-  hostSubscriptionTier?: string | null
+  hasActivePremium?: boolean
 ): boolean {
   return validatePrivacyVideoLinks({
     links: form.getValues("videoLinks") ?? [],
-    hostSubscriptionTier,
+    hasActivePremium,
     liveVideoLink: form.getValues("liveVideoLink"),
   });
 }
@@ -48,10 +48,9 @@ export function resolveLiveVideoOwnershipAnswer(values: {
 /** Client-side co-owner / default-video checks before privacy step or submit. */
 export function validatePrivacyVideoLinks({
   links,
-  hostSubscriptionTier,
+  hasActivePremium = false,
   liveVideoLink,
 }: Options): boolean {
-  const tier = hostSubscriptionTier ?? undefined;
   for (let i = 0; i < links.length; i++) {
     const v = links[i];
     if (!v.url?.trim()) continue;
@@ -61,13 +60,9 @@ export function validatePrivacyVideoLinks({
       );
       return false;
     }
-    if (
-      v.ownershipAnswer === "no" &&
-      tier !== "HOST_PREMIUM" &&
-      tier !== "HOST_COMMUNITY"
-    ) {
+    if (v.ownershipAnswer === "no" && !hasActivePremium) {
       toast.error(
-        "Upgrade to Host Premium or Host Community for co-owned videos"
+        "Upgrade to Host Growth or Host Community for co-owned videos"
       );
       return false;
     }
@@ -95,13 +90,9 @@ export function validatePrivacyVideoLinks({
       );
       return false;
     }
-    if (
-      liveOwnership === "no" &&
-      tier !== "HOST_PREMIUM" &&
-      tier !== "HOST_COMMUNITY"
-    ) {
+    if (liveOwnership === "no" && !hasActivePremium) {
       toast.error(
-        "Upgrade to Host Premium or Host Community for co-owned live streams"
+        "Upgrade to Host Growth or Host Community for co-owned live streams"
       );
       return false;
     }

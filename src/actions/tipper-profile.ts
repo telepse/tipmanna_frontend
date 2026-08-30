@@ -5,8 +5,9 @@ import type { Event } from "@/types";
 
 export type PublicTipperProfile = {
   kind: "tipper" | "visitor";
+  profileId: string;
   profileSlug: string;
-  displayUsername: string;
+  displayUsername: string | null;
   publicLabel: string;
   isVisitor: boolean;
   isAnonymous: boolean;

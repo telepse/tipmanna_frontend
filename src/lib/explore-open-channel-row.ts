@@ -4,7 +4,7 @@ import {
   type ExploreChannelMetrics,
 } from "@/actions/contents";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import { mergeExploreChannelRows } from "@/lib/explore-channel-row-merge";
+import { mergeExploreChannelRows, isExploreReelReadyRow } from "@/lib/explore-channel-row-merge";
 import { unwrapContentChannelRows } from "@/lib/content-channel-rows";
 
 function isPlayableChannelRow(row: unknown): row is Record<string, unknown> {
@@ -16,12 +16,13 @@ function isPlayableChannelRow(row: unknown): row is Record<string, unknown> {
   return true;
 }
 
-/** Sync fast path: Discover list rows already include url + event for playback. */
+/** Sync fast path: Discover list rows with full reel identity fields. */
 export function buildExploreOpenRowFromSnapshot(
   target: ExploreFeedOpenTarget
 ): Record<string, unknown> | null {
   const { videoId, channelSnapshot } = target;
   if (!channelSnapshot || !isPlayableChannelRow(channelSnapshot)) return null;
+  if (!isExploreReelReadyRow(channelSnapshot)) return null;
   return {
     ...channelSnapshot,
     id: videoId,
@@ -65,15 +66,12 @@ export async function resolveExploreOpenChannelRow(
   } else if (channelSnapshot && isPlayableChannelRow(channelSnapshot)) {
     row = { ...channelSnapshot };
     const snap = apiRow as Record<string, unknown> | null;
-    if (snap && snap.restricted !== true && snap.event) {
-      row = mergeExploreChannelRows(
-        { event: snap.event as Record<string, unknown> },
-        row
-      );
+    if (snap) {
+      row = mergeExploreChannelRows(snap, row);
     }
   }
 
-  if (!row) return null;
+  if (!row || !isExploreReelReadyRow(row)) return null;
 
   if (
     metricsRes &&

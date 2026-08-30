@@ -32,6 +32,7 @@ import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { mergeEventRoomChannel } from "@/lib/content-channel-payload";
 import { useEventChannelCreatedRealtime } from "@/hooks/use-event-channel-created-realtime";
 import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
+import { appendUniqueChatMessage } from "@/lib/append-unique-chat-message";
 
 interface Props {
   eventId: string;
@@ -394,7 +395,7 @@ export const EventRoomClient = ({
   );
 
   const handleNewChatMessage = useCallback((message: Message) => {
-    setLiveMessages(prev => [...prev, message]);
+    setLiveMessages(prev => appendUniqueChatMessage(prev, message));
   }, []);
 
   const [liveFullscreen, setLiveFullscreen] = useState(false);

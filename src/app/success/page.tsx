@@ -163,7 +163,6 @@ import { reconcileCommunitySubscribeAction } from "@/actions/communities";
 import { COMMUNITY_SUBSCRIBE_CTX_KEY } from "@/components/community/community-subscribe-section";
 
 import { Gem } from "lucide-react";
-import { markPendingPaymentPrompt } from "@/lib/pwa-install-trigger";
 
 const REDIRECT_SETTLE_MS = 200;
 
@@ -341,8 +340,7 @@ export default function PaymentSuccessPage() {
 
         if (!isWalletTopupFlow) {
           dispatch(markPaymentCompleted(true));
-          markPendingPaymentPrompt();
-          // Keep `amount` / `textTipValue` in localStorage until the surface runs
+          // PWA second-slot prompt is scheduled from tip animation surfaces only.
           // useAutoDropTip or DropTip → POST /messages (createMessage + tip-animation).
           // Clearing here broke TV and any surface that returns via payment_origin.
         }

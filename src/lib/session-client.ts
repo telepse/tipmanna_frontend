@@ -1,4 +1,5 @@
 import type { AuthUserPayload } from "@/lib/auth-response";
+import { notifyHostSessionCleared } from "@/lib/host-session-probe";
 
 /** Persist auth via HttpOnly cookie route (token) + non-sensitive user cookie. */
 export async function persistAuthSession(
@@ -56,6 +57,7 @@ export async function clearHostSession(): Promise<void> {
       method: "DELETE",
       credentials: "include",
     });
+    notifyHostSessionCleared();
   } catch {
     /* noop */
   }

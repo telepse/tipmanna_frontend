@@ -83,6 +83,7 @@ import { TipSection } from "./tip-section";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { ChannelProgressBar } from "./channel-progress-bar";
 import { SaveEventId } from "./save-event-id";
+import { PlaybackReturnBackChip } from "./playback-return-back-chip";
 import { unwrapContentChannelRows } from "@/lib/content-channel-rows";
 import {
   buildContentShareUrl,
@@ -847,6 +848,9 @@ export const ChannelClient = ({
         eventId={eventId}
         canonicalEventId={currentContent?.event?.id ?? playlist[0]?.event?.id}
       />
+      <div className="pointer-events-none absolute top-3 left-3 z-[100020]">
+        <PlaybackReturnBackChip />
+      </div>
       {isFullView && (
         <ImmersiveMediaTopBar
           onClose={exitFull}

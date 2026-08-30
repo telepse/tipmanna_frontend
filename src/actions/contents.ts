@@ -207,6 +207,7 @@ export type DiscoverySearchResult = {
     hostName: string;
     scheduledAt: string | null;
     liveStatus: string;
+    isLive: boolean;
     eventId: string;
   }>;
   communities: Array<{
@@ -269,11 +270,17 @@ export async function getContentChannelAction(
   eventId: string,
   authToken?: string | null
 ) {
+  const trimmed = eventId.trim();
+  const { buildEventRoomRequestHeaders } = await import(
+    "@/lib/event-room-request"
+  );
+  const roomHeaders = await buildEventRoomRequestHeaders(trimmed);
+  const authHeaders = await serverAuthHeaders(authToken);
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/channel/${eventId}`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/channel/${trimmed}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(authToken),
+      headers: { ...roomHeaders, ...authHeaders },
       cache: "no-store",
     },
     "getContentChannelAction"
@@ -290,6 +297,7 @@ function exploreFeedFilterBody(
         countries?: string[];
         language?: string;
         country?: string;
+        includeEndedLive?: boolean;
       }
     | undefined
 ): Record<string, unknown> {
@@ -311,6 +319,7 @@ function exploreFeedFilterBody(
   if (uniqTypes.length) out.eventVideoTypes = uniqTypes;
   if (langs.length) out.languages = langs;
   if (cts.length) out.countries = cts;
+  if (opts.includeEndedLive) out.includeEndedLive = true;
   return out;
 }
 

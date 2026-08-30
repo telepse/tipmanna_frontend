@@ -49,11 +49,12 @@ type DisputeTarget =
   | { kind: "unpaid_outstanding"; videoCoOwnerId: string };
 
 type Props =
-  | { mode: "token"; token: string; compact?: boolean }
-  | { mode: "hostSession"; compact?: boolean };
+  | { mode: "token"; token: string; compact?: boolean; showPendingTotal?: boolean }
+  | { mode: "hostSession"; compact?: boolean; showPendingTotal?: boolean };
 
 export function CoOwnerPayoutsClient(props: Props) {
   const compact = props.compact ?? false;
+  const showPendingTotal = props.showPendingTotal ?? false;
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +182,11 @@ export function CoOwnerPayoutsClient(props: Props) {
     );
   }
 
+  const totalOutstandingPence = items.reduce(
+    (sum, it) => sum + (it.outstandingPence ?? 0),
+    0
+  );
+
   return (
     <div className={compact ? "space-y-6" : "mx-auto max-w-3xl space-y-8 p-6"}>
       {!compact ? (
@@ -191,6 +197,25 @@ export function CoOwnerPayoutsClient(props: Props) {
             or report unpaid outstanding balance.
           </p>
         </header>
+      ) : null}
+
+      {showPendingTotal && items.length > 0 ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <p className="font-medium text-amber-950">Total pending payout</p>
+          <p className="text-amber-900">
+            {totalOutstandingPence > 0 ? (
+              <>
+                £{(totalOutstandingPence / 100).toFixed(2)} outstanding across{" "}
+                {items.filter(it => it.outstandingPence > 0).length} video
+                {items.filter(it => it.outstandingPence > 0).length === 1
+                  ? ""
+                  : "s"}
+              </>
+            ) : (
+              <>No outstanding balance across {items.length} co-owner video{items.length === 1 ? "" : "s"}</>
+            )}
+          </p>
+        </div>
       ) : null}
 
       {error ? <p className="text-destructive text-sm">{error}</p> : null}

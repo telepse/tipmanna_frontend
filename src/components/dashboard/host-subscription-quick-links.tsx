@@ -5,6 +5,7 @@ import { Crown, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subscription-modal";
 
 export function HostSubscriptionQuickLinks({
   eventSlug,
@@ -28,6 +29,22 @@ export function HostSubscriptionQuickLinks({
         <p className="text-muted-foreground text-sm">{subtitle}</p>
       </div>
       <div className="flex flex-wrap gap-2">
+        {!hasActivePremium ? (
+          <HostSubscriptionUpgradeTrigger
+            label={status === "lapsed" ? "Renew plan" : "Subscribe now"}
+            renewLabel={status === "lapsed" ? "Renew plan" : undefined}
+            title={
+              status === "lapsed"
+                ? "Renew your host plan"
+                : "Choose a host plan"
+            }
+            description={
+              status === "lapsed"
+                ? "Your subscription has lapsed. Renew to restore Growth and Community features."
+                : "Subscribe to unlock Growth and Community features on your dashboard."
+            }
+          />
+        ) : null}
         <Button
           asChild
           variant="outline"

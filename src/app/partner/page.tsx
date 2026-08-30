@@ -34,7 +34,10 @@ import {
   buildOrganizationJsonLd,
   buildPartnerOffersJsonLd,
 } from "@/lib/structured-data";
-import { PARTNER_FAQS, PRICING } from "@/constants";
+import { PARTNER_FAQS } from "@/constants";
+import { getPlanPricingAction } from "@/actions/plan-pricing";
+import { buildMarketingPricingCards } from "@/lib/public-plan-pricing";
+import { PartnerPricingSubscribeSection } from "@/components/partner/partner-pricing-subscribe-section";
 
 export const revalidate = 300;
 
@@ -77,8 +80,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function PartnerPage() {
+export default async function PartnerPage() {
   const pageUrl = getPublicAbsoluteUrl(PARTNER_PAGE_METADATA.canonicalPath);
+  const pricingRes = await getPlanPricingAction();
+  const marketingPricing = buildMarketingPricingCards(
+    pricingRes.success && pricingRes.data
+      ? (pricingRes.data as import("@/actions/plan-pricing").PublicPlanPricing)
+      : null
+  );
   const orgJsonLd = buildOrganizationJsonLd({
     name: "Tipmanna",
     description: PARTNER_PAGE_METADATA.description,
@@ -87,7 +96,7 @@ export default function PartnerPage() {
   });
   const faqJsonLd = buildFaqPageJsonLd(PARTNER_FAQS);
   const offersJsonLd = buildPartnerOffersJsonLd(
-    PRICING.map(plan => ({
+    marketingPricing.map(plan => ({
       name: plan.name,
       price: plan.price,
       description: plan.desc,
@@ -178,6 +187,7 @@ export default function PartnerPage() {
         aria-label="Pricing"
       >
         <NewPricingGrid />
+        <PartnerPricingSubscribeSection />
       </section>
 
       <DataSection>

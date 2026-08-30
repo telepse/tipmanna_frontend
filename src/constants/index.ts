@@ -305,9 +305,8 @@ export const PRICING: {
   },
   {
     name: "Growth",
-    price: "£9.99",
+    price: "£29.99",
     desc: "Grow engagement and build recurring relationships.",
-    discountPrice: "£29.99",
     btnText: "Upgrade to Growth",
     tier: "premium",
     features: [
@@ -323,9 +322,8 @@ export const PRICING: {
   },
   {
     name: "Community",
-    price: "£49.99",
+    price: "£99.99",
     desc: "Run your own community media network.",
-    discountPrice: "£99.99",
     btnText: "Launch Community TV",
     tier: "community",
     features: [

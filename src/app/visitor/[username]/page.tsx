@@ -10,6 +10,7 @@ import { getPublicTipperProfileAction } from "@/actions/tipper-profile";
 import { VisitorProfileClient } from "@/components/tipper/visitor-profile-client";
 import { getToken } from "@/lib/getToken";
 import { getServerSessionUser } from "@/lib/getUser";
+import { isProfileOwner } from "@/lib/tipper-profile-owner";
 import type { TippedVideoSummary } from "@/components/tipper/tipper-profile-client";
 import type { Event } from "@/types";
 
@@ -58,9 +59,7 @@ export default async function VisitorProfilePage({ params }: Props) {
   }
 
   const sessionUser = await getServerSessionUser();
-  const isOwner =
-    sessionUser?.role === "VISITOR" &&
-    sessionUser.username.toLowerCase() === profile.profileSlug.toLowerCase();
+  const isOwner = isProfileOwner(sessionUser, profile);
 
   let events = profile.events as Event[];
   let iTipped = profile.totalTipped;
@@ -89,6 +88,7 @@ export default async function VisitorProfilePage({ params }: Props) {
       tippedVideos={tippedVideos}
       viewMode={isOwner ? "owner" : "public"}
       profileSlug={profile.profileSlug}
+      profileId={profile.profileId}
     />
   );
 }

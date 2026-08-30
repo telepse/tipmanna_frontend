@@ -185,6 +185,41 @@ describe("useTvPlayerControls", () => {
     unmount();
   });
 
+  it("syncFromPlayer mirrors session mute pref, not transient player mute", () => {
+    const player = makePlayer({
+      isMuted: () => true,
+      getPlayerState: () => "BUFFERING",
+    });
+    vi.mocked(readTvMutePref).mockReturnValue(false);
+    const { result, unmount } = renderControlsHook({ player });
+
+    act(() => {
+      result.current.syncFromPlayer();
+    });
+
+    expect(result.current.isPlaying).toBe(true);
+    expect(result.current.isMuted).toBe(false);
+    unmount();
+  });
+
+  it("reconcile does not flip mute during programmatic player mute", () => {
+    vi.mocked(readTvMutePref).mockReturnValue(false);
+    const player = makePlayer({
+      isMuted: () => true,
+      getPlayerState: () => "PLAYING",
+    });
+    const { result, unmount } = renderControlsHook({ player });
+
+    expect(result.current.isMuted).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(1500);
+    });
+
+    expect(result.current.isMuted).toBe(false);
+    unmount();
+  });
+
   it("syncFromPlayer mirrors player state", () => {
     const player = makePlayer({
       isMuted: () => false,

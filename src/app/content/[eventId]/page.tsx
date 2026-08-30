@@ -3,12 +3,14 @@ import {
   getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
-import { getEventByIdAction } from "@/actions/events";
+import { getEventByIdAction, getEventRoomAccessAction } from "@/actions/events";
 import { ContentClient } from "@/components/events/content-client";
+import { PrivateEventRoomBlocked } from "@/components/events/event-room-access-gate";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { resolveProgramWatchAllPlaylist } from "@/actions/program-actions";
 import { resolveHostPlaylistWatchAll } from "@/actions/host-playlist";
 import { getToken } from "@/lib/getToken";
+import { getHostToken } from "@/lib/getHostToken";
 import {
   applyVideoDeepLinkQuery,
   buildContentShareUrl,
@@ -67,6 +69,18 @@ export async function generateMetadata({
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
 
+  const accessRes = await getEventRoomAccessAction(eventId);
+  const access =
+    accessRes.success && accessRes.data
+      ? (accessRes.data as {
+          accessMode?: "public" | "invite_only";
+          allowed?: boolean;
+        })
+      : null;
+  if (access?.accessMode === "invite_only" && access.allowed === false) {
+    return { title: "Private event room" };
+  }
+
   const res = await getCachedContentChannelForPage(eventId);
   const list = unwrapContentChannelList(res.data) as ContentData[];
   const videoRes = pickContentForPage(list, initialChannelId);
@@ -117,6 +131,18 @@ export default async function ContentPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
 
+  const accessRes = await getEventRoomAccessAction(eventId);
+  const access =
+    accessRes.success && accessRes.data
+      ? (accessRes.data as {
+          accessMode?: "public" | "invite_only";
+          allowed?: boolean;
+        })
+      : null;
+  if (access?.accessMode === "invite_only" && access.allowed === false) {
+    return <PrivateEventRoomBlocked />;
+  }
+
   const programWatch =
     typeof sp.programWatch === "string" && sp.programWatch === "all";
   const playlistWatch =
@@ -144,20 +170,23 @@ export default async function ContentPage({ params, searchParams }: Props) {
         : null;
 
   const token = await getToken();
+  const hostToken = await getHostToken();
+  const authToken = token ?? hostToken ?? null;
 
   let initialProgramPlaylist: unknown[] | null = null;
 
   if (playlistWatch && playlistId) {
-    const resolved = await resolveHostPlaylistWatchAll(playlistId, token);
-    if (!resolved) notFound();
-    initialProgramPlaylist = resolved.playlist;
-    if (resolved.canonicalEventId !== eventId) {
-      const q = new URLSearchParams({
-        playlistWatch: "all",
-        playlistId,
-      });
-      applyVideoDeepLinkQuery(q, initialChannelId);
-      redirect(`/content/${resolved.canonicalEventId}?${q.toString()}`);
+    const resolved = await resolveHostPlaylistWatchAll(playlistId, authToken);
+    if (resolved) {
+      initialProgramPlaylist = resolved.playlist;
+      if (resolved.canonicalEventId !== eventId) {
+        const q = new URLSearchParams({
+          playlistWatch: "all",
+          playlistId,
+        });
+        applyVideoDeepLinkQuery(q, initialChannelId);
+        redirect(`/content/${resolved.canonicalEventId}?${q.toString()}`);
+      }
     }
   } else if (programWatch) {
     if (!enforcement) notFound();
@@ -165,7 +194,7 @@ export default async function ContentPage({ params, searchParams }: Props) {
       eventId,
       enforcement,
       community,
-      token
+      authToken
     );
     if (!resolved) notFound();
 
@@ -260,7 +289,9 @@ export default async function ContentPage({ params, searchParams }: Props) {
   }
 
   const playable = list.filter((c: any) => !c?.restricted);
-  if (list.length > 0 && playable.length === 0) {
+  const hasWatchAllQueue =
+    Array.isArray(initialProgramPlaylist) && initialProgramPlaylist.length > 0;
+  if (list.length > 0 && playable.length === 0 && !hasWatchAllQueue) {
     const cid = (list[0] as { community?: { id: string } })?.community?.id;
     if (cid) {
       redirect(
@@ -307,6 +338,8 @@ export default async function ContentPage({ params, searchParams }: Props) {
               ? (initialProgramPlaylist as any[])
               : null
           }
+          playlistWatch={playlistWatch}
+          playlistId={playlistId || null}
           isCommunity={isCommunity}
           communityId={communityId}
           communityName={communityName}

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { pushOptInPrimaryButtonLabel } from "@/lib/push-opt-in-ios";
 
 type Props = {
   open: boolean;
@@ -50,7 +51,7 @@ export function EventReminderChoiceDialog({
             className="bg-black"
             onClick={() => void onEnablePush()}
           >
-            Push + in-app
+            {pushOptInPrimaryButtonLabel({ needsSignIn: isGuestFlow })}
           </Button>
           <Button
             type="button"

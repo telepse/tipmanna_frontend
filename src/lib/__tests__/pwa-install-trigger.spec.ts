@@ -3,14 +3,14 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   isPwaAutoPromptSuppressed,
   shouldShowManualInstallAffordance,
-  readEngagementElapsedMs,
-  writeEngagementElapsedMs,
-  markPendingPaymentPrompt,
-  consumePendingPaymentPrompt,
-  PWA_ENGAGEMENT_ELAPSED_KEY,
-  PWA_PENDING_PAYMENT_KEY,
+  readDwellElapsedMs,
+  writeDwellElapsedMs,
+  PWA_DWELL_MS_KEY,
   requestPwaPrompt,
   subscribePwaPrompt,
+  isDashboardPath,
+  hasPromptAFiredThisSession,
+  markPromptAFiredThisSession,
 } from "@/lib/pwa-install-trigger";
 
 describe("pwa-install-trigger gating", () => {
@@ -40,79 +40,55 @@ describe("pwa-install-trigger gating", () => {
         false
       )
     ).toBe(true);
-    expect(shouldShowManualInstallAffordance(null, false)).toBe(false);
+    expect(shouldShowManualInstallAffordance(null, true)).toBe(false);
   });
 
-  it("hides manual affordance when installed", () => {
-    expect(
-      shouldShowManualInstallAffordance({ status: "do_not_show" }, true)
-    ).toBe(false);
-  });
-
-  it("does not suppress dismissed-with-count below do_not_show threshold", () => {
-    expect(
-      isPwaAutoPromptSuppressed({ status: "dismissed", dismissCount: 0 }, false)
-    ).toBe(false);
-    expect(
-      isPwaAutoPromptSuppressed({ status: "dismissed", dismissCount: 1 }, false)
-    ).toBe(false);
-  });
-
-  it("suppresses after second dismiss sets do_not_show", () => {
-    expect(
-      isPwaAutoPromptSuppressed(
-        { status: "do_not_show", dismissCount: 2 },
-        false
-      )
-    ).toBe(true);
+  it("skips dashboard paths", () => {
+    expect(isDashboardPath("/host/alice/settings")).toBe(true);
+    expect(isDashboardPath("/tv")).toBe(false);
   });
 });
 
-describe("pwa-install-trigger engagement and payment helpers", () => {
-  const storage = new Map<string, string>();
-
+describe("pwa-install-trigger session tracking", () => {
   beforeEach(() => {
-    storage.clear();
-    vi.stubGlobal("sessionStorage", {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => {
-        storage.set(key, value);
-      },
-      removeItem: (key: string) => {
-        storage.delete(key);
-      },
-      clear: () => {
-        storage.clear();
-      },
-    });
-    vi.stubGlobal("window", { setTimeout: globalThis.setTimeout });
+    vi.stubGlobal("window", {} as Window);
+    vi.stubGlobal(
+      "sessionStorage",
+      (() => {
+        const store = new Map<string, string>();
+        return {
+          getItem: (k: string) => store.get(k) ?? null,
+          setItem: (k: string, v: string) => {
+            store.set(k, v);
+          },
+          removeItem: (k: string) => {
+            store.delete(k);
+          },
+          clear: () => store.clear(),
+        };
+      })()
+    );
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  it("persists dwell elapsed ms", () => {
+    expect(readDwellElapsedMs()).toBe(0);
+    writeDwellElapsedMs(120000);
+    expect(readDwellElapsedMs()).toBe(120000);
+    expect(sessionStorage.getItem(PWA_DWELL_MS_KEY)).toBe("120000");
   });
 
-  it("persists and reads engagement elapsed ms", () => {
-    expect(readEngagementElapsedMs()).toBe(0);
-    writeEngagementElapsedMs(120_000);
-    expect(readEngagementElapsedMs()).toBe(120_000);
-    expect(sessionStorage.getItem(PWA_ENGAGEMENT_ELAPSED_KEY)).toBe("120000");
+  it("tracks prompt A once per session", () => {
+    expect(hasPromptAFiredThisSession()).toBe(false);
+    markPromptAFiredThisSession();
+    expect(hasPromptAFiredThisSession()).toBe(true);
   });
 
-  it("marks and consumes pending payment prompt once", () => {
-    expect(consumePendingPaymentPrompt()).toBe(false);
-    markPendingPaymentPrompt();
-    expect(sessionStorage.getItem(PWA_PENDING_PAYMENT_KEY)).toBe("1");
-    expect(consumePendingPaymentPrompt()).toBe(true);
-    expect(consumePendingPaymentPrompt()).toBe(false);
-  });
-
-  it("notifies subscribed listeners when prompt is requested", () => {
+  it("notifies subscribers on requestPwaPrompt", () => {
     const listener = vi.fn();
-    const unsubscribe = subscribePwaPrompt(listener);
+    const unsub = subscribePwaPrompt(listener);
     requestPwaPrompt("payment");
     expect(listener).toHaveBeenCalledWith("payment");
-    unsubscribe();
+    unsub();
     requestPwaPrompt("engagement");
     expect(listener).toHaveBeenCalledTimes(1);
   });

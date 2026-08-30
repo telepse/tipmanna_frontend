@@ -250,22 +250,43 @@ export async function resolveHostPlaylistWatchAll(
   const playlist: unknown[] = [];
   for (const item of items) {
     const rows = byEventId[item.event.id];
-    if (!rows?.length) continue;
+    const fallbackRow = item.url?.trim()
+      ? {
+          id: item.eventChannelId,
+          title: item.title,
+          url: item.url,
+          numOfTips: item.numOfTips,
+          event: {
+            id: item.event.id,
+            eventName: item.event.eventName,
+          },
+        }
+      : null;
+
+    if (!rows?.length) {
+      if (fallbackRow) playlist.push(fallbackRow);
+      continue;
+    }
+
     const row = rows.find(
       r =>
         typeof r === "object" &&
         r !== null &&
         String((r as { id?: unknown }).id ?? "") === String(item.eventChannelId)
-    );
-    if (!row) continue;
+    ) as Record<string, unknown> | undefined;
+
     if (
+      row &&
       typeof row === "object" &&
-      row !== null &&
-      (row as { restricted?: unknown }).restricted === true
+      row.restricted !== true &&
+      typeof row.url === "string" &&
+      row.url.trim()
     ) {
+      playlist.push(row);
       continue;
     }
-    playlist.push(row);
+
+    if (fallbackRow) playlist.push(fallbackRow);
   }
 
   if (playlist.length === 0) return null;

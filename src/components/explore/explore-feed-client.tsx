@@ -107,13 +107,25 @@ import {
   resolveExploreFeedScrollIndex,
 } from "@/lib/explore-feed-open";
 import { cn } from "@/lib/utils";
-import { buildChannelSharePath } from "@/lib/public-video-url";
+import {
+  isLivestreamFamily,
+  shouldOpenExploreHandoffInChannel,
+} from "@/lib/discover-content-routing";
+import { fetchChannelPlaybackRoute } from "@/lib/channel-playback-route";
+import { PlaybackReturnBackChip } from "@/components/events/playback-return-back-chip";
+import {
+  isDedicatedDiscoverReturnTo,
+  peekDiscoverUiRestore,
+} from "@/lib/discover-return.util";
+import { writePlaybackReturn } from "@/lib/playback-return-stack";
+import { useOpenChannelWithReturn } from "@/hooks/use-open-channel-with-return";
 import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { CreateDialog } from "@/components/home/create-dialog";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { ImmersiveChannelActionsRail } from "@/components/events/immersive-channel-actions-rail";
 import { CommentDrawer } from "@/components/events/comment-drawer";
+import { scheduleEngagementPwaPromptFromPolicy } from "@/lib/pwa-install-trigger";
 import { TipsDrawer } from "@/components/events/tips-drawer";
 import { getSavedVideosForTipper } from "@/actions/events";
 import {
@@ -183,6 +195,8 @@ import {
   parseCommunityDrawerFromUrl,
   parseCreatorDrawerFromUrl,
 } from "@/lib/playback-return-restore";
+import { commitExploreHistory } from "@/lib/explore-url-history";
+import { exploreLiveSearchParamsKey } from "@/lib/explore-url-sync-policy";
 
 const TipDrawer = dynamic(
   () =>
@@ -225,6 +239,40 @@ function isInReelVirtualWindow(
   const lo = Math.max(0, activeIndex - EXPLORE_REEL_VIRTUAL_WINDOW);
   const hi = Math.min(itemCount - 1, activeIndex + EXPLORE_REEL_VIRTUAL_WINDOW);
   return slideIndex >= lo && slideIndex <= hi;
+}
+
+type ExploreReelSlideMetrics = {
+  views: number;
+  encounters: number;
+  completes: number;
+  saves: number;
+  shares: number;
+  comments: number;
+};
+
+function liveRoutingFromSnapshot(
+  channelSnapshot: Record<string, unknown> | null | undefined
+): { liveStatus: string | null; isLive: boolean } {
+  if (!channelSnapshot || typeof channelSnapshot !== "object") {
+    return { liveStatus: null, isLive: false };
+  }
+  return {
+    liveStatus:
+      typeof channelSnapshot.liveStatus === "string"
+        ? channelSnapshot.liveStatus
+        : null,
+    isLive: channelSnapshot.isLive === true,
+  };
+}
+
+function liveRoutingFromRow(row: Record<string, unknown>): {
+  liveStatus: string | null;
+  isLive: boolean;
+} {
+  return {
+    liveStatus: typeof row.liveStatus === "string" ? row.liveStatus : null,
+    isLive: row.isLive === true,
+  };
 }
 
 function metricsFromFeedItem(item: any): ExploreReelSlideMetrics | null {
@@ -620,15 +668,6 @@ function ExploreFeedSlideStage({
   );
 }
 
-type ExploreReelSlideMetrics = {
-  views: number;
-  encounters: number;
-  completes: number;
-  saves: number;
-  shares: number;
-  comments: number;
-};
-
 function resolveExploreItemHostUsername(item: unknown): string | null {
   if (!item || typeof item !== "object") return null;
   const row = item as {
@@ -906,6 +945,7 @@ export interface ExploreFeedClientProps {
     eventTypes: string[];
     language: string;
     country: string;
+    includeEndedLive?: boolean;
   };
   ssrBoot?: { items: any[]; seed: string; bucketId: number } | null;
 }
@@ -930,13 +970,19 @@ export const ExploreFeedClient = forwardRef<
     feedSurfaceActive = true,
     feedMode = "trends",
     communityIds,
-    trendsFilters = { eventTypes: [] as string[], language: "", country: "" },
+    trendsFilters = {
+      eventTypes: [] as string[],
+      language: "",
+      country: "",
+      includeEndedLive: false,
+    },
   },
   ref
 ) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const openChannelWithReturn = useOpenChannelWithReturn();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const exploreReturnTo =
     typeof pathname === "string"
@@ -1022,6 +1068,7 @@ export const ExploreFeedClient = forwardRef<
     if (open) {
       setIsTipDrawerOpen(false);
       setTipsListOpen(false);
+      void scheduleEngagementPwaPromptFromPolicy();
     }
     setExploreCommentOpen(open);
   }, []);
@@ -1043,33 +1090,73 @@ export const ExploreFeedClient = forwardRef<
   const [paginationRetryEpoch, setPaginationRetryEpoch] = useState(0);
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
 
-  const openCreatorDrawer = useCallback((username: string) => {
-    const handle = resolveCreatorUsernameAlias(username);
-    if (!handle) return;
-    setCreatorDrawerUsername(handle);
-    setCreatorDrawerOpen(true);
-  }, []);
+  const syncDrawerExploreUrl = useCallback(
+    (mutate: (params: URLSearchParams) => void) => {
+      const liveKey = exploreLiveSearchParamsKey(searchParams?.toString() ?? "");
+      const params = new URLSearchParams(liveKey);
+      mutate(params);
+      commitExploreHistory({
+        href: `/explore?${params.toString()}`,
+        mode: "replace",
+        source: "passive-sync",
+      });
+    },
+    [searchParams]
+  );
 
-  const handleCreatorDrawerOpenChange = useCallback((open: boolean) => {
-    setCreatorDrawerOpen(open);
-    if (!open) {
-      setCreatorDrawerUsername(null);
-    }
-  }, []);
+  const openCreatorDrawer = useCallback(
+    (username: string) => {
+      const handle = resolveCreatorUsernameAlias(username);
+      if (!handle) return;
+      setCreatorDrawerUsername(handle);
+      setCreatorDrawerOpen(true);
+      syncDrawerExploreUrl(params => {
+        params.delete("communityDrawer");
+        params.set("creatorDrawer", handle);
+      });
+    },
+    [syncDrawerExploreUrl]
+  );
 
-  const openCommunityDrawer = useCallback((communityId: string) => {
-    const id = communityId.trim();
-    if (!id) return;
-    setCommunityDrawerId(id);
-    setCommunityDrawerOpen(true);
-  }, []);
+  const handleCreatorDrawerOpenChange = useCallback(
+    (open: boolean) => {
+      setCreatorDrawerOpen(open);
+      if (!open) {
+        setCreatorDrawerUsername(null);
+        syncDrawerExploreUrl(params => {
+          params.delete("creatorDrawer");
+        });
+      }
+    },
+    [syncDrawerExploreUrl]
+  );
 
-  const handleCommunityDrawerOpenChange = useCallback((open: boolean) => {
-    setCommunityDrawerOpen(open);
-    if (!open) {
-      setCommunityDrawerId(null);
-    }
-  }, []);
+  const openCommunityDrawer = useCallback(
+    (communityId: string) => {
+      const id = communityId.trim();
+      if (!id) return;
+      setCommunityDrawerId(id);
+      setCommunityDrawerOpen(true);
+      syncDrawerExploreUrl(params => {
+        params.delete("creatorDrawer");
+        params.set("communityDrawer", id);
+      });
+    },
+    [syncDrawerExploreUrl]
+  );
+
+  const handleCommunityDrawerOpenChange = useCallback(
+    (open: boolean) => {
+      setCommunityDrawerOpen(open);
+      if (!open) {
+        setCommunityDrawerId(null);
+        syncDrawerExploreUrl(params => {
+          params.delete("communityDrawer");
+        });
+      }
+    },
+    [syncDrawerExploreUrl]
+  );
 
   useEffect(() => {
     const creator = parseCreatorDrawerFromUrl(searchParams);
@@ -1306,6 +1393,7 @@ export const ExploreFeedClient = forwardRef<
         );
         if (res.data.toggledTo === "saved") {
           trackTvSaveClick(saveExploreChannelId);
+          void scheduleEngagementPwaPromptFromPolicy();
         }
         setExploreCommentMetricsRefreshKey(k => k + 1);
         await refreshSavedContents();
@@ -1727,35 +1815,69 @@ export const ExploreFeedClient = forwardRef<
   const executeOpenInExplore = useCallback(
     async (target: ExploreFeedOpenTarget) => {
       const { videoId, channelSnapshot } = target;
-      const snapshotLiveStatus =
-        channelSnapshot &&
-        typeof channelSnapshot === "object" &&
-        typeof (channelSnapshot as { liveStatus?: unknown }).liveStatus ===
-          "string"
-          ? String((channelSnapshot as { liveStatus: string }).liveStatus)
-          : null;
-      if (snapshotLiveStatus === "LIVE") {
+      const channelReturn = () => ({
+        returnTo: target.discoverReturnTo ?? exploreReturnTo,
+        label:
+          target.discoverReturnLabel ??
+          (target.discoverReturnTo ? "Back to Discover" : "Back to Explore"),
+        discoverUi: peekDiscoverUiRestore() ?? undefined,
+      });
+      const openLiveInChannel = () => {
         openingVideoIdRef.current = null;
-        router.push(
-          buildChannelSharePath({
-            eventId: target.eventId,
-            channelId: videoId,
-          })
-        );
+        openChannelWithReturn({
+          eventId: target.eventId,
+          channelId: videoId,
+          ...channelReturn(),
+        });
+      };
+
+      const snapshotLive = liveRoutingFromSnapshot(
+        channelSnapshot as Record<string, unknown> | null | undefined
+      );
+      if (shouldOpenExploreHandoffInChannel(snapshotLive)) {
+        openLiveInChannel();
         return;
       }
-      if (snapshotLiveStatus === "UPCOMING") {
-        openingVideoIdRef.current = null;
-        return;
+      if (!isLivestreamFamily(snapshotLive)) {
+        const route = await fetchChannelPlaybackRoute(videoId);
+        if (route?.route === "channel") {
+          openLiveInChannel();
+          return;
+        }
+      }
+      if (
+        target.discoverReturnTo &&
+        isDedicatedDiscoverReturnTo(target.discoverReturnTo)
+      ) {
+        writePlaybackReturn({
+          returnTo: target.discoverReturnTo,
+          label: target.discoverReturnLabel ?? "Back to Discover",
+          discoverUi: peekDiscoverUiRestore() ?? undefined,
+        });
       }
       const myGen = ++openGenerationRef.current;
       scrollLayoutRetryRef.current = 0;
       openingVideoIdRef.current = videoId;
 
+      const commitPendingOpenScroll = () => {
+        setScrollSyncEpoch(e => e + 1);
+        setActiveIndex(prev => {
+          const idx = itemsRef.current.findIndex(i => i.id === videoId);
+          return idx >= 0 ? idx : prev;
+        });
+      };
+
       const existingIdx = itemsRef.current.findIndex(i => i.id === videoId);
       if (existingIdx >= 0) {
         openingVideoIdRef.current = videoId;
-        setScrollSyncEpoch(e => e + 1);
+        setItems(prev => {
+          if (myGen !== openGenerationRef.current) return prev;
+          const idx = prev.findIndex(i => i.id === videoId);
+          if (idx < 0) return prev;
+          const row = prev[idx];
+          return [row, ...prev.filter(i => i.id !== videoId)];
+        });
+        commitPendingOpenScroll();
         const existing = itemsRef.current[existingIdx];
         const needsEnrichment =
           !metricsFromFeedItem(existing) ||
@@ -1764,18 +1886,9 @@ export const ExploreFeedClient = forwardRef<
           void resolveExploreOpenChannelRow(target).then(enriched => {
             if (myGen !== openGenerationRef.current) return;
             if (!enriched) return;
-            if (enriched.liveStatus === "LIVE") {
-              openingVideoIdRef.current = null;
-              router.push(
-                buildChannelSharePath({
-                  eventId: target.eventId,
-                  channelId: videoId,
-                })
-              );
-              return;
-            }
-            if (enriched.liveStatus === "UPCOMING") {
-              openingVideoIdRef.current = null;
+            const enrichedLive = liveRoutingFromRow(enriched);
+            if (shouldOpenExploreHandoffInChannel(enrichedLive)) {
+              openLiveInChannel();
               return;
             }
             setItems(prev => {
@@ -1784,6 +1897,10 @@ export const ExploreFeedClient = forwardRef<
               if (idx < 0) return prev;
               const next = [...prev];
               next[idx] = { ...prev[idx], ...enriched };
+              if (idx > 0) {
+                const [row] = next.splice(idx, 1);
+                next.unshift(row);
+              }
               return next;
             });
           });
@@ -1796,29 +1913,20 @@ export const ExploreFeedClient = forwardRef<
         setItems(prev => {
           if (myGen !== openGenerationRef.current) return prev;
           if (openingVideoIdRef.current !== videoId) return prev;
-          if (prev.some(i => i.id === videoId)) return prev;
-          const ai = activeIndexRef.current;
-          const insertAt = Math.min(ai + 1, prev.length);
-          const next = [...prev];
-          next.splice(insertAt, 0, snapshotRow);
-          return next;
+          const existingAt = prev.findIndex(i => i.id === videoId);
+          if (existingAt >= 0) {
+            const row = prev[existingAt];
+            return [row, ...prev.filter(i => i.id !== videoId)];
+          }
+          return [snapshotRow, ...prev.filter(i => i.id !== videoId)];
         });
-        setScrollSyncEpoch(e => e + 1);
+        commitPendingOpenScroll();
         void resolveExploreOpenChannelRow(target).then(enriched => {
           if (myGen !== openGenerationRef.current) return;
           if (!enriched) return;
-          if (enriched.liveStatus === "LIVE") {
-            openingVideoIdRef.current = null;
-            router.push(
-              buildChannelSharePath({
-                eventId: target.eventId,
-                channelId: videoId,
-              })
-            );
-            return;
-          }
-          if (enriched.liveStatus === "UPCOMING") {
-            openingVideoIdRef.current = null;
+          const enrichedLive = liveRoutingFromRow(enriched);
+          if (shouldOpenExploreHandoffInChannel(enrichedLive)) {
+            openLiveInChannel();
             return;
           }
           setItems(prev => {
@@ -1839,18 +1947,9 @@ export const ExploreFeedClient = forwardRef<
         openingVideoIdRef.current = null;
         return;
       }
-      if (row.liveStatus === "LIVE") {
-        openingVideoIdRef.current = null;
-        router.push(
-          buildChannelSharePath({
-            eventId: target.eventId,
-            channelId: videoId,
-          })
-        );
-        return;
-      }
-      if (row.liveStatus === "UPCOMING") {
-        openingVideoIdRef.current = null;
+      const rowLive = liveRoutingFromRow(row);
+      if (shouldOpenExploreHandoffInChannel(rowLive)) {
+        openLiveInChannel();
         return;
       }
 
@@ -1858,17 +1957,13 @@ export const ExploreFeedClient = forwardRef<
         if (myGen !== openGenerationRef.current) return prev;
         if (openingVideoIdRef.current !== videoId) return prev;
         if (prev.some(i => i.id === videoId)) return prev;
-        const ai = activeIndexRef.current;
-        const insertAt = Math.min(ai + 1, prev.length);
-        const next = [...prev];
-        next.splice(insertAt, 0, row);
-        return next;
+        return [row, ...prev.filter(i => i.id !== videoId)];
       });
       if (myGen !== openGenerationRef.current) return;
       if (openingVideoIdRef.current !== videoId) return;
-      setScrollSyncEpoch(e => e + 1);
+      commitPendingOpenScroll();
     },
-    [router]
+    [exploreReturnTo, openChannelWithReturn]
   );
 
   useImperativeHandle(
@@ -1904,7 +1999,7 @@ export const ExploreFeedClient = forwardRef<
     if (!root) return;
     const h = getExploreSlideStepPx(root);
     if (h <= 0) {
-      if (feedSurfaceActive && scrollLayoutRetryRef.current < 16) {
+      if (scrollLayoutRetryRef.current < 48) {
         scrollLayoutRetryRef.current += 1;
         raf = requestAnimationFrame(() => {
           setScrollSyncEpoch(e => e + 1);
@@ -2445,6 +2540,12 @@ export const ExploreFeedClient = forwardRef<
 
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-black">
+      <div className="pointer-events-none absolute top-3 left-3 z-[80]">
+        <PlaybackReturnBackChip
+          className="pointer-events-auto"
+          isVisible={ctx => isDedicatedDiscoverReturnTo(ctx.returnTo)}
+        />
+      </div>
       <div
         data-testid="explore-feed-scroll"
         ref={scrollRef}
@@ -2666,9 +2767,10 @@ export const ExploreFeedClient = forwardRef<
                             saveBusy={saveBusy}
                             onSaveClick={() => void handleExploreSaveToggle()}
                             onCommentOpenChange={openExploreCommentDrawer}
-                            onShareOpen={() =>
-                              setExploreCommentMetricsRefreshKey(k => k + 1)
-                            }
+                            onShareOpen={() => {
+                              setExploreCommentMetricsRefreshKey(k => k + 1);
+                              void scheduleEngagementPwaPromptFromPolicy();
+                            }}
                             hideTipsChip={
                               typeof active?.event?.amountToRaise ===
                                 "number" &&

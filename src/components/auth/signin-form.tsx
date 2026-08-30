@@ -64,6 +64,7 @@ import {
 } from "@/lib/session-client";
 import { performAuthLogout } from "@/lib/auth-logout";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
+import { notifyHostSessionTouched } from "@/lib/host-session-probe";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 import { store, type AppDispatch, type RootState } from "@/redux/store";
@@ -238,8 +239,6 @@ export const SigninForm = ({
   const finishHostAuth = async (
     parsed: NonNullable<ReturnType<typeof parseAuthResponse>>
   ) => {
-    toast.success(parsed.message);
-
     const hostUser = parsed.hostSession?.user;
     const hostSlug = hostUser?.eventSlug ?? null;
     const hostUsername = hostUser?.username ?? parsed.user.username;
@@ -258,7 +257,17 @@ export const SigninForm = ({
       if (tipperEmail && hostEmail && tipperEmail !== hostEmail) {
         await performAuthLogout(dispatch);
         await clearHostSession();
-        await applyPrimaryAndHostSessions(parsed, dispatch);
+        const { hostSessionPersisted } = await applyPrimaryAndHostSessions(
+          parsed,
+          dispatch
+        );
+        if (parsed.hostSession && !hostSessionPersisted) {
+          toast.error(
+            "Host session could not be saved. Please sign in again."
+          );
+          return;
+        }
+        toast.success(parsed.message);
         onModalHostSuccess?.({
           role: "HOST",
           username: hostUsername,
@@ -268,12 +277,26 @@ export const SigninForm = ({
       }
 
       if (parsed.hostSession) {
-        await persistHostSession(
+        const ok = await persistHostSession(
           parsed.hostSession.token,
           parsed.hostSession.user,
           { expiresDays: 7 }
         );
+        if (!ok) {
+          toast.error(
+            "Host session could not be saved. Please try signing in again."
+          );
+          return;
+        }
+        notifyHostSessionTouched({
+          active: true,
+          hostId: parsed.hostSession.user.id,
+          hostSessionExpiresAt: new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        });
       }
+      toast.success(parsed.message);
       onModalHostSuccess?.({
         role: "HOST",
         username: hostUsername,
@@ -282,7 +305,16 @@ export const SigninForm = ({
       return;
     }
 
-    await applyPrimaryAndHostSessions(parsed, dispatch);
+    const { hostSessionPersisted } = await applyPrimaryAndHostSessions(
+      parsed,
+      dispatch
+    );
+    if (parsed.hostSession && !hostSessionPersisted) {
+      toast.error("Host session could not be saved. Please sign in again.");
+      return;
+    }
+
+    toast.success(parsed.message);
 
     if (mode === "modal" && onModalHostSuccess) {
       onModalHostSuccess({

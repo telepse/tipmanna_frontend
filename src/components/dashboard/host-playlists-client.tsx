@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { CloudUpload, Loader2, Plus, Trash2 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -33,7 +34,12 @@ import {
 } from "@/components/ui/dialog";
 import type { RootState } from "@/redux/store";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { cn } from "@/lib/utils";
 import { listMyVideosForVideoRequestsAction } from "@/actions/video-requests";
+import { subscriptionActionErrorMessage } from "@/lib/host-subscription-errors";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import { useImageUpload } from "@/hooks/use-image-upload";
+import { uploadImage } from "@/lib/cloudinary";
 
 const MIN_ITEMS = 3;
 const MAX_ITEMS = 10;
@@ -60,7 +66,18 @@ export function HostPlaylistsClient() {
   const [description, setDescription] = useState("");
   const [kind, setKind] = useState<"standard" | "community">("standard");
   const [communityId, setCommunityId] = useState<string>("");
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "community" });
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [bannerChannelId, setBannerChannelId] = useState<string>("");
+  const {
+    readableImage: bannerUploadPreview,
+    error: bannerUploadError,
+    inputRef: bannerInputRef,
+    handleImageUpload: handleBannerImageUpload,
+    handleChangeImage: handleChangeBannerImage,
+    handleRemoveImage: handleRemoveBannerImage,
+  } = useImageUpload({ maxSizeMB: 2 });
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -68,7 +85,21 @@ export function HostPlaylistsClient() {
     try {
       const res = await listHostPlaylistsAction();
       if (!res.success || !res.data) {
-        toast.error(res.message ?? "Could not load playlists");
+        if (
+          handleSubscriptionActionError(res, {
+            focusTier: "premium",
+            toastFallback: false,
+          })
+        ) {
+          setPlaylists([]);
+          return;
+        }
+        toast.error(
+          subscriptionActionErrorMessage(
+            res.validationBody,
+            res.message ?? "Could not load playlists"
+          )
+        );
         setPlaylists([]);
         return;
       }
@@ -124,13 +155,19 @@ export function HostPlaylistsClient() {
   const toggleChannel = (channelId: string) => {
     setSelectedChannelIds(prev => {
       if (prev.includes(channelId)) {
-        return prev.filter(id => id !== channelId);
+        const next = prev.filter(id => id !== channelId);
+        if (bannerChannelId === channelId) {
+          setBannerChannelId(next[0] ?? "");
+        }
+        return next;
       }
       if (prev.length >= MAX_ITEMS) {
         toast.info(`Maximum ${MAX_ITEMS} videos per playlist`);
         return prev;
       }
-      return [...prev, channelId];
+      const next = [...prev, channelId];
+      if (!bannerChannelId) setBannerChannelId(channelId);
+      return next;
     });
   };
 
@@ -147,6 +184,8 @@ export function HostPlaylistsClient() {
     setKind("standard");
     setCommunityId("");
     setSelectedChannelIds([]);
+    setBannerChannelId("");
+    handleRemoveBannerImage();
   };
 
   const onCreate = async () => {
@@ -159,15 +198,41 @@ export function HostPlaylistsClient() {
           sortOrder: index,
         })
       );
+      let bannerUrl: string | null = null;
+      if (bannerUploadPreview) {
+        const uploaded = await uploadImage(bannerUploadPreview);
+        if (!uploaded?.secure_url) {
+          toast.error("Could not upload banner image");
+          return;
+        }
+        bannerUrl = uploaded.secure_url;
+      } else if (bannerChannelId) {
+        const bannerChannel = channels.find(c => c.id === bannerChannelId);
+        const bannerVideoId = bannerChannel
+          ? extractYoutubeID(bannerChannel.url)
+          : null;
+        bannerUrl = bannerVideoId
+          ? `https://img.youtube.com/vi/${bannerVideoId}/hqdefault.jpg`
+          : null;
+      }
       const res = await createHostPlaylistAction({
         name: name.trim(),
         description: description.trim() || null,
         kind,
         communityId: kind === "community" ? communityId : null,
+        bannerUrl,
         items,
       });
       if (!res.success) {
-        toast.error(res.message ?? "Could not create playlist");
+        if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
+          return;
+        }
+        toast.error(
+          subscriptionActionErrorMessage(
+            res.validationBody,
+            res.message ?? "Could not create playlist"
+          )
+        );
         return;
       }
       toast.success("Playlist created");
@@ -183,7 +248,15 @@ export function HostPlaylistsClient() {
     if (!window.confirm("Delete this playlist?")) return;
     const res = await deleteHostPlaylistAction(id);
     if (!res.success) {
-      toast.error(res.message ?? "Could not delete playlist");
+      if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
+        return;
+      }
+      toast.error(
+        subscriptionActionErrorMessage(
+          res.validationBody,
+          res.message ?? "Could not delete playlist"
+        )
+      );
       return;
     }
     toast.success("Playlist deleted");
@@ -198,8 +271,10 @@ export function HostPlaylistsClient() {
     );
   }
 
+
   return (
     <div className="space-y-6">
+      {SubscriptionPromptModal}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-muted-foreground text-sm">
           Curate 3–10 videos into shareable playlists. Community playlists are
@@ -370,6 +445,110 @@ export function HostPlaylistsClient() {
                 )}
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Banner image (optional)</Label>
+              {bannerUploadPreview ? (
+                <div className="relative inline-block">
+                  <Image
+                    src={bannerUploadPreview}
+                    alt="Playlist banner preview"
+                    width={320}
+                    height={180}
+                    className="aspect-video w-full max-w-xs rounded-md object-cover"
+                    unoptimized={bannerUploadPreview.startsWith("data:")}
+                  />
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleChangeBannerImage}
+                    >
+                      Change
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        handleRemoveBannerImage();
+                        setBannerChannelId("");
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="hover:bg-muted/50 flex w-full cursor-pointer flex-wrap items-center gap-3 rounded-md border border-dashed p-4 text-left"
+                  onClick={() => bannerInputRef.current?.click()}
+                >
+                  <CloudUpload className="text-muted-foreground size-8" />
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">Upload custom banner</p>
+                    <p className="text-muted-foreground text-xs">
+                      PNG, JPEG, or WebP — max 2 MB
+                    </p>
+                  </div>
+                </button>
+              )}
+              <input
+                type="file"
+                ref={bannerInputRef}
+                hidden
+                accept="image/png,image/jpeg,image/webp,image/jiff"
+                onChange={e => {
+                  void handleBannerImageUpload(e);
+                  setBannerChannelId("");
+                }}
+              />
+              {bannerUploadError ? (
+                <p className="text-destructive text-xs">{bannerUploadError}</p>
+              ) : null}
+            </div>
+            {selectedChannelIds.length > 0 && !bannerUploadPreview ? (
+              <div className="space-y-2">
+                <Label>Or pick a video thumbnail</Label>
+                <div className="flex flex-wrap gap-2">
+                  {selectedChannelIds.map(channelId => {
+                    const ch = channels.find(c => c.id === channelId);
+                    if (!ch) return null;
+                    const videoId = extractYoutubeID(ch.url);
+                    const thumb = videoId
+                      ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                      : null;
+                    return (
+                      <button
+                        key={channelId}
+                        type="button"
+                        onClick={() => setBannerChannelId(channelId)}
+                        className={cn(
+                          "overflow-hidden rounded-md border-2",
+                          bannerChannelId === channelId
+                            ? "border-primary"
+                            : "border-transparent"
+                        )}
+                        aria-label={`Use ${ch.title} as banner`}
+                      >
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt=""
+                            className="aspect-video w-24 object-cover"
+                          />
+                        ) : (
+                          <span className="block px-2 py-4 text-xs">
+                            {ch.title}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             <Button
               type="button"
               disabled={!canSubmit || saving}

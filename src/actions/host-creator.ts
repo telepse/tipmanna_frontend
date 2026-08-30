@@ -68,6 +68,7 @@ export type HostCreatorCommunity = {
   createdAt: string;
   locked: boolean;
   eventId: string | null;
+  tvActivatedAt?: string | null;
   isOwnProfile: boolean;
 };
 

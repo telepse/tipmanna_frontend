@@ -48,6 +48,7 @@ type TippedVideoSummary = {
 };
 
 import { touchVisitorTimestamp } from "@/lib/visitor-session";
+import { ProfileSlugSync } from "./profile-slug-sync";
 
 interface Props {
   events: Event[];
@@ -55,6 +56,7 @@ interface Props {
   tippedVideos?: TippedVideoSummary[];
   viewMode?: "owner" | "public" | "drawer";
   profileSlug?: string;
+  profileId?: string;
 }
 
 type ApiError = { error: { status: number; message: string } };
@@ -66,10 +68,11 @@ export const VisitorProfileClient = ({
   tippedVideos = [],
   viewMode = "owner",
   profileSlug,
+  profileId,
 }: Props) => {
   const isDrawer = viewMode === "drawer";
   const isPublic = viewMode === "public";
-  const isOwner = viewMode === "owner";
+  const isPageOwner = viewMode === "owner";
   const [openEmail, setOpenEmail] = useState(false);
 
   const form = useForm<{ email: string; code: string }>({
@@ -83,6 +86,12 @@ export const VisitorProfileClient = ({
 
   const user = useSelector((state: RootState) => state.auth.user);
   const userId = user ? user.id : "";
+
+  const showClaim =
+    isPageOwner ||
+    (isDrawer &&
+      user?.role === "VISITOR" &&
+      (!profileId || user.id === profileId));
 
   const token = useSelector((state: RootState) => state.auth.token);
 
@@ -228,15 +237,18 @@ export const VisitorProfileClient = ({
 
   return (
     <div className="space-y-1">
+      {isPageOwner && profileSlug ? (
+        <ProfileSlugSync profileSlug={profileSlug} />
+      ) : null}
       {!isDrawer ? <NavbarShell /> : null}
       <VisitorProfileBanner
         iTipped={iTipped}
         variant={viewMode}
         profileSlug={profileSlug}
-        showOwnerControls={isOwner}
+        showOwnerControls={showClaim}
       />
 
-      {isOwner ? (
+      {showClaim ? (
         <div className={isDrawer ? "px-2" : "p-4"}>
           <p className="mx-auto flex max-w-2xl items-center justify-between gap-2 rounded-md border border-dashed border-black p-4 text-sm text-black">
             <div className="flex items-center gap-2">
@@ -282,7 +294,7 @@ export const VisitorProfileClient = ({
         </div>
       ) : null}
 
-      {isOwner ? (
+      {showClaim ? (
         <Dialog
           open={openEmail}
           onOpenChange={setOpenEmail}

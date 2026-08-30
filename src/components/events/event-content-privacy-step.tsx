@@ -28,7 +28,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useCoOwnerDraftFields } from "@/hooks/use-coowner-draft-fields";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
-import { useHostProfile } from "@/hooks/use-host-profile";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import type { CoOwnerDraftSlice } from "@/lib/form-draft-utils";
 import {
   mintYoutubeVerifyRequest,
@@ -69,7 +69,7 @@ export function EventContentPrivacyStep({
   const user = useSelector((s: RootState) => s.auth.user);
   const token = useSelector((s: RootState) => s.auth.token);
   const { canWriteAsHost } = useHostCapabilityWithAuth();
-  const { profile } = useHostProfile();
+  const { hasActivePremium, isLoading: planLoading } = useHostPlanCapabilities();
   const videoLinks = watch("videoLinks") || [];
   const [channels, setChannels] = useState<YtRow[]>([]);
   const [loadingYt, setLoadingYt] = useState(false);
@@ -81,10 +81,7 @@ export function EventContentPrivacyStep({
   const nextVerifyRequestIdRef = useRef(0);
   const latestVerifyRequestIdByIndexRef = useRef<Record<number, number>>({});
 
-  const hostTier = profile?.hostSubscriptionTier;
-  console.log(hostTier);
-  const canInvite =
-    hostTier === "HOST_PREMIUM" || hostTier === "HOST_COMMUNITY";
+  const canInvite = hasActivePremium;
 
   useEffect(() => {
     if (!user?.id || !canWriteAsHost) return;
@@ -458,6 +455,7 @@ export function EventContentPrivacyStep({
               <CoOwnerInviteBlock
                 index={i}
                 canInvite={!!canInvite}
+                planLoading={planLoading}
                 videoTitle={watch(`videoLinks.${i}.title`) || `Video ${i + 1}`}
                 onCoOwnerInvitePending={onCoOwnerInvitePending}
                 onDraftSaveNow={onDraftSaveNow}
@@ -475,6 +473,7 @@ export function EventContentPrivacyStep({
 function CoOwnerInviteBlock({
   index,
   canInvite,
+  planLoading = false,
   videoTitle,
   onCoOwnerInvitePending,
   onDraftSaveNow,
@@ -483,6 +482,7 @@ function CoOwnerInviteBlock({
 }: {
   index: number;
   canInvite: boolean;
+  planLoading?: boolean;
   videoTitle: string;
   onCoOwnerInvitePending?: (inviteId: string) => void;
   onDraftSaveNow?: () => void | Promise<void>;
@@ -515,6 +515,7 @@ function CoOwnerInviteBlock({
     resendInvite,
     statusIndicatorClass,
     inviteStatusLabel,
+    SubscriptionPromptModal,
   } = useCoOwnerDraftFields({
     draftKey,
     ownershipAnswer,
@@ -533,6 +534,12 @@ function CoOwnerInviteBlock({
     onRefreshSubmitReadiness,
     refreshToken,
   });
+
+  if (planLoading) {
+    return (
+      <p className="text-muted-foreground text-sm">Checking subscription…</p>
+    );
+  }
 
   if (!canInvite) {
     return (
@@ -553,6 +560,8 @@ function CoOwnerInviteBlock({
   }
 
   return (
+    <>
+      {SubscriptionPromptModal}
     <div className="space-y-2 rounded-md border border-white/20 bg-black/20 p-3">
       <p className="text-sm font-medium text-white/90">
         Invite co-owner (draft {draftKey?.slice(0, 8)}…)
@@ -632,5 +641,6 @@ function CoOwnerInviteBlock({
         </Button>
       )}
     </div>
+    </>
   );
 }

@@ -58,7 +58,6 @@ export function useTvPlayerControls(opts: {
       safeYoutubeCall(() => {
         const state = player.getPlayerState();
         setIsPlaying(state === "PLAYING" || state === "BUFFERING");
-        setIsMuted(player.isMuted());
       }, undefined);
     }, RECONCILE_MS);
 
@@ -70,11 +69,7 @@ export function useTvPlayerControls(opts: {
     if (!player?.isReady()) return;
     safeYoutubeCall(() => {
       player.syncMuteFromPlayer?.();
-      if (player.isMuted()) {
-        setIsMuted(true);
-      } else if (!readTvMutePref()) {
-        setIsMuted(false);
-      }
+      setIsMuted(readTvMutePref());
       const state = player.getPlayerState();
       setIsPlaying(state === "PLAYING" || state === "BUFFERING");
     }, undefined);

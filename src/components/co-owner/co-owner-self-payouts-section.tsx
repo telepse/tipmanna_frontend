@@ -15,6 +15,7 @@ export function CoOwnerSelfPayoutsSection() {
       <CoOwnerPayoutsClient
         mode="hostSession"
         compact
+        showPendingTotal
       />
     </section>
   );

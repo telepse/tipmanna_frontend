@@ -15,6 +15,8 @@ const CATEGORIES = [
   { key: "tip_payment", label: "Tips received" },
   { key: "payout", label: "Payouts" },
   { key: "community", label: "Community" },
+  { key: "video_request", label: "Video requests" },
+  { key: "event_submitted_for_approval", label: "Event submissions" },
   { key: "tv_enforcement", label: "TV schedule" },
   { key: "tv_reminder", label: "TV reminders" },
   { key: "system", label: "System announcements" },

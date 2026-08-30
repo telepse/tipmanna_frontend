@@ -1,14 +1,20 @@
 "use client";
 
+import { useHostCapability } from "@/hooks/use-host-capability";
+import { useHostSessionContextOptional } from "@/contexts/host-session-context";
 import {
   getHostUserFromCookies,
   hasActiveHostSession,
 } from "@/lib/host-session-client";
-import { useHostCapability } from "@/hooks/use-host-capability";
 
-/** Active host id from host session cookie / capability — never primary Redux. */
+/** Active host id from verified session when available. */
 export function useHostID(): string | null {
+  const hostSession = useHostSessionContextOptional();
   const { capability, hostSessionActive } = useHostCapability();
+
+  if (hostSession?.isActive && hostSession.hostId) {
+    return hostSession.hostId;
+  }
 
   if (hostSessionActive && capability.status === "active") {
     return capability.hostId;

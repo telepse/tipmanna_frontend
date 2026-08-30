@@ -112,6 +112,15 @@ import {
 } from "@/lib/explore-e2e-fixtures-gate";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
 import {
+  readDiscoverCatalogCache,
+  writeDiscoverCatalogCache,
+  isDiscoverCatalogStale,
+  DISCOVER_LIVE_RAIL_STALE_MS,
+  DISCOVER_DYNAMIC_RAIL_STALE_MS,
+  type DiscoverCatalogSnapshot,
+} from "@/lib/discover-catalog-cache";
+import { stripDiscoverPanelParam } from "@/lib/discover-return.util";
+import {
   getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
@@ -119,6 +128,12 @@ import { EXPLORE_EVENT_TYPE_OPTIONS } from "@/lib/event-type-options";
 import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
 import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
 import { useSideChick } from "@/components/community/side-chick-provider";
+import { DedicatedExitConfirmDialog } from "@/components/community/dedicated-exit-confirm-dialog";
+import { SideChickCommunityMenu } from "@/components/explore/explore-global-chrome";
+import { InstallPromptSheet } from "@/components/pwa/install-prompt-sheet";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { useDedicatedExitGate } from "@/hooks/use-dedicated-exit-gate";
+import { setPendingDedicatedEnter } from "@/lib/pending-dedicated-enter";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -138,6 +153,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { ListFilterPlus, Lock, Plus, Search, UserRound } from "lucide-react";
+import { toast } from "react-toastify";
 import { Bars3BottomLeftIcon } from "@heroicons/react/24/outline";
 
 import { NotificationBadge } from "@/components/notifications/notification-badge";
@@ -242,6 +258,29 @@ export interface ExplorePageClientProps {
   ssrBoot?: ExploreSsrBootPayload | null;
 }
 
+function wouldLeaveDedicatedCommunitySelection(
+  id: string,
+  checked: boolean,
+  multi: boolean,
+  dedicatedId: string,
+  currentIds: string[]
+): boolean {
+  let next: string[];
+  if (multi) {
+    next = checked
+      ? currentIds.includes(id)
+        ? currentIds
+        : [...currentIds, id]
+      : currentIds.filter(x => x !== id);
+  } else if (checked) {
+    next = [id];
+  } else {
+    next = currentIds.filter(x => x !== id);
+  }
+  if (next.length === 0) return true;
+  return next.length !== 1 || next[0] !== dedicatedId;
+}
+
 export default function ExplorePageClient({
   characters: initialCharacters = [],
   characterSets: initialCharacterSets = [],
@@ -272,6 +311,15 @@ export default function ExplorePageClient({
   const dedicatedCommunityId = sideChick.activation?.communityId ?? null;
   const dedicatedCommunityName =
     sideChick.activation?.community.name ?? "Community";
+  const { installed } = useInstallPrompt();
+  const [activateInstallOpen, setActivateInstallOpen] = useState(false);
+  const [activateDedicatedBusy, setActivateDedicatedBusy] = useState(false);
+
+  const dedicatedExit = useDedicatedExitGate({
+    sideChickLocked,
+    dedicatedCommunityName,
+    exitDedicatedMode: sideChick.exitDedicatedMode,
+  });
 
   const [viewerUser] = useState<UserInfo>(() => getOrCreateAnonymousViewer());
 
@@ -391,7 +439,10 @@ export default function ExplorePageClient({
     recentlyEnded: any[];
   }>({ upcoming: [], live: [], recentlyEnded: [] });
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogRefreshing, setCatalogRefreshing] = useState(false);
   const [discoverSheetOpen, setDiscoverSheetOpen] = useState(false);
+  const discoverTabScrollRef = useRef<HTMLDivElement>(null);
+  const discoverPanelRestoreRef = useRef(false);
   const [headerSearch, setHeaderSearch] = useState("");
   const [discoverSearchTerm, setDiscoverSearchTerm] = useState("");
   const catalogLoadedRef = useRef(false);
@@ -505,6 +556,14 @@ export default function ExplorePageClient({
     [joinedMemberships]
   );
 
+  const sideChickMenuRows = useMemo(
+    () =>
+      joinedMemberships
+        .filter(isEligibleForCommunityFeedDropdown)
+        .map(m => ({ communityId: m.communityId, community: m.community })),
+    [joinedMemberships]
+  );
+
   const [feedSubTab, setFeedSubTab] = useState<
     "trends" | "saves" | "tv" | "community"
   >(() => initialFeedUrlStateFromKey(searchParamsKey).feedSubTab);
@@ -525,6 +584,9 @@ export default function ExplorePageClient({
   );
   const [trendCountry, setTrendCountry] = useState(
     () => initialFeedUrlStateFromKey(searchParamsKey).trendCountry
+  );
+  const [includeEndedLive, setIncludeEndedLive] = useState(
+    () => initialFeedUrlStateFromKey(searchParamsKey).includeEndedLive
   );
 
   useLayoutEffect(() => {
@@ -624,6 +686,7 @@ export default function ExplorePageClient({
     feedSubTab,
     tvExploreSource,
     communityFeedSelIds,
+    includeEndedLive,
   });
   feedUrlStateRef.current = {
     trendEventTypes,
@@ -632,6 +695,7 @@ export default function ExplorePageClient({
     feedSubTab,
     tvExploreSource,
     communityFeedSelIds,
+    includeEndedLive,
   };
 
   useEffect(() => {
@@ -702,6 +766,29 @@ export default function ExplorePageClient({
     [pathBase]
   );
 
+  const stripDiscoverPanelFromUrl = useCallback(() => {
+    const liveKey = exploreLiveSearchParamsKey(searchParamsKeyRef.current);
+    const stripped = stripDiscoverPanelParam(liveKey);
+    if (stripped === liveKey) return;
+    const nextHref = buildExploreFeedHref(
+      pathBase,
+      { tab, joinCommunityId: joinCommunityIdRef.current },
+      feedUrlStateRef.current,
+      stripped
+    );
+    commitExploreHistory({
+      href: nextHref,
+      mode: "replace",
+      source: "passive-sync",
+    });
+    setHistorySyncGen(g => g + 1);
+  }, [pathBase, tab]);
+
+  const closeDiscoverSheet = useCallback(() => {
+    setDiscoverSheetOpen(false);
+    stripDiscoverPanelFromUrl();
+  }, [stripDiscoverPanelFromUrl]);
+
   const navigateFeedSubTab = useCallback(
     (sub: "trends" | "saves" | "tv" | "community") => {
       localTabNavRef.current = true;
@@ -761,6 +848,7 @@ export default function ExplorePageClient({
     trendCountry,
     tvExploreSource,
     communityFeedSelIds,
+    includeEndedLive,
   ]);
 
   useEffect(() => {
@@ -810,6 +898,7 @@ export default function ExplorePageClient({
     setFeedSubTab(parsed.feedSubTab);
     setTvExploreSource(parsed.tvExploreSource);
     setCommunityFeedSelIds(parsed.communityFeedSelIds);
+    setIncludeEndedLive(parsed.includeEndedLive);
   }, [
     liveSearchParamsKey,
     historySyncGen,
@@ -858,6 +947,7 @@ export default function ExplorePageClient({
     feedSubTab,
     tvExploreSource,
     communityFeedSelIds,
+    includeEndedLive,
     pathBase,
     tab,
     joinCommunityId,
@@ -905,8 +995,9 @@ export default function ExplorePageClient({
       eventTypes: trendEventTypes,
       language: trendLanguage,
       country: trendCountry,
+      includeEndedLive,
     }),
-    [trendEventTypes, trendLanguage, trendCountry]
+    [trendEventTypes, trendLanguage, trendCountry, includeEndedLive]
   );
 
   const scopedExploreCommunityIds = useMemo(() => {
@@ -1029,8 +1120,22 @@ export default function ExplorePageClient({
     [commitFilterExploreUrl]
   );
 
+  const toggleIncludeEndedLive = useCallback(
+    (checked: boolean) => {
+      const nextFeedState = {
+        ...feedUrlStateRef.current,
+        includeEndedLive: checked,
+      };
+      commitFilterExploreUrl("filter-change", nextFeedState, () =>
+        setIncludeEndedLive(checked)
+      );
+    },
+    [commitFilterExploreUrl]
+  );
+
   const handlePlayInExplore = useCallback(
     (target: ExploreFeedOpenTarget) => {
+      lastHandledVideoHandoffKeyRef.current = handoffKeyForTarget(target);
       pendingExploreOpenRef.current = target;
       setSuppressDiscoverInlineContentId(target.videoId);
       warmExploreVideoHandoff(target);
@@ -1053,6 +1158,7 @@ export default function ExplorePageClient({
         mode: "push",
         source: "discover-expand",
       });
+      setHistorySyncGen(g => g + 1);
 
       const client = exploreFeedRef.current;
       if (client) {
@@ -1081,7 +1187,10 @@ export default function ExplorePageClient({
     }
 
     const handoffKey = handoffKeyForTarget(target);
-    if (handoffKey === lastHandledVideoHandoffKeyRef.current) return;
+    if (handoffKey === lastHandledVideoHandoffKeyRef.current) {
+      void exploreFeedRef.current?.openInExplore(target);
+      return;
+    }
 
     lastHandledVideoHandoffKeyRef.current = handoffKey;
     clearExplorePendingHandoff();
@@ -1185,120 +1294,195 @@ export default function ExplorePageClient({
     void loadTopCommunities();
   }, [tab, e2eFixtures, loadTopCommunities]);
 
-  const loadExploreCatalog = useCallback(async () => {
-    if (e2eFixtures) {
-      setCatalogLoading(false);
-      return;
-    }
-    setCatalogLoading(true);
-    try {
-      const signedIn = isSignedInExplore && Boolean(exploreUserId?.trim());
-      const [
-        feat,
-        lat,
-        spot,
-        rec,
-        most,
-        liveRes,
-        progRes,
-        tipRes,
-        tipEv,
-        iTip,
-        causesRes,
-        topCommRes,
-        commRes,
-        plRes,
-      ] = await Promise.all([
-        getAllFeaturedContentsAction(),
-        getDiscoverPanelLatestContents(),
-        getSpotlightContents(),
-        getRecommendedContents(),
-        getMostTippedContents(),
-        getLiveStreamContents(),
-        getDiscoveryProgramsAction(),
-        getAllTopTippers(),
-        signedIn
-          ? getTippedEventsForTipper()
-          : Promise.resolve({ success: true, data: [] as any[] }),
-        signedIn
-          ? getTotalAmountTippedByTipper()
-          : Promise.resolve({ success: true, data: 0 }),
-        getAllCausesAction(),
-        getTopCommunitiesAction(3),
-        getCommunityExploreCatalogAction(),
-        getDiscoveryPlaylistsAction(20),
-      ]);
+  const applyCatalogSnapshot = useCallback((snapshot: DiscoverCatalogSnapshot) => {
+    setContents(snapshot.contents);
+    setLatestContents(snapshot.latestContents);
+    setSpotlightContents(snapshot.spotlightContents);
+    setRecommendedContents(snapshot.recommendedContents);
+    setMostTippedContents(snapshot.mostTippedContents);
+    setLiveStreams(snapshot.liveStreams);
+    setPrograms(snapshot.programs);
+    setPlaylists(snapshot.playlists);
+    setTippers(snapshot.tippers);
+    setTopCommunities(
+      snapshot.topCommunities as CommunityExploreCatalogRow[]
+    );
+  }, []);
 
-      setContents(feat.success ? normalizeListPayload<any>(feat.data) : []);
-      setLatestContents(lat.success ? normalizeListPayload<any>(lat.data) : []);
-      setSpotlightContents(
-        spot.success ? normalizeListPayload<any>(spot.data) : []
-      );
-      setRecommendedContents(
-        rec.success ? normalizeListPayload<any>(rec.data) : []
-      );
-      setMostTippedContents(
-        most.success ? normalizeListPayload<any>(most.data) : []
-      );
-      if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {
-        const ls = liveRes.data as {
-          upcoming?: any[];
-          live?: any[];
-          recentlyEnded?: any[];
-        };
-        setLiveStreams({
-          upcoming: Array.isArray(ls.upcoming) ? ls.upcoming : [],
-          live: Array.isArray(ls.live) ? ls.live : [],
-          recentlyEnded: Array.isArray(ls.recentlyEnded)
-            ? ls.recentlyEnded
-            : [],
-        });
+  const loadExploreCatalog = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (e2eFixtures) {
+        setCatalogLoading(false);
+        return;
       }
-      setPrograms(
-        progRes.success
+      const background = options?.background === true;
+      if (background) {
+        setCatalogRefreshing(true);
+      } else {
+        setCatalogLoading(true);
+      }
+      try {
+        const signedIn = isSignedInExplore && Boolean(exploreUserId?.trim());
+        const [
+          feat,
+          lat,
+          spot,
+          rec,
+          most,
+          liveRes,
+          progRes,
+          tipRes,
+          tipEv,
+          iTip,
+          causesRes,
+          topCommRes,
+          commRes,
+          plRes,
+        ] = await Promise.all([
+          getAllFeaturedContentsAction(),
+          getDiscoverPanelLatestContents(),
+          getSpotlightContents(),
+          getRecommendedContents(),
+          getMostTippedContents(),
+          getLiveStreamContents(),
+          getDiscoveryProgramsAction(),
+          getAllTopTippers(),
+          signedIn
+            ? getTippedEventsForTipper()
+            : Promise.resolve({ success: true, data: [] as any[] }),
+          signedIn
+            ? getTotalAmountTippedByTipper()
+            : Promise.resolve({ success: true, data: 0 }),
+          getAllCausesAction(),
+          getTopCommunitiesAction(3),
+          getCommunityExploreCatalogAction(),
+          getDiscoveryPlaylistsAction(20),
+        ]);
+
+        const nextContents = feat.success
+          ? normalizeListPayload<any>(feat.data)
+          : [];
+        const nextLatest = lat.success
+          ? normalizeListPayload<any>(lat.data)
+          : [];
+        const nextSpotlight = spot.success
+          ? normalizeListPayload<any>(spot.data)
+          : [];
+        const nextRecommended = rec.success
+          ? normalizeListPayload<any>(rec.data)
+          : [];
+        const nextMostTipped = most.success
+          ? normalizeListPayload<any>(most.data)
+          : [];
+        let nextLiveStreams = {
+          upcoming: [] as any[],
+          live: [] as any[],
+          recentlyEnded: [] as any[],
+        };
+        if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {
+          const ls = liveRes.data as {
+            upcoming?: any[];
+            live?: any[];
+            recentlyEnded?: any[];
+          };
+          nextLiveStreams = {
+            upcoming: Array.isArray(ls.upcoming) ? ls.upcoming : [],
+            live: Array.isArray(ls.live) ? ls.live : [],
+            recentlyEnded: Array.isArray(ls.recentlyEnded)
+              ? ls.recentlyEnded
+              : [],
+          };
+        }
+        const nextPrograms = progRes.success
           ? takeRecentDiscoveryPrograms(normalizeListPayload<any>(progRes.data))
-          : []
-      );
-      setPlaylists(
-        plRes.success && Array.isArray(plRes.data) ? plRes.data : []
-      );
-      setTippers(tipRes.success ? normalizeListPayload<any>(tipRes.data) : []);
-      setTipperEvents(
-        tipEv.success && Array.isArray(tipEv.data) ? tipEv.data : []
-      );
-      setITipped(
-        typeof iTip.data === "number" ? iTip.data : Number(iTip.data) || 0
-      );
-      setCauses(
-        causesRes.success && Array.isArray(causesRes.data) ? causesRes.data : []
-      );
-      setTopCommunities(
-        topCommRes.success && Array.isArray(topCommRes.data?.communities)
-          ? topCommRes.data.communities
-          : []
-      );
-      topCommunitiesStatusRef.current = "loaded";
-      setExploreCatalogAlphabetical(
-        commRes.success && Array.isArray(commRes.data?.alphabetical)
-          ? commRes.data.alphabetical
-          : []
-      );
-      communityCatalogLoadedRef.current = true;
-    } finally {
-      // Always clear loading so the Discover skeleton can never hang on a
-      // rejected action (root cause of the "skeleton forever" regression).
-      setCatalogLoading(false);
-    }
-  }, [e2eFixtures, isSignedInExplore, exploreUserId]);
+          : [];
+        const nextPlaylists =
+          plRes.success && Array.isArray(plRes.data) ? plRes.data : [];
+        const nextTippers = tipRes.success
+          ? normalizeListPayload<any>(tipRes.data)
+          : [];
+        const nextTopCommunities =
+          topCommRes.success && Array.isArray(topCommRes.data?.communities)
+            ? topCommRes.data.communities
+            : [];
+
+        setContents(nextContents);
+        setLatestContents(nextLatest);
+        setSpotlightContents(nextSpotlight);
+        setRecommendedContents(nextRecommended);
+        setMostTippedContents(nextMostTipped);
+        setLiveStreams(nextLiveStreams);
+        setPrograms(nextPrograms);
+        setPlaylists(nextPlaylists);
+        setTippers(nextTippers);
+        setTipperEvents(
+          tipEv.success && Array.isArray(tipEv.data) ? tipEv.data : []
+        );
+        setITipped(
+          typeof iTip.data === "number" ? iTip.data : Number(iTip.data) || 0
+        );
+        setCauses(
+          causesRes.success && Array.isArray(causesRes.data)
+            ? causesRes.data
+            : []
+        );
+        setTopCommunities(nextTopCommunities);
+        topCommunitiesStatusRef.current = "loaded";
+        setExploreCatalogAlphabetical(
+          commRes.success && Array.isArray(commRes.data?.alphabetical)
+            ? commRes.data.alphabetical
+            : []
+        );
+        communityCatalogLoadedRef.current = true;
+
+        writeDiscoverCatalogCache({
+          contents: nextContents,
+          latestContents: nextLatest,
+          spotlightContents: nextSpotlight,
+          recommendedContents: nextRecommended,
+          mostTippedContents: nextMostTipped,
+          liveStreams: nextLiveStreams,
+          programs: nextPrograms,
+          playlists: nextPlaylists,
+          tippers: nextTippers,
+          topCommunities: nextTopCommunities,
+        });
+        catalogLoadedRef.current = true;
+      } finally {
+        setCatalogLoading(false);
+        setCatalogRefreshing(false);
+      }
+    },
+    [e2eFixtures, isSignedInExplore, exploreUserId]
+  );
 
   const openDiscoverSheet = useCallback(() => {
     setDiscoverSheetOpen(true);
     prefetchExploreFeedInitial();
-    if (!catalogLoadedRef.current) {
-      catalogLoadedRef.current = true;
-      void loadExploreCatalog();
+    const cached = readDiscoverCatalogCache();
+    if (cached) {
+      applyCatalogSnapshot(cached);
+      setCatalogLoading(false);
+      if (isDiscoverCatalogStale(cached, DISCOVER_LIVE_RAIL_STALE_MS)) {
+        void loadExploreCatalog({ background: true });
+      }
+      return;
     }
-  }, [loadExploreCatalog]);
+    void loadExploreCatalog();
+  }, [applyCatalogSnapshot, loadExploreCatalog]);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(searchParamsKey);
+    if (sp.get("discoverPanel") !== "1") {
+      discoverPanelRestoreRef.current = false;
+      return;
+    }
+    openDiscoverSheet();
+    if (!discoverPanelRestoreRef.current) {
+      discoverPanelRestoreRef.current = true;
+      stripDiscoverPanelFromUrl();
+    }
+  }, [searchParamsKey, openDiscoverSheet, stripDiscoverPanelFromUrl]);
 
   /**
    * Applies a declarative {@link DiscoverNavIntent} (from discover-navigation-state)
@@ -1310,10 +1494,10 @@ export default function ExplorePageClient({
       if (intent.searchTerm !== undefined)
         setDiscoverSearchTerm(intent.searchTerm);
       if (intent.tab) navigateMainTab(intent.tab);
-      if (intent.closePanel) setDiscoverSheetOpen(false);
-      if (intent.openPanel) openDiscoverSheet();
+      if (intent.closePanel) closeDiscoverSheet();
+      else if (intent.openPanel) openDiscoverSheet();
     },
-    [navigateMainTab, openDiscoverSheet]
+    [closeDiscoverSheet, navigateMainTab, openDiscoverSheet]
   );
 
   const expandDiscoverFromPanel = useCallback(() => {
@@ -1340,10 +1524,35 @@ export default function ExplorePageClient({
 
   useEffect(() => {
     if (tab !== "discover" && !discoverSheetOpen) return;
+    const cached = readDiscoverCatalogCache();
+    if (cached) {
+      applyCatalogSnapshot(cached);
+      setCatalogLoading(false);
+      if (isDiscoverCatalogStale(cached)) {
+        void loadExploreCatalog({ background: true });
+      }
+      return;
+    }
     if (catalogLoadedRef.current) return;
-    catalogLoadedRef.current = true;
     void loadExploreCatalog();
-  }, [tab, discoverSheetOpen, loadExploreCatalog]);
+  }, [tab, discoverSheetOpen, loadExploreCatalog, applyCatalogSnapshot]);
+
+  useEffect(() => {
+    if (tab !== "feed" || e2eFixtures) return;
+    const idle =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback
+        : (cb: () => void) => window.setTimeout(cb, 1500);
+    const cancel =
+      typeof window.cancelIdleCallback === "function"
+        ? window.cancelIdleCallback
+        : window.clearTimeout;
+    const handle = idle(() => {
+      if (readDiscoverCatalogCache()) return;
+      void loadExploreCatalog({ background: true });
+    });
+    return () => cancel(handle as number);
+  }, [tab, e2eFixtures, loadExploreCatalog]);
 
   const visibleCommunityFeedSelIds = useMemo(
     () => pickerVisibleCommunityIds(communityFeedSelIds, joinedMemberships),
@@ -1370,38 +1579,117 @@ export default function ExplorePageClient({
 
   const onCommunityFeedPick = useCallback(
     (id: string, checked: boolean, multi: boolean) => {
-      const prev = feedUrlStateRef.current.communityFeedSelIds;
-      let next: string[];
-      if (multi) {
-        next = checked
-          ? prev.includes(id)
-            ? prev
-            : [...prev, id]
-          : prev.filter(x => x !== id);
-      } else if (checked) {
-        next = [id];
-      } else {
-        next = prev.filter(x => x !== id);
-      }
-      if (next.length) prefetchExploreCommunityFeed(next);
-      localTabNavRef.current = true;
-      setMainTab("feed");
-      setFeedSubTab("community");
-      setCommunityFeedSelIds(next);
-      const nextFeedState = {
-        ...feedUrlStateRef.current,
-        feedSubTab: "community" as const,
-        communityFeedSelIds: next,
+      const applyPick = () => {
+        const prev = feedUrlStateRef.current.communityFeedSelIds;
+        let next: string[];
+        if (multi) {
+          next = checked
+            ? prev.includes(id)
+              ? prev
+              : [...prev, id]
+            : prev.filter(x => x !== id);
+        } else if (checked) {
+          next = [id];
+        } else {
+          next = prev.filter(x => x !== id);
+        }
+        if (next.length) prefetchExploreCommunityFeed(next);
+        localTabNavRef.current = true;
+        setMainTab("feed");
+        setFeedSubTab("community");
+        setCommunityFeedSelIds(next);
+        const nextFeedState = {
+          ...feedUrlStateRef.current,
+          feedSubTab: "community" as const,
+          communityFeedSelIds: next,
+        };
+        feedUrlStateRef.current = nextFeedState;
+        commitExploreUrl(
+          "community-selection",
+          { tab: "feed", joinCommunityId: joinCommunityIdRef.current },
+          nextFeedState
+        );
       };
-      feedUrlStateRef.current = nextFeedState;
-      commitExploreUrl(
-        "community-selection",
-        { tab: "feed", joinCommunityId: joinCommunityIdRef.current },
-        nextFeedState
-      );
+
+      if (
+        sideChickLocked &&
+        dedicatedCommunityId &&
+        wouldLeaveDedicatedCommunitySelection(
+          id,
+          checked,
+          multi,
+          dedicatedCommunityId,
+          feedUrlStateRef.current.communityFeedSelIds
+        )
+      ) {
+        dedicatedExit.requestExitThen(applyPick);
+        return;
+      }
+      applyPick();
     },
-    [commitExploreUrl, setMainTab]
+    [
+      commitExploreUrl,
+      setMainTab,
+      sideChickLocked,
+      dedicatedCommunityId,
+      dedicatedExit.requestExitThen,
+    ]
   );
+
+  const onTvExploreSourceChange = useCallback(
+    (next: "tipmanna" | string) => {
+      const apply = () => setTvExploreSource(next);
+      if (
+        sideChickLocked &&
+        dedicatedCommunityId &&
+        next !== dedicatedCommunityId
+      ) {
+        dedicatedExit.requestExitThen(apply);
+        return;
+      }
+      apply();
+    },
+    [
+      sideChickLocked,
+      dedicatedCommunityId,
+      dedicatedExit.requestExitThen,
+    ]
+  );
+
+  const activateDedicatedCandidate = useMemo(() => {
+    if (sideChickLocked || sideChick.loading) return null;
+    const eligible = joinedMemberships
+      .filter(isEligibleForCommunityFeedDropdown)
+      .filter(m => !isTipmannaPublicCommunityRow(m));
+    if (eligible.length !== 1) return null;
+    return eligible[0] ?? null;
+  }, [joinedMemberships, sideChick.loading, sideChickLocked]);
+
+  const handleActivateDedicatedMode = useCallback(async () => {
+    const candidate = activateDedicatedCandidate;
+    if (!candidate || !exploreAuthToken) return;
+    if (!installed) {
+      setPendingDedicatedEnter(candidate.communityId);
+      setActivateInstallOpen(true);
+      return;
+    }
+    setActivateDedicatedBusy(true);
+    try {
+      const ok = await sideChick.enterDedicatedMode(candidate.communityId);
+      if (ok) {
+        window.location.reload();
+      } else {
+        toast.error("Could not activate dedicated mode");
+      }
+    } finally {
+      setActivateDedicatedBusy(false);
+    }
+  }, [
+    activateDedicatedCandidate,
+    exploreAuthToken,
+    installed,
+    sideChick,
+  ]);
 
   useEffect(() => {
     if (sideChickLocked) return;
@@ -1565,12 +1853,15 @@ export default function ExplorePageClient({
                 >
                   Join communities
                 </Link> */}
-                {/* <div className="hidden sm:block">
+                <div className="hidden sm:block">
                   <SideChickCommunityMenu
                     rows={sideChickMenuRows}
                     highlight={false}
+                    activeDedicatedCommunityId={
+                      sideChickLocked ? dedicatedCommunityId : null
+                    }
                   />
-                </div> */}
+                </div>
               </>
             ) : null}
           </div>
@@ -1921,63 +2212,62 @@ export default function ExplorePageClient({
                 </button>
               </div>
 
-              {sideChickLocked ? (
-                <div
-                  className="border-border text-foreground bg-muted/40 flex max-w-[min(100%,11rem)] min-w-0 shrink items-center gap-1.5 rounded-md border px-2 py-1 sm:max-w-[min(100%,18rem)]"
-                  title={dedicatedCommunityName}
-                >
-                  <Lock className="text-muted-foreground size-3.5 shrink-0" />
-                  <span className="truncate text-[11px] font-medium sm:text-xs">
-                    {dedicatedCommunityName}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex min-h-5 min-w-0">
-                  <DropdownMenu
-                    onOpenChange={open => {
-                      if (open) void loadCommunityCatalogForPicker();
-                    }}
+              <div className="flex min-h-5 min-w-0 items-center gap-2">
+                {sideChickLocked ? (
+                  <span
+                    className="border-border text-foreground bg-muted/40 inline-flex max-w-[min(100%,8rem)] min-w-0 shrink items-center gap-1 rounded-md border px-2 py-1 sm:max-w-[min(100%,11rem)]"
+                    title={dedicatedCommunityName}
                   >
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 max-w-full justify-between border-none bg-transparent px-2 text-xs font-normal shadow-none outline-none sm:max-w-md"
-                        onPointerEnter={() => {
-                          void loadCommunityCatalogForPicker();
-                          if (eligibleCommunityIdsForPrefetch.length) {
-                            prefetchExploreCommunityFeed(
-                              eligibleCommunityIdsForPrefetch
-                            );
-                          }
-                        }}
-                      >
-                        <span>
-                          {eligibleCommunityPickerRows.length === 0
-                            ? "My Communities"
-                            : visibleCommunityFeedSelIds.length === 0
-                              ? "My Communities"
-                              : `${visibleCommunityFeedSelIds.length} communit${visibleCommunityFeedSelIds.length === 1 ? "y" : "ies"} selected`}
-                        </span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <ExploreCommunityPickerMenu
-                      eligibleCommunityPickerRows={eligibleCommunityPickerRows}
-                      communityFeedSelIds={communityFeedSelIds}
-                      onCommunityFeedPick={onCommunityFeedPick}
-                      communityPickerMultiRef={communityPickerMultiRef}
-                      topCommunities={topCommunities}
-                      catalogAlphabetical={exploreCatalogAlphabetical}
-                      topCommunitiesLoading={topCommunitiesLoading}
-                      catalogLoading={communityPickerCatalogLoading}
-                      onBrowseAllAz={() => {
+                    <Lock className="text-muted-foreground size-3 shrink-0" />
+                    <span className="truncate text-[10px] font-medium sm:text-[11px]">
+                      {dedicatedCommunityName}
+                    </span>
+                  </span>
+                ) : null}
+                <DropdownMenu
+                  onOpenChange={open => {
+                    if (open) void loadCommunityCatalogForPicker();
+                  }}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 max-w-full justify-between border-none bg-transparent px-2 text-xs font-normal shadow-none outline-none sm:max-w-md"
+                      onPointerEnter={() => {
                         void loadCommunityCatalogForPicker();
+                        if (eligibleCommunityIdsForPrefetch.length) {
+                          prefetchExploreCommunityFeed(
+                            eligibleCommunityIdsForPrefetch
+                          );
+                        }
                       }}
-                    />
-                  </DropdownMenu>
-                </div>
-              )}
+                    >
+                      <span>
+                        {eligibleCommunityPickerRows.length === 0
+                          ? "My Communities"
+                          : visibleCommunityFeedSelIds.length === 0
+                            ? "My Communities"
+                            : `${visibleCommunityFeedSelIds.length} communit${visibleCommunityFeedSelIds.length === 1 ? "y" : "ies"} selected`}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <ExploreCommunityPickerMenu
+                    eligibleCommunityPickerRows={eligibleCommunityPickerRows}
+                    communityFeedSelIds={communityFeedSelIds}
+                    onCommunityFeedPick={onCommunityFeedPick}
+                    communityPickerMultiRef={communityPickerMultiRef}
+                    topCommunities={topCommunities}
+                    catalogAlphabetical={exploreCatalogAlphabetical}
+                    topCommunitiesLoading={topCommunitiesLoading}
+                    catalogLoading={communityPickerCatalogLoading}
+                    onBrowseAllAz={() => {
+                      void loadCommunityCatalogForPicker();
+                    }}
+                  />
+                </DropdownMenu>
+              </div>
             </div>
 
             <button
@@ -1993,9 +2283,24 @@ export default function ExplorePageClient({
 
           {sideChickLocked ? (
             <p className="text-muted-foreground mt-2 px-0.5 text-[10px] leading-snug">
-              Trends, Saves, and TV show only your dedicated community. Use the
-              header warning dot to reactivate Tipmanna Public.
+              Dedicated mode is active for {dedicatedCommunityName}. Change
+              community or TV source to leave — you will be asked to confirm.
             </p>
+          ) : activateDedicatedCandidate ? (
+            <div className="mt-2 px-0.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                disabled={activateDedicatedBusy}
+                onClick={() => void handleActivateDedicatedMode()}
+              >
+                {activateDedicatedBusy
+                  ? "Activating…"
+                  : `Activate dedicated mode (${activateDedicatedCandidate.community?.name ?? "community"})`}
+              </Button>
+            </div>
           ) : null}
 
           {feedSubTab === "community" ? (
@@ -2058,16 +2363,19 @@ export default function ExplorePageClient({
                 feedSurfaceActive={tab === "feed" && feedSubTab === "tv"}
                 tvSource={tvExploreSource}
                 tvCommunityOptions={tvCommunitySelectOptions}
-                onTvSourceChange={setTvExploreSource}
-                tvSourceLocked={sideChickLocked}
-                lockedLabel={`Locked to ${dedicatedCommunityName} (dedicated mode)`}
+                onTvSourceChange={onTvExploreSourceChange}
+                tvSourceLocked={false}
+                dedicatedCommunityId={dedicatedCommunityId}
               />
             </div>
           ) : null}
         </div>
       </div>
       {tab === "discover" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div
+          ref={discoverTabScrollRef}
+          className="min-h-0 flex-1 overflow-y-auto p-4"
+        >
           <div className="bg-muted/40 mb-4 flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-muted-foreground text-xs">
               Discover is also available as a quick panel while you watch the
@@ -2100,6 +2408,8 @@ export default function ExplorePageClient({
             liveStreams={liveStreams}
             topCommunities={topCommunities}
             catalogLoading={catalogLoading}
+            catalogRefreshing={catalogRefreshing}
+            onRefreshCatalog={() => void loadExploreCatalog({ background: true })}
             initialSearchTerm={discoverSearchTerm}
             onOpenBookmarks={() => {
               setProfileDrawerTab("saved");
@@ -2108,13 +2418,14 @@ export default function ExplorePageClient({
             onPlayInExplore={handlePlayInExplore}
             suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
             surface="exploreTab"
+            scrollContainerRef={discoverTabScrollRef}
           />
         </div>
       ) : null}
 
       <DiscoverSheet
         open={discoverSheetOpen}
-        onClose={() => setDiscoverSheetOpen(false)}
+        onClose={closeDiscoverSheet}
         onExpandToDiscover={expandDiscoverFromPanel}
         contents={contents}
         tippers={tippers}
@@ -2127,6 +2438,8 @@ export default function ExplorePageClient({
         liveStreams={liveStreams}
         topCommunities={topCommunities}
         catalogLoading={catalogLoading}
+        catalogRefreshing={catalogRefreshing}
+        onRefreshCatalog={() => void loadExploreCatalog({ background: true })}
         initialSearchTerm={discoverSearchTerm}
         onOpenBookmarks={() => {
           setProfileDrawerTab("saved");
@@ -2208,6 +2521,16 @@ export default function ExplorePageClient({
                   />
                 </div>
               </div>
+              <label className="flex cursor-pointer items-center gap-2 text-[11px] text-white/90">
+                <input
+                  type="checkbox"
+                  checked={includeEndedLive}
+                  onChange={e => toggleIncludeEndedLive(e.target.checked)}
+                  className="size-3.5 rounded border-white/40"
+                  data-testid="explore-filter-ended-live"
+                />
+                Include ended live videos
+              </label>
             </div>
           </div>
         </>
@@ -2222,6 +2545,19 @@ export default function ExplorePageClient({
         causes={causes}
       />
       <ExploreInstallPrompt />
+      <DedicatedExitConfirmDialog
+        open={dedicatedExit.confirmOpen}
+        onOpenChange={open => {
+          if (!open) dedicatedExit.cancelExit();
+        }}
+        communityName={dedicatedCommunityName}
+        busy={dedicatedExit.busy}
+        onConfirm={() => void dedicatedExit.confirmExit()}
+      />
+      <InstallPromptSheet
+        open={activateInstallOpen}
+        onOpenChange={setActivateInstallOpen}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   acceptEventRoomInviteAction,
   validateEventRoomInviteAction,
 } from "@/actions/events";
+import { persistEventRoomInviteToken } from "@/lib/event-room-invite-cookie";
 
 type Props = {
   eventId: string;
@@ -66,6 +67,7 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
 
       if (typeof window !== "undefined") {
         window.localStorage.setItem(`event-room-invite:${eventId}`, token);
+        persistEventRoomInviteToken(eventId, token);
       }
 
       setLoading(false);

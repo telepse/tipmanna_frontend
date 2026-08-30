@@ -11,6 +11,10 @@ import type { RootState } from "@/redux/store";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { ExploreGlobalChrome } from "@/components/explore/explore-global-chrome";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
+import { InstallPromptSheet } from "@/components/pwa/install-prompt-sheet";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { setPendingDedicatedEnter } from "@/lib/pending-dedicated-enter";
 
 const apiBase = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
@@ -45,11 +49,14 @@ export default function SideChickMagicPage() {
     (s: RootState) => s.auth
   );
   const sideChick = useSideChick();
+  const { installed } = useInstallPrompt();
 
   const [data, setData] = useState<LandingPayload | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [enterBusy, setEnterBusy] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
 
   const authToken = useSelector((s: RootState) => s.auth.token);
 
@@ -74,10 +81,21 @@ export default function SideChickMagicPage() {
     void loadLanding();
   }, [loadLanding]);
 
-  console.log("isAuthenticated", isAuthenticated);
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") void loadLanding();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [loadLanding]);
 
   const enterDedicated = async () => {
     if (!authToken) return;
+    if (!installed) {
+      setPendingDedicatedEnter(communityId);
+      setInstallOpen(true);
+      return;
+    }
     setEnterBusy(true);
     try {
       const r = await fetch(
@@ -193,13 +211,21 @@ export default function SideChickMagicPage() {
           ) : !landing.isMember ? (
             <div className="space-y-3 rounded-lg border p-4">
               <p className="text-sm font-medium">Join this community first</p>
-              <Button asChild>
-                <Link
-                  href={`/explore?tab=join&joinCommunity=${encodeURIComponent(communityId)}`}
-                >
-                  Open join page
-                </Link>
+              <Button type="button" onClick={() => setJoinOpen(true)}>
+                Join community
               </Button>
+              <JoinCommunityModal
+                open={joinOpen}
+                onOpenChange={setJoinOpen}
+                communityId={communityId}
+                signInRedirectPath={`/community/side-chick/${encodeURIComponent(communityId)}`}
+                title={`Join ${landing.community.name}`}
+                onJoined={() => {
+                  void loadLanding().then(() => {
+                    void enterDedicated();
+                  });
+                }}
+              />
             </div>
           ) : !landing.sideChickEligibility.canEnter ? (
             <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
@@ -235,7 +261,9 @@ export default function SideChickMagicPage() {
                   disabled={enterBusy}
                   onClick={() => void enterDedicated()}
                 >
-                  Enter dedicated mode
+                  {installed
+                    ? "Enter dedicated mode"
+                    : "Install app to enter dedicated mode"}
                 </Button>
                 <Button
                   asChild
@@ -254,6 +282,7 @@ export default function SideChickMagicPage() {
   return (
     <ExploreGlobalChrome activeSurface="side-chick">
       {sideInner}
+      <InstallPromptSheet open={installOpen} onOpenChange={setInstallOpen} />
     </ExploreGlobalChrome>
   );
 }

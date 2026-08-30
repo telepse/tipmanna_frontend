@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, Heart, Wallet, X } from "lucide-react";
@@ -37,13 +38,17 @@ import SignInDialog from "@/components/auth/sign-in-dialog";
 import {
   DRAWER_OVERLAY_Z_INDEX,
   DRAWER_Z_INDEX,
+  EXPLORE_MODAL_Z_INDEX,
   IMMERSIVE_DRAWER_OVERLAY_Z_INDEX,
   IMMERSIVE_DRAWER_Z_INDEX,
+  SIGN_IN_EXPLORE_OVERLAY_Z_INDEX,
+  SIGN_IN_EXPLORE_Z_INDEX,
   SIGN_IN_NESTED_OVERLAY_Z_INDEX,
   SIGN_IN_NESTED_Z_INDEX,
 } from "@/lib/drawer-z-index";
 import { cn } from "@/lib/utils";
 import { toast } from "react-toastify";
+import { scheduleEngagementPwaPromptFromPolicy } from "@/lib/pwa-install-trigger";
 import { useCommentDrawerRealtime } from "@/hooks/use-comment-drawer-realtime";
 import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-realtime";
 import {
@@ -56,7 +61,6 @@ import {
 import { SaveHostToggleButton } from "./save-host-toggle-button";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
-import { UserPlus } from "lucide-react";
 
 interface Props {
   isCommentDrawerOpen: boolean;
@@ -107,6 +111,18 @@ export const CommentDrawer = ({
     ? IMMERSIVE_DRAWER_Z_INDEX
     : DRAWER_Z_INDEX;
   const drawerContentZIndex = stackAboveImmersive ? 100019 : 99990;
+  const signInOverlayClassName = stackAboveImmersive
+    ? SIGN_IN_EXPLORE_OVERLAY_Z_INDEX
+    : SIGN_IN_NESTED_OVERLAY_Z_INDEX;
+  const signInContentClassName = stackAboveImmersive
+    ? SIGN_IN_EXPLORE_Z_INDEX
+    : SIGN_IN_NESTED_Z_INDEX;
+  const joinModalOverlayClassName = stackAboveImmersive
+    ? EXPLORE_MODAL_Z_INDEX
+    : DRAWER_OVERLAY_Z_INDEX;
+  const joinModalContentClassName = stackAboveImmersive
+    ? EXPLORE_MODAL_Z_INDEX
+    : DRAWER_Z_INDEX;
   const dispatch = useDispatch();
   const authUser = useSelector((s: RootState) => s.auth.user);
   const selectedTips = useSelector((s: RootState) => s.tip.selectedTips);
@@ -131,7 +147,12 @@ export const CommentDrawer = ({
   const [draftModalOpen, setDraftModalOpen] = useState(false);
   const [modalDraft, setModalDraft] = useState("");
   const [signInOpen, setSignInOpen] = useState(false);
+  const [signInPurpose, setSignInPurpose] = useState<"like" | "saveHost">(
+    "like"
+  );
+  const [saveHostSignInToken, setSaveHostSignInToken] = useState(0);
   const pendingLikeIdRef = useRef<string | null>(null);
+  const pendingSaveHostRef = useRef(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("deceptive");
   const [reportOther, setReportOther] = useState("");
@@ -139,6 +160,7 @@ export const CommentDrawer = ({
   const [communityJoinOpen, setCommunityJoinOpen] = useState(false);
   const cancelTextPreviewRef = useRef<(() => void) | null>(null);
   const drawerShellRef = useRef<HTMLDivElement | null>(null);
+  const reportSectionRef = useRef<HTMLDivElement | null>(null);
 
   const tipPriceCatalog = useMemo(
     () => tippingCharacters ?? [],
@@ -175,7 +197,9 @@ export const CommentDrawer = ({
   const hostMeta = drawerData?.host;
 
   const resolvedHostUsername = hostMeta?.username ?? hostUsername?.trim() ?? "";
-  const isCommunityBankVideo = Boolean(channelMeta?.communityName);
+  const isCommunityBankVideo = Boolean(
+    channelMeta?.communityId && channelMeta?.communityName
+  );
   const communityJoinHref =
     channelMeta?.communityId != null
       ? exploreCommunityJoinHref(channelMeta.communityId)
@@ -277,6 +301,8 @@ export const CommentDrawer = ({
   const handleLike = async (messageId: string) => {
     if (!authUser || authUser.role === "VISITOR") {
       pendingLikeIdRef.current = messageId;
+      pendingSaveHostRef.current = false;
+      setSignInPurpose("like");
       setSignInOpen(true);
       return;
     }
@@ -286,6 +312,9 @@ export const CommentDrawer = ({
     if (!res.success || !res.data) {
       toast.error(res.message ?? "Could not update like");
       return;
+    }
+    if (res.data.liked) {
+      void scheduleEngagementPwaPromptFromPolicy();
     }
     setDrawerData(prev => {
       if (!prev) return prev;
@@ -441,6 +470,21 @@ export const CommentDrawer = ({
   const likeCountLabel = showMetricsSkeleton
     ? "—"
     : String(metrics?.commentLikeCount ?? 0);
+  const openSaveHostSignIn = useCallback(() => {
+    pendingLikeIdRef.current = null;
+    pendingSaveHostRef.current = true;
+    setSignInPurpose("saveHost");
+    setSignInOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!reportOpen) return;
+    reportSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [reportOpen]);
+
   const coOwnerNames = useMemo(() => {
     const fromApi = channelMeta?.coOwnerNames?.filter(Boolean) ?? [];
     if (fromApi.length) return fromApi;
@@ -515,17 +559,28 @@ export const CommentDrawer = ({
 
             <div className="space-y-2 p-4">
               {isCommunityBankVideo ? (
-                <h4 className="flex items-center gap-2 text-sm font-semibold">
+                <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                   <span className="text-primary">Community</span>
-                  <span>c {channelMeta?.communityName}</span>
+                  {communityJoinHref ? (
+                    <Link
+                      href={communityJoinHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline"
+                    >
+                      {channelMeta?.communityName}
+                    </Link>
+                  ) : (
+                    <span>{channelMeta?.communityName}</span>
+                  )}
                   {channelMeta?.communityId && communityJoinHref ? (
                     <button
                       type="button"
-                      className="text-primary inline-flex items-center gap-0.5 rounded bg-black/50 p-1 text-white"
+                      className="inline-flex items-center justify-center rounded bg-black/50 px-1.5 py-0.5 text-xs font-semibold text-white"
                       aria-label={`Join ${channelMeta.communityName ?? "community"}`}
                       onClick={() => setCommunityJoinOpen(true)}
                     >
-                      <UserPlus className="size-4" />
+                      J
                     </button>
                   ) : null}
                 </h4>
@@ -544,24 +599,18 @@ export const CommentDrawer = ({
                     channelId={channelId != null ? String(channelId) : null}
                     className="rounded bg-black/50 p-1 text-white"
                     iconClassName="size-4 text-white"
+                    onRequireSignIn={openSaveHostSignIn}
+                    signInCompletedToken={saveHostSignInToken}
                   />
                 </h4>
               )}
-              {!isCommunityBankVideo && coOwnerNames.length > 0 ? (
+              {coOwnerNames.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
                     Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
                     {coOwnerNames.join(", ")}
                   </span>
                 </div>
-              ) : null}
-              {!isCommunityBankVideo && channelMeta?.communityName ? (
-                <p className="text-muted-foreground text-[11px]">
-                  Community bank:{" "}
-                  <span className="text-foreground font-medium">
-                    c {channelMeta.communityName}
-                  </span>
-                </p>
               ) : null}
               {(resolvedTitle || loading) && (
                 <p className="text-sm font-medium">
@@ -620,7 +669,9 @@ export const CommentDrawer = ({
                 ) : (
                   <div className="-mt-2 flex items-center gap-2">
                     <span className="text-[11px]">
-                      Event tips: {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
+                      Event tips
+                      {isCommunityBankVideo ? " (community)" : ""}:{" "}
+                      {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
                     </span>
                     <span>·</span>
                     <span className="text-[11px]">
@@ -668,7 +719,10 @@ export const CommentDrawer = ({
             </div>
 
             {reportOpen ? (
-              <div className="space-y-2 border-b px-4 pb-3">
+              <div
+                ref={reportSectionRef}
+                className="space-y-2 border-b px-4 pb-3"
+              >
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Report video</p>
                   <button
@@ -859,14 +913,27 @@ export const CommentDrawer = ({
         open={signInOpen}
         onOpenChange={open => {
           setSignInOpen(open);
-          if (!open) pendingLikeIdRef.current = null;
+          if (!open) {
+            pendingLikeIdRef.current = null;
+            pendingSaveHostRef.current = false;
+          }
         }}
-        title="Sign in to like comments"
+        title={
+          signInPurpose === "saveHost"
+            ? "Sign in to save hosts"
+            : "Sign in to like comments"
+        }
         defaultUserType="tipper"
-        overlayClassName={SIGN_IN_NESTED_OVERLAY_Z_INDEX}
-        contentClassName={SIGN_IN_NESTED_Z_INDEX}
+        allowInlineSignUp
+        overlayClassName={signInOverlayClassName}
+        contentClassName={signInContentClassName}
         onSuccess={() => {
           setSignInOpen(false);
+          if (pendingSaveHostRef.current) {
+            pendingSaveHostRef.current = false;
+            setSaveHostSignInToken(token => token + 1);
+            return;
+          }
           const messageId = pendingLikeIdRef.current;
           pendingLikeIdRef.current = null;
           if (messageId) void handleLike(messageId);
@@ -880,6 +947,10 @@ export const CommentDrawer = ({
           communityId={channelMeta.communityId}
           signInRedirectPath={communityJoinHref}
           title={`Join ${channelMeta.communityName ?? "community"}`}
+          overlayClassName={joinModalOverlayClassName}
+          contentClassName={joinModalContentClassName}
+          signInOverlayClassName={signInOverlayClassName}
+          signInContentClassName={signInContentClassName}
         />
       ) : null}
     </>

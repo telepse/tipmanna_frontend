@@ -101,6 +101,7 @@ import { cn } from "@/lib/utils";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
 import {
   buildContentShareUrl,
+  buildContentSharePath,
   pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
@@ -171,6 +172,9 @@ interface Props {
   initialProgramPlaylist?: any[] | null;
   /** Deep link from `/content/{eventId}?v=` — selects initial video. */
   initialChannelId?: string | null;
+  /** Host playlist watch-all mode (`playlistWatch=all`). */
+  playlistWatch?: boolean;
+  playlistId?: string | null;
   isCommunity: boolean;
   communityId: string;
   communityName: string;
@@ -204,6 +208,8 @@ export const ContentClient = ({
   characterSets,
   initialProgramPlaylist,
   initialChannelId,
+  playlistWatch = false,
+  playlistId = null,
   isCommunity,
   communityId,
   communityName,
@@ -215,6 +221,9 @@ export const ContentClient = ({
 
   const programSeeded =
     Array.isArray(initialProgramPlaylist) && initialProgramPlaylist.length > 0;
+  const isPlaylistWatchMode = Boolean(
+    playlistWatch && playlistId?.trim() && programSeeded
+  );
 
   const baseList = Array.isArray(initialContents) ? initialContents : [];
   const playableProgram = programSeeded
@@ -698,10 +707,36 @@ export const ContentClient = ({
     setCurrentContent(content); // 🔥 immediate UI update
   };
 
+  const navigatePlaylistContent = useCallback(
+    (content: any) => {
+      if (!content?.id) return;
+      const targetEventId = String(content.event?.id ?? eventId);
+      const channelId = String(content.id);
+      if (
+        isPlaylistWatchMode &&
+        playlistId?.trim() &&
+        targetEventId !== eventId
+      ) {
+        router.push(
+          buildContentSharePath({
+            eventId: targetEventId,
+            channelId,
+            playlistWatch: true,
+            playlistId,
+          })
+        );
+        return;
+      }
+      goToContent(content);
+    },
+    [eventId, isPlaylistWatchMode, playlistId, router]
+  );
+
   const playlistRef = useRef<HTMLDivElement>(null);
   const currentIndex = playlist.findIndex(c => c.id === currentContent?.id);
   const nextContent =
     currentIndex < playlist.length - 1 ? playlist[currentIndex + 1] : null;
+  const prevContent = currentIndex > 0 ? playlist[currentIndex - 1] : null;
 
   const [tipPreviewOpen, setTipPreviewOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -832,8 +867,34 @@ export const ContentClient = ({
         canonicalEventId={currentContent?.event?.id ?? playlist[0]?.event?.id}
       />
       <CohostSessionTouch />
-      <div className="pointer-events-none absolute top-3 left-3 z-[100020]">
+      <div className="pointer-events-none absolute top-3 left-3 z-[100020] flex items-center gap-2">
         <PlaybackReturnBackChip />
+        {isPlaylistWatchMode ? (
+          <div className="pointer-events-auto flex items-center gap-1">
+            <button
+              type="button"
+              disabled={!prevContent}
+              onClick={() =>
+                prevContent && navigatePlaylistContent(prevContent)
+              }
+              className="rounded-full border border-white/30 bg-black/50 px-2 py-1 text-xs text-white disabled:opacity-40"
+              aria-label="Previous video in playlist"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={!nextContent}
+              onClick={() =>
+                nextContent && navigatePlaylistContent(nextContent)
+              }
+              className="rounded-full border border-white/30 bg-black/50 px-2 py-1 text-xs text-white disabled:opacity-40"
+              aria-label="Next video in playlist"
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
       </div>
       {isFullView && (
         <ImmersiveMediaTopBar
@@ -1056,6 +1117,9 @@ export const ContentClient = ({
                 const ch = String(currentContent.id);
                 if (playbackSeekedForCompleteRef.current) return;
                 trackTvVideoComplete(ch, { channelId: ch, mode: "LOCAL" });
+                if (isPlaylistWatchMode && nextContent) {
+                  navigatePlaylistContent(nextContent);
+                }
               }}
               onVideoLoaded={emitEncounterOnVideoLoaded}
             />

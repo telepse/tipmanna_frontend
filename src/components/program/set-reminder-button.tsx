@@ -25,6 +25,13 @@ import {
   ensurePushForSignedInTipper,
   hasBackendPushSubscription,
 } from "@/lib/program-push-setup";
+import {
+  deferPushUntilInstalled,
+  pushOptInPrimaryButtonLabel,
+} from "@/lib/push-opt-in-ios";
+import {
+  fetchPushPromptPolicy,
+} from "@/lib/pwa-install-trigger";
 import type { RootState } from "@/redux/store";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 
@@ -76,6 +83,17 @@ export function SetReminderButton({
     (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(/\/$/, "");
 
   const handleAuthenticatedPushPrompt = async () => {
+    if (deferPushUntilInstalled("set-reminder")) {
+      setAuthPushPromptOpen(false);
+      toast.info("Install Tipmanna first, then we will enable push reminders.");
+      return;
+    }
+    const policy = await fetchPushPromptPolicy();
+    if (!policy.enabled) {
+      setAuthPushPromptOpen(false);
+      toast.info("Push notifications are not available right now.");
+      return;
+    }
     const result = await ensurePushForSignedInTipper({
       pushState,
       subscribe,
@@ -288,7 +306,7 @@ export function SetReminderButton({
               className="bg-black"
               onClick={() => void handleAuthenticatedPushPrompt()}
             >
-              Enable push alerts
+              {pushOptInPrimaryButtonLabel()}
             </Button>
             <Button
               type="button"

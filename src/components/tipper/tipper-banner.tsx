@@ -136,8 +136,9 @@ export const TipperBanner = ({
   const e_mail = user ? user?.email : "";
   const userId = user ? user.id : "";
   const isPublicView = variant === "public";
-  const isDrawerView = variant === "drawer";
   const showOwnerControls = variant === "owner";
+  const showAnonymousToggle =
+    showOwnerControls || (variant === "drawer" && user?.role === "TIPPER");
 
   const token = useSelector((state: RootState) => state.auth.token);
   const isTipper = user?.role === "TIPPER";
@@ -610,7 +611,7 @@ export const TipperBanner = ({
           </Paragraph>
 
           {/* Anonymous toggle */}
-          {showOwnerControls || isDrawerView ? (
+          {showAnonymousToggle ? (
             <div className="flex items-center justify-center gap-2">
               <Paragraph
                 size="sm"
@@ -695,7 +696,7 @@ export const TipperBanner = ({
                 ) : null}
               </div>
 
-              {showOwnerControls ? (
+              {showAnonymousToggle ? (
                 <div className="flex items-center gap-4">
                   <Paragraph
                     size="sm"

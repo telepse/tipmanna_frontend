@@ -12,11 +12,22 @@ import {
   type InAppNotificationRow,
 } from "@/actions/notifications";
 import { HostNotificationPreferences } from "@/components/dashboard/host-notification-preferences";
+import { NotificationDetailModal } from "@/components/notifications/notification-detail-modal";
 import { cn } from "@/lib/utils";
+import { useHostSession } from "@/hooks/use-host-session";
+import { subscribeHostInAppNotifications } from "@/lib/host-notification-channel";
+
+function deepLinkFromRow(row: InAppNotificationRow): string | null {
+  if (row.deepLinkUrl) return row.deepLinkUrl;
+  const payload = row.payloadJson as { deepLinkUrl?: string } | null;
+  return payload?.deepLinkUrl ?? null;
+}
 
 export function HostNotificationsClient() {
+  const { hostId } = useHostSession();
   const [rows, setRows] = useState<InAppNotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<InAppNotificationRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,13 +45,25 @@ export function HostNotificationsClient() {
     void load();
   }, [load]);
 
-  const markOne = async (id: string) => {
-    const res = await markHostNotificationReadAction(id);
-    if (!res.success) {
-      toast.error(res.message ?? "Could not update");
-      return;
+  useEffect(() => {
+    if (!hostId) return;
+    return subscribeHostInAppNotifications(hostId, () => {
+      void load();
+    });
+  }, [hostId, load]);
+
+  const openRow = async (row: InAppNotificationRow) => {
+    if (!row.readAt) {
+      await markHostNotificationReadAction(row.id);
+      setRows(prev =>
+        prev.map(r =>
+          r.id === row.id
+            ? { ...r, readAt: new Date().toISOString() }
+            : r
+        )
+      );
     }
-    await load();
+    setSelected(row);
   };
 
   const markAll = async () => {
@@ -91,36 +114,45 @@ export function HostNotificationsClient() {
       ) : (
         <ul className="mt-6 space-y-3">
           {rows.map(row => (
-            <li
-              key={row.id}
-              className={cn(
-                "rounded-md border p-4",
-                row.readAt ? "opacity-70" : "border-primary/30 bg-primary/5"
-              )}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="font-medium">{row.title}</p>
-                  <p className="text-muted-foreground text-sm">{row.body}</p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {new Date(row.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                {!row.readAt && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void markOne(row.id)}
-                  >
-                    Mark read
-                  </Button>
+            <li key={row.id}>
+              <button
+                type="button"
+                className={cn(
+                  "w-full rounded-md border p-4 text-left transition-colors hover:bg-muted/50",
+                  row.readAt
+                    ? "opacity-70"
+                    : "border-primary/30 bg-primary/5"
                 )}
-              </div>
+                onClick={() => void openRow(row)}
+              >
+                <p className="font-medium">{row.title}</p>
+                <p className="text-muted-foreground line-clamp-2 text-sm">
+                  {row.body}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {new Date(row.createdAt).toLocaleString()}
+                </p>
+              </button>
             </li>
           ))}
         </ul>
       )}
+
+      <NotificationDetailModal
+        open={Boolean(selected)}
+        onOpenChange={open => {
+          if (!open) setSelected(null);
+        }}
+        row={
+          selected
+            ? {
+                ...selected,
+                source: "personal" as const,
+              }
+            : null
+        }
+        deepLink={selected ? deepLinkFromRow(selected) : null}
+      />
 
       <div className="mt-10">
         <HostNotificationPreferences />

@@ -97,7 +97,7 @@ describe("validatePrivacyVideoLinks", () => {
     expect(ok).toBe(true);
   });
 
-  it("does not block default co-owned video in sync validator (approval checked at submit)", () => {
+  it("does not block default co-owned video in sync validator when plan is active (approval checked at submit)", () => {
     const ok = validatePrivacyVideoLinks({
       links: [
         {
@@ -106,8 +106,22 @@ describe("validatePrivacyVideoLinks", () => {
           ownershipAnswer: "no",
         } as never,
       ],
-      hostSubscriptionTier: "HOST_PREMIUM",
+      hasActivePremium: true,
     });
     expect(ok).toBe(true);
+  });
+
+  it("blocks co-owned video when premium plan is not active", () => {
+    const ok = validatePrivacyVideoLinks({
+      links: [
+        {
+          url: "https://youtube.com/watch?v=abc",
+          isDefault: true,
+          ownershipAnswer: "no",
+        } as never,
+      ],
+      hasActivePremium: false,
+    });
+    expect(ok).toBe(false);
   });
 });

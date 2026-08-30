@@ -19,6 +19,10 @@ import {
   completeGuestProgramPushSetup,
   mergeGuestProgramRemindersOnly,
 } from "@/lib/program-push-setup";
+import { deferPushUntilInstalled } from "@/lib/push-opt-in-ios";
+import {
+  fetchPushPromptPolicy,
+} from "@/lib/pwa-install-trigger";
 import { store } from "@/redux/store";
 import type { RootState } from "@/redux/store";
 
@@ -72,6 +76,19 @@ export function GuestReminderPushOffer({
           "Reminder saved, but we could not link it to your account. Try again from your profile."
         );
       }
+      onComplete?.();
+      setOtpOpen(false);
+      return;
+    }
+
+    if (deferPushUntilInstalled("guest-reminder")) {
+      toast.info("Install Tipmanna first, then we will enable push reminders.");
+      onComplete?.();
+      setOtpOpen(false);
+      return;
+    }
+    const policy = await fetchPushPromptPolicy();
+    if (!policy.enabled) {
       onComplete?.();
       setOtpOpen(false);
       return;

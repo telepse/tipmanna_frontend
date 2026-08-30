@@ -7,21 +7,34 @@ import { ChevronLeft, X } from "lucide-react";
 import {
   clearPlaybackReturn,
   peekPlaybackReturn,
+  PLAYBACK_RETURN_CHANGED_EVENT,
   type PlaybackReturnContext,
 } from "@/lib/playback-return-stack";
+import { stashDiscoverUiRestore } from "@/lib/discover-return.util";
 import { cn } from "@/lib/utils";
 
 type Props = {
   className?: string;
   onNavigateBack?: () => void;
+  /** When set, the chip only renders if this returns true for the current context. */
+  isVisible?: (context: PlaybackReturnContext) => boolean;
 };
 
-export function PlaybackReturnBackChip({ className, onNavigateBack }: Props) {
+export function PlaybackReturnBackChip({
+  className,
+  onNavigateBack,
+  isVisible,
+}: Props) {
   const router = useRouter();
   const [context, setContext] = useState<PlaybackReturnContext | null>(null);
 
   useEffect(() => {
-    setContext(peekPlaybackReturn());
+    const sync = () => setContext(peekPlaybackReturn());
+    sync();
+    window.addEventListener(PLAYBACK_RETURN_CHANGED_EVENT, sync);
+    return () => {
+      window.removeEventListener(PLAYBACK_RETURN_CHANGED_EVENT, sync);
+    };
   }, []);
 
   const dismiss = useCallback(() => {
@@ -32,13 +45,20 @@ export function PlaybackReturnBackChip({ className, onNavigateBack }: Props) {
   const navigateBack = useCallback(() => {
     const ctx = peekPlaybackReturn();
     if (!ctx?.returnTo) return;
+    if (ctx.discoverUi) {
+      stashDiscoverUiRestore({
+        ...ctx.discoverUi,
+        createdAt: Date.now(),
+      });
+    }
     clearPlaybackReturn();
     setContext(null);
     onNavigateBack?.();
-    router.push(ctx.returnTo);
+    router.push(ctx.returnTo, { scroll: false });
   }, [onNavigateBack, router]);
 
   if (!context?.returnTo) return null;
+  if (isVisible && !isVisible(context)) return null;
 
   const label = context.label?.trim() || "Back";
 
@@ -78,8 +98,14 @@ export function usePlaybackReturnLandscapeClose(
   return useCallback(() => {
     const ctx = peekPlaybackReturn();
     if (ctx?.returnTo) {
+      if (ctx.discoverUi) {
+        stashDiscoverUiRestore({
+          ...ctx.discoverUi,
+          createdAt: Date.now(),
+        });
+      }
       clearPlaybackReturn();
-      router.push(ctx.returnTo);
+      router.push(ctx.returnTo, { scroll: false });
       return;
     }
     fallback();

@@ -13,6 +13,7 @@ import {
   getEventRoomInvitesAction,
   patchEventAccessModeAction,
 } from "@/actions/events";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 
 type InviteRow = {
   id: string;
@@ -32,6 +33,8 @@ export function EventRoomAccessControl({
   eventId,
   initialAccessMode = "public",
 }: Props) {
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "premium" });
   const [accessMode, setAccessMode] = useState<"public" | "invite_only">(
     initialAccessMode
   );
@@ -64,6 +67,9 @@ export function EventRoomAccessControl({
     try {
       const res = await patchEventAccessModeAction(eventId, mode);
       if (!res.success) {
+        if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
+          return;
+        }
         toast.error(res.message ?? "Could not update access mode");
         return;
       }
@@ -89,6 +95,9 @@ export function EventRoomAccessControl({
     try {
       const res = await createEventRoomInviteAction(eventId, trimmed);
       if (!res.success) {
+        if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
+          return;
+        }
         toast.error(res.message ?? "Could not send invite");
         return;
       }
@@ -102,6 +111,7 @@ export function EventRoomAccessControl({
 
   return (
     <div className="space-y-6">
+      {SubscriptionPromptModal}
       <div className="bg-card flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4">
         <div className="flex items-start gap-3">
           <Shield className="text-muted-foreground mt-0.5 size-5" />
@@ -116,26 +126,26 @@ export function EventRoomAccessControl({
         <Switch
           checked={accessMode === "invite_only"}
           disabled={busy === "mode"}
-          onCheckedChange={checked => void toggleAccessMode(checked)}
+          onCheckedChange={v => void toggleAccessMode(v)}
         />
       </div>
 
       {accessMode === "invite_only" ? (
-        <div className="space-y-4 rounded-lg border p-4">
-          <div>
-            <Label htmlFor="room-invite-email">Invite by email</Label>
-            <div className="mt-2 flex flex-wrap gap-2">
+        <div className="bg-card space-y-4 rounded-lg border p-4">
+          <div className="space-y-2">
+            <Label htmlFor="invite-email">Invite by email</Label>
+            <div className="flex flex-wrap gap-2">
               <Input
-                id="room-invite-email"
+                id="invite-email"
                 type="email"
+                placeholder="guest@example.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="guest@example.com"
                 className="max-w-sm"
               />
               <Button
                 type="button"
-                disabled={busy !== null}
+                disabled={busy === "invite"}
                 onClick={() => void sendInvite()}
               >
                 {busy === "invite" ? (
@@ -151,23 +161,24 @@ export function EventRoomAccessControl({
           </div>
 
           {loadingInvites ? (
-            <p className="text-muted-foreground text-sm">Loading invites…</p>
+            <div className="flex items-center gap-2 text-sm">
+              <Loader2 className="size-4 animate-spin" />
+              Loading invites…
+            </div>
           ) : invites.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No invites sent yet.
-            </p>
+            <p className="text-muted-foreground text-sm">No invites yet.</p>
           ) : (
-            <ul className="space-y-2">
-              {invites.map(row => (
+            <ul className="divide-y text-sm">
+              {invites.map(inv => (
                 <li
-                  key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                  key={inv.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2"
                 >
-                  <span>{row.email}</span>
+                  <span>{inv.email}</span>
                   <span className="text-muted-foreground text-xs">
-                    {row.used
-                      ? `Accepted ${row.acceptedAt ? new Date(row.acceptedAt).toLocaleDateString() : ""}`
-                      : `Expires ${new Date(row.expiresAt).toLocaleDateString()}`}
+                    {inv.used
+                      ? "Accepted"
+                      : `Expires ${new Date(inv.expiresAt).toLocaleDateString()}`}
                   </span>
                 </li>
               ))}

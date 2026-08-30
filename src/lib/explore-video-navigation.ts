@@ -102,6 +102,12 @@ export function stashExplorePendingHandoff(
         videoId,
         eventId,
         channelSnapshot,
+        ...(target.discoverReturnTo
+          ? { discoverReturnTo: target.discoverReturnTo }
+          : {}),
+        ...(target.discoverReturnLabel
+          ? { discoverReturnLabel: target.discoverReturnLabel }
+          : {}),
       } satisfies ExploreFeedOpenTarget)
     );
     stashExploreChannelSnapshot(videoId, channelSnapshot);
@@ -121,6 +127,8 @@ export function readExplorePendingHandoff(): ExploreFeedOpenTarget | null {
       videoId: parsed.videoId.trim(),
       eventId: parsed.eventId.trim(),
       channelSnapshot: parsed.channelSnapshot ?? {},
+      discoverReturnTo: parsed.discoverReturnTo,
+      discoverReturnLabel: parsed.discoverReturnLabel,
     };
   } catch {
     return null;

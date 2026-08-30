@@ -3,8 +3,9 @@ import {
   getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
-import { getEventByIdAction } from "@/actions/events";
+import { getEventByIdAction, getEventRoomAccessAction } from "@/actions/events";
 import { ChannelClient } from "@/components/events/channel-client";
+import { PrivateEventRoomBlocked } from "@/components/events/event-room-access-gate";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import {
   applyVideoDeepLinkQuery,
@@ -54,6 +55,18 @@ export async function generateMetadata({
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
 
+  const accessRes = await getEventRoomAccessAction(eventId);
+  const access =
+    accessRes.success && accessRes.data
+      ? (accessRes.data as {
+          accessMode?: "public" | "invite_only";
+          allowed?: boolean;
+        })
+      : null;
+  if (access?.accessMode === "invite_only" && access.allowed === false) {
+    return { title: "Private event room" };
+  }
+
   const res = await getCachedContentChannelForPage(eventId);
   const list = unwrapContentChannelList(res.data) as ChannelData[];
   const defaultChannel = pickInitialChannelContent(list, initialChannelId);
@@ -99,6 +112,18 @@ export default async function ChannelPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
+
+  const accessRes = await getEventRoomAccessAction(eventId);
+  const access =
+    accessRes.success && accessRes.data
+      ? (accessRes.data as {
+          accessMode?: "public" | "invite_only";
+          allowed?: boolean;
+        })
+      : null;
+  if (access?.accessMode === "invite_only" && access.allowed === false) {
+    return <PrivateEventRoomBlocked />;
+  }
 
   const [
     contentsRes,

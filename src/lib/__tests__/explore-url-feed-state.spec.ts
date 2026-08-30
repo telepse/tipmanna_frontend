@@ -18,6 +18,12 @@ describe("explore-url-feed-state", () => {
     expect(state.feedSubTab).toBe("saves");
     expect(state.tvExploreSource).toBe("abc");
     expect(state.communityFeedSelIds).toEqual(["c1", "c2"]);
+    expect(state.includeEndedLive).toBe(false);
+  });
+
+  it("parses endedLive opt-in", () => {
+    const state = parseExploreFeedUrlState(new URLSearchParams("endedLive=1"));
+    expect(state.includeEndedLive).toBe(true);
   });
 
   it("returns defaults when params are absent", () => {
@@ -28,6 +34,7 @@ describe("explore-url-feed-state", () => {
     expect(state.feedSubTab).toBe("trends");
     expect(state.tvExploreSource).toBe("tipmanna");
     expect(state.communityFeedSelIds).toEqual([]);
+    expect(state.includeEndedLive).toBe(false);
   });
 
   it("round-trips through buildExploreFeedHref", () => {
@@ -38,6 +45,7 @@ describe("explore-url-feed-state", () => {
       feedSubTab: "trends" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: [] as string[],
+      includeEndedLive: true,
     };
     const href = buildExploreFeedHref(
       "/explore",
@@ -59,6 +67,7 @@ describe("explore-url-feed-state", () => {
       feedSubTab: "trends" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: ["c2", "c1"],
+      includeEndedLive: false,
     };
     const b = {
       trendEventTypes: ["a", "b"],
@@ -67,6 +76,7 @@ describe("explore-url-feed-state", () => {
       feedSubTab: "trends" as const,
       tvExploreSource: "tipmanna",
       communityFeedSelIds: ["c1", "c2"],
+      includeEndedLive: false,
     };
     expect(exploreFeedUrlStatesEqual(a, b)).toBe(true);
   });

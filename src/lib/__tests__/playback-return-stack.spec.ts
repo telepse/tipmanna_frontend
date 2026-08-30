@@ -24,7 +24,10 @@ describe("playback-return-stack", () => {
       },
     };
     vi.stubGlobal("sessionStorage", sessionStorageMock);
-    vi.stubGlobal("window", { sessionStorage: sessionStorageMock });
+    vi.stubGlobal("window", {
+      sessionStorage: sessionStorageMock,
+      dispatchEvent: () => true,
+    });
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-25T12:00:00Z"));
   });

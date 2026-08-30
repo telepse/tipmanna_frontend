@@ -70,6 +70,8 @@ import { peekPlaybackReturn } from "@/lib/playback-return-stack";
 import { restoreProfileUiScroll } from "@/lib/playback-return-restore";
 import { postCreatorProfileVisitAction } from "@/actions/host-creator";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
+import { CommunityMemberInfo } from "@/components/community/community-member-info";
+import { AddCommunityBankVideoDialog } from "@/components/community/add-community-bank-video-dialog";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import type { HostCreatorDefaultTab } from "@/schemas/creator.schema";
 import { CompactEventCard } from "../events/compact-event-card";
@@ -415,6 +417,7 @@ export function HostCreatorPageClient({
         }
         returnTo={pathname}
         defaultUserType="host"
+        hostRequiredNotice={!pendingStartCommunity}
         allowInlineSignUp
         onSuccess={handleSignInSuccess}
       />
@@ -458,6 +461,19 @@ export function HostCreatorPageClient({
             editProfileHref={editProfileHref}
           />
 
+          {isDrawer ? (
+            <div className="px-4 pt-2">
+              <Link
+                href={buildCreatorProfileSharePath(host.username)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary text-sm font-semibold hover:underline"
+              >
+                @{host.username.replace(/^@/, "")}
+              </Link>
+            </div>
+          ) : null}
+
           <Tabs
             value={activeTab}
             onValueChange={handleTabChange}
@@ -486,7 +502,6 @@ export function HostCreatorPageClient({
                 coOwnedVideos={coOwnedVideos}
                 coOwnerPartyVideos={coOwnerPartyVideos}
                 coOwnerPartyName={coOwnerPartyName}
-                creatorName={host.fullName}
                 onPlay={playVideo}
                 isOwnProfile={isOwnProfile}
               />
@@ -900,7 +915,6 @@ function AllVideosTabContent({
   coOwnedVideos,
   coOwnerPartyVideos,
   coOwnerPartyName,
-  creatorName,
   onPlay,
   isOwnProfile,
 }: {
@@ -908,7 +922,6 @@ function AllVideosTabContent({
   coOwnedVideos: HostCreatorVideo[];
   coOwnerPartyVideos: HostCreatorVideo[];
   coOwnerPartyName: string | null;
-  creatorName: string;
   onPlay: (video: HostCreatorVideo) => void;
   isOwnProfile: boolean;
 }) {
@@ -926,21 +939,11 @@ function AllVideosTabContent({
   const coOwnedSubtabVideos =
     coOwnerPartyVideos.length > 0 ? coOwnerPartyVideos : coOwnedVideos;
 
-  /**
-   * The label represents the creator whose profile is being viewed,
-   * NOT the party that added them as a co-owner.
-   *
-   * Example:
-   *   Profile: Annette
-   *   Added as co-owner by: Emediong
-   *
-   *   Display:
-   *   "Annette co-owned videos"
-   */
-  const trimmedCreatorName = creatorName.trim();
+  /** Locked invite name from the co-owner record (unique per email). */
+  const trimmedCoOwnerInviteName = coOwnerPartyName?.trim() ?? "";
 
-  const coOwnedSubtabLabel = trimmedCreatorName
-    ? `${trimmedCreatorName} co-owner videos`
+  const coOwnedSubtabLabel = trimmedCoOwnerInviteName
+    ? `${trimmedCoOwnerInviteName} co-owner videos`
     : "Co-owned videos";
 
   const showCoOwnedSubtab = coOwnedSubtabVideos.length > 0;
@@ -1851,32 +1854,107 @@ function CommunityBannerSection({
   isOwnProfile?: boolean;
 }) {
   const hostSession = useHostSession();
+  const pathname = usePathname();
   const hostSlug = hostSession.eventSlug?.trim() || "";
   const joinHref = exploreCommunityJoinHref(community.id);
-  const bannerSrc = community.eventRoomBanner?.trim() || DEFAULT_EVENT_BANNER;
+  const communityTvHref = `/tv?community=${community.id}`;
   const logoSrc = community.logoUrl?.trim() || null;
   const description = community.description?.trim() || null;
+  const tvActivated = Boolean(community.tvActivatedAt?.trim());
   const [joinOpen, setJoinOpen] = useState(false);
+  const [addVideoOpen, setAddVideoOpen] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+  const [viewerHostsCommunity, setViewerHostsCommunity] = useState(false);
+  const [membershipStatus, setMembershipStatus] = useState<string | null>(null);
+  const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(
+    null
+  );
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<
+    string | null
+  >(null);
   const [featuredVideos, setFeaturedVideos] = useState<
     CommunityFeaturedVideo[]
   >([]);
   const [overlayVideo, setOverlayVideo] =
     useState<CommunityFeaturedVideo | null>(null);
 
+  const canAccessMemberActions =
+    isOwnProfile || isMember || viewerHostsCommunity;
+
+  const reloadAccessState = useCallback(async () => {
+    const res = await getCommunityAccessStateAction(community.id);
+    if (!res.success || !res.data) return;
+    const d = res.data as {
+      featuredVideos?: CommunityFeaturedVideo[];
+      isMember?: boolean;
+      viewerHostsCommunity?: boolean;
+      membershipStatus?: string | null;
+      membershipExpiresAt?: string | null;
+      subscriptionExpiresAt?: string | null;
+    };
+    setFeaturedVideos((d.featuredVideos ?? []).slice(0, 3));
+    setIsMember(Boolean(d.isMember));
+    setViewerHostsCommunity(Boolean(d.viewerHostsCommunity));
+    setMembershipStatus(d.membershipStatus ?? null);
+    setMembershipExpiresAt(d.membershipExpiresAt ?? null);
+    setSubscriptionExpiresAt(d.subscriptionExpiresAt ?? null);
+  }, [community.id]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       const res = await getCommunityAccessStateAction(community.id);
       if (cancelled || !res.success || !res.data) return;
-      const d = res.data as { featuredVideos?: CommunityFeaturedVideo[] };
-      setFeaturedVideos(d.featuredVideos ?? []);
+      const d = res.data as {
+        featuredVideos?: CommunityFeaturedVideo[];
+        isMember?: boolean;
+        viewerHostsCommunity?: boolean;
+        membershipStatus?: string | null;
+        membershipExpiresAt?: string | null;
+        subscriptionExpiresAt?: string | null;
+      };
+      setFeaturedVideos((d.featuredVideos ?? []).slice(0, 3));
+      setIsMember(Boolean(d.isMember));
+      setViewerHostsCommunity(Boolean(d.viewerHostsCommunity));
+      setMembershipStatus(d.membershipStatus ?? null);
+      setMembershipExpiresAt(d.membershipExpiresAt ?? null);
+      setSubscriptionExpiresAt(d.subscriptionExpiresAt ?? null);
     })();
     return () => {
       cancelled = true;
     };
   }, [community.id]);
 
+  const openJoinGate = useCallback(() => {
+    if (community.locked) return;
+    setJoinOpen(true);
+  }, [community.locked]);
+
+  const openMemberDestination = useCallback(
+    (href: string) => {
+      if (canAccessMemberActions) {
+        window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      }
+      openJoinGate();
+    },
+    [canAccessMemberActions, openJoinGate]
+  );
+
+  const copyDedicatedLink = useCallback(() => {
+    if (!canAccessMemberActions) {
+      openJoinGate();
+      return;
+    }
+    const url = `${window.location.origin}/community/side-chick/${community.id}`;
+    void navigator.clipboard.writeText(url).then(
+      () => toast.success("Dedicated mode link copied"),
+      () => toast.error("Could not copy link")
+    );
+  }, [canAccessMemberActions, community.id, openJoinGate]);
+
   const shouldReduceMotion = useReducedMotion();
+  const displayedFeatured = featuredVideos.slice(0, 3);
 
   return (
     <article
@@ -1885,11 +1963,12 @@ function CommunityBannerSection({
         compact && "mx-auto"
       )}
     >
-      <Link
-        href={community.locked ? "#" : joinHref}
-        aria-disabled={community.locked}
+      <button
+        type="button"
+        disabled={community.locked}
+        onClick={() => openMemberDestination(joinHref)}
         className={cn(
-          "relative block w-full bg-neutral-100",
+          "relative block w-full bg-neutral-100 text-left",
           community.locked && "pointer-events-none"
         )}
       >
@@ -1961,7 +2040,7 @@ function CommunityBannerSection({
             <LockedBadge />
           </div>
         ) : null}
-      </Link>
+      </button>
 
       <div className="space-y-3 px-4 py-4">
         <div className="flex items-start gap-3">
@@ -2000,22 +2079,69 @@ function CommunityBannerSection({
           </p>
         </div>
 
-        <div className="flex items-center gap-4 text-sm">
-          <Link
-            href={joinHref}
+        {isMember && !viewerHostsCommunity ? (
+          <CommunityMemberInfo
+            communityName={community.name}
+            membershipStatus={membershipStatus}
+            membershipExpiresAt={membershipExpiresAt}
+            subscriptionExpiresAt={subscriptionExpiresAt}
+          />
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <button
+            type="button"
             className="underline underline-offset-2"
-            target="_blank"
+            onClick={() => openMemberDestination(joinHref)}
           >
             Community page
-          </Link>
-          <Link
-            href={`/tv?community=${community.id}`}
+          </button>
+          {tvActivated ? (
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={() => openMemberDestination(communityTvHref)}
+            >
+              Community TV
+            </button>
+          ) : null}
+          <button
+            type="button"
             className="underline underline-offset-2"
-            target="_blank"
+            onClick={copyDedicatedLink}
           >
-            Community TV
-          </Link>
+            Copy dedicated link
+          </button>
         </div>
+
+        {displayedFeatured.length > 0 ? (
+          <div className="space-y-2 border-t pt-4">
+            <h4 className="text-sm font-medium">Featured videos</h4>
+            <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
+              {displayedFeatured.map(video => {
+                const videoId = extractYoutubeID(video.url);
+                const thumb = videoId
+                  ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                  : "/default-event-image.jpg";
+                return (
+                  <button
+                    key={video.id}
+                    type="button"
+                    className="relative aspect-[9/16] overflow-hidden bg-neutral-100"
+                    onClick={() => setOverlayVideo(video)}
+                    aria-label={`Play ${video.title}`}
+                  >
+                    <img
+                      src={thumb}
+                      alt=""
+                      className="size-full object-cover"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
         {isOwnProfile && hostSlug ? (
           <div className="flex flex-wrap gap-3 border-t pt-4">
@@ -2031,66 +2157,47 @@ function CommunityBannerSection({
               </Link>
             </Button>
             <Button
-              asChild
+              type="button"
               variant="outline"
               size="sm"
+              onClick={() => setAddVideoOpen(true)}
             >
-              <Link
-                href={`/host/${hostSlug}/host-community?communityId=${encodeURIComponent(community.id)}&addVideo=1`}
-              >
-                Add community video
-              </Link>
+              Add community video
             </Button>
+            <AddCommunityBankVideoDialog
+              open={addVideoOpen}
+              onOpenChange={setAddVideoOpen}
+              communityId={community.id}
+              hostSlug={hostSlug}
+              pathname={pathname ?? undefined}
+            />
           </div>
         ) : null}
 
-        {!isOwnProfile ? (
-          <div className="space-y-3 border-t pt-4">
-            {featuredVideos.length > 0 ? (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Featured videos</h4>
-                <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
-                  {featuredVideos.map(video => {
-                    const videoId = extractYoutubeID(video.url);
-                    const thumb = videoId
-                      ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                      : "/default-event-image.jpg";
-                    return (
-                      <button
-                        key={video.id}
-                        type="button"
-                        className="relative aspect-[9/16] overflow-hidden bg-neutral-100"
-                        onClick={() => setOverlayVideo(video)}
-                        aria-label={`Play ${video.title}`}
-                      >
-                        <img
-                          src={thumb}
-                          alt=""
-                          className="size-full object-cover"
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
+        {!isOwnProfile && !canAccessMemberActions ? (
+          <div className="border-t pt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setJoinOpen(true)}
+              onClick={openJoinGate}
               disabled={community.locked}
             >
               Join community
             </Button>
-            <JoinCommunityModal
-              open={joinOpen}
-              onOpenChange={setJoinOpen}
-              communityId={community.id}
-              signInRedirectPath={joinHref}
-              joinDisabled={community.locked}
-            />
           </div>
         ) : null}
+
+        <JoinCommunityModal
+          open={joinOpen}
+          onOpenChange={setJoinOpen}
+          communityId={community.id}
+          signInRedirectPath={joinHref}
+          joinDisabled={community.locked}
+          onJoined={() => {
+            setJoinOpen(false);
+            void reloadAccessState();
+          }}
+        />
       </div>
       {overlayVideo ? (
         <CommunityFeaturedVideoOverlay

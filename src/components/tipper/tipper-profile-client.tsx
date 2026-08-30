@@ -3,6 +3,7 @@
 import Footer from "@/components/shared/footer";
 import { TipperBanner } from "./tipper-banner";
 import { ProfileTabs } from "./profile-tabs";
+import { ProfileSlugSync } from "./profile-slug-sync";
 import type { Content } from "@/types/content.types";
 
 type Cause = {
@@ -56,6 +57,9 @@ export const TipperProfileClient = ({
 
   return (
     <>
+      {viewMode === "owner" && profileSlug ? (
+        <ProfileSlugSync profileSlug={profileSlug} />
+      ) : null}
       <TipperBanner
         iTipped={iTipped}
         variant={bannerVariant}

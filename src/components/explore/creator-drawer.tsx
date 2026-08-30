@@ -76,6 +76,7 @@ export function CreatorDrawer({ open, onOpenChange, username }: Props) {
             <CreatorDrawerSkeleton />
           ) : profile ? (
             <HostCreatorPageClient
+              key={handle}
               profile={profile}
               variant="drawer"
               className="min-h-0 pb-4"

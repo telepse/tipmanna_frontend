@@ -100,6 +100,7 @@ export function ExploreTvScheduleFeed({
   onTvSourceChange,
   tvSourceLocked = false,
   lockedLabel,
+  dedicatedCommunityId = null,
 }: {
   characters: any[];
   characterSets: any[];
@@ -115,9 +116,11 @@ export function ExploreTvScheduleFeed({
   tvSource?: "tipmanna" | string;
   tvCommunityOptions?: { id: string; name: string }[];
   onTvSourceChange?: (next: "tipmanna" | string) => void;
-  /** Dedicated community mode: hide source picker. */
+  /** Dedicated community mode: hide source picker when true (legacy). Prefer parent confirm flow. */
   tvSourceLocked?: boolean;
   lockedLabel?: string;
+  /** When set, shows dedicated-mode hint above the picker. */
+  dedicatedCommunityId?: string | null;
 }) {
   const [ongoing, setOngoing] = useState<TvPlaylistLike[]>([]);
   const [upcoming, setUpcoming] = useState<TvPlaylistLike[]>([]);
@@ -356,6 +359,12 @@ export function ExploreTvScheduleFeed({
           <p className="text-muted-foreground text-[11px]">
             TV schedule source
           </p>
+          {dedicatedCommunityId && tvSource === dedicatedCommunityId ? (
+            <p className="text-muted-foreground mb-1 flex items-center gap-1 text-[10px]">
+              <span className="font-medium">Dedicated mode</span>
+              {lockedLabel ? `· ${lockedLabel.replace(/^Locked to /, "")}` : null}
+            </p>
+          ) : null}
           {tvSourceLocked ? (
             <p className="text-foreground bg-muted/40 rounded-md border px-3 py-2 text-xs">
               {lockedLabel ??

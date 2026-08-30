@@ -14,6 +14,7 @@ import { useSelector, useDispatch } from "react-redux";
 // Local imports
 import { AddEventBanner } from "@/components/banners/add-event-banner";
 import { newEventSchema, NewEventFormData } from "@/schemas";
+import { buildDefaultThankYouForHost } from "@/lib/thank-you-message";
 import { RootState } from "@/redux/store";
 import type { AppDispatch } from "@/redux/store";
 import type { HostUser } from "@/features/auth-slice";
@@ -55,7 +56,7 @@ import {
 } from "@/lib/validate-privacy-video-links";
 import { syncHostAuthFromCreateEventResponse } from "@/lib/sync-host-auth-after-submission";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
-import { useHostProfile } from "@/hooks/use-host-profile";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { NavbarShell } from "@/components/shared/navbar-shell";
 
 export default function ContentOnlyPage() {
@@ -83,14 +84,14 @@ export default function ContentOnlyPage() {
   const tag = useSelector((state: RootState) => state.auth.tag);
   const isExistingHost = tag === "EXISTING_HOST";
   const { canWriteAsHost } = useHostCapabilityWithAuth();
-  const { profile: hostProfile } = useHostProfile();
+  const { hasActivePremium } = useHostPlanCapabilities();
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof NewEventFormData)[] = [];
 
     // Determine which fields to validate based on the current step
     if (step === 1) {
-      fieldsToValidate = ["amountToRaise"];
+      fieldsToValidate = ["amountToRaise", "thankYouMessage"];
     } else if (step === 2) {
       fieldsToValidate = ["videoLinks", "contributionType"];
     } else if (step === 3) {
@@ -177,6 +178,10 @@ export default function ContentOnlyPage() {
     resolver: zodResolver(newEventSchema) as Resolver<NewEventFormData>,
     defaultValues: {
       amountToRaise: 0,
+      thankYouMessage: buildDefaultThankYouForHost({
+        fullName: user?.fullName,
+        username: user?.username,
+      }),
 
       hasPhysicalLocation: "",
       customerType: "",
@@ -227,7 +232,7 @@ export default function ContentOnlyPage() {
   });
 
   const runPrivacyChecks = () =>
-    runPrivacyChecksFromForm(form, hostProfile?.hostSubscriptionTier);
+    runPrivacyChecksFromForm(form, hasActivePremium);
 
   const videoLinks = form.watch("videoLinks") ?? [];
   const {

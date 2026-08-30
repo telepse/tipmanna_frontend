@@ -88,6 +88,7 @@ export interface UpdateHostEventDetailsPayload {
   projects?: UpdateEventProjectPayload[];
 
   contents?: UpdateEventContentPayload[];
+  thankYouMessage?: string | null;
 }
 
 export async function updateHostEventDetailsAction({
@@ -336,6 +337,19 @@ export async function hostSubscriptionCheckoutAction(
       }),
     },
     "hostSubscriptionCheckoutAction"
+  );
+}
+
+export async function hostSubscriptionConfirmAction(sessionId: string) {
+  const qs = new URLSearchParams({ session_id: sessionId });
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/subscriptions/host/confirm?${qs.toString()}`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "hostSubscriptionConfirmAction"
   );
 }
 

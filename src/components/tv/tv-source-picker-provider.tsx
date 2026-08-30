@@ -15,7 +15,9 @@ import {
   getMeJoinedCommunitiesAction,
   getMyCommunitiesAction,
 } from "@/actions/communities";
+import { DedicatedExitConfirmDialog } from "@/components/community/dedicated-exit-confirm-dialog";
 import { useSideChick } from "@/components/community/side-chick-provider";
+import { useDedicatedExitGate } from "@/hooks/use-dedicated-exit-gate";
 import { RootState } from "@/redux/store";
 import { useTV } from "@/components/tv-provider";
 import {
@@ -81,6 +83,14 @@ export function TvSourcePickerProvider({
     !sideChick.loading &&
     Boolean(sideChick.active && sideChick.activation?.communityId) &&
     communityFeatureOn;
+  const dedicatedCommunityName =
+    sideChick.activation?.community.name ?? "Community";
+  const dedicatedExit = useDedicatedExitGate({
+    sideChickLocked: tvSideChickLocked,
+    dedicatedCommunityName,
+    exitDedicatedMode: sideChick.exitDedicatedMode,
+    reloadAfterExit: false,
+  });
 
   useEffect(() => {
     if (!tvSideChickLocked || !sideChick.activation?.communityId) return;
@@ -186,14 +196,35 @@ export function TvSourcePickerProvider({
   ]);
 
   const pickTipmanna = useCallback(() => {
-    setTvPickerOpen(false);
-    navigateToTvSource(null);
-  }, []);
+    const apply = () => {
+      setTvPickerOpen(false);
+      navigateToTvSource(null);
+    };
+    dedicatedExit.requestExitThen(apply);
+  }, [dedicatedExit.requestExitThen]);
 
-  const pickCommunity = useCallback((id: string) => {
-    setTvPickerOpen(false);
-    navigateToTvSource(id);
-  }, []);
+  const pickCommunity = useCallback(
+    (id: string) => {
+      const apply = () => {
+        setTvPickerOpen(false);
+        navigateToTvSource(id);
+      };
+      if (
+        tvSideChickLocked &&
+        sideChick.activation?.communityId &&
+        sideChick.activation.communityId !== id
+      ) {
+        dedicatedExit.requestExitThen(apply);
+        return;
+      }
+      apply();
+    },
+    [
+      dedicatedExit.requestExitThen,
+      sideChick.activation?.communityId,
+      tvSideChickLocked,
+    ]
+  );
 
   const onTvSourceChange = useCallback(
     (id: string | null) => {
@@ -209,9 +240,8 @@ export function TvSourcePickerProvider({
   }, [fetchTvPickerMemberships]);
 
   const showSourceDropdown = useMemo(
-    () =>
-      communityFeatureOn && !searchParams.get("videoId") && !tvSideChickLocked,
-    [communityFeatureOn, searchParams, tvSideChickLocked]
+    () => communityFeatureOn && !searchParams.get("videoId"),
+    [communityFeatureOn, searchParams]
   );
 
   const value = useMemo(
@@ -245,6 +275,16 @@ export function TvSourcePickerProvider({
   return (
     <TvSourcePickerContext.Provider value={value}>
       {children}
+      <DedicatedExitConfirmDialog
+        open={dedicatedExit.confirmOpen}
+        onOpenChange={open => {
+          if (!open) dedicatedExit.cancelExit();
+        }}
+        communityName={dedicatedCommunityName}
+        busy={dedicatedExit.busy}
+        actionLabel="Leave and switch TV source"
+        onConfirm={() => void dedicatedExit.confirmExit()}
+      />
     </TvSourcePickerContext.Provider>
   );
 }

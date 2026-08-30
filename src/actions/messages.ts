@@ -42,12 +42,15 @@ export async function getPurchasedCommentsForChannelAction(
       "getPurchasedCommentsForChannelAction"
     );
   }
+  const { buildEventRoomRequestHeaders } = await import(
+    "@/lib/event-room-request"
+  );
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
   return runServerFetch<{ username: string; message: string }[]>(
     `${base.replace(/\/$/, "")}/messages/channel/${encodeURIComponent(eid)}/${encodeURIComponent(cid)}/purchased-comments`,
     {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers: await buildEventRoomRequestHeaders(eid),
       cache: "no-store",
     },
     "getPurchasedCommentsForChannelAction",
@@ -211,16 +214,15 @@ export async function getMessagesByEventAction(eventId: string) {
   if (!eventId?.trim()) {
     return actionFail("Event ID is required", "getMessagesByEventAction");
   }
-  console.log(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/messages/${eventId.trim()}`
+  const trimmed = eventId.trim();
+  const { buildEventRoomRequestHeaders } = await import(
+    "@/lib/event-room-request"
   );
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/messages/${eventId.trim()}`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/messages/${trimmed}`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: await buildEventRoomRequestHeaders(trimmed),
       cache: "no-store",
     },
     "getMessagesByEventAction"

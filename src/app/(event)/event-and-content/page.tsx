@@ -56,8 +56,9 @@ import {
 } from "@/lib/validate-privacy-video-links";
 import { syncHostAuthFromCreateEventResponse } from "@/lib/sync-host-auth-after-submission";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
-import { useHostProfile } from "@/hooks/use-host-profile";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { defaultEventTimeZone } from "@/lib/event-timezones";
+import { buildDefaultThankYouForHost } from "@/lib/thank-you-message";
 import { NavbarShell } from "@/components/shared/navbar-shell";
 
 export default function EventAndContentPage() {
@@ -85,13 +86,13 @@ export default function EventAndContentPage() {
   const tag = useSelector((state: RootState) => state.auth.tag);
   const isExistingHost = tag === "EXISTING_HOST";
   const { canWriteAsHost } = useHostCapabilityWithAuth();
-  const { profile: hostProfile } = useHostProfile();
+  const { hasActivePremium } = useHostPlanCapabilities();
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof NewEventFormData)[] = [];
 
     if (step === 1) {
-      fieldsToValidate = ["amountToRaise"];
+      fieldsToValidate = ["amountToRaise", "thankYouMessage"];
     } else if (step === 2) {
       fieldsToValidate = ["videoLinks"];
     } else if (step === 3) {
@@ -177,6 +178,10 @@ export default function EventAndContentPage() {
     resolver: zodResolver(newEventSchema) as Resolver<NewEventFormData>,
     defaultValues: {
       amountToRaise: 0,
+      thankYouMessage: buildDefaultThankYouForHost({
+        fullName: user?.fullName,
+        username: user?.username,
+      }),
 
       hasPhysicalLocation: "",
       customerType: "",
@@ -228,7 +233,7 @@ export default function EventAndContentPage() {
   });
 
   const runPrivacyChecks = () =>
-    runPrivacyChecksFromForm(form, hostProfile?.hostSubscriptionTier);
+    runPrivacyChecksFromForm(form, hasActivePremium);
 
   const videoLinks = form.watch("videoLinks") ?? [];
   const {

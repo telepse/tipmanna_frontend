@@ -1393,9 +1393,9 @@ export const TvLooper = ({
                   }}
                   onPlaybackReady={() => {
                     setIsPlayerLoading(false);
-                    syncFromPlayer();
                     applyPendingPlaybackRestore();
                     applyPendingAudioRestore();
+                    syncFromPlayer();
                     emitEncounterWhenVideoLoads();
                     const dur = playerRef.current?.getDuration() ?? 0;
                     if (dur > 0) setDuration(dur);
@@ -1406,6 +1406,7 @@ export const TvLooper = ({
                     notifyStartupPlayerPlaying();
                     applyPendingPlaybackRestore();
                     applyPendingAudioRestore();
+                    syncFromPlayer();
                     const dur = playerRef.current?.getDuration() ?? 0;
                     if (dur > 0) setDuration(dur);
                     const id = current?.id as string | undefined;
@@ -1444,7 +1445,6 @@ export const TvLooper = ({
                   onUserSeek={onPlayerSeek}
                   onEnd={handleVideoEnd}
                   onPlayerError={handlePlayerError}
-                  onMuteChange={muted => setIsMuted(muted)}
                   cover={fullPresentationFit === "cover"}
                   containFill={fullPresentationFit === "contain"}
                 />

@@ -19,6 +19,8 @@ import {
   recordNotificationViewAction,
 } from "@/actions/notifications";
 import type { RootState } from "@/redux/store";
+import { isHostTipNotificationKind } from "@/lib/tip-notification-display";
+import { TipNotificationDetails } from "@/components/notifications/tip-notification-details";
 
 type Props = {
   row: FeedNotificationRow | null;
@@ -63,6 +65,18 @@ export function NotificationDetailModal({
           <DialogDescription asChild>
             <div className="text-muted-foreground mt-2 space-y-2 text-sm whitespace-pre-wrap">
               {row.body}
+              {isHostTipNotificationKind(row.kind) ? (
+                <TipNotificationDetails
+                  payload={
+                    (row.payloadJson as Record<string, unknown> | null) ??
+                    null
+                  }
+                  includeHost={Boolean(
+                    (row.payloadJson as { audience?: string } | null)
+                      ?.audience === "admin"
+                  )}
+                />
+              ) : null}
               <p className="text-[11px]">
                 {new Date(row.createdAt).toLocaleString()}
                 {row.source !== "personal" ? " · Public" : ""}

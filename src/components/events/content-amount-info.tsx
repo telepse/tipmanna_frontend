@@ -10,14 +10,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PoundSterling } from "lucide-react";
+import { ThankYouMessageField } from "@/components/events/thank-you-message-field";
+import { NewEventFormData } from "@/schemas";
 
-interface Props<T extends FieldValues> {
-  control: Control<T>;
+interface Props {
+  control: Control<NewEventFormData>;
 }
 
-export function ContentAmountInfo<T extends FieldValues>({
-  control,
-}: Props<T>) {
+export function ContentAmountInfo({ control }: Props) {
   return (
     <>
       <div className="w-full space-y-6 rounded-lg border-2 border-white bg-black/50 p-6 shadow sm:w-96">
@@ -28,7 +28,7 @@ export function ContentAmountInfo<T extends FieldValues>({
         {/* Amount to Raise */}
         <FormField
           control={control}
-          name={"amountToRaise" as Path<T>}
+          name="amountToRaise"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="relative text-white">
@@ -57,6 +57,7 @@ export function ContentAmountInfo<T extends FieldValues>({
             </FormItem>
           )}
         />
+        <ThankYouMessageField control={control} />
       </div>
     </>
   );

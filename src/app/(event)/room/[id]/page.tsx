@@ -9,7 +9,8 @@ import {
 } from "@/actions/events";
 import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
-import { EventRoomAccessGate } from "@/components/events/event-room-access-gate";
+import { EventRoomAccessGate, PrivateEventRoomBlocked } from "@/components/events/event-room-access-gate";
+import { getEventRoomAccessAction } from "@/actions/events";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
 import { getPrimaryOrigin } from "@/lib/site-config";
@@ -42,6 +43,18 @@ interface CharacterSet {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const trimmedId = typeof id === "string" ? id.trim() : id;
+
+  const accessRes = await getEventRoomAccessAction(trimmedId);
+  const access =
+    accessRes.success && accessRes.data
+      ? (accessRes.data as {
+          accessMode?: "public" | "invite_only";
+          allowed?: boolean;
+        })
+      : null;
+  if (access?.accessMode === "invite_only" && access.allowed === false) {
+    return { title: "Private event room" };
+  }
 
   const [eventRes, channelsRes] = await Promise.all([
     getEventByIdAction(trimmedId),
@@ -111,6 +124,20 @@ export const revalidate = 0;
 export default async function EventRoomPage({ params }: Props) {
   const { id } = await params;
   const trimmedId = typeof id === "string" ? id.trim() : id;
+
+  const accessRes = await getEventRoomAccessAction(trimmedId);
+  const access =
+    accessRes.success && accessRes.data
+      ? (accessRes.data as {
+          accessMode?: "public" | "invite_only";
+          allowed?: boolean;
+        })
+      : null;
+
+  if (access?.accessMode === "invite_only" && access.allowed === false) {
+    return <PrivateEventRoomBlocked />;
+  }
+
   const token = await getToken();
 
   const [eventRes, messagesRes, tippedRes, channelsRes] = await Promise.all([

@@ -446,6 +446,7 @@ export default function PlaylistTable({
           tippingCharacters={tippingCharacters}
           hostName={commentDrawerTarget.hostName}
           hostUsername={commentDrawerTarget.hostUsername}
+          stackAboveImmersive
         />
       ) : null}
     </>

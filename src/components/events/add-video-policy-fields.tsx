@@ -20,9 +20,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCoOwnerDraftFields } from "@/hooks/use-coowner-draft-fields";
 import type { CoOwnerDraftSlice } from "@/lib/form-draft-utils";
-import { useHostProfile } from "@/hooks/use-host-profile";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import type { AddVideoFormValues } from "./add-video-form";
 import { CoOwnerInviteStatusRow } from "./co-owner-invite-status-row";
+import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subscription-modal";
 import {
   CREATE_FORM_INPUT_CLASS,
   CREATE_FORM_LABEL_CLASS,
@@ -56,10 +57,8 @@ export function AddVideoPolicyFields({
   onRefreshSubmitReadiness,
   refreshToken = 0,
 }: Props) {
-  const { profile } = useHostProfile();
-  const hostTier = profile?.hostSubscriptionTier;
-  const canInvite =
-    hostTier === "HOST_PREMIUM" || hostTier === "HOST_COMMUNITY";
+  const { hasActivePremium } = useHostPlanCapabilities();
+  const canInvite = hasActivePremium;
   const allowCoOwned = coOwnerPolicyMode === "full";
   const isCreate = variant === "create";
 
@@ -89,6 +88,7 @@ export function AddVideoPolicyFields({
     resendInvite,
     statusIndicatorClass,
     inviteStatusLabel,
+    SubscriptionPromptModal,
   } = useCoOwnerDraftFields({
     draftKey,
     ownershipAnswer,
@@ -113,6 +113,8 @@ export function AddVideoPolicyFields({
   }, [allowCoOwned, ownershipAnswer, form]);
 
   return (
+    <>
+      {SubscriptionPromptModal}
     <div
       className={cn(
         "space-y-3 rounded-lg border p-4",
@@ -194,9 +196,18 @@ export function AddVideoPolicyFields({
       {ownershipAnswer === "no" && allowCoOwned ? (
         <div className="space-y-2">
           {!canInvite ? (
-            <p className="text-destructive text-sm">
-              Host Premium or Host Community required to invite co-owners.
-            </p>
+            <div className="space-y-2">
+              <p className="text-destructive text-sm">
+                Host Growth or Host Community required to invite co-owners.
+              </p>
+              <HostSubscriptionUpgradeTrigger
+                focusTier="premium"
+                label="View plans"
+                variant="outline"
+                title="Unlock co-owner invites"
+                description="Subscribe to Host Growth or Community to invite co-owners."
+              />
+            </div>
           ) : (
             <>
               <Input
@@ -270,5 +281,6 @@ export function AddVideoPolicyFields({
         </div>
       ) : null}
     </div>
+    </>
   );
 }

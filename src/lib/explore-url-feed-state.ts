@@ -7,6 +7,8 @@ export type ExploreFeedUrlState = {
   feedSubTab: ExploreFeedSubTab;
   tvExploreSource: "tipmanna" | string;
   communityFeedSelIds: string[];
+  /** When true, ended livestreams may appear in Explore reel pools. Default false. */
+  includeEndedLive: boolean;
 };
 
 export type ExploreFeedUrlTabContext = {
@@ -54,6 +56,8 @@ export function parseExploreFeedUrlState(
         .filter(Boolean)
     : [];
 
+  const includeEndedLive = sp.get("endedLive") === "1";
+
   return {
     trendEventTypes,
     trendLanguage,
@@ -61,6 +65,7 @@ export function parseExploreFeedUrlState(
     feedSubTab,
     tvExploreSource,
     communityFeedSelIds,
+    includeEndedLive,
   };
 }
 
@@ -81,7 +86,8 @@ export function exploreFeedUrlStatesEqual(
     a.trendCountry === b.trendCountry &&
     a.feedSubTab === b.feedSubTab &&
     a.tvExploreSource === b.tvExploreSource &&
-    sortedStringArrayEqual(a.communityFeedSelIds, b.communityFeedSelIds)
+    sortedStringArrayEqual(a.communityFeedSelIds, b.communityFeedSelIds) &&
+    a.includeEndedLive === b.includeEndedLive
   );
 }
 
@@ -127,6 +133,12 @@ export function applyExploreFeedUrlState(
     }
   } else {
     p.delete("tvSource");
+  }
+
+  if (state.includeEndedLive) {
+    p.set("endedLive", "1");
+  } else {
+    p.delete("endedLive");
   }
 }
 

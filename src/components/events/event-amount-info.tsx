@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PoundSterling } from "lucide-react";
+import { ThankYouMessageField } from "@/components/events/thank-you-message-field";
 
 // Local imports
 import { NewEventFormData } from "@/schemas";
@@ -58,6 +59,7 @@ export const EventAmountInfo = ({ control }: Props) => {
             </FormItem>
           )}
         />
+        <ThankYouMessageField control={control} />
       </div>
     </>
   );

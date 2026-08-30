@@ -474,7 +474,7 @@ export const ProfileTabs = ({
           </div>
 
           {/* Charities */}
-          {!isPublic ? <Charities causes={causes} /> : null}
+          {!isPublic && !isDrawer ? <Charities causes={causes} /> : null}
         </TabsContent>
 
         {/* =========================================================
@@ -641,7 +641,7 @@ export const ProfileTabs = ({
             ))}
           </div>
 
-          {!isPublic ? <Charities causes={causes} /> : null}
+          {!isPublic && !isDrawer ? <Charities causes={causes} /> : null}
         </TabsContent>
 
         {/* =========================================================
@@ -668,7 +668,7 @@ export const ProfileTabs = ({
             </div>
           </div>
 
-          {!isPublic ? <Charities causes={causes} /> : null}
+          {!isPublic && !isDrawer ? <Charities causes={causes} /> : null}
         </TabsContent>
 
         {/* =========================================================
