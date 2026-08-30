@@ -1,0 +1,20 @@
+﻿[playwright globalSetup] Backend healthy at http://localhost:8000/health
+
+Running 2 tests using 1 worker
+
+node.exe : (node:20932) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:20932) Wa... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:20932) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[feed-boot-stability-proof] SUMMARY {"pass":20,"fail":0,"minMs":1653,"medianMs":1950,"maxMs":2871,"failures":[],"rscAbortsAccepted":24}
+  ok 1 [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:107:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 20 fresh contexts reach Feed readiness (1.2m)
+[feed-boot-stability-proof] SUMMARY {"pass":10,"fail":0,"minMs":763,"medianMs":914,"maxMs":1675,"failures":[],"rscAbortsAccepted":21}
+  ok 2 [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:126:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 10 persistent refreshes reach Feed readiness (11.6s)
+
+  2 passed (1.5m)

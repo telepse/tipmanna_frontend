@@ -1,0 +1,228 @@
+﻿[playwright globalSetup] Backend healthy at http://localhost:8000/health
+
+Running 32 tests using 1 worker
+
+node.exe : (node:26916) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:26916) Wa... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:26916) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] ΓÇ║ e2e\discover-navigation.spec.ts:12:7 ΓÇ║ discover navigation ΓÇ║ search opens the quick panel over the feed without leaving /explore (9.0s)
+  ok  2 [chromium] ΓÇ║ e2e\discover-navigation.spec.ts:25:7 ΓÇ║ discover navigation ΓÇ║ the sheet X closes the quick panel and reveals the feed (7.7s)
+  ok  3 [chromium] ΓÇ║ e2e\discover-navigation.spec.ts:39:7 ΓÇ║ discover navigation ΓÇ║ session shell keeps the feed mounted on the Discover surface (no remount) (5.4s)
+  ok  4 [chromium] ΓÇ║ e2e\discover-navigation.spec.ts:52:7 ΓÇ║ discover navigation ΓÇ║ dedicated Discover hands standard clips to the Explore reel (4.2s)
+  ok  5 [chromium] ΓÇ║ e2e\discover-navigation.spec.ts:63:7 ΓÇ║ discover navigation ΓÇ║ rapid tag switch shows results for the last selected tag (13.0s)
+  ok  6 [chromium] ΓÇ║ e2e\discover.spec.ts:4:7 ΓÇ║ discover live routing ΓÇ║ live stream cards navigate to channel room (fixture page) (3.8s)
+  ok  7 [chromium] ΓÇ║ e2e\discover.spec.ts:14:7 ΓÇ║ discover live routing ΓÇ║ live stream cards navigate to channel room on discover (12.5s)
+  ok  8 [chromium] ΓÇ║ e2e\explore-reel-layout.spec.ts:56:7 ΓÇ║ explore reel layout shell at mobile-portrait (1.2s)
+  ok  9 [chromium] ΓÇ║ e2e\explore-reel-layout.spec.ts:56:7 ΓÇ║ explore reel layout shell at mobile-landscape (1.3s)
+  ok 10 [chromium] ΓÇ║ e2e\explore-reel-layout.spec.ts:56:7 ΓÇ║ explore reel layout shell at desktop-portrait (1.2s)
+  ok 11 [chromium] ΓÇ║ e2e\explore-reel-layout.spec.ts:56:7 ΓÇ║ explore reel layout shell at desktop-landscape (1.6s)
+  ok 12 [chromium] ΓÇ║ e2e\explore-reel-layout.spec.ts:69:5 ΓÇ║ mobile landscape fixture places title above dock, not below it (3.7s)
+  ok 13 [chromium] ΓÇ║ e2e\explore-reel-layout.spec.ts:91:5 ΓÇ║ desktop portrait fixture uses on-video title and wider column (1.5s)
+  ok 14 [chromium] ΓÇ║ e2e\explore-reel-layout.spec.ts:109:5 ΓÇ║ desktop landscape dock uses desktop padding tokens (1.5s)
+  ok 15 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:6:7 ΓÇ║ explore TV session continuity ΓÇ║ feed stays mounted while TV sub-tab is active (9.0s)
+  -  16 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:22:7 ΓÇ║ explore TV session continuity ΓÇ║ scroll position preserved across TV and Trends
+  x  17 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:74:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang (18.0s)
+(node:31996) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:31996) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  -  18 [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:102:7 ΓÇ║ explore TV session continuity ΓÇ║ visible reel shell returns after leaving TV tab
+  ok 19 [chromium] ΓÇ║ e2e\explore-url-history.spec.ts:11:7 ΓÇ║ explore URL history ΓÇ║ filter change updates URL and browser back restores prior filter (7.0s)
+  ok 20 [chromium] ΓÇ║ e2e\explore-url-history.spec.ts:33:7 ΓÇ║ explore URL history ΓÇ║ saves sub-tab survives browser back and forward (6.2s)
+  ok 21 [chromium] ΓÇ║ e2e\explore-url-history.spec.ts:55:7 ΓÇ║ explore URL history ΓÇ║ feedTab deep link hydrates saves sub-tab (2.0s)
+  ok 22 [chromium] ΓÇ║ e2e\explore-url-history.spec.ts:63:7 ΓÇ║ explore URL history ΓÇ║ feedTab=tv deep link shows TV surface with mounted feed shell (2.0s)
+  ok 23 [chromium] ΓÇ║ e2e\explore-url-history.spec.ts:75:7 ΓÇ║ explore URL history ΓÇ║ feedTab tv back forward restores sub-tab (6.2s)
+  ok 24 [chromium] ΓÇ║ e2e\explore.spec.ts:6:7 ΓÇ║ explore ΓÇ║ loads feed first on default explore URL (5.6s)
+  x  25 [chromium] ΓÇ║ e2e\explore.spec.ts:18:7 ΓÇ║ explore ΓÇ║ first paint includes SSR default feed boot or visible slide (715ms)
+(node:22760) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:22760) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 26 [chromium] ΓÇ║ e2e\explore.spec.ts:30:7 ΓÇ║ explore ΓÇ║ feed scrolls and shows video shell or empty state (5.1s)
+  -  27 [chromium] ΓÇ║ e2e\explore.spec.ts:56:7 ΓÇ║ explore ΓÇ║ slide actions live inside active slide footer
+  ok 28 [chromium] ΓÇ║ e2e\explore.spec.ts:74:7 ΓÇ║ explore ΓÇ║ profile shows Guest or Not signed in for anonymous visitors (10.5s)
+  ok 29 [chromium] ΓÇ║ e2e\explore.spec.ts:84:7 ΓÇ║ explore ΓÇ║ discover tab shows distinct category headings (2.1s)
+[feed-boot-stability-proof] SUMMARY {"pass":20,"fail":0,"minMs":3725,"medianMs":5282,"maxMs":8097,"failures":[],"rscAbortsAccepted":38}
+  ok 30 [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:107:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 20 fresh contexts reach Feed readiness (2.6m)
+[feed-boot-stability-proof] SUMMARY {"pass":10,"fail":0,"minMs":791,"medianMs":899,"maxMs":11749,"failures":[],"rscAbortsAccepted":19}
+  ok 31 [chromium] ΓÇ║ e2e\feed-boot-stability-proof.spec.ts:126:7 ΓÇ║ Feed boot stability (backend path proof) ΓÇ║ 10 persistent refreshes reach Feed readiness (29.2s)
+[single-path-proof] SUMMARY [
+  {
+    "run": 1,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 2,
+    "backForwardOk": false
+  },
+  {
+    "run": 2,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 2,
+    "backForwardOk": false
+  },
+  {
+    "run": 3,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 2,
+    "backForwardOk": false
+  },
+  {
+    "run": 4,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 1,
+    "backForwardOk": false
+  },
+  {
+    "run": 5,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 0,
+    "backForwardOk": false
+  },
+  {
+    "run": 6,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 7,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 8,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 1,
+    "backForwardOk": false
+  },
+  {
+    "run": 9,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 3,
+    "backForwardOk": false
+  },
+  {
+    "run": 10,
+    "pass": false,
+    "firstDivergence": "ui-not-my-communities",
+    "finalUrl": "http://localhost:3000/explore?feedTab=trends&tab=my-communities",
+    "tabParam": "my-communities",
+    "uiMyCommunities": false,
+    "rscFailed": 2,
+    "backForwardOk": false
+  }
+]
+  x  32 [chromium] ΓÇ║ e2e\single-path-my-communities-proof.spec.ts:202:7 ΓÇ║ single-path My Communities proof ΓÇ║ Feed ΓåÆ My Communities ├ù10 fresh contexts (1.4m)
+
+
+  1) [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:74:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('explore-tv-watch').first()
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for getByTestId('explore-tv-watch').first()[22m
+
+
+      82 |
+      83 |     const watch = page.getByTestId("explore-tv-watch").first();
+    > 84 |     await expect(watch).toBeVisible({ timeout: 15_000 });
+         |                         ^
+      85 |     await watch.click();
+      86 |
+      87 |     await expect(page.getByTestId("explore-subtab-trends")).toHaveClass(
+        at C:\Users\Elite\Documents\Tipmanna\TIPMANNA - LOCAL\frontend\e2e\explore-tv-session.spec.ts:84:25
+
+    Error Context: test-results\explore-tv-session-explore-0cd3d-s-reel-without-remount-hang-chromium\error-context.md
+
+  2) [chromium] ΓÇ║ e2e\explore.spec.ts:18:7 ΓÇ║ explore ΓÇ║ first paint includes SSR default feed boot or visible slide 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mfalse[39m
+
+      25 |       html.includes("__EXPLORE_SSR_BOOT__") ||
+      26 |       html.includes("data-explore-slide");
+    > 27 |     expect(hadInlineBoot).toBeTruthy();
+         |                           ^
+      28 |   });
+      29 |
+      30 |   test("feed scrolls and shows video shell or empty state", async ({
+        at C:\Users\Elite\Documents\Tipmanna\TIPMANNA - LOCAL\frontend\e2e\explore.spec.ts:27:27
+
+    Error Context: test-results\explore-explore-first-pain-95f2c--feed-boot-or-visible-slide-chromium\error-context.md
+
+  3) [chromium] ΓÇ║ e2e\single-path-my-communities-proof.spec.ts:202:7 ΓÇ║ single-path My Communities proof ΓÇ║ Feed ΓåÆ My Communities ├ù10 fresh contexts 
+
+    Error: Expected 10/10, got 0/10
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m10[39m
+    Received: [31m0[39m
+
+      229 |
+      230 |     const passCount = results.filter(r => r.pass).length;
+    > 231 |     expect(passCount, `Expected 10/10, got ${passCount}/10`).toBe(10);
+          |                                                              ^
+      232 |   });
+      233 | });
+      234 |
+        at C:\Users\Elite\Documents\Tipmanna\TIPMANNA - LOCAL\frontend\e2e\single-path-my-communities-proof.spec.ts:231:62
+
+    Error Context: test-results\single-path-my-communities-3e8c2-munities-├ù10-fresh-contexts-chromium\error-context.md
+
+  3 failed
+    [chromium] ΓÇ║ e2e\explore-tv-session.spec.ts:74:7 ΓÇ║ explore TV session continuity ΓÇ║ TV programme handoff opens reel without remount hang 
+    [chromium] ΓÇ║ e2e\explore.spec.ts:18:7 ΓÇ║ explore ΓÇ║ first paint includes SSR default feed boot or visible slide 
+    [chromium] ΓÇ║ e2e\single-path-my-communities-proof.spec.ts:202:7 ΓÇ║ single-path My Communities proof ΓÇ║ Feed ΓåÆ My Communities ├ù10 fresh contexts 
+  3 skipped
+  26 passed (7.7m)

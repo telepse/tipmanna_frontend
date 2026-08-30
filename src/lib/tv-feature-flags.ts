@@ -1,0 +1,127 @@
+/** TV performance feature flags (all default off). */
+
+export function isTvScheduleSwrEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_SCHEDULE_SWR === "true" ||
+    process.env.NEXT_PUBLIC_TV_SCHEDULE_SWR === "1"
+  );
+}
+
+export function isTvLazySsrCharactersEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_LAZY_SSR_CHARACTERS === "true" ||
+    process.env.NEXT_PUBLIC_TV_LAZY_SSR_CHARACTERS === "1"
+  );
+}
+
+export function isTvDirectScheduleFetchEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_DIRECT_SCHEDULE_FETCH === "true" ||
+    process.env.NEXT_PUBLIC_TV_DIRECT_SCHEDULE_FETCH === "1"
+  );
+}
+
+export function isTvSsrScheduleSeedEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_SSR_SCHEDULE === "true" ||
+    process.env.NEXT_PUBLIC_TV_SSR_SCHEDULE === "1"
+  );
+}
+
+/**
+ * Diagnostic startup-latency tracing (Phase 1). Behaviour-neutral: only enables
+ * the `[TV_STARTUP_TRACE]` observability layer. `?tvDebug=1` also enables it
+ * (handled in tv-startup-trace). Never gate TV product behaviour on this flag.
+ */
+export function isTvStartupTraceFlagEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED === "true" ||
+    process.env.NEXT_PUBLIC_TV_STARTUP_TRACE_ENABLED === "1"
+  );
+}
+
+/**
+ * Phase A — single intentional startup schedule network request.
+ * Default DISABLED. Set to `1` or `true` to enable; requires a frontend rebuild
+ * (`NEXT_PUBLIC_*` env vars are inlined at build time).
+ */
+export function isTvSingleStartupScheduleEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE === "true" ||
+    process.env.NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE === "1"
+  );
+}
+
+/**
+ * Phase C0 — startup player error recovery and pre-play seek containment.
+ * Default DISABLED. Requires a frontend rebuild (`NEXT_PUBLIC_*`).
+ */
+export function isTvStartupPlaybackGuardEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_STARTUP_PLAYBACK_GUARD === "true" ||
+    process.env.NEXT_PUBLIC_TV_STARTUP_PLAYBACK_GUARD === "1"
+  );
+}
+
+/**
+ * Phase C1 — initial live-offset YouTube iframe embed at schedule-resolved offset.
+ * Default DISABLED. Requires a frontend rebuild (`NEXT_PUBLIC_*`).
+ * Independent from Phase C0 playback guard.
+ */
+export function isTvInitialLiveOffsetEmbedEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_INITIAL_LIVE_OFFSET_EMBED === "true" ||
+    process.env.NEXT_PUBLIC_TV_INITIAL_LIVE_OFFSET_EMBED === "1"
+  );
+}
+
+/**
+ * Phase C0.1 — extend startup error/recovery containment until T13 stable playback.
+ * Default DISABLED. Requires C0 playback guard enabled. Requires frontend rebuild.
+ */
+export function isTvStartupStabilityGuardEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_STARTUP_STABILITY_GUARD === "true" ||
+    process.env.NEXT_PUBLIC_TV_STARTUP_STABILITY_GUARD === "1"
+  );
+}
+
+/** C0.1 is only active when both C0 and the stability flag are enabled. */
+export function isTvStartupStabilityGuardActive(): boolean {
+  return (
+    isTvStartupPlaybackGuardEnabled() && isTvStartupStabilityGuardEnabled()
+  );
+}
+
+/**
+ * Phase C2.0 — YouTube bootstrap trace decomposition (observational).
+ * Default DISABLED. Requires startup trace enabled and frontend rebuild.
+ */
+export function isTvYoutubeBootstrapTraceEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_YOUTUBE_BOOTSTRAP_TRACE === "true" ||
+    process.env.NEXT_PUBLIC_TV_YOUTUBE_BOOTSTRAP_TRACE === "1"
+  );
+}
+
+/**
+ * Phase C2.1 — SSR YouTube connection hints on the TV route only.
+ * Default DISABLED. Independent from C2.0 tracing. Requires frontend rebuild.
+ */
+export function isTvSsrYoutubePreconnectEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_SSR_YOUTUBE_PRECONNECT === "true" ||
+    process.env.NEXT_PUBLIC_TV_SSR_YOUTUBE_PRECONNECT === "1"
+  );
+}
+
+/**
+ * Phase C2.2 — early YouTube IFrame API warm-up at TVProvider T2.
+ * Default DISABLED. TV-route scoped. Independent from C2.0/C2.1.
+ */
+export function isTvEarlyYoutubeApiWarmupEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_TV_EARLY_YOUTUBE_API_WARMUP === "true" ||
+    process.env.NEXT_PUBLIC_TV_EARLY_YOUTUBE_API_WARMUP === "1"
+  );
+}

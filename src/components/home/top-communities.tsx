@@ -1,0 +1,95 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
+// Local imports
+import type { CommunityExploreCatalogRow } from "@/actions/communities";
+import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
+import { Paragraph } from "@/components/shared/paragraph";
+import { Title } from "@/components/shared/title";
+import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
+
+interface Props {
+  communities: CommunityExploreCatalogRow[];
+  showWhenEmpty?: boolean;
+}
+
+export default function TopCommunities({
+  communities,
+  showWhenEmpty = false,
+}: Props) {
+  const pathname = usePathname();
+  const isPartnerPage = pathname.includes("/partner");
+  const featuredCommunities = communities
+    .filter(c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem))
+    .slice(0, 3);
+
+  if (featuredCommunities.length === 0 && !showWhenEmpty) {
+    return null;
+  }
+
+  return (
+    <section
+      className="wrapper section items-center py-12"
+      aria-labelledby="top-communities-heading"
+    >
+      {/* <Badge title="Tipmanna Community" /> */}
+
+      <Title
+        id="top-communities-heading"
+        size="lg"
+        className="w-full"
+      >
+        Featured{" "}
+        <span className="relative bg-gradient-to-r from-[#F57D11] to-[#B55805] bg-clip-text text-transparent">
+          communities
+        </span>
+      </Title>
+      {/* <Paragraph
+        align="center"
+        color="muted"
+        className="-mt-2"
+      >
+        Ranked by total tips across approved bank videos.
+      </Paragraph> */}
+
+      <div className="w-full">
+        {featuredCommunities.length === 0 ? (
+          <Paragraph
+            align="center"
+            color="muted"
+          >
+            No communities to highlight yet. New communities will appear here as
+            creators grow their banks.
+          </Paragraph>
+        ) : (
+          <ExploreTopCommunitiesGrid communities={featuredCommunities} />
+        )}
+      </div>
+
+      {isPartnerPage && (
+        <div className="border-primary inline-block w-fit max-w-full self-start border-l-2 py-0 pl-4">
+          <div>
+            <Paragraph
+              size="sm"
+              weight="bold"
+              className="leading-relaxed"
+            >
+              Start with content. <br className="inline-block sm:hidden" /> Grow
+              participation. Build a community.
+            </Paragraph>
+            <Paragraph
+              size="sm"
+              className="leading-relaxed"
+            >
+              Tipmanna grows with you <br className="inline-block sm:hidden" />{" "}
+              - from your first video to your own{" "}
+              <br className="inline-block sm:hidden" /> community-powered media
+              network.
+            </Paragraph>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

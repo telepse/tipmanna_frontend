@@ -1,0 +1,208 @@
+import { isPayerOriginRecoveryEnabled } from "@/lib/payer-origin-recovery-flag";
+import {
+  clearInvalidRecoveryState,
+  clearRawRecoveryStateFromPendingReturn,
+  readPendingPaymentReturn,
+  patchPendingPaymentReturn,
+} from "@/lib/pending-payment-return";
+import { writePaymentRecoverySession } from "@/lib/payment-recovery-session";
+import {
+  exchangeRecoveryStateRequest,
+  isDefinitiveExchangeRejection,
+  isIdentityMismatchRejection,
+  isTransientExchangeFailure,
+  traceRecoveryApiError,
+} from "@/lib/payment-recovery-client";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
+
+export type ExchangeRecoveryOwnership = {
+  tipperId?: string;
+  visitorId?: string;
+  clientSessionId?: string;
+};
+
+export type ExchangeRecoveryResult =
+  | { outcome: "exchanged"; sessionStored: true }
+  | { outcome: "no_recovery_state" }
+  | { outcome: "skipped_flag_off" }
+  | { outcome: "skipped_no_pending" }
+  | { outcome: "definitive_rejection" }
+  | { outcome: "identity_retry" }
+  | { outcome: "transient_failure" }
+  | { outcome: "legacy_continue" };
+
+const EXCHANGE_MAX_ATTEMPTS = 3;
+
+/**
+ * Exchange raw recovery state for a short-lived session token on /success.
+ * Never logs raw recovery state.
+ */
+export async function runPaymentRecoveryExchange(params: {
+  stripePaymentIntentId: string | null;
+  redirectStatus: string | null;
+  ownership: ExchangeRecoveryOwnership;
+}): Promise<ExchangeRecoveryResult> {
+  if (!isPayerOriginRecoveryEnabled()) {
+    return { outcome: "skipped_flag_off" };
+  }
+
+  const pending = readPendingPaymentReturn();
+  if (!pending) {
+    return { outcome: "skipped_no_pending" };
+  }
+
+  if (!pending.recoveryState?.trim()) {
+    return { outcome: "no_recovery_state" };
+  }
+
+  const piId =
+    params.stripePaymentIntentId?.trim() ||
+    pending.stripePaymentIntentId?.trim();
+  if (!piId) {
+    return { outcome: "legacy_continue" };
+  }
+
+  patchPendingPaymentReturn({ stripePaymentIntentId: piId });
+
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < EXCHANGE_MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await new Promise(r => setTimeout(r, 400 * attempt));
+    }
+    try {
+      const { sessionToken, expiresAt } = await exchangeRecoveryStateRequest({
+        recoveryState: pending.recoveryState,
+        transactionId: pending.transactionId,
+        stripePaymentIntentId: piId,
+        eventId: pending.eventId,
+        tipperId: params.ownership.tipperId,
+        visitorId: params.ownership.visitorId,
+        clientSessionId: params.ownership.clientSessionId,
+      });
+
+      writePaymentRecoverySession({
+        sessionToken,
+        expiresAt,
+        transactionId: pending.transactionId,
+        eventId: pending.eventId,
+        stripePaymentIntentId: piId,
+      });
+
+      clearRawRecoveryStateFromPendingReturn();
+      tracePaymentAnimation({
+        stage: "payer_recovery_state_saved",
+        transactionId: pending.transactionId,
+        eventId: pending.eventId,
+        surface: pending.paymentSurface,
+        result: "exchange_ok",
+      });
+
+      return { outcome: "exchanged", sessionStored: true };
+    } catch (err) {
+      lastErr = err;
+      if (isIdentityMismatchRejection(err)) {
+        traceRecoveryApiError("payer_recovery_exchange_failed", err, {
+          transactionId: pending.transactionId,
+          eventId: pending.eventId,
+          result: "identity_retry",
+        });
+        return { outcome: "identity_retry" };
+      }
+      if (isDefinitiveExchangeRejection(err)) {
+        clearInvalidRecoveryState();
+        traceRecoveryApiError("payer_recovery_exchange_failed", err, {
+          transactionId: pending.transactionId,
+          eventId: pending.eventId,
+          result: "definitive_rejection",
+        });
+        return { outcome: "definitive_rejection" };
+      }
+      if (
+        !isTransientExchangeFailure(err) ||
+        attempt === EXCHANGE_MAX_ATTEMPTS - 1
+      ) {
+        break;
+      }
+    }
+  }
+
+  traceRecoveryApiError("payer_recovery_exchange_failed", lastErr, {
+    transactionId: pending.transactionId,
+    eventId: pending.eventId,
+    result: "transient_failure",
+  });
+  return { outcome: "transient_failure" };
+}
+
+/** Strip Stripe return secrets from the browser history entry. */
+export function sanitizeSuccessUrlInHistory(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const clean = `${window.location.origin}/success`;
+    window.history.replaceState({}, "", clean);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function normalizePaymentOriginUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/** Params surfaces add after mount — ignored for payment-origin intent matching. */
+const SURFACE_MANAGED_QUERY_PARAMS = new Set([
+  "community",
+  "feedTab",
+  "tab",
+  "feedTypes",
+  "feedLang",
+  "feedCountry",
+  "communities",
+  "tvSource",
+  "exploreReturnTo",
+  "joinCommunity",
+]);
+
+/** Params that identify the payment context — compared when present on saved origin. */
+const IDENTITY_QUERY_PARAMS = ["channel", "eventId", "v", "videoId"] as const;
+
+/**
+ * Intent key for payment-origin matching: origin + pathname + identity params only.
+ * Tolerates surface-owned query rewrites (e.g. TV `?community=`, Explore `feedTab=`).
+ */
+export function paymentOriginIntentKey(url: string): string {
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    const pathname = u.pathname.replace(/\/$/, "") || "/";
+    const parts: string[] = [u.origin, pathname];
+    for (const key of IDENTITY_QUERY_PARAMS) {
+      const value = u.searchParams.get(key)?.trim();
+      if (value) parts.push(`${key}=${value}`);
+    }
+    return parts.join("|");
+  } catch {
+    return url;
+  }
+}
+
+export function isCurrentRoutePaymentOrigin(paymentOrigin: string): boolean {
+  if (typeof window === "undefined") return false;
+  const savedKey = paymentOriginIntentKey(paymentOrigin);
+  const currentKey = paymentOriginIntentKey(window.location.href);
+  if (savedKey === currentKey) return true;
+
+  // Exact match fallback for origins without surface-managed param drift.
+  return (
+    normalizePaymentOriginUrl(window.location.href) ===
+    normalizePaymentOriginUrl(paymentOrigin)
+  );
+}
+
+export { SURFACE_MANAGED_QUERY_PARAMS, IDENTITY_QUERY_PARAMS };

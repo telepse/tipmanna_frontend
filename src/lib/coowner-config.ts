@@ -1,0 +1,4 @@
+/** Mirrors backend COOWNER_CONFIG.RESEND_MIN_INTERVAL_MINUTES default. */
+export const COOWNER_RESEND_MIN_INTERVAL_MINUTES = 10;
+
+export const COOWNER_RESEND_MAX_COUNT = 5;

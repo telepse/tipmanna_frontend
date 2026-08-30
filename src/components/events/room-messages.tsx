@@ -1,0 +1,268 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import { SetStateAction, Dispatch, useEffect, useMemo, useState } from "react";
+
+import { MessageHeader } from "./message-header";
+import { ChatContainer } from "./chat-container";
+import { Message, RoomCharacter } from "@/types";
+import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
+import { postPaidTipMessageOnce } from "@/lib/post-paid-tip-message-once";
+import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
+import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
+import { Pin } from "lucide-react";
+
+interface Performer {
+  id: string;
+  name: string;
+  amountReceived: number;
+}
+
+interface Props {
+  eventId: string;
+  eventName: string;
+  hostName: string;
+  organizationName: string;
+  messages: Message[];
+  setMessages?: Dispatch<SetStateAction<Message[]>>;
+  tippingCharacters: RoomCharacter[];
+  iTipped: number;
+  channels: EventRoomVideoChannel[];
+  frameId: string;
+  isEventOwner: string;
+  liveVideoLink: string;
+  onChannelCreated?: (channel: EventRoomVideoChannel) => void;
+  performers: any[];
+  projects: any[];
+  contributionType: string;
+  eventEventType?: string;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  timeZone?: string;
+  eventBanner: string;
+  venueName?: string;
+  venueLocation?: string;
+  activities: any[];
+  eventDescription?: string;
+}
+
+export const RoomMessages = ({
+  eventId,
+  eventName,
+  hostName,
+  organizationName,
+  messages,
+  tippingCharacters,
+  iTipped,
+  channels,
+  frameId,
+  isEventOwner,
+  liveVideoLink,
+  onChannelCreated,
+  performers,
+  projects,
+  contributionType,
+  eventEventType,
+  paymentSurface = "event_room",
+  eventDate,
+  startTime,
+  endTime,
+  timeZone,
+  eventBanner,
+  venueName,
+  venueLocation,
+  activities,
+  eventDescription,
+}: Props & { paymentSurface?: string }) => {
+  const safeTippingCharacters = useMemo(
+    () => (Array.isArray(tippingCharacters) ? tippingCharacters : []),
+    [tippingCharacters]
+  );
+  const safePerformers = Array.isArray(performers) ? performers : [];
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const safeChannels = Array.isArray(channels) ? channels : [];
+
+  usePaymentAnimationPlayer({
+    eventId,
+    characters: safeTippingCharacters,
+    surface: "room_messages",
+  });
+  usePayerOriginAnimationRecovery({
+    eventId,
+    paymentSurface,
+    characters: safeTippingCharacters,
+    surface: "room_messages",
+  });
+
+  useEffect(() => {
+    const container = document.getElementById("chat-container");
+    if (container) container.scrollTop = container.scrollHeight;
+  }, [messages]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const {
+        amount,
+        sender,
+        textTip,
+        selectedTips,
+        transactionId,
+        eventChannelId,
+      } = customEvent.detail || {};
+      if (!selectedTips || selectedTips.length === 0) return;
+      if (!amount) return;
+
+      const correlatedTransactionId =
+        typeof transactionId === "string" && transactionId.trim()
+          ? transactionId.trim()
+          : undefined;
+      const correlatedEventChannelId =
+        typeof eventChannelId === "string" && eventChannelId.trim()
+          ? eventChannelId.trim()
+          : undefined;
+
+      if (correlatedTransactionId) {
+        tracePaymentAnimation({
+          stage: "create_message_request_correlated",
+          surface: "room_messages",
+          eventId,
+          transactionId: correlatedTransactionId,
+          transactionCorrelation: "present",
+        });
+      }
+
+      const tipCounts: Record<string, number> = {};
+      selectedTips.forEach((tip: string) => {
+        tipCounts[tip] = (tipCounts[tip] || 0) + 1;
+      });
+      const purchasedSummary = Object.entries(tipCounts)
+        .map(([name, qty]) => `${qty} ${name}`)
+        .join(", ");
+
+      void (async () => {
+        const result = await postPaidTipMessageOnce({
+          eventId,
+          sender: sender || "Anonymous",
+          text: "I just sent",
+          tip: Number(amount),
+          secondaryText: textTip || undefined,
+          selectedTips,
+          purchasedSummary,
+          ...(correlatedEventChannelId
+            ? { eventChannelId: correlatedEventChannelId }
+            : {}),
+          ...(correlatedTransactionId
+            ? { transactionId: correlatedTransactionId }
+            : {}),
+        });
+
+        if (
+          !result.ok &&
+          result.outcome === "skipped" &&
+          result.reason === "no_transaction_id"
+        ) {
+          tracePaymentAnimation({
+            stage: "create_message_skipped_no_transaction_id",
+            surface: "room_messages",
+            eventId,
+            transactionCorrelation: "absent",
+          });
+        }
+      })();
+    };
+
+    window.addEventListener("tip:dropped", handler);
+
+    return () => {
+      window.removeEventListener("tip:dropped", handler);
+    };
+  }, [eventId]);
+
+  const [showPinnedPerformers, setShowPinnedPerformers] = useState(false);
+
+  return (
+    <div
+      className="relative flex-1 overflow-y-auto bg-cover bg-center bg-no-repeat px-4 py-1"
+      style={{
+        backgroundImage: `url(/assets/tipmanna_web_message_section_image_background.png)`,
+      }}
+    >
+      <div className="mini-wrapper section relative z-0 p-2 sm:p-4">
+        <MessageHeader
+          eventId={eventId}
+          iTipped={iTipped}
+          channels={safeChannels}
+          frameId={frameId}
+          isEventOwner={isEventOwner}
+          liveVideoLink={liveVideoLink}
+          onChannelCreated={onChannelCreated}
+          performers={safePerformers}
+          projects={safeProjects}
+          contributionType={contributionType}
+          eventEventType={eventEventType}
+          eventDate={eventDate}
+          startTime={startTime}
+          endTime={endTime}
+          timeZone={timeZone}
+          eventName={eventName}
+          organizationName={organizationName}
+          eventBanner={eventBanner}
+          venueName={venueName ?? ""}
+          venueLocation={venueLocation ?? ""}
+          activities={activities}
+          eventDescription={eventDescription ?? ""}
+        />
+
+        {safePerformers.length > 0 && (
+          <div className="-mt-6 flex items-center justify-between bg-white/20 px-4 py-1">
+            <div />
+
+            <div className="relative">
+              <button
+                type="button"
+                className="rounded-md focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+                aria-label={
+                  showPinnedPerformers
+                    ? "Hide pinned performers summary"
+                    : "Show pinned performers summary"
+                }
+                onClick={() => setShowPinnedPerformers(prev => !prev)}
+              >
+                <Pin className="size-5 cursor-pointer text-white opacity-50" />
+              </button>
+
+              {showPinnedPerformers && (
+                <div className="absolute top-6 right-0 z-50 flex h-[50px] w-[120px] items-center justify-center gap-4 bg-black/70">
+                  {safePerformers.map((performer: Performer) => (
+                    <div
+                      key={performer.id}
+                      className="text-xs text-white"
+                    >
+                      <span className="text-white/80">{performer.name}</span> £
+                      {performer.amountReceived ?? 0}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <ChatContainer
+          eventId={eventId}
+          hostName={hostName}
+          eventName={eventName}
+          messages={messages}
+          flyingTips={[]}
+          tippingCharacters={safeTippingCharacters}
+          organizationName={organizationName}
+        />
+      </div>
+    </div>
+  );
+};
