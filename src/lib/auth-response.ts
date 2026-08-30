@@ -6,6 +6,7 @@ export type TipperAuthUser = {
   fullName: string;
   email: string;
   username: string;
+  displayUsername?: string;
   role: "TIPPER";
   anonymous?: boolean;
 };
@@ -65,6 +66,8 @@ function pickTipperUser(raw: any): TipperAuthUser | null {
     fullName: String(raw.fullName ?? ""),
     email: String(raw.email ?? ""),
     username: String(raw.username ?? ""),
+    displayUsername:
+      typeof raw.displayUsername === "string" ? raw.displayUsername : undefined,
     role: "TIPPER",
     anonymous: raw.anonymous,
   };

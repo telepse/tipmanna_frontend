@@ -1,14 +1,15 @@
 "use client";
 
 import useSWR from "swr";
-import { hasActiveHostSession } from "@/lib/host-session-client";
 import { getHostPayoutSummaryAction } from "@/actions/host-payouts";
+import { useHostSession } from "@/hooks/use-host-session";
 
 export function useHostPayoutSummary() {
-  const hostSessionActive = hasActiveHostSession();
+  const { isActive: hostSessionActive, isLoading: hostSessionLoading } =
+    useHostSession();
 
   const { data, error, isLoading, mutate } = useSWR(
-    hostSessionActive ? "/me/payouts/summary" : null,
+    hostSessionActive && !hostSessionLoading ? "/me/payouts/summary" : null,
     async () => {
       const res = await getHostPayoutSummaryAction();
       if (!res.success || !res.data) return null;

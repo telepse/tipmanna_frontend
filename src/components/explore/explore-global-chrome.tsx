@@ -11,6 +11,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -57,13 +58,37 @@ export function SideChickCommunityMenu({
   rows,
   highlight,
   triggerClassName = "",
+  activeDedicatedCommunityId = null,
 }: {
   rows: SideChickMenuRow[];
   highlight: boolean;
   triggerClassName?: string;
+  /** When set, switching to another community requires confirmation. */
+  activeDedicatedCommunityId?: string | null;
 }) {
+  const [pendingSwitch, setPendingSwitch] = useState<{
+    communityId: string;
+    name: string;
+  } | null>(null);
+
+  const requestDedicatedSwitch = (
+    communityId: string,
+    name: string,
+    e: React.MouseEvent
+  ) => {
+    if (
+      activeDedicatedCommunityId &&
+      activeDedicatedCommunityId !== communityId
+    ) {
+      e.preventDefault();
+      setPendingSwitch({ communityId, name });
+      return;
+    }
+  };
+
   return (
-    <DropdownMenu>
+    <>
+      <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
@@ -98,6 +123,13 @@ export function SideChickCommunityMenu({
             >
               <Link
                 href={`/community/side-chick/${encodeURIComponent(m.communityId)}`}
+                onClick={e =>
+                  requestDedicatedSwitch(
+                    m.communityId,
+                    m.community?.name ?? m.communityId,
+                    e
+                  )
+                }
               >
                 {m.community?.name ?? m.communityId}
               </Link>
@@ -106,6 +138,49 @@ export function SideChickCommunityMenu({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+
+      <Dialog
+        open={Boolean(pendingSwitch)}
+        onOpenChange={open => {
+          if (!open) setPendingSwitch(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Switch dedicated community?</DialogTitle>
+            <DialogDescription>
+              You are currently focused on one community. Opening{" "}
+              <span className="text-foreground font-medium">
+                {pendingSwitch?.name}
+              </span>{" "}
+              will switch dedicated mode to that community.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-start">
+            {pendingSwitch ? (
+              <Button
+                asChild
+                size="sm"
+              >
+                <Link
+                  href={`/community/side-chick/${encodeURIComponent(pendingSwitch.communityId)}`}
+                >
+                  Switch community
+                </Link>
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPendingSwitch(null)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -130,6 +205,9 @@ export function ExploreGlobalChrome({
     !sideChick.loading &&
     Boolean(sideChick.active && sideChick.activation?.communityId) &&
     communityFeatureEnabled;
+  const activeDedicatedCommunityId = sideChickLocked
+    ? (sideChick.activation?.communityId ?? null)
+    : null;
 
   const [viewerUser, setViewerUser] = useState<UserInfo>(() =>
     getOrCreateAnonymousViewer()
@@ -303,6 +381,7 @@ export function ExploreGlobalChrome({
                   <SideChickCommunityMenu
                     rows={sideChickMenuRows}
                     highlight={activeSurface === "side-chick"}
+                    activeDedicatedCommunityId={activeDedicatedCommunityId}
                   />
                 </div>
               </>
@@ -413,6 +492,7 @@ export function ExploreGlobalChrome({
                     rows={sideChickMenuRows}
                     highlight={activeSurface === "side-chick"}
                     triggerClassName="h-7 px-2.5 text-[11px]"
+                    activeDedicatedCommunityId={activeDedicatedCommunityId}
                   />
                 </span>
               </>

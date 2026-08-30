@@ -57,10 +57,9 @@ export default async function ManageEventDetailPage({ params }: Props) {
     tipUsageDisclosure,
     channels: contents,
     submissionKind,
+    thankYouMessage,
     host: { email: hostEmail },
   } = eventDetails as any;
-
-  console.log("eventDetails", eventDetails);
 
   return (
     <ProtectedRoute>
@@ -81,6 +80,7 @@ export default async function ManageEventDetailPage({ params }: Props) {
         projects={projects}
         cohosts={cohosts}
         amountToRaise={amountToRaise}
+        thankYouMessage={thankYouMessage}
         activities={activities}
         resourcesRequested={resourcesRequested}
         tipUsageDisclosure={tipUsageDisclosure}

@@ -57,8 +57,6 @@ flowchart TD
   Global --> Notice["Notice pauses, program auto-starts at T"]
 ```
 
-
-
 ---
 
 ## Workstream 1: Enforcement runs live-first
@@ -96,7 +94,11 @@ In `requestPlayback` ([tv-provider.tsx](frontend/src/components/tv-provider.tsx)
 if (isSameOrchestratedPlayback(orchestratedPlaybackRef.current, req)) {
   if (isUserIntentReason(req.reason) && player?.isReady()) {
     player.seekTo(req.startSeconds, true);
-    playWithUserGesture(player, pendingAudioRestoreRef.current, "requestPlayback.replay");
+    playWithUserGesture(
+      player,
+      pendingAudioRestoreRef.current,
+      "requestPlayback.replay"
+    );
     return true;
   }
   return false;
@@ -116,7 +118,10 @@ In `playLocalScheduleItem` (lines 2798-2810), the two silent `return`s on `findI
 Root fix in [frontend/src/lib/tv-autoplay.ts](frontend/src/lib/tv-autoplay.ts). Derive restore intent from the durable user preference rather than the player's transient mute state:
 
 ```ts
-export function prepareMutedLoadForAutoplay(player, shouldPlay = true): PendingAudioRestore {
+export function prepareMutedLoadForAutoplay(
+  player,
+  shouldPlay = true
+): PendingAudioRestore {
   const wantsAudio = !readTvMutePref() && hasTvAudioUnlockedThisSession();
   if (player.isReady() && !player.isMuted()) player.mute();
   return { restoreUnmuted: wantsAudio, shouldPlay };
@@ -234,4 +239,3 @@ Manual matrix, run on both Tipmanna TV and a Community TV:
 6. Click the same playlist row twice, confirm it replays rather than dying
 7. Click from preview (list scrolls to top) versus from schedule drawer (drawer closes, scroll preserved)
 8. Confirm section dividers and enforcement colour appear in both the preview and the drawer
-

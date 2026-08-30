@@ -19,6 +19,9 @@ type Props = {
   hostId?: string | null;
   className?: string;
   iconClassName?: string;
+  onRequireSignIn?: () => void;
+  /** Bump after sign-in to retry save when user was unsigned. */
+  signInCompletedToken?: number;
 };
 
 export function SaveHostToggleButton({
@@ -26,6 +29,8 @@ export function SaveHostToggleButton({
   hostId: hostIdProp,
   className,
   iconClassName,
+  onRequireSignIn,
+  signInCompletedToken = 0,
 }: Props) {
   const user = useSelector((s: RootState) => s.auth.user);
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
@@ -59,6 +64,10 @@ export function SaveHostToggleButton({
       return;
     }
     if (!isAuthenticated || !user?.id || user.role === "VISITOR") {
+      if (onRequireSignIn) {
+        onRequireSignIn();
+        return;
+      }
       toast.error("Sign in as a tipper to save hosts");
       return;
     }
@@ -76,7 +85,40 @@ export function SaveHostToggleButton({
     } finally {
       setBusy(false);
     }
-  }, [hostId, saved, isAuthenticated, user?.id]);
+  }, [hostId, saved, isAuthenticated, user?.id, user?.role, onRequireSignIn]);
+
+  useEffect(() => {
+    if (!signInCompletedToken || !hostId) return;
+    if (!isAuthenticated || !user?.id || user.role === "VISITOR") return;
+    if (saved || busy) return;
+    let cancelled = false;
+    void (async () => {
+      setBusy(true);
+      try {
+        const ok = await saveHostRequest(hostId);
+        if (cancelled) return;
+        if (ok) {
+          setSaved(true);
+          toast.success("Host saved");
+        } else {
+          toast.error("Could not save host");
+        }
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    signInCompletedToken,
+    hostId,
+    isAuthenticated,
+    user?.id,
+    user?.role,
+    saved,
+    busy,
+  ]);
 
   if (!channelId && !hostId) return null;
 

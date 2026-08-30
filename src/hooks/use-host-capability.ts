@@ -5,11 +5,8 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 import { getHostLinkAction, type HostLinkResponse } from "@/actions/auth";
 import { getAuthToken } from "@/lib/getAuthToken";
-import {
-  clearStaleHostSessionIfMismatch,
-  getHostUserFromCookies,
-  hasActiveHostSession,
-} from "@/lib/host-session-client";
+import { clearStaleHostSessionIfMismatch, hasActiveHostSession } from "@/lib/host-session-client";
+import { useHostSessionContextOptional } from "@/contexts/host-session-context";
 
 export type HostCapability =
   | { status: "loading" }
@@ -20,7 +17,12 @@ export type HostCapability =
       eventSlug: string | null;
       username: string | null;
     }
-  | { status: "stale"; hostId: string; eventSlug: string | null };
+  | {
+      status: "stale";
+      hostId: string;
+      eventSlug: string | null;
+      username: string | null;
+    };
 
 type Options = {
   /** Skip fetch when unauthenticated or visitor. */
@@ -31,45 +33,64 @@ export function useHostCapability(options?: Options) {
   const enabled = options?.enabled ?? true;
   const user = useSelector((s: RootState) => s.auth.user);
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
+  const hostSession = useHostSessionContextOptional();
   const [link, setLink] = useState<HostLinkResponse | null>(null);
-  const [loading, setLoading] = useState(enabled);
+  const [linkLoading, setLinkLoading] = useState(enabled);
   const refreshEpochRef = useRef(0);
 
-  const refresh = useCallback(async () => {
+  const refreshLink = useCallback(async () => {
     if (!enabled || !isAuthenticated || !user) {
       setLink(null);
-      setLoading(false);
+      setLinkLoading(false);
       return;
     }
     if (user.role === "VISITOR") {
       setLink(null);
-      setLoading(false);
+      setLinkLoading(false);
       return;
     }
-    setLoading(true);
+    setLinkLoading(true);
     const token = getAuthToken();
     const res = await getHostLinkAction(token);
     refreshEpochRef.current += 1;
     if (res.success && res.data) {
       setLink(res.data);
-      if (res.data.hostId) {
+      if (
+        res.data.hostId &&
+        hostSession &&
+        !hostSession.isLoading &&
+        !hostSession.isActive
+      ) {
         await clearStaleHostSessionIfMismatch(res.data.hostId);
       }
     } else {
       setLink(null);
     }
-    setLoading(false);
-  }, [enabled, isAuthenticated, user]);
+    setLinkLoading(false);
+  }, [enabled, hostSession, isAuthenticated, user]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      refreshLink(),
+      hostSession?.refresh?.() ?? Promise.resolve(),
+    ]);
+  }, [hostSession, refreshLink]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void refreshLink();
+  }, [refreshLink]);
 
-  const hostUser = getHostUserFromCookies();
-  const linkedHostId = link?.hostId ?? null;
-  const hostSessionActive = linkedHostId
-    ? hasActiveHostSession(linkedHostId)
-    : hasActiveHostSession(hostUser?.id);
+  const sessionLoading = hostSession?.isLoading ?? false;
+  const hostSessionActive = (() => {
+    if (!link?.hostId) return false;
+    if (hostSession) {
+      return hostSession.isActive && hostSession.hostId === link.hostId;
+    }
+    return hasActiveHostSession(link.hostId);
+  })();
+
+  const loading =
+    linkLoading || (hostSession != null ? sessionLoading : false);
 
   const capability: HostCapability = (() => {
     if (!enabled || !isAuthenticated || !user || user.role === "VISITOR") {
@@ -80,11 +101,10 @@ export function useHostCapability(options?: Options) {
       return { status: "none" };
     }
     if (hostSessionActive) {
-      const cookieHost = getHostUserFromCookies();
       return {
         status: "active",
         hostId: link.hostId,
-        eventSlug: cookieHost?.eventSlug ?? link.eventSlug,
+        eventSlug: hostSession?.eventSlug ?? link.eventSlug,
         username: link.username,
       };
     }
@@ -92,6 +112,7 @@ export function useHostCapability(options?: Options) {
       status: "stale",
       hostId: link.hostId,
       eventSlug: link.eventSlug,
+      username: link.username,
     };
   })();
 
@@ -104,8 +125,8 @@ export function useHostCapability(options?: Options) {
     canReadAsHost,
     canWriteAsHost,
     hostSessionActive,
+    sessionLoading,
     refresh,
-    /** Host JWT from host session cookie route — never the primary tipper token. */
     getHostAuthToken: (): string | null => null,
   };
 }

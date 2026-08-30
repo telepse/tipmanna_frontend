@@ -28,6 +28,9 @@ import {
 import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
 import { CommunitySubscribeSection } from "@/components/community/community-subscribe-section";
 import { CommunityMemberInfo } from "@/components/community/community-member-info";
+import { DedicatedExitConfirmDialog } from "@/components/community/dedicated-exit-confirm-dialog";
+import { useSideChick } from "@/components/community/side-chick-provider";
+import { useDedicatedExitGate } from "@/hooks/use-dedicated-exit-gate";
 import { cn } from "@/lib/utils";
 
 const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
@@ -55,6 +58,10 @@ export type CommunityHowToJoinSectionProps = {
   joinDisabled?: boolean;
   /** Called when a join request completes so parents can surface success elsewhere. */
   onDoneMessageChange?: (message: string | null) => void;
+  /** Called when the user becomes a member (instant join path). */
+  onJoined?: () => void;
+  signInOverlayClassName?: string;
+  signInContentClassName?: string;
 };
 
 export function CommunityHowToJoinSection({
@@ -65,11 +72,30 @@ export function CommunityHowToJoinSection({
   showMemberInfo = true,
   joinDisabled = false,
   onDoneMessageChange,
+  onJoined,
+  signInOverlayClassName,
+  signInContentClassName,
 }: CommunityHowToJoinSectionProps) {
   const router = useRouter();
   const { user, isAuthenticated, requiresVerification } = useSelector(
     (s: RootState) => s.auth
   );
+  const sideChick = useSideChick();
+  const communityFeatureOn =
+    process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
+  const sideChickLocked =
+    !sideChick.loading &&
+    Boolean(sideChick.active && sideChick.activation?.communityId) &&
+    communityFeatureOn;
+  const dedicatedCommunityId = sideChick.activation?.communityId ?? null;
+  const dedicatedCommunityName =
+    sideChick.activation?.community.name ?? "Community";
+  const dedicatedExit = useDedicatedExitGate({
+    sideChickLocked,
+    dedicatedCommunityName,
+    exitDedicatedMode: sideChick.exitDedicatedMode,
+    reloadAfterExit: false,
+  });
 
   const [form, setForm] = useState<JoinFormPublic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,8 +146,11 @@ export function CommunityHowToJoinSection({
   }, [communityId, onDoneMessageChange]);
 
   const loadForm = useCallback(
-    async (options?: { background?: boolean }) => {
-      if (!communityId) return;
+    async (options?: { background?: boolean }): Promise<{
+      isMember: boolean;
+      viewerHostsCommunity: boolean;
+    } | null> => {
+      if (!communityId) return null;
       const requestCommunityId = communityId;
       const background =
         options?.background ?? formLoadedForRef.current === communityId;
@@ -138,11 +167,11 @@ export function CommunityHowToJoinSection({
         setForm(E2E_JOIN_FORM_PUBLIC);
         formLoadedForRef.current = communityId;
         setLoading(false);
-        return;
+        return { isMember: false, viewerHostsCommunity: false };
       }
 
       const res = await getCommunityAccessStateAction(communityId);
-      if (activeCommunityIdRef.current !== requestCommunityId) return;
+      if (activeCommunityIdRef.current !== requestCommunityId) return null;
 
       if (!res.success || !res.data) {
         if (!background) {
@@ -151,7 +180,7 @@ export function CommunityHowToJoinSection({
         setForm(null);
         formLoadedForRef.current = null;
         setLoading(false);
-        return;
+        return null;
       }
 
       type AccessPayload = {
@@ -201,9 +230,36 @@ export function CommunityHowToJoinSection({
           );
         }
       }
+
+      return {
+        isMember: d.isMember,
+        viewerHostsCommunity: d.viewerHostsCommunity,
+      };
     },
     [communityId]
   );
+
+  const handleSubscriptionChange = useCallback(async () => {
+    if (!user?.id) return;
+    const subRes = await getMyCommunitySubscriptionAction(undefined, communityId);
+    if (subRes.success && subRes.data) {
+      const d = subRes.data as {
+        subscription: { expiresAt: string | null } | null;
+      };
+      setPaidSubExpiresAt(d.subscription?.expiresAt ?? null);
+    }
+    const access = await loadForm({ background: true });
+    if (!access) return;
+    if (access.isMember && !access.viewerHostsCommunity) {
+      toast.success("Welcome!");
+      onJoined?.();
+      return;
+    }
+    if (access.viewerHostsCommunity) return;
+    toast.info(
+      "Payment received. The community host will approve your membership."
+    );
+  }, [communityId, loadForm, onJoined, user?.id]);
 
   useEffect(() => {
     void loadForm({
@@ -260,38 +316,61 @@ export function CommunityHowToJoinSection({
     );
   };
 
-  const onSubmit = async () => {
-    if (!user?.id) return;
-    setSubmitting(true);
-    try {
-      const body: Record<string, unknown> = {};
-      if (accessCode.trim()) body.accessCode = accessCode.trim();
-      if (verifiedDomainEmail) body.verifiedDomainEmail = verifiedDomainEmail;
-      if (customAnswer.trim()) body.customAnswer = customAnswer.trim();
-
-      const res = await submitJoinAction(undefined, communityId, body);
-      if (!res.success || !res.data) {
-        toast.error(res.message ?? "Join failed");
+  const withDedicatedExitGate = useCallback(
+    (action: () => void | Promise<void>) => {
+      if (
+        sideChickLocked &&
+        dedicatedCommunityId &&
+        communityId !== dedicatedCommunityId
+      ) {
+        dedicatedExit.requestExitThen(() => void action());
         return;
       }
-      const d = res.data as {
-        path?: string;
-        requestId?: string;
-        message?: string;
-      };
-      if (d.path === "request") {
-        const message =
-          "Your request was submitted. The community owner will review it.";
-        setDoneMessage(message);
-        onDoneMessageChange?.(message);
-        toast.success("Request submitted");
-      } else {
-        toast.success("Welcome!");
-        void loadForm({ background: true });
+      void action();
+    },
+    [
+      communityId,
+      dedicatedCommunityId,
+      dedicatedExit.requestExitThen,
+      sideChickLocked,
+    ]
+  );
+
+  const onSubmit = async () => {
+    if (!user?.id) return;
+    withDedicatedExitGate(async () => {
+      setSubmitting(true);
+      try {
+        const body: Record<string, unknown> = {};
+        if (accessCode.trim()) body.accessCode = accessCode.trim();
+        if (verifiedDomainEmail) body.verifiedDomainEmail = verifiedDomainEmail;
+        if (customAnswer.trim()) body.customAnswer = customAnswer.trim();
+
+        const res = await submitJoinAction(undefined, communityId, body);
+        if (!res.success || !res.data) {
+          toast.error(res.message ?? "Join failed");
+          return;
+        }
+        const d = res.data as {
+          path?: string;
+          requestId?: string;
+          message?: string;
+        };
+        if (d.path === "request") {
+          const message =
+            "Your request was submitted. The community owner will review it.";
+          setDoneMessage(message);
+          onDoneMessageChange?.(message);
+          toast.success("Request submitted");
+        } else {
+          toast.success("Welcome!");
+          onJoined?.();
+          void loadForm({ background: true });
+        }
+      } finally {
+        setSubmitting(false);
       }
-    } finally {
-      setSubmitting(false);
-    }
+    });
   };
 
   if (loading) {
@@ -383,23 +462,10 @@ export function CommunityHowToJoinSection({
                       communityId={communityId}
                       feeGbp={Number(paidFee).toFixed(2)}
                       activeUntil={paidSubExpiresAt}
-                      onSubscriptionChange={async () => {
-                        if (!user?.id) return;
-                        const subRes = await getMyCommunitySubscriptionAction(
-                          undefined,
-                          communityId
-                        );
-                        if (subRes.success && subRes.data) {
-                          const d = subRes.data as {
-                            subscription: {
-                              expiresAt: string | null;
-                            } | null;
-                          };
-                          setPaidSubExpiresAt(
-                            d.subscription?.expiresAt ?? null
-                          );
-                        }
-                      }}
+                      onBeforePay={proceed =>
+                        withDedicatedExitGate(proceed)
+                      }
+                      onSubscriptionChange={() => void handleSubscriptionChange()}
                     />
                     <p className="text-muted-foreground mt-4 text-xs">
                       Or use a join request, invite link, or access code below.
@@ -539,6 +605,8 @@ export function CommunityHowToJoinSection({
         open={signInOpen}
         onOpenChange={setSignInOpen}
         signInTitle="Sign in to join this community"
+        overlayClassName={signInOverlayClassName}
+        contentClassName={signInContentClassName}
         getRedirectPathAfterVerify={() => signInReturnTo}
         onVerified={() => {
           if (signInReturnTo === signInRedirectPath) {
@@ -547,6 +615,17 @@ export function CommunityHowToJoinSection({
             router.push(signInReturnTo);
           }
         }}
+      />
+
+      <DedicatedExitConfirmDialog
+        open={dedicatedExit.confirmOpen}
+        onOpenChange={open => {
+          if (!open) dedicatedExit.cancelExit();
+        }}
+        communityName={dedicatedCommunityName}
+        busy={dedicatedExit.busy}
+        actionLabel="Leave and join community"
+        onConfirm={() => void dedicatedExit.confirmExit()}
       />
     </>
   );

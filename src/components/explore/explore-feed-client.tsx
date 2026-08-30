@@ -80,6 +80,7 @@ import { useFeatureCardTipContext } from "@/components/video-feature/feature-car
 import { Button } from "@/components/ui/button";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { buildSurfaceTipPriceCatalog } from "@/lib/surface-tip-price-catalog";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
@@ -106,12 +107,25 @@ import {
   resolveExploreFeedScrollIndex,
 } from "@/lib/explore-feed-open";
 import { cn } from "@/lib/utils";
+import {
+  isLivestreamFamily,
+  shouldOpenExploreHandoffInChannel,
+} from "@/lib/discover-content-routing";
+import { fetchChannelPlaybackRoute } from "@/lib/channel-playback-route";
+import { PlaybackReturnBackChip } from "@/components/events/playback-return-back-chip";
+import {
+  isDedicatedDiscoverReturnTo,
+  peekDiscoverUiRestore,
+} from "@/lib/discover-return.util";
+import { writePlaybackReturn } from "@/lib/playback-return-stack";
+import { useOpenChannelWithReturn } from "@/hooks/use-open-channel-with-return";
 import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { CreateDialog } from "@/components/home/create-dialog";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { ImmersiveChannelActionsRail } from "@/components/events/immersive-channel-actions-rail";
 import { CommentDrawer } from "@/components/events/comment-drawer";
+import { scheduleEngagementPwaPromptFromPolicy } from "@/lib/pwa-install-trigger";
 import { TipsDrawer } from "@/components/events/tips-drawer";
 import { getSavedVideosForTipper } from "@/actions/events";
 import {
@@ -176,6 +190,13 @@ import type { YoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
 import { useMediaQuery } from "react-responsive";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { CreatorDrawer } from "./creator-drawer";
+import { CommunityDrawer } from "./community-drawer";
+import {
+  parseCommunityDrawerFromUrl,
+  parseCreatorDrawerFromUrl,
+} from "@/lib/playback-return-restore";
+import { commitExploreHistory } from "@/lib/explore-url-history";
+import { exploreLiveSearchParamsKey } from "@/lib/explore-url-sync-policy";
 
 const TipDrawer = dynamic(
   () =>
@@ -218,6 +239,40 @@ function isInReelVirtualWindow(
   const lo = Math.max(0, activeIndex - EXPLORE_REEL_VIRTUAL_WINDOW);
   const hi = Math.min(itemCount - 1, activeIndex + EXPLORE_REEL_VIRTUAL_WINDOW);
   return slideIndex >= lo && slideIndex <= hi;
+}
+
+type ExploreReelSlideMetrics = {
+  views: number;
+  encounters: number;
+  completes: number;
+  saves: number;
+  shares: number;
+  comments: number;
+};
+
+function liveRoutingFromSnapshot(
+  channelSnapshot: Record<string, unknown> | null | undefined
+): { liveStatus: string | null; isLive: boolean } {
+  if (!channelSnapshot || typeof channelSnapshot !== "object") {
+    return { liveStatus: null, isLive: false };
+  }
+  return {
+    liveStatus:
+      typeof channelSnapshot.liveStatus === "string"
+        ? channelSnapshot.liveStatus
+        : null,
+    isLive: channelSnapshot.isLive === true,
+  };
+}
+
+function liveRoutingFromRow(row: Record<string, unknown>): {
+  liveStatus: string | null;
+  isLive: boolean;
+} {
+  return {
+    liveStatus: typeof row.liveStatus === "string" ? row.liveStatus : null,
+    isLive: row.isLive === true,
+  };
 }
 
 function metricsFromFeedItem(item: any): ExploreReelSlideMetrics | null {
@@ -613,15 +668,6 @@ function ExploreFeedSlideStage({
   );
 }
 
-type ExploreReelSlideMetrics = {
-  views: number;
-  encounters: number;
-  completes: number;
-  saves: number;
-  shares: number;
-  comments: number;
-};
-
 function resolveExploreItemHostUsername(item: unknown): string | null {
   if (!item || typeof item !== "object") return null;
   const row = item as {
@@ -652,16 +698,19 @@ function resolveExploreItemLocale(item: unknown) {
     (typeof row.event?.contentCountry === "string"
       ? row.event.contentCountry
       : null);
-  return resolveContentLocaleDisplay(contentLanguage, contentCountry);
+  return resolveContentLocaleDisplay(contentLanguage, contentCountry, {
+    countryOnly: true,
+  });
 }
 
 function ExploreReelLocaleFlag({
   flagUrl,
   alt,
 }: {
-  flagUrl: string;
+  flagUrl: string | null;
   alt: string;
 }) {
+  if (!flagUrl) return null;
   return (
     <img
       src={flagUrl}
@@ -682,6 +731,7 @@ type ExploreReelSlideTitleProps = {
   metrics: ExploreReelSlideMetrics | null;
   metricsRestrictedCommunity: { id: string; name: string } | null;
   onOpenCreatorDrawer: (username: string) => void;
+  onOpenCommunityDrawer?: (communityId: string) => void;
   onPrefetchCreator?: (username: string) => void;
   onEngageUnlocked?: () => void;
   className?: string;
@@ -698,11 +748,27 @@ function ExploreReelSlideTitle({
   metrics,
   metricsRestrictedCommunity,
   onOpenCreatorDrawer,
+  onOpenCommunityDrawer,
   onPrefetchCreator,
   onEngageUnlocked,
   className,
 }: ExploreReelSlideTitleProps) {
   const hostUsername = resolveExploreItemHostUsername(item);
+  const community = item.community as
+    | { id?: string; name?: string }
+    | null
+    | undefined;
+  const isCommunityBank = Boolean(community?.id && community?.name);
+  const coOwnerHostUsername =
+    typeof item.coOwnerHostUsername === "string"
+      ? item.coOwnerHostUsername.trim()
+      : "";
+  const coOwnerDrawerUsername = coOwnerHostUsername || null;
+  const coOwnerLabel = coOwnerHostUsername
+    ? `@${coOwnerHostUsername}`
+    : item.coOwnerName
+      ? String(item.coOwnerName)
+      : null;
   const { flagUrl, contentLanguage } = resolveExploreItemLocale(item);
 
   return (
@@ -736,41 +802,74 @@ function ExploreReelSlideTitle({
             )}
           </button>
           <span className="inline-flex min-w-0 items-center gap-1 truncate text-sm">
-            {item.coOwnerName ? (
-              <>
-                <ExploreReelLocaleFlag
-                  flagUrl={flagUrl}
-                  alt={contentLanguage}
-                />
-                <span className="truncate">{item.coOwnerName}</span>
-                <span>and</span>
-              </>
-            ) : null}
-            <span className="inline-flex min-w-0 items-center gap-0.5">
+            {flagUrl ? (
               <ExploreReelLocaleFlag
                 flagUrl={flagUrl}
                 alt={contentLanguage}
               />
-              {hostUsername ? (
+            ) : null}
+            {coOwnerLabel ? (
+              <>
                 <button
                   type="button"
-                  className="cursor-pointer truncate underline"
+                  className="cursor-pointer truncate underline-offset-2 hover:underline"
                   onPointerDown={e => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
                   onClick={e => {
                     e.stopPropagation();
-                    onOpenCreatorDrawer(hostUsername);
+                    if (coOwnerDrawerUsername) {
+                      onOpenCreatorDrawer(coOwnerDrawerUsername);
+                    }
                   }}
-                  onPointerEnter={() => onPrefetchCreator?.(hostUsername)}
                 >
-                  @{hostUsername}
+                  {coOwnerLabel}
                 </button>
-              ) : (
-                <span className="truncate">@{item.event?.username}</span>
-              )}
-            </span>
+                {isCommunityBank || hostUsername ? <span>and</span> : null}
+              </>
+            ) : null}
+            {isCommunityBank ? (
+              <>
+                <button
+                  type="button"
+                  className="cursor-pointer truncate underline-offset-2 hover:underline"
+                  onPointerDown={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onOpenCommunityDrawer?.(community!.id!);
+                  }}
+                >
+                  c {community!.name}
+                </button>
+              </>
+            ) : null}
+            {!isCommunityBank ? (
+              <span className="inline-flex min-w-0 items-center gap-0.5">
+                {hostUsername ? (
+                  <button
+                    type="button"
+                    className="cursor-pointer truncate underline"
+                    onPointerDown={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onOpenCreatorDrawer(hostUsername);
+                    }}
+                    onPointerEnter={() => onPrefetchCreator?.(hostUsername)}
+                  >
+                    @{hostUsername}
+                  </button>
+                ) : (
+                  <span className="truncate">@{item.event?.username}</span>
+                )}
+              </span>
+            ) : null}
           </span>
         </div>
 
@@ -846,6 +945,7 @@ export interface ExploreFeedClientProps {
     eventTypes: string[];
     language: string;
     country: string;
+    includeEndedLive?: boolean;
   };
   ssrBoot?: { items: any[]; seed: string; bucketId: number } | null;
 }
@@ -870,13 +970,19 @@ export const ExploreFeedClient = forwardRef<
     feedSurfaceActive = true,
     feedMode = "trends",
     communityIds,
-    trendsFilters = { eventTypes: [] as string[], language: "", country: "" },
+    trendsFilters = {
+      eventTypes: [] as string[],
+      language: "",
+      country: "",
+      includeEndedLive: false,
+    },
   },
   ref
 ) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const openChannelWithReturn = useOpenChannelWithReturn();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const exploreReturnTo =
     typeof pathname === "string"
@@ -962,6 +1068,7 @@ export const ExploreFeedClient = forwardRef<
     if (open) {
       setIsTipDrawerOpen(false);
       setTipsListOpen(false);
+      void scheduleEngagementPwaPromptFromPolicy();
     }
     setExploreCommentOpen(open);
   }, []);
@@ -969,6 +1076,10 @@ export const ExploreFeedClient = forwardRef<
   const [creatorDrawerUsername, setCreatorDrawerUsername] = useState<
     string | null
   >(null);
+  const [communityDrawerOpen, setCommunityDrawerOpen] = useState(false);
+  const [communityDrawerId, setCommunityDrawerId] = useState<string | null>(
+    null
+  );
   const [exploreCommentMetricsRefreshKey, setExploreCommentMetricsRefreshKey] =
     useState(0);
   const [tipsListOpen, setTipsListOpen] = useState(false);
@@ -979,19 +1090,86 @@ export const ExploreFeedClient = forwardRef<
   const [paginationRetryEpoch, setPaginationRetryEpoch] = useState(0);
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
 
-  const openCreatorDrawer = useCallback((username: string) => {
-    const handle = resolveCreatorUsernameAlias(username);
-    if (!handle) return;
-    setCreatorDrawerUsername(handle);
-    setCreatorDrawerOpen(true);
-  }, []);
+  const syncDrawerExploreUrl = useCallback(
+    (mutate: (params: URLSearchParams) => void) => {
+      const liveKey = exploreLiveSearchParamsKey(searchParams?.toString() ?? "");
+      const params = new URLSearchParams(liveKey);
+      mutate(params);
+      commitExploreHistory({
+        href: `/explore?${params.toString()}`,
+        mode: "replace",
+        source: "passive-sync",
+      });
+    },
+    [searchParams]
+  );
 
-  const handleCreatorDrawerOpenChange = useCallback((open: boolean) => {
-    setCreatorDrawerOpen(open);
-    if (!open) {
-      setCreatorDrawerUsername(null);
+  const openCreatorDrawer = useCallback(
+    (username: string) => {
+      const handle = resolveCreatorUsernameAlias(username);
+      if (!handle) return;
+      setCreatorDrawerUsername(handle);
+      setCreatorDrawerOpen(true);
+      syncDrawerExploreUrl(params => {
+        params.delete("communityDrawer");
+        params.set("creatorDrawer", handle);
+      });
+    },
+    [syncDrawerExploreUrl]
+  );
+
+  const handleCreatorDrawerOpenChange = useCallback(
+    (open: boolean) => {
+      setCreatorDrawerOpen(open);
+      if (!open) {
+        setCreatorDrawerUsername(null);
+        syncDrawerExploreUrl(params => {
+          params.delete("creatorDrawer");
+        });
+      }
+    },
+    [syncDrawerExploreUrl]
+  );
+
+  const openCommunityDrawer = useCallback(
+    (communityId: string) => {
+      const id = communityId.trim();
+      if (!id) return;
+      setCommunityDrawerId(id);
+      setCommunityDrawerOpen(true);
+      syncDrawerExploreUrl(params => {
+        params.delete("creatorDrawer");
+        params.set("communityDrawer", id);
+      });
+    },
+    [syncDrawerExploreUrl]
+  );
+
+  const handleCommunityDrawerOpenChange = useCallback(
+    (open: boolean) => {
+      setCommunityDrawerOpen(open);
+      if (!open) {
+        setCommunityDrawerId(null);
+        syncDrawerExploreUrl(params => {
+          params.delete("communityDrawer");
+        });
+      }
+    },
+    [syncDrawerExploreUrl]
+  );
+
+  useEffect(() => {
+    const creator = parseCreatorDrawerFromUrl(searchParams);
+    const community = parseCommunityDrawerFromUrl(searchParams);
+    if (creator) {
+      setCreatorDrawerUsername(creator);
+      setCreatorDrawerOpen(true);
     }
-  }, []);
+    if (community) {
+      setCommunityDrawerId(community);
+      setCommunityDrawerOpen(true);
+    }
+  }, [searchParams]);
 
   const { user } = useSelector((s: RootState) => s.auth);
 
@@ -1113,6 +1291,22 @@ export const ExploreFeedClient = forwardRef<
     }
   );
 
+  const tipPriceCatalog = useMemo(
+    () =>
+      buildSurfaceTipPriceCatalog({
+        enrichedCatalog: tipPres.catalog as RoomCharacter[],
+        videoCatalog: tippingCharactersForDrawer,
+        fallbackCatalog: characters as RoomCharacter[],
+        characterSets: characterSetsForDrawer,
+      }),
+    [
+      tipPres.catalog,
+      tippingCharactersForDrawer,
+      characters,
+      characterSetsForDrawer,
+    ]
+  );
+
   const dispatch = useDispatch();
   const prevPlayingVideoKeyRef = useRef("");
 
@@ -1199,6 +1393,7 @@ export const ExploreFeedClient = forwardRef<
         );
         if (res.data.toggledTo === "saved") {
           trackTvSaveClick(saveExploreChannelId);
+          void scheduleEngagementPwaPromptFromPolicy();
         }
         setExploreCommentMetricsRefreshKey(k => k + 1);
         await refreshSavedContents();
@@ -1620,25 +1815,69 @@ export const ExploreFeedClient = forwardRef<
   const executeOpenInExplore = useCallback(
     async (target: ExploreFeedOpenTarget) => {
       const { videoId, channelSnapshot } = target;
-      const snapshotLiveStatus =
-        channelSnapshot &&
-        typeof channelSnapshot === "object" &&
-        typeof (channelSnapshot as { liveStatus?: unknown }).liveStatus ===
-          "string"
-          ? String((channelSnapshot as { liveStatus: string }).liveStatus)
-          : null;
-      if (snapshotLiveStatus === "UPCOMING") {
+      const channelReturn = () => ({
+        returnTo: target.discoverReturnTo ?? exploreReturnTo,
+        label:
+          target.discoverReturnLabel ??
+          (target.discoverReturnTo ? "Back to Discover" : "Back to Explore"),
+        discoverUi: peekDiscoverUiRestore() ?? undefined,
+      });
+      const openLiveInChannel = () => {
         openingVideoIdRef.current = null;
+        openChannelWithReturn({
+          eventId: target.eventId,
+          channelId: videoId,
+          ...channelReturn(),
+        });
+      };
+
+      const snapshotLive = liveRoutingFromSnapshot(
+        channelSnapshot as Record<string, unknown> | null | undefined
+      );
+      if (shouldOpenExploreHandoffInChannel(snapshotLive)) {
+        openLiveInChannel();
         return;
+      }
+      if (!isLivestreamFamily(snapshotLive)) {
+        const route = await fetchChannelPlaybackRoute(videoId);
+        if (route?.route === "channel") {
+          openLiveInChannel();
+          return;
+        }
+      }
+      if (
+        target.discoverReturnTo &&
+        isDedicatedDiscoverReturnTo(target.discoverReturnTo)
+      ) {
+        writePlaybackReturn({
+          returnTo: target.discoverReturnTo,
+          label: target.discoverReturnLabel ?? "Back to Discover",
+          discoverUi: peekDiscoverUiRestore() ?? undefined,
+        });
       }
       const myGen = ++openGenerationRef.current;
       scrollLayoutRetryRef.current = 0;
       openingVideoIdRef.current = videoId;
 
+      const commitPendingOpenScroll = () => {
+        setScrollSyncEpoch(e => e + 1);
+        setActiveIndex(prev => {
+          const idx = itemsRef.current.findIndex(i => i.id === videoId);
+          return idx >= 0 ? idx : prev;
+        });
+      };
+
       const existingIdx = itemsRef.current.findIndex(i => i.id === videoId);
       if (existingIdx >= 0) {
         openingVideoIdRef.current = videoId;
-        setScrollSyncEpoch(e => e + 1);
+        setItems(prev => {
+          if (myGen !== openGenerationRef.current) return prev;
+          const idx = prev.findIndex(i => i.id === videoId);
+          if (idx < 0) return prev;
+          const row = prev[idx];
+          return [row, ...prev.filter(i => i.id !== videoId)];
+        });
+        commitPendingOpenScroll();
         const existing = itemsRef.current[existingIdx];
         const needsEnrichment =
           !metricsFromFeedItem(existing) ||
@@ -1647,12 +1886,21 @@ export const ExploreFeedClient = forwardRef<
           void resolveExploreOpenChannelRow(target).then(enriched => {
             if (myGen !== openGenerationRef.current) return;
             if (!enriched) return;
+            const enrichedLive = liveRoutingFromRow(enriched);
+            if (shouldOpenExploreHandoffInChannel(enrichedLive)) {
+              openLiveInChannel();
+              return;
+            }
             setItems(prev => {
               if (myGen !== openGenerationRef.current) return prev;
               const idx = prev.findIndex(i => i.id === videoId);
               if (idx < 0) return prev;
               const next = [...prev];
               next[idx] = { ...prev[idx], ...enriched };
+              if (idx > 0) {
+                const [row] = next.splice(idx, 1);
+                next.unshift(row);
+              }
               return next;
             });
           });
@@ -1665,17 +1913,22 @@ export const ExploreFeedClient = forwardRef<
         setItems(prev => {
           if (myGen !== openGenerationRef.current) return prev;
           if (openingVideoIdRef.current !== videoId) return prev;
-          if (prev.some(i => i.id === videoId)) return prev;
-          const ai = activeIndexRef.current;
-          const insertAt = Math.min(ai + 1, prev.length);
-          const next = [...prev];
-          next.splice(insertAt, 0, snapshotRow);
-          return next;
+          const existingAt = prev.findIndex(i => i.id === videoId);
+          if (existingAt >= 0) {
+            const row = prev[existingAt];
+            return [row, ...prev.filter(i => i.id !== videoId)];
+          }
+          return [snapshotRow, ...prev.filter(i => i.id !== videoId)];
         });
-        setScrollSyncEpoch(e => e + 1);
+        commitPendingOpenScroll();
         void resolveExploreOpenChannelRow(target).then(enriched => {
           if (myGen !== openGenerationRef.current) return;
           if (!enriched) return;
+          const enrichedLive = liveRoutingFromRow(enriched);
+          if (shouldOpenExploreHandoffInChannel(enrichedLive)) {
+            openLiveInChannel();
+            return;
+          }
           setItems(prev => {
             if (myGen !== openGenerationRef.current) return prev;
             const idx = prev.findIndex(i => i.id === videoId);
@@ -1694,8 +1947,9 @@ export const ExploreFeedClient = forwardRef<
         openingVideoIdRef.current = null;
         return;
       }
-      if (row.liveStatus === "UPCOMING") {
-        openingVideoIdRef.current = null;
+      const rowLive = liveRoutingFromRow(row);
+      if (shouldOpenExploreHandoffInChannel(rowLive)) {
+        openLiveInChannel();
         return;
       }
 
@@ -1703,17 +1957,13 @@ export const ExploreFeedClient = forwardRef<
         if (myGen !== openGenerationRef.current) return prev;
         if (openingVideoIdRef.current !== videoId) return prev;
         if (prev.some(i => i.id === videoId)) return prev;
-        const ai = activeIndexRef.current;
-        const insertAt = Math.min(ai + 1, prev.length);
-        const next = [...prev];
-        next.splice(insertAt, 0, row);
-        return next;
+        return [row, ...prev.filter(i => i.id !== videoId)];
       });
       if (myGen !== openGenerationRef.current) return;
       if (openingVideoIdRef.current !== videoId) return;
-      setScrollSyncEpoch(e => e + 1);
+      commitPendingOpenScroll();
     },
-    []
+    [exploreReturnTo, openChannelWithReturn]
   );
 
   useImperativeHandle(
@@ -1749,7 +1999,7 @@ export const ExploreFeedClient = forwardRef<
     if (!root) return;
     const h = getExploreSlideStepPx(root);
     if (h <= 0) {
-      if (feedSurfaceActive && scrollLayoutRetryRef.current < 16) {
+      if (scrollLayoutRetryRef.current < 48) {
         scrollLayoutRetryRef.current += 1;
         raf = requestAnimationFrame(() => {
           setScrollSyncEpoch(e => e + 1);
@@ -2290,6 +2540,12 @@ export const ExploreFeedClient = forwardRef<
 
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-black">
+      <div className="pointer-events-none absolute top-3 left-3 z-[80]">
+        <PlaybackReturnBackChip
+          className="pointer-events-auto"
+          isVisible={ctx => isDedicatedDiscoverReturnTo(ctx.returnTo)}
+        />
+      </div>
       <div
         data-testid="explore-feed-scroll"
         ref={scrollRef}
@@ -2463,6 +2719,7 @@ export const ExploreFeedClient = forwardRef<
                               metricsRestrictedCommunity
                             }
                             onOpenCreatorDrawer={openCreatorDrawer}
+                            onOpenCommunityDrawer={openCommunityDrawer}
                             onPrefetchCreator={prefetchCreatorProfile}
                             onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelTitleOnVideoClassName(
@@ -2484,6 +2741,7 @@ export const ExploreFeedClient = forwardRef<
                               metricsRestrictedCommunity
                             }
                             onOpenCreatorDrawer={openCreatorDrawer}
+                            onOpenCommunityDrawer={openCommunityDrawer}
                             onPrefetchCreator={prefetchCreatorProfile}
                             onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelTitleAboveDockClassName(
@@ -2509,9 +2767,10 @@ export const ExploreFeedClient = forwardRef<
                             saveBusy={saveBusy}
                             onSaveClick={() => void handleExploreSaveToggle()}
                             onCommentOpenChange={openExploreCommentDrawer}
-                            onShareOpen={() =>
-                              setExploreCommentMetricsRefreshKey(k => k + 1)
-                            }
+                            onShareOpen={() => {
+                              setExploreCommentMetricsRefreshKey(k => k + 1);
+                              void scheduleEngagementPwaPromptFromPolicy();
+                            }}
                             hideTipsChip={
                               typeof active?.event?.amountToRaise ===
                                 "number" &&
@@ -2696,7 +2955,7 @@ export const ExploreFeedClient = forwardRef<
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
-          tippingCharacters={tippingCharactersForDrawer}
+          tippingCharacters={tipPriceCatalog}
           enabled
           textTipUnitPrice={tipPres.textUnitPrice}
         >
@@ -2705,7 +2964,7 @@ export const ExploreFeedClient = forwardRef<
             open={isTipDrawerOpen}
             onOpenChange={setIsTipDrawerOpen}
             eventId={activeEventId}
-            tippingCharacters={tippingCharactersForDrawer}
+            tippingCharacters={tipPriceCatalog}
             characterSets={characterSetsForDrawer}
             paymentSurface={
               feedMode === "community" ? "community_feed" : "explore_feed"
@@ -2730,6 +2989,11 @@ export const ExploreFeedClient = forwardRef<
           channelId={activeChannelId != null ? String(activeChannelId) : null}
           eventRoomTipCount={liveNumOfTips}
           videoTipCount={liveChannelNumOfTips}
+          communityBankName={
+            typeof active?.community?.name === "string"
+              ? active.community.name
+              : null
+          }
         />
       ) : null}
 
@@ -2748,7 +3012,7 @@ export const ExploreFeedClient = forwardRef<
               : ""
           }
           numOfTips={liveNumOfTips}
-          tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+          tippingCharacters={tipPriceCatalog as RoomCharacter[]}
           onContinueToTip={() => setIsTipDrawerOpen(true)}
           hostName={active?.event?.hostName ?? undefined}
           hostUsername={active?.event?.username ?? undefined}
@@ -2760,6 +3024,11 @@ export const ExploreFeedClient = forwardRef<
         open={creatorDrawerOpen}
         onOpenChange={handleCreatorDrawerOpenChange}
         username={creatorDrawerUsername}
+      />
+      <CommunityDrawer
+        open={communityDrawerOpen}
+        onOpenChange={handleCommunityDrawerOpenChange}
+        communityId={communityDrawerId}
       />
       <TipperEmailOtpSignInDialog
         open={signInOpen}

@@ -3,13 +3,12 @@
 
 import { SetStateAction, Dispatch, useEffect, useMemo, useState } from "react";
 
-import { sendMessageAction } from "@/actions/messages";
 import { MessageHeader } from "./message-header";
 import { ChatContainer } from "./chat-container";
 import { Message, RoomCharacter } from "@/types";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
-import { clearPendingTipBroadcast } from "@/lib/payment-origin";
+import { postPaidTipMessageOnce } from "@/lib/post-paid-tip-message-once";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { Pin } from "lucide-react";
@@ -33,6 +32,7 @@ interface Props {
   frameId: string;
   isEventOwner: string;
   liveVideoLink: string;
+  onChannelCreated?: (channel: EventRoomVideoChannel) => void;
   performers: any[];
   projects: any[];
   contributionType: string;
@@ -60,6 +60,7 @@ export const RoomMessages = ({
   frameId,
   isEventOwner,
   liveVideoLink,
+  onChannelCreated,
   performers,
   projects,
   contributionType,
@@ -143,37 +144,36 @@ export const RoomMessages = ({
         .map(([name, qty]) => `${qty} ${name}`)
         .join(", ");
 
-      const newMsg = {
-        id: Date.now().toString(),
-        sender: sender || "Anonymous",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        text: "I just sent",
-        tip: `+£${amount.toFixed(2)}`,
-        secondaryText: textTip || undefined,
-      };
+      void (async () => {
+        const result = await postPaidTipMessageOnce({
+          eventId,
+          sender: sender || "Anonymous",
+          text: "I just sent",
+          tip: Number(amount),
+          secondaryText: textTip || undefined,
+          selectedTips,
+          purchasedSummary,
+          ...(correlatedEventChannelId
+            ? { eventChannelId: correlatedEventChannelId }
+            : {}),
+          ...(correlatedTransactionId
+            ? { transactionId: correlatedTransactionId }
+            : {}),
+        });
 
-      sendMessageAction({
-        eventId,
-        sender: newMsg.sender,
-        text: newMsg.text,
-        tip: Number(amount),
-        secondaryText: textTip || undefined,
-        selectedTips,
-        purchasedSummary,
-        ...(correlatedEventChannelId
-          ? { eventChannelId: correlatedEventChannelId }
-          : {}),
-        ...(correlatedTransactionId
-          ? { transactionId: correlatedTransactionId }
-          : {}),
-      });
-
-      if (correlatedTransactionId) {
-        clearPendingTipBroadcast();
-      }
+        if (
+          !result.ok &&
+          result.outcome === "skipped" &&
+          result.reason === "no_transaction_id"
+        ) {
+          tracePaymentAnimation({
+            stage: "create_message_skipped_no_transaction_id",
+            surface: "room_messages",
+            eventId,
+            transactionCorrelation: "absent",
+          });
+        }
+      })();
     };
 
     window.addEventListener("tip:dropped", handler);
@@ -200,6 +200,7 @@ export const RoomMessages = ({
           frameId={frameId}
           isEventOwner={isEventOwner}
           liveVideoLink={liveVideoLink}
+          onChannelCreated={onChannelCreated}
           performers={safePerformers}
           projects={safeProjects}
           contributionType={contributionType}

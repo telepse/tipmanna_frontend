@@ -48,8 +48,8 @@ Two things I told you previously were wrong, and they change the work:
 In [frontend/src/components/dashboard/venue-event-card.tsx](frontend/src/components/dashboard/venue-event-card.tsx):
 
 ```ts
-  let eventCode = hostSession?.eventCode;   // line 107 -> const
-  let eventSlug = hostSession?.eventSlug;   // line 108 -> const
+let eventCode = hostSession?.eventCode; // line 107 -> const
+let eventSlug = hostSession?.eventSlug; // line 108 -> const
 ```
 
 Neither is reassigned. Change both to `const`.
@@ -81,22 +81,22 @@ flowchart TD
 In [frontend/src/middleware.ts](frontend/src/middleware.ts), the `/` redirect is currently gated behind `canonicalTvHost(hostname)`:
 
 ```ts
-  const tvHost = canonicalTvHost(hostname);
-  if (tvHost) {
-    if (url.pathname === "/") {
-      url.pathname = "/explore";
-      return NextResponse.redirect(url);
-    }
+const tvHost = canonicalTvHost(hostname);
+if (tvHost) {
+  if (url.pathname === "/") {
+    url.pathname = "/explore";
+    return NextResponse.redirect(url);
   }
+}
 ```
 
 Remove that block and add a host-agnostic one **after** the `tipmanna.live` block, so `.com` still funnels to `/partner` and `.live` still reaches `.tv` in one hop:
 
 ```ts
-  if (url.pathname === "/") {
-    url.pathname = "/explore";
-    return NextResponse.redirect(url, 308);
-  }
+if (url.pathname === "/") {
+  url.pathname = "/explore";
+  return NextResponse.redirect(url, 308);
+}
 ```
 
 Use 308 (permanent) rather than the current default 307, since `/` is going away for good. Caveat: browsers cache 308 aggressively, so this is effectively hard to reverse in already-visited clients.
@@ -129,13 +129,13 @@ Plus `home/trust-badge.tsx`, which is already unreferenced today (duplicate of `
 - [frontend/src/app/error.tsx](frontend/src/app/error.tsx) line 31 ("Go home")
 - [frontend/src/app/community/invite/[token]/page.tsx](frontend/src/app/community/invite/[token]/page.tsx) lines 132, 151 ("Back to home")
 - [frontend/src/app/cocreator/accept/[token]/page.tsx](frontend/src/app/cocreator/accept/[token]/page.tsx) lines 124, 142 ("Back to home")
-- [frontend/src/app/(event)/join/page.tsx](frontend/src/app/(event)/join/page.tsx) line 136 ("Home" back link)
+- [frontend/src/app/(event)/join/page.tsx](<frontend/src/app/(event)/join/page.tsx>) line 136 ("Home" back link)
 
 The 11th (`hero-client.tsx` line 256) disappears with the orphan sweep.
 
 ### Programmatic navigation -> `/explore`
 
-- [frontend/src/app/(auth)/verify-email/page.tsx](frontend/src/app/(auth)/verify-email/page.tsx) line 120
+- [frontend/src/app/(auth)/verify-email/page.tsx](<frontend/src/app/(auth)/verify-email/page.tsx>) line 120
 - [frontend/src/lib/payment-success-redirect.ts](frontend/src/lib/payment-success-redirect.ts) lines 24, 44
 - [frontend/src/components/shared/autodetect-location-prompt.tsx](frontend/src/components/shared/autodetect-location-prompt.tsx) line 322
 - [frontend/src/components/join-host/events-client.tsx](frontend/src/components/join-host/events-client.tsx) line 162
@@ -164,7 +164,7 @@ While in the navbar, convert the raw `<a href="/partner#pricing">` at line 118 t
 
 - [frontend/e2e/smoke.spec.ts](frontend/e2e/smoke.spec.ts) line 4: rewrite "home page loads" to assert the redirect instead — `page.goto("/")` then `await expect(page).toHaveURL(/\/explore/)`.
 - [frontend/e2e/create-dialog-signin.spec.ts](frontend/e2e/create-dialog-signin.spec.ts) line 4: `page.goto("/")` -> `page.goto("/partner")`. This matters: `/explore` uses `explore-global-chrome`, not `NavbarShell`, so the "Create" button the four tests in this file depend on is not present there. `/partner` renders `NavbarShell` at line 116.
-- [frontend/src/lib/__tests__/audit-remediation.spec.ts](frontend/src/lib/__tests__/audit-remediation.spec.ts) lines 4-9: the "homepage embed" case is now meaningless (it only compares string literals). Optional cleanup.
+- [frontend/src/lib/**tests**/audit-remediation.spec.ts](frontend/src/lib/__tests__/audit-remediation.spec.ts) lines 4-9: the "homepage embed" case is now meaningless (it only compares string literals). Optional cleanup.
 - `partner-page-metadata.spec.ts` passing `pathname: "/"` still expects `null` — no change needed.
 
 ### No change needed

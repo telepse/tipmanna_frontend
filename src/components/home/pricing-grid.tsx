@@ -1,6 +1,5 @@
 "use client";
 
-import { PRICING, type PricingTier } from "@/constants";
 import { Badge } from "../shared/badge";
 import { Paragraph } from "../shared/paragraph";
 import { Title } from "../shared/title";
@@ -16,6 +15,15 @@ import type { SignInModalPayload } from "@/components/auth/sign-in-dialog";
 import type { Swiper as SwiperType } from "swiper";
 import { SwiperSlide } from "swiper/react";
 import { Pagination, Autoplay, A11y } from "swiper/modules";
+import {
+  getPlanPricingAction,
+  type PublicPlanPricing,
+} from "@/actions/plan-pricing";
+import {
+  buildMarketingPricingCards,
+  type MarketingPricingCard,
+} from "@/lib/public-plan-pricing";
+import type { PricingTier } from "@/constants";
 
 import "swiper/css";
 import "swiper/css/pagination";
@@ -48,6 +56,9 @@ export default function NewPricingGrid() {
   const [visible, setVisible] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
+  const [pricingCards, setPricingCards] = useState<MarketingPricingCard[]>(
+    buildMarketingPricingCards(null)
+  );
 
   const { push } = useAppRouter();
 
@@ -56,6 +67,16 @@ export default function NewPricingGrid() {
   );
 
   const isSignedInHost = isAuthenticated && !!user && isHostRole(user.role);
+
+  useEffect(() => {
+    void getPlanPricingAction().then(res => {
+      if (res.success && res.data) {
+        setPricingCards(
+          buildMarketingPricingCards(res.data as PublicPlanPricing)
+        );
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -114,9 +135,6 @@ export default function NewPricingGrid() {
     [isSignedInHost, push, user]
   );
 
-  /**
-   * Lock / unlock the pricing Swiper.
-   */
   const handleSeeMoreChange = useCallback((open: boolean) => {
     const swiper = swiperRef.current;
 
@@ -125,21 +143,15 @@ export default function NewPricingGrid() {
     }
 
     if (open) {
-      // Stop automatic sliding.
       swiper.autoplay?.stop();
-
-      // Completely disable Swiper.
       swiper.disable();
     } else {
-      // Re-enable Swiper.
       swiper.enable();
-
-      // Allow autoplay again.
       swiper.autoplay?.start();
     }
   }, []);
 
-  const renderCard = (item: (typeof PRICING)[number], key: number) => (
+  const renderCard = (item: MarketingPricingCard, key: number) => (
     <PricingCard
       key={key}
       name={item.name}
@@ -260,7 +272,7 @@ export default function NewPricingGrid() {
             }}
             className="lg:hidden"
           >
-            {PRICING.map((item, index) => (
+            {pricingCards.map((item, index) => (
               <SwiperSlide key={index}>{renderCard(item, index)}</SwiperSlide>
             ))}
           </Swiper>
@@ -268,7 +280,7 @@ export default function NewPricingGrid() {
       </div>
 
       <div className="mt-6 hidden grid-cols-3 items-start gap-6 lg:grid">
-        {PRICING.map((item, index) => renderCard(item, index))}
+        {pricingCards.map((item, index) => renderCard(item, index))}
       </div>
 
       {createOpen ? (

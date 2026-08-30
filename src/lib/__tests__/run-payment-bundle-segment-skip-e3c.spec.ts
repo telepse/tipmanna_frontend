@@ -42,7 +42,10 @@ import {
   createAnimationQueue,
   type AnimationQueueTask,
 } from "@/lib/animation-queue-core";
-import { clearPlaybackKeyState } from "@/lib/playback-key-lifecycle";
+import {
+  clearPlaybackKeyState,
+  getPlaybackKeyState,
+} from "@/lib/playback-key-lifecycle";
 
 const validCharacter: RoomCharacter = {
   id: "c1",
@@ -126,19 +129,7 @@ describe("run-payment-bundle-animations segment skip (Phase E3C)", () => {
 
     expect(wrapPaymentAnimationMock).not.toHaveBeenCalled();
     expect(traces).toContain("payment_segment_budget_skipped");
-    expect(tasks).toHaveLength(1);
-
-    await tasks[0]?.run();
-
-    expect(traces).toContain("payment_character_playback_finished");
-    const { tracePaymentAnimation: traceFn } = await import(
-      "@/lib/payment-animation-trace"
-    );
-    const finishTrace = vi
-      .mocked(traceFn)
-      .mock.calls.find(
-        call => call[0]?.stage === "payment_character_playback_finished"
-      )?.[0];
-    expect(finishTrace?.result).toBe("skipped");
+    expect(tasks).toHaveLength(0);
+    expect(getPlaybackKeyState(`${bundle.id}-Heart`)).toBe("unseen");
   });
 });

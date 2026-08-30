@@ -185,13 +185,19 @@ export async function resendCodeAction(email: string) {
 }
 
 // -------- Request login code -------- //
-export async function requestLoginCodeAction(values: { email: string }) {
+export async function requestLoginCodeAction(values: {
+  email: string;
+  accountType?: "HOST" | "TIPPER";
+}) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/request-login-code`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify({
+        email: values.email,
+        accountType: values.accountType ?? "HOST",
+      }),
       cache: "no-store",
     },
     "requestLoginCodeAction"

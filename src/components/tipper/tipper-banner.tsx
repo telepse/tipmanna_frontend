@@ -69,9 +69,19 @@ import Image from "next/image";
 
 interface Props {
   iTipped: number;
+  variant?: "owner" | "public" | "drawer";
+  profileSlug?: string;
+  displayName?: string;
+  isAnonymous?: boolean;
 }
 
-export const TipperBanner = ({ iTipped }: Props) => {
+export const TipperBanner = ({
+  iTipped,
+  variant = "owner",
+  profileSlug,
+  displayName,
+  isAnonymous,
+}: Props) => {
   const [openSettings, setOpenSettings] = useState(false);
   const [hostUpgradeOpen, setHostUpgradeOpen] = useState(false);
   const { canReadAsHost, requestHostAuth, HostAuthModal, capability } =
@@ -115,10 +125,20 @@ export const TipperBanner = ({ iTipped }: Props) => {
   });
 
   const user = useSelector((state: RootState) => state.auth.user);
-  const user_name = user ? user.username : "";
+  const user_name =
+    displayName ??
+    (user && "displayUsername" in user
+      ? user.displayUsername || user.username
+      : user?.username) ??
+    "";
+  const profile_slug = profileSlug ?? (user ? user.username : "");
   const full_name = user ? user?.fullName : "";
   const e_mail = user ? user?.email : "";
   const userId = user ? user.id : "";
+  const isPublicView = variant === "public";
+  const showOwnerControls = variant === "owner";
+  const showAnonymousToggle =
+    showOwnerControls || (variant === "drawer" && user?.role === "TIPPER");
 
   const token = useSelector((state: RootState) => state.auth.token);
   const isTipper = user?.role === "TIPPER";
@@ -264,11 +284,31 @@ export const TipperBanner = ({ iTipped }: Props) => {
   //   }
   // }, [user?.fullName, user?.email, user?.username, openChat]);
 
+  const handleShare = async () => {
+    const slug = profile_slug.trim();
+    if (!slug) return;
+    const url = `${window.location.origin}/tipper/${slug}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${user_name} on Tipmanna`,
+          url,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast.success("Profile link copied");
+    } catch {
+      toast.error("Could not share profile link");
+    }
+  };
+
   const handleToggleAnonymous = async (value: boolean) => {
     try {
       setEnabled(value);
       if (!token) {
         toast.error("Invalid or expired token");
+        setEnabled(!value);
         return;
       }
 
@@ -282,26 +322,28 @@ export const TipperBanner = ({ iTipped }: Props) => {
         token
       );
 
-      const { fullName, username, email, anonymous } = (
+      if (!res.success) {
+        setEnabled(!value);
+        return toast.error(res.message || "Failed to update anonymous mode");
+      }
+
+      const { fullName, username, email, anonymous, displayUsername } = (
         res.data as {
           tipper: {
             fullName: string;
             username: string;
+            displayUsername?: string;
             email: string;
             anonymous: boolean;
           };
         }
       ).tipper;
 
-      if (!res.success) {
-        setEnabled(!value);
-        return toast.error(res.message || "Failed to update anonymous mode");
-      }
-
       dispatch(
         updateTipper({
           fullName,
           username,
+          displayUsername: displayUsername ?? username,
           email,
           anonymous: value,
         })
@@ -317,6 +359,7 @@ export const TipperBanner = ({ iTipped }: Props) => {
             ...currentUser,
             fullName,
             username,
+            displayUsername: displayUsername ?? username,
             email,
             anonymous,
           }),
@@ -343,7 +386,10 @@ export const TipperBanner = ({ iTipped }: Props) => {
   const form = useForm<EditProfileFormData>({
     resolver: zodResolver(editProfileSchema),
     defaultValues: {
-      username: user_name || "",
+      username:
+        (user && "displayUsername" in user
+          ? user.displayUsername || user.username
+          : user?.username) || "",
       fullName: user?.fullName || "",
       email: user?.email || "",
     },
@@ -390,17 +436,23 @@ export const TipperBanner = ({ iTipped }: Props) => {
         return;
       }
 
-      const { fullName, username, email } = (
+      const { fullName, username, email, displayUsername } = (
         res.data as {
-          tipper: { fullName: string; username: string; email: string };
+          tipper: {
+            fullName: string;
+            username: string;
+            displayUsername?: string;
+            email: string;
+          };
         }
       ).tipper;
 
-      // update redux store
+      // update redux store (username slug unchanged; displayUsername is public name)
       dispatch(
         updateTipper({
           fullName,
           username,
+          displayUsername: displayUsername ?? values.username,
           email,
         })
       );
@@ -415,6 +467,7 @@ export const TipperBanner = ({ iTipped }: Props) => {
             ...currentUser,
             fullName,
             username,
+            displayUsername: displayUsername ?? values.username,
             email,
           }),
           {
@@ -422,8 +475,6 @@ export const TipperBanner = ({ iTipped }: Props) => {
           }
         );
       }
-
-      router.replace(`/tipper/${username}`);
 
       toast.success("Profile updated successfully");
     } catch (err: unknown) {
@@ -525,25 +576,29 @@ export const TipperBanner = ({ iTipped }: Props) => {
             </div>
 
             {/* Pencil (Edit) */}
-            <div className="absolute top-1 right-[-12px] cursor-pointer bg-transparent">
-              <Button
-                size="icon"
-                onClick={() => setOpenEditProfile(true)}
-              >
-                <PencilLine className="size-4 text-white/90" />
-              </Button>
-            </div>
+            {showOwnerControls ? (
+              <div className="absolute top-1 right-[-12px] cursor-pointer bg-transparent">
+                <Button
+                  size="icon"
+                  onClick={() => setOpenEditProfile(true)}
+                >
+                  <PencilLine className="size-4 text-white/90" />
+                </Button>
+              </div>
+            ) : null}
 
             {/* Settings (Inside circle like mockup) */}
-            <div className="absolute right-[-12px] bottom-0 flex size-6 items-center justify-center rounded-md border border-white bg-white/20">
-              <Button
-                size="icon"
-                className="!bg-primary/80 border border-white"
-                onClick={() => setOpenSettings(true)}
-              >
-                <Settings className="text-white/80" />
-              </Button>
-            </div>
+            {showOwnerControls ? (
+              <div className="absolute right-[-12px] bottom-0 flex size-6 items-center justify-center rounded-md border border-white bg-white/20">
+                <Button
+                  size="icon"
+                  className="!bg-primary/80 border border-white"
+                  onClick={() => setOpenSettings(true)}
+                >
+                  <Settings className="text-white/80" />
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           {/* Username */}
@@ -556,20 +611,30 @@ export const TipperBanner = ({ iTipped }: Props) => {
           </Paragraph>
 
           {/* Anonymous toggle */}
-          <div className="flex items-center justify-center gap-2">
+          {showAnonymousToggle ? (
+            <div className="flex items-center justify-center gap-2">
+              <Paragraph
+                size="sm"
+                color="white"
+              >
+                Anonymous Tipping
+              </Paragraph>
+              <Switch
+                id="anonymous-mode"
+                checked={enabled}
+                onCheckedChange={handleToggleAnonymous}
+                className="cursor-pointer"
+                disabled={isPublicView}
+              />
+            </div>
+          ) : isAnonymous ? (
             <Paragraph
               size="sm"
               color="white"
             >
-              Anonymous Tipping
+              Anonymous tipper
             </Paragraph>
-            <Switch
-              id="anonymous-mode"
-              checked={enabled}
-              onCheckedChange={handleToggleAnonymous}
-              className="cursor-pointer"
-            />
-          </div>
+          ) : null}
 
           {/* Total tipped */}
           <div className="flex items-center justify-center gap-4">
@@ -581,11 +646,13 @@ export const TipperBanner = ({ iTipped }: Props) => {
               color="white"
               className="text-lg"
             >
-              &pound;{iTipped}
+              &pound;{Number(iTipped).toFixed(2)}
             </Paragraph>
             <Button
               size="icon"
               className="bg-transparent hover:bg-white/10"
+              onClick={handleShare}
+              type="button"
             >
               <Share2 className="text-white/80" />
             </Button>
@@ -619,28 +686,39 @@ export const TipperBanner = ({ iTipped }: Props) => {
                 >
                   {user_name}
                 </Paragraph>
-                <Button
-                  size="icon"
-                  onClick={() => setOpenEditProfile(true)}
-                >
-                  <PencilLine className="size-4 text-white/90" />
-                </Button>
+                {showOwnerControls ? (
+                  <Button
+                    size="icon"
+                    onClick={() => setOpenEditProfile(true)}
+                  >
+                    <PencilLine className="size-4 text-white/90" />
+                  </Button>
+                ) : null}
               </div>
 
-              <div className="flex items-center gap-4">
+              {showAnonymousToggle ? (
+                <div className="flex items-center gap-4">
+                  <Paragraph
+                    size="sm"
+                    color="white"
+                  >
+                    Anonymous Tipping
+                  </Paragraph>
+                  <Switch
+                    id="anonymous-mode"
+                    checked={enabled}
+                    onCheckedChange={handleToggleAnonymous}
+                    className="cursor-pointer"
+                  />
+                </div>
+              ) : isAnonymous ? (
                 <Paragraph
                   size="sm"
                   color="white"
                 >
-                  Anonymous Tipping
+                  Anonymous tipper
                 </Paragraph>
-                <Switch
-                  id="anonymous-mode"
-                  checked={enabled}
-                  onCheckedChange={handleToggleAnonymous}
-                  className="cursor-pointer"
-                />
-              </div>
+              ) : null}
 
               <div className="flex items-center gap-4">
                 <span className="bg-primary rounded-md border border-white px-3 py-1 text-sm text-white">
@@ -650,11 +728,13 @@ export const TipperBanner = ({ iTipped }: Props) => {
                   weight="bold"
                   color="white"
                 >
-                  &pound;{iTipped}
+                  &pound;{Number(iTipped).toFixed(2)}
                 </Paragraph>
                 <Button
                   size="icon"
                   className="bg-transparent"
+                  onClick={handleShare}
+                  type="button"
                 >
                   <Share2 className="text-white/80" />
                 </Button>
@@ -663,13 +743,15 @@ export const TipperBanner = ({ iTipped }: Props) => {
           </div>
 
           <div className="flex flex-col items-end">
-            <Button
-              size="icon"
-              className="!bg-primary/80 border border-white"
-              onClick={() => setOpenSettings(true)}
-            >
-              <Settings className="text-white/80" />
-            </Button>
+            {showOwnerControls ? (
+              <Button
+                size="icon"
+                className="!bg-primary/80 border border-white"
+                onClick={() => setOpenSettings(true)}
+              >
+                <Settings className="text-white/80" />
+              </Button>
+            ) : null}
 
             <Title size="sm">
               <span className="text-secondary/80">tip</span>
@@ -679,392 +761,388 @@ export const TipperBanner = ({ iTipped }: Props) => {
         </div>
       </div>
 
-      <Dialog
-        open={openSettings}
-        onOpenChange={setOpenSettings}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader className="open_sans">
-            <DialogTitle>Settings</DialogTitle>
-            <DialogDescription>
-              Manage your account settings and preferences
-            </DialogDescription>
-          </DialogHeader>
+      {showOwnerControls ? (
+        <Dialog
+          open={openSettings}
+          onOpenChange={setOpenSettings}
+        >
+          <DialogContent className="max-w-sm">
+            <DialogHeader className="open_sans">
+              <DialogTitle>Settings</DialogTitle>
+              <DialogDescription>
+                Manage your account settings and preferences
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="mt-4 space-y-4">
-            {/* Delete Payment Card */}
-            <Button
-              variant="outline"
-              className="hover:border-border-gray-300 h-14 w-full justify-start border-gray-300 font-medium hover:bg-white hover:text-black"
-            >
-              <Wallet className="text-muted-foreground size-6" /> Delete Payment
-              Card
-            </Button>
+            <div className="mt-4 space-y-4">
+              {/* Raise a Dispute */}
+              <div className="space-y-4 rounded-lg border p-4">
+                <h2 className="flex items-center gap-2 font-medium">
+                  <MessageCircle className="text-muted-foreground" /> Help &
+                  support
+                </h2>
+                <Button
+                  className="w-full bg-black hover:bg-black/80"
+                  onClick={() => setOpenChat(true)}
+                >
+                  Start live chat
+                </Button>
+                <EmbeddedSupportChat
+                  open={openChat}
+                  onOpenChange={setOpenChat}
+                  source="tipper_settings"
+                />
+              </div>
 
-            {/* Raise a Dispute */}
-            <div className="space-y-4 rounded-lg border p-4">
-              <h2 className="flex items-center gap-2 font-medium">
-                <MessageCircle className="text-muted-foreground" /> Help &
-                support
-              </h2>
+              <div className="rounded-lg border p-4">
+                <ProfilePreferencesTab />
+              </div>
+
+              {/* Switch to Host */}
               <Button
-                className="w-full bg-black hover:bg-black/80"
-                onClick={() => setOpenChat(true)}
+                variant="outline"
+                className="hover:border-border-gray-300 h-14 w-full justify-start border-gray-300 font-medium hover:bg-white hover:text-black"
+                onClick={handleSwitchAccount}
               >
-                Start live chat
+                <ArrowLeftRight /> Continue as Host
               </Button>
-              <EmbeddedSupportChat
-                open={openChat}
-                onOpenChange={setOpenChat}
-                source="tipper_settings"
-              />
+              <Button
+                variant="outline"
+                className="hover:border-border-gray-300 h-14 w-full justify-start border-gray-300 font-medium hover:bg-white hover:text-black"
+                onClick={handleLogout}
+              >
+                <LogOut /> Logout
+              </Button>
+
+              {/* Delete Account */}
+              <Button
+                variant="destructive"
+                size="lg"
+                className="h-14 w-full justify-start bg-black text-white hover:bg-black/80"
+                onClick={() => setOpenDeleteModal(true)}
+              >
+                <Trash2 className="size-6" /> Delete Account
+              </Button>
+
+              <Dialog
+                open={openDeleteModal}
+                onOpenChange={setOpenDeleteModal}
+              >
+                <DialogContent className="max-w-sm space-y-4">
+                  <DialogHeader>
+                    <DialogTitle>Delete Account</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete your account? This action
+                      cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="mt-4 flex justify-end gap-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setOpenDeleteModal(false)}
+                    >
+                      Go Back
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        setOpenDeleteModal(false); // close modal
+                        await handleDeleteAccount();
+                      }}
+                    >
+                      Continue
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
-            <div className="rounded-lg border p-4">
-              <ProfilePreferencesTab />
-            </div>
+      {showOwnerControls ? (
+        <Dialog
+          open={openEditProfile}
+          onOpenChange={setOpenEditProfile}
+        >
+          <DialogContent className="w-[90%] max-w-sm rounded-2xl p-4 sm:w-full sm:p-6">
+            <DialogHeader>
+              <DialogTitle>Edit Profile</DialogTitle>
+            </DialogHeader>
 
-            {/* Switch to Host */}
-            <Button
-              variant="outline"
-              className="hover:border-border-gray-300 h-14 w-full justify-start border-gray-300 font-medium hover:bg-white hover:text-black"
-              onClick={handleSwitchAccount}
-            >
-              <ArrowLeftRight /> Continue as Host
-            </Button>
-            <Button
-              variant="outline"
-              className="hover:border-border-gray-300 h-14 w-full justify-start border-gray-300 font-medium hover:bg-white hover:text-black"
-              onClick={handleLogout}
-            >
-              <LogOut /> Logout
-            </Button>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="mt-2 space-y-6"
+              >
+                {/* Display name */}
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Display name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter username"
+                          autoComplete="off"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {/* Delete Account */}
-            <Button
-              variant="destructive"
-              size="lg"
-              className="h-14 w-full justify-start bg-black text-white hover:bg-black/80"
-              onClick={() => setOpenDeleteModal(true)}
-            >
-              <Trash2 className="size-6" /> Delete Account
-            </Button>
+                {/* Full Name */}
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter full name"
+                          autoComplete="off"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Email */}
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Email address{" "}
+                        <span
+                          className="text-primary cursor-pointer"
+                          // onClick={() => setIsEditable(true)}
+                          onClick={() => {
+                            setOpenEmailModal(true);
+                            setStep("signIn");
+                          }}
+                        >
+                          Change email
+                        </span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="Enter email"
+                          autoComplete="off"
+                          disabled={!isEditable}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full bg-[#F57D11] font-semibold text-white hover:bg-[#E5740E]"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Button>
+              </form>
+            </Form>
 
             <Dialog
-              open={openDeleteModal}
-              onOpenChange={setOpenDeleteModal}
+              open={openEmailModal}
+              onOpenChange={setOpenEmailModal}
             >
-              <DialogContent className="max-w-sm space-y-4">
-                <DialogHeader>
-                  <DialogTitle>Delete Account</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete your account? This action
-                    cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader className="open_sans">
+                  {step === "signIn" ? (
+                    <>
+                      <DialogTitle className="mt-6 text-center text-3xl font-semibold">
+                        Enter new email
+                      </DialogTitle>
 
-                <div className="mt-4 flex justify-end gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setOpenDeleteModal(false)}
-                  >
-                    Go Back
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={async () => {
-                      setOpenDeleteModal(false); // close modal
-                      await handleDeleteAccount();
-                    }}
-                  >
-                    Continue
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </DialogContent>
-      </Dialog>
+                      <Form {...emailForm}>
+                        <form
+                          onSubmit={emailForm.handleSubmit(async values => {
+                            try {
+                              if (!token) return toast.error("Invalid token");
 
-      <Dialog
-        open={openEditProfile}
-        onOpenChange={setOpenEditProfile}
-      >
-        <DialogContent className="w-[90%] max-w-sm rounded-2xl p-4 sm:w-full sm:p-6">
-          <DialogHeader>
-            <DialogTitle>Edit Profile</DialogTitle>
-          </DialogHeader>
+                              setIsLoading(true);
+                              // send verification code to new emai
+                              const res = await changeEmailAction({
+                                userId,
+                                newEmail: values.email,
+                              });
+                              if (!res.success) {
+                                toast.error(res.message);
+                                return;
+                              }
 
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="mt-2 space-y-6"
-            >
-              {/* Username */}
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter username"
-                        autoComplete="off"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                              dispatch(
+                                updateTipper({
+                                  email: e_mail,
+                                })
+                              );
 
-              {/* Full Name */}
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter full name"
-                        autoComplete="off"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                              const currentUserCookie = Cookies.get("user");
+                              if (currentUserCookie) {
+                                const currentUser =
+                                  JSON.parse(currentUserCookie);
 
-              {/* Email */}
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Email address{" "}
-                      <span
-                        className="text-primary cursor-pointer"
-                        // onClick={() => setIsEditable(true)}
-                        onClick={() => {
-                          setOpenEmailModal(true);
-                          setStep("signIn");
-                        }}
-                      >
-                        Change email
-                      </span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="Enter email"
-                        autoComplete="off"
-                        disabled={!isEditable}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                                Cookies.set(
+                                  "user",
+                                  JSON.stringify({
+                                    ...currentUser,
+                                    email: e_mail,
+                                  }),
+                                  {
+                                    expires: 7,
+                                  }
+                                );
+                              }
 
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full bg-[#F57D11] font-semibold text-white hover:bg-[#E5740E]"
-                disabled={isLoading}
-              >
-                {isLoading ? "Saving..." : "Save Changes"}
-              </Button>
-            </form>
-          </Form>
-
-          <Dialog
-            open={openEmailModal}
-            onOpenChange={setOpenEmailModal}
-          >
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader className="open_sans">
-                {step === "signIn" ? (
-                  <>
-                    <DialogTitle className="mt-6 text-center text-3xl font-semibold">
-                      Enter new email
-                    </DialogTitle>
-
-                    <Form {...emailForm}>
-                      <form
-                        onSubmit={emailForm.handleSubmit(async values => {
-                          try {
-                            if (!token) return toast.error("Invalid token");
-
-                            setIsLoading(true);
-                            // send verification code to new emai
-                            const res = await changeEmailAction({
-                              userId,
-                              newEmail: values.email,
-                            });
-                            if (!res.success) {
-                              toast.error(res.message);
-                              return;
+                              setStep("verifyCode");
+                              toast.success(
+                                "Verification code sent to your email"
+                              );
+                            } catch (err: unknown) {
+                              if (err instanceof Error) {
+                                toast.error(err.message);
+                              } else if (
+                                typeof err === "object" &&
+                                err !== null &&
+                                "error" in err
+                              ) {
+                                const apiErr = err as ApiError;
+                                toast.error(apiErr.error.message);
+                              } else {
+                                toast.error("Failed to send verification code");
+                              }
+                            } finally {
+                              setIsLoading(false);
                             }
+                          })}
+                          className="mt-12 space-y-6"
+                        >
+                          <FormField
+                            control={emailForm.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>New Email</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Enter email"
+                                    autoComplete="off"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
+                          <Button
+                            type="submit"
+                            size="lg"
+                            className="w-full bg-black"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "Sending code..." : "Send Code"}
+                          </Button>
+                        </form>
+                      </Form>
+                    </>
+                  ) : (
+                    <div className="relative flex flex-col items-center justify-center gap-4 py-12">
+                      <h2 className="text-3xl font-semibold sm:text-4xl">
+                        Verify your email
+                      </h2>
+                      <p className="text-muted-foreground text-center text-sm">
+                        We&apos;ve sent a 6-digit code to{" "}
+                        <strong>{emailForm.watch("email")}</strong>. Enter it
+                        below to verify your account.
+                      </p>
+
+                      <div className="react-otp-input">
+                        <OtpInput
+                          value={emailCode}
+                          onChange={setEmailCode}
+                          numInputs={6}
+                          renderInput={props => <input {...props} />}
+                          inputStyle={inputStyle}
+                          shouldAutoFocus
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="mt-4 w-full"
+                        disabled={emailCode.length < 6 || isLoading}
+                        onClick={async () => {
+                          try {
+                            setIsLoading(true);
+
+                            // Verify the code
+                            await verifyCodeAction(
+                              emailForm.watch("email"),
+                              emailCode
+                            );
+
+                            // Update email in redux
                             dispatch(
-                              updateTipper({
-                                email: e_mail,
+                              setCredentials({
+                                user: {
+                                  ...user!,
+                                  email: emailForm.watch("email"),
+                                },
+                                token: token!,
                               })
                             );
 
-                            const currentUserCookie = Cookies.get("user");
-                            if (currentUserCookie) {
-                              const currentUser = JSON.parse(currentUserCookie);
+                            toast.success("Email verified successfully!");
 
-                              Cookies.set(
-                                "user",
-                                JSON.stringify({
-                                  ...currentUser,
-                                  email: e_mail,
-                                }),
-                                {
-                                  expires: 7,
-                                }
-                              );
-                            }
-
-                            setStep("verifyCode");
-                            toast.success(
-                              "Verification code sent to your email"
-                            );
+                            setOpenEmailModal(false);
+                            setOpenEditProfile(false);
+                            router.refresh();
                           } catch (err: unknown) {
-                            if (err instanceof Error) {
-                              toast.error(err.message);
-                            } else if (
-                              typeof err === "object" &&
-                              err !== null &&
-                              "error" in err
-                            ) {
-                              const apiErr = err as ApiError;
-                              toast.error(apiErr.error.message);
-                            } else {
-                              toast.error("Failed to send verification code");
-                            }
+                            console.error(err);
+                            toast.error("Failed to verify email");
                           } finally {
                             setIsLoading(false);
                           }
-                        })}
-                        className="mt-12 space-y-6"
+                        }}
                       >
-                        <FormField
-                          control={emailForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>New Email</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="Enter email"
-                                  autoComplete="off"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {isLoading ? "Verifying..." : "Verify Email"}
+                      </Button>
 
-                        <Button
-                          type="submit"
-                          size="lg"
-                          className="w-full bg-black"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? "Sending code..." : "Send Code"}
-                        </Button>
-                      </form>
-                    </Form>
-                  </>
-                ) : (
-                  <div className="relative flex flex-col items-center justify-center gap-4 py-12">
-                    <h2 className="text-3xl font-semibold sm:text-4xl">
-                      Verify your email
-                    </h2>
-                    <p className="text-muted-foreground text-center text-sm">
-                      We&apos;ve sent a 6-digit code to{" "}
-                      <strong>{emailForm.watch("email")}</strong>. Enter it
-                      below to verify your account.
-                    </p>
-
-                    <div className="react-otp-input">
-                      <OtpInput
-                        value={emailCode}
-                        onChange={setEmailCode}
-                        numInputs={6}
-                        renderInput={props => <input {...props} />}
-                        inputStyle={inputStyle}
-                        shouldAutoFocus
-                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="absolute -top-4 left-0 mt-4 border border-gray-300 outline-none hover:bg-gray-200"
+                        onClick={() => setStep("signIn")}
+                      >
+                        <MoveLeft /> Back
+                      </Button>
                     </div>
-
-                    <Button
-                      type="button"
-                      size="lg"
-                      className="mt-4 w-full"
-                      disabled={emailCode.length < 6 || isLoading}
-                      onClick={async () => {
-                        try {
-                          setIsLoading(true);
-
-                          // Verify the code
-                          await verifyCodeAction(
-                            emailForm.watch("email"),
-                            emailCode
-                          );
-
-                          // Update email in redux
-                          dispatch(
-                            setCredentials({
-                              user: {
-                                ...user!,
-                                email: emailForm.watch("email"),
-                              },
-                              token: token!,
-                            })
-                          );
-
-                          toast.success("Email verified successfully!");
-
-                          setOpenEmailModal(false);
-                          setOpenEditProfile(false);
-                          router.refresh();
-                        } catch (err: unknown) {
-                          console.error(err);
-                          toast.error("Failed to verify email");
-                        } finally {
-                          setIsLoading(false);
-                        }
-                      }}
-                    >
-                      {isLoading ? "Verifying..." : "Verify Email"}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="absolute -top-4 left-0 mt-4 border border-gray-300 outline-none hover:bg-gray-200"
-                      onClick={() => setStep("signIn")}
-                    >
-                      <MoveLeft /> Back
-                    </Button>
-                  </div>
-                )}
-              </DialogHeader>
-            </DialogContent>
-          </Dialog>
-        </DialogContent>
-      </Dialog>
-      {HostAuthModal}
+                  )}
+                </DialogHeader>
+              </DialogContent>
+            </Dialog>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+      {showOwnerControls ? HostAuthModal : null}
       {user?.email ? (
         <HostUpgradeDialog
           open={hostUpgradeOpen}

@@ -101,6 +101,7 @@ interface Props {
   frameId: string;
   isEventOwner: string;
   liveVideoLink: string;
+  onChannelCreated?: (channel: EventRoomVideoChannel) => void;
   performers: any[];
   projects: any[];
   contributionType: string;
@@ -125,6 +126,7 @@ export const MessageHeader = ({
   frameId,
   isEventOwner,
   liveVideoLink,
+  onChannelCreated,
   performers,
   projects,
   contributionType,
@@ -354,6 +356,7 @@ export const MessageHeader = ({
               performers={safePerformers}
               eventEventType={eventEventType}
               onClose={() => setModalOpen(false)}
+              onChannelCreated={onChannelCreated}
             />
           </div>
         </div>

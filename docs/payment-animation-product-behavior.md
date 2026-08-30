@@ -5,6 +5,7 @@ This document describes how tip payment animations work in Tipmanna: what payers
 **Audience:** Product, design, and engineering teams planning features or diagnosing payer experience issues.
 
 **Related ops docs:**
+
 - [payment-animation-operator-runbook.md](./payment-animation-operator-runbook.md) — incident response and grep patterns
 - [payment-animation-overload-policy.md](./payment-animation-overload-policy.md) — queue caps and burst handling
 
@@ -76,12 +77,12 @@ sequenceDiagram
 
 ### Channels and events
 
-| Channel | Event | Purpose |
-|---------|-------|---------|
-| `global-live-tv` | `tip-animation` | Canonical animation payload for all surfaces (includes `transactionId` for payer dedupe) |
-| `global-live-tv` | `live-tip` | Secondary notification (legacy companion) |
-| `event-{eventId}` | `event-amount-updated` | Amount raised, event tip count, optional per-video tip count |
-| `event-{eventId}` | `live-tip` | Event-scoped tip notification |
+| Channel           | Event                  | Purpose                                                                                  |
+| ----------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
+| `global-live-tv`  | `tip-animation`        | Canonical animation payload for all surfaces (includes `transactionId` for payer dedupe) |
+| `global-live-tv`  | `live-tip`             | Secondary notification (legacy companion)                                                |
+| `event-{eventId}` | `event-amount-updated` | Amount raised, event tip count, optional per-video tip count                             |
+| `event-{eventId}` | `live-tip`             | Event-scoped tip notification                                                            |
 
 ### Single-stream broker
 
@@ -123,11 +124,11 @@ Recovery **claim** reads from `TipAnimationDelivery`. If the outbox is off, no d
 
 ### What gets saved before redirect
 
-| Storage | Key | Contents |
-|---------|-----|----------|
-| localStorage | `payment_origin` | Full URL of paying surface (for redirect back) |
+| Storage        | Key                         | Contents                                                     |
+| -------------- | --------------------------- | ------------------------------------------------------------ |
+| localStorage   | `payment_origin`            | Full URL of paying surface (for redirect back)               |
 | sessionStorage | `pending_payment_return_v1` | Transaction id, event id, surface label, recovery credential |
-| localStorage | `pending_tip_broadcast_v1` | Cart snapshot for message POST and local fallback |
+| localStorage   | `pending_tip_broadcast_v1`  | Cart snapshot for message POST and local fallback            |
 
 ### Exchange on `/success`
 
@@ -143,14 +144,14 @@ Recovery **claim** reads from `TipAnimationDelivery`. If the outbox is off, no d
 
 Hook: `usePayerOriginAnimationRecovery` — mounted on:
 
-| Surface component | `paymentSurface` label |
-|-------------------|------------------------|
-| explore-feed-client | `explore_feed`, `community_feed` |
-| explore-tv-schedule-feed | `explore_feed` |
-| tv-looper / home / web | `tv_looper`, `community_tv_looper` |
-| channel-client | `channel_client` |
-| content-client | `content_client` |
-| room-messages | (dynamic) |
+| Surface component        | `paymentSurface` label             |
+| ------------------------ | ---------------------------------- |
+| explore-feed-client      | `explore_feed`, `community_feed`   |
+| explore-tv-schedule-feed | `explore_feed`                     |
+| tv-looper / home / web   | `tv_looper`, `community_tv_looper` |
+| channel-client           | `channel_client`                   |
+| content-client           | `content_client`                   |
+| room-messages            | (dynamic)                          |
 
 Guards (all must pass):
 
@@ -195,24 +196,24 @@ When claim fails definitively (404, 403, etc.) or session token missing:
 
 ## Feature flags reference
 
-### Frontend (NEXT_PUBLIC_*)
+### Frontend (NEXT*PUBLIC*\*)
 
-| Flag | Default | When ON | When OFF |
-|------|---------|---------|----------|
-| `NEXT_PUBLIC_PAYER_ORIGIN_RECOVERY` | on | Exchange + recovery APIs used on `/success` and surfaces | No recovery; payer relies on being present for Pusher only |
-| `NEXT_PUBLIC_PAYER_LOCAL_ANIMATION_FALLBACK` | on | Local cart animation if server recovery fails | No fallback animation for payer |
-| `NEXT_PUBLIC_SINGLE_TIP_STREAM_BROKER` | on | Single bind, shared guard | Legacy dual-bind path |
-| `NEXT_PUBLIC_PAYMENT_ANIMATION_TRACE_ENABLED` | off in prod | Verbose browser trace logs | Silent (failures still logged at key stages) |
-| `NEXT_PUBLIC_PAYMENT_ORIGIN_ALLOWLIST` | — | Extra origins allowed for post-payment redirect | Only `window.origin` + `NEXT_PUBLIC_FRONTEND_APP_URL` |
-| `NEXT_PUBLIC_FRONTEND_APP_URL` | required prod | Canonical Stripe return_url base | Falls back to window.origin / site URL |
+| Flag                                          | Default       | When ON                                                  | When OFF                                                   |
+| --------------------------------------------- | ------------- | -------------------------------------------------------- | ---------------------------------------------------------- |
+| `NEXT_PUBLIC_PAYER_ORIGIN_RECOVERY`           | on            | Exchange + recovery APIs used on `/success` and surfaces | No recovery; payer relies on being present for Pusher only |
+| `NEXT_PUBLIC_PAYER_LOCAL_ANIMATION_FALLBACK`  | on            | Local cart animation if server recovery fails            | No fallback animation for payer                            |
+| `NEXT_PUBLIC_SINGLE_TIP_STREAM_BROKER`        | on            | Single bind, shared guard                                | Legacy dual-bind path                                      |
+| `NEXT_PUBLIC_PAYMENT_ANIMATION_TRACE_ENABLED` | off in prod   | Verbose browser trace logs                               | Silent (failures still logged at key stages)               |
+| `NEXT_PUBLIC_PAYMENT_ORIGIN_ALLOWLIST`        | —             | Extra origins allowed for post-payment redirect          | Only `window.origin` + `NEXT_PUBLIC_FRONTEND_APP_URL`      |
+| `NEXT_PUBLIC_FRONTEND_APP_URL`                | required prod | Canonical Stripe return_url base                         | Falls back to window.origin / site URL                     |
 
 ### Backend
 
-| Flag | Default | When ON | When OFF |
-|------|---------|---------|----------|
-| `TIP_ANIMATION_OUTBOX_ENABLED` | on | Delivery rows, leased emit, recovery claim works | Legacy direct Pusher; **no recovery claim data** |
-| `PAYER_ORIGIN_RECOVERY_API_ENABLED` | on | Recovery endpoints + credentials at PI creation | 404 on recovery APIs; no `recoveryState` in PI response |
-| `PAYMENT_ANIMATION_TRACE_ENABLED` | off in prod | Backend animation trace | Silent |
+| Flag                                | Default     | When ON                                          | When OFF                                                |
+| ----------------------------------- | ----------- | ------------------------------------------------ | ------------------------------------------------------- |
+| `TIP_ANIMATION_OUTBOX_ENABLED`      | on          | Delivery rows, leased emit, recovery claim works | Legacy direct Pusher; **no recovery claim data**        |
+| `PAYER_ORIGIN_RECOVERY_API_ENABLED` | on          | Recovery endpoints + credentials at PI creation  | 404 on recovery APIs; no `recoveryState` in PI response |
+| `PAYMENT_ANIMATION_TRACE_ENABLED`   | off in prod | Backend animation trace                          | Silent                                                  |
 
 **Important:** Backend flags must live in `backend/.env` / deployment env — not in `frontend/.env`.
 
@@ -220,16 +221,16 @@ When claim fails definitively (404, 403, etc.) or session token missing:
 
 ## Failure modes and payer experience
 
-| Condition | Payer sees | Others see |
-|-----------|------------|------------|
-| Normal redirect + recovery OK | Animation on return surface | Animation via Pusher |
-| Pusher wins before recovery | Animation via realtime (recovery skips duplicate keys) | Animation |
-| Claim 404 (outbox off / no delivery) | Local fallback if cart saved (`recoveryUnavailable`) | Animation via Pusher if webhook ran |
-| Exchange failed (no session) | Local fallback on surface if `recoveryUnavailable` | Animation via Pusher if webhook ran |
-| Stranded on /success | Watchdog hard-nav after ~1.2s | N/A |
-| Wrong redirect (second redirect bug) | Fixed: no replaceState on redirect path | Animation |
-| Recovery flag off | No recovery; may miss animation if absent for Pusher | Animation |
-| Queue full | May drop batch; logged as `queue_batch_rejected_full` | Same |
+| Condition                            | Payer sees                                             | Others see                          |
+| ------------------------------------ | ------------------------------------------------------ | ----------------------------------- |
+| Normal redirect + recovery OK        | Animation on return surface                            | Animation via Pusher                |
+| Pusher wins before recovery          | Animation via realtime (recovery skips duplicate keys) | Animation                           |
+| Claim 404 (outbox off / no delivery) | Local fallback if cart saved (`recoveryUnavailable`)   | Animation via Pusher if webhook ran |
+| Exchange failed (no session)         | Local fallback on surface if `recoveryUnavailable`     | Animation via Pusher if webhook ran |
+| Stranded on /success                 | Watchdog hard-nav after ~1.2s                          | N/A                                 |
+| Wrong redirect (second redirect bug) | Fixed: no replaceState on redirect path                | Animation                           |
+| Recovery flag off                    | No recovery; may miss animation if absent for Pusher   | Animation                           |
+| Queue full                           | May drop batch; logged as `queue_batch_rejected_full`  | Same                                |
 
 ---
 

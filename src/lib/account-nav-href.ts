@@ -1,5 +1,4 @@
 import type { RootState } from "@/redux/store";
-import { getTipperUsername } from "@/lib/utils";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 
 type AuthUser = RootState["auth"]["user"];
@@ -68,7 +67,7 @@ export function getDashboardFooterCreateHref(
   if (!isAuthenticated || !user) return "/sign-in";
   if (user.role === "TIPPER") {
     if (linkedHost) return "/event-only";
-    return `/tipper/${getTipperUsername(user.email)}`;
+    return `/tipper/${user.username}`;
   }
   if (user.role === "HOST") return "/event-only";
   return "/sign-in";

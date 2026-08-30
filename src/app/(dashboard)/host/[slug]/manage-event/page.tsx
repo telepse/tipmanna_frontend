@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
 import { ManageEventClient } from "@/components/events/manage-event-client";
+import { CoOwnerSelfPayoutsSection } from "@/components/co-owner/co-owner-self-payouts-section";
 import { CreateDialog } from "@/components/home/create-dialog";
 
 export default function ManageEvent() {
@@ -34,6 +35,7 @@ export default function ManageEvent() {
       </div>
 
       <div className="space-y-6">
+        <CoOwnerSelfPayoutsSection />
         <ManageEventClient />
       </div>
 

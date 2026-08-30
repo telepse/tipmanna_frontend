@@ -116,6 +116,8 @@ export function CommunityMembershipOwnerPanel({
   const [joinQuestion, setJoinQuestion] = useState("");
   const [joinDefaultMonths, setJoinDefaultMonths] = useState(1);
   const [joinSubscriptionFee, setJoinSubscriptionFee] = useState("");
+  const [autoApproveFreeJoin, setAutoApproveFreeJoin] = useState(false);
+  const [autoApprovePaidJoin, setAutoApprovePaidJoin] = useState(false);
 
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [codes, setCodes] = useState<AccessCodeRow[]>([]);
@@ -167,12 +169,16 @@ export function CommunityMembershipOwnerPanel({
       joinFormCustomQuestion: string | null;
       joinFormDefaultMonths: number;
       subscriptionFeeGbp?: string | null;
+      autoApproveFreeJoin?: boolean;
+      autoApprovePaidJoin?: boolean;
     };
     setJoinOfficialDomain(d.officialEmailDomain ?? "");
     setJoinDomainRequired(d.officialEmailDomainRequired);
     setJoinCodeRequired(d.joinFormRequireAccessCode);
     setJoinQuestion(d.joinFormCustomQuestion ?? "");
     setJoinDefaultMonths(d.joinFormDefaultMonths ?? 1);
+    setAutoApproveFreeJoin(Boolean(d.autoApproveFreeJoin));
+    setAutoApprovePaidJoin(Boolean(d.autoApprovePaidJoin));
     setJoinSubscriptionFee(
       d.subscriptionFeeGbp != null && d.subscriptionFeeGbp !== ""
         ? String(d.subscriptionFeeGbp)
@@ -290,10 +296,22 @@ export function CommunityMembershipOwnerPanel({
         joinFormRequireAccessCode: joinCodeRequired,
         joinFormCustomQuestion: joinQuestion.trim() || null,
         joinFormDefaultMonths: joinDefaultMonths,
+        autoApproveFreeJoin,
+        autoApprovePaidJoin,
       });
       if (!res.success) {
         toast.error(res.message ?? "Save failed");
         return;
+      }
+      const saved = res.data as {
+        autoApproveFreeJoin?: boolean;
+        autoApprovePaidJoin?: boolean;
+      };
+      if (saved.autoApproveFreeJoin !== undefined) {
+        setAutoApproveFreeJoin(Boolean(saved.autoApproveFreeJoin));
+      }
+      if (saved.autoApprovePaidJoin !== undefined) {
+        setAutoApprovePaidJoin(Boolean(saved.autoApprovePaidJoin));
       }
       const feeRaw = joinSubscriptionFee.trim();
       let feeVal: number | null;
@@ -641,6 +659,49 @@ export function CommunityMembershipOwnerPanel({
                       Set the default membership duration and optional monthly
                       subscription price.
                     </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3 rounded-md border p-3">
+                      <Switch
+                        id="auto-approve-free"
+                        className="mt-0.5 shrink-0"
+                        checked={autoApproveFreeJoin}
+                        onCheckedChange={setAutoApproveFreeJoin}
+                      />
+                      <div className="min-w-0">
+                        <Label
+                          htmlFor="auto-approve-free"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Auto-approve free join requests
+                        </Label>
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                          Automatically accept join requests that do not require
+                          payment.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-md border p-3">
+                      <Switch
+                        id="auto-approve-paid"
+                        className="mt-0.5 shrink-0"
+                        checked={autoApprovePaidJoin}
+                        onCheckedChange={setAutoApprovePaidJoin}
+                      />
+                      <div className="min-w-0">
+                        <Label
+                          htmlFor="auto-approve-paid"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Auto-approve paid subscriptions
+                        </Label>
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                          Automatically activate members after successful paid
+                          subscription checkout.
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">

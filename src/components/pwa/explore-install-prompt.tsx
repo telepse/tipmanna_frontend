@@ -14,11 +14,7 @@ import {
   markPwaInstalled,
   type PwaPreferenceRecord,
 } from "@/lib/pwa-preference-client";
-
-function isIos(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent);
-}
+import { getPwaInstallInstructions } from "@/lib/pwa-utils";
 
 /** Manual install affordance — ignores do_not_show; shown after at least one dismiss. */
 export function ExploreInstallPrompt() {
@@ -27,7 +23,8 @@ export function ExploreInstallPrompt() {
     null
   );
   const [sessionDismissed, setSessionDismissed] = useState(false);
-  const [showIosHelp, setShowIosHelp] = useState(false);
+  const [showManualHelp, setShowManualHelp] = useState(false);
+  const manualInstall = getPwaInstallInstructions();
 
   const refreshPreference = useCallback(() => {
     void fetchPwaPreference().then(setPreference);
@@ -57,9 +54,7 @@ export function ExploreInstallPrompt() {
       });
       return;
     }
-    if (isIos()) {
-      setShowIosHelp(true);
-    }
+    setShowManualHelp(true);
   };
 
   return (
@@ -73,15 +68,17 @@ export function ExploreInstallPrompt() {
         aria-hidden
       />
       <div className="min-w-0 flex-1">
-        <p className="text-foreground text-sm font-medium">Install Tipmanna</p>
+        <p className="text-foreground text-sm font-medium">
+          {manualInstall.title.replace(/:$/, "")}
+        </p>
         <p className="text-muted-foreground mt-0.5 text-xs">
           Add to your home screen for quick access to Explore and live tipping.
         </p>
-        {showIosHelp && !canInstall ? (
+        {showManualHelp && !canInstall ? (
           <ol className="text-muted-foreground mt-2 list-decimal space-y-1 pl-4 text-xs">
-            <li>Tap the Share button in Safari</li>
-            <li>Scroll down and tap &quot;Add to Home Screen&quot;</li>
-            <li>Tap Add</li>
+            {manualInstall.steps.map(step => (
+              <li key={step}>{step}</li>
+            ))}
           </ol>
         ) : null}
         <div className="mt-2 flex gap-2">
@@ -91,7 +88,15 @@ export function ExploreInstallPrompt() {
             className="bg-black"
             onClick={handleInstallClick}
           >
-            {canInstall ? "Install" : isIos() ? "How to install" : "Install"}
+            {canInstall
+              ? "Install"
+              : manualInstall.variant === "ios"
+                ? "Add to Home Screen"
+                : manualInstall.variant === "android"
+                  ? "Install app"
+                  : manualInstall.variant === "desktop-safari"
+                    ? "Add to Dock"
+                    : "How to install"}
           </Button>
           <Button
             type="button"

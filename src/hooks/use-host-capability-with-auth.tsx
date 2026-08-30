@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import SignInDialog, {
   type SignInModalPayload,
@@ -42,10 +42,20 @@ export function useHostCapabilityWithAuth(options?: Options) {
   const [hostUpgradeOpen, setHostUpgradeOpen] = useState(false);
   const pendingRef = useRef<PendingTask | null>(null);
 
+  useEffect(() => {
+    if (base.canWriteAsHost && hostSignInOpen) {
+      setHostSignInOpen(false);
+    }
+  }, [base.canWriteAsHost, hostSignInOpen]);
+
   const requestHostAuth = useCallback(
     (onSuccess?: PendingTask) => {
       if (base.canWriteAsHost) {
         void onSuccess?.();
+        return;
+      }
+      if (base.capability.status === "loading" || base.sessionLoading) {
+        pendingRef.current = onSuccess ?? null;
         return;
       }
       if (base.capability.status === "none") {
@@ -60,11 +70,19 @@ export function useHostCapabilityWithAuth(options?: Options) {
     [
       base.canWriteAsHost,
       base.capability.status,
+      base.sessionLoading,
       requireHostAccount,
       user?.email,
       user?.role,
     ]
   );
+
+  useEffect(() => {
+    if (!base.canWriteAsHost || !pendingRef.current) return;
+    const task = pendingRef.current;
+    pendingRef.current = null;
+    void task();
+  }, [base.canWriteAsHost]);
 
   const requestCohostAuth = useCallback((onSuccess?: PendingTask) => {
     pendingRef.current = onSuccess ?? null;

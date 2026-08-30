@@ -41,18 +41,25 @@ function countryNameToFlagCode(
 
 export function resolveContentLocaleDisplay(
   contentLanguage?: string | null,
-  contentCountry?: string | null
-): { contentLanguage: string; flagCode: string; flagUrl: string } {
+  contentCountry?: string | null,
+  opts?: { countryOnly?: boolean }
+): {
+  contentLanguage: string;
+  flagCode: string | null;
+  flagUrl: string | null;
+} {
   const normalizedLanguage = normalizeContentLanguage(contentLanguage);
 
-  const flagCode =
-    countryNameToFlagCode(contentCountry) ??
-    languageTagToFlagCode(normalizedLanguage) ??
-    DEFAULT_FLAG_CODE;
+  const countryCode = countryNameToFlagCode(contentCountry);
+  const flagCode = opts?.countryOnly
+    ? (countryCode ?? null)
+    : (countryCode ??
+      languageTagToFlagCode(normalizedLanguage) ??
+      DEFAULT_FLAG_CODE);
 
   return {
     contentLanguage: normalizedLanguage,
     flagCode,
-    flagUrl: `https://flagcdn.com/w40/${flagCode}.png`,
+    flagUrl: flagCode ? `https://flagcdn.com/w40/${flagCode}.png` : null,
   };
 }

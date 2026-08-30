@@ -131,7 +131,7 @@ Then harden the existing helpers:
 
 - [frontend/src/lib/getHostId.ts](frontend/src/lib/getHostId.ts) reads the primary `user` cookie as the host - switch to `hostUser`.
 - Host-scoped server actions still using `serverAuthHeaders` must use `serverHostAuthHeaders`: [frontend/src/actions/host-payouts.ts](frontend/src/actions/host-payouts.ts) (84, 96, 111, 127), [frontend/src/actions/host.ts](frontend/src/actions/host.ts), [frontend/src/actions/events.ts](frontend/src/actions/events.ts) (70, 124, 156-193), and `getHostProfileAction`/`updateHostProfileAction`/`updateHostAction` in [frontend/src/actions/auth.ts](frontend/src/actions/auth.ts) (346, 360, 381).
-- [frontend/src/app/(dashboard)/host/[slug]/manage-event/[eventId]/page.tsx](frontend/src/app/(dashboard)/host/[slug]/manage-event/[eventId]/page.tsx) 24-31 and `sidebar-wrapper.tsx:21` / `useHostEvents.ts:15` rely on the primary cookie falling back correctly - they will return wrong or empty data until migrated.
+- [frontend/src/app/(dashboard)/host/[slug]/manage-event/[eventId]/page.tsx](<frontend/src/app/(dashboard)/host/[slug]/manage-event/[eventId]/page.tsx>) 24-31 and `sidebar-wrapper.tsx:21` / `useHostEvents.ts:15` rely on the primary cookie falling back correctly - they will return wrong or empty data until migrated.
 
 ## Phase 7 - Dashboard migration (largest slice)
 
@@ -158,7 +158,7 @@ Migrate from primary Redux to `useHostSession()` / `useHostProfile()` / host tok
 
 ## Phase 10 - Verification that would have caught this
 
-The existing [backend/src/scripts/verify-hybrid-auth-matrix.ts](backend/src/scripts/verify-hybrid-auth-matrix.ts) only asserts that enforcement is *wired* (file contents, `enforce()` chain lengths). It cannot catch a correctly-wired gate fed a wrong identity. Add:
+The existing [backend/src/scripts/verify-hybrid-auth-matrix.ts](backend/src/scripts/verify-hybrid-auth-matrix.ts) only asserts that enforcement is _wired_ (file contents, `enforce()` chain lengths). It cannot catch a correctly-wired gate fed a wrong identity. Add:
 
 - Integration tests under `backend/src/controllers/__tests__/` (vitest, `*.spec.ts` per [backend/vitest.config.ts](backend/vitest.config.ts)) asserting the **identity contract**: for a linked email, `/auth/login-tipper`, `/auth/login-or-register-tipper`, and `/auth/verify-code` each return `role: "TIPPER"` and a JWT whose decoded `role` claim is `tipper`.
 - A test that `requireActiveHostSession` rejects a tipper JWT with `HOST_SESSION_REQUIRED`, and that `requireHostOrPairedTipper` accepts it.

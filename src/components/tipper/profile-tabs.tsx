@@ -99,7 +99,8 @@ interface Props {
   causes: Cause[];
   contents?: any[];
   tippedVideos?: TippedVideoSummary[];
-  variant?: "page" | "drawer";
+  variant?: "owner" | "public" | "drawer";
+  totalTipped?: number;
 }
 
 function walletStatusLabel(status: string | null | undefined): string {
@@ -118,9 +119,12 @@ export const ProfileTabs = ({
   causes,
   contents,
   tippedVideos = [],
-  variant = "page",
+  variant = "owner",
+  totalTipped,
 }: Props) => {
   const isDrawer = variant === "drawer";
+  const isPublic = variant === "public";
+  const isOwner = variant === "owner";
 
   const [tab, setTab] = useState<
     | "notifications"
@@ -131,7 +135,7 @@ export const ProfileTabs = ({
     | "saved"
     | "wallet"
     | "activity"
-  >(isDrawer ? "history" : "notifications");
+  >(isOwner ? "history" : "history");
 
   const user = useSelector((s: RootState) => s.auth.user);
 
@@ -178,9 +182,12 @@ export const ProfileTabs = ({
     return ids;
   }, [tipperEventCount]);
 
-  const totalTippedAmount = events?.length
-    ? events.reduce((sum, ev) => sum + ev.totalTipped, 0)
-    : 0;
+  const totalTippedAmount =
+    typeof totalTipped === "number"
+      ? totalTipped
+      : events?.length
+        ? events.reduce((sum, ev) => sum + ev.totalTipped, 0)
+        : 0;
 
   const milestonesWithStatus: Milestone[] = PROFILE_MILESTONES.map(
     milestone => {
@@ -249,7 +256,7 @@ export const ProfileTabs = ({
 
         <div className="w-full max-w-full min-w-0 overflow-hidden">
           <TabsList className="flex h-auto w-full max-w-full min-w-0 touch-pan-x justify-start gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-x-hidden lg:overscroll-x-auto [&::-webkit-scrollbar]:hidden">
-            {!isDrawer ? (
+            {isOwner ? (
               <>
                 <TabsTrigger
                   value="notifications"
@@ -277,13 +284,15 @@ export const ProfileTabs = ({
               <span>Tipping History</span>
             </TabsTrigger>
 
-            <TabsTrigger
-              value="wallet"
-              className="data-[state=active]:bg-primary flex min-h-12 min-w-[140px] shrink-0 items-center justify-center gap-1.5 px-3 text-center text-xs leading-tight font-semibold whitespace-nowrap data-[state=active]:text-white sm:min-w-[150px] sm:text-sm lg:min-w-0"
-            >
-              <Wallet className="hidden size-5 sm:inline-block" />
-              <span>Wallet</span>
-            </TabsTrigger>
+            {isOwner ? (
+              <TabsTrigger
+                value="wallet"
+                className="data-[state=active]:bg-primary flex min-h-12 min-w-[140px] shrink-0 items-center justify-center gap-1.5 px-3 text-center text-xs leading-tight font-semibold whitespace-nowrap data-[state=active]:text-white sm:min-w-[150px] sm:text-sm lg:min-w-0"
+              >
+                <Wallet className="hidden size-5 sm:inline-block" />
+                <span>Wallet</span>
+              </TabsTrigger>
+            ) : null}
 
             <TabsTrigger
               value="milestones"
@@ -301,7 +310,7 @@ export const ProfileTabs = ({
               <span>Awards</span>
             </TabsTrigger>
 
-            {!isDrawer ? (
+            {isOwner ? (
               <TabsTrigger
                 value="saved"
                 className="data-[state=active]:bg-primary flex min-h-12 min-w-[140px] shrink-0 items-center justify-center gap-1.5 px-3 text-center text-xs leading-tight font-semibold whitespace-nowrap data-[state=active]:text-white sm:min-w-[150px] sm:text-sm lg:min-w-0"
@@ -311,13 +320,15 @@ export const ProfileTabs = ({
               </TabsTrigger>
             ) : null}
 
-            <TabsTrigger
-              value="activity"
-              className="data-[state=active]:bg-primary flex min-h-12 min-w-[140px] shrink-0 items-center justify-center gap-1.5 px-3 text-center text-xs leading-tight font-semibold whitespace-nowrap data-[state=active]:text-white sm:min-w-[150px] sm:text-sm lg:min-w-0"
-            >
-              <Heart className="hidden size-5 sm:inline-block" />
-              <span>Activity</span>
-            </TabsTrigger>
+            {isOwner ? (
+              <TabsTrigger
+                value="activity"
+                className="data-[state=active]:bg-primary flex min-h-12 min-w-[140px] shrink-0 items-center justify-center gap-1.5 px-3 text-center text-xs leading-tight font-semibold whitespace-nowrap data-[state=active]:text-white sm:min-w-[150px] sm:text-sm lg:min-w-0"
+              >
+                <Heart className="hidden size-5 sm:inline-block" />
+                <span>Activity</span>
+              </TabsTrigger>
+            ) : null}
           </TabsList>
         </div>
 
@@ -325,7 +336,7 @@ export const ProfileTabs = ({
             NOTIFICATIONS
             ========================================================= */}
 
-        {!isDrawer ? (
+        {!isOwner ? null : (
           <>
             <TabsContent
               value="notifications"
@@ -342,7 +353,7 @@ export const ProfileTabs = ({
               <ReminderBucketTab variant="page" />
             </TabsContent>
           </>
-        ) : null}
+        )}
 
         {/* =========================================================
             TIPPING HISTORY
@@ -381,16 +392,18 @@ export const ProfileTabs = ({
                       {v.tipCount === 1 ? "" : "s"}
                     </div>
 
-                    <div className="text-muted-foreground mt-1 text-xs">
-                      Last tipped{" "}
-                      {new Date(v.lastTippedAt).toLocaleString(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                      {v.paymentSurfaces?.length
-                        ? ` · ${v.paymentSurfaces.join(", ")}`
-                        : ""}
-                    </div>
+                    {!isDrawer ? (
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        Last tipped{" "}
+                        {new Date(v.lastTippedAt).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                        {v.paymentSurfaces?.length
+                          ? ` · ${v.paymentSurfaces.join(", ")}`
+                          : ""}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -403,7 +416,7 @@ export const ProfileTabs = ({
                 name={selectedEvent.eventName}
                 date={selectedEvent.eventDate}
                 total={selectedEvent.totalTipped}
-                iTipped={selectedEvent.rating}
+                iTipped={selectedEvent.totalTipped}
               />
             )}
 
@@ -411,13 +424,19 @@ export const ProfileTabs = ({
             <div className="mt-4 max-h-[45vh] space-y-4 overflow-y-auto">
               {selectedEvent?.characters?.length ? (
                 selectedEvent.characters.map(
-                  (char: Character, index: number) => (
+                  (
+                    char: Character & { iconUrl?: string | null },
+                    index: number
+                  ) => (
                     <ProfileCharacterCard
                       key={index}
                       name={char.name}
-                      icon={`/icons/${char.name
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")}.png`}
+                      icon={
+                        char.iconUrl ??
+                        `/icons/${char.name
+                          .toLowerCase()
+                          .replace(/\s+/g, "-")}.png`
+                      }
                       time={char.time}
                       price={char.price.toString()}
                       purchasedAt={char.purchasedAt}
@@ -445,7 +464,7 @@ export const ProfileTabs = ({
                     key={index}
                     name={item.eventName}
                     date={item.eventDate}
-                    rating={item.rating}
+                    rating={item.totalTipped}
                     price={item.totalTipped}
                     isActive={selectedEvent?.eventName === item.eventName}
                     onSelect={() => setSelectedEvent(item)}
@@ -455,133 +474,139 @@ export const ProfileTabs = ({
           </div>
 
           {/* Charities */}
-          <Charities causes={causes} />
+          {!isPublic && !isDrawer ? <Charities causes={causes} /> : null}
         </TabsContent>
 
         {/* =========================================================
             WALLET
             ========================================================= */}
 
-        <TabsContent
-          value="wallet"
-          className="min-w-0 space-y-4"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Paragraph weight="bold">Tipper Wallet</Paragraph>
+        {isOwner ? (
+          <TabsContent
+            value="wallet"
+            className="min-w-0 space-y-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Paragraph weight="bold">Tipper Wallet</Paragraph>
 
-            {(user?.role === "TIPPER" || user?.role === "HOST") &&
-            !walletLive?.exists ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => setWalletTopupOpen(true)}
-              >
-                Set up wallet
-              </Button>
-            ) : null}
-
-            {walletLive?.exists && walletLive.status === "ACTIVE" ? (
-              <Button
-                type="button"
-                size="sm"
-                className="bg-black text-white"
-                onClick={() => setWalletTopupOpen(true)}
-              >
-                Add funds
-              </Button>
-            ) : null}
-          </div>
-
-          {user?.role !== "TIPPER" && user?.role !== "HOST" ? (
-            <Paragraph
-              size="sm"
-              color="muted"
-            >
-              Sign in as a tipper or host to manage your wallet here.
-            </Paragraph>
-          ) : !walletLive?.exists ? (
-            <Paragraph
-              size="sm"
-              color="muted"
-            >
-              Activate your wallet from any tip flow, or open Add funds after
-              you create a wallet.
-            </Paragraph>
-          ) : (
-            <div className="space-y-2 text-sm">
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    walletLive.status === "ACTIVE"
-                      ? "bg-emerald-100 text-emerald-900"
-                      : walletLive.status === "DISABLED"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-900"
-                  }`}
+              {(user?.role === "TIPPER" || user?.role === "HOST") &&
+              !walletLive?.exists ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setWalletTopupOpen(true)}
                 >
-                  {walletStatusLabel(walletLive.status)}
-                </span>
+                  Set up wallet
+                </Button>
+              ) : null}
 
-                <span>
-                  Balance:{" "}
-                  <strong>£{Number(walletLive.balance).toFixed(2)}</strong>
-                </span>
-              </div>
-
-              {walletLive.status === "DISABLED" ? (
-                <p className="text-sm text-red-700">
-                  Your Tipper Wallet is disabled. Please contact
-                  hello@tipmanna.tv for assistance.
-                </p>
+              {walletLive?.exists && walletLive.status === "ACTIVE" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-black text-white"
+                  onClick={() => setWalletTopupOpen(true)}
+                >
+                  Add funds
+                </Button>
               ) : null}
             </div>
-          )}
 
-          {txError ? <p className="text-sm text-red-600">{txError}</p> : null}
-
-          <div className="max-h-[50vh] space-y-2 overflow-y-auto text-sm">
-            {walletTx.length === 0 && !txError ? (
+            {user?.role !== "TIPPER" && user?.role !== "HOST" ? (
               <Paragraph
                 size="sm"
                 color="muted"
               >
-                No wallet transactions yet.
+                Sign in as a tipper or host to manage your wallet here.
+              </Paragraph>
+            ) : !walletLive?.exists ? (
+              <Paragraph
+                size="sm"
+                color="muted"
+              >
+                Activate your wallet from any tip flow, or open Add funds after
+                you create a wallet.
               </Paragraph>
             ) : (
-              walletTx.map(row => (
-                <div
-                  key={row.id}
-                  className="flex flex-wrap justify-between gap-2 rounded-md border bg-white p-3"
-                >
-                  <span className="font-medium">
-                    {formatLedgerKind(row.kind)}
-                  </span>
-
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={
-                      row.kind === "DEBIT" ? "text-red-700" : "text-emerald-800"
-                    }
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      walletLive.status === "ACTIVE"
+                        ? "bg-emerald-100 text-emerald-900"
+                        : walletLive.status === "DISABLED"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-amber-100 text-amber-900"
+                    }`}
                   >
-                    {row.kind === "DEBIT" ? "−" : "+"}£
-                    {Number(row.amount).toFixed(2)}
+                    {walletStatusLabel(walletLive.status)}
                   </span>
 
-                  <span className="text-muted-foreground w-full text-xs">
-                    Balance after £{Number(row.balanceAfter).toFixed(2)} ·{" "}
-                    {new Date(row.createdAt).toLocaleString()}
-                    {row.eventId ? ` · Event ${row.eventId.slice(0, 8)}…` : ""}
-                    {row.stripePaymentIntentId
-                      ? ` · Stripe ${row.stripePaymentIntentId.slice(0, 10)}…`
-                      : ""}
+                  <span>
+                    Balance:{" "}
+                    <strong>£{Number(walletLive.balance).toFixed(2)}</strong>
                   </span>
                 </div>
-              ))
-            )}
-          </div>
 
-          <Charities causes={causes} />
-        </TabsContent>
+                {walletLive.status === "DISABLED" ? (
+                  <p className="text-sm text-red-700">
+                    Your Tipper Wallet is disabled. Please contact
+                    hello@tipmanna.tv for assistance.
+                  </p>
+                ) : null}
+              </div>
+            )}
+
+            {txError ? <p className="text-sm text-red-600">{txError}</p> : null}
+
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto text-sm">
+              {walletTx.length === 0 && !txError ? (
+                <Paragraph
+                  size="sm"
+                  color="muted"
+                >
+                  No wallet transactions yet.
+                </Paragraph>
+              ) : (
+                walletTx.map(row => (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap justify-between gap-2 rounded-md border bg-white p-3"
+                  >
+                    <span className="font-medium">
+                      {formatLedgerKind(row.kind)}
+                    </span>
+
+                    <span
+                      className={
+                        row.kind === "DEBIT"
+                          ? "text-red-700"
+                          : "text-emerald-800"
+                      }
+                    >
+                      {row.kind === "DEBIT" ? "−" : "+"}£
+                      {Number(row.amount).toFixed(2)}
+                    </span>
+
+                    <span className="text-muted-foreground w-full text-xs">
+                      Balance after £{Number(row.balanceAfter).toFixed(2)} ·{" "}
+                      {new Date(row.createdAt).toLocaleString()}
+                      {row.eventId
+                        ? ` · Event ${row.eventId.slice(0, 8)}…`
+                        : ""}
+                      {row.stripePaymentIntentId
+                        ? ` · Stripe ${row.stripePaymentIntentId.slice(0, 10)}…`
+                        : ""}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <Charities causes={causes} />
+          </TabsContent>
+        ) : null}
 
         {/* =========================================================
             MILESTONES
@@ -616,7 +641,7 @@ export const ProfileTabs = ({
             ))}
           </div>
 
-          <Charities causes={causes} />
+          {!isPublic && !isDrawer ? <Charities causes={causes} /> : null}
         </TabsContent>
 
         {/* =========================================================
@@ -643,14 +668,14 @@ export const ProfileTabs = ({
             </div>
           </div>
 
-          <Charities causes={causes} />
+          {!isPublic && !isDrawer ? <Charities causes={causes} /> : null}
         </TabsContent>
 
         {/* =========================================================
             SAVED
             ========================================================= */}
 
-        {!isDrawer ? (
+        {isOwner ? (
           <TabsContent
             value="saved"
             className="min-w-0 space-y-4"
@@ -663,36 +688,40 @@ export const ProfileTabs = ({
             ACTIVITY
             ========================================================= */}
 
-        <TabsContent
-          value="activity"
-          className="min-w-0 space-y-4"
-        >
-          <ProfileActivityTab />
-        </TabsContent>
+        {isOwner ? (
+          <TabsContent
+            value="activity"
+            className="min-w-0 space-y-4"
+          >
+            <ProfileActivityTab />
+          </TabsContent>
+        ) : null}
       </Tabs>
 
       {/* =========================================================
           WALLET DIALOG
           ========================================================= */}
 
-      <TipperWalletDialog
-        open={walletTopupOpen}
-        onOpenChange={setWalletTopupOpen}
-        userId={user?.id}
-        userRole={user?.role}
-        mode="topup"
-        eventId={undefined}
-        totalAmount={0}
-        characters={[]}
-        selectedTips={[]}
-        paymentSurface="unknown"
-        paymentChannelId={null}
-        walletSnapshot={walletLive}
-        onWalletSnapshotRefresh={refreshWallet}
-        onWalletDebitSuccess={() => {
-          void loadWalletTabData();
-        }}
-      />
+      {isOwner ? (
+        <TipperWalletDialog
+          open={walletTopupOpen}
+          onOpenChange={setWalletTopupOpen}
+          userId={user?.id}
+          userRole={user?.role}
+          mode="topup"
+          eventId={undefined}
+          totalAmount={0}
+          characters={[]}
+          selectedTips={[]}
+          paymentSurface="unknown"
+          paymentChannelId={null}
+          walletSnapshot={walletLive}
+          onWalletSnapshotRefresh={refreshWallet}
+          onWalletDebitSuccess={() => {
+            void loadWalletTabData();
+          }}
+        />
+      ) : null}
     </div>
   );
 };

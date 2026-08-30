@@ -11,6 +11,9 @@ export type ExploreFeedOpenTarget = {
    * when the viewer/session differs from the list endpoint.
    */
   channelSnapshot?: Record<string, unknown>;
+  /** When opened from Discover, channel back chip should restore this URL. */
+  discoverReturnTo?: string;
+  discoverReturnLabel?: string;
 };
 
 export function getExploreSlideStepPx(scrollRoot: HTMLElement): number {
@@ -34,6 +37,25 @@ export function resolveExploreFeedScrollIndex(
     itemCount - 1,
     Math.max(0, Math.round(scrollRoot.scrollTop / h))
   );
+}
+
+export function buildExploreFeedOpenTarget(args: {
+  content: { id: string; event?: { id?: string } | null };
+  channelSnapshot?: Record<string, unknown>;
+  discoverReturnTo?: string;
+  discoverReturnLabel?: string;
+}): ExploreFeedOpenTarget | null {
+  const eventId = args.content.event?.id?.trim();
+  if (!eventId) return null;
+  return {
+    videoId: args.content.id,
+    eventId,
+    ...(args.channelSnapshot ? { channelSnapshot: args.channelSnapshot } : {}),
+    ...(args.discoverReturnTo ? { discoverReturnTo: args.discoverReturnTo } : {}),
+    ...(args.discoverReturnLabel
+      ? { discoverReturnLabel: args.discoverReturnLabel }
+      : {}),
+  };
 }
 
 export function scrollExploreFeedToIndex(

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { ChevronsUpDownIcon, X } from "lucide-react";
 
 import {
@@ -23,22 +24,28 @@ export function DiscoverSheet({
   className,
   ...panelProps
 }: Props) {
-  if (!open) return null;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   return (
     <>
       <button
         type="button"
         aria-label="Close discover"
-        className="fixed inset-0 z-[12000] bg-black/40"
+        className={cn(
+          "fixed inset-0 z-[12000] bg-black/40",
+          !open && "pointer-events-none invisible"
+        )}
         onClick={onClose}
+        tabIndex={open ? 0 : -1}
       />
       <div
         role="dialog"
-        aria-modal="true"
+        aria-modal={open}
+        aria-hidden={!open}
         aria-label="Discover"
         className={cn(
-          "bg-background fixed inset-x-0 top-0 z-[12001] flex max-h-[85dvh] flex-col rounded-b-2xl shadow-xl",
+          "bg-background fixed inset-x-0 top-0 z-[12001] flex max-h-[85dvh] flex-col rounded-b-2xl shadow-xl transition-opacity",
+          !open && "pointer-events-none invisible opacity-0",
           className
         )}
         style={{ touchAction: "pan-y", overscrollBehavior: "contain" }}
@@ -54,6 +61,7 @@ export function DiscoverSheet({
           aria-label="Close discover panel"
           className="absolute top-3 right-3 bg-black p-1"
           onClick={onClose}
+          tabIndex={open ? 0 : -1}
         >
           <X className="size-5 text-white" />
         </button>
@@ -85,10 +93,14 @@ export function DiscoverSheet({
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pt-8">
+        <div
+          ref={scrollContainerRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pt-8"
+        >
           <DiscoverPanel
             showHeading={false}
-            surface="exploreTab"
+            surface="explorePanel"
+            scrollContainerRef={scrollContainerRef}
             {...panelProps}
           />
         </div>

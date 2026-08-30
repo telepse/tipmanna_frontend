@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { UseFormReturn } from "react-hook-form";
 import { toast } from "react-toastify";
 import {
   Plus,
@@ -38,20 +37,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  AddVideoForm,
-  buildCreateChannelPayload,
-  type AddVideoFormValues,
-} from "@/components/events/add-video-form";
-import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
-import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
-import { applyServerFormErrors } from "@/lib/form-error-mapper";
+import { AddCommunityBankVideoDialog } from "@/components/community/add-community-bank-video-dialog";
 import {
   acceptPayoutSettlementAction,
   getHostPayoutSummaryAction,
 } from "@/actions/host-payouts";
 import {
-  addCommunityVideoAction,
   approveCommunityBankEntryAction,
   getCommunityContentBankAction,
   getCommunitySendsAction,
@@ -82,6 +73,8 @@ import { parseHostEventsEligibleForCommunity } from "@/lib/parse-host-events";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
+import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subscription-modal";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import { uploadImage } from "@/lib/cloudinary";
@@ -219,18 +212,32 @@ function OwnerBankCard({
 }) {
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "community" });
   const [busy, setBusy] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [copied, setCopied] = useState(false);
 
   const run = async (
-    fn: () => Promise<{ success: boolean; message?: string }>
+    fn: () => Promise<{
+      success: boolean;
+      message?: string;
+      validationBody?: unknown;
+    }>
   ) => {
     setBusy(true);
     try {
       const res = await fn();
       if (!res.success) {
+        if (
+          handleSubscriptionActionError(res, {
+            focusTier: "community",
+            toastFallback: false,
+          })
+        ) {
+          return;
+        }
         toast.error(res.message ?? "Request failed");
         return;
       }
@@ -271,6 +278,7 @@ function OwnerBankCard({
 
   return (
     <>
+      {SubscriptionPromptModal}
       <Dialog
         open={rejectOpen}
         onOpenChange={o => !busy && setRejectOpen(o)}
@@ -520,6 +528,8 @@ export function HostCommunityClient() {
     info: planInfo,
     isLoading: planLoading,
   } = useHostPlanCapabilities();
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "community" });
   const communityActive =
     planInfo?.tier === "HOST_COMMUNITY" && planStatus === "active";
   const [memberships, setMemberships] = useState<Membership[]>([]);
@@ -534,9 +544,6 @@ export function HostCommunityClient() {
   const [loadingBank, setLoadingBank] = useState(false);
   const [loadingSends, setLoadingSends] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [addLoading, setAddLoading] = useState(false);
-  const [addVideoForm, setAddVideoForm] =
-    useState<UseFormReturn<AddVideoFormValues> | null>(null);
   const [modalDraftId, setModalDraftId] = useState<string | null>(null);
   const [coCreators, setCoCreators] = useState<{
     active: CoCreatorHostRow[];
@@ -757,7 +764,8 @@ export function HostCommunityClient() {
   useEffect(() => {
     const communityId = searchParams.get("communityId");
     const draftId = searchParams.get("modalDraftId");
-    const nextKey = `${communityId ?? ""}|${draftId ?? ""}`;
+    const addVideo = searchParams.get("addVideo");
+    const nextKey = `${communityId ?? ""}|${draftId ?? ""}|${addVideo ?? ""}`;
     if (appliedSearchParamsRef.current === nextKey) return;
     appliedSearchParamsRef.current = nextKey;
 
@@ -767,6 +775,9 @@ export function HostCommunityClient() {
     }
     if (draftId) {
       setModalDraftId(draftId);
+      setAddOpen(true);
+    }
+    if (addVideo === "1") {
       setAddOpen(true);
     }
   }, [searchParams]);
@@ -876,6 +887,9 @@ export function HostCommunityClient() {
         contactPhone: activationContactPhone.trim() || null,
       });
       if (!res.success) {
+        if (handleSubscriptionActionError(res, { focusTier: "community" })) {
+          return;
+        }
         toast.error(res.message ?? "Request failed");
         return;
       }
@@ -896,6 +910,7 @@ export function HostCommunityClient() {
     activationContactPhone,
     activationLogoPreview,
     loadActivationRequests,
+    handleSubscriptionActionError,
   ]);
 
   const canRequestTV = bank?.approved?.length && bank.approved.length >= 5;
@@ -922,6 +937,9 @@ export function HostCommunityClient() {
         kind: "tv",
       });
       if (!res.success) {
+        if (handleSubscriptionActionError(res, { focusTier: "community" })) {
+          return;
+        }
         toast.error(res.message ?? "Request failed");
         return;
       }
@@ -939,18 +957,22 @@ export function HostCommunityClient() {
     selected?.id,
     canRequestTV,
     loadActivationRequests,
+    handleSubscriptionActionError,
   ]);
 
   const resumeCommunityTv = useCallback(async () => {
     if (!selected?.id) return;
     const res = await resumeCommunityTvAction(selected.id);
     if (!res.success) {
+      if (handleSubscriptionActionError(res, { focusTier: "community" })) {
+        return;
+      }
       toast.error(res.message ?? "Resume failed");
       return;
     }
     toast.success("Community TV resumed");
     await loadMemberships({ background: true });
-  }, [authToken, selected?.id, loadMemberships]);
+  }, [authToken, selected?.id, loadMemberships, handleSubscriptionActionError]);
 
   const loadBank = useCallback(
     async (options?: { background?: boolean }) => {
@@ -1166,50 +1188,11 @@ export function HostCommunityClient() {
     }
   }, [selectedId, selectedRole, loadBank, loadSends, loadCoCreators, loadOwed]);
 
-  const onAddVideo = async (values: AddVideoFormValues) => {
-    if (!selected) return;
-    if (!authUser) {
-      toast.error("Not signed in");
-      return;
-    }
-    setAddLoading(true);
-    try {
-      const payload = buildCreateChannelPayload(values);
-      const res = await addCommunityVideoAction(
-        undefined,
-        selected.id,
-        payload,
-        { useHostSession: true }
-      );
-      if (!res.success) {
-        if (addVideoForm) {
-          applyServerFormErrors(
-            addVideoForm,
-            res.validationBody ?? { message: res.message }
-          );
-        } else {
-          toast.error(res.message ?? "Failed to add video");
-        }
-        return;
-      }
-      toast.success(
-        (res.data as { message?: string })?.message ?? "Video saved"
-      );
-      await clearModalFormDraft("community_video", selected.id, modalDraftId);
-      setModalDraftId(null);
-      setAddOpen(false);
-      await loadBank({ background: true });
-      await loadSends({ background: true });
-      await loadCoCreators({ background: true });
-    } catch (e) {
-      if (e instanceof Error) toast.error(e.message);
-      else if (typeof e === "object" && e !== null && "error" in e) {
-        toast.error((e as ApiError).error.message);
-      } else toast.error("Failed to add video");
-    } finally {
-      setAddLoading(false);
-    }
-  };
+  const onAddVideoSuccess = useCallback(async () => {
+    await loadBank({ background: true });
+    await loadSends({ background: true });
+    await loadCoCreators({ background: true });
+  }, [loadBank, loadCoCreators, loadSends]);
 
   const onInviteCoCreator = async () => {
     if (!selected || selected.role !== "owner") return;
@@ -1223,6 +1206,9 @@ export function HostCommunityClient() {
     try {
       const res = await inviteCoCreatorAction(selected.id, email);
       if (!res.success) {
+        if (handleSubscriptionActionError(res, { focusTier: "community" })) {
+          return;
+        }
         toast.error(res.message ?? "Invite failed");
         return;
       }
@@ -1240,6 +1226,9 @@ export function HostCommunityClient() {
     if (!authUser) return;
     const res = await revokeCoCreatorAction(selected.id, hostId);
     if (!res.success) {
+      if (handleSubscriptionActionError(res, { focusTier: "community" })) {
+        return;
+      }
       toast.error(res.message ?? "Could not revoke");
       return;
     }
@@ -1253,6 +1242,9 @@ export function HostCommunityClient() {
     if (!authUser) return;
     const res = await revokeCoCreatorInviteAction(selected.id, inviteId);
     if (!res.success) {
+      if (handleSubscriptionActionError(res, { focusTier: "community" })) {
+        return;
+      }
       toast.error(res.message ?? "Could not revoke invite");
       return;
     }
@@ -1324,6 +1316,7 @@ export function HostCommunityClient() {
 
   const communityBody = (
     <>
+      {SubscriptionPromptModal}
       {memberships.length === 0 ? (
         <>
           <DashboardHeading
@@ -2272,40 +2265,21 @@ export function HostCommunityClient() {
           )}
         </DialogContent>
       </Dialog>
-      {memberships.length > 0 ? (
+      {memberships.length > 0 && selected ? (
         <>
-          <Dialog
+          <AddCommunityBankVideoDialog
             open={addOpen}
             onOpenChange={setAddOpen}
-          >
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Add video to community bank</DialogTitle>
-              </DialogHeader>
-              {selected && (
-                <AddVideoForm
-                  onSubmit={onAddVideo}
-                  loading={addLoading}
-                  eventEventType={selected.eventType}
-                  showHostYoutubeSlot
-                  requirePolicyFields
-                  onFormReady={setAddVideoForm}
-                  onDraftIdChange={setModalDraftId}
-                  draftAutosave={{
-                    kind: "community_video",
-                    targetId: selected.id,
-                    enabled: true,
-                    resumeOrigin: {
-                      surface: "host_community",
-                      pathname: pathname ?? `/host/${hostSlug}/host-community`,
-                      targetId: selected.id,
-                    } satisfies DraftResumeOrigin,
-                  }}
-                  seedDraftId={modalDraftId}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
+            communityId={selected.id}
+            eventEventType={selected.eventType}
+            hostSlug={hostSlug}
+            pathname={pathname ?? undefined}
+            seedDraftId={modalDraftId}
+            onSuccess={() => {
+              setModalDraftId(null);
+              void onAddVideoSuccess();
+            }}
+          />
           <Dialog
             open={inviteOpen}
             onOpenChange={setInviteOpen}
@@ -2359,14 +2333,17 @@ export function HostCommunityClient() {
           title="Host Community"
           subtitle="Renew to manage communities, content bank, TV, sends, and subscription payouts."
         />
-        <HostSubscriptionPricingPanel
-          focusTier="community"
-          renewLabel="Renew Community"
-        />
-        <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          Your community plan has expired. The management UI below is read-only
-          until you renew. Premium features remain included with Community.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <p className="text-sm">
+            Your community plan has expired. Management tools below are
+            read-only until you renew.
+          </p>
+          <HostSubscriptionUpgradeTrigger
+            focusTier="community"
+            renewLabel="Renew Community"
+            label="Renew plan"
+          />
+        </div>
         <ReadOnlyOverlay>{communityBody}</ReadOnlyOverlay>
       </section>
     );

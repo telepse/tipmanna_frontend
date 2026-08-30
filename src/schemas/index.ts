@@ -289,6 +289,11 @@ export const newEventSchema = z.object({
       message: "Amount to raise is required",
     }),
 
+  thankYouMessage: z
+    .string()
+    .min(10, "Thank-you message is required")
+    .max(2000, "Thank-you message is too long"),
+
   // 💡 Tip usage disclosure
   tipUsageDisclosure: z
     .array(

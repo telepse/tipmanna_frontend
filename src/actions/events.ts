@@ -405,13 +405,15 @@ export async function getEventByIdAction(eventId: string) {
       "getEventByIdAction"
     );
   }
+  const trimmed = eventId.trim();
+  const { buildEventRoomRequestHeaders } = await import(
+    "@/lib/event-room-request"
+  );
   return runServerFetch<EventByIdData>(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId.trim()}`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${trimmed}`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: await buildEventRoomRequestHeaders(trimmed),
       cache: "no-store",
     },
     "getEventByIdAction",
@@ -439,13 +441,15 @@ export async function getEventChannels(eventId: string) {
   if (!eventId?.trim()) {
     return actionFail("Event ID is required", "getEventChannels");
   }
+  const trimmed = eventId.trim();
+  const { buildEventRoomRequestHeaders } = await import(
+    "@/lib/event-room-request"
+  );
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/channels`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${trimmed}/channels`,
     {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: await buildEventRoomRequestHeaders(trimmed),
       cache: "no-store",
     },
     "getEventChannels"
@@ -885,5 +889,99 @@ export async function addEventProjectsAction(
       cache: "no-store",
     },
     "addEventProjectsAction"
+  );
+}
+
+export async function patchEventAccessModeAction(
+  eventId: string,
+  accessMode: "public" | "invite_only"
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/access-mode`,
+    {
+      method: "PATCH",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ accessMode }),
+      cache: "no-store",
+    },
+    "patchEventAccessModeAction"
+  );
+}
+
+export async function getEventRoomInvitesAction(eventId: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-invites`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getEventRoomInvitesAction"
+  );
+}
+
+export async function createEventRoomInviteAction(
+  eventId: string,
+  email: string
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-invites`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ email }),
+      cache: "no-store",
+    },
+    "createEventRoomInviteAction"
+  );
+}
+
+export async function validateEventRoomInviteAction(token: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/room-invites/${encodeURIComponent(token)}/validate`,
+    {
+      method: "GET",
+      cache: "no-store",
+    },
+    "validateEventRoomInviteAction"
+  );
+}
+
+export async function acceptEventRoomInviteAction(token: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/room-invites/accept`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      cache: "no-store",
+    },
+    "acceptEventRoomInviteAction"
+  );
+}
+
+export async function getEventRoomAccessAction(
+  eventId: string,
+  inviteToken?: string | null
+) {
+  const { getToken } = await import("@/lib/getToken");
+  const { getEventRoomInviteToken } = await import(
+    "@/lib/event-room-invite-cookie.server"
+  );
+  const token = await getToken();
+  const resolvedInvite =
+    inviteToken?.trim() || (await getEventRoomInviteToken(eventId));
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (resolvedInvite) headers["x-event-room-invite-token"] = resolvedInvite;
+
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access`,
+    {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    },
+    "getEventRoomAccessAction"
   );
 }

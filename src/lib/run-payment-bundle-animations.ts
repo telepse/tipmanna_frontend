@@ -15,9 +15,11 @@ import {
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import {
   getPlaybackKeyState,
+  releasePlaybackKey,
   reservePlaybackKey,
   reservePlaybackKeyWithAlias,
 } from "@/lib/playback-key-lifecycle";
+import { isPayerPendingReturnTransaction } from "@/lib/pending-payment-return";
 import { buildTransactionAliasPlaybackKey } from "@/lib/payment-playback-key";
 import type {
   AnimationQueueTask,
@@ -70,8 +72,9 @@ export function enqueuePaymentBundleForValidatedTip(options: {
   } = options;
 
   const bypassSegmentFreshness =
-    bundleRunContext?.deliverySource === "payer_origin_recovery" &&
-    bundleRunContext?.bypassSegmentFreshness === true;
+    (bundleRunContext?.deliverySource === "payer_origin_recovery" &&
+      bundleRunContext?.bypassSegmentFreshness === true) ||
+    isPayerPendingReturnTransaction(data.transactionId);
 
   const emptyResult = (
     rejections: PaymentCharacterStyleRejection[] = [],
@@ -202,21 +205,8 @@ export function enqueuePaymentBundleForValidatedTip(options: {
         cycleOutcome: "noop_or_skipped",
         result: "skipped",
       });
-
-      paymentAnimations.push({
-        playbackKey: key,
-        traceMeta,
-        run: async () => {
-          tracePaymentAnimation({
-            stage: "payment_character_playback_finished",
-            ...traceMeta,
-            playbackKey: key,
-            cycle1Outcome: "noop_or_skipped",
-            playbackResult: "skipped",
-            result: "skipped",
-          });
-        },
-      });
+      releasePlaybackKey(key, "flush", traceMeta);
+      return;
     } else {
       paymentAnimations.push({
         playbackKey: key,

@@ -1,21 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { InstallPromptSheet } from "@/components/pwa/install-prompt-sheet";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import {
-  consumePendingPaymentPrompt,
-  hasEngagementFiredThisSession,
+  fetchPwaPromptPolicy,
+  hasPromptAFiredThisSession,
+  hasPromptBFiredThisSession,
+  isDashboardPath,
   isPwaAutoPromptSuppressed,
-  markEngagementFiredThisSession,
-  PWA_ENGAGEMENT_MS,
-  readEngagementElapsedMs,
+  markPromptAFiredThisSession,
+  markPromptBFiredThisSession,
+  readDwellElapsedMs,
   requestPwaPrompt,
   subscribePwaPrompt,
-  writeEngagementElapsedMs,
+  writeDwellElapsedMs,
   type PwaInstallTrigger,
   type PwaPreferenceSnapshot,
+  type PromptPolicySnapshot,
 } from "@/lib/pwa-install-trigger";
 import {
   fetchPwaPreference,
@@ -23,20 +27,23 @@ import {
   type PwaPreferenceRecord,
 } from "@/lib/pwa-preference-client";
 
-const PAYMENT_PROMPT_DELAY_MS = 3500;
-
 export function PwaInstallController() {
+  const pathname = usePathname() ?? "";
   const { installed } = useInstallPrompt();
   const [open, setOpen] = useState(false);
   const [preference, setPreference] = useState<PwaPreferenceRecord | null>(
     null
   );
+  const [policy, setPolicy] = useState<PromptPolicySnapshot | null>(null);
   const prefRef = useRef<PwaPreferenceRecord | null>(null);
+  const policyRef = useRef<PromptPolicySnapshot | null>(null);
   const installedRef = useRef(installed);
-  const engagementFiredRef = useRef(hasEngagementFiredThisSession());
+  const promptARef = useRef(hasPromptAFiredThisSession());
+  const promptBRef = useRef(hasPromptBFiredThisSession());
 
   installedRef.current = installed;
   prefRef.current = preference;
+  policyRef.current = policy;
 
   const refreshPreference = useCallback(async () => {
     const pref = await fetchPwaPreference();
@@ -45,22 +52,38 @@ export function PwaInstallController() {
     return pref;
   }, []);
 
-  const tryOpenAutoPrompt = useCallback(
-    async (trigger: PwaInstallTrigger) => {
+  const loadPolicy = useCallback(async () => {
+    const p = await fetchPwaPromptPolicy();
+    setPolicy(p);
+    policyRef.current = p;
+    return p;
+  }, []);
+
+  const tryOpenPrompt = useCallback(
+    async (trigger: PwaInstallTrigger, slot: "A" | "B") => {
+      const pol = policyRef.current ?? (await loadPolicy());
+      if (!pol.enabled || !pol.publishedAt) return;
+      if (isDashboardPath(pathname)) return;
+
       const pref = prefRef.current ?? (await refreshPreference());
       if (isPwaAutoPromptSuppressed(pref, installedRef.current)) return;
 
-      if (trigger === "engagement") {
-        if (engagementFiredRef.current || hasEngagementFiredThisSession()) {
-          return;
+      if (slot === "A") {
+        if (promptARef.current || hasPromptAFiredThisSession()) return;
+        promptARef.current = true;
+        markPromptAFiredThisSession();
+      } else {
+        if (!pol.secondPromptEnabled) return;
+        if (promptBRef.current || hasPromptBFiredThisSession()) return;
+        if (trigger === "payment" && !pol.afterPaymentEnabled) return;
+        if (trigger === "engagement" && !pol.afterEngagementEnabled) return;
+        if (trigger === "dwell" && pol.afterDwellMinutes <= 0) return;
+        promptBRef.current = true;
+        markPromptBFiredThisSession();
+        if (trigger === "payment") {
+          await incrementPwaPaymentCount();
+          await refreshPreference();
         }
-        engagementFiredRef.current = true;
-        markEngagementFiredThisSession();
-      }
-
-      if (trigger === "payment") {
-        await incrementPwaPaymentCount();
-        await refreshPreference();
       }
 
       if (isPwaAutoPromptSuppressed(prefRef.current, installedRef.current)) {
@@ -69,26 +92,41 @@ export function PwaInstallController() {
 
       setOpen(true);
     },
-    [refreshPreference]
+    [loadPolicy, pathname, refreshPreference]
   );
 
   useEffect(() => {
     void refreshPreference();
-  }, [refreshPreference]);
+    void loadPolicy();
+  }, [loadPolicy, refreshPreference]);
 
   useEffect(() => {
     return subscribePwaPrompt(trigger => {
-      void tryOpenAutoPrompt(trigger);
+      if (trigger === "landing") {
+        void tryOpenPrompt("landing", "A");
+        return;
+      }
+      void tryOpenPrompt(trigger, "B");
     });
-  }, [tryOpenAutoPrompt]);
+  }, [tryOpenPrompt]);
 
   useEffect(() => {
-    if (consumePendingPaymentPrompt()) {
-      window.setTimeout(() => {
-        requestPwaPrompt("payment");
-      }, PAYMENT_PROMPT_DELAY_MS);
-    }
-  }, []);
+    if (installed || isDashboardPath(pathname)) return;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    void loadPolicy().then(pol => {
+      if (cancelled || !pol.enabled || !pol.publishedAt) return;
+      timer = window.setTimeout(() => {
+        if (!cancelled) requestPwaPrompt("landing");
+      }, pol.landingDelaySec * 1000);
+    });
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [installed, loadPolicy, pathname]);
 
   useEffect(() => {
     if (installed) {
@@ -98,13 +136,15 @@ export function PwaInstallController() {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (installed) return;
+    if (installed || isDashboardPath(pathname)) return;
 
-    let elapsed = readEngagementElapsedMs();
+    let elapsed = readDwellElapsedMs();
     let lastTick = document.visibilityState === "visible" ? Date.now() : null;
-    let fired = engagementFiredRef.current || hasEngagementFiredThisSession();
+    let dwellFired = false;
 
     const tick = () => {
+      const pol = policyRef.current;
+      if (!pol?.secondPromptEnabled || pol.afterDwellMinutes <= 0) return;
       if (document.visibilityState !== "visible") return;
       if (isPwaAutoPromptSuppressed(prefRef.current, installedRef.current)) {
         return;
@@ -114,12 +154,15 @@ export function PwaInstallController() {
         elapsed += now - lastTick;
       }
       lastTick = now;
-      writeEngagementElapsedMs(elapsed);
+      writeDwellElapsedMs(elapsed);
 
-      if (!fired && elapsed >= PWA_ENGAGEMENT_MS) {
-        fired = true;
-        engagementFiredRef.current = true;
-        requestPwaPrompt("engagement");
+      if (
+        !dwellFired &&
+        elapsed >= pol.afterDwellMinutes * 60 * 1000 &&
+        !hasPromptBFiredThisSession()
+      ) {
+        dwellFired = true;
+        requestPwaPrompt("dwell");
       }
     };
 
@@ -129,7 +172,7 @@ export function PwaInstallController() {
       } else if (lastTick != null) {
         elapsed += Date.now() - lastTick;
         lastTick = null;
-        writeEngagementElapsedMs(elapsed);
+        writeDwellElapsedMs(elapsed);
       }
     };
 
@@ -141,10 +184,10 @@ export function PwaInstallController() {
       document.removeEventListener("visibilitychange", onVisibility);
       if (lastTick != null && document.visibilityState === "visible") {
         elapsed += Date.now() - lastTick;
-        writeEngagementElapsedMs(elapsed);
+        writeDwellElapsedMs(elapsed);
       }
     };
-  }, [installed]);
+  }, [installed, pathname]);
 
   const handleOpenChange = (next: boolean) => {
     if (

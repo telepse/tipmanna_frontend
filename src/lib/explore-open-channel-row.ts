@@ -4,7 +4,8 @@ import {
   type ExploreChannelMetrics,
 } from "@/actions/contents";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import { mergeExploreChannelRows } from "@/lib/explore-channel-row-merge";
+import { mergeExploreChannelRows, isExploreReelReadyRow } from "@/lib/explore-channel-row-merge";
+import { unwrapContentChannelRows } from "@/lib/content-channel-rows";
 
 function isPlayableChannelRow(row: unknown): row is Record<string, unknown> {
   if (!row || typeof row !== "object") return false;
@@ -15,12 +16,13 @@ function isPlayableChannelRow(row: unknown): row is Record<string, unknown> {
   return true;
 }
 
-/** Sync fast path: Discover list rows already include url + event for playback. */
+/** Sync fast path: Discover list rows with full reel identity fields. */
 export function buildExploreOpenRowFromSnapshot(
   target: ExploreFeedOpenTarget
 ): Record<string, unknown> | null {
   const { videoId, channelSnapshot } = target;
   if (!channelSnapshot || !isPlayableChannelRow(channelSnapshot)) return null;
+  if (!isExploreReelReadyRow(channelSnapshot)) return null;
   return {
     ...channelSnapshot,
     id: videoId,
@@ -40,20 +42,18 @@ export async function resolveExploreOpenChannelRow(
     channelSnapshot != null && isPlayableChannelRow(channelSnapshot);
 
   let apiRow: Record<string, unknown> | null = null;
+  // Always fetch channel row so thin Discover snapshots get event.amountToRaise etc.
   const [channelRes, metricsRes] = await Promise.all([
-    snapshotPlayable ? Promise.resolve(null) : getContentChannelAction(eventId),
+    getContentChannelAction(eventId),
     getExploreChannelMetricsAction(videoId),
   ]);
 
-  if (channelRes && channelRes.success && Array.isArray(channelRes.data)) {
-    const found = channelRes.data.find(
-      (c: unknown) =>
-        c &&
-        typeof c === "object" &&
-        String((c as { id?: unknown }).id ?? "") === String(videoId)
+  if (channelRes?.success) {
+    const found = unwrapContentChannelRows(channelRes.data).find(
+      c => String(c.id ?? "") === String(videoId)
     );
-    if (found && typeof found === "object") {
-      apiRow = found as Record<string, unknown>;
+    if (found) {
+      apiRow = found;
     }
   }
 
@@ -66,15 +66,12 @@ export async function resolveExploreOpenChannelRow(
   } else if (channelSnapshot && isPlayableChannelRow(channelSnapshot)) {
     row = { ...channelSnapshot };
     const snap = apiRow as Record<string, unknown> | null;
-    if (snap && snap.restricted !== true && snap.event) {
-      row = mergeExploreChannelRows(
-        { event: snap.event as Record<string, unknown> },
-        row
-      );
+    if (snap) {
+      row = mergeExploreChannelRows(snap, row);
     }
   }
 
-  if (!row) return null;
+  if (!row || !isExploreReelReadyRow(row)) return null;
 
   if (
     metricsRes &&

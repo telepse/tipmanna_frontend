@@ -15,6 +15,10 @@ import {
 import { EventReminderChoiceDialog } from "@/components/events/event-reminder-choice-dialog";
 import { usePushPermission } from "@/hooks/use-push-permission";
 import { ensurePushForSignedInTipper } from "@/lib/program-push-setup";
+import { deferPushUntilInstalled, pushOptInPrimaryButtonLabel } from "@/lib/push-opt-in-ios";
+import {
+  fetchPushPromptPolicy,
+} from "@/lib/pwa-install-trigger";
 import { store } from "@/redux/store";
 import type { RootState } from "@/redux/store";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
@@ -138,6 +142,17 @@ export function EventSetReminderButton({
     if (isGuestFlow) {
       setPendingGuestMerge(true);
       setTipperSignInOpen(true);
+      return;
+    }
+    if (deferPushUntilInstalled("event-reminder")) {
+      setChoiceOpen(false);
+      toast.info("Install Tipmanna first, then we will enable push reminders.");
+      return;
+    }
+    const policy = await fetchPushPromptPolicy();
+    if (!policy.enabled) {
+      setChoiceOpen(false);
+      toast.info("Push notifications are not available right now.");
       return;
     }
     const result = await ensurePushForSignedInTipper({

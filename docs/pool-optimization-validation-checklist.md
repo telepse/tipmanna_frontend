@@ -47,8 +47,8 @@ Use this checklist for staging sign-off before production and before starting po
 ## Sign-off
 
 | Environment | Date | Observer | Result |
-|-------------|------|----------|--------|
-| Staging | | | |
-| Production | | | |
+| ----------- | ---- | -------- | ------ |
+| Staging     |      |          |        |
+| Production  |      |          |        |
 
 **Gate to postponed optimization phase:** all checklist items above signed off on staging; Opt-2 keyed-coalesce fix deployed; no new P2024 spike in 24h production observation.

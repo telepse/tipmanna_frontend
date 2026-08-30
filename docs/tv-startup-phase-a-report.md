@@ -65,29 +65,29 @@ Same source re-set: **no request**.
 
 ## Files modified
 
-| File | Change |
-|------|--------|
-| `frontend/src/lib/tv-feature-flags.ts` | `isTvSingleStartupScheduleEnabled()` |
-| `frontend/src/lib/tv-single-startup-schedule.ts` | **New** — testable Phase A semantics |
-| `frontend/src/components/tv-provider.tsx` | Single startup owner, SWR bootstrap guard, visibility guard, attempt IDs |
-| `frontend/src/lib/tv-startup-trace.ts` | Attempt correlation summary fields |
-| `frontend/src/lib/tv-schedule-client-fetch.ts` | `X-TV-Schedule-Attempt-Id` header |
-| `frontend/src/actions/tv-schedule.ts` | Forward attempt header |
-| `backend/src/utils/tv-startup-backend-trace.util.ts` | Sanitize/log attempt id |
-| `frontend/.env` | Document `NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE` |
-| `docs/tv-startup-latency-measurement-protocol.md` | Phase A validation section |
-| Test files | See below |
+| File                                                 | Change                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------ |
+| `frontend/src/lib/tv-feature-flags.ts`               | `isTvSingleStartupScheduleEnabled()`                                     |
+| `frontend/src/lib/tv-single-startup-schedule.ts`     | **New** — testable Phase A semantics                                     |
+| `frontend/src/components/tv-provider.tsx`            | Single startup owner, SWR bootstrap guard, visibility guard, attempt IDs |
+| `frontend/src/lib/tv-startup-trace.ts`               | Attempt correlation summary fields                                       |
+| `frontend/src/lib/tv-schedule-client-fetch.ts`       | `X-TV-Schedule-Attempt-Id` header                                        |
+| `frontend/src/actions/tv-schedule.ts`                | Forward attempt header                                                   |
+| `backend/src/utils/tv-startup-backend-trace.util.ts` | Sanitize/log attempt id                                                  |
+| `frontend/.env`                                      | Document `NEXT_PUBLIC_TV_SINGLE_STARTUP_SCHEDULE`                        |
+| `docs/tv-startup-latency-measurement-protocol.md`    | Phase A validation section                                               |
+| Test files                                           | See below                                                                |
 
 ---
 
 ## Tests added
 
-| File | Coverage |
-|------|----------|
-| `frontend/src/lib/__tests__/tv-single-startup-schedule.spec.ts` | Cold/warm SWR, source change, visibility, feature flag |
-| `frontend/src/lib/__tests__/tv-schedule-client-fetch.spec.ts` | Direct-fetch correlation headers |
-| `frontend/src/lib/__tests__/tv-startup-trace.spec.ts` | Attempt id summary fields |
-| `backend/src/utils/__tests__/tv-startup-backend-trace.util.spec.ts` | Attempt id sanitization/logging |
+| File                                                                | Coverage                                               |
+| ------------------------------------------------------------------- | ------------------------------------------------------ |
+| `frontend/src/lib/__tests__/tv-single-startup-schedule.spec.ts`     | Cold/warm SWR, source change, visibility, feature flag |
+| `frontend/src/lib/__tests__/tv-schedule-client-fetch.spec.ts`       | Direct-fetch correlation headers                       |
+| `frontend/src/lib/__tests__/tv-startup-trace.spec.ts`               | Attempt id summary fields                              |
+| `backend/src/utils/__tests__/tv-startup-backend-trace.util.spec.ts` | Attempt id sanitization/logging                        |
 
 Existing suites preserved: coalescing, orchestration, startup trace, backend trace.
 
@@ -118,11 +118,11 @@ Requires **frontend rebuild**. Roll back by unsetting or setting to `0` and rede
 
 ## SWR behavior
 
-| Scenario | Before Phase A | After Phase A (flag on) |
-|----------|----------------|-------------------------|
-| Cold (no cache) | 0–1 bootstrap from same-nav write | `scheduleCacheBootstrapCount: 0` |
-| Warm (pre-nav cache) | Bootstrap + revalidation | Bootstrap once + one revalidation |
-| Same-nav cache write | Could bootstrap on 2nd load | Never bootstraps from same-nav write |
+| Scenario             | Before Phase A                    | After Phase A (flag on)              |
+| -------------------- | --------------------------------- | ------------------------------------ |
+| Cold (no cache)      | 0–1 bootstrap from same-nav write | `scheduleCacheBootstrapCount: 0`     |
+| Warm (pre-nav cache) | Bootstrap + revalidation          | Bootstrap once + one revalidation    |
+| Same-nav cache write | Could bootstrap on 2nd load       | Never bootstraps from same-nav write |
 
 `scheduleSwrBootstrappedRef` becomes `true` when the SWR bootstrap **phase** completes:
 either after applying pre-navigation cache, or when cold path confirms no pre-nav cache
@@ -132,21 +132,21 @@ either after applying pre-navigation cache, or when cold path confirms no pre-na
 
 ## Visibility behavior
 
-| Scenario | Before | After (flag on) |
-|----------|--------|-----------------|
-| Initial visible tab | Could refresh during startup | Suppressed |
-| Hidden → visible during in-flight initial | Could duplicate request | Suppressed |
-| Hidden → visible after startup | Refreshes | Unchanged |
+| Scenario                                  | Before                       | After (flag on) |
+| ----------------------------------------- | ---------------------------- | --------------- |
+| Initial visible tab                       | Could refresh during startup | Suppressed      |
+| Hidden → visible during in-flight initial | Could duplicate request      | Suppressed      |
+| Hidden → visible after startup            | Refreshes                    | Unchanged       |
 
 ---
 
 ## Attempt correlation design
 
-| Id | Scope | Header |
-|----|-------|--------|
-| `startupTraceId` | One per page navigation | `X-TV-Startup-Trace-Id` |
+| Id                  | Scope                              | Header                     |
+| ------------------- | ---------------------------------- | -------------------------- |
+| `startupTraceId`    | One per page navigation            | `X-TV-Startup-Trace-Id`    |
 | `scheduleAttemptId` | One per real HTTP schedule request | `X-TV-Schedule-Attempt-Id` |
-| `attemptNumber` | Monotonic within startup trace | In trace events only |
+| `attemptNumber`     | Monotonic within startup trace     | In trace events only       |
 
 Cache-only bootstrap generates **no** attempt id.
 

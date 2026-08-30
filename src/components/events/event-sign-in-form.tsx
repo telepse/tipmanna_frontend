@@ -17,7 +17,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import OTPInput from "react-otp-input";
 import { useForm } from "react-hook-form";
-import { persistAuthSession } from "@/lib/session-client";
 import { ChevronLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
@@ -30,12 +29,10 @@ import {
   requestLoginCodeAction,
   verifyCodeAction,
 } from "@/actions/auth";
-import { setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
 import { RootState, type AppDispatch } from "@/redux/store";
-import { parseAuthResponse, type AuthUserPayload } from "@/lib/auth-response";
+import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
-import type { HostUser, TipperUser, VisitorUser } from "@/features/auth-slice";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { useMediaQuery } from "react-responsive";
 
@@ -54,7 +51,6 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
 
   const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((state: RootState) => state.auth.user);
-  const token = useSelector((state: RootState) => state.auth.token);
 
   const isMobile = useMediaQuery({ query: "(max-width: 500px)" });
   const inputStyle = {
@@ -145,49 +141,19 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
 
       if (!user?.email) return;
 
-      const res = await verifyCodeAction(user.email, code);
+      const res = await verifyCodeAction(user.email, code, "HOST");
       if (!res.success) {
         toast.error(res.message);
         return;
       }
 
       const parsed = parseAuthResponse(res.data);
-      const sessionToken = parsed?.token ?? token;
-
-      const sessionUser: AuthUserPayload | null =
-        parsed?.user ??
-        (user
-          ? {
-              id: user.id,
-              fullName: user.fullName,
-              email: user.email,
-              username: user.username,
-              role: user.role,
-              ...(user.role === "HOST"
-                ? {
-                    hostSubscriptionTier: (user as HostUser)
-                      .hostSubscriptionTier,
-                  }
-                : {}),
-              ...(user.role === "TIPPER" && "anonymous" in user
-                ? { anonymous: user.anonymous }
-                : {}),
-            }
-          : null);
-
-      if (!sessionUser || !sessionToken) {
+      if (!parsed) {
         toast.error("Verification succeeded but session could not be restored");
         return;
       }
 
-      dispatch(
-        setCredentials({
-          user: sessionUser as HostUser | TipperUser | VisitorUser,
-          token: sessionToken,
-          requiresVerification: false,
-        })
-      );
-      await persistAuthSession(sessionToken, sessionUser, { expiresDays: 7 });
+      await applyPrimaryAndHostSessions(parsed, dispatch);
 
       toast.success("Email verified successfully!");
       onNext?.();

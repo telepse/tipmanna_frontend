@@ -91,13 +91,13 @@ Backend-only. No frontend rebuild required. Restart backend after change.
 
 ## Ready / missing / error decision table
 
-| Condition | Probe outcome | ensureTvSchedules() | Decision reason |
-|-----------|---------------|---------------------|-----------------|
-| Flag off | (skipped) | **Invoked** | `legacy_flag_disabled` |
-| All 3 windows materialized | `ready` | **Skipped** | `rows_already_ready` |
-| Any window missing/empty | `missing` | **Invoked** | `required_window_missing` |
-| Probe returns indeterminate | `indeterminate` | **Invoked** | `probe_indeterminate_fallback` |
-| Probe throws | `error` | **Invoked** | `probe_error_fallback` |
+| Condition                   | Probe outcome   | ensureTvSchedules() | Decision reason                |
+| --------------------------- | --------------- | ------------------- | ------------------------------ |
+| Flag off                    | (skipped)       | **Invoked**         | `legacy_flag_disabled`         |
+| All 3 windows materialized  | `ready`         | **Skipped**         | `rows_already_ready`           |
+| Any window missing/empty    | `missing`       | **Invoked**         | `required_window_missing`      |
+| Probe returns indeterminate | `indeterminate` | **Invoked**         | `probe_indeterminate_fallback` |
+| Probe throws                | `error`         | **Invoked**         | `probe_error_fallback`         |
 
 ---
 
@@ -124,11 +124,11 @@ No polling, blocking waits, or async generation queues added.
 
 New stages (when startup tracing enabled):
 
-| Stage | Fields |
-|-------|--------|
+| Stage                      | Fields                                                                                                      |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `schedule_existence_probe` | `outcome`, `probeMs`, `currentExists`, `nextExists`, `followingExists`, `missingWindows`, `fastPathEnabled` |
-| `schedule_ensure_decision` | `reason`, `fastPathEnabled`, `missingWindows` |
-| `ensure_tv_schedules` | `invoked` (true/false), `reason` |
+| `schedule_ensure_decision` | `reason`, `fastPathEnabled`, `missingWindows`                                                               |
+| `ensure_tv_schedules`      | `invoked` (true/false), `reason`                                                                            |
 
 Existing correlation preserved: `traceId`, `attemptId` on all log lines.
 
@@ -136,24 +136,24 @@ Existing correlation preserved: `traceId`, `attemptId` on all log lines.
 
 ## Files modified
 
-| File | Change |
-|------|--------|
-| `backend/src/configs/runtime-flags.config.ts` | `TV_SCHEDULE_EXISTENCE_FAST_PATH` |
-| `backend/src/services/tv-schedule-existence-probe.service.ts` | **New** — probe logic |
-| `backend/src/services/tv-schedule-ensure.service.ts` | **New** — ensure + fast-path decision |
-| `backend/src/controllers/schedule.controller.ts` | Entry uses `ensureTvSchedulesForRead` |
-| Test files | existence probe + ensure service specs |
-| `docs/tv-startup-latency-measurement-protocol.md` | Phase B1 section |
-| `docs/tv-startup-phase-b1-report.md` | This document |
+| File                                                          | Change                                 |
+| ------------------------------------------------------------- | -------------------------------------- |
+| `backend/src/configs/runtime-flags.config.ts`                 | `TV_SCHEDULE_EXISTENCE_FAST_PATH`      |
+| `backend/src/services/tv-schedule-existence-probe.service.ts` | **New** — probe logic                  |
+| `backend/src/services/tv-schedule-ensure.service.ts`          | **New** — ensure + fast-path decision  |
+| `backend/src/controllers/schedule.controller.ts`              | Entry uses `ensureTvSchedulesForRead`  |
+| Test files                                                    | existence probe + ensure service specs |
+| `docs/tv-startup-latency-measurement-protocol.md`             | Phase B1 section                       |
+| `docs/tv-startup-phase-b1-report.md`                          | This document                          |
 
 ---
 
 ## Tests added
 
-| File | Coverage |
-|------|----------|
-| `tv-schedule-existence-probe.service.spec.ts` | Window math, ready/missing, zero-item, no heavy reads |
-| `tv-schedule-ensure.service.spec.ts` | Flag off/on, missing variants, probe error/indeterminate, trace correlation |
+| File                                          | Coverage                                                                    |
+| --------------------------------------------- | --------------------------------------------------------------------------- |
+| `tv-schedule-existence-probe.service.spec.ts` | Window math, ready/missing, zero-item, no heavy reads                       |
+| `tv-schedule-ensure.service.spec.ts`          | Flag off/on, missing variants, probe error/indeterminate, trace correlation |
 
 ---
 

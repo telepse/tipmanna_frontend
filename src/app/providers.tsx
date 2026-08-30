@@ -9,6 +9,8 @@ import { TvAnalyticsAuthBridge } from "@/components/tv-analytics-auth-bridge";
 import { SideChickProvider } from "@/components/community/side-chick-provider";
 import { FeatureCardTipProvider } from "@/components/video-feature/feature-card-tip-context";
 import { PwaInstallController } from "@/components/pwa/pwa-install-controller";
+import { PushOptInResumeController } from "@/components/pwa/push-opt-in-resume-controller";
+import { DedicatedEnterResumeController } from "@/components/community/dedicated-enter-resume-controller";
 import { ChunkLoadRecovery } from "@/components/chunk-load-recovery";
 import { VisitorAutoLogoutWrapper } from "@/components/VistorAutoLogoutWrapper";
 import { SessionActivityPinger } from "@/components/auth/session-activity-pinger";
@@ -30,6 +32,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             <SideChickProvider>
               <FeatureCardTipProvider>
                 <PwaInstallController />
+                <PushOptInResumeController />
+                <DedicatedEnterResumeController />
                 <ClientErrorBoundary>{children}</ClientErrorBoundary>
               </FeatureCardTipProvider>
             </SideChickProvider>

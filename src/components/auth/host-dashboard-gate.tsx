@@ -6,46 +6,45 @@ import { useSelector } from "react-redux";
 import { LoaderCircle } from "lucide-react";
 
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { HostSubscriptionReturnHandler } from "@/components/dashboard/host-subscription-return-handler";
+import { HostAuthProvider } from "@/contexts/host-auth-context";
+import { useHostSessionContextOptional } from "@/contexts/host-session-context";
 import type { RootState } from "@/redux/store";
 
 type Props = {
   children: ReactNode;
 };
 
-/**
- * Requires an active host session for all /host/* dashboard routes.
- * Linked tippers without a host session see the host login modal in place.
- */
-export function HostDashboardGate({ children }: Props) {
-  const pathname = usePathname();
+function HostDashboardGateInner({ children }: Props) {
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user);
-  const isHostPath = pathname.startsWith("/host");
+  const hostSession = useHostSessionContextOptional();
   const authRequestedRef = useRef(false);
 
+  const auth = useHostCapabilityWithAuth({ hostRequiredNotice: true });
   const {
     canReadAsHost,
     canWriteAsHost,
     capability,
+    sessionLoading,
     requestHostAuth,
     HostAuthModal,
-  } = useHostCapabilityWithAuth({ hostRequiredNotice: true });
+  } = auth;
 
-  const [ready, setReady] = useState(!isHostPath);
+  const [ready, setReady] = useState(false);
+
+  const probeLoading =
+    hostSession?.isLoading === true ||
+    capability.status === "loading" ||
+    sessionLoading;
 
   useEffect(() => {
-    if (!isHostPath) {
-      authRequestedRef.current = false;
-      setReady(true);
-      return;
-    }
-
     if (!user || user.role === "VISITOR") {
       router.replace("/sign-in");
       return;
     }
 
-    if (capability.status === "loading") {
+    if (probeLoading) {
       setReady(false);
       return;
     }
@@ -70,37 +69,48 @@ export function HostDashboardGate({ children }: Props) {
       });
     }
   }, [
-    isHostPath,
-    user,
-    capability.status,
     canReadAsHost,
     canWriteAsHost,
+    probeLoading,
     requestHostAuth,
     router,
+    user,
   ]);
 
-  if (!isHostPath) {
-    return <>{children}</>;
-  }
-
   if (!ready) {
+    const loadingMessage = probeLoading
+      ? "Verifying host access…"
+      : canReadAsHost && !canWriteAsHost
+        ? "Confirm host access to open the dashboard."
+        : "Sign in to your host account to access the dashboard.";
+
     return (
       <>
         {HostAuthModal}
         <div className="flex h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
           <LoaderCircle className="text-primary size-10 animate-spin" />
-          <p className="text-muted-foreground text-sm">
-            Sign in to your host account to access the dashboard.
-          </p>
+          <p className="text-muted-foreground text-sm">{loadingMessage}</p>
         </div>
       </>
     );
   }
 
   return (
-    <>
+    <HostAuthProvider value={auth}>
       {HostAuthModal}
+      <HostSubscriptionReturnHandler />
       {children}
-    </>
+    </HostAuthProvider>
   );
+}
+
+export function HostDashboardGate({ children }: Props) {
+  const pathname = usePathname();
+  const isHostPath = pathname.startsWith("/host");
+
+  if (!isHostPath) {
+    return <>{children}</>;
+  }
+
+  return <HostDashboardGateInner>{children}</HostDashboardGateInner>;
 }

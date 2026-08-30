@@ -26,20 +26,20 @@ flowchart TB
   end
 ```
 
-| Property | App loader ([`youtube-iframe-api-loader.ts`](frontend/src/lib/youtube-iframe-api-loader.ts)) | youtube-player chain (via [`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx)) |
-|---|---|---|
-| **Script URL** | `https://www.youtube.com/iframe_api` | `https://` or `http://` + `//www.youtube.com/iframe_api` |
-| **Script ID** | `youtube-iframe-api` | none |
-| **Insertion** | `document.body` | `document.head` |
-| **Promise owner** | Module `loadPromise` | Module `youtubeIframeAPI` in `youtube-player/dist/index.js` |
-| **DOM dedup** | `getElementById("youtube-iframe-api")` only | none |
-| **`YT.Player` already exists** | Immediate resolve | Immediate resolve |
-| **Other loader's script in DOM, API not ready** | **Does not see** head script → may insert duplicate | **Does not see** body script → **inserts duplicate** |
-| **`onYouTubeIframeAPIReady`** | Chains `prior?.()` + ready queue | Chains `previous()` + single promise resolve |
-| **Error / timeout** | None (promise can hang) | Script `onerror` → emitter event; promise never rejects |
-| **Cleanup** | Callback unsubscribe only | Player `destroy()` only; no script removal |
-| **Load without player** | **Yes** — `ensureYoutubeIframeApi()` | **No** — mount always creates player |
-| **Consumers** | `events/video-player.tsx` only | TV surfaces only |
+| Property                                        | App loader ([`youtube-iframe-api-loader.ts`](frontend/src/lib/youtube-iframe-api-loader.ts)) | youtube-player chain (via [`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx)) |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **Script URL**                                  | `https://www.youtube.com/iframe_api`                                                         | `https://` or `http://` + `//www.youtube.com/iframe_api`                               |
+| **Script ID**                                   | `youtube-iframe-api`                                                                         | none                                                                                   |
+| **Insertion**                                   | `document.body`                                                                              | `document.head`                                                                        |
+| **Promise owner**                               | Module `loadPromise`                                                                         | Module `youtubeIframeAPI` in `youtube-player/dist/index.js`                            |
+| **DOM dedup**                                   | `getElementById("youtube-iframe-api")` only                                                  | none                                                                                   |
+| **`YT.Player` already exists**                  | Immediate resolve                                                                            | Immediate resolve                                                                      |
+| **Other loader's script in DOM, API not ready** | **Does not see** head script → may insert duplicate                                          | **Does not see** body script → **inserts duplicate**                                   |
+| **`onYouTubeIframeAPIReady`**                   | Chains `prior?.()` + ready queue                                                             | Chains `previous()` + single promise resolve                                           |
+| **Error / timeout**                             | None (promise can hang)                                                                      | Script `onerror` → emitter event; promise never rejects                                |
+| **Cleanup**                                     | Callback unsubscribe only                                                                    | Player `destroy()` only; no script removal                                             |
+| **Load without player**                         | **Yes** — `ensureYoutubeIframeApi()`                                                         | **No** — mount always creates player                                                   |
+| **Consumers**                                   | `events/video-player.tsx` only                                                               | TV surfaces only                                                                       |
 
 **Definitive ownership:** TV bootstrap is owned by **youtube-player** (triggered at react-youtube `componentDidMount`). Events/explore uses the **app loader**. There is **no shared canonical loader** today. Cross-navigation (Explore/Event Room → TV) may leave `window.YT.Player` warm; concurrent mounts before API ready can produce **two `iframe_api` script tags** (C2.0 `duplicate_api_resource` diagnostic).
 
@@ -102,13 +102,13 @@ Add explicit diagnostics: `api_resource_started_before_player_commit` and `playe
 
 ### Why T2 (not later triggers)
 
-| Candidate | Rejected / accepted |
-|---|---|
-| TV layout client mount | Too early vs T2; no trace correlation; same tick as provider |
-| **T2 TVProvider mount** | **Selected** — TV-route scoped, overlaps schedule, once-per-document module guard |
-| Before T3 / after T3 starts | Same practical window as T2 (adjacent effects); T2 is clearer anchor |
-| After source validation | SideChick redirect is rare; API script needs no schedule/source |
-| After T4 payload acceptance | Too late — loses 2–6s overlap with schedule (measured T2→T4) |
+| Candidate                   | Rejected / accepted                                                               |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| TV layout client mount      | Too early vs T2; no trace correlation; same tick as provider                      |
+| **T2 TVProvider mount**     | **Selected** — TV-route scoped, overlaps schedule, once-per-document module guard |
+| Before T3 / after T3 starts | Same practical window as T2 (adjacent effects); T2 is clearer anchor              |
+| After source validation     | SideChick redirect is rare; API script needs no schedule/source                   |
+| After T4 payload acceptance | Too late — loses 2–6s overlap with schedule (measured T2→T4)                      |
 
 ### Expected overlap window
 
@@ -123,7 +123,7 @@ Warm-up at T2 should finish API acquisition **~1.5–2s after T2**, often **befo
 
 ### Scope guards
 
-- Runs only inside [`tv-layout-client.tsx`](frontend/src/app/(tv)/tv-layout-client.tsx) → `TVProvider` (not homepage preview provider).
+- Runs only inside [`tv-layout-client.tsx`](<frontend/src/app/(tv)/tv-layout-client.tsx>) → `TVProvider` (not homepage preview provider).
 - Module-level `warmupRequested` — once per document lifecycle.
 - Same-document source switch: no-op if `window.YT.Player` exists.
 - Hard navigation / Explore→TV / Event Room→TV: new document or warm `YT` → resolve or single guarded insert.
@@ -133,12 +133,12 @@ Warm-up at T2 should finish API acquisition **~1.5–2s after T2**, often **befo
 
 ## 4. Ranked loader strategies
 
-| Rank | Approach | Duplicate risk | Callback risk | Change size | react-youtube compat | Rollback | Testability |
-|---|---|---|---|---|---|---|---|
-| **1 (recommended)** | **A+ — Reuse app loader at T2 + extend DOM detection + TvPlayer coordination gate** | Low if gate ensures `YT.Player` before mount | Low (existing chain + queue) | Small–medium | High (no fork; optional pre-mount await) | Flag off | High |
-| 2 | B — Shared canonical loader refactor (both paths) | Lowest long-term | Low | Large | Medium (touch video-player) | Flag + revert refactor | Medium |
-| 3 | D — TV-only script insert (duplicate of app loader) | Medium | Medium | Medium | Unknown | Flag | Medium |
-| 4 | C — Invoke youtube-player internal loader | N/A | High | Small but fragile | Breaks on upgrade | Poor | Low |
+| Rank                | Approach                                                                            | Duplicate risk                               | Callback risk                | Change size       | react-youtube compat                     | Rollback               | Testability |
+| ------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------- | ----------------- | ---------------------------------------- | ---------------------- | ----------- |
+| **1 (recommended)** | **A+ — Reuse app loader at T2 + extend DOM detection + TvPlayer coordination gate** | Low if gate ensures `YT.Player` before mount | Low (existing chain + queue) | Small–medium      | High (no fork; optional pre-mount await) | Flag off               | High        |
+| 2                   | B — Shared canonical loader refactor (both paths)                                   | Lowest long-term                             | Low                          | Large             | Medium (touch video-player)              | Flag + revert refactor | Medium      |
+| 3                   | D — TV-only script insert (duplicate of app loader)                                 | Medium                                       | Medium                       | Medium            | Unknown                                  | Flag                   | Medium      |
+| 4                   | C — Invoke youtube-player internal loader                                           | N/A                                          | High                         | Small but fragile | Breaks on upgrade                        | Poor                   | Low         |
 
 **Do not patch node_modules.**
 
@@ -190,25 +190,25 @@ This avoids youtube-player calling `load-script` when `YT.Player` is already pre
 
 ### Authoritative rules
 
-| Rule | Owner |
-|---|---|
-| Single script tag per document | `youtube-iframe-api-loader.ts` — prefer `#youtube-iframe-api`; detect any `iframe_api` src before insert |
-| Single in-flight promise | Module `loadPromise` (app loader); youtube-player retains its own singleton but short-circuits when `YT.Player` exists |
-| `onYouTubeIframeAPIReady` | Always chain: `prior?.()` before new handler ([app loader L40-44](frontend/src/lib/youtube-iframe-api-loader.ts)) |
-| No stale rejected promises | App loader promise never rejects today; C2.2 warm-up must not add rejection that blocks player path |
-| No duplicate ready events | App loader `flushReadyQueue()` once; trace counts API resource entries |
-| Player only after API ready (flag on) | TvPlayer gate ensures youtube-player never inserts when warm-up succeeded |
+| Rule                                  | Owner                                                                                                                  |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Single script tag per document        | `youtube-iframe-api-loader.ts` — prefer `#youtube-iframe-api`; detect any `iframe_api` src before insert               |
+| Single in-flight promise              | Module `loadPromise` (app loader); youtube-player retains its own singleton but short-circuits when `YT.Player` exists |
+| `onYouTubeIframeAPIReady`             | Always chain: `prior?.()` before new handler ([app loader L40-44](frontend/src/lib/youtube-iframe-api-loader.ts))      |
+| No stale rejected promises            | App loader promise never rejects today; C2.2 warm-up must not add rejection that blocks player path                    |
+| No duplicate ready events             | App loader `flushReadyQueue()` once; trace counts API resource entries                                                 |
+| Player only after API ready (flag on) | TvPlayer gate ensures youtube-player never inserts when warm-up succeeded                                              |
 
 ### Navigation matrix
 
-| Navigation | Warm-up behavior |
-|---|---|
-| Explore → TV (cold API) | T2 warm-up inserts script; player reuses |
-| Event Room → TV (app loader warmed) | `YT.Player` exists → immediate `reused_existing_object` |
-| TV hard navigation | New document → warm-up runs once at T2 |
-| Global → community (soft) | `YT.Player` exists → no-op |
-| Global → community (hard via `navigateToTvSource`) | New document → warm-up runs at T2 |
-| `/tv?videoId=` fullscreen path | Still under TVProvider → warm-up runs; playback path differs but API warm-up is safe |
+| Navigation                                         | Warm-up behavior                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Explore → TV (cold API)                            | T2 warm-up inserts script; player reuses                                             |
+| Event Room → TV (app loader warmed)                | `YT.Player` exists → immediate `reused_existing_object`                              |
+| TV hard navigation                                 | New document → warm-up runs once at T2                                               |
+| Global → community (soft)                          | `YT.Player` exists → no-op                                                           |
+| Global → community (hard via `navigateToTvSource`) | New document → warm-up runs at T2                                                    |
+| `/tv?videoId=` fullscreen path                     | Still under TVProvider → warm-up runs; playback path differs but API warm-up is safe |
 
 ---
 
@@ -251,14 +251,14 @@ Also add to [`tv-feature-flags.ts`](frontend/src/lib/tv-feature-flags.ts) mirror
 
 New events (via bootstrap trace event sink, gated by C2.0 + warm-up flag):
 
-| Event | When |
-|---|---|
-| `youtube_api_warmup_requested` | T2 warm-up invoked |
-| `youtube_api_warmup_reused_existing_object` | `YT.Player` already present |
-| `youtube_api_warmup_reused_existing_script` | Script in DOM, awaiting ready |
-| `youtube_api_warmup_script_inserted` | New `#youtube-iframe-api` tag appended |
-| `youtube_api_warmup_resolved` | Promise resolved, API usable |
-| `youtube_api_warmup_failed` | Timeout or script error (non-blocking) |
+| Event                                       | When                                   |
+| ------------------------------------------- | -------------------------------------- |
+| `youtube_api_warmup_requested`              | T2 warm-up invoked                     |
+| `youtube_api_warmup_reused_existing_object` | `YT.Player` already present            |
+| `youtube_api_warmup_reused_existing_script` | Script in DOM, awaiting ready          |
+| `youtube_api_warmup_script_inserted`        | New `#youtube-iframe-api` tag appended |
+| `youtube_api_warmup_resolved`               | Promise resolved, API usable           |
+| `youtube_api_warmup_failed`                 | Timeout or script error (non-blocking) |
 
 Summary fields (in [`TvStartupSummary`](frontend/src/lib/tv-startup-trace.ts)):
 
@@ -285,13 +285,13 @@ Fix C2.0 segment semantics: document null `playerCommitToApiResourceStartMs`; op
 
 ## 10. Failure containment
 
-| Failure | Behaviour |
-|---|---|
-| Warm-up promise slow | TvPlayer awaits up to bounded timeout, then mounts YouTube normally |
-| Script `onerror` | Log + `youtube_api_warmup_failed`; do not reject blocking promise OR reject with immediate catch in warm-up only |
-| Privacy blocker / CSP | Same as today — player path retries via youtube-player |
-| Timeout (15s warm-up) | Mark failed; no retry in same document |
-| Component unmount during warm-up | Warm-up continues (module singleton); trace attributes to traceId/generation |
+| Failure                          | Behaviour                                                                                                        |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Warm-up promise slow             | TvPlayer awaits up to bounded timeout, then mounts YouTube normally                                              |
+| Script `onerror`                 | Log + `youtube_api_warmup_failed`; do not reject blocking promise OR reject with immediate catch in warm-up only |
+| Privacy blocker / CSP            | Same as today — player path retries via youtube-player                                                           |
+| Timeout (15s warm-up)            | Mark failed; no retry in same document                                                                           |
+| Component unmount during warm-up | Warm-up continues (module singleton); trace attributes to traceId/generation                                     |
 
 **Must never block:** schedule acquisition, player shell render, react-youtube init (after bounded wait), C0/C0.1 recovery, T13.
 
@@ -324,21 +324,21 @@ Fix C2.0 segment semantics: document null `playerCommitToApiResourceStartMs`; op
 
 ## 12. Files likely affected
 
-| File | Change |
-|---|---|
-| [`frontend/src/lib/tv-youtube-api-warmup.ts`](frontend/src/lib/tv-youtube-api-warmup.ts) | **New** — warm-up orchestration |
-| [`frontend/src/lib/youtube-iframe-api-loader.ts`](frontend/src/lib/youtube-iframe-api-loader.ts) | Extended DOM detection, optional readiness helper |
-| [`frontend/src/lib/tv-feature-flags.ts`](frontend/src/lib/tv-feature-flags.ts) | Flag |
-| [`frontend/src/components/tv-provider.tsx`](frontend/src/components/tv-provider.tsx) | T2 trigger |
-| [`frontend/src/components/tv/tv-player.tsx`](frontend/src/components/tv/tv-player.tsx) | Flag-gated pre-mount coordination |
-| [`frontend/src/lib/tv-youtube-bootstrap-trace.ts`](frontend/src/lib/tv-youtube-bootstrap-trace.ts) | Warm-up events + summary fields |
-| [`frontend/src/lib/tv-startup-trace.ts`](frontend/src/lib/tv-startup-trace.ts) | Summary merge at finalize |
-| [`frontend/src/lib/__tests__/tv-youtube-api-warmup.spec.ts`](frontend/src/lib/__tests__/tv-youtube-api-warmup.spec.ts) | **New** |
-| [`frontend/src/lib/__tests__/youtube-iframe-api-loader.spec.ts`](frontend/src/lib/__tests__/youtube-iframe-api-loader.spec.ts) | **New** or extend |
-| [`docs/tv-startup-phase-c2-api-warmup.md`](docs/tv-startup-phase-c2-api-warmup.md) | **New** |
-| [`docs/tv-startup-phase-c2-bootstrap-trace.md`](docs/tv-startup-phase-c2-bootstrap-trace.md) | Warm-up fields |
-| [`docs/tv-startup-latency-measurement-protocol.md`](docs/tv-startup-latency-measurement-protocol.md) | §24 |
-| [`frontend/.env`](frontend/.env) | Flag default `0` |
+| File                                                                                                                           | Change                                            |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| [`frontend/src/lib/tv-youtube-api-warmup.ts`](frontend/src/lib/tv-youtube-api-warmup.ts)                                       | **New** — warm-up orchestration                   |
+| [`frontend/src/lib/youtube-iframe-api-loader.ts`](frontend/src/lib/youtube-iframe-api-loader.ts)                               | Extended DOM detection, optional readiness helper |
+| [`frontend/src/lib/tv-feature-flags.ts`](frontend/src/lib/tv-feature-flags.ts)                                                 | Flag                                              |
+| [`frontend/src/components/tv-provider.tsx`](frontend/src/components/tv-provider.tsx)                                           | T2 trigger                                        |
+| [`frontend/src/components/tv/tv-player.tsx`](frontend/src/components/tv/tv-player.tsx)                                         | Flag-gated pre-mount coordination                 |
+| [`frontend/src/lib/tv-youtube-bootstrap-trace.ts`](frontend/src/lib/tv-youtube-bootstrap-trace.ts)                             | Warm-up events + summary fields                   |
+| [`frontend/src/lib/tv-startup-trace.ts`](frontend/src/lib/tv-startup-trace.ts)                                                 | Summary merge at finalize                         |
+| [`frontend/src/lib/__tests__/tv-youtube-api-warmup.spec.ts`](frontend/src/lib/__tests__/tv-youtube-api-warmup.spec.ts)         | **New**                                           |
+| [`frontend/src/lib/__tests__/youtube-iframe-api-loader.spec.ts`](frontend/src/lib/__tests__/youtube-iframe-api-loader.spec.ts) | **New** or extend                                 |
+| [`docs/tv-startup-phase-c2-api-warmup.md`](docs/tv-startup-phase-c2-api-warmup.md)                                             | **New**                                           |
+| [`docs/tv-startup-phase-c2-bootstrap-trace.md`](docs/tv-startup-phase-c2-bootstrap-trace.md)                                   | Warm-up fields                                    |
+| [`docs/tv-startup-latency-measurement-protocol.md`](docs/tv-startup-latency-measurement-protocol.md)                           | §24                                               |
+| [`frontend/.env`](frontend/.env)                                                                                               | Flag default `0`                                  |
 
 **Not modified:** react-youtube, youtube-player (node_modules), schedule orchestration, C2.1 preconnect (stays off).
 
@@ -346,25 +346,25 @@ Fix C2.0 segment semantics: document null `playerCommitToApiResourceStartMs`; op
 
 ## 13. Required tests
 
-| Category | Cases |
-|---|---|
-| Flag off | No warm-up call; legacy load at mount; summary `disabled` |
-| API already present | Immediate resolve; `reused_existing_object`; no script insert |
-| No API/script | Script inserted once; promise resolves |
-| Script loading | Second caller shares promise; no duplicate tag |
-| Competing app loader | Event-room loader + TV warm-up → one script |
-| Callback chaining | Prior `onYouTubeIframeAPIReady` preserved |
-| One script | DOM query count = 1 |
-| Warm-up before T6 | `youtubeApiWarmupResolvedBeforeT6: true` |
-| Warm-up after T6 | Player gate waits or recovers |
-| Warm-up failure | Player still mounts; `failed_player_recovered` |
-| Timeout | No retry; player path proceeds |
-| Source switch | Reuse on soft; fresh on hard nav |
-| Unmount | No double-insert on remount same doc |
-| Hard navigation | New warm-up at T2 |
-| No iframe/player from warm-up | DOM iframe count 0 until react-youtube |
-| C0/C0.1 | Existing suites unchanged |
-| Regression | Phase A, C0, C0.1, C0.1a, C1/C1.1, C2.0, C2.1 (flag off) |
+| Category                      | Cases                                                         |
+| ----------------------------- | ------------------------------------------------------------- |
+| Flag off                      | No warm-up call; legacy load at mount; summary `disabled`     |
+| API already present           | Immediate resolve; `reused_existing_object`; no script insert |
+| No API/script                 | Script inserted once; promise resolves                        |
+| Script loading                | Second caller shares promise; no duplicate tag                |
+| Competing app loader          | Event-room loader + TV warm-up → one script                   |
+| Callback chaining             | Prior `onYouTubeIframeAPIReady` preserved                     |
+| One script                    | DOM query count = 1                                           |
+| Warm-up before T6             | `youtubeApiWarmupResolvedBeforeT6: true`                      |
+| Warm-up after T6              | Player gate waits or recovers                                 |
+| Warm-up failure               | Player still mounts; `failed_player_recovered`                |
+| Timeout                       | No retry; player path proceeds                                |
+| Source switch                 | Reuse on soft; fresh on hard nav                              |
+| Unmount                       | No double-insert on remount same doc                          |
+| Hard navigation               | New warm-up at T2                                             |
+| No iframe/player from warm-up | DOM iframe count 0 until react-youtube                        |
+| C0/C0.1                       | Existing suites unchanged                                     |
+| Regression                    | Phase A, C0, C0.1, C0.1a, C1/C1.1, C2.0, C2.1 (flag off)      |
 
 ---
 
@@ -407,18 +407,18 @@ T3→T4, warm-up request→resolve, resolve vs T6, `youtubeApiPresentAtPlayerCom
 
 ## 16. Acceptance thresholds
 
-| Criterion | Threshold |
-|---|---|
-| `youtubeApiWarmupResolvedBeforeT6` | true in **≥4/5** clean cold runs |
-| `youtubeApiPresentAtPlayerCommit` | true in **≥4/5** clean cold runs |
-| `youtubeApiResourceCount` | **≤1** all runs |
-| Iframe count | **1** at T8 |
-| `tvPlayerCommitCount` | **1** |
-| Errors / recovery | **No increase** vs C2.0 baseline |
-| Median `playerCommitToIframeInsertedMs` | **≥1.5s improvement** vs control |
-| Median `playerCommitToT8Ms` | **≥1.5s improvement** vs control |
-| Median `iframeInsertedToT8Ms` | **No worsening >10%** |
-| Schedule / stability | T3→T4 and T13 stable rate **no regression** |
+| Criterion                               | Threshold                                   |
+| --------------------------------------- | ------------------------------------------- |
+| `youtubeApiWarmupResolvedBeforeT6`      | true in **≥4/5** clean cold runs            |
+| `youtubeApiPresentAtPlayerCommit`       | true in **≥4/5** clean cold runs            |
+| `youtubeApiResourceCount`               | **≤1** all runs                             |
+| Iframe count                            | **1** at T8                                 |
+| `tvPlayerCommitCount`                   | **1**                                       |
+| Errors / recovery                       | **No increase** vs C2.0 baseline            |
+| Median `playerCommitToIframeInsertedMs` | **≥1.5s improvement** vs control            |
+| Median `playerCommitToT8Ms`             | **≥1.5s improvement** vs control            |
+| Median `iframeInsertedToT8Ms`           | **No worsening >10%**                       |
+| Schedule / stability                    | T3→T4 and T13 stable rate **no regression** |
 
 If iframe→T8 unchanged but commit→T8 improves, accept as partial success and plan C2.3 (embed/init) separately.
 

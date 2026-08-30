@@ -47,6 +47,8 @@ import { buildContentShareUrl } from "@/lib/public-video-url";
 import { formatBankDuration } from "@/lib/utils";
 import { formatMetaMetricsLine } from "@/lib/creator-profile-metadata";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
+import { useOpenContentWithReturn } from "@/hooks/use-open-content-with-return";
+import { usePathname } from "next/navigation";
 import { TopContentCard } from "../home/top-content-card";
 import { FeaturedContentCard } from "./featured-content-card";
 import VideoPlayer, { VideoPlayerRef } from "../events/video-player";
@@ -414,6 +416,8 @@ export function CommunityJoinPanel({
   signInRedirectPath,
 }: CommunityJoinPanelProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const openContentWithReturn = useOpenContentWithReturn();
   const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
 
   const [gateOk, setGateOk] = useState(false);
@@ -925,11 +929,21 @@ export function CommunityJoinPanel({
                         type="button"
                         className="group relative aspect-[9/16] overflow-hidden bg-neutral-100 text-left"
                         onClick={() => {
-                          window.open(
-                            video.channel.shareUrl,
-                            "_blank",
-                            "noopener,noreferrer"
-                          );
+                          const sharePath = video.channel.sharePath ?? "";
+                          const eventMatch =
+                            sharePath.match(/\/content\/([^/?]+)/);
+                          const eventId = eventMatch?.[1];
+                          if (!eventId) return;
+                          openContentWithReturn({
+                            eventId,
+                            channelId: video.channel.id,
+                            returnTo: signInRedirectPath || pathname,
+                            label: "Back to community",
+                            drawer: {
+                              type: "community",
+                              communityId,
+                            },
+                          });
                         }}
                         title={video.channel.title}
                         aria-label={video.channel.title}

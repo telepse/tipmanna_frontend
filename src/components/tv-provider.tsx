@@ -48,6 +48,7 @@ import {
   applyPendingAudioRestore as applyPendingAudioRestoreHelper,
   playWithUserGesture,
   prepareMutedLoadForAutoplay,
+  readTvMutePref,
   type PendingAudioRestore,
 } from "@/lib/tv-autoplay";
 import {
@@ -977,7 +978,6 @@ export default function GlobalTVProvider({
             pendingAudioRestoreRef.current,
             "requestPlayback.replay"
           );
-          pendingAudioRestoreRef.current = null;
           tvTrace("playback", "requestPlayback_replay", {
             reason: req.reason,
             videoId: req.videoId,
@@ -1626,6 +1626,23 @@ export default function GlobalTVProvider({
             player.seekTo(effectivePos.offsetSeconds, false);
           }
         }
+
+        const playerState = player.getPlayerState?.() ?? null;
+        if (playerState === "ENDED") {
+          tvTrace("playback", "syncToLive_ended_resume", {
+            scheduleIndex: effectivePos.scheduleIndex,
+            offsetSeconds: effectivePos.offsetSeconds,
+          });
+          orchestratedPlaybackRef.current = orchestratedPlaybackRef.current
+            ? {
+                ...orchestratedPlaybackRef.current,
+                startSeconds: effectivePos.offsetSeconds,
+              }
+            : { videoId, startSeconds: effectivePos.offsetSeconds };
+          markPrePlayExecutedSeekIfNeeded();
+          player.seekTo(effectivePos.offsetSeconds, false);
+          player.play();
+        }
       }
     }
   }, [
@@ -1853,8 +1870,8 @@ export default function GlobalTVProvider({
 
   const applyPendingAudioRestore = useCallback(() => {
     const player = playerRef.current;
+    if (!player?.isReady()) return;
     const pending = pendingAudioRestoreRef.current;
-    if (!player?.isReady() || !pending) return;
     pendingAudioRestoreRef.current = applyPendingAudioRestoreHelper(
       player,
       pending,
@@ -2511,7 +2528,26 @@ export default function GlobalTVProvider({
       });
     }
     syncToLive();
-  }, [syncToLive]);
+    if (fromMode !== "GLOBAL") {
+      queueMicrotask(() => {
+        if (paymentActiveRef.current) return;
+        if (!broadcastEpoch || !items.length || !totalDuration) return;
+        const player = playerRef.current;
+        if (!player?.isReady()) return;
+        const pos = resolveBroadcastPosition(
+          items,
+          broadcastEpoch,
+          totalDuration,
+          getNow()
+        );
+        if (pos.item?.segmentKind === "notice") return;
+        const state = player.getPlayerState?.() ?? null;
+        if (state !== "PLAYING" && state !== "BUFFERING") {
+          player.play();
+        }
+      });
+    }
+  }, [syncToLive, broadcastEpoch, items, totalDuration, getNow]);
 
   const goLive = enterGlobalMode;
 
@@ -2916,7 +2952,6 @@ export default function GlobalTVProvider({
             pendingAudioRestoreRef.current,
             "loadLocalAtIndex"
           );
-          pendingAudioRestoreRef.current = null;
         }
       }
     },
@@ -3004,7 +3039,6 @@ export default function GlobalTVProvider({
             pendingAudioRestoreRef.current,
             "playLocalScheduleItem"
           );
-          pendingAudioRestoreRef.current = null;
         }
       }
     },
@@ -3198,7 +3232,7 @@ export default function GlobalTVProvider({
       currentIndex: currentIndexRef.current,
       currentTime: player?.isReady() ? player.getCurrentTime() : 0,
       wasPlaying: isPlayingRef.current,
-      wasMuted: player?.isReady() ? player.isMuted() : false,
+      wasMuted: readTvMutePref(),
       playingItemOverrideId:
         (playingItemOverride as { id?: string } | null)?.id ?? null,
       schedulePlayingSlot,
@@ -3229,7 +3263,7 @@ export default function GlobalTVProvider({
         currentIndex: idx,
         currentTime: player?.isReady() ? player.getCurrentTime() : 0,
         wasPlaying: wasPlayingBefore,
-        wasMuted: player?.isReady() ? player.isMuted() : false,
+        wasMuted: readTvMutePref(),
         playingItemOverrideId:
           (playingItemOverride as { id?: string } | null)?.id ?? null,
         schedulePlayingSlot: { scope: "active", rowIndex: idx },
@@ -3251,7 +3285,7 @@ export default function GlobalTVProvider({
       currentIndex: currentIndexRef.current,
       currentTime: player?.isReady() ? player.getCurrentTime() : 0,
       wasPlaying: isPlayingRef.current,
-      wasMuted: player?.isReady() ? player.isMuted() : false,
+      wasMuted: readTvMutePref(),
       playingItemOverrideId:
         (playingItemOverride as { id?: string } | null)?.id ?? null,
       schedulePlayingSlot,

@@ -41,6 +41,11 @@ import type {
   HostCreatorPublicProfile,
   HostCreatorVideo,
 } from "@/actions/host-creator";
+import type { HostPlaylistSummary } from "@/actions/host-playlist";
+import {
+  getCommunityAccessStateAction,
+  type CommunityFeaturedVideo,
+} from "@/actions/communities";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
 import {
   EditCreatorProfileDialog,
@@ -48,7 +53,6 @@ import {
 } from "@/components/host/edit-creator-profile-dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNavigateToExploreVideo } from "@/hooks/use-navigate-to-explore-video";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
@@ -60,12 +64,20 @@ import { cn } from "@/lib/utils";
 import { useHostSession } from "@/hooks/use-host-session";
 import type { RootState } from "@/redux/store";
 import { formatCreatorProfileCategoryLabel } from "@/schemas/creator.schema";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useOpenContentWithReturn } from "@/hooks/use-open-content-with-return";
+import { peekPlaybackReturn } from "@/lib/playback-return-stack";
+import { restoreProfileUiScroll } from "@/lib/playback-return-restore";
+import { postCreatorProfileVisitAction } from "@/actions/host-creator";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
+import { CommunityMemberInfo } from "@/components/community/community-member-info";
+import { AddCommunityBankVideoDialog } from "@/components/community/add-community-bank-video-dialog";
+import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
+import type { HostCreatorDefaultTab } from "@/schemas/creator.schema";
 import { CompactEventCard } from "../events/compact-event-card";
 import { CreatorEventCard } from "../events/creator-event-card";
 import { useMediaQuery } from "react-responsive";
 import { NotificationBadge } from "../notifications/notification-badge";
-import { CommunityHowToJoinSection } from "@/components/community/community-how-to-join-section";
 import SignInDialog, {
   type SignInModalPayload,
 } from "@/components/auth/sign-in-dialog";
@@ -117,14 +129,16 @@ export function HostCreatorPageClient({
     stats,
     events,
     communities,
+    playlists = [],
     coOwnedVideos = [],
     coOwnerPartyVideos = [],
     coOwnerPartyName = null,
   } = profile;
-  const navigateToExplore = useNavigateToExploreVideo();
+  const openContentWithReturn = useOpenContentWithReturn();
 
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const user = useSelector((state: RootState) => state.auth.user);
   const hostSession = useHostSession();
@@ -133,6 +147,7 @@ export function HostCreatorPageClient({
   );
 
   const isOwnProfile =
+    !isDrawer &&
     user != null &&
     (user.id === host.id ||
       user.username?.toLowerCase() === host.username.toLowerCase());
@@ -170,18 +185,57 @@ export function HostCreatorPageClient({
     [events]
   );
 
-  const showCoOwnedSubtab = coOwnerPartyName != null;
+  const defaultTab =
+    (host.creatorDefaultTab as HostCreatorDefaultTab | undefined) ??
+    "all_videos";
+  const tabFromUrl = searchParams.get("tab");
+  const initialTab =
+    tabFromUrl && TABS.some(t => t.id === tabFromUrl) ? tabFromUrl : defaultTab;
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && TABS.some(t => t.id === tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    restoreProfileUiScroll(peekPlaybackReturn());
+  }, []);
+
+  useEffect(() => {
+    const path = isDrawer
+      ? `drawer:/@${host.username}`
+      : `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}` ||
+        `/creator/${host.username}`;
+    void postCreatorProfileVisitAction(host.username, path);
+  }, [host.username, isDrawer, pathname, searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tab);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   const playVideo = (video: HostCreatorVideo) => {
     if (video.locked) return;
     onVideoPlay?.();
-    navigateToExplore({
-      id: video.id,
-      url: video.url,
-      title: video.title,
-      event: {
-        id: video.event.id,
-        eventName: video.event.eventName,
+    const returnPath = isDrawer
+      ? pathname
+      : `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    openContentWithReturn({
+      eventId: video.event.id,
+      channelId: video.id,
+      returnTo: returnPath,
+      label: `Back to @${host.username}`,
+      drawer: isDrawer
+        ? { type: "creator", username: host.username }
+        : undefined,
+      profileUi: {
+        tab: activeTab,
+        scrollY: typeof window !== "undefined" ? window.scrollY : 0,
       },
     });
   };
@@ -363,6 +417,7 @@ export function HostCreatorPageClient({
         }
         returnTo={pathname}
         defaultUserType="host"
+        hostRequiredNotice={!pendingStartCommunity}
         allowInlineSignUp
         onSuccess={handleSignInSuccess}
       />
@@ -406,8 +461,22 @@ export function HostCreatorPageClient({
             editProfileHref={editProfileHref}
           />
 
+          {isDrawer ? (
+            <div className="px-4 pt-2">
+              <Link
+                href={buildCreatorProfileSharePath(host.username)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary text-sm font-semibold hover:underline"
+              >
+                @{host.username.replace(/^@/, "")}
+              </Link>
+            </div>
+          ) : null}
+
           <Tabs
-            defaultValue="all_videos"
+            value={activeTab}
+            onValueChange={handleTabChange}
             className="-mt-4 gap-0 px-2"
           >
             <div className="sticky top-11 z-10 border-b bg-white">
@@ -433,7 +502,6 @@ export function HostCreatorPageClient({
                 coOwnedVideos={coOwnedVideos}
                 coOwnerPartyVideos={coOwnerPartyVideos}
                 coOwnerPartyName={coOwnerPartyName}
-                creatorName={host.fullName}
                 onPlay={playVideo}
                 isOwnProfile={isOwnProfile}
               />
@@ -466,7 +534,7 @@ export function HostCreatorPageClient({
             </TabsContent>
 
             <TabsContent value="playlists">
-              <EmptyTabMessage message="Playlists are not available yet." />
+              <PlaylistsTabContent playlists={playlists} />
             </TabsContent>
           </Tabs>
         </div>
@@ -847,7 +915,6 @@ function AllVideosTabContent({
   coOwnedVideos,
   coOwnerPartyVideos,
   coOwnerPartyName,
-  creatorName,
   onPlay,
   isOwnProfile,
 }: {
@@ -855,7 +922,6 @@ function AllVideosTabContent({
   coOwnedVideos: HostCreatorVideo[];
   coOwnerPartyVideos: HostCreatorVideo[];
   coOwnerPartyName: string | null;
-  creatorName: string;
   onPlay: (video: HostCreatorVideo) => void;
   isOwnProfile: boolean;
 }) {
@@ -870,30 +936,17 @@ function AllVideosTabContent({
    *
    * Otherwise, fall back to the creator's regular co-owned videos.
    */
-  // const coOwnedSubtabVideos = coOwnerPartyName
-  //   ? coOwnerPartyVideos
-  //   : coOwnedVideos;
-  const coOwnedSubtabVideos = coOwnerPartyName ? coOwnerPartyVideos : [];
+  const coOwnedSubtabVideos =
+    coOwnerPartyVideos.length > 0 ? coOwnerPartyVideos : coOwnedVideos;
 
-  /**
-   * The label represents the creator whose profile is being viewed,
-   * NOT the party that added them as a co-owner.
-   *
-   * Example:
-   *   Profile: Annette
-   *   Added as co-owner by: Emediong
-   *
-   *   Display:
-   *   "Annette co-owned videos"
-   */
-  const trimmedCreatorName = creatorName.trim();
+  /** Locked invite name from the co-owner record (unique per email). */
+  const trimmedCoOwnerInviteName = coOwnerPartyName?.trim() ?? "";
 
-  const coOwnedSubtabLabel = trimmedCreatorName
-    ? `${trimmedCreatorName} co-owner videos`
+  const coOwnedSubtabLabel = trimmedCoOwnerInviteName
+    ? `${trimmedCoOwnerInviteName} co-owner videos`
     : "Co-owned videos";
 
-  const showCoOwnedSubtab =
-    coOwnedSubtabVideos.length > 0 || isOwnProfile || Boolean(coOwnerPartyName);
+  const showCoOwnedSubtab = coOwnedSubtabVideos.length > 0;
 
   const [activeVideosSubtab, setActiveVideosSubtab] = useState<
     "all" | typeof CO_OWNED_VIDEOS_SUBTAB_ID
@@ -913,11 +966,6 @@ function AllVideosTabContent({
       <EmptyTabMessage message="No videos available yet." />
     );
   }
-
-  console.log("creatorName", creatorName);
-  console.log("coOwnedVideos", coOwnedVideos);
-  console.log("coOwnerPartyName", coOwnerPartyName);
-  console.log("coOwnerPartyVideos", coOwnerPartyVideos);
 
   return (
     <div>
@@ -1805,12 +1853,108 @@ function CommunityBannerSection({
   compact?: boolean;
   isOwnProfile?: boolean;
 }) {
+  const hostSession = useHostSession();
+  const pathname = usePathname();
+  const hostSlug = hostSession.eventSlug?.trim() || "";
   const joinHref = exploreCommunityJoinHref(community.id);
-  const bannerSrc = community.eventRoomBanner?.trim() || DEFAULT_EVENT_BANNER;
+  const communityTvHref = `/tv?community=${community.id}`;
   const logoSrc = community.logoUrl?.trim() || null;
   const description = community.description?.trim() || null;
+  const tvActivated = Boolean(community.tvActivatedAt?.trim());
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [addVideoOpen, setAddVideoOpen] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+  const [viewerHostsCommunity, setViewerHostsCommunity] = useState(false);
+  const [membershipStatus, setMembershipStatus] = useState<string | null>(null);
+  const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(
+    null
+  );
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<
+    string | null
+  >(null);
+  const [featuredVideos, setFeaturedVideos] = useState<
+    CommunityFeaturedVideo[]
+  >([]);
+  const [overlayVideo, setOverlayVideo] =
+    useState<CommunityFeaturedVideo | null>(null);
+
+  const canAccessMemberActions =
+    isOwnProfile || isMember || viewerHostsCommunity;
+
+  const reloadAccessState = useCallback(async () => {
+    const res = await getCommunityAccessStateAction(community.id);
+    if (!res.success || !res.data) return;
+    const d = res.data as {
+      featuredVideos?: CommunityFeaturedVideo[];
+      isMember?: boolean;
+      viewerHostsCommunity?: boolean;
+      membershipStatus?: string | null;
+      membershipExpiresAt?: string | null;
+      subscriptionExpiresAt?: string | null;
+    };
+    setFeaturedVideos((d.featuredVideos ?? []).slice(0, 3));
+    setIsMember(Boolean(d.isMember));
+    setViewerHostsCommunity(Boolean(d.viewerHostsCommunity));
+    setMembershipStatus(d.membershipStatus ?? null);
+    setMembershipExpiresAt(d.membershipExpiresAt ?? null);
+    setSubscriptionExpiresAt(d.subscriptionExpiresAt ?? null);
+  }, [community.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const res = await getCommunityAccessStateAction(community.id);
+      if (cancelled || !res.success || !res.data) return;
+      const d = res.data as {
+        featuredVideos?: CommunityFeaturedVideo[];
+        isMember?: boolean;
+        viewerHostsCommunity?: boolean;
+        membershipStatus?: string | null;
+        membershipExpiresAt?: string | null;
+        subscriptionExpiresAt?: string | null;
+      };
+      setFeaturedVideos((d.featuredVideos ?? []).slice(0, 3));
+      setIsMember(Boolean(d.isMember));
+      setViewerHostsCommunity(Boolean(d.viewerHostsCommunity));
+      setMembershipStatus(d.membershipStatus ?? null);
+      setMembershipExpiresAt(d.membershipExpiresAt ?? null);
+      setSubscriptionExpiresAt(d.subscriptionExpiresAt ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [community.id]);
+
+  const openJoinGate = useCallback(() => {
+    if (community.locked) return;
+    setJoinOpen(true);
+  }, [community.locked]);
+
+  const openMemberDestination = useCallback(
+    (href: string) => {
+      if (canAccessMemberActions) {
+        window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      }
+      openJoinGate();
+    },
+    [canAccessMemberActions, openJoinGate]
+  );
+
+  const copyDedicatedLink = useCallback(() => {
+    if (!canAccessMemberActions) {
+      openJoinGate();
+      return;
+    }
+    const url = `${window.location.origin}/community/side-chick/${community.id}`;
+    void navigator.clipboard.writeText(url).then(
+      () => toast.success("Dedicated mode link copied"),
+      () => toast.error("Could not copy link")
+    );
+  }, [canAccessMemberActions, community.id, openJoinGate]);
 
   const shouldReduceMotion = useReducedMotion();
+  const displayedFeatured = featuredVideos.slice(0, 3);
 
   return (
     <article
@@ -1819,11 +1963,12 @@ function CommunityBannerSection({
         compact && "mx-auto"
       )}
     >
-      <Link
-        href={community.locked ? "#" : joinHref}
-        aria-disabled={community.locked}
+      <button
+        type="button"
+        disabled={community.locked}
+        onClick={() => openMemberDestination(joinHref)}
         className={cn(
-          "relative block w-full bg-neutral-100",
+          "relative block w-full bg-neutral-100 text-left",
           community.locked && "pointer-events-none"
         )}
       >
@@ -1895,7 +2040,7 @@ function CommunityBannerSection({
             <LockedBadge />
           </div>
         ) : null}
-      </Link>
+      </button>
 
       <div className="space-y-3 px-4 py-4">
         <div className="flex items-start gap-3">
@@ -1934,34 +2079,174 @@ function CommunityBannerSection({
           </p>
         </div>
 
-        <div className="flex items-center gap-4 text-sm">
-          <Link
-            href={joinHref}
-            className="underline underline-offset-2"
-            target="_blank"
-          >
-            Community page
-          </Link>
-          <Link
-            href={`/tv?community=${community.id}`}
-            className="underline underline-offset-2"
-            target="_blank"
-          >
-            Community TV
-          </Link>
-        </div>
-
-        {!isOwnProfile ? (
-          <CommunityHowToJoinSection
-            communityId={community.id}
-            signInRedirectPath={joinHref}
-            className="border-t pt-4"
-            showCancelLink={false}
-            joinDisabled={community.locked}
+        {isMember && !viewerHostsCommunity ? (
+          <CommunityMemberInfo
+            communityName={community.name}
+            membershipStatus={membershipStatus}
+            membershipExpiresAt={membershipExpiresAt}
+            subscriptionExpiresAt={subscriptionExpiresAt}
           />
         ) : null}
+
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={() => openMemberDestination(joinHref)}
+          >
+            Community page
+          </button>
+          {tvActivated ? (
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={() => openMemberDestination(communityTvHref)}
+            >
+              Community TV
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={copyDedicatedLink}
+          >
+            Copy dedicated link
+          </button>
+        </div>
+
+        {displayedFeatured.length > 0 ? (
+          <div className="space-y-2 border-t pt-4">
+            <h4 className="text-sm font-medium">Featured videos</h4>
+            <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
+              {displayedFeatured.map(video => {
+                const videoId = extractYoutubeID(video.url);
+                const thumb = videoId
+                  ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                  : "/default-event-image.jpg";
+                return (
+                  <button
+                    key={video.id}
+                    type="button"
+                    className="relative aspect-[9/16] overflow-hidden bg-neutral-100"
+                    onClick={() => setOverlayVideo(video)}
+                    aria-label={`Play ${video.title}`}
+                  >
+                    <img
+                      src={thumb}
+                      alt=""
+                      className="size-full object-cover"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {isOwnProfile && hostSlug ? (
+          <div className="flex flex-wrap gap-3 border-t pt-4">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+            >
+              <Link
+                href={`/host/${hostSlug}/host-community?communityId=${encodeURIComponent(community.id)}`}
+              >
+                Manage community
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setAddVideoOpen(true)}
+            >
+              Add community video
+            </Button>
+            <AddCommunityBankVideoDialog
+              open={addVideoOpen}
+              onOpenChange={setAddVideoOpen}
+              communityId={community.id}
+              hostSlug={hostSlug}
+              pathname={pathname ?? undefined}
+            />
+          </div>
+        ) : null}
+
+        {!isOwnProfile && !canAccessMemberActions ? (
+          <div className="border-t pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openJoinGate}
+              disabled={community.locked}
+            >
+              Join community
+            </Button>
+          </div>
+        ) : null}
+
+        <JoinCommunityModal
+          open={joinOpen}
+          onOpenChange={setJoinOpen}
+          communityId={community.id}
+          signInRedirectPath={joinHref}
+          joinDisabled={community.locked}
+          onJoined={() => {
+            setJoinOpen(false);
+            void reloadAccessState();
+          }}
+        />
       </div>
+      {overlayVideo ? (
+        <CommunityFeaturedVideoOverlay
+          video={overlayVideo}
+          onClose={() => setOverlayVideo(null)}
+        />
+      ) : null}
     </article>
+  );
+}
+
+function CommunityFeaturedVideoOverlay({
+  video,
+  onClose,
+}: {
+  video: CommunityFeaturedVideo;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className={`${OVERLAY_Z_INDEX} fixed inset-0 flex items-center justify-center bg-black/80 p-4`}
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-xl rounded-md bg-white p-4 shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          aria-label="Close video"
+          onClick={onClose}
+          className="absolute top-3 right-3 rounded-full bg-black/60 p-1.5 text-white"
+        >
+          <CircleX className="size-4" />
+        </button>
+        <div className="aspect-video overflow-hidden rounded-lg bg-black">
+          <iframe
+            title={video.title}
+            src={`https://www.youtube.com/embed/${extractYoutubeID(video.url) ?? ""}`}
+            className="size-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+        <p className="mt-3 text-sm font-medium">{video.title}</p>
+      </div>
+    </div>
   );
 }
 
@@ -2007,39 +2292,28 @@ function VideoCard({
       : "/default-event-image.jpg";
   }, [video.url]);
 
-  const router = useRouter();
-
   return (
     <button
       type="button"
-      // onClick={() => {
-      //   if (!locked) onPlay();
-      // }}
-      // onClick={() => {
-      //   if (!locked)
-      //     router.push(`/content/${video.event.id}?v=${video.id}`);
-      // }}
+      onClick={() => {
+        if (!locked) onPlay();
+      }}
       disabled={locked}
       className={cn(
-        "group relative aspect-[9/16] overflow-hidden bg-neutral-100",
+        "group relative aspect-[9/16] overflow-hidden bg-neutral-100 text-left",
         locked ? "cursor-not-allowed" : "cursor-pointer"
       )}
       title={video.title}
       aria-label={locked ? `${video.title} (locked)` : video.title}
     >
-      <Link
-        href={locked ? "#" : `/content/${video.event.id}?v=${video.id}`}
-        target="_blank"
-      >
-        <img
-          src={thumb}
-          alt=""
-          className={cn(
-            "size-full object-cover transition-transform duration-200",
-            !locked && "group-hover:scale-[1.03]"
-          )}
-        />
-      </Link>
+      <img
+        src={thumb}
+        alt=""
+        className={cn(
+          "size-full object-cover transition-transform duration-200",
+          !locked && "group-hover:scale-[1.03]"
+        )}
+      />
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pt-8 pb-1.5">
         <p className="line-clamp-2 text-left text-[10px] font-medium text-white">
           {video.title}
@@ -2067,6 +2341,38 @@ function LockedBadge() {
       <Lock className="size-3.5" />
       Awaiting approval
     </span>
+  );
+}
+
+function PlaylistsTabContent({
+  playlists,
+}: {
+  playlists: HostPlaylistSummary[];
+}) {
+  if (playlists.length === 0) {
+    return <EmptyTabMessage message="No playlists published yet." />;
+  }
+
+  return (
+    <ul className="space-y-3 px-2 py-4">
+      {playlists.map(pl => (
+        <li key={pl.id}>
+          <Link
+            href={`/playlist/${pl.id}`}
+            className="hover:bg-muted/30 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
+          >
+            <span className="font-semibold">{pl.name}</span>
+            <span className="text-muted-foreground text-xs">
+              {pl.videoCount} videos · {pl.pageVisitCount} visits ·{" "}
+              {pl.totalTipCount} tips
+              {pl.kind === "community" && pl.communityName
+                ? ` · c ${pl.communityName}`
+                : ""}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 

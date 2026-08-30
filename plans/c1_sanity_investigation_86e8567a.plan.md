@@ -45,24 +45,24 @@ sequenceDiagram
 
 ### Actual sequence for trace `81adbc2a` (inferred from summary + code)
 
-| Order | Event | Canonical mark | Evidence |
-|-------|-------|----------------|----------|
-| 1 | `tv_provider_mounted` | T2 | Standard cold start |
-| 2 | `schedule_request_started` (trigger=`initial`) | T3 | `scheduleNetworkAttemptCount=2`, first attempt |
-| 3 | `schedule_payload_accepted` / `playlist_selected` | T4/T5 | Schedule ready before embed |
-| 4 | `initial_playback_position_resolved` | **T6 = 6985ms** | Summary |
-| 5 | `initial_embed_created` | — | `initialEmbedCount=1`, `targetWasResolved=true` |
-| 6 | `initial_live_offset_embed_committed` | — | Seeds orchestration + **`lastSyncedIndex`** |
-| 7 | `player_ready` | **T8 = 10147.6ms** | Summary |
-| 8 | `initial_live_offset_embed_confirmed` | **T9 = 10148.1ms** | Summary; C1 T9 semantics |
-| 9 | `syncToLive` (interval / effect) | — | `syncToLiveCount` ≥ 1 (not in summary) |
-| 10 | `pre_play_drift_seek_suppressed` | — | `prePlaySeekSuppressedCount=1` |
-| 11 | **`requestPlayback` NOT called** | — | `loadVideoByIdCount=0`; success events absent |
-| 12 | `player_playing` | **T11 = 12749.2ms** | Summary; autoplay succeeded |
-| 13 | `player_buffering` | **T10 = 13238.7ms** | After T11 (see §5) |
-| 14 | `orchestrated_playback_command_issued` ×2 (`seekTo`) | — | `seekToCount=2`, post-T11 (see §4) |
-| 15 | `stable_playback` | **T13 = 15357.4ms** | `finalState=stable` |
-| 16 | Post-T13 interval/sync events | — | `postFinalizationEventCount=18` |
+| Order | Event                                                | Canonical mark      | Evidence                                        |
+| ----- | ---------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| 1     | `tv_provider_mounted`                                | T2                  | Standard cold start                             |
+| 2     | `schedule_request_started` (trigger=`initial`)       | T3                  | `scheduleNetworkAttemptCount=2`, first attempt  |
+| 3     | `schedule_payload_accepted` / `playlist_selected`    | T4/T5               | Schedule ready before embed                     |
+| 4     | `initial_playback_position_resolved`                 | **T6 = 6985ms**     | Summary                                         |
+| 5     | `initial_embed_created`                              | —                   | `initialEmbedCount=1`, `targetWasResolved=true` |
+| 6     | `initial_live_offset_embed_committed`                | —                   | Seeds orchestration + **`lastSyncedIndex`**     |
+| 7     | `player_ready`                                       | **T8 = 10147.6ms**  | Summary                                         |
+| 8     | `initial_live_offset_embed_confirmed`                | **T9 = 10148.1ms**  | Summary; C1 T9 semantics                        |
+| 9     | `syncToLive` (interval / effect)                     | —                   | `syncToLiveCount` ≥ 1 (not in summary)          |
+| 10    | `pre_play_drift_seek_suppressed`                     | —                   | `prePlaySeekSuppressedCount=1`                  |
+| 11    | **`requestPlayback` NOT called**                     | —                   | `loadVideoByIdCount=0`; success events absent   |
+| 12    | `player_playing`                                     | **T11 = 12749.2ms** | Summary; autoplay succeeded                     |
+| 13    | `player_buffering`                                   | **T10 = 13238.7ms** | After T11 (see §5)                              |
+| 14    | `orchestrated_playback_command_issued` ×2 (`seekTo`) | —                   | `seekToCount=2`, post-T11 (see §4)              |
+| 15    | `stable_playback`                                    | **T13 = 15357.4ms** | `finalState=stable`                             |
+| 16    | Post-T13 interval/sync events                        | —                   | `postFinalizationEventCount=18`                 |
 
 **Never emitted:** `initial_embed_target_matched_first_sync`, `initial_reload_avoided`.
 
@@ -101,18 +101,18 @@ The clean C1 path **never enters `requestPlayback` for the first sync**, so the 
 
 ### Hypothesis checklist (user’s 10 items)
 
-| # | Verdict |
-|---|---------|
-| 1. No syncToLive → requestPlayback before PLAYING | **Confirmed** — same-index drift path, no `requestPlayback` |
-| 2. First sync only after PLAYING | Partially — sync runs before T11, but confirmation path skipped |
-| 3. Dedup branch before shouldSkipInitialReload | **Not applicable** — `requestPlayback` never called |
-| 4. Video match, offset compare failed | **Not the cause** — compare never ran |
-| 5. Raw offset without elapsed time | **Not the cause** — `matchesCommittedInitialEmbed` already uses `O + elapsed` ([tv-initial-live-offset-embed.ts](frontend/src/lib/tv-initial-live-offset-embed.ts) ~191–194); function never called |
-| 6. lastSyncedIndex seeding blocked branch | **Confirmed primary cause** |
-| 7. Event after finalization | **Ruled out** — events never fired |
-| 8. Trace aggregation bug | **Ruled out** — counters correct; events absent |
-| 9. Stale closure | **Ruled out** |
-| 10. Autoplay without imperative sync decision | **Confirmed** — core behavior |
+| #                                                 | Verdict                                                                                                                                                                                             |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. No syncToLive → requestPlayback before PLAYING | **Confirmed** — same-index drift path, no `requestPlayback`                                                                                                                                         |
+| 2. First sync only after PLAYING                  | Partially — sync runs before T11, but confirmation path skipped                                                                                                                                     |
+| 3. Dedup branch before shouldSkipInitialReload    | **Not applicable** — `requestPlayback` never called                                                                                                                                                 |
+| 4. Video match, offset compare failed             | **Not the cause** — compare never ran                                                                                                                                                               |
+| 5. Raw offset without elapsed time                | **Not the cause** — `matchesCommittedInitialEmbed` already uses `O + elapsed` ([tv-initial-live-offset-embed.ts](frontend/src/lib/tv-initial-live-offset-embed.ts) ~191–194); function never called |
+| 6. lastSyncedIndex seeding blocked branch         | **Confirmed primary cause**                                                                                                                                                                         |
+| 7. Event after finalization                       | **Ruled out** — events never fired                                                                                                                                                                  |
+| 8. Trace aggregation bug                          | **Ruled out** — counters correct; events absent                                                                                                                                                     |
+| 9. Stale closure                                  | **Ruled out**                                                                                                                                                                                       |
+| 10. Autoplay without imperative sync decision     | **Confirmed** — core behavior                                                                                                                                                                       |
 
 ### Why `initialEmbedUsedResolvedTarget: true` but match/avoided false
 
@@ -131,13 +131,13 @@ The clean C1 path **never enters `requestPlayback` for the first sync**, so the 
 
 ### Ruled-out triggers (code timing)
 
-| Trigger | Ruled out because |
-|---------|-------------------|
-| `interval` | `SCHEDULE_REFETCH_MS = 5 * 60 * 1000` ([tv-provider.tsx](frontend/src/components/tv-provider.tsx) ~128) — startup ~15s |
-| `sync_miss` | Requires 15 consecutive not-ready syncs (~45s) (~1038–1041) |
-| `boundary` | Half-day boundary timer |
+| Trigger         | Ruled out because                                                                                                      |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `interval`      | `SCHEDULE_REFETCH_MS = 5 * 60 * 1000` ([tv-provider.tsx](frontend/src/components/tv-provider.tsx) ~128) — startup ~15s |
+| `sync_miss`     | Requires 15 consecutive not-ready syncs (~45s) (~1038–1041)                                                            |
+| `boundary`      | Half-day boundary timer                                                                                                |
 | `source_change` | Initial establishment skipped ([tv-single-startup-schedule.ts](frontend/src/lib/tv-single-startup-schedule.ts) ~47–48) |
-| `retry` | Would not increment `scheduleRefreshCountDuringStartup` |
+| `retry`         | Would not increment `scheduleRefreshCountDuringStartup`                                                                |
 
 ### Most likely triggers (code-supported, trace not in repo)
 
@@ -178,11 +178,11 @@ Pre-play drift is **suppressed** by C0 (~1172–1189) — matches the single sup
 
 ### Inferred timing (no raw trace in repo)
 
-| Seek | When | Trigger | C0 suppress? |
-|------|------|---------|--------------|
-| (suppressed) | ~T8–T11, before first PLAYING | `syncToLive_drift_seek` | **Yes** — correct C0 behavior |
-| Seek 1 | **After T11** (~13–15s) | `syncToLive_drift_seek` | No — `firstPlayReached=true` |
-| Seek 2 | **After T11**, ~3s later | `syncToLive_drift_seek` (3s `SYNC_INTERVAL_MS`) | No — ordinary post-play sync |
+| Seek         | When                          | Trigger                                         | C0 suppress?                  |
+| ------------ | ----------------------------- | ----------------------------------------------- | ----------------------------- |
+| (suppressed) | ~T8–T11, before first PLAYING | `syncToLive_drift_seek`                         | **Yes** — correct C0 behavior |
+| Seek 1       | **After T11** (~13–15s)       | `syncToLive_drift_seek`                         | No — `firstPlayReached=true`  |
+| Seek 2       | **After T11**, ~3s later      | `syncToLive_drift_seek` (3s `SYNC_INTERVAL_MS`) | No — ordinary post-play sync  |
 
 **C1 seek gate:** **PASS** — no executed `seekTo` before first PLAYING. The one pre-play correction was suppressed.
 
@@ -244,9 +244,9 @@ Minor live drift between commit (~T6+3s) and first sync is expected and handled 
 
 ## 8. Recommended C1 success semantics — **Option C (Combined)**
 
-| Path | When to confirm |
-|------|-----------------|
-| **A — First sync** | `requestPlayback` invoked OR same-index pre-play sync determines `matchesCommittedInitialEmbed(committed, videoId, liveOffset, now)` with no load issued |
+| Path                           | When to confirm                                                                                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A — First sync**             | `requestPlayback` invoked OR same-index pre-play sync determines `matchesCommittedInitialEmbed(committed, videoId, liveOffset, now)` with no load issued    |
 | **B — First PLAYING fallback** | Before/at first `player_playing`: committed embed exists, generation valid, provisional target valid, `loadVideoByIdCount === 0`, no executed pre-play seek |
 
 **Why Option C is race-safe:**
@@ -361,8 +361,9 @@ Raw event log for `traceId=81adbc2a` is **not in the repository**. One console/s
 **Capture command for next run:**
 
 ```javascript
-JSON.parse(sessionStorage.getItem('tipmanna-tv-startup-traces') ?? '[]')
-  .find(s => s.traceId === '...') 
+JSON.parse(sessionStorage.getItem("tipmanna-tv-startup-traces") ?? "[]").find(
+  s => s.traceId === "..."
+);
 // Plus filter console for [tv-startup] schedule_request_started
 ```
 
@@ -370,18 +371,18 @@ JSON.parse(sessionStorage.getItem('tipmanna-tv-startup-traces') ?? '[]')
 
 ## Summary table (user checklist)
 
-| # | Answer |
-|---|--------|
-| 1 | Sequence reconstructed above; success events require `requestPlayback` branch never taken |
-| 2 | `lastSyncedIndex` seeding → same-index drift suppression → autoplay without `requestPlayback` |
-| 3 | Second schedule = refresh trigger (likely **pusher** or **visibility**); before T11; unlikely to replace C1 embed |
-| 4 | 1 suppressed pre-play drift seek; 2 post-T11 drift seeks |
-| 5 | YouTube PLAYING then BUFFERING; T10 first-wins; recommend pre/post-play buffering diagnostic |
-| 6 | **Yes**, reload avoided (`loadVideoByIdCount=0`) |
-| 7 | **Yes**, target safely current (T9 confirmed, no stale reason) |
-| 8 | **Option C** combined semantics |
-| 9 | `expectedOffset = committed + elapsed`; tolerance ±3s |
-| 10 | C1.1: success recorder + same-index + first-PLAYING fallback |
-| 11 | 6 test areas + staging gate above |
-| 12 | **Stay enabled** on staging |
-| 13 | Need raw trace for schedule trigger + seek timestamps |
+| #   | Answer                                                                                                            |
+| --- | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | Sequence reconstructed above; success events require `requestPlayback` branch never taken                         |
+| 2   | `lastSyncedIndex` seeding → same-index drift suppression → autoplay without `requestPlayback`                     |
+| 3   | Second schedule = refresh trigger (likely **pusher** or **visibility**); before T11; unlikely to replace C1 embed |
+| 4   | 1 suppressed pre-play drift seek; 2 post-T11 drift seeks                                                          |
+| 5   | YouTube PLAYING then BUFFERING; T10 first-wins; recommend pre/post-play buffering diagnostic                      |
+| 6   | **Yes**, reload avoided (`loadVideoByIdCount=0`)                                                                  |
+| 7   | **Yes**, target safely current (T9 confirmed, no stale reason)                                                    |
+| 8   | **Option C** combined semantics                                                                                   |
+| 9   | `expectedOffset = committed + elapsed`; tolerance ±3s                                                             |
+| 10  | C1.1: success recorder + same-index + first-PLAYING fallback                                                      |
+| 11  | 6 test areas + staging gate above                                                                                 |
+| 12  | **Stay enabled** on staging                                                                                       |
+| 13  | Need raw trace for schedule trigger + seek timestamps                                                             |

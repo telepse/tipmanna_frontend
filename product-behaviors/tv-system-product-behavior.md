@@ -34,12 +34,12 @@ flowchart TD
   Backend --> Provider
 ```
 
-| Layer | Responsibility |
-|-------|----------------|
+| Layer               | Responsibility                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
 | **Backend compose** | Builds the 12-hour virtual axis: regular segments, enforcement clips, 60s notice slates, section metadata |
-| **TVProvider** | Mode (`GLOBAL` / `LOCAL`), sync-to-live, playlist orchestration, enforcement entry |
-| **Looper** | Chrome UI, seek bar, shared `useTvPlayerControls` hook |
-| **TvPlayer** | YouTube IFrame API wrapper |
+| **TVProvider**      | Mode (`GLOBAL` / `LOCAL`), sync-to-live, playlist orchestration, enforcement entry                        |
+| **Looper**          | Chrome UI, seek bar, shared `useTvPlayerControls` hook                                                    |
+| **TvPlayer**        | YouTube IFrame API wrapper                                                                                |
 
 Community TV differs only by **schedule source** (`scheduleSourceCommunityId`); playback, enforcement, and UI rules are identical.
 
@@ -47,20 +47,20 @@ Community TV differs only by **schedule source** (`scheduleSourceCommunityId`); 
 
 ## Playback modes
 
-| Mode | UI label | Behavior |
-|------|----------|----------|
-| `GLOBAL` | Live TV | `syncToLive` runs on an interval; player seeks to resolver position on the broadcast axis |
-| `LOCAL` | Your TV | Live sync stops; viewer controls timeline via playlist clicks or transport controls |
+| Mode     | UI label | Behavior                                                                                  |
+| -------- | -------- | ----------------------------------------------------------------------------------------- |
+| `GLOBAL` | Live TV  | `syncToLive` runs on an interval; player seeks to resolver position on the broadcast axis |
+| `LOCAL`  | Your TV  | Live sync stops; viewer controls timeline via playlist clicks or transport controls       |
 
 ### When mode switches
 
-| Action | Result |
-|--------|--------|
-| User clicks **Go Live** | `GLOBAL` — rejoins wall-clock position |
-| User clicks a schedule/preview row | `LOCAL` — plays selected item |
-| User pauses during live | Stays `GLOBAL` unless they explicitly switch to local |
-| Enforcement **on-axis** | Stays `GLOBAL` — notice slate → program clip handoff driven by sync |
-| Enforcement **off-axis** (bootstrap) | `LOCAL` queue for notice + program until live catches up |
+| Action                               | Result                                                              |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| User clicks **Go Live**              | `GLOBAL` — rejoins wall-clock position                              |
+| User clicks a schedule/preview row   | `LOCAL` — plays selected item                                       |
+| User pauses during live              | Stays `GLOBAL` unless they explicitly switch to local               |
+| Enforcement **on-axis**              | Stays `GLOBAL` — notice slate → program clip handoff driven by sync |
+| Enforcement **off-axis** (bootstrap) | `LOCAL` queue for notice + program until live catches up            |
 
 **Critical rule:** Enforcement must **not** force `LOCAL` when the program or its notice slate is currently on the broadcast axis. Forcing local during on-axis enforcement was the root cause of the “starter notice stuck in Your TV” bug.
 
@@ -86,11 +86,11 @@ TV schedules can be **adjusted** (curated collections, prefer-first/second-half 
 
 At schedule compose time, each row is stamped with:
 
-| Field | Meaning |
-|-------|---------|
-| `sectionHalf` | `FIRST_HALF` (0–6h) or `SECOND_HALF` (6–12h) |
-| `isSectionStart` | `true` at row 0 and at the 6h midpoint crossing |
-| `sectionTitle` | e.g. `{collectionTitle} · First half` — only on section starts |
+| Field            | Meaning                                                        |
+| ---------------- | -------------------------------------------------------------- |
+| `sectionHalf`    | `FIRST_HALF` (0–6h) or `SECOND_HALF` (6–12h)                   |
+| `isSectionStart` | `true` at row 0 and at the 6h midpoint crossing                |
+| `sectionTitle`   | e.g. `{collectionTitle} · First half` — only on section starts |
 
 **No database migration:** section labels are derived from adjustment snapshot + axis position when the playlist is served.
 
@@ -107,11 +107,11 @@ At schedule compose time, each row is stamped with:
 
 Enforcement inserts **virtual axis segments** for authorized programs:
 
-| `segmentKind` | Role |
-|---------------|------|
-| `notice` | 60-second pre/post slate (“Program Start/End”) — **not a separate YouTube video** |
-| `enforcement` | The forced program clip |
-| `regular` | Normal scheduled content |
+| `segmentKind` | Role                                                                              |
+| ------------- | --------------------------------------------------------------------------------- |
+| `notice`      | 60-second pre/post slate (“Program Start/End”) — **not a separate YouTube video** |
+| `enforcement` | The forced program clip                                                           |
+| `regular`     | Normal scheduled content                                                          |
 
 All enforcement-related rows share an `enforcementId`.
 
@@ -130,10 +130,10 @@ Notice slates are **never** valid LOCAL playlist entry points (`loadLocalAtIndex
 
 The **pre-start** notice (`noticePhase: "pre"`) is a virtual 60-second axis segment — not a YouTube video. It is the single notification system for upcoming enforced programs; there is no separate modal or toast.
 
-| Viewer mode | Overlay visibility | Playback |
-|-------------|-------------------|----------|
-| **Live TV (GLOBAL)** | When `currentIndex` is on the notice row | Player pauses via `syncToLive_notice_pause`; countdown shows axis-derived remaining time |
-| **Your TV (LOCAL)** | When live axis is in pre-notice (`livePreNotice`) even though `currentIndex` stays on the viewer’s video | Player pauses once; snapshot stores index + seek + play state |
+| Viewer mode          | Overlay visibility                                                                                       | Playback                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Live TV (GLOBAL)** | When `currentIndex` is on the notice row                                                                 | Player pauses via `syncToLive_notice_pause`; countdown shows axis-derived remaining time |
+| **Your TV (LOCAL)**  | When live axis is in pre-notice (`livePreNotice`) even though `currentIndex` stays on the viewer’s video | Player pauses once; snapshot stores index + seek + play state                            |
 
 **Countdown:** `remainingSec` is derived from the broadcast axis (`axisEndSec − loopPosition`), not a client-only timer.
 
@@ -141,10 +141,10 @@ The **pre-start** notice (`noticePhase: "pre"`) is a virtual 60-second axis segm
 
 **Opt-out actions (LOCAL only):**
 
-| Action | Result |
-|--------|--------|
+| Action                            | Result                                                             |
+| --------------------------------- | ------------------------------------------------------------------ |
 | **Return to what I was watching** | Dismiss slate, restore snapshot seek + play state, stay in Your TV |
-| **Playlist or schedule click** | Dismiss slate, play chosen row (notice rows still skipped) |
+| **Playlist or schedule click**    | Dismiss slate, play chosen row (notice rows still skipped)         |
 
 **Critical rule:** Mode does **not** change when the slate **appears** — only on wait-out (LOCAL → GLOBAL) or explicit user action.
 
@@ -160,10 +160,10 @@ Backend enforcement status (`AUTHORIZED`, `PENDING_APPROVAL`, rolled back, etc.)
 
 Two playlist surfaces share the same `items` array:
 
-| Surface | Purpose | Click behavior |
-|---------|---------|----------------|
-| **Preview playlist** | Rotated “up next” window near the player | Plays row, **re-pins** preview to clicked index, **scrolls preview to top** |
-| **Schedule drawer/table** | Full authoritative schedule | Plays row **without** re-pinning preview; no auto-scroll |
+| Surface                   | Purpose                                  | Click behavior                                                              |
+| ------------------------- | ---------------------------------------- | --------------------------------------------------------------------------- |
+| **Preview playlist**      | Rotated “up next” window near the player | Plays row, **re-pins** preview to clicked index, **scrolls preview to top** |
+| **Schedule drawer/table** | Full authoritative schedule              | Plays row **without** re-pinning preview; no auto-scroll                    |
 
 ### Highlighting in LOCAL mode
 
@@ -205,25 +205,25 @@ All three loopers use `useTvPlayerControls`:
 
 ## Segment kinds reference
 
-| Kind | Duration | Plays in GLOBAL | LOCAL entry |
-|------|----------|-----------------|-------------|
-| `regular` | Variable | Yes | Yes |
-| `notice` | 60s axis slot | Yes (on-axis) | **No** — skipped |
-| `enforcement` | Program length | Yes (on-axis) | Yes (bootstrap / off-axis) |
+| Kind          | Duration       | Plays in GLOBAL | LOCAL entry                |
+| ------------- | -------------- | --------------- | -------------------------- |
+| `regular`     | Variable       | Yes             | Yes                        |
+| `notice`      | 60s axis slot  | Yes (on-axis)   | **No** — skipped           |
+| `enforcement` | Program length | Yes (on-axis)   | Yes (bootstrap / off-axis) |
 
 ---
 
 ## Key files (for engineering)
 
-| Area | Path |
-|------|------|
-| Provider / orchestration | `frontend/src/components/tv-provider.tsx` |
-| Enforcement mode resolver | `frontend/src/lib/tv/enforcement-playback-mode.ts` |
-| Broadcast position | `frontend/src/lib/tv/broadcastResolver.ts` |
-| Shared controls hook | `frontend/src/hooks/use-tv-player-controls.ts` |
-| Audio autoplay helpers | `frontend/src/lib/tv-autoplay.ts` |
-| Section stamping | `backend/src/services/tv-virtual-playlist.service.ts` |
-| Segment styling | `frontend/src/lib/tv/segment-visual-style.ts` |
+| Area                      | Path                                                  |
+| ------------------------- | ----------------------------------------------------- |
+| Provider / orchestration  | `frontend/src/components/tv-provider.tsx`             |
+| Enforcement mode resolver | `frontend/src/lib/tv/enforcement-playback-mode.ts`    |
+| Broadcast position        | `frontend/src/lib/tv/broadcastResolver.ts`            |
+| Shared controls hook      | `frontend/src/hooks/use-tv-player-controls.ts`        |
+| Audio autoplay helpers    | `frontend/src/lib/tv-autoplay.ts`                     |
+| Section stamping          | `backend/src/services/tv-virtual-playlist.service.ts` |
+| Segment styling           | `frontend/src/lib/tv/segment-visual-style.ts`         |
 
 ---
 

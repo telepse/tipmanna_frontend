@@ -34,13 +34,17 @@ export function hasActiveHostSession(expectedHostId?: string | null): boolean {
   return new Date(expiresAt).getTime() > Date.now();
 }
 
-/** Clear stale unrelated host session marker. */
+/**
+ * Clear host session only when cookie host id clearly belongs to another account.
+ * Does not clear when cookies are absent (fresh login race).
+ */
 export async function clearStaleHostSessionIfMismatch(
   linkedHostId: string | null | undefined
 ): Promise<void> {
   if (!linkedHostId) return;
   const hostUser = getHostUserFromCookies();
-  if (hostUser?.id && hostUser.id !== linkedHostId) {
+  if (!hostUser?.id) return;
+  if (hostUser.id !== linkedHostId) {
     await clearHostSession();
   }
 }

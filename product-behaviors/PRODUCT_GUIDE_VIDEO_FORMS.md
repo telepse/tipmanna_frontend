@@ -26,13 +26,13 @@ Both families share:
 
 ### Draft kinds
 
-| Kind | Used by |
-|------|---------|
-| `content_only` | Content-only wizard |
-| `event_only` | Event-only wizard |
-| `event_and_content` | Event + content wizard |
-| `room_add_video` | Event room add-video modal |
-| `community_video` | Community add-video modal + Create dialog community tabs |
+| Kind                | Used by                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `content_only`      | Content-only wizard                                      |
+| `event_only`        | Event-only wizard                                        |
+| `event_and_content` | Event + content wizard                                   |
+| `room_add_video`    | Event room add-video modal                               |
+| `community_video`   | Community add-video modal + Create dialog community tabs |
 
 ### How autosave works
 
@@ -43,11 +43,11 @@ Both families share:
 
 ### How resume works
 
-| Surface | UX |
-|---------|-----|
-| **Wizards** | Yellow **Resume/Discard** banner when a recent in-progress draft exists. User must choose. URL `?draftId=` also restores directly. |
-| **Modals** | Silent restore when the modal opens (toast: “Draft restored”). Dashboard **Saved drafts** panel provides resume buttons. |
-| **Create dialog** | Same as modals; can also resume via URL params (`resumeCreateVideo=1`, etc.). |
+| Surface           | UX                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Wizards**       | Yellow **Resume/Discard** banner when a recent in-progress draft exists. User must choose. URL `?draftId=` also restores directly. |
+| **Modals**        | Silent restore when the modal opens (toast: “Draft restored”). Dashboard **Saved drafts** panel provides resume buttons.           |
+| **Create dialog** | Same as modals; can also resume via URL params (`resumeCreateVideo=1`, etc.).                                                      |
 
 ### Dashboard — Saved drafts panel
 
@@ -66,12 +66,12 @@ Located on the host dashboard (`/host/{slug}`).
 
 ### Steps
 
-| Step | Name | Key fields |
-|------|------|------------|
-| 1 | Target | Fundraising target amount |
-| 2 | Content | Event type, contribution type, one or more videos (URL, title, description, language, country, default flag) |
-| 3 | Room | Creator identity, live stream link, tip usage disclosure — or sign-in form if not yet a host |
-| 4 | Privacy & policy | YouTube slots, ownership per video, co-owner invites |
+| Step | Name             | Key fields                                                                                                   |
+| ---- | ---------------- | ------------------------------------------------------------------------------------------------------------ |
+| 1    | Target           | Fundraising target amount                                                                                    |
+| 2    | Content          | Event type, contribution type, one or more videos (URL, title, description, language, country, default flag) |
+| 3    | Room             | Creator identity, live stream link, tip usage disclosure — or sign-in form if not yet a host                 |
+| 4    | Privacy & policy | YouTube slots, ownership per video, co-owner invites                                                         |
 
 ### Step navigation rules
 
@@ -173,11 +173,11 @@ Shows three cards:
 
 Title: **Add a video**. Three tabs:
 
-| Tab | Target | Submit action | Draft kind |
-|-----|--------|---------------|------------|
-| **Channel** | Existing event room | Creates event channel video | `room_add_video` |
-| **My community** | Owned community | Adds to community content bank | `community_video` |
-| **Co-create** | Co-creator community | Same as community | `community_video` |
+| Tab              | Target               | Submit action                  | Draft kind        |
+| ---------------- | -------------------- | ------------------------------ | ----------------- |
+| **Channel**      | Existing event room  | Creates event channel video    | `room_add_video`  |
+| **My community** | Owned community      | Adds to community content bank | `community_video` |
+| **Co-create**    | Co-creator community | Same as community              | `community_video` |
 
 #### Form fields (all tabs)
 
@@ -275,13 +275,13 @@ Uses the same `AddVideoForm` as the Create dialog with:
 
 Applies to **wizards (step 4)** and **all add-video modals**.
 
-| Condition | Requirement |
-|-----------|-------------|
-| Ownership = Yes + slot 1 or 2 | Must verify before submit |
-| Ownership = No (co-owned) | Co-owner invite required instead |
-| Slot = none | No YouTube verify required |
-| Verify in progress | Submit disabled, button shows “Verifying…” |
-| Verify failed | User must fix URL/slot and retry |
+| Condition                     | Requirement                                |
+| ----------------------------- | ------------------------------------------ |
+| Ownership = Yes + slot 1 or 2 | Must verify before submit                  |
+| Ownership = No (co-owned)     | Co-owner invite required instead           |
+| Slot = none                   | No YouTube verify required                 |
+| Verify in progress            | Submit disabled, button shows “Verifying…” |
+| Verify failed                 | User must fix URL/slot and retry           |
 
 **Modal drafts** persist verify state (`checking`, `verified`, `failed`) so users don’t lose progress when closing the dialog.
 
@@ -289,43 +289,43 @@ Applies to **wizards (step 4)** and **all add-video modals**.
 
 ## Co-owner invitations — unified rules
 
-| Rule | Behavior |
-|------|----------|
-| Tier | Host Premium or Host Community required to send invites |
-| YouTube URL | Required when sending invite (server validates) |
-| Submit gate | Blocked while invite is **pending** or no invite sent yet |
-| Approved-wins | If an **approved** invite exists, stale expired/declined/revoked rows on the same draft are ignored |
-| Wizard drop | Co-owned videos with **only** terminal invites are **excluded** from submission (warning shown pre-submit) |
-| Single-video modal | Cannot drop the only video — submit blocked with resend/remove/switch-to-full-ownership guidance |
-| Default video | Cannot mark as default while co-owner invite pending |
-| Resend | Available for pending/expired/declined/revoked; 10 min cooldown; max 5 |
-| Remove | Clears pending/expired/declined invites; pending requires confirmation |
-| Approval | Co-owner uses public page + email OTP, not in-app login |
-| Real-time | Host UI refreshes on approval/resend via Pusher |
+| Rule               | Behavior                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Tier               | Host Premium or Host Community required to send invites                                                    |
+| YouTube URL        | Required when sending invite (server validates)                                                            |
+| Submit gate        | Blocked while invite is **pending** or no invite sent yet                                                  |
+| Approved-wins      | If an **approved** invite exists, stale expired/declined/revoked rows on the same draft are ignored        |
+| Wizard drop        | Co-owned videos with **only** terminal invites are **excluded** from submission (warning shown pre-submit) |
+| Single-video modal | Cannot drop the only video — submit blocked with resend/remove/switch-to-full-ownership guidance           |
+| Default video      | Cannot mark as default while co-owner invite pending                                                       |
+| Resend             | Available for pending/expired/declined/revoked; 10 min cooldown; max 5                                     |
+| Remove             | Clears pending/expired/declined invites; pending requires confirmation                                     |
+| Approval           | Co-owner uses public page + email OTP, not in-app login                                                    |
+| Real-time          | Host UI refreshes on approval/resend via Pusher                                                            |
 
 ### Status meanings (host UI)
 
-| Status | Meaning | Host action |
-|--------|---------|-------------|
-| Pending | Awaiting co-owner approval | Wait or resend after expiry |
-| Approved | Co-owner consented | Can submit |
-| Declined | Co-owner rejected | Resend to same email or **Remove** and invite someone else |
-| Expired | Invite timed out | Resend invitation or **Remove** |
-| Revoked | Host removed invite or submitted as sole owner | Resend if still co-owned |
+| Status   | Meaning                                        | Host action                                                |
+| -------- | ---------------------------------------------- | ---------------------------------------------------------- |
+| Pending  | Awaiting co-owner approval                     | Wait or resend after expiry                                |
+| Approved | Co-owner consented                             | Can submit                                                 |
+| Declined | Co-owner rejected                              | Resend to same email or **Remove** and invite someone else |
+| Expired  | Invite timed out                               | Resend invitation or **Remove**                            |
+| Revoked  | Host removed invite or submitted as sole owner | Resend if still co-owned                                   |
 
 ---
 
 ## Auth requirements summary
 
-| Action | Requirement |
-|--------|-------------|
-| Browse wizard steps 1–2 | None |
-| Save draft | Host write session |
-| YouTube verify | Host write session |
-| Send co-owner invite | Host write session + premium tier |
-| Submit wizard | Host account, verified, not visitor |
-| Add video modal | Event owner/cohost or community host |
-| Co-owner approve | Email OTP on public page |
+| Action                  | Requirement                          |
+| ----------------------- | ------------------------------------ |
+| Browse wizard steps 1–2 | None                                 |
+| Save draft              | Host write session                   |
+| YouTube verify          | Host write session                   |
+| Send co-owner invite    | Host write session + premium tier    |
+| Submit wizard           | Host account, verified, not visitor  |
+| Add video modal         | Event owner/cohost or community host |
+| Co-owner approve        | Email OTP on public page             |
 
 ---
 

@@ -30,7 +30,7 @@ import {
 
 // Local imports
 import { markPaymentCompleted, setSelectedTips } from "@/features/tip-slice";
-import { createVisitorTipperAction } from "@/actions/visitors";
+import { claimVisitorAfterPaymentAction } from "@/actions/visitors";
 import { getDeviceKey } from "@/lib/getAuthToken";
 import { setCredentials } from "@/features/auth-slice";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,7 @@ import { writePendingPaymentReturn } from "@/lib/pending-payment-return";
 import { isPayerOriginRecoveryEnabled } from "@/lib/payer-origin-recovery-flag";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import { setPaymentPendingReturn } from "@/lib/tv-payment-snapshot";
-import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
+import { schedulePwaPromptAfterPaymentWithPolicy } from "@/lib/pwa-install-trigger";
 import type { PaymentSurface } from "@/lib/analytics-types";
 import {
   getAnalyticsSessionId,
@@ -65,6 +65,7 @@ import {
   TipperWalletChip,
   TipperWalletDialog,
 } from "@/components/payments/tipper-wallet-entry";
+import { getStoredEventRoomInviteToken } from "@/components/events/event-room-access-gate";
 import { useTipperWalletStatus } from "@/hooks/use-tipper-wallet-status";
 import {
   ensureSingleTextInCart,
@@ -599,52 +600,58 @@ export const TipDrawer = ({
   const stripe = useStripe();
   const elements = useElements();
 
-  const ensureVisitorAccount = useCallback(async () => {
-    if (userId) return;
+  const ensureVisitorAccount = useCallback(
+    async (transactionId?: string) => {
+      if (userId) return;
 
-    const visitorRes = await createVisitorTipperAction(getDeviceKey());
+      const visitorRes = await claimVisitorAfterPaymentAction({
+        transactionId,
+        deviceKey: getDeviceKey(),
+      });
 
-    if (!visitorRes?.visitor) {
-      throw new Error("Unable to create visitor account");
-    }
+      if (!visitorRes?.visitor) {
+        throw new Error("Unable to claim visitor session after payment");
+      }
 
-    const v = visitorRes.visitor as {
-      id: string;
-      fullName: string;
-      email?: string;
-      username: string;
-    };
-    const { id, fullName, email, username } = v;
-    const token = visitorRes.token as string;
+      const v = visitorRes.visitor as {
+        id: string;
+        fullName: string;
+        email?: string;
+        username: string;
+      };
+      const { id, fullName, email, username } = v;
+      const token = visitorRes.token as string;
 
-    dispatch(
-      setCredentials({
-        user: {
+      dispatch(
+        setCredentials({
+          user: {
+            id,
+            fullName,
+            email: email ?? "",
+            username,
+            role: "VISITOR",
+          },
+          token,
+        })
+      );
+
+      await persistAuthSession(
+        token ?? "",
+        {
           id,
           fullName,
           email: email ?? "",
           username,
           role: "VISITOR",
         },
-        token,
-      })
-    );
-
-    await persistAuthSession(
-      token ?? "",
-      {
-        id,
-        fullName,
-        email: email ?? "",
-        username,
-        role: "VISITOR",
-      },
-      { expiresDays: 1 }
-    );
-    touchVisitorTimestamp();
-    invalidateProfileDrawerCache();
-    dispatchAuthChanged();
-  }, [userId, dispatch]);
+        { expiresDays: 1 }
+      );
+      touchVisitorTimestamp();
+      invalidateProfileDrawerCache();
+      dispatchAuthChanged();
+    },
+    [userId, dispatch]
+  );
 
   const handleDefaultPayButton = async () => {
     await onConfirm();
@@ -736,6 +743,11 @@ export const TipDrawer = ({
       }
     }
 
+    const inviteToken =
+      typeof eventId === "string" && eventId.trim()
+        ? getStoredEventRoomInviteToken(eventId)
+        : undefined;
+
     // Send the ConfirmationToken ID to your server for additional logic and attach the ConfirmationToken
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/payments/create-payment-intent`,
@@ -743,6 +755,7 @@ export const TipDrawer = ({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(inviteToken ? { "x-event-room-invite-token": inviteToken } : {}),
         },
         body: JSON.stringify({
           amount: Number(walletPayTotal),
@@ -776,6 +789,7 @@ export const TipDrawer = ({
           clientSessionId: getAnalyticsSessionId(),
           ...(vfEffectiveId ? { videoFeatureCardId: vfEffectiveId } : {}),
           ...(tipQuoteId ? { tipQuoteId } : {}),
+          deviceKey: getDeviceKey(),
         }),
       }
     );
@@ -863,7 +877,7 @@ export const TipDrawer = ({
     }
 
     try {
-      await ensureVisitorAccount();
+      await ensureVisitorAccount(tipTransactionId);
     } catch {
       // Payment succeeded; visitor session is best-effort for welcome/onboarding.
     }
@@ -1281,7 +1295,7 @@ export const TipDrawer = ({
             : undefined
         }
         onWalletDebitSuccess={() => {
-          void ensureVisitorAccount().catch(() => {
+          void ensureVisitorAccount(undefined).catch(() => {
             /* best-effort after successful wallet debit */
           });
           setIsProcessing(false);
@@ -1292,7 +1306,7 @@ export const TipDrawer = ({
           const tipCount = Math.max(1, selectedTips.length);
           dispatch(setSelectedTips([]));
           dispatch(markPaymentCompleted(false));
-          schedulePwaPromptAfterPaymentAnimation(tipCount);
+          void schedulePwaPromptAfterPaymentWithPolicy(tipCount);
           void refreshWallet();
           window.setTimeout(() => onOpenChange(false), 400);
         }}

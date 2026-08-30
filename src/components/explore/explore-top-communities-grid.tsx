@@ -8,9 +8,9 @@ import { useSelector } from "react-redux";
 
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
-import { Button } from "@/components/ui/button";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import type { RootState } from "@/redux/store";
+import { cn } from "@/lib/utils";
 import { UserRound, UsersRound } from "lucide-react";
 
 function formatCommunityDate(iso?: string | null): string {
@@ -60,10 +60,26 @@ export function ExploreTopCommunitiesGrid({
 
   const renderCard = (c: CommunityExploreCatalogRow) => {
     const locked = lockedIds.has(c.id);
+    const communityHref = exploreCommunityJoinHref(c.id);
     return (
-      <div
+      <Link
         key={c.id}
-        className="border-border bg-card flex h-full flex-col rounded-lg border p-3 shadow-sm"
+        href={locked ? "#" : communityHref}
+        aria-disabled={locked}
+        onClick={e => {
+          if (locked) {
+            e.preventDefault();
+            return;
+          }
+          if (!isAuthenticated) {
+            e.preventDefault();
+            openJoinSignIn(c.id);
+          }
+        }}
+        className={cn(
+          "border-border bg-card flex h-full flex-col rounded-lg border p-3 shadow-sm transition-colors",
+          locked ? "pointer-events-none opacity-70" : "hover:bg-muted/30"
+        )}
       >
         <div className="flex gap-2">
           {c.logoUrl ? (
@@ -115,30 +131,16 @@ export function ExploreTopCommunitiesGrid({
               Awaiting approval
             </p>
           ) : c.viewer?.joined ? (
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="flex-1"
-            >
-              <Link href={exploreCommunityJoinHref(c.id)}>Open</Link>
-            </Button>
+            <span className="text-primary w-full text-center text-xs font-medium">
+              Open community
+            </span>
           ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="flex-1"
-              onClick={() => {
-                if (!isAuthenticated) openJoinSignIn(c.id);
-                else router.push(exploreCommunityJoinHref(c.id));
-              }}
-            >
-              Join
-            </Button>
+            <span className="text-muted-foreground w-full text-center text-xs">
+              {isAuthenticated ? "Join community" : "Sign in to join"}
+            </span>
           )}
         </div>
-      </div>
+      </Link>
     );
   };
 

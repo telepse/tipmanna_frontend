@@ -130,7 +130,6 @@ import { EnforcementPreNoticeOverlay } from "./enforcement-pre-notice-overlay";
 export const HomeTvLooper = ({
   characters,
   playerLayout = "compact",
-  mobileLandscape = false,
   analyticsSurface = "tv_looper",
   onContinueCommentToTip,
   onEngage,
@@ -143,8 +142,6 @@ export const HomeTvLooper = ({
   characters: RoomCharacter[];
   /** compact: legacy 420px column; wide: full-width player for desktop /tv */
   playerLayout?: "compact" | "wide";
-  /** Mobile device landscape layout — keeps one player instance across orientation. */
-  mobileLandscape?: boolean;
   /** Defaults to tv_looper; use homepage_preview on the marketing homepage embed */
   analyticsSurface?: PaymentSurface;
   /** Optional: parent opens Stripe tip drawer after comment draft handoff from CommentDrawer. */
@@ -423,7 +420,6 @@ export const HomeTvLooper = ({
   });
 
   const shellEmbedsFullView = Boolean(onFullViewChange);
-  const landscapeChrome = mobileLandscape && isMobileTv;
   const { animationMountRef, paymentLayerMetrics, usePlayerBoundsLayer } =
     useTvPaymentAnimationLayer({
       playerAreaRef,
@@ -900,7 +896,7 @@ export const HomeTvLooper = ({
     current.channel as Parameters<typeof pickVideoSurfaceBadgeProps>[0],
     currentEventId || undefined
   );
-  const fillViewport = isFullView || isFullscreen || landscapeChrome;
+  const fillViewport = isFullView || isFullscreen;
   const widePlayer = playerLayout === "wide" && !isMobileTv && !fillViewport;
   const useFixedFullViewChrome = isFullView && !shellEmbedsFullView;
 
@@ -980,7 +976,7 @@ export const HomeTvLooper = ({
           </button>
 
           <div className="border border-gray-300">
-            {isMobileTv && !isFullView && !landscapeChrome && (
+            {isMobileTv && !isFullView && (
               <button
                 type="button"
                 onClick={enterFull}
@@ -992,7 +988,7 @@ export const HomeTvLooper = ({
           </div>
 
           <div className="border-2 border-gray-300">
-            {isMobileTv && !isFullView && !landscapeChrome && (
+            {isMobileTv && !isFullView && (
               <button
                 type="button"
                 onClick={toggleFullVariant}
@@ -1378,9 +1374,9 @@ export const HomeTvLooper = ({
                   }}
                   onPlaybackReady={() => {
                     setIsPlayerLoading(false);
-                    syncFromPlayer();
                     applyPendingPlaybackRestore();
                     applyPendingAudioRestore();
+                    syncFromPlayer();
                     emitEncounterWhenVideoLoads();
                     const dur = playerRef.current?.getDuration() ?? 0;
                     if (dur > 0) setDuration(dur);
@@ -1391,6 +1387,7 @@ export const HomeTvLooper = ({
                     notifyStartupPlayerPlaying();
                     applyPendingPlaybackRestore();
                     applyPendingAudioRestore();
+                    syncFromPlayer();
                     const dur = playerRef.current?.getDuration() ?? 0;
                     if (dur > 0) setDuration(dur);
                     const id = current?.id as string | undefined;
@@ -1427,7 +1424,6 @@ export const HomeTvLooper = ({
                   onUserSeek={onPlayerSeek}
                   onEnd={handleVideoEnd}
                   onPlayerError={handlePlayerError}
-                  onMuteChange={muted => setIsMuted(muted)}
                   cover={fullPresentationFit === "cover"}
                   containFill={fullPresentationFit === "contain"}
                 />

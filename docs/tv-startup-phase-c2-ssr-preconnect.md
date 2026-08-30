@@ -11,15 +11,15 @@ change react-youtube, or alter player behavior.
 
 Cold global runs with C2.0 tracing showed:
 
-| Subsegment | Median |
-| ---------- | ------ |
-| T6 → player commit | ~57 ms |
-| Player commit → T8 | ~11.06 s |
-| iframe_api resource duration | ~1.29 s |
-| API response → object | ~0.48 s |
-| Player commit → iframe insert | ~3.29 s |
-| **Iframe insert → T8** | **~7.61 s (~69% of commit→T8)** |
-| Long-task duration T6→T8 | ~153 ms |
+| Subsegment                    | Median                          |
+| ----------------------------- | ------------------------------- |
+| T6 → player commit            | ~57 ms                          |
+| Player commit → T8            | ~11.06 s                        |
+| iframe_api resource duration  | ~1.29 s                         |
+| API response → object         | ~0.48 s                         |
+| Player commit → iframe insert | ~3.29 s                         |
+| **Iframe insert → T8**        | **~7.61 s (~69% of commit→T8)** |
+| Long-task duration T6→T8      | ~153 ms                         |
 
 **Ruled out as primary causes:** React commit delay (~57 ms), duplicate players
 (`looperCommitCount` / `tvPlayerCommitCount` = 1), main-thread blocking (~153 ms
@@ -39,12 +39,12 @@ NEXT_PUBLIC_TV_SSR_YOUTUBE_PRECONNECT=0   # default off
 
 ## Origins hinted (TV route only)
 
-| Origin | Link type | crossOrigin |
-| ------ | --------- | ----------- |
-| `https://www.youtube-nocookie.com` | preconnect | `anonymous` |
-| `https://www.youtube.com` | preconnect | (none) |
-| `//www.youtube-nocookie.com` | dns-prefetch | — |
-| `//www.youtube.com` | dns-prefetch | — |
+| Origin                             | Link type    | crossOrigin |
+| ---------------------------------- | ------------ | ----------- |
+| `https://www.youtube-nocookie.com` | preconnect   | `anonymous` |
+| `https://www.youtube.com`          | preconnect   | (none)      |
+| `//www.youtube-nocookie.com`       | dns-prefetch | —           |
+| `//www.youtube.com`                | dns-prefetch | —           |
 
 **Not included:** `i.ytimg.com` (SSR), `googlevideo.com` (dynamic post-T8).
 

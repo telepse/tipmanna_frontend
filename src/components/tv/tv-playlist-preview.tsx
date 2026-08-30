@@ -378,11 +378,13 @@ export function TvPlaylistPreview({
 
                   <div className="flex w-fit items-center gap-0.5">
                     <span className="flex items-center gap-0.5 text-[9px]">
-                      <img
-                        src={flagUrl}
-                        alt={contentLanguage}
-                        className="h-3 w-4 sm:h-2 sm:w-3"
-                      />{" "}
+                      {flagUrl ? (
+                        <img
+                          src={flagUrl}
+                          alt={contentLanguage}
+                          className="h-3 w-4 sm:h-2 sm:w-3"
+                        />
+                      ) : null}{" "}
                       <span className="text-[8px] sm:text-[6px]">
                         {contentLanguage}
                       </span>
@@ -423,6 +425,7 @@ export function TvPlaylistPreview({
           onContinueToTip={onContinueCommentToTip}
           hostName={commentDrawerTarget.hostName}
           hostUsername={commentDrawerTarget.hostUsername}
+          stackAboveImmersive
         />
       ) : null}
     </>

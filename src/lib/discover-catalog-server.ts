@@ -9,6 +9,7 @@ import {
   getRecommendedContents,
   getSpotlightContents,
 } from "@/actions/contents";
+import { getDiscoveryPlaylistsAction } from "@/actions/host-playlist";
 import { getTopCommunitiesAction } from "@/actions/communities";
 import { getAllTopTippers } from "@/actions/events";
 import { normalizeListPayload } from "@/lib/list-response-normalizer";
@@ -28,13 +29,14 @@ export type DiscoverCatalog = {
   };
   tippers: unknown[];
   topCommunities: unknown[];
+  playlists: unknown[];
 };
 
 /** Fail-open cap when Discover catalog fetch runs on the SSR path. */
 export const DISCOVER_CATALOG_FETCH_TIMEOUT_MS = 5000;
 
 async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
-  const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, commRes] =
+  const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, commRes, plRes] =
     await Promise.all([
       getAllFeaturedContentsAction(),
       getDiscoverPanelLatestContents(),
@@ -45,6 +47,7 @@ async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
       getDiscoveryProgramsAction(),
       getAllTopTippers(),
       getTopCommunitiesAction(3),
+      getDiscoveryPlaylistsAction(20),
     ]);
 
   const liveData =
@@ -75,6 +78,7 @@ async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
       commRes.success && Array.isArray(commRes.data?.communities)
         ? commRes.data.communities
         : [],
+    playlists: plRes.success && Array.isArray(plRes.data) ? plRes.data : [],
   };
 }
 

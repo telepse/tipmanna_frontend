@@ -24,6 +24,7 @@ import {
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { buildSurfaceTipPriceCatalog } from "@/lib/surface-tip-price-catalog";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
@@ -99,6 +100,7 @@ export function ExploreTvScheduleFeed({
   onTvSourceChange,
   tvSourceLocked = false,
   lockedLabel,
+  dedicatedCommunityId = null,
 }: {
   characters: any[];
   characterSets: any[];
@@ -114,9 +116,11 @@ export function ExploreTvScheduleFeed({
   tvSource?: "tipmanna" | string;
   tvCommunityOptions?: { id: string; name: string }[];
   onTvSourceChange?: (next: "tipmanna" | string) => void;
-  /** Dedicated community mode: hide source picker. */
+  /** Dedicated community mode: hide source picker when true (legacy). Prefer parent confirm flow. */
   tvSourceLocked?: boolean;
   lockedLabel?: string;
+  /** When set, shows dedicated-mode hint above the picker. */
+  dedicatedCommunityId?: string | null;
 }) {
   const [ongoing, setOngoing] = useState<TvPlaylistLike[]>([]);
   const [upcoming, setUpcoming] = useState<TvPlaylistLike[]>([]);
@@ -142,6 +146,17 @@ export function ExploreTvScheduleFeed({
     {
       paymentSurface: "explore_feed",
     }
+  );
+
+  const tipPriceCatalog = useMemo(
+    () =>
+      buildSurfaceTipPriceCatalog({
+        enrichedCatalog: tipPres.catalog as RoomCharacter[],
+        videoCatalog: characters as RoomCharacter[],
+        fallbackCatalog: characters as RoomCharacter[],
+        characterSets: characterSets,
+      }),
+    [tipPres.catalog, characters, characterSets]
   );
 
   useGlobalTipStream({
@@ -344,6 +359,12 @@ export function ExploreTvScheduleFeed({
           <p className="text-muted-foreground text-[11px]">
             TV schedule source
           </p>
+          {dedicatedCommunityId && tvSource === dedicatedCommunityId ? (
+            <p className="text-muted-foreground mb-1 flex items-center gap-1 text-[10px]">
+              <span className="font-medium">Dedicated mode</span>
+              {lockedLabel ? `· ${lockedLabel.replace(/^Locked to /, "")}` : null}
+            </p>
+          ) : null}
           {tvSourceLocked ? (
             <p className="text-foreground bg-muted/40 rounded-md border px-3 py-2 text-xs">
               {lockedLabel ??
@@ -407,7 +428,7 @@ export function ExploreTvScheduleFeed({
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
-          tippingCharacters={characters as RoomCharacter[]}
+          tippingCharacters={tipPriceCatalog}
           enabled
           textTipUnitPrice={tipPres.textUnitPrice}
         >
@@ -415,7 +436,7 @@ export function ExploreTvScheduleFeed({
             open={tipDrawerOpen}
             onOpenChange={setTipDrawerOpen}
             eventId={tipEventId ?? ""}
-            tippingCharacters={characters}
+            tippingCharacters={tipPriceCatalog}
             characterSets={characterSets}
             paymentSurface="explore_feed"
             paymentChannelId={tipChannelId}

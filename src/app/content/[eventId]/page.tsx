@@ -3,12 +3,14 @@ import {
   getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
-import { getContentChannelAction } from "@/actions/contents";
-import { getEventByIdAction } from "@/actions/events";
+import { getEventByIdAction, getEventRoomAccessAction } from "@/actions/events";
 import { ContentClient } from "@/components/events/content-client";
+import { PrivateEventRoomBlocked } from "@/components/events/event-room-access-gate";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { resolveProgramWatchAllPlaylist } from "@/actions/program-actions";
+import { resolveHostPlaylistWatchAll } from "@/actions/host-playlist";
 import { getToken } from "@/lib/getToken";
+import { getHostToken } from "@/lib/getHostToken";
 import {
   applyVideoDeepLinkQuery,
   buildContentShareUrl,
@@ -16,13 +18,15 @@ import {
   pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { notFound, redirect } from "next/navigation";
-import { ActionResult } from "@/lib/action-fetch";
 import { Metadata } from "next";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
 import {
   buildOgImageMetadata,
   resolveVideoOgImageUrl,
 } from "@/lib/video-og-image";
+import { getPrimaryOrigin } from "@/lib/site-config";
+import { unwrapContentChannelList } from "@/lib/content-channel-payload";
+import { getCachedContentChannelForPage } from "@/lib/cached-content-channel";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
@@ -65,20 +69,20 @@ export async function generateMetadata({
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
 
-  const res = (await getContentChannelAction(eventId)) as ActionResult<
-    ContentData[]
-  >;
-  const raw = res.data;
-  const list = Array.isArray(raw)
-    ? raw
-    : raw &&
-        typeof raw === "object" &&
-        "formattedContents" in raw &&
-        Array.isArray(
-          (raw as { formattedContents?: ContentData[] }).formattedContents
-        )
-      ? (raw as { formattedContents: ContentData[] }).formattedContents
-      : [];
+  const accessRes = await getEventRoomAccessAction(eventId);
+  const access =
+    accessRes.success && accessRes.data
+      ? (accessRes.data as {
+          accessMode?: "public" | "invite_only";
+          allowed?: boolean;
+        })
+      : null;
+  if (access?.accessMode === "invite_only" && access.allowed === false) {
+    return { title: "Private event room" };
+  }
+
+  const res = await getCachedContentChannelForPage(eventId);
+  const list = unwrapContentChannelList(res.data) as ContentData[];
   const videoRes = pickContentForPage(list, initialChannelId);
 
   const videoHasCoOwner =
@@ -88,14 +92,24 @@ export async function generateMetadata({
     eventId,
     channelId: initialChannelId ?? undefined,
   });
-  const title = `Watch "${videoRes?.title}" by ${videoHasCoOwner ? videoRes?.coOwnerNames?.join(", ") : videoRes?.event.hostName} 🎬 💎`;
+  const hostLabel = videoHasCoOwner
+    ? videoRes?.coOwnerNames?.join(", ")
+    : videoRes?.event?.hostName;
+  const title =
+    videoRes?.title && hostLabel
+      ? `Watch "${videoRes.title}" by ${hostLabel} 🎬 💎`
+      : "Watch on Tipmanna 🎬 💎";
   const description = `Watch this video on Tipmanna and join the experience through comments, reactions, and realtime supporter engagement.`;
   const ogImage = resolveVideoOgImageUrl(videoRes?.url);
   const imageMeta = buildOgImageMetadata(ogImage);
 
   return {
+    metadataBase: new URL(getPrimaryOrigin()),
     title,
     description,
+    alternates: {
+      canonical: pageUrl,
+    },
     openGraph: {
       title,
       description,
@@ -117,8 +131,29 @@ export default async function ContentPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
 
+  const accessRes = await getEventRoomAccessAction(eventId);
+  const access =
+    accessRes.success && accessRes.data
+      ? (accessRes.data as {
+          accessMode?: "public" | "invite_only";
+          allowed?: boolean;
+        })
+      : null;
+  if (access?.accessMode === "invite_only" && access.allowed === false) {
+    return <PrivateEventRoomBlocked />;
+  }
+
   const programWatch =
     typeof sp.programWatch === "string" && sp.programWatch === "all";
+  const playlistWatch =
+    typeof sp.playlistWatch === "string" && sp.playlistWatch === "all";
+  const playlistIdRaw = sp.playlistId;
+  const playlistId =
+    typeof playlistIdRaw === "string"
+      ? playlistIdRaw.trim()
+      : Array.isArray(playlistIdRaw)
+        ? (playlistIdRaw[0]?.trim() ?? "")
+        : "";
   const enforcementRaw = sp.enforcement;
   const enforcement =
     typeof enforcementRaw === "string"
@@ -135,16 +170,31 @@ export default async function ContentPage({ params, searchParams }: Props) {
         : null;
 
   const token = await getToken();
+  const hostToken = await getHostToken();
+  const authToken = token ?? hostToken ?? null;
 
   let initialProgramPlaylist: unknown[] | null = null;
 
-  if (programWatch) {
+  if (playlistWatch && playlistId) {
+    const resolved = await resolveHostPlaylistWatchAll(playlistId, authToken);
+    if (resolved) {
+      initialProgramPlaylist = resolved.playlist;
+      if (resolved.canonicalEventId !== eventId) {
+        const q = new URLSearchParams({
+          playlistWatch: "all",
+          playlistId,
+        });
+        applyVideoDeepLinkQuery(q, initialChannelId);
+        redirect(`/content/${resolved.canonicalEventId}?${q.toString()}`);
+      }
+    }
+  } else if (programWatch) {
     if (!enforcement) notFound();
     const resolved = await resolveProgramWatchAllPlaylist(
       eventId,
       enforcement,
       community,
-      token
+      authToken
     );
     if (!resolved) notFound();
 
@@ -161,23 +211,44 @@ export default async function ContentPage({ params, searchParams }: Props) {
   }
 
   const [
-    { data: contentsRes },
+    contentsRes,
     { data: characters },
     { data: globalCharacterSets },
     eventRes,
   ] = await Promise.all([
-    getContentChannelAction(eventId, token ?? undefined),
+    getCachedContentChannelForPage(eventId),
     getCharactersForTipping(),
     getAllCharacterSets(),
     getEventByIdAction(eventId),
   ]);
 
-  const contents = (contentsRes as { formattedContents: ContentData[] })
-    .formattedContents;
-  const isCommunity = (contentsRes as { isCommunity: boolean }).isCommunity;
-  const communityId = (contentsRes as { communityId: string }).communityId;
-  const communityName = (contentsRes as { communityName: string })
-    .communityName;
+  const rawPayload = contentsRes.data as {
+    formattedContents?: ContentData[];
+    isCommunity?: boolean;
+    communityId?: string;
+    communityName?: string;
+  } | null;
+  const contents = unwrapContentChannelList(rawPayload) as ContentData[];
+  const isCommunity = Boolean(
+    rawPayload &&
+      typeof rawPayload === "object" &&
+      "isCommunity" in rawPayload &&
+      rawPayload.isCommunity
+  );
+  const communityId =
+    rawPayload &&
+    typeof rawPayload === "object" &&
+    "communityId" in rawPayload &&
+    typeof rawPayload.communityId === "string"
+      ? rawPayload.communityId
+      : "";
+  const communityName =
+    rawPayload &&
+    typeof rawPayload === "object" &&
+    "communityName" in rawPayload &&
+    typeof rawPayload.communityName === "string"
+      ? rawPayload.communityName
+      : "";
 
   const eventCatalog = parseEventCharacterCatalog(
     eventRes.success ? eventRes.data?.characterSets : []
@@ -208,13 +279,19 @@ export default async function ContentPage({ params, searchParams }: Props) {
       if (enforcement) q.set("enforcement", enforcement);
       if (community) q.set("community", community);
     }
+    if (playlistWatch && playlistId) {
+      q.set("playlistWatch", "all");
+      q.set("playlistId", playlistId);
+    }
     redirect(
       `/content/${canonicalEventId}${q.toString() ? `?${q.toString()}` : ""}`
     );
   }
 
   const playable = list.filter((c: any) => !c?.restricted);
-  if (list.length > 0 && playable.length === 0) {
+  const hasWatchAllQueue =
+    Array.isArray(initialProgramPlaylist) && initialProgramPlaylist.length > 0;
+  if (list.length > 0 && playable.length === 0 && !hasWatchAllQueue) {
     const cid = (list[0] as { community?: { id: string } })?.community?.id;
     if (cid) {
       redirect(
@@ -261,6 +338,8 @@ export default async function ContentPage({ params, searchParams }: Props) {
               ? (initialProgramPlaylist as any[])
               : null
           }
+          playlistWatch={playlistWatch}
+          playlistId={playlistId || null}
           isCommunity={isCommunity}
           communityId={communityId}
           communityName={communityName}

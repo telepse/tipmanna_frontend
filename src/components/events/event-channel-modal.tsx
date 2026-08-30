@@ -2,60 +2,46 @@
 
 import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
 import { ApiError } from "@/types/api-error.types";
-import {
-  createEventChannelAction,
-  updateDefaultChannel,
-} from "@/actions/events";
+import { createEventChannelAction } from "@/actions/events";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
-import { Checkbox } from "@/components/ui/checkbox";
 import { usePathname, useRouter } from "next/navigation";
 import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
-import { Check, Copy } from "lucide-react";
 import {
   AddVideoForm,
   buildCreateChannelPayload,
   type AddVideoFormValues,
 } from "@/components/events/add-video-form";
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
-import { buildContentShareUrl } from "@/lib/public-video-url";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import { mapApiChannelToEventRoomRow } from "@/lib/event-room-channel-mapper";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 
 interface ChannelModalProps {
   open: boolean;
   onClose: () => void;
-  channels: EventRoomVideoChannel[];
   isHost: boolean;
   eventId: string;
-  frameId: string;
-  liveVideoLink: string;
   /** Parent event.eventType — shown next to “Same as event type” for video theme */
   eventEventType?: string;
   seedDraftId?: string | null;
   resumeSurface?: DraftResumeOrigin["surface"];
+  /** Optimistic append before router.refresh reconciles server list. */
+  onChannelCreated?: (channel: EventRoomVideoChannel) => void;
 }
 
 export const EventChannelModal = ({
   open,
   onClose,
-  channels,
   isHost,
   eventId,
-  frameId,
-  liveVideoLink,
   eventEventType,
   seedDraftId,
   resumeSurface = "event_channel_modal",
+  onChannelCreated,
 }: ChannelModalProps) => {
-  void frameId;
   const { handleAuthRequiredError, HostAuthModal } = useHostCapabilityWithAuth({
     cohostEventId: eventId,
   });
@@ -63,11 +49,6 @@ export const EventChannelModal = ({
   const [addVideoForm, setAddVideoForm] =
     useState<UseFormReturn<AddVideoFormValues> | null>(null);
   const [modalDraftId, setModalDraftId] = useState<string | null>(null);
-
-  const [defaultChannelId, setDefaultChannelId] = useState<string | null>(
-    channels.find(c => c.isDefault)?.id || null
-  );
-  const [updatingDefault, setUpdatingDefault] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -92,15 +73,18 @@ export const EventChannelModal = ({
         return;
       }
 
-      const { message } = res.data as { message: string };
+      const data = res.data as { message?: string; channel?: unknown };
+      toast.success(data.message ?? "Event video added successfully");
 
-      toast.success(message);
+      const mapped = mapApiChannelToEventRoomRow(data.channel);
+      if (mapped) {
+        onChannelCreated?.(mapped);
+      }
 
       await clearModalFormDraft("room_add_video", eventId, modalDraftId);
       setModalDraftId(null);
 
       router.refresh();
-
       onClose();
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -113,58 +97,6 @@ export const EventChannelModal = ({
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSetDefaultChannel = async (channelId: string) => {
-    setUpdatingDefault(true);
-
-    try {
-      const res = await updateDefaultChannel(eventId, channelId);
-      if (!res.success) {
-        if (
-          handleAuthRequiredError(
-            res,
-            () => void handleSetDefaultChannel(channelId)
-          )
-        ) {
-          return;
-        }
-        toast.error(res.message ?? "Failed to set default channel");
-        return;
-      }
-
-      setDefaultChannelId(channelId);
-      toast.success("Default channel updated!");
-
-      router.refresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else if (typeof err === "object" && err !== null && "error" in err) {
-        const apiErr = err as ApiError;
-        toast.error(apiErr.error.message);
-      } else {
-        toast.error("Failed to set default channel");
-      }
-    } finally {
-      setUpdatingDefault(false);
-    }
-  };
-
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const handleCopy = async (channelId: string) => {
-    try {
-      await navigator.clipboard.writeText(
-        buildContentShareUrl({ eventId, channelId })
-      );
-      setCopiedId(channelId);
-      setTimeout(() => setCopiedId(null), 2000);
-
-      toast.success("Frame link copied");
-    } catch {
-      console.error("Failed to copy link");
     }
   };
 

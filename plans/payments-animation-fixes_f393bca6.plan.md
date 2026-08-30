@@ -71,6 +71,7 @@ amount: Math.max(100, Math.round(deferredTotal * 100)),
 ```
 
 Replace the floor with the exact amount when the cart is non-empty, falling back to a placeholder minor amount only when the cart is empty (pay is disabled in that state). Do not gate Elements mounting on the total: `TippingElementsProvider` returns bare children when `enabled` is false and `useElements()` throws outside an `Elements` provider.
+
 - Same fix for `amount: deferredAmount * 100 || 100` in [frontend/src/components/events/stripe-provider.tsx](frontend/src/components/events/stripe-provider.tsx) (event room).
 - Drive `options.amount` from the live total so react-stripe-js pushes it into `elements.update` before the wallet sheet opens; keep `useDeferredValue` only for non-amount re-render smoothing.
 - Belt and braces: in `onConfirm` in [frontend/src/components/events/tip-drawer.tsx](frontend/src/components/events/tip-drawer.tsx), call `elements.update({ amount: toMinorUnits(walletPayTotal) })` immediately before `elements.submit()` (line 678).

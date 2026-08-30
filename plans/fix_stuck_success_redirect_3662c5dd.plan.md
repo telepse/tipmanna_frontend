@@ -40,8 +40,8 @@ In [frontend/src/app/success/page.tsx](frontend/src/app/success/page.tsx) lines 
 ```ts
 setTimeout(() => {
   setPaymentPendingReturn(true);
-  redirectAfterPaymentSuccess(router, storedEventId);  // starts async router.replace transition
-  sanitizeSuccessUrlInHistory();                       // synchronous history.replaceState to "/success"
+  redirectAfterPaymentSuccess(router, storedEventId); // starts async router.replace transition
+  sanitizeSuccessUrlInHistory(); // synchronous history.replaceState to "/success"
 }, REDIRECT_SETTLE_MS);
 ```
 

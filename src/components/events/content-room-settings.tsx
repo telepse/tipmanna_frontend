@@ -40,6 +40,7 @@ export const ContentRoomSettings = ({
   projects,
   eventEventType,
   onClose,
+  onChannelCreated,
 }: {
   isHost: boolean;
   isCohost: boolean;
@@ -54,6 +55,7 @@ export const ContentRoomSettings = ({
   /** Parent Event.eventType — defaults for “same as event” video theme */
   eventEventType?: string;
   onClose: () => void;
+  onChannelCreated?: (channel: EventRoomVideoChannel) => void;
 }) => {
   const searchParams = useSearchParams();
   const seedModalDraftId = searchParams.get("modalDraftId");
@@ -147,19 +149,18 @@ export const ContentRoomSettings = ({
             liveVideoLink={liveVideoLink}
             eventEventType={eventEventType}
             seedDraftId={seedModalDraftId}
+            onChannelCreated={onChannelCreated}
           />
 
           <EventChannelModal
             open={channelModalOpen}
             onClose={() => setChannelModalOpen(false)}
-            channels={channels}
             isHost={canManageChannel}
             eventId={eventId}
-            frameId={frameId}
-            liveVideoLink={liveVideoLink}
             eventEventType={eventEventType}
             seedDraftId={seedModalDraftId}
             resumeSurface="content_room_settings"
+            onChannelCreated={onChannelCreated}
           />
 
           <AddPerformersModal

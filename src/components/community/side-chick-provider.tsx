@@ -34,6 +34,7 @@ type SideChickCtx = {
   active: boolean;
   activation: SideChickActivationPayload | null;
   refresh: () => void;
+  enterDedicatedMode: (communityId: string) => Promise<boolean>;
   exitDedicatedMode: () => Promise<boolean>;
 };
 
@@ -42,6 +43,7 @@ const defaultCtx: SideChickCtx = {
   active: false,
   activation: null,
   refresh: () => {},
+  enterDedicatedMode: async () => false,
   exitDedicatedMode: async () => false,
 };
 
@@ -143,6 +145,20 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
     return true;
   }, [token, load]);
 
+  const enterDedicatedMode = useCallback(
+    async (communityId: string) => {
+      if (!token) return false;
+      const r = await fetch(
+        `${apiBase()}/communities/${encodeURIComponent(communityId)}/side-chick/enter`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (r.status !== 200 && r.status !== 409) return false;
+      await load();
+      return true;
+    },
+    [token, load]
+  );
+
   useEffect(() => {
     if (!canHydrateSideChick || !user?.id) return;
     const name = `user-tipper-${user.id}`;
@@ -176,9 +192,10 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
       active: Boolean(activation),
       activation,
       refresh: load,
+      enterDedicatedMode,
       exitDedicatedMode,
     }),
-    [loading, activation, load, exitDedicatedMode]
+    [loading, activation, load, enterDedicatedMode, exitDedicatedMode]
   );
 
   return (

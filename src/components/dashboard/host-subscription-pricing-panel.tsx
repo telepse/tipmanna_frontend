@@ -1,20 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { Check, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
-  getHostSubscriptionMeAction,
   hostSubscriptionBillingPortalAction,
   hostSubscriptionCheckoutAction,
 } from "@/actions/host";
+import {
+  getPlanPricingAction,
+  type PublicPlanPricing,
+} from "@/actions/plan-pricing";
 import { useHostSession } from "@/hooks/use-host-session";
-import { updateTipper } from "@/features/auth-slice";
-import type { HostSubscriptionMe } from "@/lib/host-plan-capabilities";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { useHostAuthOptional } from "@/contexts/host-auth-context";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
+import {
+  isSubscriptionLapsedError,
+  isSubscriptionRequiredError,
+} from "@/lib/host-subscription-errors";
 
 type Props = {
   /** When set, only show this tier card (premium | community). */
@@ -47,93 +54,148 @@ const COMMUNTIY_FEATURES = [
 ];
 
 export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
-  const dispatch = useDispatch();
-  const { isActive: hostSessionActive } = useHostSession();
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [info, setInfo] = useState<HostSubscriptionMe | null>(null);
+  const { isActive: hostSessionActive, isLoading: hostSessionLoading } =
+    useHostSession();
+  const {
+    info,
+    status,
+    capabilities,
+    isLoading: subLoading,
+    fetchError,
+    refresh: refreshSubscription,
+  } = useHostPlanCapabilities();
+  const dashboardAuth = useHostAuthOptional();
+  const fallbackAuth = useHostCapabilityWithAuth({
+    hostRequiredNotice: true,
+    enabled: !dashboardAuth,
+  });
+  const {
+    handleAuthRequiredError,
+    requestHostAuth,
+    HostAuthModal,
+  } = dashboardAuth ?? fallbackAuth;
 
-  const refresh = useCallback(async () => {
-    if (!hostSessionActive) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const res = await getHostSubscriptionMeAction();
-      if (!res.success || !res.data) {
-        setInfo(null);
-        return;
-      }
-      const data = res.data as HostSubscriptionMe;
-      setInfo(data);
-      const t = data.tier;
-      const hostSubscriptionTier =
-        t === "NONE" || t === "HOST_PREMIUM" || t === "HOST_COMMUNITY"
-          ? t
-          : undefined;
-      dispatch(updateTipper({ hostSubscriptionTier }));
-    } catch {
-      setInfo(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [dispatch, hostSessionActive]);
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<PublicPlanPricing | null>(null);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void getPlanPricingAction().then(priceRes => {
+      if (priceRes.success && priceRes.data) {
+        setPricing(priceRes.data as PublicPlanPricing);
+      }
+      setPricingLoading(false);
+    });
+  }, []);
 
-  const checkout = async (tier: "premium" | "community") => {
-    if (!hostSessionActive) {
-      toast.error("Host session required.");
+  useEffect(() => {
+    if (!fetchError?.requiresHostSession || hostSessionLoading) return;
+    if (hostSessionActive) {
+      void refreshSubscription();
       return;
     }
-    setBusy(tier);
-    try {
-      const res = await hostSubscriptionCheckoutAction(tier);
-      if (!res.success) {
-        toast.error(res.message ?? "Unable to start checkout.");
+    handleAuthRequiredError(
+      {
+        message: fetchError.message,
+        validationBody: fetchError.validationBody,
+      },
+      () => void refreshSubscription()
+    );
+  }, [
+    fetchError,
+    handleAuthRequiredError,
+    hostSessionActive,
+    hostSessionLoading,
+    refreshSubscription,
+  ]);
+
+  const ensureHostSession = useCallback(
+    (onReady: () => void) => {
+      if (hostSessionActive && !fetchError?.requiresHostSession) {
+        onReady();
         return;
       }
-      const data = res.data as {
-        url?: string;
-        upgraded?: boolean;
-        redirectUrl?: string;
-        message?: string;
-      };
-      if (data.upgraded && data.redirectUrl) {
-        window.location.href = data.redirectUrl;
-        return;
-      }
-      if (data.url) {
-        window.location.href = data.url;
-        return;
-      }
-      toast.error("Unexpected response from server.");
-    } catch {
-      toast.error("Network error.");
-    } finally {
-      setBusy(null);
-    }
+      requestHostAuth(onReady);
+    },
+    [fetchError?.requiresHostSession, hostSessionActive, requestHostAuth]
+  );
+
+  const checkout = async (
+    tier: "premium" | "community",
+    options?: { upgradeAtPeriodEnd?: boolean }
+  ) => {
+    ensureHostSession(() => {
+      void (async () => {
+        setBusy(tier);
+        try {
+          const res = await hostSubscriptionCheckoutAction(tier, options);
+          if (!res.success) {
+            if (
+              handleAuthRequiredError(res, () =>
+                void checkout(tier, options)
+              )
+            ) {
+              return;
+            }
+            if (isSubscriptionLapsedError(res.validationBody)) {
+              toast.error("Your subscription has lapsed. Renew to continue.");
+            } else if (isSubscriptionRequiredError(res.validationBody)) {
+              toast.error("An active host plan is required.");
+            } else {
+              toast.error(res.message ?? "Unable to start checkout.");
+            }
+            return;
+          }
+          const data = res.data as {
+            url?: string;
+            upgraded?: boolean;
+            scheduled?: boolean;
+            redirectUrl?: string;
+            message?: string;
+          };
+          if ((data.upgraded || data.scheduled) && data.redirectUrl) {
+            window.location.href = data.redirectUrl;
+            return;
+          }
+          if (data.url) {
+            window.location.href = data.url;
+            return;
+          }
+          toast.error("Unexpected response from server.");
+        } catch {
+          toast.error("Network error.");
+        } finally {
+          setBusy(null);
+        }
+      })();
+    });
   };
 
   const openBillingPortal = async () => {
-    if (!hostSessionActive) return;
-    setBusy("portal");
-    try {
-      const res = await hostSubscriptionBillingPortalAction();
-      if (!res.success) {
-        toast.error(res.message ?? "Billing portal unavailable.");
-        return;
-      }
-      const data = res.data as { url?: string; message?: string };
-      if (data.url) window.location.href = data.url;
-    } catch {
-      toast.error("Network error.");
-    } finally {
-      setBusy(null);
-    }
+    ensureHostSession(() => {
+      void (async () => {
+        setBusy("portal");
+        try {
+          const res = await hostSubscriptionBillingPortalAction();
+          if (!res.success) {
+            if (handleAuthRequiredError(res, () => void openBillingPortal())) {
+              return;
+            }
+            toast.error(res.message ?? "Billing portal unavailable.");
+            return;
+          }
+          const data = res.data as { url?: string; message?: string };
+          if (data.url) window.location.href = data.url;
+        } catch {
+          toast.error("Network error.");
+        } finally {
+          setBusy(null);
+        }
+      })();
+    });
   };
+
+  const loading = subLoading || pricingLoading;
 
   if (loading) {
     return (
@@ -145,16 +207,39 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
   }
 
   const tier = info?.tier ?? "NONE";
-  const status = info?.status ?? "none";
   const showPremium = !focusTier || focusTier === "premium";
   const showCommunity = !focusTier || focusTier === "community";
 
   const premiumActive =
-    tier === "HOST_PREMIUM" || tier === "HOST_COMMUNITY" || status === "active";
-  const communityActive = tier === "HOST_COMMUNITY" && status === "active";
+    status === "active" &&
+    (tier === "HOST_PREMIUM" || tier === "HOST_COMMUNITY");
+  const communityActive = status === "active" && tier === "HOST_COMMUNITY";
+
+  const canSubscribeOrRenew =
+    capabilities.subscribeNew || capabilities.renewSubscription;
+  const needsHostReauth =
+    !hostSessionActive || fetchError?.requiresHostSession === true;
+  const subscribeAllowed = canSubscribeOrRenew || needsHostReauth;
+
+  const premiumList = pricing?.premium.listMinor ?? 2999;
+  const premiumSale = pricing?.premium.saleMinor ?? premiumList;
+  const communityList = pricing?.community.listMinor ?? 9999;
+  const communitySale = pricing?.community.saleMinor ?? communityList;
+  const showPremiumDiscount =
+    pricing?.discountActive && premiumSale < premiumList;
+  const showCommunityDiscount =
+    pricing?.discountActive && communitySale < communityList;
 
   return (
     <section className="space-y-4">
+      {!dashboardAuth ? HostAuthModal : null}
+
+      {needsHostReauth ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          Host sign-in is required to subscribe or manage billing.
+        </div>
+      ) : null}
+
       {info?.history && info.history.length > 0 && status === "lapsed" ? (
         <div className="rounded-lg border p-4">
           <h3 className="font-semibold">Subscription history</h3>
@@ -185,7 +270,16 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
               Video display controls, tip layout, co-owners, and video requests.
             </p>
             <p className="text-2xl font-semibold">
-              £19.99{" "}
+              {showPremiumDiscount ? (
+                <>
+                  <span className="text-muted-foreground mr-2 text-base line-through">
+                    {formatGbpMinor(premiumList)}
+                  </span>
+                  {formatGbpMinor(premiumSale)}
+                </>
+              ) : (
+                formatGbpMinor(premiumList)
+              )}{" "}
               <span className="text-muted-foreground text-xs">per 30 days</span>
             </p>
             <ul className="w-full space-y-4 lg:hidden">
@@ -201,22 +295,13 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
             </ul>
             <Button
               className="w-full bg-black text-white"
-              disabled={
-                premiumActive ||
-                busy !== null ||
-                (!info?.capabilities.subscribeNew &&
-                  !info?.capabilities.renewSubscription)
-              }
-              onClick={() =>
-                void checkout(
-                  status === "lapsed" && tier === "HOST_PREMIUM"
-                    ? "premium"
-                    : "premium"
-                )
-              }
+              disabled={premiumActive || busy !== null || !subscribeAllowed}
+              onClick={() => void checkout("premium")}
             >
               {busy === "premium" ? (
                 <Loader2 className="size-4 animate-spin" />
+              ) : needsHostReauth ? (
+                "Sign in to subscribe"
               ) : status === "lapsed" ? (
                 (renewLabel ?? "Renew Premium")
               ) : (
@@ -235,7 +320,18 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
             <p className="text-muted-foreground mt-1 text-sm">
               Communities, TV, sends — includes all Premium features.
             </p>
-            <p className="mt-3 text-2xl font-bold">£99</p>
+            <p className="mt-3 text-2xl font-bold">
+              {showCommunityDiscount ? (
+                <>
+                  <span className="text-muted-foreground mr-2 text-lg line-through">
+                    {formatGbpMinor(communityList)}
+                  </span>
+                  {formatGbpMinor(communitySale)}
+                </>
+              ) : (
+                formatGbpMinor(communityList)
+              )}
+            </p>
             <p className="text-muted-foreground text-xs">per 30 days</p>
             <ul className="w-full space-y-4 lg:hidden">
               {COMMUNTIY_FEATURES.map((feature, index) => (
@@ -255,8 +351,7 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
                 busy !== null ||
                 (tier === "HOST_PREMIUM" && status === "active"
                   ? false
-                  : !info?.capabilities.subscribeNew &&
-                    !info?.capabilities.renewSubscription)
+                  : !subscribeAllowed)
               }
               onClick={() =>
                 void checkout(
@@ -268,6 +363,8 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
             >
               {busy === "community" ? (
                 <Loader2 className="size-4 animate-spin" />
+              ) : needsHostReauth ? (
+                "Sign in to subscribe"
               ) : tier === "HOST_PREMIUM" && status === "active" ? (
                 "Upgrade to Community"
               ) : status === "lapsed" ? (
@@ -276,6 +373,21 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
                 "Subscribe"
               )}
             </Button>
+            {tier === "HOST_PREMIUM" &&
+            status === "active" &&
+            info?.hasStripeSubscription ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 w-full"
+                disabled={busy !== null}
+                onClick={() =>
+                  void checkout("community", { upgradeAtPeriodEnd: true })
+                }
+              >
+                Upgrade at period end
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>

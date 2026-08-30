@@ -50,14 +50,14 @@ flowchart TD
   item3 --> qa[QA and production]
 ```
 
-| Order | Item | Deploy surface | Depends on |
-|-------|------|----------------|------------|
-| 1 | Item 4 | Backend only | — |
-| 2 | Item 1a | Frontend | — (can ship after Item 4) |
-| 3 | Item 1b | Frontend | Item 1a |
-| 4 | Item 2 | Frontend | Item 1a (`coOwner` in policy) |
-| 5 | Item 3 | Script + frontend UX | Item 2 (new drafts self-sufficient) |
-| 6 | QA | Staging → production | All |
+| Order | Item    | Deploy surface       | Depends on                          |
+| ----- | ------- | -------------------- | ----------------------------------- |
+| 1     | Item 4  | Backend only         | —                                   |
+| 2     | Item 1a | Frontend             | — (can ship after Item 4)           |
+| 3     | Item 1b | Frontend             | Item 1a                             |
+| 4     | Item 2  | Frontend             | Item 1a (`coOwner` in policy)       |
+| 5     | Item 3  | Script + frontend UX | Item 2 (new drafts self-sufficient) |
+| 6     | QA      | Staging → production | All                                 |
 
 Each item is **independently revertible** via deploy rollback (no DB migrations).
 
@@ -71,13 +71,13 @@ Each item is **independently revertible** via deploy rollback (no DB migrations)
 
 ### Product rules (validated)
 
-| Rule | Implementation |
-|------|----------------|
-| Banks reference `EventChannel` rows | `CommunityContentBankEntry.eventChannelId` (1:1 unique) |
-| No ownership mutation on existing records | Never update `ownershipAnswer` on existing channel |
-| Co-owned bank on URL already fully-owned on event | **Create new `EventChannel`** + finalize + bank entry |
-| Global one co-owner per YouTube video | Existing [`assertYoutubeVideoNotAlreadyCoOwned`](backend/src/services/coOwner/youtube-verify.service.ts) (unchanged) |
-| URL already in any bank | Reject (unchanged, `:171-179`) |
+| Rule                                              | Implementation                                                                                                       |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Banks reference `EventChannel` rows               | `CommunityContentBankEntry.eventChannelId` (1:1 unique)                                                              |
+| No ownership mutation on existing records         | Never update `ownershipAnswer` on existing channel                                                                   |
+| Co-owned bank on URL already fully-owned on event | **Create new `EventChannel`** + finalize + bank entry                                                                |
+| Global one co-owner per YouTube video             | Existing [`assertYoutubeVideoNotAlreadyCoOwned`](backend/src/services/coOwner/youtube-verify.service.ts) (unchanged) |
+| URL already in any bank                           | Reject (unchanged, `:171-179`)                                                                                       |
 
 ### Revised decision tree
 
@@ -110,25 +110,25 @@ IF submitOwnership === "yes" (fully-owned):
 
 ### Files
 
-| File | Change |
-|------|--------|
-| **New** [`backend/src/services/coOwner/community-bank-channel.util.ts`](backend/src/services/coOwner/community-bank-channel.util.ts) | `resolveCommunityBankChannelAction()` — tree above; returns `{ action: 'create' \| 'reuse', channelId? }` or throws |
-| [`backend/src/controllers/community-content-bank.controller.ts`](backend/src/controllers/community-content-bank.controller.ts) | Replace `if (existingChannel)` branch; load channel with `videoCoOwners`, `communityBankEntry`, `ownershipAnswer`, `coOwnerDraftKey` |
-| [`backend/src/utils/coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts) | Map any new 409 messages if community add uses field errors |
+| File                                                                                                                                 | Change                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **New** [`backend/src/services/coOwner/community-bank-channel.util.ts`](backend/src/services/coOwner/community-bank-channel.util.ts) | `resolveCommunityBankChannelAction()` — tree above; returns `{ action: 'create' \| 'reuse', channelId? }` or throws                  |
+| [`backend/src/controllers/community-content-bank.controller.ts`](backend/src/controllers/community-content-bank.controller.ts)       | Replace `if (existingChannel)` branch; load channel with `videoCoOwners`, `communityBankEntry`, `ownershipAnswer`, `coOwnerDraftKey` |
+| [`backend/src/utils/coowner-form-error.util.ts`](backend/src/utils/coowner-form-error.util.ts)                                       | Map any new 409 messages if community add uses field errors                                                                          |
 
 **No** reconcile/mutate helper in [`event-create-coowner.util.ts`](backend/src/services/coOwner/event-create-coowner.util.ts).
 
 ### Outcome matrix (updated)
 
-| Existing URL on event | Submit | Outcome |
-|-----------------------|--------|---------|
-| None | co-owned | Create channel + co-owners + bank entry |
-| None | fully-owned | Create channel + bank entry |
-| Fully-owned, no co-owners | co-owned | **Create new channel** + co-owners + bank entry (old channel unchanged) |
-| Fully-owned | fully-owned | Reuse channel + bank entry |
-| Co-owned, same draft lineage | co-owned | Reuse + idempotent finalize + bank entry |
-| Co-owned, payouts exist | co-owned | Reject via finalize 409 |
-| URL in any bank | any | Reject |
+| Existing URL on event        | Submit      | Outcome                                                                 |
+| ---------------------------- | ----------- | ----------------------------------------------------------------------- |
+| None                         | co-owned    | Create channel + co-owners + bank entry                                 |
+| None                         | fully-owned | Create channel + bank entry                                             |
+| Fully-owned, no co-owners    | co-owned    | **Create new channel** + co-owners + bank entry (old channel unchanged) |
+| Fully-owned                  | fully-owned | Reuse channel + bank entry                                              |
+| Co-owned, same draft lineage | co-owned    | Reuse + idempotent finalize + bank entry                                |
+| Co-owned, payouts exist      | co-owned    | Reject via finalize 409                                                 |
+| URL in any bank              | any         | Reject                                                                  |
 
 ### Rollback
 
@@ -143,7 +143,11 @@ Revert controller + util deploy. No schema/data migration to undo.
 **Wizard** — `policyJson.videoLinks[i]`:
 
 ```typescript
-type CoOwnerDraftSlice = { name?: string; email?: string; payoutPercent?: number };
+type CoOwnerDraftSlice = {
+  name?: string;
+  email?: string;
+  payoutPercent?: number;
+};
 type VideoPolicySlice = {
   ownershipAnswer?: "yes" | "no";
   coOwnerDraftKey?: string;
@@ -174,10 +178,10 @@ Update [`frontend/src/lib/form-draft-utils.ts`](frontend/src/lib/form-draft-util
 
 **1. Autosave suppression**
 
-In wizard pages ([`event-only/page.tsx`](frontend/src/app/(event)/event-only/page.tsx), `content-only`, `event-and-content`) and [`AddVideoForm`](frontend/src/components/events/add-video-form.tsx):
+In wizard pages ([`event-only/page.tsx`](<frontend/src/app/(event)/event-only/page.tsx>), `content-only`, `event-and-content`) and [`AddVideoForm`](frontend/src/components/events/add-video-form.tsx):
 
 ```typescript
-enabled: userIsHost && !draftRestoring && !coOwnerHydrating
+enabled: userIsHost && !draftRestoring && !coOwnerHydrating;
 ```
 
 Pass `coOwnerHydrating` from shared hook (Item 1b) or a lightweight `useDraftLifecycleReady()` in 1a.
@@ -216,11 +220,11 @@ Revert frontend; old merge ignores unknown `coOwner` keys safely.
 
 **Behavior:**
 
-| Phase | Source of truth | UI |
-|-------|-----------------|-----|
-| Typing | RHF `coOwner.*` | Editable |
-| Pending | `VideoCoOwnerInvite` (server) | Read-only |
-| Approved | Approved invite (server) | Read-only |
+| Phase    | Source of truth               | UI        |
+| -------- | ----------------------------- | --------- |
+| Typing   | RHF `coOwner.*`               | Editable  |
+| Pending  | `VideoCoOwnerInvite` (server) | Read-only |
+| Approved | Approved invite (server)      | Read-only |
 
 **On mount (after form reset):**
 
@@ -251,13 +255,13 @@ Revert frontend; old merge ignores unknown `coOwner` keys safely.
 
 ### Fixes closed by Item 1a+1b
 
-| Bug | Mechanism |
-|-----|-----------|
-| Co-owner details lost on step change | RHF + policy autosave |
-| Default video error after approval | Stable `coOwnerDraftKey` + server fetch sees approved invite |
-| Duplicate invite after resume | draftKey-level lock + immediate post-send lock |
-| Draft/autosave race | Autosave gate + hydration after reset |
-| Submit before approval | Existing hook + refresh on send |
+| Bug                                  | Mechanism                                                    |
+| ------------------------------------ | ------------------------------------------------------------ |
+| Co-owner details lost on step change | RHF + policy autosave                                        |
+| Default video error after approval   | Stable `coOwnerDraftKey` + server fetch sees approved invite |
+| Duplicate invite after resume        | draftKey-level lock + immediate post-send lock               |
+| Draft/autosave race                  | Autosave gate + hydration after reset                        |
+| Submit before approval               | Existing hook + refresh on send                              |
 
 ### Non-goals
 
@@ -282,7 +286,11 @@ Revert hook + component wiring; Item 1a infra remains harmless.
 
 ```typescript
 type DraftResumeOrigin = {
-  surface: "create_dialog" | "host_community" | "event_channel_modal" | "content_room_settings";
+  surface:
+    | "create_dialog"
+    | "host_community"
+    | "event_channel_modal"
+    | "content_room_settings";
   pathname: string;
   hostTab?: "event" | "owner" | "cocreator";
   targetId: string;
@@ -293,22 +301,22 @@ Persist in `policyJson.modal.origin` on modal autosave — update [`use-form-dra
 
 ### Surface wiring
 
-| Parent | `surface` |
-|--------|-----------|
-| [`create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx) | `create_dialog` |
-| [`host-community-client.tsx`](frontend/src/components/dashboard/host-community-client.tsx) | `host_community` |
-| [`event-channel-modal.tsx`](frontend/src/components/events/event-channel-modal.tsx) | `event_channel_modal` |
-| [`content-room-settings.tsx`](frontend/src/components/events/content-room-settings.tsx) | `content_room_settings` |
+| Parent                                                                                     | `surface`               |
+| ------------------------------------------------------------------------------------------ | ----------------------- |
+| [`create-dialog.tsx`](frontend/src/components/home/create-dialog.tsx)                      | `create_dialog`         |
+| [`host-community-client.tsx`](frontend/src/components/dashboard/host-community-client.tsx) | `host_community`        |
+| [`event-channel-modal.tsx`](frontend/src/components/events/event-channel-modal.tsx)        | `event_channel_modal`   |
+| [`content-room-settings.tsx`](frontend/src/components/events/content-room-settings.tsx)    | `content_room_settings` |
 
 ### Resume routing — [`form-drafts-panel.tsx`](frontend/src/components/dashboard/form-drafts-panel.tsx)
 
-| `origin.surface` | Route |
-|------------------|-------|
-| `create_dialog` | `` `${origin.pathname}?resumeCreateVideo=1&modalDraftId=…&targetId=…&hostTab=…&draftKind=…` `` |
-| `host_community` | `/host/{slug}/host-community?communityId=…&modalDraftId=…` |
-| `event_channel_modal` / `content_room_settings` | `/room/{eventId}?openAddVideo=1&modalDraftId=…` |
-| Legacy + `targetId` only | Infer from `draftKind` if unambiguous |
-| Legacy, no `targetId`, no `origin` | **Unrecoverable UX** (see below) |
+| `origin.surface`                                | Route                                                                                          |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `create_dialog`                                 | `` `${origin.pathname}?resumeCreateVideo=1&modalDraftId=…&targetId=…&hostTab=…&draftKind=…` `` |
+| `host_community`                                | `/host/{slug}/host-community?communityId=…&modalDraftId=…`                                     |
+| `event_channel_modal` / `content_room_settings` | `/room/{eventId}?openAddVideo=1&modalDraftId=…`                                                |
+| Legacy + `targetId` only                        | Infer from `draftKind` if unambiguous                                                          |
+| Legacy, no `targetId`, no `origin`              | **Unrecoverable UX** (see below)                                                               |
 
 **Fix silent failure:** replace [`form-drafts-panel.tsx:48`](frontend/src/components/dashboard/form-drafts-panel.tsx) `if (!targetId) return` with disabled Resume + tooltip.
 
@@ -339,12 +347,12 @@ Revert wrapper/hook; legacy `targetId`-only routing still works.
 
 **New** [`backend/src/scripts/backfill-form-draft-modal-target.ts`](backend/src/scripts/backfill-form-draft-modal-target.ts)
 
-| Rule | Condition | Action |
-|------|-----------|--------|
-| R0 | `modal.targetId` present | Skip |
-| R1 | `coOwnerDraftKey` → invite with **non-null** `eventChannelId` | Set `targetId` (high confidence) |
-| R2 | `payloadJson.url` + `hostId` → exactly one matching `EventChannel` | Set `targetId` |
-| R3 | Ambiguous / missing | Set `modal.recoverable = false` |
+| Rule | Condition                                                          | Action                           |
+| ---- | ------------------------------------------------------------------ | -------------------------------- |
+| R0   | `modal.targetId` present                                           | Skip                             |
+| R1   | `coOwnerDraftKey` → invite with **non-null** `eventChannelId`      | Set `targetId` (high confidence) |
+| R2   | `payloadJson.url` + `hostId` → exactly one matching `EventChannel` | Set `targetId`                   |
+| R3   | Ambiguous / missing                                                | Set `modal.recoverable = false`  |
 
 **R1 limitation (document in runbook):** draft-phase invites often have `eventChannelId = null` ([`VideoCoOwnerInvite.eventChannelId`](backend/prisma/schema.prisma) optional). Expect **many** drafts to fall through to R2 or R3 — not a script bug.
 
@@ -364,12 +372,12 @@ Run rollback script from audit JSONL.
 
 ## Migration and contract changes
 
-| Area | Change |
-|------|--------|
-| Prisma schema | **None** |
+| Area                   | Change                                                  |
+| ---------------------- | ------------------------------------------------------- |
+| Prisma schema          | **None**                                                |
 | `FormDraft.policyJson` | Additive JSON keys (`coOwner`, `origin`, `recoverable`) |
-| API | New/changed 409 messages for community bank (Item 4) |
-| Frontend types | Zod + `AddVideoFormValues` + `FormDraftPolicyJson` |
+| API                    | New/changed 409 messages for community bank (Item 4)    |
+| Frontend types         | Zod + `AddVideoFormValues` + `FormDraftPolicyJson`      |
 
 ---
 
@@ -412,24 +420,24 @@ Run rollback script from audit JSONL.
 
 ## Production risks and mitigations
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                                 | Mitigation                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | Duplicate URL channels on same event | Intentional for Item 4; document; queries using `findFirst` by URL may need future ordering — out of scope unless broken in QA |
-| Missed CreateDialog mount | Single wrapper + grep CI check |
-| Backfill wrong target | R2 uniqueness; dry-run audit review |
-| Stale draft overwrites invite | Autosave gate + server-wins (Item 1) |
-| Global co-owner regression | `assertYoutubeVideoNotAlreadyCoOwned` unchanged |
+| Missed CreateDialog mount            | Single wrapper + grep CI check                                                                                                 |
+| Backfill wrong target                | R2 uniqueness; dry-run audit review                                                                                            |
+| Stale draft overwrites invite        | Autosave gate + server-wins (Item 1)                                                                                           |
+| Global co-owner regression           | `assertYoutubeVideoNotAlreadyCoOwned` unchanged                                                                                |
 
 ---
 
 ## Rollback summary
 
-| Item | Rollback |
-|------|----------|
-| Item 4 | Revert backend deploy |
+| Item       | Rollback                                          |
+| ---------- | ------------------------------------------------- |
+| Item 4     | Revert backend deploy                             |
 | Item 1a/1b | Revert frontend deploy (backward compatible JSON) |
-| Item 2 | Revert frontend deploy |
-| Item 3 | Rollback script from audit JSONL |
+| Item 2     | Revert frontend deploy                            |
+| Item 3     | Rollback script from audit JSONL                  |
 
 ---
 

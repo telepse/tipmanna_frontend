@@ -54,6 +54,10 @@ import {
   CREATOR_PROFILE_CATEGORY_LABELS,
   CreatorFormData,
   CreatorProfileCategory,
+  CreatorProfileEditStats,
+  HOST_CREATOR_DEFAULT_TAB_LABELS,
+  HOST_CREATOR_DEFAULT_TABS,
+  HostCreatorDefaultTab,
   creatorSchema,
 } from "@/schemas/creator.schema";
 import { performAuthLogout } from "@/lib/auth-logout";
@@ -131,6 +135,11 @@ export function EditCreatorProfileDialog({
   const [externalLinkRequiresPremium, setExternalLinkRequiresPremium] =
     useState(true);
   const [photoMarkedForRemoval, setPhotoMarkedForRemoval] = useState(false);
+  const [editStats, setEditStats] = useState<CreatorProfileEditStats | null>(
+    null
+  );
+  const [creatorDefaultTab, setCreatorDefaultTab] =
+    useState<HostCreatorDefaultTab>("all_videos");
   const profileLoadedForOpenRef = useRef(false);
 
   const hostSlug = useMemo(() => {
@@ -169,6 +178,7 @@ export function EditCreatorProfileDialog({
       profileImageUrl: null,
       externalLinkUrl: "",
       externalLinkLabel: "",
+      creatorDefaultTab: "all_videos",
     },
   });
 
@@ -218,7 +228,10 @@ export function EditCreatorProfileDialog({
         profileImageUrl: profile.profileImageUrl,
         externalLinkUrl: profile.externalLink?.url ?? "",
         externalLinkLabel: profile.externalLink?.label ?? "",
+        creatorDefaultTab: profile.creatorDefaultTab ?? "all_videos",
       });
+      setEditStats(profile.editStats ?? null);
+      setCreatorDefaultTab(profile.creatorDefaultTab ?? "all_videos");
       setSavedProfilePhotoUrl(profile.profileImageUrl);
       setPhotoMarkedForRemoval(false);
       setProfilePhotoChangeRequiresPremium(
@@ -308,6 +321,7 @@ export function EditCreatorProfileDialog({
         profileCategory: values.profileCategory ?? null,
         externalLinkUrl: values.externalLinkUrl?.trim() || null,
         externalLinkLabel: values.externalLinkLabel?.trim() || null,
+        creatorDefaultTab: values.creatorDefaultTab ?? creatorDefaultTab,
         previousUsername,
       });
 
@@ -327,6 +341,8 @@ export function EditCreatorProfileDialog({
       setCanChangeUsername(updated.canChangeUsername);
       setNextUsernameChangeAt(updated.nextUsernameChangeAt);
       setUsernameChangeOverride(updated.usernameChangeOverride);
+      setEditStats(updated.editStats ?? null);
+      setCreatorDefaultTab(updated.creatorDefaultTab ?? "all_videos");
 
       if (updated.username !== previousUsername) {
         dispatch(updateTipper({ username: updated.username }));
@@ -379,6 +395,25 @@ export function EditCreatorProfileDialog({
 
         {loadingProfile ? (
           <p className="text-muted-foreground text-sm">Loading profile…</p>
+        ) : editStats ? (
+          <div className="bg-muted/20 grid grid-cols-1 gap-2 rounded-md border p-3 text-xs sm:grid-cols-3">
+            <div>
+              <p className="text-muted-foreground">Page visits (90d)</p>
+              <p className="font-semibold">{editStats.pageVisits90d}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Pending host payout</p>
+              <p className="font-semibold">
+                £{(editStats.pendingHostPayoutMinor / 100).toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Pending co-owner payout</p>
+              <p className="font-semibold">
+                £{(editStats.pendingCoOwnerPayoutPence / 100).toFixed(2)}
+              </p>
+            </div>
+          </div>
         ) : null}
 
         <div className="flex flex-col gap-4">
@@ -490,8 +525,8 @@ export function EditCreatorProfileDialog({
                       </FormControl>
                       {!canChangeUsername && nextUsernameChangeAt ? (
                         <FormDescription>
-                          Usernames can be changed once per month. Next change
-                          available{" "}
+                          Usernames can be changed once every 90 days. Next
+                          change available{" "}
                           {formatNextUsernameChange(nextUsernameChangeAt)}
                           {usernameChangeOverride ? " (override active)" : ""}.
                         </FormDescription>
@@ -566,6 +601,44 @@ export function EditCreatorProfileDialog({
                           Manage my channels and events
                         </Link>
                       </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={creatorForm.control}
+                  name="creatorDefaultTab"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Default profile tab</FormLabel>
+                      <FormDescription className="text-muted-foreground text-xs">
+                        Visitors land on this tab when opening your creator
+                        page.
+                      </FormDescription>
+                      <Select
+                        value={field.value ?? creatorDefaultTab}
+                        onValueChange={val => {
+                          field.onChange(val);
+                          setCreatorDefaultTab(val as HostCreatorDefaultTab);
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select default tab" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {HOST_CREATOR_DEFAULT_TABS.map(tab => (
+                            <SelectItem
+                              key={tab}
+                              value={tab}
+                            >
+                              {HOST_CREATOR_DEFAULT_TAB_LABELS[tab]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

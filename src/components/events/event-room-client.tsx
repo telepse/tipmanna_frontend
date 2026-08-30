@@ -28,6 +28,11 @@ import { InviteModal } from "./invite-modal";
 import { RoomMessages } from "./room-messages";
 import { EventFooter } from "./event-footer";
 import { StripeProvider } from "./stripe-provider";
+import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import { mergeEventRoomChannel } from "@/lib/content-channel-payload";
+import { useEventChannelCreatedRealtime } from "@/hooks/use-event-channel-created-realtime";
+import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
+import { appendUniqueChatMessage } from "@/lib/append-unique-chat-message";
 
 interface Props {
   eventId: string;
@@ -160,6 +165,46 @@ export const EventRoomClient = ({
     ? tippingCharacters
     : [];
   const safeChannels = Array.isArray(channels) ? channels : [];
+  const [channelList, setChannelList] = useState<EventRoomVideoChannel[]>(() =>
+    safeChannels.map(c => ({
+      id: String(c.id),
+      url: String(c.url ?? ""),
+      title: typeof c.title === "string" ? c.title : undefined,
+      isDefault: c.isDefault === true,
+      durationSeconds:
+        typeof c.durationSeconds === "number" ? c.durationSeconds : undefined,
+    }))
+  );
+
+  const serverChannelKey = safeChannels.map(c => String(c.id)).join(",");
+  useEffect(() => {
+    setChannelList(
+      safeChannels.map(c => ({
+        id: String(c.id),
+        url: String(c.url ?? ""),
+        title: typeof c.title === "string" ? c.title : undefined,
+        isDefault: c.isDefault === true,
+        durationSeconds:
+          typeof c.durationSeconds === "number" ? c.durationSeconds : undefined,
+      }))
+    );
+  }, [serverChannelKey, safeChannels]);
+
+  const handleChannelCreated = useCallback((row: EventRoomVideoChannel) => {
+    setChannelList(prev => mergeEventRoomChannel(prev, row));
+  }, []);
+
+  useEventChannelCreatedRealtime(eventId, handleChannelCreated);
+
+  useDefaultChannelRealtime(eventId, payload => {
+    setChannelList(prev =>
+      prev.map(c => ({
+        ...c,
+        isDefault: String(c.id) === payload.channelId,
+      }))
+    );
+  });
+
   const safeEventSession = Array.isArray(EventSession) ? EventSession : [];
 
   const rawCharacterSets = Array.isArray(characterSets) ? characterSets : [];
@@ -256,38 +301,9 @@ export const EventRoomClient = ({
       return;
     }
 
-    let cancelled = false;
-
-    const acceptInvite = async () => {
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/cohost/invite/accept`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ token: inviteToken }),
-          }
-        );
-
-        if (!res.ok) {
-          console.error("[EventRoom] Failed to accept invite");
-          return;
-        }
-
-        if (cancelled) return;
-        router.replace(`/room/${eventId}`);
-      } catch (err) {
-        console.error("[EventRoom] accept invite", err);
-      }
-    };
-
-    acceptInvite();
-    return () => {
-      cancelled = true;
-    };
-  }, [inviteToken, inviteStatus, user, eventId, router]);
+    // Signed-in users must finish cohost verification on the invite page (accept only emails a code).
+    router.replace(`/invite?token=${encodeURIComponent(inviteToken)}`);
+  }, [inviteToken, inviteStatus, user, router]);
 
   const [currentUser, setCurrentUser] = useState<UserInfo>(
     () => getCurrentUser() ?? HYDRATE_USER_PLACEHOLDER
@@ -379,7 +395,7 @@ export const EventRoomClient = ({
   );
 
   const handleNewChatMessage = useCallback((message: Message) => {
-    setLiveMessages(prev => [...prev, message]);
+    setLiveMessages(prev => appendUniqueChatMessage(prev, message));
   }, []);
 
   const [liveFullscreen, setLiveFullscreen] = useState(false);
@@ -440,7 +456,7 @@ export const EventRoomClient = ({
 
   const status = getEventStatus(eventDate, startTime, endTime);
 
-  const defaultChannel = safeChannels.find(channel => channel.isDefault);
+  const defaultChannel = channelList.find(channel => channel.isDefault);
 
   const liveVideoUrl = defaultChannel?.url || liveVideoLink;
 
@@ -507,8 +523,9 @@ export const EventRoomClient = ({
             liveFullscreen={liveFullscreen}
             setLiveFullscreen={setLiveFullscreen}
             onToggleFullscreen={setLiveFullscreen}
-            frameId={defaultChannel?.id}
-            channels={safeChannels}
+            frameId={defaultChannel?.id ?? ""}
+            channels={channelList}
+            onChannelCreated={handleChannelCreated}
             status={status}
             venueLocation={venueLocation}
             totalAttendees={totalAttendees}
@@ -534,10 +551,11 @@ export const EventRoomClient = ({
               messages={liveMessages}
               tippingCharacters={tipStripCharacters}
               iTipped={iTipped}
-              channels={safeChannels}
-              frameId={defaultChannel?.id}
+              channels={channelList}
+              frameId={defaultChannel?.id ?? ""}
               isEventOwner={isEventOwner}
               liveVideoLink={liveVideoLink}
+              onChannelCreated={handleChannelCreated}
               performers={screenSettings.performers}
               projects={projects}
               contributionType={contributionType}

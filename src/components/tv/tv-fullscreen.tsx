@@ -36,18 +36,14 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-
-  useEffect(() => {
-    setIsMuted(readTvMutePref());
-  }, []);
+  const [isMuted, setIsMuted] = useState(() => readTvMutePref());
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (playerRef.current?.isReady()) {
         const time = playerRef.current.getCurrentTime();
         setCurrentTime(time);
-        setIsMuted(playerRef.current.isMuted());
+        setIsMuted(readTvMutePref());
         const state = playerRef.current.getPlayerState();
         setIsPlaying(state === "PLAYING" || state === "BUFFERING");
       }

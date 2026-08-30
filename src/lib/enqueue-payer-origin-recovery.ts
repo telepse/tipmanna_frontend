@@ -174,14 +174,6 @@ export function enqueuePayerOriginRecoveryBundle(options: {
         result: "skipped",
       });
       skippedRealtime.push(occurrenceId);
-      if (blocked === "committed") {
-        onOccurrenceFinished?.({
-          occurrenceId,
-          playbackResult: "completed",
-          cycle1Outcome: "completed",
-          cycle2Outcome: "completed",
-        });
-      }
       return;
     }
 

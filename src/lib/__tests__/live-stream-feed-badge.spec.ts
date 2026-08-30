@@ -11,7 +11,8 @@ describe("LiveStreamFeedBadge", () => {
     expect(liveStreamFeedBadgeLabel("ENDED")).toBe("Live stream · Completed");
   });
 
-  it("hides for UPCOMING, NOT_LIVE, and null", () => {
+  it("hides for ENDED, UPCOMING, NOT_LIVE, and null", () => {
+    expect(liveStreamFeedBadgeVisible("ENDED")).toBe(false);
     expect(liveStreamFeedBadgeVisible("UPCOMING")).toBe(false);
     expect(liveStreamFeedBadgeVisible("NOT_LIVE")).toBe(false);
     expect(liveStreamFeedBadgeVisible(null)).toBe(false);

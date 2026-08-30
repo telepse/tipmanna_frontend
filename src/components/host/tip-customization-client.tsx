@@ -22,6 +22,7 @@ import type { TipConfigPayload } from "@/lib/tip-config-types";
 import { hasActiveHostSession } from "@/lib/host-session-client";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import {
   Select,
   SelectItem,
@@ -39,6 +40,8 @@ export default function TipCustomizationClient({
 }) {
   const hostSessionActive = hasActiveHostSession();
   const { capabilities, isLoading: planLoading } = useHostPlanCapabilities();
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "premium" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -89,7 +92,11 @@ export default function TipCustomizationClient({
     setSaving(true);
     try {
       const res = await initHostTipConfigAction(eventId);
-      if (!res.success) throw new Error(res.message ?? "Init failed");
+      if (!res.success) {
+        if (handleSubscriptionActionError(res)) return;
+        toast.error(res.message ?? "Init failed");
+        return;
+      }
       toast.success("Tip customization initialized");
       setInitialized(true);
       await load();
@@ -104,7 +111,11 @@ export default function TipCustomizationClient({
     setSaving(true);
     try {
       const res = await saveHostTipConfigDraftAction(eventId, payload);
-      if (!res.success) throw new Error(res.message ?? "Save failed");
+      if (!res.success) {
+        if (handleSubscriptionActionError(res)) return false;
+        toast.error(res.message ?? "Save failed");
+        return false;
+      }
       toast.success("Draft saved");
       return true;
     } catch (e) {
@@ -122,7 +133,11 @@ export default function TipCustomizationClient({
     setSaving(true);
     try {
       const res = await publishHostTipConfigAction(eventId);
-      if (!res.success) throw new Error(res.message ?? "Publish failed");
+      if (!res.success) {
+        if (handleSubscriptionActionError(res)) return;
+        toast.error(res.message ?? "Publish failed");
+        return;
+      }
       toast.success(
         res.data?.reviewNeeded
           ? "Published (flagged for review)"
@@ -140,7 +155,11 @@ export default function TipCustomizationClient({
     setSaving(true);
     try {
       const res = await resetHostTipConfigAction(eventId);
-      if (!res.success) throw new Error(res.message ?? "Reset failed");
+      if (!res.success) {
+        if (handleSubscriptionActionError(res)) return;
+        toast.error(res.message ?? "Reset failed");
+        return;
+      }
       if (res.data?.config) setDraft(res.data.config as TipConfigPayload);
       toast.success("Draft reset from your event’s catalog layout");
     } catch (e) {
@@ -220,6 +239,7 @@ export default function TipCustomizationClient({
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 py-6">
+      {SubscriptionPromptModal}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold">Tip section & drawer</h1>

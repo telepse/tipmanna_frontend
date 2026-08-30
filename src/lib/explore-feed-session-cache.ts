@@ -12,6 +12,7 @@ export type ExploreFeedSessionKeyParams = {
     eventTypes: string[];
     language: string;
     country: string;
+    includeEndedLive?: boolean;
   };
 };
 
@@ -21,6 +22,7 @@ export type ExploreFeedFetchScope = {
   eventVideoTypes?: string[];
   language?: string;
   country?: string;
+  includeEndedLive?: boolean;
 };
 
 export type ExploreFeedIdentity = {
@@ -59,6 +61,7 @@ export function buildExploreFeedIdentity(
     if (lang) parts.push(`l:${lang}`);
     const country = trendsFilters.country?.trim();
     if (country) parts.push(`c:${country}`);
+    if (trendsFilters.includeEndedLive) parts.push("ended:1");
   }
 
   if (feedMode === "saves" || feedMode === "community") {
@@ -79,6 +82,9 @@ export function buildExploreFeedIdentity(
     if (lang) fetchScope.language = lang;
     const country = trendsFilters.country?.trim();
     if (country) fetchScope.country = country;
+    if (trendsFilters.includeEndedLive) {
+      fetchScope.includeEndedLive = true;
+    }
   }
 
   return { storageKey, fetchScope };
@@ -95,6 +101,7 @@ export function isUnscopedGlobalTrendsIdentity(
   if (f.eventTypes.length > 0) return false;
   if (f.language?.trim()) return false;
   if (f.country?.trim()) return false;
+  if (f.includeEndedLive) return false;
   return true;
 }
 

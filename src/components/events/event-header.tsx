@@ -7,6 +7,7 @@ import { EventInfo } from "./event-info";
 import { EventCountdown } from "../event-countdown";
 import { EventLive } from "./event-live";
 import { TipsDrawer } from "./tips-drawer";
+import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 
 interface Props {
   eventId: string;
@@ -48,6 +49,7 @@ interface Props {
   performers: any[];
   currentSessionAmountToRaise?: number;
   channels: any[];
+  onChannelCreated?: (channel: EventRoomVideoChannel) => void;
   forceScreenOpen?: boolean;
   isEventOwner: string;
   venueName: string;
@@ -93,6 +95,7 @@ export const EventHeader = ({
   setOpenDrawer,
   performers,
   channels,
+  onChannelCreated,
   currentSessionAmountToRaise,
   forceScreenOpen = false,
   isEventOwner,
@@ -226,6 +229,7 @@ export const EventHeader = ({
             setOpenDrawer={setOpenDrawer}
             characterSets={safeCharacterSets}
             channels={safeChannels}
+            onChannelCreated={onChannelCreated}
             isEventOwner={isEventOwner}
           />
         </div>

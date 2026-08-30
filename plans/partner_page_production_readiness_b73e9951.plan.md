@@ -21,7 +21,7 @@ todos:
     content: "Restore SEO: extract FAQ content to a constant and emit FAQPage JSON-LD, add Product/Offer JSON-LD from the PRICING constant and Organization JSON-LD; add public/og/partner.svg with openGraph.images and twitter summary_large_image; collapse the duplicated desktop-grid/mobile-carousel markup in three sections; add a build-time guard against shipping a localhost NEXT_PUBLIC_PRIMARY_ORIGIN."
     status: completed
   - id: perf
-    content: "Performance: convert the five partner PNG slides to WebP and update constants; remove priority/fetchPriority from below-fold images and add missing sizes; add poster/preload=none and in-view gating to the Cloudinary video; replace all remaining react-responsive useMediaQuery calls with Tailwind breakpoints; remove bg-fixed from the five sections; lazy-load CreateDialog, LocationPrompt, SignInDialog and react-slideshow-image; drop the unnecessary \"use client\" on who-is-tipmanna-for."
+    content: 'Performance: convert the five partner PNG slides to WebP and update constants; remove priority/fetchPriority from below-fold images and add missing sizes; add poster/preload=none and in-view gating to the Cloudinary video; replace all remaining react-responsive useMediaQuery calls with Tailwind breakpoints; remove bg-fixed from the five sections; lazy-load CreateDialog, LocationPrompt, SignInDialog and react-slideshow-image; drop the unnecessary "use client" on who-is-tipmanna-for.'
     status: completed
   - id: cleanup
     content: Delete the 294 commented-out lines in new-hero-client, the console.log, dead IntersectionObserver/Swiper code in features.tsx, unused imports in partner/page.tsx, commented-out DataSection blocks, and the NewHeroServer pass-through; replace the runtime-built Tailwind class in already-watching; fix the copy typos (TIpmanna, continous, accross, ContinousEngagement, "Connection become lasting").
@@ -112,12 +112,14 @@ flowchart TD
 
 **Delete** [partner-page-metadata-sync.tsx](frontend/src/components/partner/partner-page-metadata-sync.tsx) — it rewrites `document.title` and the canonical after hydration, which crawlers never see, and is the source of the server/client canonical split. Trim [partner-page-metadata.ts](frontend/src/lib/partner-page-metadata.ts) to a single metadata object plus `resolvePartnerScrollTargetId` (still used by `HashScroll`), and update [the spec](frontend/src/lib/__tests__/partner-page-metadata.spec.ts).
 
-**Cached data module.** Create `frontend/src/lib/partner-data.ts` — a plain module, *not* `"use server"` — doing its own `fetch(url, { next: { revalidate: 300, tags: ["partner-sections"] } })` inside `try/catch` with safe empty defaults.
+**Cached data module.** Create `frontend/src/lib/partner-data.ts` — a plain module, _not_ `"use server"` — doing its own `fetch(url, { next: { revalidate: 300, tags: ["partner-sections"] } })` inside `try/catch` with safe empty defaults.
 
 > This cannot reuse `runServerFetch`. `attemptFetchInit` strips the option before it reaches `fetch`:
+>
 > ```205:205:frontend/src/lib/action-fetch.ts
 >   const { perAttemptTimeoutMs, next: _next, ...rest } = init;
 > ```
+>
 > and it attaches an `AbortSignal` when `perAttemptTimeoutMs` is set — Next does not cache signalled fetches. Adding `revalidate` to the existing actions would be silently ignored.
 
 **Partner-scoped section wrappers** in `frontend/src/components/partner/`, reusing the existing presentational children so `/`'s wrappers are untouched:

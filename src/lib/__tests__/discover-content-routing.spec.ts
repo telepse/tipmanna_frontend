@@ -1,49 +1,61 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isLivestreamFamily,
   isLiveStreamContent,
-  resolveDiscoverContentTarget,
+  isNonReelLiveStatus,
+  shouldOpenExploreHandoffInChannel,
+  shouldOpenLiveInChannelClient,
 } from "../discover-content-routing";
 
-describe("discover content routing", () => {
-  it("detects live stream statuses", () => {
+describe("discover-content-routing live predicate", () => {
+  it("treats LIVE liveStatus or host isLive as live stream content", () => {
     expect(isLiveStreamContent({ liveStatus: "LIVE" })).toBe(true);
-    expect(isLiveStreamContent({ liveStatus: "ENDED" })).toBe(true);
-    expect(isLiveStreamContent({ liveStatus: "UPCOMING" })).toBe(true);
-    expect(isLiveStreamContent({ liveStatus: null })).toBe(false);
-    expect(isLiveStreamContent({})).toBe(false);
+    expect(isLiveStreamContent({ isLive: true })).toBe(true);
+    expect(isLiveStreamContent({ liveStatus: "ENDED" })).toBe(false);
+    expect(isLiveStreamContent({ liveStatus: "UPCOMING" })).toBe(false);
+    expect(isLiveStreamContent({ liveStatus: "NOT_LIVE" })).toBe(false);
   });
 
-  it("routes live items to channel even when Explore playback is wired", () => {
-    const live = { liveStatus: "LIVE" as const };
-    expect(resolveDiscoverContentTarget(live, "discovery", false)).toBe(
-      "channel"
-    );
-    expect(resolveDiscoverContentTarget(live, "exploreTab", true)).toBe(
-      "channel"
-    );
+  it("treats livestream family as channel-client candidates from Discover", () => {
+    expect(isLivestreamFamily({ liveStatus: "LIVE" })).toBe(true);
+    expect(isLivestreamFamily({ liveStatus: "UPCOMING" })).toBe(true);
+    expect(isLivestreamFamily({ liveStatus: "ENDED" })).toBe(true);
+    expect(isLivestreamFamily({ isLive: true })).toBe(true);
+    expect(isLivestreamFamily({ liveStatus: "NOT_LIVE" })).toBe(false);
   });
 
-  it("routes clips to explore reel on any surface that provides a play handler", () => {
-    const clip = { liveStatus: null };
-    expect(resolveDiscoverContentTarget(clip, "exploreTab", true)).toBe(
-      "explore-reel"
-    );
-    expect(resolveDiscoverContentTarget(clip, "exploreTab", false)).toBe(
-      "content"
-    );
-    // Dedicated Discover page now reuses Explore playback when a handler exists.
-    expect(resolveDiscoverContentTarget(clip, "discovery", true)).toBe(
-      "explore-reel"
-    );
-    expect(resolveDiscoverContentTarget(clip, "discovery", false)).toBe(
-      "content"
-    );
+  it("flags upcoming and ended as non-reel live statuses", () => {
+    expect(isNonReelLiveStatus({ liveStatus: "UPCOMING" })).toBe(true);
+    expect(isNonReelLiveStatus({ liveStatus: "ENDED" })).toBe(true);
+    expect(isNonReelLiveStatus({ liveStatus: "LIVE" })).toBe(false);
   });
 
-  it("does not treat missing liveStatus as live stream", () => {
-    expect(resolveDiscoverContentTarget({}, "discovery", false)).toBe(
-      "content"
+  it("opens channel client for entire livestream family from Discover", () => {
+    expect(shouldOpenLiveInChannelClient({ liveStatus: "LIVE" })).toBe(true);
+    expect(shouldOpenLiveInChannelClient({ isLive: true })).toBe(true);
+    expect(shouldOpenLiveInChannelClient({ liveStatus: "UPCOMING" })).toBe(
+      true
     );
+    expect(shouldOpenLiveInChannelClient({ liveStatus: "ENDED" })).toBe(true);
+  });
+
+  it("Explore handoff redirects LIVE/UPCOMING/isLive but not ENDED-only", () => {
+    expect(shouldOpenExploreHandoffInChannel({ liveStatus: "LIVE" })).toBe(
+      true
+    );
+    expect(shouldOpenExploreHandoffInChannel({ liveStatus: "UPCOMING" })).toBe(
+      true
+    );
+    expect(shouldOpenExploreHandoffInChannel({ isLive: true })).toBe(true);
+    expect(shouldOpenExploreHandoffInChannel({ liveStatus: "ENDED" })).toBe(
+      false
+    );
+    expect(
+      shouldOpenExploreHandoffInChannel({
+        isLive: true,
+        liveStatus: "UPCOMING",
+      })
+    ).toBe(true);
   });
 });

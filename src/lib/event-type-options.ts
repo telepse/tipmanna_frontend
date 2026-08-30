@@ -25,6 +25,7 @@ export const DISCOVER_RAIL_SUBTITLES: Record<string, string> = {
   programs: "Scheduled TV programs",
   live: "Opens in the creator's event room",
   mostTipped: "Highest tip counts",
+  playlists: "Curated video lists from creators",
 };
 
 /** Extended “how this updates” copy for mobile rail help tooltips. */
@@ -38,6 +39,7 @@ export const DISCOVER_RAIL_UPDATE_HINTS: Record<string, string> = {
     "Updates when TV programs are scheduled or change enforcement status.",
   live: "Updates when live status changes (live, upcoming, or recently ended).",
   mostTipped: "Real-time — sorted by highest tip counts.",
+  playlists: "Updates when hosts publish new curated playlists.",
 };
 
 export type DiscoverRailKey = keyof typeof DISCOVER_RAIL_SUBTITLES;

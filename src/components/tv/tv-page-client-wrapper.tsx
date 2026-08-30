@@ -45,8 +45,8 @@ import { tvTrace } from "@/lib/tvDebugLog";
 import { schedulePostTtfvIdle } from "@/lib/tv-post-ttfv-idle";
 import { prefetchTvScheduleTips } from "@/lib/drawer-prefetch-cache";
 import { useTvLazyCharacters } from "@/hooks/use-tv-lazy-characters";
-import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
-import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
+import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
+import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
 
 interface Character {
   id: string;
@@ -122,8 +122,7 @@ export default function TVPageClientWrapper({
   const dispatch = useDispatch();
   const selectedTips = useSelector((s: RootState) => s.tip.selectedTips);
 
-  const viewportWidth = useClientViewportWidth();
-  const isMobile = viewportWidth > 0 && viewportWidth <= SURFACE_MOBILE_MAX_PX;
+  const { ready: surfaceReady, isPhone: isPhoneSurface } = useTvSurfaceMode();
 
   useTvEnforcementDeepLink({
     tvReady,
@@ -133,7 +132,7 @@ export default function TVPageClientWrapper({
   });
 
   useEffect(() => {
-    if (!isMobile) return;
+    if (!isPhoneSurface) return;
     const previousBodyOverflow = document.body.style.overflow;
     const previousHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
@@ -142,7 +141,7 @@ export default function TVPageClientWrapper({
       document.body.style.overflow = previousBodyOverflow;
       document.documentElement.style.overflow = previousHtmlOverflow;
     };
-  }, [isMobile]);
+  }, [isPhoneSurface]);
 
   const [activeTab, setActiveTab] = useState<"playlist" | "tips" | "programs">(
     "playlist"
@@ -239,8 +238,11 @@ export default function TVPageClientWrapper({
     set => Array.isArray(set.characters) && set.characters.length > 0
   );
 
-  const tippingCharactersForDrawer = (videoTipCatalog?.characters ??
-    []) as RoomCharacter[];
+  const tippingCharactersForDrawer = (
+    videoTipCatalog?.characters?.length
+      ? videoTipCatalog.characters
+      : characters
+  ) as RoomCharacter[];
 
   const prevPlayingVideoKeyRef = useRef("");
 
@@ -366,16 +368,27 @@ export default function TVPageClientWrapper({
         </DialogContent>
       </Dialog>
 
-      {!isMobile && <TvWebExperience {...sharedShellProps} />}
+      {!surfaceReady ? (
+        <div className="mx-auto w-full max-w-6xl px-2 pt-20 pb-28">
+          <TvLooperSkeleton layout="compact" />
+          <div className="mt-4">
+            <TvRightPanelSkeleton layout="mobile" />
+          </div>
+        </div>
+      ) : null}
 
-      {isMobile && (
+      {surfaceReady && !isPhoneSurface ? (
+        <TvWebExperience {...sharedShellProps} />
+      ) : null}
+
+      {surfaceReady && isPhoneSurface ? (
         <div className="w-full">
           <TvInteractiveShell
             {...sharedShellProps}
             variant="mobile"
           />
         </div>
-      )}
+      ) : null}
 
       {/* Legacy desktop browse layout (thumbnail carousels). Set to true only for reference / future TV browse section; active /tv desktop uses TvWebExperience above. */}
       {false && (

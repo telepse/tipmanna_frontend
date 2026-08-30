@@ -25,11 +25,11 @@ When recovery released at T11:
 
 ## T11 vs T13 lifecycle
 
-| Milestone | Effect |
-| --------- | ------ |
-| **T11 first PLAYING** | Marks `firstPlayReached`; releases pre-play drift seek suppression only |
-| **T11–T13 window** | Stability guard active (when C0.1 enabled): bounded recovery, pre-stable seek policy |
-| **T13 stable_playback** | Marks `stablePlaybackReached`; releases stability guard; normal runtime behavior |
+| Milestone               | Effect                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| **T11 first PLAYING**   | Marks `firstPlayReached`; releases pre-play drift seek suppression only              |
+| **T11–T13 window**      | Stability guard active (when C0.1 enabled): bounded recovery, pre-stable seek policy |
+| **T13 stable_playback** | Marks `stablePlaybackReached`; releases stability guard; normal runtime behavior     |
 
 With C0.1 **disabled**, behavior matches Phase C0 (recovery releases at T11).
 
@@ -62,12 +62,12 @@ After T13 → existing legacy per-video error behavior.
 
 ## Pre-stable seek policy
 
-| Phase | Drift seek behavior |
-| ----- | ------------------- |
-| Before T11 | Existing C0: suppress all pre-play drift seeks |
-| T11–T13 | Suppress while BUFFERING/UNSTARTED/CUED/ENDED/PAUSED |
-| T11–T13 | Allow **one** corrective same-video drift seek while genuinely PLAYING |
-| After T13 | Restore recurring 3s drift synchronization |
+| Phase      | Drift seek behavior                                                    |
+| ---------- | ---------------------------------------------------------------------- |
+| Before T11 | Existing C0: suppress all pre-play drift seeks                         |
+| T11–T13    | Suppress while BUFFERING/UNSTARTED/CUED/ENDED/PAUSED                   |
+| T11–T13    | Allow **one** corrective same-video drift seek while genuinely PLAYING |
+| After T13  | Restore recurring 3s drift synchronization                             |
 
 Summary counters: `preStableSeekSuppressedCount`, `preStableCorrectiveSeekCount`.
 

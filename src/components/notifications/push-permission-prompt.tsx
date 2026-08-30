@@ -10,6 +10,12 @@ import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-s
 import { usePushPermission } from "@/hooks/use-push-permission";
 import { ensurePushForSignedInTipper } from "@/lib/program-push-setup";
 import { isIosSafariNonStandalone } from "@/lib/pwa-utils";
+import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
+import {
+  deferPushUntilInstalled,
+  mustInstallBeforePush,
+  pushOptInPrimaryButtonLabel,
+} from "@/lib/push-opt-in-ios";
 import { cn } from "@/lib/utils";
 import type { RootState } from "@/redux/store";
 
@@ -24,7 +30,7 @@ export function PushPermissionPrompt({ className }: Props) {
   );
   const authToken = useSelector((s: RootState) => s.auth.token);
   const { state, detecting, loading, error, subscribe } = usePushPermission();
-  const iosInstallHint = isIosSafariNonStandalone();
+  const iosInstallHint = mustInstallBeforePush();
   const [signInOpen, setSignInOpen] = useState(false);
 
   if (
@@ -36,7 +42,17 @@ export function PushPermissionPrompt({ className }: Props) {
     return null;
   }
 
-  const handleVerifiedPush = async () => {
+  const runPushSubscribe = async () => {
+    const policy = await fetchPushPromptPolicy();
+    if (!policy.enabled) {
+      toast.info("Push notifications are not available right now.");
+      return;
+    }
+    if (policy.pwaInstalledOnly && isIosSafariNonStandalone()) {
+      deferPushUntilInstalled("push-permission-prompt");
+      toast.info("Install Tipmanna first, then we will enable notifications.");
+      return;
+    }
     const result = await ensurePushForSignedInTipper({
       pushState: state,
       subscribe,
@@ -45,6 +61,14 @@ export function PushPermissionPrompt({ className }: Props) {
     if (result === "already_subscribed" || result === "push_enabled") {
       toast.success("Push notifications enabled");
     }
+  };
+
+  const handleVerifiedPush = async () => {
+    if (deferPushUntilInstalled("push-permission-prompt")) {
+      toast.info("Install Tipmanna first, then we will enable notifications.");
+      return;
+    }
+    await runPushSubscribe();
   };
 
   const handleEnable = async () => {
@@ -53,15 +77,15 @@ export function PushPermissionPrompt({ className }: Props) {
       return;
     }
 
-    const result = await ensurePushForSignedInTipper({
-      pushState: state,
-      subscribe,
-      token: authToken,
-    });
-    if (result === "already_subscribed" || result === "push_enabled") {
-      toast.success("Push notifications enabled");
+    if (deferPushUntilInstalled("push-permission-prompt")) {
+      toast.info("Install Tipmanna first, then we will enable notifications.");
+      return;
     }
+
+    await runPushSubscribe();
   };
+
+  const needsSignIn = !isAuthenticated || requiresVerification;
 
   return (
     <>
@@ -79,8 +103,8 @@ export function PushPermissionPrompt({ className }: Props) {
           </p>
           {iosInstallHint ? (
             <p className="text-muted-foreground mt-2 text-xs">
-              On iPhone: tap Share, then &quot;Add to Home Screen&quot;, open
-              Tipmanna from your home screen, then turn on notifications here.
+              On iPhone: add Tipmanna to your Home Screen first. Push alerts
+              only work in the installed app — not in the Safari tab.
             </p>
           ) : null}
           {error ? (
@@ -97,11 +121,11 @@ export function PushPermissionPrompt({ className }: Props) {
             disabled={loading}
             onClick={() => void handleEnable()}
           >
-            {loading
-              ? "Enabling…"
-              : !isAuthenticated || requiresVerification
-                ? "Sign in to enable"
-                : "Turn on notifications"}
+            {pushOptInPrimaryButtonLabel({
+              loading,
+              needsSignIn,
+              iosInstallFirst: iosInstallHint,
+            })}
           </Button>
         </div>
       </div>

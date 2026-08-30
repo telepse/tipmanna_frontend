@@ -94,11 +94,14 @@ export function CommunitySubscribeSection({
   feeGbp,
   activeUntil,
   onSubscriptionChange,
+  onBeforePay,
 }: {
   communityId: string;
   feeGbp: string;
   activeUntil: string | null;
   onSubscriptionChange: () => void;
+  /** When joining from dedicated mode, parent may confirm exit before pay. */
+  onBeforePay?: (proceed: () => void) => void;
 }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loadingStripe, setLoadingStripe] = useState(false);
@@ -123,6 +126,17 @@ export function CommunitySubscribeSection({
       cancelled = true;
     };
   }, [clientSecret]);
+
+  const runBeforePay = useCallback(
+    (pay: () => void | Promise<void>) => {
+      if (onBeforePay) {
+        onBeforePay(() => void pay());
+        return;
+      }
+      void pay();
+    },
+    [onBeforePay]
+  );
 
   const startStripe = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -202,7 +216,7 @@ export function CommunitySubscribeSection({
             type="button"
             variant="secondary"
             disabled={walletLoading}
-            onClick={() => void payWallet()}
+            onClick={() => runBeforePay(() => payWallet())}
           >
             {walletLoading ? (
               <Loader2 className="size-4 animate-spin" />
@@ -218,7 +232,7 @@ export function CommunitySubscribeSection({
           type="button"
           variant="outline"
           disabled={loadingStripe}
-          onClick={() => void startStripe()}
+          onClick={() => runBeforePay(() => startStripe())}
           className="w-full"
         >
           {loadingStripe ? (

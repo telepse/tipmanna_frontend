@@ -12,8 +12,15 @@ import { RootState } from "@/redux/store";
 import { setSelectedTips, markPaymentCompleted } from "@/features/tip-slice";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
 import { notifyTextTipDraftSync } from "@/lib/tip-text-selection";
-import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
+import { schedulePwaPromptAfterPaymentWithPolicy } from "@/lib/pwa-install-trigger";
 import { readPendingTipBroadcast } from "@/lib/payment-origin";
+import {
+  isPaidTipDeliveryComplete,
+  isPaidTipMessageSent,
+  isTipDroppedForTransaction,
+  markTipDroppedForTransaction,
+  resolvePaidTipTransactionId,
+} from "@/lib/post-paid-tip-message-once";
 
 export const DropTip = ({ eventId }: { eventId: string }) => {
   const [tipDropped, setTipDropped] = useState(false);
@@ -24,29 +31,53 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
 
-  // ---------------------------------------------
-  // Shared drop logic (manual + auto)
-  // ---------------------------------------------
+  useEffect(() => {
+    if (!paymentCompleted || tipDropped) return;
+    if (isPaidTipDeliveryComplete()) {
+      setTipDropped(true);
+      dispatch(markPaymentCompleted(false));
+    }
+  }, [paymentCompleted, tipDropped, dispatch]);
+
   const runDropTip = useCallback(() => {
     if (tipDropped) return;
 
     const amount = localStorage.getItem("amount");
     if (!amount || Number(amount) <= 0) return;
 
+    const pending = readPendingTipBroadcast();
+    const tips = pending?.selectedTips?.length ? pending.selectedTips : selectedTips;
+    if (!tips?.length) return;
+
+    const transactionId = resolvePaidTipTransactionId();
+    if (!transactionId) {
+      dispatch(markPaymentCompleted(false));
+      setTipDropped(true);
+      return;
+    }
+
+    if (
+      isTipDroppedForTransaction(transactionId) ||
+      isPaidTipMessageSent(transactionId)
+    ) {
+      dispatch(markPaymentCompleted(false));
+      setTipDropped(true);
+      return;
+    }
+
+    markTipDroppedForTransaction(transactionId);
+
     const textTipValue = localStorage.getItem("textTipValue") || "";
     const sender = (user as any)?.anonymous ? "Anonymous" : user?.username;
 
-    // ---- NEW: summarize selected tips ----
     const tipCounts: Record<string, number> = {};
-    selectedTips.forEach(tip => {
+    tips.forEach(tip => {
       tipCounts[tip] = (tipCounts[tip] || 0) + 1;
     });
     const purchasedSummary = Object.entries(tipCounts)
       .map(([name, qty]) => `${qty} ${name}`)
       .join(", ");
 
-    const pending = readPendingTipBroadcast();
-    const transactionId = pending?.transactionId?.trim() || undefined;
     const eventChannelId = pending?.eventChannelId?.trim() || undefined;
 
     window.dispatchEvent(
@@ -56,15 +87,15 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
           sender,
           textTip: textTipValue,
           eventId,
-          selectedTips,
+          selectedTips: tips,
           purchasedSummary,
-          ...(transactionId ? { transactionId } : {}),
+          transactionId,
           ...(eventChannelId ? { eventChannelId } : {}),
         },
       })
     );
 
-    const uniqueTipNames = [...new Set(selectedTips)];
+    const uniqueTipNames = [...new Set(tips)];
     if (uniqueTipNames.includes("Comment")) {
       const delayMs =
         ANIMATION_DURATION.payment.max * Math.max(1, uniqueTipNames.length) +
@@ -82,36 +113,29 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
     dispatch(setSelectedTips([]));
     dispatch(markPaymentCompleted(false));
 
-    schedulePwaPromptAfterPaymentAnimation(Math.max(1, uniqueTipNames.length));
+    void schedulePwaPromptAfterPaymentWithPolicy(
+      Math.max(1, uniqueTipNames.length)
+    );
 
     setTipDropped(true);
   }, [tipDropped, user, eventId, selectedTips, dispatch]);
 
-  // ---------------------------------------------
-  // AUTO-DROP TIP AFTER 10 SECONDS
-  // ---------------------------------------------
   useEffect(() => {
     if (!paymentCompleted || tipDropped) return;
 
     const timer = setTimeout(() => {
-      runDropTip(); // auto drop
-    }, 1500); // 1.5 seconds
+      runDropTip();
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, [paymentCompleted, tipDropped, runDropTip]);
 
-  // ---------------------------------------------
-  // Listen for manual dropping
-  // ---------------------------------------------
   useEffect(() => {
     const handler = () => setTipDropped(true);
     window.addEventListener("tip:dropped", handler);
     return () => window.removeEventListener("tip:dropped", handler);
   }, []);
 
-  // ---------------------------------------------
-  // Manual button click
-  // ---------------------------------------------
   const handleDropTip = () => {
     if (!paymentCompleted || tipDropped) return;
     runDropTip();

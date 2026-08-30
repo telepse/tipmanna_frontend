@@ -65,17 +65,17 @@ sequenceDiagram
   TP->>TP: T8 player_ready
 ```
 
-| Step | File | Mechanism | Runs once? | Waits on | Network? |
-|------|------|-----------|------------|----------|------------|
-| **T6** | [`tv-provider.tsx`](frontend/src/components/tv-provider.tsx) `applySchedulePayloadCore` ~L1725 | Sync during schedule apply | First-wins mark | Valid `livePosition` only | No |
-| **setIsReady(true)** | [`tv-provider.tsx`](frontend/src/components/tv-provider.tsx) ~L1870 / L1956 / L2159 | Sync after `applySchedulePayload` | Per successful load | Schedule payload | No |
-| **Looper gate** | [`tv-interactive-shell.tsx`](frontend/src/components/tv/tv-interactive-shell.tsx) ~L442–465 / L748 | Conditional render on `tvReady` | Per ready cycle | `isReady` | No |
-| **Looper mount** | [`web-tv-looper.tsx`](frontend/src/components/tv/web-tv-looper.tsx) or [`tv-looper.tsx`](frontend/src/components/tv/tv-looper.tsx) | Static import, render | Per looper instance | `playbackUrl` valid | No |
-| **TvPlayer mount** | [`tv-looper.tsx`](frontend/src/components/tv/tv-looper.tsx) ~L1341 | Render when `playbackUrl` | C1-off: key `"tv-player"` | `items[currentIndex]` | No |
-| **player_component_mounted** | [`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx) ~L168 | `useEffect` | Per TvPlayer mount | React commit | No |
-| **T7** | [`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx) ~L205–237 | Same effect; 200ms poll | First-wins mark | `window.YT.Player` | Indirect (poll after script) |
-| **react-youtube init** | `react-youtube@10.1.0` → `youtube-player@5.5.2` | `componentDidMount` → `createPlayer()` | Per mount | Container ref | **Yes** — injects `iframe_api` |
-| **T8** | [`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx) ~L448 | `<YouTube onReady>` | First-wins mark | YouTube iframe ready | **Yes** — embed + player assets |
+| Step                         | File                                                                                                                               | Mechanism                              | Runs once?                | Waits on                  | Network?                        |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------- | ------------------------- | ------------------------------- |
+| **T6**                       | [`tv-provider.tsx`](frontend/src/components/tv-provider.tsx) `applySchedulePayloadCore` ~L1725                                     | Sync during schedule apply             | First-wins mark           | Valid `livePosition` only | No                              |
+| **setIsReady(true)**         | [`tv-provider.tsx`](frontend/src/components/tv-provider.tsx) ~L1870 / L1956 / L2159                                                | Sync after `applySchedulePayload`      | Per successful load       | Schedule payload          | No                              |
+| **Looper gate**              | [`tv-interactive-shell.tsx`](frontend/src/components/tv/tv-interactive-shell.tsx) ~L442–465 / L748                                 | Conditional render on `tvReady`        | Per ready cycle           | `isReady`                 | No                              |
+| **Looper mount**             | [`web-tv-looper.tsx`](frontend/src/components/tv/web-tv-looper.tsx) or [`tv-looper.tsx`](frontend/src/components/tv/tv-looper.tsx) | Static import, render                  | Per looper instance       | `playbackUrl` valid       | No                              |
+| **TvPlayer mount**           | [`tv-looper.tsx`](frontend/src/components/tv/tv-looper.tsx) ~L1341                                                                 | Render when `playbackUrl`              | C1-off: key `"tv-player"` | `items[currentIndex]`     | No                              |
+| **player_component_mounted** | [`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx) ~L168                                                                  | `useEffect`                            | Per TvPlayer mount        | React commit              | No                              |
+| **T7**                       | [`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx) ~L205–237                                                              | Same effect; 200ms poll                | First-wins mark           | `window.YT.Player`        | Indirect (poll after script)    |
+| **react-youtube init**       | `react-youtube@10.1.0` → `youtube-player@5.5.2`                                                                                    | `componentDidMount` → `createPlayer()` | Per mount                 | Container ref             | **Yes** — injects `iframe_api`  |
+| **T8**                       | [`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx) ~L448                                                                  | `<YouTube onReady>`                    | First-wins mark           | YouTube iframe ready      | **Yes** — embed + player assets |
 
 **T6 vs player mount timing:** T6 fires **inside** `applySchedulePayloadCore` **before** `setIsReady(true)`. Looper/TvPlayer cannot mount until the subsequent React commit from `setIsReady`. With C1-off, there is no additional embed-target state between T6 and mount beyond `items` + `currentIndex`.
 
@@ -86,28 +86,29 @@ sequenceDiagram
 ## 2. T7 accuracy audit
 
 **Current mechanism** ([`tv-player.tsx`](frontend/src/components/tv/tv-player.tsx) L205–237):
+
 - On mount: if `window.YT && window.YT.Player` → emit T7 immediately (`reason: yt_object_present_at_mount`)
 - Else: **200ms interval poll** until YT appears or 20s timeout (`reason: yt_object_detected`)
 - Always sets `data.approximate: true`
 
-| Question | Answer |
-|----------|--------|
-| Can T7 fire before iframe_api completes? | **Yes** — if `window.YT` inherited from prior navigation or prior player in same document |
-| Can T7 fire long after API usable? | **Yes** — poll granularity up to 200ms; poll starts only after mount effect runs |
-| Inherited from previous navigation? | **Yes on SPA/source-switch** — `window.YT` persists; T7 can be instant |
-| Cached `window.YT` shrink T6→T7? | **Yes** — explains 1–2s source-switch runs |
-| Poll begin late? | **Yes** — queued behind other effects + main-thread work |
-| Distinguishes script vs iframe vs onReady? | **No** — T7 ≈ "YT namespace exists"; T8 = iframe `onReady` |
+| Question                                   | Answer                                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Can T7 fire before iframe_api completes?   | **Yes** — if `window.YT` inherited from prior navigation or prior player in same document |
+| Can T7 fire long after API usable?         | **Yes** — poll granularity up to 200ms; poll starts only after mount effect runs          |
+| Inherited from previous navigation?        | **Yes on SPA/source-switch** — `window.YT` persists; T7 can be instant                    |
+| Cached `window.YT` shrink T6→T7?           | **Yes** — explains 1–2s source-switch runs                                                |
+| Poll begin late?                           | **Yes** — queued behind other effects + main-thread work                                  |
+| Distinguishes script vs iframe vs onReady? | **No** — T7 ≈ "YT namespace exists"; T8 = iframe `onReady`                                |
 
 **Recommended non-invasive marks (C2.0, do not implement now):**
 
-| Proposed event | What it measures | Reliable from repo? |
-|----------------|------------------|---------------------|
-| `youtube_api_script_request_started` | First `iframe_api` fetch | Resource Timing / hook `load-script` in `youtube-player` |
-| `youtube_api_script_loaded` | Script response complete | Resource Timing (`www.youtube.com/iframe_api`, `www-widgetapi.js`) |
-| `youtube_player_constructor_started` | `youTubePlayer(container, opts)` call | Wrapper in TvPlayer around react-youtube mount |
-| `youtube_iframe_inserted` | iframe in DOM | `MutationObserver` on player container or `getIframe()` promise |
-| `youtube_ready_callback` | Same instant as T8 today | Already T8 — keep alias for ordering proofs |
+| Proposed event                       | What it measures                      | Reliable from repo?                                                |
+| ------------------------------------ | ------------------------------------- | ------------------------------------------------------------------ |
+| `youtube_api_script_request_started` | First `iframe_api` fetch              | Resource Timing / hook `load-script` in `youtube-player`           |
+| `youtube_api_script_loaded`          | Script response complete              | Resource Timing (`www.youtube.com/iframe_api`, `www-widgetapi.js`) |
+| `youtube_player_constructor_started` | `youTubePlayer(container, opts)` call | Wrapper in TvPlayer around react-youtube mount                     |
+| `youtube_iframe_inserted`            | iframe in DOM                         | `MutationObserver` on player container or `getIframe()` promise    |
+| `youtube_ready_callback`             | Same instant as T8 today              | Already T8 — keep alias for ordering proofs                        |
 
 Remove "approximate" ambiguity by splitting **API script ready** vs **player instance ready**.
 
@@ -115,14 +116,14 @@ Remove "approximate" ambiguity by splitting **API script ready** vs **player ins
 
 ## 3. YouTube-related resources
 
-| Resource | Requested by | Host | Earliest time | Cache reuse |
-|----------|--------------|------|---------------|-------------|
-| `iframe_api` | `youtube-player` `load-script` on first `<YouTube>` mount | `www.youtube.com` | After TvPlayer mount | HTTP cache + SW cross-origin bucket |
-| `www-widgetapi.js` | Loaded by iframe_api bootstrap | `www.youtube.com` | After iframe_api | Same |
-| Embed document | `YT.Player` with `host: youtube-nocookie.com` ([`youtubePlayerConfig.ts`](frontend/src/lib/youtubePlayerConfig.ts)) | `www.youtube-nocookie.com` | After API ready | Limited |
-| Thumbnails | `ThumbnailPlayer` static img; looper uses ytimg for banner | `i.ytimg.com`, `img.youtube.com` | Panels lazy; not on critical T6→T8 path unless user expanded preview | Strong |
-| Media segments | Autoplay after T8 | `*.googlevideo.com` | Post-T8 | Separate from T6→T8 |
-| App TV bundle | Next.js route | same-origin | T1→T2 | SW precache |
+| Resource           | Requested by                                                                                                        | Host                             | Earliest time                                                        | Cache reuse                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ----------------------------------- |
+| `iframe_api`       | `youtube-player` `load-script` on first `<YouTube>` mount                                                           | `www.youtube.com`                | After TvPlayer mount                                                 | HTTP cache + SW cross-origin bucket |
+| `www-widgetapi.js` | Loaded by iframe_api bootstrap                                                                                      | `www.youtube.com`                | After iframe_api                                                     | Same                                |
+| Embed document     | `YT.Player` with `host: youtube-nocookie.com` ([`youtubePlayerConfig.ts`](frontend/src/lib/youtubePlayerConfig.ts)) | `www.youtube-nocookie.com`       | After API ready                                                      | Limited                             |
+| Thumbnails         | `ThumbnailPlayer` static img; looper uses ytimg for banner                                                          | `i.ytimg.com`, `img.youtube.com` | Panels lazy; not on critical T6→T8 path unless user expanded preview | Strong                              |
+| Media segments     | Autoplay after T8                                                                                                   | `*.googlevideo.com`              | Post-T8                                                              | Separate from T6→T8                 |
+| App TV bundle      | Next.js route                                                                                                       | same-origin                      | T1→T2                                                                | SW precache                         |
 
 **Packages (installed):** `react-youtube@10.1.0` → `youtube-player@5.5.2` (transitive). Script URL: `https://www.youtube.com/iframe_api` (protocol-relative in library).
 
@@ -134,9 +135,9 @@ Remove "approximate" ambiguity by splitting **API script ready** vs **player ins
 
 ## 4. Loader ownership map (definitive)
 
-| Owner | Components | Dedup | DOM target |
-|-------|------------|-------|------------|
-| App loader | `events/video-player.tsx`, Explore, channel/content clients | `getElementById("youtube-iframe-api")` | `document.body` |
+| Owner                      | Components                                                     | Dedup                                       | DOM target      |
+| -------------------------- | -------------------------------------------------------------- | ------------------------------------------- | --------------- |
+| App loader                 | `events/video-player.tsx`, Explore, channel/content clients    | `getElementById("youtube-iframe-api")`      | `document.body` |
 | `youtube-player` singleton | `TvPlayer`, `ThumbnailPlayer` (on user click), `tv-fullscreen` | Module promise only; **no script id check** | `document.head` |
 
 **TV route at cold start:** single `TvPlayer` in active looper → one `youtube-player` script injection.
@@ -149,15 +150,15 @@ Remove "approximate" ambiguity by splitting **API script ready** vs **player ins
 
 ## 5. Player mount timing — proposed trace split
 
-| Mark | Placement | Measurement method |
-|------|-----------|-------------------|
-| `looper_render_requested` | Looper render when `tvReady && playbackUrl` | Sync in render (trace-only guard) |
-| `tv_player_render_started` | Top of `TvPlayer` render | Sync |
-| `tv_player_committed` | `useLayoutEffect` empty-deps on TvPlayer | **useLayoutEffect** — before paint |
-| `youtube_api_request_started` | Resource Timing observer filtering `iframe_api` | **PerformanceObserver `resource`** |
-| `youtube_player_constructor_started` | Thin wrapper/logging before react-youtube mount completes | Library boundary |
-| `youtube_iframe_inserted` | Observer on player container | **MutationObserver** |
-| `youtube_ready_callback` | Existing T8 | Already present |
+| Mark                                 | Placement                                                 | Measurement method                 |
+| ------------------------------------ | --------------------------------------------------------- | ---------------------------------- |
+| `looper_render_requested`            | Looper render when `tvReady && playbackUrl`               | Sync in render (trace-only guard)  |
+| `tv_player_render_started`           | Top of `TvPlayer` render                                  | Sync                               |
+| `tv_player_committed`                | `useLayoutEffect` empty-deps on TvPlayer                  | **useLayoutEffect** — before paint |
+| `youtube_api_request_started`        | Resource Timing observer filtering `iframe_api`           | **PerformanceObserver `resource`** |
+| `youtube_player_constructor_started` | Thin wrapper/logging before react-youtube mount completes | Library boundary                   |
+| `youtube_iframe_inserted`            | Observer on player container                              | **MutationObserver**               |
+| `youtube_ready_callback`             | Existing T8                                               | Already present                    |
 
 Avoid marking `looper_committed` from looper itself without layout effect — render ≠ commit.
 
@@ -166,6 +167,7 @@ Avoid marking `looper_committed` from looper itself without layout effect — re
 ## 6. Resource Timing diagnostic (trace-only design)
 
 **Safe fields to record per entry:**
+
 - `resourceType` (from initiatorType)
 - `host` (parsed origin only)
 - `pathCategory`: `iframe_api` | `widgetapi` | `nocookie_embed` | `ytimg` | `googlevideo` | `other`
@@ -184,12 +186,13 @@ Avoid marking `looper_committed` from looper itself without layout effect — re
 ## 7. React / main-thread candidates (T6→player mount)
 
 **High-confidence rerender pressure:**
+
 - [`TVContext.Provider`](frontend/src/components/tv-provider.tsx) ~L3264 — **new object every render, not memoized** → all `useTV()` consumers rerender on any provider state change
 - Schedule apply sets ~10+ state fields synchronously before `setIsReady`
 
 **Unlikely to explain 7–12s alone:** React commit from T6→TvPlayer mount (expected low hundreds of ms).
 
-**Possible outlier contributor (14–22s max):** main-thread long tasks during concurrent hydration of TV shell (dynamic panels, Redux, Pusher tracking in [`(tv)/layout.tsx`](frontend/src/app/(tv)/layout.tsx)), delaying mount effect + script injection start.
+**Possible outlier contributor (14–22s max):** main-thread long tasks during concurrent hydration of TV shell (dynamic panels, Redux, Pusher tracking in [`(tv)/layout.tsx`](<frontend/src/app/(tv)/layout.tsx>)), delaying mount effect + script injection start.
 
 **C2.0 diagnostic:** `PerformanceObserver({ entryTypes: ["longtask"] })` from T2→T8, record count + max duration (no attribution URLs).
 
@@ -199,14 +202,14 @@ Avoid marking `looper_committed` from looper itself without layout effect — re
 
 ## 8. Desktop / mobile looper selection
 
-| Aspect | Finding |
-|--------|---------|
-| Selection | [`tv-page-client-wrapper.tsx`](frontend/src/components/tv/tv-page-client-wrapper.tsx) L124: `useMediaQuery({ maxWidth: "500px" })` — **mutually exclusive** branches |
-| Desktop | `TvWebExperience` → `variant="desktop"` → **`WebTvLooper`** (lg grid) |
-| Mobile | `TvInteractiveShell variant="mobile"` → **`TvLooper`** |
-| Eager import | Both loopers statically imported in shell — **same JS bundle** |
-| Hydration risk | `react-responsive` defaults **`isMobile=false` on SSR/first paint** → mobile devices may **briefly mount desktop looper**, then switch — potential **double TvPlayer init on mobile cold only** |
-| Community double-embed | Unlikely from looper flip on desktop; mobile hydration flip is a **separate mobile candidate** (needs C2.0 mobile-specific trace) |
+| Aspect                 | Finding                                                                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Selection              | [`tv-page-client-wrapper.tsx`](frontend/src/components/tv/tv-page-client-wrapper.tsx) L124: `useMediaQuery({ maxWidth: "500px" })` — **mutually exclusive** branches                            |
+| Desktop                | `TvWebExperience` → `variant="desktop"` → **`WebTvLooper`** (lg grid)                                                                                                                           |
+| Mobile                 | `TvInteractiveShell variant="mobile"` → **`TvLooper`**                                                                                                                                          |
+| Eager import           | Both loopers statically imported in shell — **same JS bundle**                                                                                                                                  |
+| Hydration risk         | `react-responsive` defaults **`isMobile=false` on SSR/first paint** → mobile devices may **briefly mount desktop looper**, then switch — potential **double TvPlayer init on mobile cold only** |
+| Community double-embed | Unlikely from looper flip on desktop; mobile hydration flip is a **separate mobile candidate** (needs C2.0 mobile-specific trace)                                                               |
 
 **Verdict for measured desktop cold runs:** looper switching **ruled out** as primary cause. Mobile hydration flip remains **uncertain** — test with sub-marks.
 
@@ -214,11 +217,11 @@ Avoid marking `looper_committed` from looper itself without layout effect — re
 
 ## 9. Preconnect audit
 
-| Source | When | Domains | SSR? |
-|--------|------|---------|------|
-| [`app/layout.tsx`](frontend/src/app/layout.tsx) L82–97 | Root head | nocookie, ytimg, youtube.com | Only if `NEXT_PUBLIC_EXPLORE_YT_PRELOAD=1` (**off** in accepted config) |
-| [`TvYoutubePreconnect`](frontend/src/components/tv/tv-youtube-preconnect.tsx) | First client render of TV layout | Same 3 + dns-prefetch | **No — post hydration (~T2)** |
-| Missing | — | `googlevideo.com`, explicit `iframe_api` path | — |
+| Source                                                                        | When                             | Domains                                       | SSR?                                                                    |
+| ----------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------- |
+| [`app/layout.tsx`](frontend/src/app/layout.tsx) L82–97                        | Root head                        | nocookie, ytimg, youtube.com                  | Only if `NEXT_PUBLIC_EXPLORE_YT_PRELOAD=1` (**off** in accepted config) |
+| [`TvYoutubePreconnect`](frontend/src/components/tv/tv-youtube-preconnect.tsx) | First client render of TV layout | Same 3 + dns-prefetch                         | **No — post hydration (~T2)**                                           |
+| Missing                                                                       | —                                | `googlevideo.com`, explicit `iframe_api` path | —                                                                       |
 
 **Impact on cold T6→T8:** Preconnect currently fires **after T2**, often **after or near T6** — too late to overlap iframe_api fetch with early app boot. This is the strongest **non-C1** optimization lever.
 
@@ -226,12 +229,12 @@ Avoid marking `looper_committed` from looper itself without layout effect — re
 
 ## 10. Connection / cache reuse explanation
 
-| Scenario | Schedule cache | `window.YT` | Typical T6→T8 | Mechanism |
-|----------|----------------|-------------|---------------|-----------|
-| **Global cold hard nav** | Miss | Absent | 7–12s (max 22s) | Full iframe_api + embed cold path |
-| **Warm hard nav** | Hit (`scheduleCacheBootstrapCount: 1`) | **Absent** (new document) | 9–12s | Schedule instant; **player still cold** |
-| **Same-doc source switch** | May refresh | **Present** | 1–2s | API + connections reused; new player instance only |
-| **SPA from Explore** | N/A | May exist | Faster T7 | Prior Path A loader may have warmed YT |
+| Scenario                   | Schedule cache                         | `window.YT`               | Typical T6→T8   | Mechanism                                          |
+| -------------------------- | -------------------------------------- | ------------------------- | --------------- | -------------------------------------------------- |
+| **Global cold hard nav**   | Miss                                   | Absent                    | 7–12s (max 22s) | Full iframe_api + embed cold path                  |
+| **Warm hard nav**          | Hit (`scheduleCacheBootstrapCount: 1`) | **Absent** (new document) | 9–12s           | Schedule instant; **player still cold**            |
+| **Same-doc source switch** | May refresh                            | **Present**               | 1–2s            | API + connections reused; new player instance only |
+| **SPA from Explore**       | N/A                                    | May exist                 | Faster T7       | Prior Path A loader may have warmed YT             |
 
 **Do not conflate** warm schedule cache with warm YouTube bootstrap — measured data already separates them.
 
@@ -252,11 +255,11 @@ SW may affect **T1→T2** (cached chunks) more than T6→T8; YouTube resources r
 
 ## 12. T1→T2 and pre-T6 variability (separate phase)
 
-| Segment | Median evidence | Likely components |
-|---------|-----------------|-------------------|
-| **T0→T1 outlier >20s** | Occasional | Network/HTML TTFB, CDN, cold TLS — **not C2** |
-| **T1→T2 ~2–5.5s** | Frequent | Next.js route JS download/parse, React hydration, [`TVProvider`](frontend/src/components/tv-provider.tsx) mount (T2), Redux, [`TvSourcePickerProvider`](frontend/src/components/tv/tv-source-picker-provider.tsx), Pusher hook, Serwist registration |
-| **T3→T4 ~8–9s** | Dominant schedule cost | Backend schedule (Phase A scope — **not C2**) |
+| Segment                | Median evidence        | Likely components                                                                                                                                                                                                                                    |
+| ---------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **T0→T1 outlier >20s** | Occasional             | Network/HTML TTFB, CDN, cold TLS — **not C2**                                                                                                                                                                                                        |
+| **T1→T2 ~2–5.5s**      | Frequent               | Next.js route JS download/parse, React hydration, [`TVProvider`](frontend/src/components/tv-provider.tsx) mount (T2), Redux, [`TvSourcePickerProvider`](frontend/src/components/tv/tv-source-picker-provider.tsx), Pusher hook, Serwist registration |
+| **T3→T4 ~8–9s**        | Dominant schedule cost | Backend schedule (Phase A scope — **not C2**)                                                                                                                                                                                                        |
 
 **T1 note:** Canonical T1 from [`markTvStartupNavigation`](frontend/src/lib/tv-startup-trace.ts) uses `PerformanceNavigationTiming.responseStart`. Separate `tvLoadMark("T1")` in [`TvPageSuspenseFallback`](frontend/src/components/tv/tv-page-suspense-fallback.tsx) is **tvDebugLog only** — do not merge in analysis.
 
@@ -267,25 +270,29 @@ SW may affect **T1→T2** (cached chunks) more than T6→T8; YouTube resources r
 ## Recommended phase split
 
 ### Phase C2.0 — Trace instrumentation (no behavior change)
+
 1. Sub-marks: `tv_player_committed`, Resource Timing observer, longtask observer
 2. T7 split: `youtube_api_script_loaded` vs `youtube_api_object_detected`
 3. Run 5× global cold + 5× source-switch with accepted flag stack
 4. **Exit gate:** ≥80% of T6→T8 explained by attributed sub-segments
 
 ### Phase C2.1 — Smallest optimization experiment (single variable)
+
 **Hypothesis:** Late connection hints delay iframe_api TCP/TLS/DNS overlap.
 
-**Change:** Add TV-route SSR `<link rel="preconnect">` + `dns-prefetch` for `www.youtube.com`, `www.youtube-nocookie.com`, `i.ytimg.com` via server [`(tv)/tv/page.tsx`](frontend/src/app/(tv)/tv/page.tsx) metadata or a **server** layout wrapper — **not** client `TvYoutubePreconnect` alone.
+**Change:** Add TV-route SSR `<link rel="preconnect">` + `dns-prefetch` for `www.youtube.com`, `www.youtube-nocookie.com`, `i.ytimg.com` via server [`(tv)/tv/page.tsx`](<frontend/src/app/(tv)/tv/page.tsx>) metadata or a **server** layout wrapper — **not** client `TvYoutubePreconnect` alone.
 
 **Optional second arm (only if C2.0 shows script load dominates):** `<link rel="preload" as="script" href="https://www.youtube.com/iframe_api" crossorigin>` — must validate no duplicate-script regression with `youtube-player`.
 
 **Explicitly out of scope:** C1 embed, `playerVars.start`, recovery/seek/overlay changes.
 
 **Success metrics (same 5-run protocol):**
+
 - Median T6→T8 ↓ ≥2s **or** max T6→T8 ↓ ≥5s
 - No regression: T13 stable, C0/C0.1 invariants, single schedule request, no command storm
 
 ### Phase C2.2 — Contingency (only if C2.1 insufficient)
+
 - Mobile hydration looper flip test/fix (separate mobile trace)
 - Unified deduplicated iframe_api loader for TV path
 - Investigate SW cross-origin caching policy for `iframe_api`

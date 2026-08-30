@@ -126,6 +126,7 @@ interface Props {
   performers: Performer[];
   projects: Project[];
   amountToRaise: number;
+  thankYouMessage?: string | null;
   venueLocation: string;
   venueName: string;
   activities: string[];
@@ -152,6 +153,7 @@ interface EventFormValues {
   performers: Performer[];
   projects: Project[];
   amountToRaise: number;
+  thankYouMessage?: string | null;
   venueLocation: string;
   venueName: string;
   activities: string[];
@@ -271,6 +273,7 @@ export const EventDetailClient = ({
   performers,
   projects,
   amountToRaise,
+  thankYouMessage,
   venueLocation,
   venueName,
   activities,
@@ -315,6 +318,7 @@ export const EventDetailClient = ({
       performers,
       projects,
       amountToRaise,
+      thankYouMessage: thankYouMessage ?? "",
       venueLocation,
       venueName,
       activities,
@@ -466,6 +470,8 @@ export const EventDetailClient = ({
             url: content.url,
             eventVideoType: content.eventVideoType,
           })),
+
+          thankYouMessage: values.thankYouMessage?.trim() || null,
         },
       });
 
@@ -1297,6 +1303,33 @@ export const EventDetailClient = ({
                             {...field}
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="thankYouMessage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-semibold">
+                          Thank-you message for tippers
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            value={field.value ?? ""}
+                            rows={4}
+                            placeholder="Sent after each successful tip."
+                          />
+                        </FormControl>
+                        <p className="text-muted-foreground text-xs">
+                          Placeholders: {"{amount}"}, {"{character}"},{" "}
+                          {"{tippedAt}"}, {"{hostFirstName}"},{" "}
+                          {"{creatorPageUrl}"}, {"{communityName}"},{" "}
+                          {"{communityPageUrl}"}.
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}

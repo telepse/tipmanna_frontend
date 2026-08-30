@@ -16,5 +16,10 @@ export default async function CoOwnerPayoutsPage({
       </div>
     );
   }
-  return <CoOwnerPayoutsClient token={token.trim()} />;
+  return (
+    <CoOwnerPayoutsClient
+      mode="token"
+      token={token.trim()}
+    />
+  );
 }

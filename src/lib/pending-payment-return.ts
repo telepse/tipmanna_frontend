@@ -108,3 +108,13 @@ export function clearPendingPaymentReturn(): void {
 export function clearInvalidRecoveryState(): void {
   clearRawRecoveryStateFromPendingReturn();
 }
+
+/** True when a Stripe redirect payer is still returning to their payment surface. */
+export function isPayerPendingReturnTransaction(
+  transactionId?: string | null
+): boolean {
+  const txId = transactionId?.trim();
+  if (!txId) return false;
+  const pending = readPendingPaymentReturn();
+  return pending?.transactionId.trim() === txId;
+}

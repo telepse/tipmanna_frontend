@@ -53,12 +53,12 @@ When the flag is **off**, provider delegates to the legacy once-per-navigation r
 
 ## 3. YouTube error-code forwarding and classification
 
-| Code | Kind | Policy (pre-first-play) |
-| ---- | ---- | ------------------------- |
-| 100 | permanent_content | Mark failed, advance next (1 recovery) |
-| 101, 150 | permanent_content | Embedding disallowed — same as above |
-| 2, 5 | transient_player | One retry per target, then advance |
-| other | unknown | One conservative retry, then advance |
+| Code     | Kind              | Policy (pre-first-play)                |
+| -------- | ----------------- | -------------------------------------- |
+| 100      | permanent_content | Mark failed, advance next (1 recovery) |
+| 101, 150 | permanent_content | Embedding disallowed — same as above   |
+| 2, 5     | transient_player  | One retry per target, then advance     |
+| other    | unknown           | One conservative retry, then advance   |
 
 Codes follow the [YouTube IFrame API](https://developers.google.com/youtube/iframe_api_reference#Events).
 Implementation: `classifyYoutubeErrorKind()` / `classifyStartupPlayerError()` in
@@ -102,20 +102,20 @@ state, in-flight video id, and player state. Exempt reasons: `startup_error_reco
 
 ## 7. Files modified
 
-| File | Change |
-| ---- | ------ |
-| `frontend/src/lib/tv-startup-playback-guard.ts` | **New** — pure guard helpers |
-| `frontend/src/lib/tv-feature-flags.ts` | `isTvStartupPlaybackGuardEnabled()` |
-| `frontend/src/lib/tv-playback-request.ts` | Recovery reason strings |
-| `frontend/src/lib/tv-startup-trace.ts` | C0 summary fields + event counters |
-| `frontend/src/components/tv-provider.tsx` | Guard integration |
-| `frontend/src/components/tv/tv-looper.tsx` | Forward error code + first play |
-| `frontend/src/components/tv/web-tv-looper.tsx` | Same |
-| `frontend/src/lib/__tests__/tv-startup-playback-guard.spec.ts` | **New** |
-| `frontend/src/lib/__tests__/tv-startup-trace.spec.ts` | C0 counter tests |
-| `frontend/.env` | Document flag (default `0`) |
-| `docs/tv-startup-latency-measurement-protocol.md` | Phase C0 section |
-| `docs/tv-startup-phase-c0-report.md` | This document |
+| File                                                           | Change                              |
+| -------------------------------------------------------------- | ----------------------------------- |
+| `frontend/src/lib/tv-startup-playback-guard.ts`                | **New** — pure guard helpers        |
+| `frontend/src/lib/tv-feature-flags.ts`                         | `isTvStartupPlaybackGuardEnabled()` |
+| `frontend/src/lib/tv-playback-request.ts`                      | Recovery reason strings             |
+| `frontend/src/lib/tv-startup-trace.ts`                         | C0 summary fields + event counters  |
+| `frontend/src/components/tv-provider.tsx`                      | Guard integration                   |
+| `frontend/src/components/tv/tv-looper.tsx`                     | Forward error code + first play     |
+| `frontend/src/components/tv/web-tv-looper.tsx`                 | Same                                |
+| `frontend/src/lib/__tests__/tv-startup-playback-guard.spec.ts` | **New**                             |
+| `frontend/src/lib/__tests__/tv-startup-trace.spec.ts`          | C0 counter tests                    |
+| `frontend/.env`                                                | Document flag (default `0`)         |
+| `docs/tv-startup-latency-measurement-protocol.md`              | Phase C0 section                    |
+| `docs/tv-startup-phase-c0-report.md`                           | This document                       |
 
 ---
 

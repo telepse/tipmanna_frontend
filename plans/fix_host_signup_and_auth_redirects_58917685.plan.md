@@ -110,7 +110,7 @@ In `updateCreatorProfile`, [backend/src/controllers/auth.controller.ts](backend/
 
 - Delete the `existingTipper` lookup and its error in `updateCreatorProfile` (lines 2016-2027). The `existingHost` check above it stays.
 - `checkHostUsernameAvailability` (lines 226-258) already queries `Host` only — no change needed.
-- Split [backend/src/utils/username.util.ts](backend/src/utils/username.util.ts) into two scoped generators, since the current one checks both tables and is used for host *and* tipper usernames:
+- Split [backend/src/utils/username.util.ts](backend/src/utils/username.util.ts) into two scoped generators, since the current one checks both tables and is used for host _and_ tipper usernames:
   - `generateUniqueHostUsername(email)` — checks `Host` only.
   - `generateUniqueTipperUsername(email)` — checks `Tipper` only (used by `ensureTipperForHostEmail`).
 
@@ -119,7 +119,7 @@ In `updateCreatorProfile`, [backend/src/controllers/auth.controller.ts](backend/
 `loginOrRegisterHost` validates `req.body.username` at lines 961-972, then throws it away because line 999 shadows it:
 
 ```typescript
-      const username = await generateUsernameFromEmail(email);
+const username = await generateUsernameFromEmail(email);
 ```
 
 Use the submitted username when present, falling back to the generated one only when it is blank. Also guard the two `findUnique({ where: { username } })` lookups at lines 956-966 against an absent username, and remove the `console.log` calls at lines 917-919, 959, 974 and 977.
@@ -167,21 +167,24 @@ In [frontend/src/lib/account-nav-href.ts](frontend/src/lib/account-nav-href.ts),
 
 ### 4b. Tipper lands on /explore
 
-In [frontend/src/app/(auth)/verify-email/page.tsx](frontend/src/app/(auth)/verify-email/page.tsx) lines 113-121, route both the `TIPPER` branch and the `HOST` + `EXISTING_HOST` branch (someone who signed in through the tipper tab) to `/explore`. Plain `HOST` keeps going to the creator profile. Host signup already passes an explicit `?next=/@username`, so it is unaffected.
+In [frontend/src/app/(auth)/verify-email/page.tsx](<frontend/src/app/(auth)/verify-email/page.tsx>) lines 113-121, route both the `TIPPER` branch and the `HOST` + `EXISTING_HOST` branch (someone who signed in through the tipper tab) to `/explore`. Plain `HOST` keeps going to the creator profile. Host signup already passes an explicit `?next=/@username`, so it is unaffected.
 
 ### 4c. Creator page "My Account" opens the modal for tippers
 
 `handleMyAccountClick` in [frontend/src/components/host/host-creator-page-client.tsx](frontend/src/components/host/host-creator-page-client.tsx) sends any authenticated user through `accountHref`, so a signed-in tipper gets pushed to `/tipper/{username}` instead of the host sign-in modal you specified:
 
 ```typescript
-  const handleMyAccountClick = () => {
-    if (isAuthenticated && user) {
-      if (viewerCreatorProfileHref) { router.push(viewerCreatorProfileHref); return; }
-      router.push(accountHref);
+const handleMyAccountClick = () => {
+  if (isAuthenticated && user) {
+    if (viewerCreatorProfileHref) {
+      router.push(viewerCreatorProfileHref);
       return;
     }
-    setSignInOpen(true);
-  };
+    router.push(accountHref);
+    return;
+  }
+  setSignInOpen(true);
+};
 ```
 
 Gate the navigation on `user.role === "HOST"` so tippers and visitors fall through to `setSignInOpen(true)`. Also remove the `console.log` at line 198 and the one at lines 218-221 that calls `buildCreatorProfileSharePath(hostUsername!)` on a value that is `undefined` for every tipper sign-in.

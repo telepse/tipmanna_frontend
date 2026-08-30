@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname, useSearchParams } from "next/navigation";
 
 // Third-party imports
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
@@ -14,7 +15,9 @@ import {
   Bookmark,
   ChevronRight,
   CircleHelp,
+  Loader2,
   Radio,
+  RefreshCw,
   Search,
   Sparkles,
   Tv,
@@ -28,6 +31,7 @@ import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 import { ThumbnailPlayer } from "./thumbnail-player";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
+import { buildExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import { warmExploreVideoHandoff } from "@/lib/explore-video-handoff-warm";
 import {
   discoverySearchAction,
@@ -59,8 +63,28 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { isLiveStreamContent } from "@/lib/discover-content-routing";
-import { buildChannelSharePath } from "@/lib/public-video-url";
+import {
+  isLivestreamFamily,
+  shouldOpenLiveInChannelClient,
+  type DiscoverSurface,
+} from "@/lib/discover-content-routing";
+import { fetchChannelPlaybackRoute } from "@/lib/channel-playback-route";
+import {
+  applyDiscoverScrollRestore,
+  buildDiscoverReturnTo,
+  buildDiscoverUiSnapshot,
+  consumeDiscoverUiRestore,
+  DISCOVER_CATALOG_READY_EVENT,
+  resolveDiscoverScroll,
+  scheduleDiscoverScrollRestore,
+  stashDiscoverUiRestore,
+} from "@/lib/discover-return.util";
+import { writePlaybackReturn } from "@/lib/playback-return-stack";
+import { useOpenChannelWithReturn } from "@/hooks/use-open-channel-with-return";
+import {
+  DISCOVER_RAIL_INITIAL_COUNT,
+  sliceDiscoverRail,
+} from "@/lib/discover-catalog-cache";
 
 const CONTENT_CARD_MIN = "min-w-[220px] sm:min-w-[270px] flex-shrink-0";
 const PROGRAM_CARD_MIN = "min-w-[160px] sm:min-w-[220px] flex-shrink-0";
@@ -108,6 +132,7 @@ interface Content {
   title: string;
   url: string;
   liveStatus?: string | null;
+  isLive?: boolean | null;
 }
 
 export interface DiscoverPanelProps {
@@ -132,6 +157,15 @@ export interface DiscoverPanelProps {
     recentlyEnded: any[];
   };
   topCommunities?: CommunityExploreCatalogRow[];
+  playlists?: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    imageUrl?: string | null;
+    landingUrl?: string | null;
+    host?: { username?: string; fullName?: string };
+    videoCount?: number;
+  }>;
   catalogLoading?: boolean;
   /** Pre-fill search (e.g. from Explore header). */
   initialSearchTerm?: string;
@@ -150,7 +184,12 @@ export interface DiscoverPanelProps {
    * Routing surface (telemetry). Playback always targets Explore when
    * `onPlayInExplore` is provided.
    */
-  surface?: "discovery" | "exploreTab";
+  surface?: DiscoverSurface;
+  /** Optional scroll root for exact-point return restoration. */
+  scrollContainerRef?: React.RefObject<HTMLElement | null>;
+  /** Optional refresh handler for live / dynamic rails. */
+  onRefreshCatalog?: () => void;
+  catalogRefreshing?: boolean;
 }
 
 function DiscoverRailHeading({
@@ -203,6 +242,7 @@ export function DiscoverPanel({
   programs = [],
   liveStreams = { upcoming: [], live: [], recentlyEnded: [] },
   topCommunities = [],
+  playlists = [],
   catalogLoading = false,
   initialSearchTerm = "",
   onOpenBookmarks,
@@ -211,7 +251,25 @@ export function DiscoverPanel({
   onPlayInExplore,
   suppressInlinePlaybackContentId = null,
   surface = "exploreTab",
+  scrollContainerRef,
+  onRefreshCatalog,
+  catalogRefreshing = false,
 }: DiscoverPanelProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const openChannelWithReturn = useOpenChannelWithReturn();
+  const restoreAppliedRef = useRef(false);
+  const pendingRestoreRef = useRef<ReturnType<
+    typeof consumeDiscoverUiRestore
+  > | null>(null);
+  const [expandedRails, setExpandedRails] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const toggleRailExpanded = useCallback((key: string) => {
+    setExpandedRails(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
   const featuredTopCommunities = useMemo(
     () =>
       topCommunities
@@ -234,6 +292,39 @@ export function DiscoverPanel({
 
   const searchTerm = form.watch("searchTerm");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  const captureDiscoverContext = useCallback(() => {
+    const { scrollTop, scrollRoot } = resolveDiscoverScroll(
+      scrollContainerRef?.current
+    );
+    const discoverUi = buildDiscoverUiSnapshot({
+      surface,
+      scrollTop,
+      scrollRoot,
+      searchTerm,
+      selectedTag,
+      expandedRails,
+    });
+    stashDiscoverUiRestore(discoverUi);
+    return {
+      returnTo: buildDiscoverReturnTo({
+        surface,
+        pathname,
+        searchParams: searchParams.toString(),
+        searchTerm,
+      }),
+      discoverUi,
+    };
+  }, [
+    expandedRails,
+    pathname,
+    scrollContainerRef,
+    searchParams,
+    searchTerm,
+    selectedTag,
+    surface,
+  ]);
+
   const [discoveryResults, setDiscoveryResults] =
     useState<DiscoverySearchResult | null>(null);
 
@@ -245,6 +336,38 @@ export function DiscoverPanel({
   const searchResultsRef = useRef<HTMLDivElement>(null);
   const searchRequestGenRef = useRef(0);
   const tagRequestGenRef = useRef(0);
+
+  useEffect(() => {
+    if (restoreAppliedRef.current) return;
+    const snapshot = consumeDiscoverUiRestore(surface);
+    if (!snapshot) return;
+    restoreAppliedRef.current = true;
+    if (snapshot.searchTerm) {
+      form.setValue("searchTerm", snapshot.searchTerm);
+    }
+    if (snapshot.selectedTag) {
+      setSelectedTag(snapshot.selectedTag);
+    }
+    if (Object.keys(snapshot.expandedRails).length > 0) {
+      setExpandedRails(snapshot.expandedRails);
+    }
+    pendingRestoreRef.current = snapshot;
+    const cancel = scheduleDiscoverScrollRestore(snapshot, () =>
+      scrollContainerRef?.current
+    );
+    const onCatalogReady = () => {
+      if (!pendingRestoreRef.current) return;
+      applyDiscoverScrollRestore(
+        pendingRestoreRef.current,
+        scrollContainerRef?.current
+      );
+    };
+    window.addEventListener(DISCOVER_CATALOG_READY_EVENT, onCatalogReady);
+    return () => {
+      cancel();
+      window.removeEventListener(DISCOVER_CATALOG_READY_EVENT, onCatalogReady);
+    };
+  }, [form, scrollContainerRef, surface]);
 
   useEffect(() => {
     setRecentSearches(readRecentDiscoverySearches());
@@ -353,17 +476,20 @@ export function DiscoverPanel({
   const { push, prefetch } = useAppRouter();
 
   const openLiveStreamInChannel = useCallback(
-    (content: Pick<Content, "id" | "event">) => {
+    (content: Pick<Content, "id" | "event"> & Partial<Content>) => {
       const eventId = content.event?.id;
       if (!eventId) return;
-      const href = buildChannelSharePath({
+
+      const { returnTo, discoverUi } = captureDiscoverContext();
+      openChannelWithReturn({
         eventId,
         channelId: content.id,
+        returnTo,
+        label: "Back to Discover",
+        discoverUi,
       });
-      prefetch(href);
-      push(href);
     },
-    [push, prefetch]
+    [captureDiscoverContext, openChannelWithReturn]
   );
 
   const playContentInExplore = useCallback(
@@ -371,13 +497,22 @@ export function DiscoverPanel({
       if (!onPlayInExplore) return;
       const eventId = content.event?.id;
       if (!eventId) return;
-      onPlayInExplore({
-        videoId: content.id,
-        eventId,
-        channelSnapshot: content as unknown as Record<string, unknown>,
+      const { returnTo, discoverUi } = captureDiscoverContext();
+      writePlaybackReturn({
+        returnTo,
+        label: "Back to Discover",
+        discoverUi,
       });
+      const target = buildExploreFeedOpenTarget({
+        content,
+        channelSnapshot: content as unknown as Record<string, unknown>,
+        discoverReturnTo: returnTo,
+        discoverReturnLabel: "Back to Discover",
+      });
+      if (!target) return;
+      onPlayInExplore(target);
     },
-    [onPlayInExplore]
+    [captureDiscoverContext, onPlayInExplore]
   );
 
   const warmContentForExplore = useCallback(
@@ -402,8 +537,13 @@ export function DiscoverPanel({
   );
 
   const resolveContentClick = useCallback(
-    (content: Content) => {
-      if (isLiveStreamContent(content)) {
+    async (content: Content) => {
+      if (shouldOpenLiveInChannelClient(content)) {
+        openLiveStreamInChannel(content);
+        return;
+      }
+      const route = await fetchChannelPlaybackRoute(content.id);
+      if (route?.route === "channel") {
         openLiveStreamInChannel(content);
         return;
       }
@@ -475,10 +615,13 @@ export function DiscoverPanel({
         return;
       }
       if (item.kind === "livestream") {
-        openLiveStreamInChannel({
+        void resolveContentClick({
           id: item.stream.id,
+          title: item.stream.title,
           event: { id: item.stream.eventId },
-        });
+          liveStatus: item.stream.liveStatus,
+          isLive: item.stream.isLive,
+        } as Content);
         return;
       }
       const href = exploreCommunityJoinHref(item.community.id);
@@ -499,6 +642,7 @@ export function DiscoverPanel({
   const recommendedContentsRef = useRef<HTMLDivElement>(null);
   const mostTippedContentsRef = useRef<HTMLDivElement>(null);
   const programsRef = useRef<HTMLDivElement>(null);
+  const playlistsRef = useRef<HTMLDivElement>(null);
   const recentPrograms = useMemo(
     () => takeRecentDiscoveryPrograms(programs),
     [programs]
@@ -523,8 +667,64 @@ export function DiscoverPanel({
     [liveStreams]
   );
 
+  const visibleContents = useMemo(
+    () => sliceDiscoverRail(contents as Content[], expandedRails.top ?? false),
+    [contents, expandedRails.top]
+  );
+  const visibleLatest = useMemo(
+    () =>
+      sliceDiscoverRail(latestContents as Content[], expandedRails.latest ?? false),
+    [latestContents, expandedRails.latest]
+  );
+  const visibleSpotlight = useMemo(
+    () =>
+      sliceDiscoverRail(
+        resolvedSpotlight as Content[],
+        expandedRails.spotlight ?? false
+      ),
+    [resolvedSpotlight, expandedRails.spotlight]
+  );
+  const visibleRecommended = useMemo(
+    () =>
+      sliceDiscoverRail(
+        resolvedRecommended as Content[],
+        expandedRails.recommended ?? false
+      ),
+    [resolvedRecommended, expandedRails.recommended]
+  );
+  const visibleMostTipped = useMemo(
+    () =>
+      sliceDiscoverRail(
+        mostTippedContents as Content[],
+        expandedRails.mostTipped ?? false
+      ),
+    [mostTippedContents, expandedRails.mostTipped]
+  );
+  const visibleLiveItems = useMemo(
+    () =>
+      sliceDiscoverRail(liveStreamItems as Content[], expandedRails.live ?? false),
+    [liveStreamItems, expandedRails.live]
+  );
+
+  const renderRailSeeMore = (
+    railKey: string,
+    total: number,
+    expanded: boolean
+  ) => {
+    if (total <= DISCOVER_RAIL_INITIAL_COUNT) return null;
+    return (
+      <button
+        type="button"
+        className="text-primary mt-2 text-sm font-medium hover:underline"
+        onClick={() => toggleRailExpanded(railKey)}
+      >
+        {expanded ? "Show less" : `See all (${total})`}
+      </button>
+    );
+  };
+
   const renderLiveRoomCue = (content: Content) => {
-    if (!isLiveStreamContent(content)) return null;
+    if (!isLivestreamFamily(content)) return null;
     const status = content.liveStatus;
     const copy =
       status === "LIVE"
@@ -553,7 +753,7 @@ export function DiscoverPanel({
       data-testid="discover-content-card"
       data-event-id={content.event?.id ?? undefined}
       onPointerEnter={() => warmContentForExplore(content)}
-      onClick={() => resolveContentClick(content)}
+      onClick={() => void resolveContentClick(content)}
       className={cn(
         "relative flex cursor-pointer gap-1 rounded-md border-2 bg-gray-200",
         minWidth
@@ -623,7 +823,25 @@ export function DiscoverPanel({
   return (
     <div className={cn("space-y-2", className)}>
       {showHeading ? (
-        <h2 className="text-lg font-semibold lg:text-2xl">Discover contents</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold lg:text-2xl">Discover contents</h2>
+          {onRefreshCatalog ? (
+            <button
+              type="button"
+              aria-label="Refresh discover catalogue"
+              disabled={catalogRefreshing}
+              onClick={onRefreshCatalog}
+              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50"
+            >
+              {catalogRefreshing ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="size-4" aria-hidden />
+              )}
+              Refresh
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {/* CONTENT SEARCH */}
@@ -895,10 +1113,12 @@ export function DiscoverPanel({
                                   data-testid="discover-live-stream-card"
                                   data-search-index={idx}
                                   onClick={() =>
-                                    openLiveStreamInChannel({
+                                    void resolveContentClick({
                                       id: stream.id,
+                                      title: stream.title,
                                       event: { id: stream.eventId },
-                                    })
+                                      liveStatus: stream.liveStatus,
+                                    } as Content)
                                   }
                                   className={cn(
                                     "relative block text-left",
@@ -1020,7 +1240,7 @@ export function DiscoverPanel({
                       data-testid="discover-handoff-card"
                       data-event-id={content.event?.id ?? undefined}
                       onPointerEnter={() => warmContentForExplore(content)}
-                      onClick={() => resolveContentClick(content)}
+                      onClick={() => void resolveContentClick(content)}
                       className={cn(
                         "cursor-pointer bg-black/10",
                         CONTENT_CARD_MIN
@@ -1070,12 +1290,18 @@ export function DiscoverPanel({
             ) : (
               <VirtualRail
                 containerRef={topContentsRef}
-                items={contents as Content[]}
+                items={visibleContents as Content[]}
                 getItemKey={content => content.id}
                 itemMinClassName={CONTENT_CARD_MIN}
                 gapClassName="gap-6"
                 renderItem={content => renderContentCard(content)}
               />
+            )}
+
+            {renderRailSeeMore(
+              "top",
+              contents.length,
+              expandedRails.top ?? false
             )}
 
             <button
@@ -1103,11 +1329,16 @@ export function DiscoverPanel({
               <div className="flex gap-4">
                 {catalogLoading && latestContents.length === 0
                   ? carouselSkeleton
-                  : latestContents.map((content: Content) =>
+                  : visibleLatest.map((content: Content) =>
                       renderContentCard(content)
                     )}
               </div>
             </div>
+            {renderRailSeeMore(
+              "latest",
+              latestContents.length,
+              expandedRails.latest ?? false
+            )}
 
             <button
               type="button"
@@ -1134,11 +1365,16 @@ export function DiscoverPanel({
               <div className="flex gap-4">
                 {catalogLoading && resolvedSpotlight.length === 0
                   ? carouselSkeleton
-                  : resolvedSpotlight.map((content: Content) =>
+                  : visibleSpotlight.map((content: Content) =>
                       renderContentCard(content)
                     )}
               </div>
             </div>
+            {renderRailSeeMore(
+              "spotlight",
+              resolvedSpotlight.length,
+              expandedRails.spotlight ?? false
+            )}
 
             <button
               type="button"
@@ -1165,11 +1401,16 @@ export function DiscoverPanel({
               <div className="flex gap-4">
                 {catalogLoading && resolvedRecommended.length === 0
                   ? carouselSkeleton
-                  : resolvedRecommended.map((content: Content) =>
+                  : visibleRecommended.map((content: Content) =>
                       renderContentCard(content)
                     )}
               </div>
             </div>
+            {renderRailSeeMore(
+              "recommended",
+              resolvedRecommended.length,
+              expandedRails.recommended ?? false
+            )}
 
             <button
               type="button"
@@ -1329,6 +1570,73 @@ export function DiscoverPanel({
           </div>
         </div>
 
+        {/* PLAYLISTS */}
+        <div className="space-y-4">
+          <DiscoverRailHeading
+            title="Playlists"
+            railKey="playlists"
+          />
+          <div className="relative">
+            <div
+              ref={playlistsRef}
+              className="scrollbar-none hide__scrollbar overflow-x-auto"
+            >
+              <div className="flex gap-4">
+                {catalogLoading && playlists.length === 0 ? (
+                  carouselSkeleton
+                ) : playlists.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No playlists yet.
+                  </p>
+                ) : (
+                  playlists.map(playlist => (
+                    <Link
+                      key={playlist.id}
+                      href={playlist.landingUrl ?? `/playlist/${playlist.id}`}
+                      className={cn(
+                        "rounded-md border bg-gray-200 p-2",
+                        PROGRAM_CARD_MIN
+                      )}
+                    >
+                      {playlist.imageUrl ? (
+                        <RailCoverImage
+                          src={playlist.imageUrl}
+                          alt={playlist.name}
+                          aspectClassName="aspect-video"
+                        />
+                      ) : (
+                        <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                          <Bookmark className="size-8 text-neutral-500" />
+                        </div>
+                      )}
+                      <div className="space-y-1 p-2">
+                        <h5 className="line-clamp-1 text-sm font-medium">
+                          {trimTitle(playlist.name, 30)}
+                        </h5>
+                        <p className="text-muted-foreground text-xs">
+                          {playlist.videoCount ?? 0} videos
+                          {playlist.host?.username
+                            ? ` · @${playlist.host.username}`
+                            : ""}
+                        </p>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+            {playlists.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => scrollNext(playlistsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+
         {/* LIVE STREAMS */}
         <div className="space-y-4">
           <DiscoverRailHeading
@@ -1348,14 +1656,14 @@ export function DiscoverPanel({
                     No live streams detected right now.
                   </p>
                 ) : (
-                  liveStreamItems.map(
+                  visibleLiveItems.map(
                     (content: Content & { liveLabel?: string }) => (
                       <div
                         key={content.id}
                         data-testid="discover-live-stream-card"
                         className={cn("relative", CONTENT_CARD_MIN)}
                         onPointerEnter={() => warmContentForExplore(content)}
-                        onClick={() => resolveContentClick(content)}
+                        onClick={() => void resolveContentClick(content)}
                       >
                         {content.liveLabel ? (
                           <span className="bg-destructive absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold text-white uppercase">
@@ -1402,6 +1710,11 @@ export function DiscoverPanel({
                 )}
               </div>
             </div>
+            {renderRailSeeMore(
+              "live",
+              liveStreamItems.length,
+              expandedRails.live ?? false
+            )}
             {liveStreamItems.length > 0 ? (
               <button
                 type="button"
@@ -1427,13 +1740,13 @@ export function DiscoverPanel({
             ) : (
               <VirtualRail
                 containerRef={mostTippedContentsRef}
-                items={mostTippedContents as Content[]}
+                items={visibleMostTipped as Content[]}
                 getItemKey={content => content.id}
                 itemMinClassName={CONTENT_CARD_MIN}
                 renderItem={content => (
                   <div
                     onPointerEnter={() => warmContentForExplore(content)}
-                    onClick={() => resolveContentClick(content)}
+                    onClick={() => void resolveContentClick(content)}
                     className={cn(
                       "cursor-pointer rounded-md bg-gray-200",
                       CONTENT_CARD_MIN
@@ -1470,6 +1783,12 @@ export function DiscoverPanel({
                   </div>
                 )}
               />
+            )}
+
+            {renderRailSeeMore(
+              "mostTipped",
+              mostTippedContents.length,
+              expandedRails.mostTipped ?? false
             )}
 
             <button

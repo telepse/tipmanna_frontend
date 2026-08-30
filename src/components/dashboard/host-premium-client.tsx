@@ -4,11 +4,22 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { DashboardHeading } from "@/components/dashboard-heading";
+import { getHostEventsAction } from "@/actions/events";
 import { HostVideoCoOwnersClient } from "@/components/dashboard/host-video-co-owners-client";
 import { HostVideoRequestsClient } from "@/components/dashboard/host-video-requests-client";
+import { HostPlaylistsClient } from "@/components/dashboard/host-playlists-client";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
+import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subscription-modal";
+import { EventRoomAccessControl } from "@/components/dashboard/event-room-access-control";
 import { HostChannelManageClient } from "@/components/dashboard/host-channel-manage-client";
 import { VideoAnalyticsPanel } from "@/components/dashboard/video-analytics-panel";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
@@ -39,6 +50,10 @@ export const HostPremiumClient = () => {
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
   const [tabType, setTabType] = useState<PremiumTab>("video_requests");
+  const [events, setEvents] = useState<{ id: string; eventName?: string }[]>(
+    []
+  );
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
   const { status, capabilities, isLoading } = useHostPlanCapabilities();
 
   useEffect(() => {
@@ -48,14 +63,30 @@ export const HostPremiumClient = () => {
     }
     if (tabFromUrl === "video_coowners") {
       setTabType("video_coowners");
+      return;
+    }
+    if (tabFromUrl === "playlist") {
+      setTabType("playlist");
     }
   }, [tabFromUrl]);
 
+  useEffect(() => {
+    void getHostEventsAction({ limit: 100 }).then(res => {
+      if (!res.success || !res.data) return;
+      const list = Array.isArray(res.data)
+        ? (res.data as { id: string; eventName?: string }[])
+        : ((res.data as { events?: { id: string; eventName?: string }[] })
+            .events ?? []);
+      setEvents(list);
+      setSelectedEventId(prev => prev || list[0]?.id || "");
+    });
+  }, []);
+
   const showFeatures =
     status === "active" && capabilities.usePremiumDashboardActions;
-  const showPricing =
-    status === "none" ||
-    (status === "lapsed" && !capabilities.usePremiumDashboardActions);
+  const showLapsedFeatures =
+    status === "lapsed" && capabilities.viewPremiumFeatureUi;
+  const showPricing = status === "none";
 
   const featureTabs = (
     <Tabs
@@ -135,8 +166,44 @@ export const HostPremiumClient = () => {
       >
         <VideoAnalyticsPanel variant="advanced" />
       </TabsContent>
-      <TabsContent value="playlist">Upcoming</TabsContent>
-      <TabsContent value="event_room_access_control">Upcoming</TabsContent>
+      <TabsContent
+        value="playlist"
+        forceMount
+        className="space-y-6"
+      >
+        <HostPlaylistsClient />
+      </TabsContent>
+      <TabsContent value="event_room_access_control">
+        <div className="space-y-4">
+          {events.length > 1 ? (
+            <Select
+              value={selectedEventId || undefined}
+              onValueChange={setSelectedEventId}
+            >
+              <SelectTrigger className="max-w-md">
+                <SelectValue placeholder="Select event" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map(ev => (
+                  <SelectItem
+                    key={ev.id}
+                    value={ev.id}
+                  >
+                    {ev.eventName?.trim() || ev.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          {selectedEventId ? (
+            <EventRoomAccessControl eventId={selectedEventId} />
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              Create an event to configure invite-only access.
+            </p>
+          )}
+        </div>
+      </TabsContent>
     </Tabs>
   );
 
@@ -153,20 +220,24 @@ export const HostPremiumClient = () => {
       {isLoading ? (
         <p className="text-muted-foreground text-sm">Loading subscription…</p>
       ) : showPricing ? (
-        <div className="space-y-6">
-          <HostSubscriptionPricingPanel
-            focusTier="premium"
-            renewLabel="Renew Premium"
-          />
-          {status === "lapsed" && capabilities.viewPremiumFeatureUi ? (
-            <div className="space-y-2">
-              <p className="text-muted-foreground text-sm">
-                Your previous Premium features are shown below for reference.
-                Renew to take action again.
-              </p>
-              <ReadOnlyOverlay>{featureTabs}</ReadOnlyOverlay>
-            </div>
-          ) : null}
+        <HostSubscriptionPricingPanel
+          focusTier="premium"
+          renewLabel="Renew Premium"
+        />
+      ) : showLapsedFeatures ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+            <p className="text-sm">
+              Your Growth plan has expired. Features below are read-only until
+              you renew.
+            </p>
+            <HostSubscriptionUpgradeTrigger
+              focusTier="premium"
+              renewLabel="Renew Premium"
+              label="Renew plan"
+            />
+          </div>
+          <ReadOnlyOverlay>{featureTabs}</ReadOnlyOverlay>
         </div>
       ) : showFeatures ? (
         featureTabs

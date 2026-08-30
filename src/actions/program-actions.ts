@@ -1,6 +1,7 @@
 "use server";
 
 import { getContentChannelAction } from "@/actions/contents";
+import { unwrapContentChannelRows } from "@/lib/content-channel-rows";
 import {
   fetchCommunityProgramBootstrap,
   fetchGlobalProgramBootstrap,
@@ -42,7 +43,7 @@ export async function resolveProgramWatchAllPlaylist(
   await Promise.all(
     distinctEventIds.map(async evId => {
       const res = await getContentChannelAction(evId, authToken ?? null);
-      byEventId[evId] = res.success && Array.isArray(res.data) ? res.data : [];
+      byEventId[evId] = res.success ? unwrapContentChannelRows(res.data) : [];
     })
   );
 

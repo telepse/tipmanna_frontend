@@ -109,8 +109,12 @@ const UpcomingProgramsPanel = dynamic(
   { ssr: false }
 );
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { buildSurfaceTipPriceCatalog } from "@/lib/surface-tip-price-catalog";
+import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
+import { tvTrace } from "@/lib/tvDebugLog";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { TVScheduleDrawer } from "./tv-schedule-drawer";
+import { TvPreviewPlaylistDrawer } from "./tv-preview-playlist-drawer";
 import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
@@ -118,6 +122,7 @@ import { useTV } from "../tv-provider";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
 import { WebTvLooper } from "./web-tv-looper";
+import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
 import { TV_EVENT_VIDEO_TYPE_TAGS } from "./tv-event-video-type-tags";
 import { Button } from "../ui/button";
 import Image from "next/image";
@@ -132,12 +137,8 @@ import {
   takeRecentDiscoveryPrograms,
 } from "@/lib/discover-programs";
 import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
-import { useMediaQuery } from "react-responsive";
-import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
-import { MobileLandscapeCloseButton } from "@/components/media/immersive-media-shell";
-import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
-import { tvTrace } from "@/lib/tvDebugLog";
-import { useClientViewportWidth } from "@/hooks/use-client-viewport-width";
+import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
+import { TvPhoneLandscapeTopBar } from "./tv-phone-landscape-top-bar";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -239,6 +240,22 @@ export function TvInteractiveShell({
     { paymentSurface: tvAnalyticsSurface }
   );
 
+  const tipPriceCatalog = useMemo(
+    () =>
+      buildSurfaceTipPriceCatalog({
+        enrichedCatalog: tipPres.catalog as RoomCharacter[],
+        videoCatalog: tippingCharactersForDrawer as RoomCharacter[],
+        fallbackCatalog: characters as RoomCharacter[],
+        characterSets: characterSetsForDrawer,
+      }),
+    [
+      tipPres.catalog,
+      tippingCharactersForDrawer,
+      characters,
+      characterSetsForDrawer,
+    ]
+  );
+
   const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
 
   const isDesktop = variant === "desktop";
@@ -303,6 +320,8 @@ export function TvInteractiveShell({
   const [isMobileFullView, setIsMobileFullView] = useState(false);
   const [landscapeLayoutDismissed, setLandscapeLayoutDismissed] =
     useState(false);
+  const [isPreviewPlaylistDrawerOpen, setIsPreviewPlaylistDrawerOpen] =
+    useState(false);
   const exitFullRef = useRef<(() => void) | null>(null);
   const router = useRouter();
 
@@ -310,13 +329,19 @@ export function TvInteractiveShell({
     setShowSearchOptions(prev => !prev);
   };
 
-  const viewportWidth = useClientViewportWidth();
-  const isMobileLandscape =
-    useMediaQuery({ query: "(orientation: landscape)" }) &&
-    viewportWidth > 0 &&
-    viewportWidth <= 768;
-  const showMobileLandscapeLayout =
-    isMobileLandscape && !landscapeLayoutDismissed;
+  const { mode: surfaceMode } = useTvSurfaceMode();
+  const showPhoneLandscapeImmersive =
+    surfaceMode === "phoneLandscape" && !landscapeLayoutDismissed;
+
+  const openPreviewPlaylistDrawer = useCallback(() => {
+    setIsTvDrawerOpen(false);
+    setIsPreviewPlaylistDrawerOpen(true);
+  }, [setIsTvDrawerOpen]);
+
+  const openScheduleDrawer = useCallback(() => {
+    setIsPreviewPlaylistDrawerOpen(false);
+    setIsTvDrawerOpen(true);
+  }, [setIsTvDrawerOpen]);
 
   const registerExitFull = useCallback((exitFull: (() => void) | null) => {
     exitFullRef.current = exitFull;
@@ -342,6 +367,8 @@ export function TvInteractiveShell({
     }
 
     setLandscapeLayoutDismissed(true);
+    setIsPreviewPlaylistDrawerOpen(false);
+    setIsTvDrawerOpen(false);
   };
 
   useEffect(() => {
@@ -355,6 +382,7 @@ export function TvInteractiveShell({
       });
       if (!landscape) {
         setLandscapeLayoutDismissed(false);
+        setIsPreviewPlaylistDrawerOpen(false);
       }
     };
     window.addEventListener("orientationchange", onOrientation);
@@ -444,8 +472,8 @@ export function TvInteractiveShell({
       )} */}
 
       {isDesktop && (
-        <div className="mt-16 grid grid-cols-12 gap-2">
-          <div className="col-span-9 min-h-[60vh] object-cover">
+        <div className="mt-16 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-2">
+          <div className="min-h-[50vh] object-cover lg:col-span-9 lg:min-h-[60vh]">
             {tvReady ? (
               <WebTvLooper
                 characters={characters}
@@ -472,7 +500,7 @@ export function TvInteractiveShell({
             {!tvReady ? <TvLooperSkeleton layout="wide" /> : null}
           </div>
 
-          <div className="relative col-span-3 flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4">
+          <div className="relative flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4 lg:col-span-3">
             {!tvReady ? (
               <TvRightPanelSkeleton layout="desktop" />
             ) : (
@@ -716,19 +744,16 @@ export function TvInteractiveShell({
 
       {isMobile && (
         <>
-          {showMobileLandscapeLayout && (
-            <MobileLandscapeCloseButton onClose={handleMobileLandscapeClose} />
-          )}
           <div
             className={cn(
-              showMobileLandscapeLayout
-                ? "relative z-[999] h-full w-full bg-black text-white"
+              showPhoneLandscapeImmersive
+                ? "fixed inset-0 z-[999] flex min-h-0 w-full flex-col overflow-hidden bg-black text-white"
                 : isMobileFullView
                   ? "fixed inset-0 z-[1100] flex min-h-0 w-full flex-col overflow-hidden bg-black"
                   : "fixed right-0 bottom-0 left-0 flex min-h-0 w-full flex-col overflow-hidden px-2 pt-0 pb-2"
             )}
             style={
-              showMobileLandscapeLayout || isMobileFullView
+              showPhoneLandscapeImmersive || isMobileFullView
                 ? undefined
                 : {
                     top: TV_MOBILE_SHELL_TOP,
@@ -736,18 +761,28 @@ export function TvInteractiveShell({
                   }
             }
           >
+            {showPhoneLandscapeImmersive ? (
+              <TvPhoneLandscapeTopBar
+                mode={mode}
+                onClose={handleMobileLandscapeClose}
+                onGoLive={goLive}
+                onSwitchToLocal={switchToLocal}
+                onOpenPreviewPlaylist={openPreviewPlaylistDrawer}
+                onOpenSchedule={openScheduleDrawer}
+              />
+            ) : null}
             {tvReady ? (
               <div
                 className={cn(
                   "flex min-h-0 w-full flex-col",
-                  showMobileLandscapeLayout || isMobileFullView
+                  showPhoneLandscapeImmersive || isMobileFullView
                     ? "h-full flex-1"
                     : "flex-1 gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+3.5rem)]"
                 )}
               >
                 <div
                   className={cn(
-                    showMobileLandscapeLayout || isMobileFullView
+                    showPhoneLandscapeImmersive || isMobileFullView
                       ? "min-h-0 flex-1 overflow-hidden"
                       : "min-h-[220px] shrink-0 basis-[min(52dvh,420px)] overflow-hidden"
                   )}
@@ -755,18 +790,16 @@ export function TvInteractiveShell({
                   <TvLooper
                     key="mobile-tv-looper"
                     characters={characters}
-                    playerLayout={
-                      showMobileLandscapeLayout ? "wide" : "compact"
+                    layout={
+                      showPhoneLandscapeImmersive
+                        ? "mobileImmersive"
+                        : "mobileInline"
                     }
-                    mobileLandscape={showMobileLandscapeLayout}
+                    lockFullLandscape={showPhoneLandscapeImmersive}
                     analyticsSurface={tvAnalyticsSurface}
                     onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
                     onEngage={() => setIsTipDrawerOpen(true)}
-                    onFullViewChange={
-                      showMobileLandscapeLayout
-                        ? undefined
-                        : setIsMobileFullView
-                    }
+                    onFullViewChange={setIsMobileFullView}
                     onRegisterExitFull={registerExitFull}
                     commentDrawerVideoTitle={
                       typeof currentPlaying?.channel?.title === "string"
@@ -786,11 +819,13 @@ export function TvInteractiveShell({
                           )
                         : ""
                     }
-                    showSideRails={!showMobileLandscapeLayout}
+                    showSideRails={
+                      !showPhoneLandscapeImmersive && !isMobileFullView
+                    }
                   />
                 </div>
 
-                {!showMobileLandscapeLayout && !isMobileFullView ? (
+                {!showPhoneLandscapeImmersive && !isMobileFullView ? (
                   <>
                     <div className="hide__scrollbar flex w-full shrink-0 items-center justify-between gap-2 overflow-x-auto px-2">
                       <div className="flex items-center gap-2">
@@ -966,13 +1001,22 @@ export function TvInteractiveShell({
         </>
       )}
 
+      <TvPreviewPlaylistDrawer
+        open={isPreviewPlaylistDrawerOpen}
+        onOpenChange={setIsPreviewPlaylistDrawerOpen}
+        onSelectChannel={handleSelectChannel}
+        onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
+        tippingCharacters={characters}
+        onOpenFullSchedule={openScheduleDrawer}
+      />
+
       <TVScheduleDrawer
         isTVDrawerOpen={isTVDrawerOpen}
         setIsTvDrawerOpen={setIsTvDrawerOpen}
         tippingCharacters={characters}
       />
 
-      {isMobile && showMobileLandscapeLayout ? null : (
+      {isMobile && showPhoneLandscapeImmersive ? null : (
         <div
           className={cn(
             isDesktop
@@ -1021,18 +1065,16 @@ export function TvInteractiveShell({
           </div>
 
           <TippingElementsProvider
-            tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+            tippingCharacters={tipPriceCatalog as RoomCharacter[]}
             enabled
             textTipUnitPrice={tipPres.textUnitPrice}
           >
-            {!isMobileLandscape && (
+            {!showPhoneLandscapeImmersive && (
               <div className="absolute -bottom-12 hidden h-[220px] w-full bg-white/80 px-4 py-1 sm:block">
                 <TipSection
                   key={videoTipKey || tipDrawerEventId}
                   eventId={tipDrawerEventId}
-                  tippingCharacters={
-                    tippingCharactersForDrawer as RoomCharacter[]
-                  }
+                  tippingCharacters={tipPriceCatalog as RoomCharacter[]}
                   characterSets={characterSetsForDrawer}
                   paymentSurface={tvAnalyticsSurface}
                   paymentCommunityId={scheduleSourceCommunityId ?? undefined}
@@ -1051,7 +1093,7 @@ export function TvInteractiveShell({
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
-          tippingCharacters={tippingCharactersForDrawer as RoomCharacter[]}
+          tippingCharacters={tipPriceCatalog as RoomCharacter[]}
           enabled
           textTipUnitPrice={tipPres.textUnitPrice}
         >
@@ -1060,7 +1102,7 @@ export function TvInteractiveShell({
             open={isTipDrawerOpen}
             onOpenChange={setIsTipDrawerOpen}
             eventId={tipDrawerEventId}
-            tippingCharacters={tippingCharactersForDrawer}
+            tippingCharacters={tipPriceCatalog}
             characterSets={characterSetsForDrawer}
             paymentSurface={tvAnalyticsSurface}
             paymentCommunityId={scheduleSourceCommunityId ?? undefined}

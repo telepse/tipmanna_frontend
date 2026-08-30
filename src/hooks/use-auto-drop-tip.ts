@@ -5,21 +5,21 @@ import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { setSelectedTips, markPaymentCompleted } from "@/features/tip-slice";
+import { readPendingTipBroadcast } from "@/lib/payment-origin";
 import {
-  readPendingTipBroadcast,
-  clearPendingTipBroadcast,
-} from "@/lib/payment-origin";
-import { sendTipMessageClient } from "@/lib/send-tip-message-client";
+  isPaidTipDeliveryComplete,
+  postPaidTipMessageOnce,
+} from "@/lib/post-paid-tip-message-once";
 import { ANIMATION_DURATION } from "@/lib/animationContract";
 import { notifyTextTipDraftSync } from "@/lib/tip-text-selection";
-import { schedulePwaPromptAfterPaymentAnimation } from "@/lib/pwa-install-trigger";
+import { schedulePwaPromptAfterPaymentWithPolicy } from "@/lib/pwa-install-trigger";
 
 const DROP_DELAY_MS = 400;
 
 /**
  * After Stripe success + redirect back (non–Event Room surfaces): posts the tip message via
- * direct client fetch so the backend broadcasts `tip-animation`. Skips POST if /success already
- * sent (`tipMessageSent` in localStorage).
+ * direct client fetch so the backend broadcasts `tip-animation`. Skips uncorrelated POST
+ * (no transactionId) and duplicate sends via session sent-lock.
  */
 export function useAutoDropTip(eventId: string, enabled = true): void {
   const dispatch = useDispatch();
@@ -51,6 +51,12 @@ export function useAutoDropTip(eventId: string, enabled = true): void {
 
   useEffect(() => {
     if (!paymentCompleted || droppedRef.current) return;
+
+    if (isPaidTipDeliveryComplete()) {
+      dispatch(markPaymentCompleted(false));
+      droppedRef.current = true;
+      return;
+    }
 
     const pendingSnapshot = readPendingTipBroadcast();
     const effectiveEventId =
@@ -97,35 +103,40 @@ export function useAutoDropTip(eventId: string, enabled = true): void {
         .join(", ");
 
       void (async () => {
-        try {
-          const res = await sendTipMessageClient({
-            eventId: postEventId,
-            sender,
-            text: "I just sent",
-            tip: Number(amount),
-            secondaryText: textTipCombined.trim()
-              ? textTipCombined.trim()
-              : undefined,
-            selectedTips: tips,
-            purchasedSummary,
-            ...(pending?.eventChannelId?.trim()
-              ? { eventChannelId: pending.eventChannelId.trim() }
-              : {}),
-            ...(pending?.transactionId?.trim()
-              ? { transactionId: pending.transactionId.trim() }
-              : {}),
-          });
-          if (!res.ok) {
+        const result = await postPaidTipMessageOnce({
+          eventId: postEventId,
+          sender,
+          text: "I just sent",
+          tip: Number(amount),
+          secondaryText: textTipCombined.trim()
+            ? textTipCombined.trim()
+            : undefined,
+          selectedTips: tips,
+          purchasedSummary,
+          ...(pending?.eventChannelId?.trim()
+            ? { eventChannelId: pending.eventChannelId.trim() }
+            : {}),
+          ...(pending?.transactionId?.trim()
+            ? { transactionId: pending.transactionId.trim() }
+            : {}),
+        });
+
+        if (!result.ok) {
+          if (
+            result.outcome === "skipped" &&
+            result.reason === "no_transaction_id"
+          ) {
             dispatch(markPaymentCompleted(false));
             droppedRef.current = true;
             return;
           }
-        } catch {
-          dispatch(markPaymentCompleted(false));
-          droppedRef.current = true;
-          return;
+          if (result.outcome === "failed") {
+            dispatch(markPaymentCompleted(false));
+            droppedRef.current = true;
+            return;
+          }
         }
-        clearPendingTipBroadcast();
+
         try {
           localStorage.removeItem("amount");
         } catch {
@@ -155,7 +166,7 @@ export function useAutoDropTip(eventId: string, enabled = true): void {
         dispatch(setSelectedTips([]));
         dispatch(markPaymentCompleted(false));
         droppedRef.current = true;
-        schedulePwaPromptAfterPaymentAnimation(
+        void schedulePwaPromptAfterPaymentWithPolicy(
           Math.max(1, [...new Set(tips)].length)
         );
       })();
