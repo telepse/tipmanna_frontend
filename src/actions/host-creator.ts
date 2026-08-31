@@ -84,6 +84,7 @@ export type HostCreatorPublicProfile = {
     profileCategory: CreatorProfileCategory | null;
     externalLink: { url: string; label: string } | null;
     creatorDefaultTab?: HostCreatorDefaultTab | null;
+    creatorPayoutVerifiedAt?: string | null;
   };
   stats: {
     totalVideos: number;

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
+import { HostConnectPayoutPanel } from "@/components/dashboard/host-connect-payout-panel";
 import { HostPayoutRequestStatusPanel } from "@/components/dashboard/host-payout-request-status";
 import { IncompleteProfilePayoutModal } from "@/components/dashboard/incomplete-profile-payout-modal";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,9 @@ import {
   requestHostPayoutAction,
 } from "@/actions/host-payouts";
 import { useHostPayoutSummary } from "@/hooks/useHostPayoutSummary";
+import { useStripeConnectReturnHandler } from "@/hooks/use-stripe-connect-return";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
+import { hostPayoutRequestErrorMessage } from "@/lib/host-payout-request-error";
 import type { RootState } from "@/redux/store";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 
@@ -38,11 +41,19 @@ export function HostRevenuePayoutsClient() {
     host,
     communities,
     requestPayout,
+    connectPayouts,
     isLoading,
     refresh,
   } = useHostPayoutSummary();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [requestingPayout, setRequestingPayout] = useState(false);
+  const connectEnabled = connectPayouts?.enabled === true;
+  const connectReady = connectPayouts?.connect?.payoutsEnabled === true;
+
+  const { handleConnectQuery } = useStripeConnectReturnHandler({
+    slug,
+    onSynced: refresh,
+  });
 
   const profileAccountType = requestPayout?.profileAccountType ?? "INDIVIDUAL";
   const profileLabel =
@@ -62,10 +73,6 @@ export function HostRevenuePayoutsClient() {
       return;
     }
 
-    if (requestPayout.hasCoOwnerObligations) {
-      return;
-    }
-
     if (!authToken) {
       toast.error("Not signed in");
       return;
@@ -75,7 +82,13 @@ export function HostRevenuePayoutsClient() {
     try {
       const res = await requestHostPayoutAction(authToken);
       if (!res.success) {
-        toast.error(res.message ?? "Could not submit payout request");
+        toast.error(
+          hostPayoutRequestErrorMessage(
+            res.message ?? "Could not submit payout request",
+            res.validationBody
+          )
+        );
+        await refresh();
         return;
       }
       toast.success(res.data?.message ?? "Payout request submitted");
@@ -88,6 +101,10 @@ export function HostRevenuePayoutsClient() {
   const load = useCallback(async () => {
     await refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    void handleConnectQuery();
+  }, [handleConnectQuery]);
 
   useEffect(() => {
     if (!userId) return;
@@ -120,8 +137,26 @@ export function HostRevenuePayoutsClient() {
 
       <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
         Host payee share is <strong>70%</strong> of gross tips and community
-        subscription revenue. Admin settles outstanding balances manually; you
-        confirm receipt here.
+        subscription revenue.
+        {connectReady ? (
+          <>
+            {" "}
+            With Stripe Connect enabled, eligible payout requests are processed
+            automatically each month — no receipt upload required.
+          </>
+        ) : connectEnabled ? (
+          <>
+            {" "}
+            Set up Stripe Connect below for automated payouts, or continue with
+            manual settlement until onboarding is complete.
+          </>
+        ) : (
+          <>
+            {" "}
+            Admin settles outstanding balances manually; you confirm receipt
+            here.
+          </>
+        )}
       </div>
 
       {requestPayout?.hasCoOwnerObligations &&
@@ -146,6 +181,12 @@ export function HostRevenuePayoutsClient() {
         </div>
       ) : null}
 
+      <HostConnectPayoutPanel
+        connectPayouts={connectPayouts}
+        slug={slug}
+        onRefresh={refresh}
+      />
+
       <HostPayoutRequestStatusPanel
         requestPayout={requestPayout}
         slug={slug}
@@ -153,11 +194,18 @@ export function HostRevenuePayoutsClient() {
       />
 
       <div className="bg-card flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="font-medium">Request payout</p>
           <p className="text-muted-foreground text-sm">
             Ask Tipmanna to review and send your pending balance.
           </p>
+          {requestPayout &&
+          !requestPayout.canRequest &&
+          !requestPayout.pendingRequest ? (
+            <p className="text-muted-foreground mt-2 text-xs">
+              Resolve the items above to enable this button.
+            </p>
+          ) : null}
         </div>
         <Button
           type="button"

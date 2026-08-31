@@ -23,6 +23,7 @@ import {
   SquarePen,
   Tv,
   ChevronDown,
+  CircleStar,
   CircleX,
   Copy,
   Check,
@@ -256,7 +257,11 @@ export function HostCreatorPageClient({
   const { canWriteAsHost, requestHostAuth, HostAuthModal } =
     useHostCapabilityWithAuth();
 
-  const accountHref = getAccountNavHref(user, isAuthenticated);
+  const accountHref = getAccountNavHref(user, isAuthenticated, {
+    hostSessionActive: hostSession.isActive,
+    hostEventSlug: hostSession.eventSlug,
+    hostUsername: hostSession.username,
+  });
 
   const openStartCommunityForm = useCallback(() => {
     setStartCommunityOpen(true);
@@ -729,6 +734,17 @@ function ProfileHeader({
               <span className="text-xl font-bold">
                 {host.fullName.split(" ")[0]} {!host.fullName && <i>Creator</i>}
               </span>
+              {host.creatorPayoutVerifiedAt ? (
+                <div
+                  className="flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5"
+                  title="Verified creator"
+                >
+                  <CircleStar className="size-3.5 text-emerald-700" />
+                  <span className="text-[10px] font-medium text-emerald-800 sm:text-xs">
+                    Verified
+                  </span>
+                </div>
+              ) : null}
               {!isOwnProfile ? (
                 <SaveHostToggleButton
                   hostId={host.id}

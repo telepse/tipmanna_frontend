@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm } from "react-hook-form";
@@ -60,8 +61,8 @@ import {
   HostCreatorDefaultTab,
   creatorSchema,
 } from "@/schemas/creator.schema";
+import { useHostSession } from "@/hooks/use-host-session";
 import { performAuthLogout } from "@/lib/auth-logout";
-import { useRouter } from "next/navigation";
 
 export type CreatorProfileSavedPayload = {
   username: string;
@@ -141,12 +142,9 @@ export function EditCreatorProfileDialog({
   const [creatorDefaultTab, setCreatorDefaultTab] =
     useState<HostCreatorDefaultTab>("all_videos");
   const profileLoadedForOpenRef = useRef(false);
+  const [creatorPayoutVerified, setCreatorPayoutVerified] = useState(false);
 
-  const hostSlug = useMemo(() => {
-    return user && "eventSlug" in user && user.eventSlug
-      ? user.eventSlug
-      : null;
-  }, [user]);
+  const { eventSlug: hostSlug, username: hostUsername } = useHostSession();
 
   const premiumHref = hostSlug ? `/host/${hostSlug}/host-premium` : "/host";
   const hostDashboardHref = hostSlug ? `/host/${hostSlug}/profile` : "/host";
@@ -246,6 +244,7 @@ export function EditCreatorProfileDialog({
       setCanChangeUsername(profile.canChangeUsername);
       setNextUsernameChangeAt(profile.nextUsernameChangeAt);
       setUsernameChangeOverride(profile.usernameChangeOverride);
+      setCreatorPayoutVerified(Boolean(profile.creatorPayoutVerifiedAt));
     } finally {
       setLoadingProfile(false);
     }
@@ -446,19 +445,28 @@ export function EditCreatorProfileDialog({
               />
 
               <div className="flex flex-col gap-1">
-                <div className="flex w-fit items-center gap-2 rounded-md bg-gray-200 px-2 py-1 opacity-50">
-                  <CircleStar />{" "}
-                  <span className="text-xs">
-                    You will get verified after your first payout.{" "}
-                    <Link
-                      href={hostDashboardHref}
-                      className="underline"
-                    >
-                      View your earnings here
-                    </Link>
-                    .
-                  </span>
-                </div>
+                {creatorPayoutVerified ? (
+                  <div className="flex w-fit items-center gap-2 rounded-md bg-emerald-100 px-2 py-1">
+                    <CircleStar className="size-4 text-emerald-700" />
+                    <span className="text-xs text-emerald-800">
+                      Verified creator
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex w-fit items-center gap-2 rounded-md bg-gray-200 px-2 py-1 opacity-50">
+                    <CircleStar />{" "}
+                    <span className="text-xs">
+                      You will get verified after your first payout.{" "}
+                      <Link
+                        href={hostDashboardHref}
+                        className="underline"
+                      >
+                        View your earnings here
+                      </Link>
+                      .
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex gap-1">
                   <Button

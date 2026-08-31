@@ -41,6 +41,7 @@ export function HostSubscriptionModal({
         <HostSubscriptionPricingPanel
           focusTier={focusTier}
           renewLabel={renewLabel}
+          embeddedInModal
         />
       </DialogContent>
     </Dialog>

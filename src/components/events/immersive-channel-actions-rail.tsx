@@ -49,6 +49,7 @@ type Props = {
   /** Optional: Explore reel — toggles underlying YouTube mute. */
   videoPlayerRef?: RefObject<VideoPlayerRef | null>;
   reelMuted?: boolean;
+  onEngageUnlocked?: () => void;
   videoTipCount?: number;
   eventRoomTipCount?: number;
   /** Called when the share menu opens (parent bumps metrics refresh). */
@@ -79,6 +80,7 @@ export function ImmersiveChannelActionsRail({
   shareTitle: shareTitleProp,
   videoPlayerRef,
   reelMuted = true,
+  onEngageUnlocked,
   videoTipCount,
   eventRoomTipCount,
   onShareOpen,
@@ -136,8 +138,12 @@ export function ImmersiveChannelActionsRail({
               e.stopPropagation();
               const p = videoPlayerRef.current;
               if (!p?.isReady()) return;
-              if (reelMuted) p.unmute();
-              else p.mute();
+              if (reelMuted) {
+                p.unmute();
+                onEngageUnlocked?.();
+              } else {
+                p.mute();
+              }
             }}
           >
             {reelMuted ? (

@@ -479,6 +479,15 @@ function ExploreFeedSlideVideo({
     slideIndex === activeIndex || (inPreloadBand && dwellOk);
   const poster = youtubePosterUrl(typeof item.url === "string" ? item.url : "");
 
+  useEffect(() => {
+    if (!playbackActive) return;
+    if (!loadReelSoundPref()) return;
+    const p = slideIndex === activeIndex ? videoRef.current : null;
+    if (!p?.isReady()) return;
+    p.unmute();
+    onEngageUnlocked?.();
+  }, [playbackActive, slideIndex, activeIndex, videoRef, onEngageUnlocked]);
+
   const handleReelTap = () => {
     if (!playbackActive) return;
     const soundPrefOn = loadReelSoundPref();
@@ -763,7 +772,12 @@ function ExploreReelSlideTitle({
     typeof item.coOwnerHostUsername === "string"
       ? item.coOwnerHostUsername.trim()
       : "";
-  const coOwnerDrawerUsername = coOwnerHostUsername || null;
+  const coOwnerDrawerUsername =
+    coOwnerHostUsername ||
+    (typeof item.coOwnerUsername === "string"
+      ? item.coOwnerUsername.trim()
+      : "") ||
+    null;
   const coOwnerLabel = coOwnerHostUsername
     ? `@${coOwnerHostUsername}`
     : item.coOwnerName
@@ -1060,6 +1074,7 @@ export const ExploreFeedClient = forwardRef<
   const [initialLoading, setInitialLoading] = useState(
     () => exploreBootRef.current!.items.length === 0
   );
+  const [bootLoadFailed, setBootLoadFailed] = useState(false);
   useExploreFeedInitialLoadingFailOpen(initialLoading, setInitialLoading);
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -1212,10 +1227,6 @@ export const ExploreFeedClient = forwardRef<
       setPaginationRetryEpoch(e => e + 1);
     }, delayMs);
   }, []);
-
-  useEffect(() => {
-    setReelMuted(!loadReelSoundPref());
-  }, [activeIndex]);
 
   const initialLoadingRef = useRef(initialLoading);
   initialLoadingRef.current = initialLoading;
@@ -2032,6 +2043,7 @@ export const ExploreFeedClient = forwardRef<
     const isIntentionalReload = loadedQueryKeyRef.current !== null;
     endOfFeedRef.current = false;
     setSavesBlocked(null);
+    setBootLoadFailed(false);
     if (isIntentionalReload) {
       setActiveIndex(0);
     }
@@ -2076,7 +2088,12 @@ export const ExploreFeedClient = forwardRef<
         }
         const batch = await fetchBatch([], EXPLORE_FEED_BOOT_COUNT);
         if (cancelled || gen !== feedLoadGenerationRef.current) return;
-        setItems(batch ?? []);
+        if (batch === null) {
+          setBootLoadFailed(true);
+          setItems([]);
+        } else {
+          setItems(batch);
+        }
         loadedQueryKeyRef.current = feedQueryKey;
       } finally {
         if (cancelled || gen !== feedLoadGenerationRef.current) return;
@@ -2427,7 +2444,32 @@ export const ExploreFeedClient = forwardRef<
     return <ExploreFeedSkeleton />;
   }
 
+  if (bootLoadFailed) {
+    return (
+      <div className="flex h-[100dvh] flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white">
+        <p className="max-w-sm text-sm">
+          We could not load the explore feed right now. Check your connection
+          and try again.
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            loadedQueryKeyRef.current = null;
+            setBootLoadFailed(false);
+            setInitialLoading(true);
+          }}
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (items.length === 0) {
+    if (feedMode === "saves" && savesBlocked === null) {
+      return <ExploreFeedSkeleton />;
+    }
     if (feedMode === "saves" && savesBlocked === "min_saves") {
       return (
         <div className="flex h-[100dvh] flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white">
@@ -2439,7 +2481,7 @@ export const ExploreFeedClient = forwardRef<
             asChild
             variant="secondary"
           >
-            <Link href="/explore?tab=discover">Browse Discover</Link>
+            <Link href="/explore">Browse trends</Link>
           </Button>
         </div>
       );
@@ -2780,6 +2822,7 @@ export const ExploreFeedClient = forwardRef<
                               !isTipDrawerOpen
                             }
                             hideHostAndAudio
+                            onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelActionsRailClassName(
                               slideLayoutMode
                             )}

@@ -56,7 +56,7 @@ export const DashboardClient = () => {
       {/* Dashboard heading */}
       <div className="flex items-start justify-between">
         <DashboardHeading
-          title={`Welcome back, ${user?.fullName}`}
+          title={`Welcome back, ${user?.fullName ?? hostUsername ?? "Host"}`}
           subtitle="Here's what's happening with your events today."
         />
 
@@ -65,7 +65,13 @@ export const DashboardClient = () => {
             <Bell className="size-5" />
           </div>
           <Link
-            href={`/host/${hostEventSlug ?? hostUsername ?? user.username}/profile`}
+            href={
+              hostEventSlug
+                ? `/host/${hostEventSlug}/profile`
+                : hostUsername
+                  ? `/creator/${hostUsername}`
+                  : "/sign-in"
+            }
             className="rounded-full border p-2 transition-all duration-300 hover:bg-black hover:text-white"
           >
             <UserRound className="size-5" />

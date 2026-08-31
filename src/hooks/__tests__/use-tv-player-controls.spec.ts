@@ -12,9 +12,15 @@ vi.mock("@/lib/tv-autoplay", () => ({
   readTvMutePref: vi.fn(() => true),
   unmuteOnly: vi.fn(),
   writeTvMutePref: vi.fn(),
+  hasTvAudioUnlockedThisSession: vi.fn(() => false),
 }));
 
-import { readTvMutePref, unmuteOnly, writeTvMutePref } from "@/lib/tv-autoplay";
+import {
+  hasTvAudioUnlockedThisSession,
+  readTvMutePref,
+  unmuteOnly,
+  writeTvMutePref,
+} from "@/lib/tv-autoplay";
 
 function makePlayer(overrides: Partial<TvPlayerRef> = {}): TvPlayerRef {
   return {
@@ -95,6 +101,7 @@ describe("useTvPlayerControls", () => {
     ).IS_REACT_ACT_ENVIRONMENT = true;
     vi.useFakeTimers();
     vi.mocked(readTvMutePref).mockReturnValue(true);
+    vi.mocked(hasTvAudioUnlockedThisSession).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -185,7 +192,7 @@ describe("useTvPlayerControls", () => {
     unmount();
   });
 
-  it("syncFromPlayer mirrors session mute pref, not transient player mute", () => {
+  it("syncFromPlayer mirrors player mute state after restore", () => {
     const player = makePlayer({
       isMuted: () => true,
       getPlayerState: () => "BUFFERING",
@@ -198,12 +205,13 @@ describe("useTvPlayerControls", () => {
     });
 
     expect(result.current.isPlaying).toBe(true);
-    expect(result.current.isMuted).toBe(false);
+    expect(result.current.isMuted).toBe(true);
     unmount();
   });
 
   it("reconcile does not flip mute during programmatic player mute", () => {
     vi.mocked(readTvMutePref).mockReturnValue(false);
+    vi.mocked(hasTvAudioUnlockedThisSession).mockReturnValue(true);
     const player = makePlayer({
       isMuted: () => true,
       getPlayerState: () => "PLAYING",
@@ -214,6 +222,23 @@ describe("useTvPlayerControls", () => {
 
     act(() => {
       vi.advanceTimersByTime(1500);
+    });
+
+    expect(result.current.isMuted).toBe(false);
+    unmount();
+  });
+
+  it("reconcile mirrors player mute when session audio is not unlocked", () => {
+    vi.mocked(readTvMutePref).mockReturnValue(true);
+    vi.mocked(hasTvAudioUnlockedThisSession).mockReturnValue(false);
+    const player = makePlayer({
+      isMuted: () => false,
+      getPlayerState: () => "PLAYING",
+    });
+    const { result, unmount } = renderControlsHook({ player });
+
+    act(() => {
+      vi.advanceTimersByTime(500);
     });
 
     expect(result.current.isMuted).toBe(false);

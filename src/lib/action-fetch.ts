@@ -17,6 +17,8 @@ export type ActionResult<T> = {
   success: boolean;
   /** Alias of error when failed — legacy callers */
   message?: string;
+  /** HTTP status when the upstream request failed (absent on network/parse errors). */
+  httpStatus?: number;
   /** Raw error JSON body for field-level validation mapping */
   validationBody?: unknown;
   /** Non-sensitive upstream fetch metadata (Explore pagination correlation). */
@@ -131,12 +133,16 @@ function logFetchFailure(details: FetchFailureLog): void {
 }
 
 /** Build a failed result without emitting a console log. */
-function makeActionFailResult<T = never>(message: string): ActionResult<T> {
+function makeActionFailResult<T = never>(
+  message: string,
+  httpStatus?: number
+): ActionResult<T> {
   return {
     data: null,
     error: message,
     success: false,
     message,
+    ...(httpStatus != null ? { httpStatus } : {}),
   };
 }
 
@@ -158,6 +164,22 @@ export function actionFail<T = never>(
 ): ActionResult<T> {
   console.error(`[ServerAction${logContext ? `:${logContext}` : ""}]`, message);
   return makeActionFailResult(message);
+}
+
+/** Returned when a host-scoped server action has no hostToken cookie. */
+export function hostSessionRequiredActionFail<T = never>(): ActionResult<T> {
+  const message =
+    "Host login required. Sign in to your host account to continue.";
+  return {
+    data: null,
+    error: message,
+    success: false,
+    message,
+    validationBody: {
+      error: { code: "HOST_SESSION_REQUIRED", message },
+      code: "HOST_SESSION_REQUIRED",
+    },
+  };
 }
 
 function errorMessageFromBody(raw: unknown, fallback: string): string {
@@ -346,7 +368,10 @@ async function fetchWithRetry(
           willRetry,
           retryDelayMs,
         });
-        lastResult = { ...makeActionFailResult(msg), validationBody: raw };
+        lastResult = {
+          ...makeActionFailResult(msg, res.status),
+          validationBody: raw,
+        };
         if (willRetry) {
           await sleep(retryDelayMs!);
           continue;
@@ -414,6 +439,16 @@ export async function runServerFetch<T = unknown>(
   mapSuccess?: (raw: unknown) => T,
   retryOpts?: ServerFetchRetryOptions
 ): Promise<ActionResult<T>> {
+  const hdrs = init?.headers;
+  if (
+    hdrs &&
+    typeof hdrs === "object" &&
+    !Array.isArray(hdrs) &&
+    "X-Tipmanna-Host-Auth-Missing" in hdrs
+  ) {
+    return hostSessionRequiredActionFail<T>();
+  }
+
   const key = requestDedupeKey(url, init);
   const existing = inflightRequests.get(key);
   if (existing) {

@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Volume2, VolumeX, X } from "lucide-react";
 import Link from "next/link";
 
-import VideoPlayer, { VideoPlayerRef } from "@/components/events/video-player";
+import VideoPlayer, {
+  VideoPlayerRef,
+  loadReelSoundPref,
+} from "@/components/events/video-player";
 import type { ProgramBootstrapItem } from "@/lib/program-types";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +22,7 @@ export function ProgramPlayer({
 }) {
   const playable = items.filter(i => i.contentUrl);
   const [index, setIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
   const playerRef = useRef<VideoPlayerRef>(null);
 
   const current = playable[index];
@@ -33,6 +37,13 @@ export function ProgramPlayer({
   const goPrev = useCallback(() => {
     setIndex(prev => (prev > 0 ? prev - 1 : prev));
   }, []);
+
+  const toggleMute = useCallback(() => {
+    const player = playerRef.current;
+    if (!player?.isReady()) return;
+    if (isMuted) player.unmute();
+    else player.mute();
+  }, [isMuted]);
 
   if (playable.length === 0) {
     return (
@@ -79,6 +90,9 @@ export function ProgramPlayer({
             videoUrl={current.contentUrl}
             className="h-full max-h-full w-full max-w-full"
             embedMode="chromeless"
+            initialMuted={!loadReelSoundPref()}
+            disableGlobalAudioUnlock
+            onMuteStateChange={setIsMuted}
             onPlaybackEnded={() => {
               if (index + 1 < playable.length) goNext();
             }}
@@ -97,6 +111,21 @@ export function ProgramPlayer({
         >
           <ChevronLeft className="mr-1 size-4" />
           Previous
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="text-white hover:bg-white/10"
+          onClick={toggleMute}
+          aria-label={isMuted ? "Unmute" : "Mute"}
+        >
+          {isMuted ? (
+            <VolumeX className="mr-1 size-4" />
+          ) : (
+            <Volume2 className="mr-1 size-4" />
+          )}
+          {isMuted ? "Unmute" : "Mute"}
         </Button>
         <Button
           type="button"

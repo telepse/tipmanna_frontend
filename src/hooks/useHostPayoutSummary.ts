@@ -24,6 +24,7 @@ export function useHostPayoutSummary() {
     host: data?.host ?? [],
     communities: data?.communities ?? [],
     requestPayout: data?.requestPayout ?? null,
+    connectPayouts: data?.connectPayouts ?? null,
     isLoading,
     isError: !!error,
     refresh: mutate,

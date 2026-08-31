@@ -553,11 +553,11 @@ export const CommentDrawer = ({
               </div>
             </div>
 
-            <h5 className="bg-primary mx-auto h-[1px] w-[320px] px-4 py-0.5 lg:w-full">
+            <h5 className="mx-auto h-[1px] w-[320px] bg-black py-0.5 lg:w-full">
               {" "}
             </h5>
 
-            <div className="space-y-2 p-4">
+            <div className="space-y-2 bg-gray-100 p-4">
               {isCommunityBankVideo ? (
                 <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                   <span className="text-primary">Community</span>
@@ -772,7 +772,7 @@ export const CommentDrawer = ({
               </div>
             ) : null}
 
-            <h5 className="bg-primary mx-auto h-[1px] w-[320px] px-4 py-0.5 lg:w-full"></h5>
+            <h5 className="mx-auto h-[1px] w-[320px] bg-black py-0.5 lg:w-full"></h5>
 
             {/* Existing Draft + Pay Area */}
             <div className="-mt-2 border-t border-b px-4 pt-4 pb-3">
