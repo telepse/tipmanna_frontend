@@ -10,17 +10,17 @@ describe("host subscription action errors", () => {
     expect(
       isSubscriptionLapsedError({ error: { code: "SUBSCRIPTION_LAPSED" } })
     ).toBe(true);
-    expect(isSubscriptionRequiredError({ error: { code: "SUBSCRIPTION_LAPSED" } })).toBe(
-      false
-    );
+    expect(
+      isSubscriptionRequiredError({ error: { code: "SUBSCRIPTION_LAPSED" } })
+    ).toBe(false);
   });
 
   it("detects SUBSCRIPTION_REQUIRED", () => {
     expect(
       isSubscriptionRequiredError({ error: { code: "SUBSCRIPTION_REQUIRED" } })
     ).toBe(true);
-    expect(isSubscriptionLapsedError({ error: { code: "SUBSCRIPTION_REQUIRED" } })).toBe(
-      false
-    );
+    expect(
+      isSubscriptionLapsedError({ error: { code: "SUBSCRIPTION_REQUIRED" } })
+    ).toBe(false);
   });
 });

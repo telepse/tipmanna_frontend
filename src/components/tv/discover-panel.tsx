@@ -352,8 +352,9 @@ export function DiscoverPanel({
       setExpandedRails(snapshot.expandedRails);
     }
     pendingRestoreRef.current = snapshot;
-    const cancel = scheduleDiscoverScrollRestore(snapshot, () =>
-      scrollContainerRef?.current
+    const cancel = scheduleDiscoverScrollRestore(
+      snapshot,
+      () => scrollContainerRef?.current
     );
     const onCatalogReady = () => {
       if (!pendingRestoreRef.current) return;
@@ -673,7 +674,10 @@ export function DiscoverPanel({
   );
   const visibleLatest = useMemo(
     () =>
-      sliceDiscoverRail(latestContents as Content[], expandedRails.latest ?? false),
+      sliceDiscoverRail(
+        latestContents as Content[],
+        expandedRails.latest ?? false
+      ),
     [latestContents, expandedRails.latest]
   );
   const visibleSpotlight = useMemo(
@@ -702,7 +706,10 @@ export function DiscoverPanel({
   );
   const visibleLiveItems = useMemo(
     () =>
-      sliceDiscoverRail(liveStreamItems as Content[], expandedRails.live ?? false),
+      sliceDiscoverRail(
+        liveStreamItems as Content[],
+        expandedRails.live ?? false
+      ),
     [liveStreamItems, expandedRails.live]
   );
 
@@ -824,7 +831,9 @@ export function DiscoverPanel({
     <div className={cn("space-y-2", className)}>
       {showHeading ? (
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold lg:text-2xl">Discover contents</h2>
+          <h2 className="text-lg font-semibold lg:text-2xl">
+            Discover contents
+          </h2>
           {onRefreshCatalog ? (
             <button
               type="button"
@@ -834,9 +843,15 @@ export function DiscoverPanel({
               className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50"
             >
               {catalogRefreshing ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
+                <Loader2
+                  className="size-4 animate-spin"
+                  aria-hidden
+                />
               ) : (
-                <RefreshCw className="size-4" aria-hidden />
+                <RefreshCw
+                  className="size-4"
+                  aria-hidden
+                />
               )}
               Refresh
             </button>

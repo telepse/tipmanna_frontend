@@ -9,7 +9,10 @@ import {
 } from "@/actions/events";
 import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
-import { EventRoomAccessGate, PrivateEventRoomBlocked } from "@/components/events/event-room-access-gate";
+import {
+  EventRoomAccessGate,
+  PrivateEventRoomBlocked,
+} from "@/components/events/event-room-access-gate";
 import { getEventRoomAccessAction } from "@/actions/events";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
@@ -198,9 +201,9 @@ export default async function EventRoomPage({ params }: Props) {
 
   const isCharacter = (value: unknown): value is Character => {
     if (!value || typeof value !== "object") return false;
-  
+
     const char = value as Record<string, unknown>;
-  
+
     return (
       typeof char.id === "string" &&
       typeof char.name === "string" &&
@@ -209,29 +212,26 @@ export default async function EventRoomPage({ params }: Props) {
       typeof char.styleName === "string"
     );
   };
-  
+
   const isCharacterSet = (value: unknown): value is CharacterSet => {
     if (!value || typeof value !== "object") return false;
-  
+
     const set = value as Record<string, unknown>;
-  
+
     if (set.characters === undefined) {
       return true;
     }
-  
-    return (
-      Array.isArray(set.characters) &&
-      set.characters.every(isCharacter)
-    );
+
+    return Array.isArray(set.characters) && set.characters.every(isCharacter);
   };
-  
+
   const safeCharacterSets = Array.isArray(eventCharacterSets)
     ? eventCharacterSets.filter(isCharacterSet)
     : [];
-  
-  const allCharacters = safeCharacterSets.flatMap((set) =>
+
+  const allCharacters = safeCharacterSets.flatMap(set =>
     Array.isArray(set.characters)
-      ? set.characters.map((char) => ({
+      ? set.characters.map(char => ({
           id: char.id,
           name: char.name,
           iconUrl: char.iconUrl,

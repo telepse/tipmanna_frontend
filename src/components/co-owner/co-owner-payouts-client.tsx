@@ -49,7 +49,12 @@ type DisputeTarget =
   | { kind: "unpaid_outstanding"; videoCoOwnerId: string };
 
 type Props =
-  | { mode: "token"; token: string; compact?: boolean; showPendingTotal?: boolean }
+  | {
+      mode: "token";
+      token: string;
+      compact?: boolean;
+      showPendingTotal?: boolean;
+    }
   | { mode: "hostSession"; compact?: boolean; showPendingTotal?: boolean };
 
 export function CoOwnerPayoutsClient(props: Props) {
@@ -212,7 +217,10 @@ export function CoOwnerPayoutsClient(props: Props) {
                   : "s"}
               </>
             ) : (
-              <>No outstanding balance across {items.length} co-owner video{items.length === 1 ? "" : "s"}</>
+              <>
+                No outstanding balance across {items.length} co-owner video
+                {items.length === 1 ? "" : "s"}
+              </>
             )}
           </p>
         </div>

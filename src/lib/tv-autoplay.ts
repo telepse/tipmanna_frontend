@@ -126,7 +126,11 @@ export function applyPendingAudioRestore(
     return null;
   }
 
-  if (!readTvMutePref() && hasTvAudioUnlockedThisSession() && player.isMuted()) {
+  if (
+    !readTvMutePref() &&
+    hasTvAudioUnlockedThisSession() &&
+    player.isMuted()
+  ) {
     unmuteOnly(player, `${source}.pref_fallback_restore`);
   }
 

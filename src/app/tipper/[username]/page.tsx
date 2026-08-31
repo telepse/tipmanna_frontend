@@ -31,9 +31,7 @@ async function loadProfile(slug: string) {
   return res;
 }
 
-export async function generateMetadata({
-  params,
-}: Props): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   const loaded = await loadProfile(username);
 
@@ -96,19 +94,14 @@ export default async function TipperProfilePage({ params }: Props) {
     const token = await getToken();
 
     if (token) {
-      const [
-        eventsRes,
-        iTippedRes,
-        causesRes,
-        contentsRes,
-        videosRes,
-      ] = await Promise.all([
-        getTippedEventsForTipper(token),
-        getTotalAmountTippedByTipper(token),
-        getAllCausesAction(),
-        getSavedVideosForTipper(token),
-        getMyTippedVideos(token),
-      ]);
+      const [eventsRes, iTippedRes, causesRes, contentsRes, videosRes] =
+        await Promise.all([
+          getTippedEventsForTipper(token),
+          getTotalAmountTippedByTipper(token),
+          getAllCausesAction(),
+          getSavedVideosForTipper(token),
+          getMyTippedVideos(token),
+        ]);
 
       if (Array.isArray(eventsRes.data)) {
         events = eventsRes.data;

@@ -49,9 +49,7 @@ export function buildMarketingPricingCards(
     {
       ...premiumBase,
       price: formatGbpMinor(premiumOnSale ? premiumSale : premiumList),
-      discountPrice: premiumOnSale
-        ? formatGbpMinor(premiumList)
-        : undefined,
+      discountPrice: premiumOnSale ? formatGbpMinor(premiumList) : undefined,
     },
     {
       ...communityBase,

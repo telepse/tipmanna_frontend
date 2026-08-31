@@ -40,8 +40,7 @@ export function resolveDiscoverScroll(
   if (isOverflowScrollContainer(container)) {
     return { scrollTop: container!.scrollTop, scrollRoot: "container" };
   }
-  const windowTop =
-    window.scrollY || document.documentElement.scrollTop || 0;
+  const windowTop = window.scrollY || document.documentElement.scrollTop || 0;
   return { scrollTop: windowTop, scrollRoot: "window" };
 }
 
@@ -82,9 +81,15 @@ export function scheduleDiscoverScrollRestore(
   };
 }
 
-export function isDedicatedDiscoverReturnTo(path: string | null | undefined): boolean {
+export function isDedicatedDiscoverReturnTo(
+  path: string | null | undefined
+): boolean {
   if (!path) return false;
-  return path === "/discover" || path.startsWith("/discover?") || path.startsWith("/discover/");
+  return (
+    path === "/discover" ||
+    path.startsWith("/discover?") ||
+    path.startsWith("/discover/")
+  );
 }
 
 export function buildDiscoverReturnTo(input: {

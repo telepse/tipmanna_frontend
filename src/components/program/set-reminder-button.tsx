@@ -29,9 +29,7 @@ import {
   deferPushUntilInstalled,
   pushOptInPrimaryButtonLabel,
 } from "@/lib/push-opt-in-ios";
-import {
-  fetchPushPromptPolicy,
-} from "@/lib/pwa-install-trigger";
+import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
 import type { RootState } from "@/redux/store";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 

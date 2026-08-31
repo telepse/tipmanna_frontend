@@ -30,8 +30,7 @@ export function parseTipNotificationPayload(
   return {
     amountLabel:
       typeof payload.amountLabel === "string" ? payload.amountLabel : undefined,
-    amount:
-      typeof payload.amount === "number" ? payload.amount : undefined,
+    amount: typeof payload.amount === "number" ? payload.amount : undefined,
     character:
       typeof payload.character === "string" ? payload.character : undefined,
     tippedAt:

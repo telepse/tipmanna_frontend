@@ -40,6 +40,7 @@ export function TextTipDraftModal({
   value,
   onChange,
   onSave,
+  onRemove,
   stackOnTop = false,
 }: TextTipDraftModalProps) {
   return (
@@ -79,27 +80,18 @@ export function TextTipDraftModal({
         </p>
 
         <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          {/* {onRemove ? (
+          {onRemove ? (
             <Button
               type="button"
-              variant="destructive"
+              variant="outline"
               className="w-full sm:mr-auto sm:w-auto"
               onClick={() => {
                 onRemove();
-                onOpenChange(false);
               }}
             >
-              Remove text tip
+              Remove
             </Button>
-          ) : null} */}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
+          ) : null}
           <Button
             type="button"
             className="w-full bg-black text-white sm:w-auto"

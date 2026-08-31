@@ -51,9 +51,9 @@ export function HostSessionProvider({ children, enabled = true }: Props) {
   );
   const [hostId, setHostId] = useState<string | null>(null);
   const [hostUser, setHostUser] = useState<HostUserCookie | null>(null);
-  const [hostSessionExpiresAt, setHostSessionExpiresAt] = useState<string | null>(
-    null
-  );
+  const [hostSessionExpiresAt, setHostSessionExpiresAt] = useState<
+    string | null
+  >(null);
   const [code, setCode] = useState<string | null>(null);
   const refreshInFlightRef = useRef(false);
 
@@ -115,8 +115,7 @@ export function HostSessionProvider({ children, enabled = true }: Props) {
         setHostId(prev => prev ?? cookieUser.id ?? null);
         setHostUser(prev => prev ?? cookieUser);
         setHostSessionExpiresAt(
-          prev =>
-            prev ?? cookieUser.hostSessionExpiresAt ?? null
+          prev => prev ?? cookieUser.hostSessionExpiresAt ?? null
         );
         return;
       }

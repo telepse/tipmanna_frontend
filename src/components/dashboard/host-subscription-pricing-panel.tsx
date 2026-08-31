@@ -69,11 +69,8 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
     hostRequiredNotice: true,
     enabled: !dashboardAuth,
   });
-  const {
-    handleAuthRequiredError,
-    requestHostAuth,
-    HostAuthModal,
-  } = dashboardAuth ?? fallbackAuth;
+  const { handleAuthRequiredError, requestHostAuth, HostAuthModal } =
+    dashboardAuth ?? fallbackAuth;
 
   const [pricingLoading, setPricingLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -131,9 +128,7 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
           const res = await hostSubscriptionCheckoutAction(tier, options);
           if (!res.success) {
             if (
-              handleAuthRequiredError(res, () =>
-                void checkout(tier, options)
-              )
+              handleAuthRequiredError(res, () => void checkout(tier, options))
             ) {
               return;
             }

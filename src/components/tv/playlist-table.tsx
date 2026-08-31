@@ -405,9 +405,9 @@ export default function PlaylistTable({
                           className="h-3 w-4 sm:h-2 sm:w-3"
                         />
                       ) : null}{" "}
-                      <span className="text-[8px] sm:text-[6px]">
+                      {/* <span className="text-[8px] sm:text-[6px]">
                         {contentLanguage}
-                      </span>
+                      </span> */}
                     </span>
 
                     <p

@@ -347,7 +347,7 @@ Route (app)                                      Size  First Load JS  Revalidate
 Γö£ ╞Æ /community/side-chick/[communityId]       32.9 kB         257 kB
 Γö£ Γùï /content-only                               39 kB         450 kB
 Γö£ ╞Æ /content/[eventId]                        46.3 kB         700 kB
-Γö£ Γùï /create-account                           16.7 kB         275 kB
+Γö£ Γùï /sign-up                           16.7 kB         275 kB
 Γö£ ╞Æ /discover                                     0 B         261 kB
 Γö£ ╞Æ /discover/[category]                          0 B         261 kB
 Γö£ Γùï /e2e/discover-explore-handoff             7.71 kB         260 kB

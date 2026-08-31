@@ -26,10 +26,7 @@ export function HostDashboardSessionTouch() {
       if (hostSession?.isLoading && !options?.force) return;
 
       const now = Date.now();
-      if (
-        !options?.force &&
-        now - lastTouchRef.current < TOUCH_INTERVAL_MS
-      ) {
+      if (!options?.force && now - lastTouchRef.current < TOUCH_INTERVAL_MS) {
         return;
       }
       lastTouchRef.current = now;
@@ -83,7 +80,10 @@ export function HostDashboardSessionTouch() {
 
     if (!initialTouchDoneRef.current) {
       initialTouchDoneRef.current = true;
-      window.setTimeout(() => void touch({ force: true }), INITIAL_TOUCH_DELAY_MS);
+      window.setTimeout(
+        () => void touch({ force: true }),
+        INITIAL_TOUCH_DELAY_MS
+      );
     }
 
     const id = window.setInterval(() => void touch(), TOUCH_INTERVAL_MS);

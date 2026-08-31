@@ -31,7 +31,10 @@ export function useNavigateToExploreVideo() {
   return useCallback(
     (
       content: TvExploreContentRow,
-      opts?: Pick<ExploreFeedOpenTarget, "discoverReturnTo" | "discoverReturnLabel">
+      opts?: Pick<
+        ExploreFeedOpenTarget,
+        "discoverReturnTo" | "discoverReturnLabel"
+      >
     ) => {
       const target = buildExploreHandoffTarget(content);
       if (!target) return;

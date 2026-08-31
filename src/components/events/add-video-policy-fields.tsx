@@ -115,172 +115,174 @@ export function AddVideoPolicyFields({
   return (
     <>
       {SubscriptionPromptModal}
-    <div
-      className={cn(
-        "space-y-3 rounded-lg border p-4",
-        isCreate ? CREATE_FORM_SECTION_CLASS : undefined
-      )}
-    >
-      <h4
+      <div
         className={cn(
-          "text-sm font-medium",
-          isCreate ? "text-white" : undefined
+          "space-y-3 rounded-lg border p-4",
+          isCreate ? CREATE_FORM_SECTION_CLASS : undefined
         )}
       >
-        Privacy &amp; ownership
-      </h4>
-      {!allowCoOwned ? (
-        <p
+        <h4
           className={cn(
-            "text-xs",
-            isCreate ? CREATE_FORM_MUTED_TEXT_CLASS : "text-muted-foreground"
+            "text-sm font-medium",
+            isCreate ? "text-white" : undefined
           )}
         >
-          Co-creators can upload videos they fully own. Only the community owner
-          can submit co-owned videos to this bank.
-        </p>
-      ) : null}
-      <FormField
-        control={form.control}
-        name="ownershipAnswer"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel
-              className={isCreate ? CREATE_FORM_LABEL_CLASS : undefined}
-            >
-              Do you have substantial ownership rights?
-            </FormLabel>
-            <Select
-              onValueChange={field.onChange}
-              value={field.value}
-            >
-              <FormControl>
-                <SelectTrigger
-                  className={
-                    isCreate ? CREATE_FORM_SELECT_TRIGGER_CLASS : undefined
-                  }
-                >
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent
-                className={
-                  isCreate ? CREATE_FORM_SELECT_CONTENT_CLASS : undefined
-                }
+          Privacy &amp; ownership
+        </h4>
+        {!allowCoOwned ? (
+          <p
+            className={cn(
+              "text-xs",
+              isCreate ? CREATE_FORM_MUTED_TEXT_CLASS : "text-muted-foreground"
+            )}
+          >
+            Co-creators can upload videos they fully own. Only the community
+            owner can submit co-owned videos to this bank.
+          </p>
+        ) : null}
+        <FormField
+          control={form.control}
+          name="ownershipAnswer"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel
+                className={isCreate ? CREATE_FORM_LABEL_CLASS : undefined}
               >
-                <SelectItem
-                  value="yes"
+                Do you have substantial ownership rights?
+              </FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger
+                    className={
+                      isCreate ? CREATE_FORM_SELECT_TRIGGER_CLASS : undefined
+                    }
+                  >
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent
                   className={
-                    isCreate ? CREATE_FORM_SELECT_ITEM_CLASS : undefined
+                    isCreate ? CREATE_FORM_SELECT_CONTENT_CLASS : undefined
                   }
                 >
-                  Yes
-                </SelectItem>
-                {allowCoOwned ? (
                   <SelectItem
-                    value="no"
+                    value="yes"
                     className={
                       isCreate ? CREATE_FORM_SELECT_ITEM_CLASS : undefined
                     }
                   >
-                    No (co-owner required)
+                    Yes
                   </SelectItem>
-                ) : null}
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+                  {allowCoOwned ? (
+                    <SelectItem
+                      value="no"
+                      className={
+                        isCreate ? CREATE_FORM_SELECT_ITEM_CLASS : undefined
+                      }
+                    >
+                      No (co-owner required)
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      {ownershipAnswer === "no" && allowCoOwned ? (
-        <div className="space-y-2">
-          {!canInvite ? (
-            <div className="space-y-2">
-              <p className="text-destructive text-sm">
-                Host Growth or Host Community required to invite co-owners.
-              </p>
-              <HostSubscriptionUpgradeTrigger
-                focusTier="premium"
-                label="View plans"
-                variant="outline"
-                title="Unlock co-owner invites"
-                description="Subscribe to Host Growth or Community to invite co-owners."
-              />
-            </div>
-          ) : (
-            <>
-              <Input
-                placeholder="Co-owner legal name"
-                className={`${isCreate ? CREATE_FORM_INPUT_CLASS : ""} ${fieldErrors.name ? "border-destructive" : ""}`}
-                value={name}
-                readOnly={readOnlyInvite}
-                onChange={e => setName(e.target.value)}
-              />
-              {fieldErrors.name ? (
-                <p className="text-destructive text-xs">{fieldErrors.name}</p>
-              ) : null}
-              <Input
-                placeholder="Co-owner email"
-                type="email"
-                className={`${isCreate ? CREATE_FORM_INPUT_CLASS : ""} ${statusIndicatorClass} ${fieldErrors.email ? "border-destructive" : ""}`}
-                value={email}
-                readOnly={readOnlyInvite}
-                onChange={e => setEmail(e.target.value)}
-              />
-              {fieldErrors.email ? (
-                <p className="text-destructive text-xs">{fieldErrors.email}</p>
-              ) : null}
-              {inviteStatusLabel ? (
-                <CoOwnerInviteStatusRow
-                  status={inviteStatusLabel}
-                  expiresAt={activeInvite?.expiresAt}
-                  resendCount={activeInvite?.resendCount}
-                  canResend={canResend}
-                  resendCooldownSec={resendCooldownSec}
-                  resending={resending}
-                  onResend={resendInvite}
-                  canRemove={canRemove}
-                  removing={removing}
-                  onRemove={removeInvite}
-                />
-              ) : null}
-              <div className="flex items-center gap-2">
-                <FormLabel
-                  className={isCreate ? CREATE_FORM_LABEL_CLASS : undefined}
-                >
-                  Co-owner share %
-                </FormLabel>
-                <Input
-                  type="number"
-                  className={cn(
-                    "w-24",
-                    isCreate ? CREATE_FORM_INPUT_CLASS : ""
-                  )}
-                  min={1}
-                  max={100}
-                  value={pct}
-                  readOnly={readOnlyInvite}
-                  onChange={e => setPct(Number(e.target.value))}
+        {ownershipAnswer === "no" && allowCoOwned ? (
+          <div className="space-y-2">
+            {!canInvite ? (
+              <div className="space-y-2">
+                <p className="text-destructive text-sm">
+                  Host Growth or Host Community required to invite co-owners.
+                </p>
+                <HostSubscriptionUpgradeTrigger
+                  focusTier="premium"
+                  label="View plans"
+                  variant="outline"
+                  title="Unlock co-owner invites"
+                  description="Subscribe to Host Growth or Community to invite co-owners."
                 />
               </div>
-              {readOnlyInvite &&
-              inviteStatusLabel !== "expired" &&
-              inviteStatusLabel !== "declined" ? null : (
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={pending || !youtubeLink?.trim()}
-                  onClick={() => void sendInvite()}
-                >
-                  {pending ? "Sending…" : "Send invite email"}
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      ) : null}
-    </div>
+            ) : (
+              <>
+                <Input
+                  placeholder="Co-owner legal name"
+                  className={`${isCreate ? CREATE_FORM_INPUT_CLASS : ""} ${fieldErrors.name ? "border-destructive" : ""}`}
+                  value={name}
+                  readOnly={readOnlyInvite}
+                  onChange={e => setName(e.target.value)}
+                />
+                {fieldErrors.name ? (
+                  <p className="text-destructive text-xs">{fieldErrors.name}</p>
+                ) : null}
+                <Input
+                  placeholder="Co-owner email"
+                  type="email"
+                  className={`${isCreate ? CREATE_FORM_INPUT_CLASS : ""} ${statusIndicatorClass} ${fieldErrors.email ? "border-destructive" : ""}`}
+                  value={email}
+                  readOnly={readOnlyInvite}
+                  onChange={e => setEmail(e.target.value)}
+                />
+                {fieldErrors.email ? (
+                  <p className="text-destructive text-xs">
+                    {fieldErrors.email}
+                  </p>
+                ) : null}
+                {inviteStatusLabel ? (
+                  <CoOwnerInviteStatusRow
+                    status={inviteStatusLabel}
+                    expiresAt={activeInvite?.expiresAt}
+                    resendCount={activeInvite?.resendCount}
+                    canResend={canResend}
+                    resendCooldownSec={resendCooldownSec}
+                    resending={resending}
+                    onResend={resendInvite}
+                    canRemove={canRemove}
+                    removing={removing}
+                    onRemove={removeInvite}
+                  />
+                ) : null}
+                <div className="flex items-center gap-2">
+                  <FormLabel
+                    className={isCreate ? CREATE_FORM_LABEL_CLASS : undefined}
+                  >
+                    Co-owner share %
+                  </FormLabel>
+                  <Input
+                    type="number"
+                    className={cn(
+                      "w-24",
+                      isCreate ? CREATE_FORM_INPUT_CLASS : ""
+                    )}
+                    min={1}
+                    max={100}
+                    value={pct}
+                    readOnly={readOnlyInvite}
+                    onChange={e => setPct(Number(e.target.value))}
+                  />
+                </div>
+                {readOnlyInvite &&
+                inviteStatusLabel !== "expired" &&
+                inviteStatusLabel !== "declined" ? null : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={pending || !youtubeLink?.trim()}
+                    onClick={() => void sendInvite()}
+                  >
+                    {pending ? "Sending…" : "Send invite email"}
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
     </>
   );
 }

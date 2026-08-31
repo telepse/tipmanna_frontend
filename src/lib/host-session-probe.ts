@@ -109,7 +109,9 @@ export type HostSessionTouchedDetail = {
   hostId?: string;
 };
 
-export function notifyHostSessionTouched(detail: HostSessionTouchedDetail): void {
+export function notifyHostSessionTouched(
+  detail: HostSessionTouchedDetail
+): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
     new CustomEvent<HostSessionTouchedDetail>(HOST_SESSION_TOUCHED_EVENT, {

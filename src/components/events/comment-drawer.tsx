@@ -779,10 +779,11 @@ export const CommentDrawer = ({
               <div className="flex gap-2">
                 <Input
                   readOnly
-                  disabled
+                  // disabled
                   value={pendingDraft}
-                  placeholder="Your comment draft appears here after you add it."
-                  className="text-muted-foreground h-9 min-h-[12px] resize-none border border-gray-200 sm:flex-1"
+                  placeholder="Enter comment"
+                  className="text-muted-foreground bg-secondary/30 h-9 min-h-[12px] resize-none border border-gray-200 sm:flex-1"
+                  onFocus={() => openDraftModal()}
                 />
 
                 <Button
@@ -838,7 +839,7 @@ export const CommentDrawer = ({
                   ))}
                 </ul>
               ) : items.length === 0 ? (
-                <div className="-mt-8 flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+                <div className="-mt-4 flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
                   <p className="text-sm text-gray-600">
                     Be the first to drop a comment on this video
                   </p>

@@ -164,7 +164,7 @@ export default function CommunityInviteAcceptPage() {
     normEmail(user.email) !== normEmail(inviteEmail);
 
   const acceptPath = `/community/invite/${encodeURIComponent(token)}`;
-  const signUpHref = `/create-account?redirect=${encodeURIComponent(acceptPath)}`;
+  const signUpHref = `/sign-up?redirect=${encodeURIComponent(acceptPath)}`;
   const signInHref = `/sign-in?redirect=${encodeURIComponent(acceptPath)}`;
 
   return (

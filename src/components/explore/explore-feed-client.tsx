@@ -1092,7 +1092,9 @@ export const ExploreFeedClient = forwardRef<
 
   const syncDrawerExploreUrl = useCallback(
     (mutate: (params: URLSearchParams) => void) => {
-      const liveKey = exploreLiveSearchParamsKey(searchParams?.toString() ?? "");
+      const liveKey = exploreLiveSearchParamsKey(
+        searchParams?.toString() ?? ""
+      );
       const params = new URLSearchParams(liveKey);
       mutate(params);
       commitExploreHistory({

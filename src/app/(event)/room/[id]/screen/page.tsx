@@ -9,9 +9,7 @@ import {
 } from "@/actions/events";
 import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
-import {
-  PrivateEventRoomBlocked,
-} from "@/components/events/event-room-access-gate";
+import { PrivateEventRoomBlocked } from "@/components/events/event-room-access-gate";
 import { getEventRoomAccessAction } from "@/actions/events";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";

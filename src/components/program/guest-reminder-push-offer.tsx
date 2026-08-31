@@ -20,9 +20,7 @@ import {
   mergeGuestProgramRemindersOnly,
 } from "@/lib/program-push-setup";
 import { deferPushUntilInstalled } from "@/lib/push-opt-in-ios";
-import {
-  fetchPushPromptPolicy,
-} from "@/lib/pwa-install-trigger";
+import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
 import { store } from "@/redux/store";
 import type { RootState } from "@/redux/store";
 

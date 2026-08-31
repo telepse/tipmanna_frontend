@@ -22,7 +22,9 @@ describe("buildMarketingPricingCards", () => {
 
     expect(cards.find(c => c.tier === "premium")?.price).toBe("£29.99");
     expect(cards.find(c => c.tier === "community")?.price).toBe("£99.99");
-    expect(cards.find(c => c.tier === "premium")?.discountPrice).toBeUndefined();
+    expect(
+      cards.find(c => c.tier === "premium")?.discountPrice
+    ).toBeUndefined();
   });
 
   it("shows sale and strikethrough list when discount is active", () => {

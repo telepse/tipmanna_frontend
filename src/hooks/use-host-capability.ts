@@ -5,7 +5,10 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 import { getHostLinkAction, type HostLinkResponse } from "@/actions/auth";
 import { getAuthToken } from "@/lib/getAuthToken";
-import { clearStaleHostSessionIfMismatch, hasActiveHostSession } from "@/lib/host-session-client";
+import {
+  clearStaleHostSessionIfMismatch,
+  hasActiveHostSession,
+} from "@/lib/host-session-client";
 import { useHostSessionContextOptional } from "@/contexts/host-session-context";
 
 export type HostCapability =
@@ -89,8 +92,7 @@ export function useHostCapability(options?: Options) {
     return hasActiveHostSession(link.hostId);
   })();
 
-  const loading =
-    linkLoading || (hostSession != null ? sessionLoading : false);
+  const loading = linkLoading || (hostSession != null ? sessionLoading : false);
 
   const capability: HostCapability = (() => {
     if (!enabled || !isAuthenticated || !user || user.role === "VISITOR") {

@@ -1294,20 +1294,23 @@ export default function ExplorePageClient({
     void loadTopCommunities();
   }, [tab, e2eFixtures, loadTopCommunities]);
 
-  const applyCatalogSnapshot = useCallback((snapshot: DiscoverCatalogSnapshot) => {
-    setContents(snapshot.contents);
-    setLatestContents(snapshot.latestContents);
-    setSpotlightContents(snapshot.spotlightContents);
-    setRecommendedContents(snapshot.recommendedContents);
-    setMostTippedContents(snapshot.mostTippedContents);
-    setLiveStreams(snapshot.liveStreams);
-    setPrograms(snapshot.programs);
-    setPlaylists(snapshot.playlists);
-    setTippers(snapshot.tippers);
-    setTopCommunities(
-      snapshot.topCommunities as CommunityExploreCatalogRow[]
-    );
-  }, []);
+  const applyCatalogSnapshot = useCallback(
+    (snapshot: DiscoverCatalogSnapshot) => {
+      setContents(snapshot.contents);
+      setLatestContents(snapshot.latestContents);
+      setSpotlightContents(snapshot.spotlightContents);
+      setRecommendedContents(snapshot.recommendedContents);
+      setMostTippedContents(snapshot.mostTippedContents);
+      setLiveStreams(snapshot.liveStreams);
+      setPrograms(snapshot.programs);
+      setPlaylists(snapshot.playlists);
+      setTippers(snapshot.tippers);
+      setTopCommunities(
+        snapshot.topCommunities as CommunityExploreCatalogRow[]
+      );
+    },
+    []
+  );
 
   const loadExploreCatalog = useCallback(
     async (options?: { background?: boolean }) => {
@@ -1379,7 +1382,11 @@ export default function ExplorePageClient({
           live: [] as any[],
           recentlyEnded: [] as any[],
         };
-        if (liveRes.success && liveRes.data && typeof liveRes.data === "object") {
+        if (
+          liveRes.success &&
+          liveRes.data &&
+          typeof liveRes.data === "object"
+        ) {
           const ls = liveRes.data as {
             upcoming?: any[];
             live?: any[];
@@ -1649,11 +1656,7 @@ export default function ExplorePageClient({
       }
       apply();
     },
-    [
-      sideChickLocked,
-      dedicatedCommunityId,
-      dedicatedExit.requestExitThen,
-    ]
+    [sideChickLocked, dedicatedCommunityId, dedicatedExit.requestExitThen]
   );
 
   const activateDedicatedCandidate = useMemo(() => {
@@ -1684,12 +1687,7 @@ export default function ExplorePageClient({
     } finally {
       setActivateDedicatedBusy(false);
     }
-  }, [
-    activateDedicatedCandidate,
-    exploreAuthToken,
-    installed,
-    sideChick,
-  ]);
+  }, [activateDedicatedCandidate, exploreAuthToken, installed, sideChick]);
 
   useEffect(() => {
     if (sideChickLocked) return;
@@ -2409,7 +2407,9 @@ export default function ExplorePageClient({
             topCommunities={topCommunities}
             catalogLoading={catalogLoading}
             catalogRefreshing={catalogRefreshing}
-            onRefreshCatalog={() => void loadExploreCatalog({ background: true })}
+            onRefreshCatalog={() =>
+              void loadExploreCatalog({ background: true })
+            }
             initialSearchTerm={discoverSearchTerm}
             onOpenBookmarks={() => {
               setProfileDrawerTab("saved");

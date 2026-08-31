@@ -52,7 +52,7 @@ export function getAddEventNavHref(
   if (!isAuthenticated || !user) return "/sign-in";
   if (user.role === "TIPPER" && linkedHost === true) return "/event-only";
   if (user.role === "TIPPER") {
-    return `/create-account?email=${encodeURIComponent(user.email)}`;
+    return `/sign-up?email=${encodeURIComponent(user.email)}`;
   }
   if (user.role === "HOST") return "/event-only";
   return "/sign-in";

@@ -75,6 +75,8 @@ interface Props {
   isAnonymous?: boolean;
 }
 
+const PREFIX = "tipper";
+
 export const TipperBanner = ({
   iTipped,
   variant = "owner",
@@ -388,8 +390,8 @@ export const TipperBanner = ({
     defaultValues: {
       username:
         (user && "displayUsername" in user
-          ? user.displayUsername || user.username
-          : user?.username) || "",
+          ? `${user.displayUsername}` || `${user.username}`
+          : `${user?.username}`) || "",
       fullName: user?.fullName || "",
       email: user?.email || "",
     },
@@ -410,6 +412,21 @@ export const TipperBanner = ({
       } else {
         setHostUpgradeOpen(true);
       }
+    }
+  };
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep cursor strictly on the username input field
+  const enforceCursorPosition = () => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    if (input.selectionStart !== null && input.selectionStart < PREFIX.length) {
+      input.setSelectionRange(
+        PREFIX.length,
+        Math.max(PREFIX.length, input.selectionEnd || PREFIX.length)
+      );
     }
   };
 
@@ -477,6 +494,8 @@ export const TipperBanner = ({
       }
 
       toast.success("Profile updated successfully");
+      setOpenEditProfile(false);
+      router.refresh();
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -607,7 +626,7 @@ export const TipperBanner = ({
             color="white"
             className="text-lg"
           >
-            {user_name}
+            {`${PREFIX}${user_name}${user?.username.slice(-2)}`}
           </Paragraph>
 
           {/* Anonymous toggle */}
@@ -684,7 +703,7 @@ export const TipperBanner = ({
                   weight="bold"
                   color="white"
                 >
-                  {user_name}
+                  {`${PREFIX}${user_name}${user?.username.slice(-2)}`}
                 </Paragraph>
                 {showOwnerControls ? (
                   <Button
@@ -883,13 +902,22 @@ export const TipperBanner = ({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Display name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter username"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
+                      <div className="flex items-center rounded-md">
+                        <span className="bg-muted flex h-13 flex-col items-center justify-center rounded-tl-md rounded-bl-md p-2 text-sm">
+                          {PREFIX}
+                        </span>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter display name"
+                            autoComplete="off"
+                            className="w-[200px] outline-none sm:w-[370px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <span className="bg-muted flex h-13 flex-col items-center justify-center rounded-tr-md rounded-br-md px-4 py-2 text-sm text-black">
+                          {user?.username.slice(-2)}
+                        </span>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
