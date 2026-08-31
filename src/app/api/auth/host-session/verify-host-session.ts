@@ -69,11 +69,29 @@ export async function verifyHostSessionWithBackend(
       } catch {
         /* default */
       }
+
+      // Transient upstream / DB failures — keep cookies; client treats as probe failure.
+      if (touchRes.status >= 500) {
+        return NextResponse.json(
+          {
+            active: false,
+            code: "HOST_SESSION_PROBE_FAILED",
+            hostId: hostUser.id ?? null,
+            transientFailure: true,
+          },
+          { status: 503 }
+        );
+      }
+
+      const sessionInvalid =
+        touchRes.status === 401 ||
+        (touchRes.status === 403 && code === "HOST_SESSION_REQUIRED");
+
       const res = NextResponse.json(
         { active: false, code, hostId: hostUser.id ?? null },
         { status: touchRes.status === 401 ? 401 : 403 }
       );
-      return clearHostSessionCookies(res);
+      return sessionInvalid ? clearHostSessionCookies(res) : res;
     }
 
     const body = (await touchRes.json()) as { token?: string };

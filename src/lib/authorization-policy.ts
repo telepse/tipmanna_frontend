@@ -27,7 +27,10 @@ export type AuthCapability =
   | "events.messages.read"
   | "events.messages.write"
   | "auth.creatorProfile.write"
-  | "auth.hostProfile.write";
+  | "auth.hostProfile.write"
+  | "payouts.me.read"
+  | "payouts.me.write"
+  | "subscriptions.host.me";
 
 export const CAPABILITY_TIERS: Record<AuthCapability, AuthTier> = {
   "hostLink.read": "A",
@@ -52,6 +55,9 @@ export const CAPABILITY_TIERS: Record<AuthCapability, AuthTier> = {
   "events.messages.write": "C",
   "auth.creatorProfile.write": "B",
   "auth.hostProfile.write": "B",
+  "payouts.me.read": "B",
+  "payouts.me.write": "B",
+  "subscriptions.host.me": "B",
 };
 
 export const AUTH_ERROR_CODES = {
@@ -68,13 +74,14 @@ export function canPerformTierA(
   return canReadAsHost;
 }
 
-/** Tier B/C write — needs canWriteAsHost (active host session). */
+/** Tier B/C write — Tier A uses canReadAsHost; B/C use canWriteAsHost. */
 export function canPerformWrite(
+  canReadAsHost: boolean,
   canWriteAsHost: boolean,
   capability: AuthCapability
 ): boolean {
   const tier = CAPABILITY_TIERS[capability];
-  if (tier === "A") return canPerformTierA(canWriteAsHost, capability);
+  if (tier === "A") return canPerformTierA(canReadAsHost, capability);
   return canWriteAsHost;
 }
 

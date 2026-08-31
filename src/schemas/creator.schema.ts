@@ -113,4 +113,5 @@ export type HostCreatorProfileEdit = {
   externalLinkRequiresPremium: boolean;
   creatorDefaultTab: HostCreatorDefaultTab;
   editStats: CreatorProfileEditStats;
+  creatorPayoutVerifiedAt?: string | null;
 };

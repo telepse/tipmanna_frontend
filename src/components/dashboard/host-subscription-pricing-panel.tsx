@@ -17,10 +17,10 @@ import { useHostSession } from "@/hooks/use-host-session";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { useHostAuthOptional } from "@/contexts/host-auth-context";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 import {
   isSubscriptionLapsedError,
-  isSubscriptionRequiredError,
 } from "@/lib/host-subscription-errors";
 
 type Props = {
@@ -28,6 +28,8 @@ type Props = {
   focusTier?: "premium" | "community";
   /** Primary CTA label override for renew flow. */
   renewLabel?: string;
+  /** When true, subscription errors show inline (panel is inside HostSubscriptionModal). */
+  embeddedInModal?: boolean;
 };
 
 const GROWTH_FEATURES = [
@@ -53,7 +55,11 @@ const COMMUNTIY_FEATURES = [
   "Co-creator management",
 ];
 
-export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
+export function HostSubscriptionPricingPanel({
+  focusTier,
+  renewLabel,
+  embeddedInModal = false,
+}: Props) {
   const { isActive: hostSessionActive, isLoading: hostSessionLoading } =
     useHostSession();
   const {
@@ -71,10 +77,13 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
   });
   const { handleAuthRequiredError, requestHostAuth, HostAuthModal } =
     dashboardAuth ?? fallbackAuth;
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: focusTier ?? "premium" });
 
   const [pricingLoading, setPricingLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [pricing, setPricing] = useState<PublicPlanPricing | null>(null);
+  const [inlinePlanError, setInlinePlanError] = useState<string | null>(null);
 
   useEffect(() => {
     void getPlanPricingAction().then(priceRes => {
@@ -117,6 +126,33 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
     [fetchError?.requiresHostSession, hostSessionActive, requestHostAuth]
   );
 
+  const handlePlanActionError = (
+    res: {
+      success?: boolean;
+      message?: string | null;
+      validationBody?: unknown;
+    },
+    tier: "premium" | "community"
+  ) => {
+    setInlinePlanError(null);
+    if (
+      handleSubscriptionActionError(res, {
+        focusTier: tier,
+        toastFallback: !embeddedInModal,
+      })
+    ) {
+      if (embeddedInModal) {
+        setInlinePlanError(
+          isSubscriptionLapsedError(res.validationBody)
+            ? "Your subscription has lapsed. Choose a plan below to renew."
+            : "An active host plan is required. Choose a plan below."
+        );
+      }
+      return true;
+    }
+    return false;
+  };
+
   const checkout = async (
     tier: "premium" | "community",
     options?: { upgradeAtPeriodEnd?: boolean }
@@ -124,6 +160,7 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
     ensureHostSession(() => {
       void (async () => {
         setBusy(tier);
+        setInlinePlanError(null);
         try {
           const res = await hostSubscriptionCheckoutAction(tier, options);
           if (!res.success) {
@@ -132,13 +169,10 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
             ) {
               return;
             }
-            if (isSubscriptionLapsedError(res.validationBody)) {
-              toast.error("Your subscription has lapsed. Renew to continue.");
-            } else if (isSubscriptionRequiredError(res.validationBody)) {
-              toast.error("An active host plan is required.");
-            } else {
-              toast.error(res.message ?? "Unable to start checkout.");
+            if (handlePlanActionError(res, tier)) {
+              return;
             }
+            toast.error(res.message ?? "Unable to start checkout.");
             return;
           }
           const data = res.data as {
@@ -228,6 +262,13 @@ export function HostSubscriptionPricingPanel({ focusTier, renewLabel }: Props) {
   return (
     <section className="space-y-4">
       {!dashboardAuth ? HostAuthModal : null}
+      {!embeddedInModal ? SubscriptionPromptModal : null}
+
+      {inlinePlanError ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          {inlinePlanError}
+        </div>
+      ) : null}
 
       {needsHostReauth ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">

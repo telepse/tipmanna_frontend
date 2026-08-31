@@ -105,7 +105,7 @@ type Props = {
   showLoadingLabel?: boolean;
   /** When false, no opacity transition on loading layer (avoids flash). */
   transitionLoadingOverlay?: boolean;
-  /** When true, skip window-level click/touch audio unlock (Explore reels manage sound). */
+  /** When true, skip window-level click/touch audio unlock. Default true so chrome clicks do not unmute. */
   disableGlobalAudioUnlock?: boolean;
   /** Applied on player ready; avoids delayed setMuted races on slide changes. */
   initialMuted?: boolean;
@@ -150,7 +150,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       loadingBackdropClassName = "bg-gray-200",
       showLoadingLabel = true,
       transitionLoadingOverlay = true,
-      disableGlobalAudioUnlock = false,
+      disableGlobalAudioUnlock = true,
       initialMuted = true,
       onError,
     },
@@ -236,6 +236,19 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       const muted = p.isMuted();
       setIsMuted(muted);
       onMuteStateChangeRef.current?.(muted);
+    };
+
+    const restoreReelSoundIfPreferred = (target?: YT.Player | null) => {
+      const p = target ?? playerRef.current;
+      if (!p || !playbackActiveRef.current) return;
+      if (!loadReelSoundPref()) return;
+      if (typeof p.isMuted === "function" && !p.isMuted()) {
+        syncMuteFromPlayer(p);
+        return;
+      }
+      p.unMute();
+      p.setVolume(100);
+      syncMuteFromPlayer(p);
     };
 
     /** Updates canonical Explore reel aspect via onVideoAspectInfo → onPlayerAspectInfo. */
@@ -385,7 +398,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
                 return;
               }
               setLoading(false);
-              syncMuteFromPlayer(event.target);
+              restoreReelSoundIfPreferred(event.target);
               onPlayStateChange?.(true);
             } else if (event.data === window.YT.PlayerState.ENDED) {
               onPlayStateChange?.(false);
@@ -397,12 +410,6 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
           },
         },
       });
-    };
-
-    // Whenever mute/unmute happens inside VideoPlayer
-    const setPlayerMuteState = (muted: boolean) => {
-      setIsMuted(muted);
-      onMuteStateChange?.(muted);
     };
 
     useImperativeHandle(ref, () => ({
@@ -496,6 +503,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
           p.mute();
         } else {
           p.playVideo();
+          restoreReelSoundIfPreferred(p);
         }
       });
       return () => cancelAnimationFrame(raf);
@@ -513,11 +521,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
           const p = playerRef.current;
           if (!p || !playbackActiveRef.current) return;
           p.playVideo();
-          if (loadReelSoundPref()) {
-            p.unMute();
-            p.setVolume(100);
-          }
-          syncMuteFromPlayer(p);
+          restoreReelSoundIfPreferred(p);
         });
         return () => cancelAnimationFrame(rafPlay);
       }
@@ -636,11 +640,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         p.loadVideoById(videoId);
         if (playbackActiveRef.current) {
           p.playVideo();
-          if (loadReelSoundPref()) {
-            p.unMute();
-            p.setVolume(100);
-            setPlayerMuteState(false);
-          }
+          restoreReelSoundIfPreferred(p);
         }
       }
     };

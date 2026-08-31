@@ -3,6 +3,9 @@ import "server-only";
 import { getToken } from "@/lib/getToken";
 import { getHostToken } from "@/lib/getHostToken";
 
+/** Set on host-auth server actions when no hostToken cookie is present. */
+export const HOST_AUTH_MISSING_HEADER = "X-Tipmanna-Host-Auth-Missing";
+
 export async function getServerAuthToken(): Promise<string | null> {
   return getToken();
 }
@@ -34,6 +37,10 @@ export async function serverHostAuthHeaders(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    headers[HOST_AUTH_MISSING_HEADER] = "1";
+  }
   return headers;
 }

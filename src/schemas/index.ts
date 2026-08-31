@@ -415,7 +415,7 @@ export const organisationProfileFormSchema = z
     uniqueTaxpayerReference: z.string().optional(),
     additionalTaxIdentification: z.string().optional(),
     vatRegistrationNumber: z.string().optional(),
-    invoice: z.string().min(2, "Invoice is required"),
+    invoice: z.string().optional(),
     accountName: z
       .string()
       .min(2, "Account name must match your registered company name"),

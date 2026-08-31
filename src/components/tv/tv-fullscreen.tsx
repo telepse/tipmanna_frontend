@@ -43,7 +43,7 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
       if (playerRef.current?.isReady()) {
         const time = playerRef.current.getCurrentTime();
         setCurrentTime(time);
-        setIsMuted(readTvMutePref());
+        setIsMuted(playerRef.current.isMuted());
         const state = playerRef.current.getPlayerState();
         setIsPlaying(state === "PLAYING" || state === "BUFFERING");
       }

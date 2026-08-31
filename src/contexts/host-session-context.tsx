@@ -13,6 +13,7 @@ import {
 
 import {
   getHostUserFromCookies,
+  hasActiveHostSession,
   type HostUserCookie,
 } from "@/lib/host-session-client";
 import {
@@ -108,15 +109,20 @@ export function HostSessionProvider({ children, enabled = true }: Props) {
 
       if (result.transientFailure) {
         setCode(result.code ?? "HOST_SESSION_PROBE_FAILED");
-        setStatus(prev => {
-          if (prev === "active") return "active";
-          return "unknown";
-        });
-        setHostId(prev => prev ?? cookieUser.id ?? null);
-        setHostUser(prev => prev ?? cookieUser);
-        setHostSessionExpiresAt(
-          prev => prev ?? cookieUser.hostSessionExpiresAt ?? null
-        );
+        const cookieActive =
+          cookieUser?.id != null && hasActiveHostSession(cookieUser.id);
+        if (cookieActive && cookieUser.id) {
+          applyActiveFromProbe(
+            cookieUser.id,
+            cookieUser,
+            cookieUser.hostSessionExpiresAt ?? null
+          );
+          return;
+        }
+        setStatus("unknown");
+        setHostId(cookieUser?.id ?? null);
+        setHostUser(cookieUser);
+        setHostSessionExpiresAt(cookieUser?.hostSessionExpiresAt ?? null);
         return;
       }
 
@@ -191,16 +197,28 @@ export function HostSessionProvider({ children, enabled = true }: Props) {
   }, [applyInactive, applyTouched]);
 
   const value = useMemo<HostSessionContextValue>(() => {
-    const isActive = status === "active" && Boolean(hostId);
+    const cookieUser =
+      typeof window !== "undefined" ? getHostUserFromCookies() : null;
+    const cookieActive =
+      cookieUser?.id != null && hasActiveHostSession(cookieUser.id);
+    const isActive =
+      (status === "active" && Boolean(hostId)) ||
+      (status === "unknown" && cookieActive);
+    const resolvedHostUser =
+      isActive && hostUser
+        ? hostUser
+        : isActive && cookieUser
+          ? cookieUser
+          : hostUser;
     return {
       status,
       isActive,
-      isLoading: status === "loading" || status === "unknown",
-      hostId: isActive ? hostId : null,
-      hostUser: isActive ? hostUser : null,
-      eventSlug: isActive ? (hostUser?.eventSlug ?? null) : null,
-      username: isActive ? (hostUser?.username ?? null) : null,
-      eventCode: isActive ? (hostUser?.eventCode ?? null) : null,
+      isLoading: status === "loading",
+      hostId: isActive ? (hostId ?? cookieUser?.id ?? null) : null,
+      hostUser: isActive ? resolvedHostUser : null,
+      eventSlug: isActive ? (resolvedHostUser?.eventSlug ?? null) : null,
+      username: isActive ? (resolvedHostUser?.username ?? null) : null,
+      eventCode: isActive ? (resolvedHostUser?.eventCode ?? null) : null,
       hostSessionExpiresAt,
       code,
       refresh,

@@ -87,7 +87,16 @@ export function useHostCapability(options?: Options) {
   const hostSessionActive = (() => {
     if (!link?.hostId) return false;
     if (hostSession) {
-      return hostSession.isActive && hostSession.hostId === link.hostId;
+      if (hostSession.isActive && hostSession.hostId === link.hostId) {
+        return true;
+      }
+      if (
+        hostSession.status === "unknown" &&
+        hasActiveHostSession(link.hostId)
+      ) {
+        return true;
+      }
+      return false;
     }
     return hasActiveHostSession(link.hostId);
   })();

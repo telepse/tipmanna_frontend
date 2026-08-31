@@ -155,7 +155,7 @@ export const CreateDialog = ({
     handleAuthRequiredError,
     HostAuthModal,
   } = useHostCapabilityWithAuth({
-    enabled: openPopup && communityFeatureOn && !forceTypePicker,
+    enabled: openPopup,
   });
   const showHostCreateFlow =
     communityFeatureOn && !forceTypePicker && canReadAsHost;

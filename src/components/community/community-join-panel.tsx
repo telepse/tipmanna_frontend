@@ -51,7 +51,10 @@ import { useOpenContentWithReturn } from "@/hooks/use-open-content-with-return";
 import { usePathname } from "next/navigation";
 import { TopContentCard } from "../home/top-content-card";
 import { FeaturedContentCard } from "./featured-content-card";
-import VideoPlayer, { VideoPlayerRef } from "../events/video-player";
+import VideoPlayer, {
+  VideoPlayerRef,
+  loadReelSoundPref,
+} from "../events/video-player";
 
 const communityFeatureOn =
   process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
@@ -212,8 +215,8 @@ function FeaturedCommunityVideoOverlay({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
+  const [audioUnlocked, setAudioUnlocked] = useState(() => loadReelSoundPref());
 
   useEffect(() => {
     setPlayerReady(false);
@@ -221,8 +224,6 @@ function FeaturedCommunityVideoOverlay({
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(true);
-    setIsMuted(true);
-    setAudioUnlocked(false);
 
     const timer = window.setTimeout(() => {
       setPlayerReady(true);
@@ -262,11 +263,9 @@ function FeaturedCommunityVideoOverlay({
     if (!player) return;
     if (isMuted) {
       player.unmute();
-      setIsMuted(false);
       setAudioUnlocked(true);
     } else {
       player.mute();
-      setIsMuted(true);
     }
   };
 
@@ -275,9 +274,7 @@ function FeaturedCommunityVideoOverlay({
     if (!player) return;
     player.unmute();
     player.setvolume(100);
-    setIsMuted(false);
     setAudioUnlocked(true);
-    setIsPlaying(true);
   };
 
   return (
@@ -362,6 +359,8 @@ function FeaturedCommunityVideoOverlay({
                   videoUrl={video.url}
                   isChannel
                   className="h-full w-full"
+                  initialMuted={!loadReelSoundPref()}
+                  disableGlobalAudioUnlock
                   onPlayStateChange={setIsPlaying}
                   onMuteStateChange={setIsMuted}
                   loadingBackdropClassName="bg-black"

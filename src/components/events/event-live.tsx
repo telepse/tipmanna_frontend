@@ -29,7 +29,10 @@ import {
   trackTvVideoStart,
   trackTvWatchDuration,
 } from "@/lib/tvAnalytics";
-import VideoPlayer, { VideoPlayerRef } from "@/components/events/video-player";
+import VideoPlayer, {
+  VideoPlayerRef,
+  loadReelSoundPref,
+} from "@/components/events/video-player";
 import {
   VideoSurfaceBadges,
   pickVideoSurfaceBadgeProps,
@@ -248,21 +251,18 @@ export const EventLive = ({
   const playbackSeekedForCompleteRef = useRef(false);
   const watchSegStartRef = useRef(0);
   const encounterSentForStreamActivationRef = useRef(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
 
   const [shownReminders, setShownReminders] = useState<Set<number>>(new Set());
   const [activeReminder, setActiveReminder] = useState<number | null>(null);
 
   const toggleMute = () => {
     if (!videoRef.current) return;
-
     if (isMuted) {
       videoRef.current.unmute();
-      setIsMuted(false);
+      setAudioUnlocked(true);
     } else {
       videoRef.current.mute();
-      setIsMuted(true);
-      setAudioUnlocked(true);
     }
   };
 
@@ -284,13 +284,9 @@ export const EventLive = ({
 
   const handleUnmute = () => {
     if (!videoRef.current) return;
-
-    videoRef.current.unmute(); // 🔥 actually unmute player
-    videoRef.current.setvolume(100); // optional but recommended
-
-    setIsMuted(false); // 🔥 sync icon state
+    videoRef.current.unmute();
+    videoRef.current.setvolume(100);
     setAudioUnlocked(true);
-    setIsPlaying(true);
   };
 
   useEffect(() => {
@@ -330,7 +326,7 @@ export const EventLive = ({
   }, [playerReady, currentChannelIndex]);
 
   const [loadingPlayer, setLoadingPlayer] = useState(true);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(() => loadReelSoundPref());
 
   useYoutubeVideoAspect(currentChannel?.url || resolvedVideoUrl);
 
@@ -468,10 +464,6 @@ export const EventLive = ({
 
   useEffect(() => {
     setIsPlaying(true);
-  }, [currentChannelIndex]);
-
-  useEffect(() => {
-    setIsMuted(true);
   }, [currentChannelIndex]);
 
   // -------- FIX #3: Mount player after small delay for proper layout --------
@@ -719,6 +711,8 @@ export const EventLive = ({
               key={currentChannel?.id || resolvedVideoUrl}
               videoUrl={currentChannel?.url || resolvedVideoUrl}
               className="h-full w-full object-cover"
+              initialMuted={!loadReelSoundPref()}
+              disableGlobalAudioUnlock
               onPlayStateChange={setIsPlaying}
               onMuteStateChange={setIsMuted}
               onPlaybackEnded={() => {

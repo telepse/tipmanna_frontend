@@ -70,6 +70,7 @@ import {
 } from "@/schemas";
 import { useHostSession } from "@/hooks/use-host-session";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
+import { useImageUpload } from "@/hooks/use-image-upload";
 
 type HostUser = {
   id: string;
@@ -206,6 +207,42 @@ export const SettingsClient = () => {
       sortCode: "",
     },
   });
+
+  const invoice = organisationProfileForm.watch("invoice");
+
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onChange: (url: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "tipmanna");
+
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/tipmanna/image/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (data.secure_url) {
+        // Save the cloudinary URL directly into react-hook-form state
+        onChange(data.secure_url);
+      }
+    } catch (error) {
+      console.error("Cloudinary upload error", error);
+    }
+  };
 
   const showIndividualProfileTab =
     profileAccountType === null || profileAccountType === "INDIVIDUAL";
@@ -1175,16 +1212,29 @@ export const SettingsClient = () => {
                     name="invoice"
                     render={({ field }) => (
                       <FormItem className="min-w-0">
-                        <FormLabel>Invoice</FormLabel>
+                        <FormLabel>Upload</FormLabel>
 
                         <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="Upload invoice"
-                            autoComplete="off"
-                            className="w-full min-w-0"
-                            {...field}
-                          />
+                          <>
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              disabled={isUploading}
+                              onChange={e =>
+                                void handleFileUpload(e, field.onChange)
+                              }
+                              placeholder="Upload invoice"
+                              autoComplete="off"
+                              className="w-full min-w-0"
+                            />
+
+                            {isUploading && (
+                              <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                                <Loader2 className="size-3 animate-spin" />{" "}
+                                Uploading to Cloudinary...
+                              </div>
+                            )}
+                          </>
                         </FormControl>
 
                         <span className="text-muted-foreground block text-sm">
@@ -1193,6 +1243,12 @@ export const SettingsClient = () => {
                         </span>
 
                         <FormMessage />
+
+                        {organisationProfileForm.watch("invoice") && (
+                          <div className="text-muted-foreground text-xs break-all">
+                            Uploaded: {organisationProfileForm.watch("invoice")}
+                          </div>
+                        )}
                       </FormItem>
                     )}
                   />

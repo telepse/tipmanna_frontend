@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { PayoutSummaryCard } from "../host/payout-summary-card";
 import { HostPayoutRequestStatusPanel } from "@/components/dashboard/host-payout-request-status";
+import { HostConnectPayoutPanel } from "@/components/dashboard/host-connect-payout-panel";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 import { useParams } from "next/navigation";
 import { useSelector } from "react-redux";
@@ -50,7 +51,8 @@ function formatPeriodEnd(iso: string | null | undefined): string | null {
 export const HostProfileClient = () => {
   const { events } = useHostEvents();
   const { stats } = useHostStats();
-  const { summary, requestPayout } = useHostPayoutSummary();
+  const { summary, requestPayout, connectPayouts, refresh } =
+    useHostPayoutSummary();
   const { isLoading: hostSessionLoading } = useHostSession();
   const dashboardAuth = useHostAuthOptional();
   const { handleAuthRequiredError, HostAuthModal } = dashboardAuth ?? {
@@ -231,6 +233,12 @@ export const HostProfileClient = () => {
                 )} · Community: ${formatGbpMinor(
                   summary?.receivedByBranch.communitySubscriptionMinor ?? 0
                 )}`}
+              />
+
+              <HostConnectPayoutPanel
+                connectPayouts={connectPayouts}
+                slug={eventSlug as string}
+                onRefresh={refresh}
               />
 
               <HostPayoutRequestStatusPanel

@@ -34,9 +34,13 @@ function HostDashboardGateInner({ children }: Props) {
   const [ready, setReady] = useState(false);
 
   const probeLoading =
-    hostSession?.isLoading === true ||
+    (hostSession?.isLoading === true && hostSession?.status !== "unknown") ||
     capability.status === "loading" ||
     sessionLoading;
+
+  const probeTransient =
+    hostSession?.status === "unknown" &&
+    hostSession?.code === "HOST_SESSION_PROBE_FAILED";
 
   useEffect(() => {
     if (!user || user.role === "VISITOR") {
@@ -60,6 +64,11 @@ function HostDashboardGateInner({ children }: Props) {
       return;
     }
 
+    if (probeTransient) {
+      setReady(true);
+      return;
+    }
+
     setReady(false);
     if (!authRequestedRef.current) {
       authRequestedRef.current = true;
@@ -72,6 +81,7 @@ function HostDashboardGateInner({ children }: Props) {
     canReadAsHost,
     canWriteAsHost,
     probeLoading,
+    probeTransient,
     requestHostAuth,
     router,
     user,

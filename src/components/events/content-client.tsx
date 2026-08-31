@@ -43,7 +43,7 @@ import {
 import { useMediaQuery } from "react-responsive";
 import { useSelector } from "react-redux";
 // Local imports
-import VideoPlayer, { VideoPlayerRef } from "./video-player";
+import VideoPlayer, { VideoPlayerRef, loadReelSoundPref } from "./video-player";
 import {
   VideoSurfaceBadges,
   pickVideoSurfaceBadgeProps,
@@ -624,11 +624,7 @@ export const ContentClient = ({
     };
   }, [eventId, currentContent?.id, isPlaying]);
 
-  const [isMuted, setIsMuted] = useState(true);
-
-  useEffect(() => {
-    setIsMuted(true);
-  }, [currentContent?.id]);
+  const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
   const [openPlaylist, setOpenPlaylist] = useState(false);
   const [openCommunityModal, setOpenCommunityModal] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
@@ -1110,6 +1106,8 @@ export const ContentClient = ({
               className="pointer-events-none h-full w-full"
               fullPresentationFit={fullPresentationFit}
               isChannel={true}
+              initialMuted={!loadReelSoundPref()}
+              disableGlobalAudioUnlock
               onPlayStateChange={setIsPlaying}
               onMuteStateChange={setIsMuted}
               onPlaybackEnded={() => {

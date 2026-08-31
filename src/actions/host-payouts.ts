@@ -90,11 +90,24 @@ export type HostPayoutRequestStatus = {
   } | null;
 };
 
+export type HostConnectPayoutStatus = {
+  enabled: boolean;
+  connect: {
+    accountId: string | null;
+    payoutsEnabled: boolean;
+    onboardingComplete: boolean;
+    onboardingCompletedAt: string | null;
+    requiresAction: boolean;
+    detailsSubmitted: boolean;
+  } | null;
+};
+
 export type HostPayoutSummaryResponse = {
   host: HostPayoutObligationRow[];
   communities: HostPayoutObligationRow[];
   summary: HostPayoutSummaryBlock;
   pendingSettlements: HostPayoutSettlementRow[];
+  connectPayouts?: HostConnectPayoutStatus;
   requestPayout: HostPayoutRequestStatus;
 };
 
@@ -157,5 +170,33 @@ export async function requestHostPayoutAction(token?: string | null) {
       cache: "no-store",
     },
     "requestHostPayoutAction"
+  );
+}
+
+export async function getHostConnectPayoutStatusAction() {
+  return runServerFetch<HostConnectPayoutStatus>(
+    `${api()}/me/payouts/connect/status`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getHostConnectPayoutStatusAction"
+  );
+}
+
+export async function startHostConnectOnboardingAction(
+  returnUrl: string,
+  refreshUrl: string
+) {
+  return runServerFetch<{ url: string; accountId: string }>(
+    `${api()}/me/payouts/connect/onboarding`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ returnUrl, refreshUrl }),
+      cache: "no-store",
+    },
+    "startHostConnectOnboardingAction"
   );
 }

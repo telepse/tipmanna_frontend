@@ -15,6 +15,7 @@ import { EventRoomVideosModal } from "@/components/dashboard/event-room-videos-m
 import { PremiumFeatureBadge } from "@/components/dashboard/premium-feature-badge";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { useHostSession } from "@/hooks/use-host-session";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { formatDate } from "@/lib/formatDate";
 import { buildChannelSharePath } from "@/lib/public-video-url";
 
@@ -60,7 +61,13 @@ export function ManageEventCard({
   const hostSession = useHostSession();
   const params = useParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
-  const { capabilities } = useHostPlanCapabilities();
+  const { capabilities, status } = useHostPlanCapabilities();
+  const {
+    openForLapsed,
+    openForRequired,
+    handleSubscriptionActionError,
+    SubscriptionPromptModal,
+  } = useHostSubscriptionPrompt({ focusTier: "premium" });
 
   const [videosOpen, setVideosOpen] = useState(false);
   const [showAmountRaised, setShowAmountRaised] = useState(
@@ -81,6 +88,15 @@ export function ManageEventCard({
   const canToggleDisplay = capabilities.toggleVideoDisplaySettings;
   const canAccessTipLayout = capabilities.accessTipLayout;
   const isChannelVariant = variant === "channel";
+
+  const promptPremiumAccess = () => {
+    if (status === "lapsed") {
+      openForLapsed("premium");
+      return;
+    }
+    openForRequired("premium");
+  };
+
   const displayTitle = isChannelVariant
     ? defaultChannel?.title?.trim() || "Default channel"
     : eventName;
@@ -95,13 +111,19 @@ export function ManageEventCard({
     showEncounterOnVideos: boolean;
   }) => {
     if (!canToggleDisplay) {
-      toast.info("Active Host Premium subscription required.");
+      promptPremiumAccess();
       return;
     }
     setDisplaySaving(true);
     try {
       const res = await changeEventVideoDisplaySettingsAction(next, id);
       if (!res.success) {
+        if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
+          setShowAmountRaised(showAmountRaisedOnVideos);
+          setShowViewCount(showViewCountOnVideos);
+          setShowEncounter(showEncounterOnVideos);
+          return;
+        }
         toast.error(res.message ?? "Could not update video display settings");
         setShowAmountRaised(showAmountRaisedOnVideos);
         setShowViewCount(showViewCountOnVideos);
@@ -131,7 +153,7 @@ export function ManageEventCard({
       <Switch
         id={`${idSuffix}-${id}`}
         checked={checked}
-        disabled={displaySaving || !canToggleDisplay}
+        disabled={displaySaving}
         onCheckedChange={onCheckedChange}
       />
     </div>
@@ -202,6 +224,10 @@ export function ManageEventCard({
                 "Show amount raised on videos",
                 showAmountRaised,
                 checked => {
+                  if (!canToggleDisplay) {
+                    promptPremiumAccess();
+                    return;
+                  }
                   setShowAmountRaised(checked);
                   void persistVideoDisplaySettings({
                     showAmountRaisedOnVideos: checked,
@@ -215,6 +241,10 @@ export function ManageEventCard({
                 "Show view count on videos (10s+)",
                 showViewCount,
                 checked => {
+                  if (!canToggleDisplay) {
+                    promptPremiumAccess();
+                    return;
+                  }
                   setShowViewCount(checked);
                   void persistVideoDisplaySettings({
                     showAmountRaisedOnVideos: showAmountRaised,
@@ -228,6 +258,10 @@ export function ManageEventCard({
                 "Show video encounters on videos",
                 showEncounter,
                 checked => {
+                  if (!canToggleDisplay) {
+                    promptPremiumAccess();
+                    return;
+                  }
                   setShowEncounter(checked);
                   void persistVideoDisplaySettings({
                     showAmountRaisedOnVideos: showAmountRaised,
@@ -238,7 +272,14 @@ export function ManageEventCard({
               )}
               {!canToggleDisplay ? (
                 <p className="text-muted-foreground text-xs">
-                  Subscribe to Host Premium to control public video metrics.
+                  <button
+                    type="button"
+                    className="text-primary underline"
+                    onClick={promptPremiumAccess}
+                  >
+                    Subscribe to Host Growth
+                  </button>{" "}
+                  to control public video metrics.
                 </p>
               ) : null}
             </div>
@@ -313,19 +354,16 @@ export function ManageEventCard({
                 Tip layout
               </Link>
             </Button>
-          ) : (
+          ) : approved && hostSlug ? (
             <Button
               type="button"
-              disabled
               className="bg-secondary/20 inline-flex w-fit items-center gap-2 text-black"
-              onClick={() =>
-                toast.info("Active Host Premium subscription required.")
-              }
+              onClick={promptPremiumAccess}
             >
               <PremiumFeatureBadge className="size-3.5" />
               Tip layout
             </Button>
-          )}
+          ) : null}
           <Button
             disabled={!approved}
             className="bg-secondary/20 w-fit text-black"
@@ -343,6 +381,7 @@ export function ManageEventCard({
           eventName={eventName}
         />
       ) : null}
+      {SubscriptionPromptModal}
     </>
   );
 }

@@ -8,7 +8,12 @@ import {
   type RefObject,
 } from "react";
 import type { TvPlayerRef } from "@/components/tv/tv-player";
-import { readTvMutePref, unmuteOnly, writeTvMutePref } from "@/lib/tv-autoplay";
+import {
+  hasTvAudioUnlockedThisSession,
+  readTvMutePref,
+  unmuteOnly,
+  writeTvMutePref,
+} from "@/lib/tv-autoplay";
 import { safeYoutubeCall } from "@/lib/tv/youtube-player-safe";
 
 const RECONCILE_MS = 500;
@@ -58,6 +63,13 @@ export function useTvPlayerControls(opts: {
       safeYoutubeCall(() => {
         const state = player.getPlayerState();
         setIsPlaying(state === "PLAYING" || state === "BUFFERING");
+        const playerMuted = player.isMuted();
+        const prefMuted = readTvMutePref();
+        const unlocked = hasTvAudioUnlockedThisSession();
+        if (playerMuted && !prefMuted && unlocked) {
+          return;
+        }
+        setIsMuted(playerMuted);
       }, undefined);
     }, RECONCILE_MS);
 
@@ -69,7 +81,7 @@ export function useTvPlayerControls(opts: {
     if (!player?.isReady()) return;
     safeYoutubeCall(() => {
       player.syncMuteFromPlayer?.();
-      setIsMuted(readTvMutePref());
+      setIsMuted(player.isMuted());
       const state = player.getPlayerState();
       setIsPlaying(state === "PLAYING" || state === "BUFFERING");
     }, undefined);
