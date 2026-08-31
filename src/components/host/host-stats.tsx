@@ -264,60 +264,6 @@ export const HostStats = ({ events, stats, payoutSummary }: Props) => {
             );
           })}
         </div>
-
-        {/* Payout summary */}
-        <div className="bg-card min-w-0 space-y-6 overflow-hidden rounded-xl border p-4 shadow-sm sm:p-6">
-          <h2 className="text-2xl font-semibold">Payout summary</h2>
-
-          <div className="space-y-6">
-            <PayoutSummaryCard
-              label="Pending Payouts"
-              value={(payoutSummary?.pendingMinor ?? 0) / 100}
-              bgColor="#FFF3E7"
-              txtColor="#CB6305"
-              isMoney
-              subLabel={`Event tips: ${formatGbpMinor(
-                payoutSummary?.pendingByBranch.eventTipsMinor ?? 0
-              )} · Community: ${formatGbpMinor(
-                payoutSummary?.pendingByBranch.communitySubscriptionMinor ?? 0
-              )}`}
-            />
-
-            <PayoutSummaryCard
-              label="Total Received"
-              value={(payoutSummary?.receivedMinor ?? 0) / 100}
-              bgColor="#E5FFE3"
-              txtColor="#04802E"
-              isMoney
-              subLabel={`Event tips: ${formatGbpMinor(
-                payoutSummary?.receivedByBranch.eventTipsMinor ?? 0
-              )} · Community: ${formatGbpMinor(
-                payoutSummary?.receivedByBranch.communitySubscriptionMinor ?? 0
-              )}`}
-            />
-
-            <div className="flex flex-col gap-4">
-              <Link href={`/host/${eventSlug}/revenue`}>
-                <Button
-                  size="lg"
-                  className="w-full"
-                >
-                  Revenue & payouts →
-                </Button>
-              </Link>
-
-              <Link href={`/host/${eventSlug}/reports`}>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full"
-                >
-                  Reports & insights →
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

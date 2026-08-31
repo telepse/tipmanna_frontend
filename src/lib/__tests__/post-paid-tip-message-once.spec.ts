@@ -125,7 +125,11 @@ describe("postPaidTipMessageOnce", () => {
     const payloadWithTx = { ...basePayload, transactionId: TX };
 
     const first = await postPaidTipMessageOnce(payloadWithTx);
-    expect(first).toMatchObject({ ok: true, outcome: "posted", transactionId: TX });
+    expect(first).toMatchObject({
+      ok: true,
+      outcome: "posted",
+      transactionId: TX,
+    });
     expect(sendTipMessageClient).toHaveBeenCalledTimes(1);
     expect(isPaidTipMessageSent(TX)).toBe(true);
 
@@ -155,11 +159,19 @@ describe("postPaidTipMessageOnce", () => {
       .mockResolvedValueOnce({ ok: true } as Response);
 
     const failed = await postPaidTipMessageOnce(basePayload);
-    expect(failed).toMatchObject({ ok: false, outcome: "failed", transactionId: TX });
+    expect(failed).toMatchObject({
+      ok: false,
+      outcome: "failed",
+      transactionId: TX,
+    });
     expect(isPaidTipMessageSent(TX)).toBe(false);
 
     const retry = await postPaidTipMessageOnce(basePayload);
-    expect(retry).toMatchObject({ ok: true, outcome: "posted", transactionId: TX });
+    expect(retry).toMatchObject({
+      ok: true,
+      outcome: "posted",
+      transactionId: TX,
+    });
     expect(sendTipMessageClient).toHaveBeenCalledTimes(2);
   });
 

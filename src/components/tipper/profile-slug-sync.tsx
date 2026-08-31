@@ -30,11 +30,9 @@ export function ProfileSlugSync({ profileSlug }: { profileSlug: string }) {
       try {
         const parsed = JSON.parse(raw) as Record<string, unknown>;
         const key = Cookies.get("user") ? "user" : "visitorUser";
-        Cookies.set(
-          key,
-          JSON.stringify({ ...parsed, username: slug }),
-          { expires: 7 }
-        );
+        Cookies.set(key, JSON.stringify({ ...parsed, username: slug }), {
+          expires: 7,
+        });
       } catch {
         /* noop */
       }

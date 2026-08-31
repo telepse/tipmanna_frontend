@@ -146,7 +146,9 @@ export function CommunityHowToJoinSection({
   }, [communityId, onDoneMessageChange]);
 
   const loadForm = useCallback(
-    async (options?: { background?: boolean }): Promise<{
+    async (options?: {
+      background?: boolean;
+    }): Promise<{
       isMember: boolean;
       viewerHostsCommunity: boolean;
     } | null> => {
@@ -241,7 +243,10 @@ export function CommunityHowToJoinSection({
 
   const handleSubscriptionChange = useCallback(async () => {
     if (!user?.id) return;
-    const subRes = await getMyCommunitySubscriptionAction(undefined, communityId);
+    const subRes = await getMyCommunitySubscriptionAction(
+      undefined,
+      communityId
+    );
     if (subRes.success && subRes.data) {
       const d = subRes.data as {
         subscription: { expiresAt: string | null } | null;
@@ -462,10 +467,10 @@ export function CommunityHowToJoinSection({
                       communityId={communityId}
                       feeGbp={Number(paidFee).toFixed(2)}
                       activeUntil={paidSubExpiresAt}
-                      onBeforePay={proceed =>
-                        withDedicatedExitGate(proceed)
+                      onBeforePay={proceed => withDedicatedExitGate(proceed)}
+                      onSubscriptionChange={() =>
+                        void handleSubscriptionChange()
                       }
-                      onSubscriptionChange={() => void handleSubscriptionChange()}
                     />
                     <p className="text-muted-foreground mt-4 text-xs">
                       Or use a join request, invite link, or access code below.

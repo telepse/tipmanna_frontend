@@ -71,19 +71,22 @@ export function DiscoverPageClient({
   const [playlists, setPlaylists] = useState(initialPlaylists);
   const [catalogRefreshing, setCatalogRefreshing] = useState(false);
 
-  const applyCatalogSnapshot = useCallback((snapshot: DiscoverCatalogSnapshot) => {
-    setContents(snapshot.contents as any[]);
-    setLatestContents(snapshot.latestContents as any[]);
-    setSpotlightContents(snapshot.spotlightContents as any[]);
-    setRecommendedContents(snapshot.recommendedContents as any[]);
-    setMostTippedContents(snapshot.mostTippedContents as any[]);
-    setPrograms(snapshot.programs as any[]);
-    setPlaylists(snapshot.playlists as any[]);
-    setLiveStreams(snapshot.liveStreams as LiveStreams);
-    setTippers(snapshot.tippers as any[]);
-    setTopCommunities(snapshot.topCommunities as any[]);
-    notifyDiscoverCatalogReady();
-  }, []);
+  const applyCatalogSnapshot = useCallback(
+    (snapshot: DiscoverCatalogSnapshot) => {
+      setContents(snapshot.contents as any[]);
+      setLatestContents(snapshot.latestContents as any[]);
+      setSpotlightContents(snapshot.spotlightContents as any[]);
+      setRecommendedContents(snapshot.recommendedContents as any[]);
+      setMostTippedContents(snapshot.mostTippedContents as any[]);
+      setPrograms(snapshot.programs as any[]);
+      setPlaylists(snapshot.playlists as any[]);
+      setLiveStreams(snapshot.liveStreams as LiveStreams);
+      setTippers(snapshot.tippers as any[]);
+      setTopCommunities(snapshot.topCommunities as any[]);
+      notifyDiscoverCatalogReady();
+    },
+    []
+  );
 
   const loadDiscoverCatalog = useCallback(
     async (options?: { background?: boolean }) => {
@@ -194,7 +197,9 @@ export function DiscoverPageClient({
           surface="discovery"
           scrollContainerRef={scrollContainerRef}
           onPlayInExplore={handlePlayInExplore}
-          onRefreshCatalog={() => void loadDiscoverCatalog({ background: true })}
+          onRefreshCatalog={() =>
+            void loadDiscoverCatalog({ background: true })
+          }
           catalogRefreshing={catalogRefreshing}
           contents={contents}
           latestContents={latestContents}

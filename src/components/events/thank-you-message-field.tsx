@@ -39,9 +39,7 @@ export function ThankYouMessageField({ control, variant = "dark" }: Props) {
               value={field.value ?? ""}
               rows={4}
               className={
-                isDark
-                  ? "border-white/30 bg-black/25 text-white"
-                  : undefined
+                isDark ? "border-white/30 bg-black/25 text-white" : undefined
               }
             />
           </FormControl>

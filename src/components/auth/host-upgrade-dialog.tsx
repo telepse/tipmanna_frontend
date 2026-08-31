@@ -47,7 +47,7 @@ export function HostUpgradeDialog({ open, onOpenChange, email }: Props) {
             type="button"
             onClick={() => {
               onOpenChange(false);
-              push(`/create-account?email=${encodeURIComponent(email)}`);
+              push(`/sign-up?email=${encodeURIComponent(email)}`);
             }}
           >
             Create host account

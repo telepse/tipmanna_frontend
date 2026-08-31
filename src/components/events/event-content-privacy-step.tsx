@@ -69,7 +69,8 @@ export function EventContentPrivacyStep({
   const user = useSelector((s: RootState) => s.auth.user);
   const token = useSelector((s: RootState) => s.auth.token);
   const { canWriteAsHost } = useHostCapabilityWithAuth();
-  const { hasActivePremium, isLoading: planLoading } = useHostPlanCapabilities();
+  const { hasActivePremium, isLoading: planLoading } =
+    useHostPlanCapabilities();
   const videoLinks = watch("videoLinks") || [];
   const [channels, setChannels] = useState<YtRow[]>([]);
   const [loadingYt, setLoadingYt] = useState(false);
@@ -562,85 +563,85 @@ function CoOwnerInviteBlock({
   return (
     <>
       {SubscriptionPromptModal}
-    <div className="space-y-2 rounded-md border border-white/20 bg-black/20 p-3">
-      <p className="text-sm font-medium text-white/90">
-        Invite co-owner (draft {draftKey?.slice(0, 8)}…)
-      </p>
-      <Input
-        placeholder="Co-owner legal name"
-        className={`${CREATE_FORM_INPUT_CLASS} ${fieldErrors.name ? "border-destructive" : ""}`}
-        value={name}
-        readOnly={readOnlyInvite}
-        onChange={e => {
-          if (readOnlyInvite) return;
-          setName(e.target.value);
-        }}
-      />
-      {fieldErrors.name ? (
-        <p className="text-destructive text-xs">{fieldErrors.name}</p>
-      ) : null}
-      <Input
-        placeholder="Co-owner email"
-        type="email"
-        className={`${CREATE_FORM_INPUT_CLASS} ${statusIndicatorClass} ${fieldErrors.email ? "border-destructive" : ""}`}
-        value={email}
-        readOnly={readOnlyInvite}
-        onChange={e => {
-          if (readOnlyInvite) return;
-          setEmail(e.target.value);
-        }}
-      />
-      {fieldErrors.email ? (
-        <p className="text-destructive text-xs">{fieldErrors.email}</p>
-      ) : null}
-      {inviteStatusLabel ? (
-        <CoOwnerInviteStatusRow
-          status={inviteStatusLabel}
-          expiresAt={activeInvite?.expiresAt}
-          resendCount={activeInvite?.resendCount}
-          canResend={canResend}
-          resendCooldownSec={resendCooldownSec}
-          resending={resending}
-          onResend={resendInvite}
-          canRemove={canRemove}
-          removing={removing}
-          onRemove={removeInvite}
-          className="text-white/90"
-        />
-      ) : null}
-      <div className="flex items-center gap-2">
-        <FormLabel className={`shrink-0 ${CREATE_FORM_LABEL_CLASS}`}>
-          Co-owner share % (of 100%)
-        </FormLabel>
+      <div className="space-y-2 rounded-md border border-white/20 bg-black/20 p-3">
+        <p className="text-sm font-medium text-white/90">
+          Invite co-owner (draft {draftKey?.slice(0, 8)}…)
+        </p>
         <Input
-          type="number"
-          className={`w-24 ${CREATE_FORM_INPUT_CLASS}`}
-          min={1}
-          max={100}
-          value={pct}
+          placeholder="Co-owner legal name"
+          className={`${CREATE_FORM_INPUT_CLASS} ${fieldErrors.name ? "border-destructive" : ""}`}
+          value={name}
           readOnly={readOnlyInvite}
           onChange={e => {
             if (readOnlyInvite) return;
-            setPct(Number(e.target.value));
+            setName(e.target.value);
           }}
         />
+        {fieldErrors.name ? (
+          <p className="text-destructive text-xs">{fieldErrors.name}</p>
+        ) : null}
+        <Input
+          placeholder="Co-owner email"
+          type="email"
+          className={`${CREATE_FORM_INPUT_CLASS} ${statusIndicatorClass} ${fieldErrors.email ? "border-destructive" : ""}`}
+          value={email}
+          readOnly={readOnlyInvite}
+          onChange={e => {
+            if (readOnlyInvite) return;
+            setEmail(e.target.value);
+          }}
+        />
+        {fieldErrors.email ? (
+          <p className="text-destructive text-xs">{fieldErrors.email}</p>
+        ) : null}
+        {inviteStatusLabel ? (
+          <CoOwnerInviteStatusRow
+            status={inviteStatusLabel}
+            expiresAt={activeInvite?.expiresAt}
+            resendCount={activeInvite?.resendCount}
+            canResend={canResend}
+            resendCooldownSec={resendCooldownSec}
+            resending={resending}
+            onResend={resendInvite}
+            canRemove={canRemove}
+            removing={removing}
+            onRemove={removeInvite}
+            className="text-white/90"
+          />
+        ) : null}
+        <div className="flex items-center gap-2">
+          <FormLabel className={`shrink-0 ${CREATE_FORM_LABEL_CLASS}`}>
+            Co-owner share % (of 100%)
+          </FormLabel>
+          <Input
+            type="number"
+            className={`w-24 ${CREATE_FORM_INPUT_CLASS}`}
+            min={1}
+            max={100}
+            value={pct}
+            readOnly={readOnlyInvite}
+            onChange={e => {
+              if (readOnlyInvite) return;
+              setPct(Number(e.target.value));
+            }}
+          />
+        </div>
+        {readOnlyInvite &&
+        inviteStatusLabel !== "expired" &&
+        inviteStatusLabel !== "declined" ? null : (
+          <Button
+            type="button"
+            size="sm"
+            className="bg-white text-black hover:bg-white/80"
+            disabled={
+              pending || !(getValues(`videoLinks.${index}.url`) ?? "").trim()
+            }
+            onClick={() => void sendInvite()}
+          >
+            {pending ? "Sending…" : "Send invite email"}
+          </Button>
+        )}
       </div>
-      {readOnlyInvite &&
-      inviteStatusLabel !== "expired" &&
-      inviteStatusLabel !== "declined" ? null : (
-        <Button
-          type="button"
-          size="sm"
-          className="bg-white text-black hover:bg-white/80"
-          disabled={
-            pending || !(getValues(`videoLinks.${index}.url`) ?? "").trim()
-          }
-          onClick={() => void sendInvite()}
-        >
-          {pending ? "Sending…" : "Send invite email"}
-        </Button>
-      )}
-    </div>
     </>
   );
 }

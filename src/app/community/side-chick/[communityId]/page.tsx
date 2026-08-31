@@ -211,7 +211,10 @@ export default function SideChickMagicPage() {
           ) : !landing.isMember ? (
             <div className="space-y-3 rounded-lg border p-4">
               <p className="text-sm font-medium">Join this community first</p>
-              <Button type="button" onClick={() => setJoinOpen(true)}>
+              <Button
+                type="button"
+                onClick={() => setJoinOpen(true)}
+              >
                 Join community
               </Button>
               <JoinCommunityModal
@@ -282,7 +285,10 @@ export default function SideChickMagicPage() {
   return (
     <ExploreGlobalChrome activeSurface="side-chick">
       {sideInner}
-      <InstallPromptSheet open={installOpen} onOpenChange={setInstallOpen} />
+      <InstallPromptSheet
+        open={installOpen}
+        onOpenChange={setInstallOpen}
+      />
     </ExploreGlobalChrome>
   );
 }

@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, Loader2, MoveLeft } from "lucide-react";
+import { Eye, Info, Loader2, MoveLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -144,6 +144,12 @@ export const SigninForm = ({
     null
   );
 
+  const [showTipperInfo, setShowTipperInfo] = useState(false);
+
+  const toggleTipperInfo = () => {
+    setShowTipperInfo(prev => !prev);
+  };
+
   // NEW: loading states
   const [isHostLoading, setIsHostLoading] = useState(false);
   const [isTipperLoading, setIsTipperLoading] = useState(false);
@@ -167,7 +173,7 @@ export const SigninForm = ({
     if (nameParam) params.set("name", nameParam);
     if (returnTo) params.set("redirect", returnTo);
     const query = params.toString();
-    return query ? `/create-account?${query}` : "/create-account";
+    return query ? `/sign-up?${query}` : "/sign-up";
   }, [emailParam, nameParam, returnTo]);
 
   const togglePasswordVisibility = () => {
@@ -262,9 +268,7 @@ export const SigninForm = ({
           dispatch
         );
         if (parsed.hostSession && !hostSessionPersisted) {
-          toast.error(
-            "Host session could not be saved. Please sign in again."
-          );
+          toast.error("Host session could not be saved. Please sign in again.");
           return;
         }
         toast.success(parsed.message);
@@ -793,12 +797,29 @@ export const SigninForm = ({
           align="center"
           size="sm"
           color="muted"
+          className="relative flex items-center justify-center gap-1"
         >
           {userType === "host"
             ? coOwnerEligible
               ? "Co-owners sign in here as a host with their invite email"
-              : "Add content or event"
-            : "Engage on content and join event"}
+              : "Add content / event / community"
+            : "Send tips and join communities"}
+
+          {userType === "host" ? null : (
+            <span
+              onClick={toggleTipperInfo}
+              className="cursor-pointer"
+            >
+              <Info className="size-3" />
+            </span>
+          )}
+
+          {userType !== "host" && (
+            <span className="absolute top-6 right-0 left-0 block w-full text-center text-[10px]">
+              {showTipperInfo &&
+                "- a host creator account gets you a tipper account by default"}
+            </span>
+          )}
         </Paragraph>
 
         {/* Host form */}

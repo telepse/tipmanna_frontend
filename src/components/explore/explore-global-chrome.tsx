@@ -89,55 +89,55 @@ export function SideChickCommunityMenu({
   return (
     <>
       <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "h-8 rounded-full px-3 text-xs font-normal",
-            highlight && "bg-background shadow-sm",
-            triggerClassName
-          )}
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "h-8 rounded-full px-3 text-xs font-normal",
+              highlight && "bg-background shadow-sm",
+              triggerClassName
+            )}
+          >
+            Side chick
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="z-[12550]"
         >
-          Side chick
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="z-[12550]"
-      >
-        <DropdownMenuLabel className="text-xs">
-          Dedicated mode (per community)
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {rows.length === 0 ? (
-          <div className="text-muted-foreground px-2 py-3 text-xs">
-            Join a community first, then open its dedicated link from here.
-          </div>
-        ) : (
-          rows.map(m => (
-            <DropdownMenuItem
-              key={m.communityId}
-              asChild
-            >
-              <Link
-                href={`/community/side-chick/${encodeURIComponent(m.communityId)}`}
-                onClick={e =>
-                  requestDedicatedSwitch(
-                    m.communityId,
-                    m.community?.name ?? m.communityId,
-                    e
-                  )
-                }
+          <DropdownMenuLabel className="text-xs">
+            Dedicated mode (per community)
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {rows.length === 0 ? (
+            <div className="text-muted-foreground px-2 py-3 text-xs">
+              Join a community first, then open its dedicated link from here.
+            </div>
+          ) : (
+            rows.map(m => (
+              <DropdownMenuItem
+                key={m.communityId}
+                asChild
               >
-                {m.community?.name ?? m.communityId}
-              </Link>
-            </DropdownMenuItem>
-          ))
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+                <Link
+                  href={`/community/side-chick/${encodeURIComponent(m.communityId)}`}
+                  onClick={e =>
+                    requestDedicatedSwitch(
+                      m.communityId,
+                      m.community?.name ?? m.communityId,
+                      e
+                    )
+                  }
+                >
+                  {m.community?.name ?? m.communityId}
+                </Link>
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Dialog
         open={Boolean(pendingSwitch)}

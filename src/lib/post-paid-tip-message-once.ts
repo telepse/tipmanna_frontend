@@ -102,7 +102,10 @@ function releaseSendClaim(transactionId: string): void {
   }
 }
 
-export type PostPaidTipMessageInput = Omit<TipMessagePayload, "transactionId"> & {
+export type PostPaidTipMessageInput = Omit<
+  TipMessagePayload,
+  "transactionId"
+> & {
   transactionId?: string;
 };
 
@@ -161,10 +164,7 @@ export function resetPaidTipMessageLocksForTests(): void {
     const keys: string[] = [];
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      if (
-        key?.startsWith(SENT_PREFIX) ||
-        key?.startsWith(DROPPED_PREFIX)
-      ) {
+      if (key?.startsWith(SENT_PREFIX) || key?.startsWith(DROPPED_PREFIX)) {
         keys.push(key);
       }
     }

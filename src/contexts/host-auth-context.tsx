@@ -16,7 +16,9 @@ export function HostAuthProvider({
   children: ReactNode;
 }) {
   return (
-    <HostAuthContext.Provider value={value}>{children}</HostAuthContext.Provider>
+    <HostAuthContext.Provider value={value}>
+      {children}
+    </HostAuthContext.Provider>
   );
 }
 

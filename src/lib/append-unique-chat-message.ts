@@ -25,7 +25,10 @@ export function appendUniqueChatMessage(
     typeof incoming.transactionId === "string"
       ? incoming.transactionId.trim()
       : "";
-  if (incomingTx && prev.some(row => row.transactionId?.trim() === incomingTx)) {
+  if (
+    incomingTx &&
+    prev.some(row => row.transactionId?.trim() === incomingTx)
+  ) {
     return prev;
   }
   return [...prev, incoming];

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
+import { HostPayoutRequestStatusPanel } from "@/components/dashboard/host-payout-request-status";
 import { IncompleteProfilePayoutModal } from "@/components/dashboard/incomplete-profile-payout-modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -123,7 +124,8 @@ export function HostRevenuePayoutsClient() {
         confirm receipt here.
       </div>
 
-      {requestPayout?.hasCoOwnerObligations ? (
+      {requestPayout?.hasCoOwnerObligations &&
+      requestPayout.reasons.includes("co_owner_outstanding") ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           You have outstanding co-owner obligations
           {requestPayout.coOwnerOutstandingMinor > 0
@@ -144,6 +146,12 @@ export function HostRevenuePayoutsClient() {
         </div>
       ) : null}
 
+      <HostPayoutRequestStatusPanel
+        requestPayout={requestPayout}
+        slug={slug}
+        settingsProfileTab={settingsProfileTab}
+      />
+
       <div className="bg-card flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
         <div>
           <p className="font-medium">Request payout</p>
@@ -157,12 +165,16 @@ export function HostRevenuePayoutsClient() {
             requestingPayout ||
             isLoading ||
             !requestPayout ||
-            requestPayout.hasCoOwnerObligations ||
-            (requestPayout.profileComplete && !requestPayout.canRequest)
+            !requestPayout.canRequest ||
+            !!requestPayout.pendingRequest
           }
           onClick={() => void handleRequestPayout()}
         >
-          {requestingPayout ? "Submitting…" : "Request payout"}
+          {requestingPayout
+            ? "Submitting…"
+            : requestPayout?.pendingRequest
+              ? "Request pending"
+              : "Request payout"}
         </Button>
       </div>
 

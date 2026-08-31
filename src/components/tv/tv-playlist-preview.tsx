@@ -5,6 +5,7 @@ import {
   ArrowRight,
   AudioLines,
   EyeIcon,
+  Info,
   MessageCircleMore,
   UsersRound,
 } from "lucide-react";
@@ -358,25 +359,20 @@ export function TvPlaylistPreview({
                 </div>
 
                 <div
-                  className="bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-0.5 px-1 py-0.5 shadow-2xl"
+                  className="bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-0.5 rounded-md px-1 py-2.5 shadow-2xl"
                   onClick={e => {
                     e.stopPropagation();
                     openCommentDrawer(item);
                   }}
                 >
-                  <button
-                    type="button"
-                    className="flex items-center gap-[0.25px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline outline-gray-400"
-                  >
-                    <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
-                      <span className="text-[8px] sm:text-[7px]">
-                        Video info:
-                      </span>
-                      <ArrowRight className="size-2 cursor-pointer" />
-                    </span>
-                  </button>
+                  <div className="flex w-fit items-center gap-1">
+                    <button
+                      type="button"
+                      className="cursor-pointer"
+                    >
+                      <Info className="size-3" />
+                    </button>
 
-                  <div className="flex w-fit items-center gap-0.5">
                     <span className="flex items-center gap-0.5 text-[9px]">
                       {flagUrl ? (
                         <img
@@ -384,15 +380,12 @@ export function TvPlaylistPreview({
                           alt={contentLanguage}
                           className="h-3 w-4 sm:h-2 sm:w-3"
                         />
-                      ) : null}{" "}
-                      <span className="text-[8px] sm:text-[6px]">
-                        {contentLanguage}
-                      </span>
+                      ) : null}
                     </span>
 
-                    <p className="w-[50px] rounded-md bg-gray-200 px-1 py-0.25 text-center text-[8px] text-black lg:text-[6px]">
+                    {/* <p className="w-[50px] rounded-md bg-gray-200 px-1 py-0.25 text-center text-[8px] text-black lg:text-[6px]">
                       {EVENT_TYPE_LABELS[item.channel.eventType] ?? "Other"}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
 

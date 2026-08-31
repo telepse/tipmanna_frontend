@@ -10,7 +10,10 @@ import {
   type HostSubscriptionMe,
   type HostSubscriptionStatus,
 } from "@/lib/host-plan-capabilities";
-import { authErrorCodeFromActionResult, isAuthSessionRequired } from "@/lib/host-auth-fetch";
+import {
+  authErrorCodeFromActionResult,
+  isAuthSessionRequired,
+} from "@/lib/host-auth-fetch";
 import { updateTipper } from "@/features/auth-slice";
 
 export type HostSubscriptionFetchError = {
@@ -62,7 +65,9 @@ export function useHostPlanCapabilities() {
   const fetchError: HostSubscriptionFetchError | null = error
     ? {
         message:
-          error instanceof Error ? error.message : "Failed to load subscription",
+          error instanceof Error
+            ? error.message
+            : "Failed to load subscription",
         validationBody:
           error instanceof Error && "validationBody" in error
             ? (error as { validationBody?: unknown }).validationBody
@@ -70,7 +75,9 @@ export function useHostPlanCapabilities() {
         requiresHostSession:
           error instanceof Error &&
           "requiresHostSession" in error &&
-          Boolean((error as { requiresHostSession?: boolean }).requiresHostSession),
+          Boolean(
+            (error as { requiresHostSession?: boolean }).requiresHostSession
+          ),
       }
     : null;
 

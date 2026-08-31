@@ -68,8 +68,7 @@ export function NotificationDetailModal({
               {isHostTipNotificationKind(row.kind) ? (
                 <TipNotificationDetails
                   payload={
-                    (row.payloadJson as Record<string, unknown> | null) ??
-                    null
+                    (row.payloadJson as Record<string, unknown> | null) ?? null
                   }
                   includeHost={Boolean(
                     (row.payloadJson as { audience?: string } | null)

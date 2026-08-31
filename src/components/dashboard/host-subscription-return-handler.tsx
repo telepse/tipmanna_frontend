@@ -26,9 +26,11 @@ export function HostSubscriptionReturnHandler() {
   const handleAuthRequiredError =
     hostAuth?.handleAuthRequiredError ??
     ((_result: unknown, _retry?: () => void) => false);
-  const requestHostAuth = hostAuth?.requestHostAuth ?? ((_onReady?: () => void) => {
-    void _onReady?.();
-  });
+  const requestHostAuth =
+    hostAuth?.requestHostAuth ??
+    ((_onReady?: () => void) => {
+      void _onReady?.();
+    });
   const canWriteAsHost = hostAuth?.canWriteAsHost ?? hostSessionActive;
 
   useEffect(() => {

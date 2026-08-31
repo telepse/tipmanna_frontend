@@ -15,7 +15,11 @@ import type { DiscoverCatalogSnapshot } from "@/lib/discover-catalog-cache";
 
 function normalizeListPayload<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[];
-  if (data && typeof data === "object" && Array.isArray((data as { data?: unknown }).data)) {
+  if (
+    data &&
+    typeof data === "object" &&
+    Array.isArray((data as { data?: unknown }).data)
+  ) {
     return (data as { data: T[] }).data;
   }
   return [];
@@ -25,19 +29,29 @@ function normalizeListPayload<T>(data: unknown): T[] {
 export async function fetchDiscoverCatalogSnapshot(): Promise<
   Omit<DiscoverCatalogSnapshot, "loadedAt">
 > {
-  const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, topCommRes, plRes] =
-    await Promise.all([
-      getAllFeaturedContentsAction(),
-      getDiscoverPanelLatestContents(),
-      getSpotlightContents(),
-      getRecommendedContents(),
-      getMostTippedContents(),
-      getLiveStreamContents(),
-      getDiscoveryProgramsAction(),
-      getAllTopTippers(),
-      getTopCommunitiesAction(3),
-      getDiscoveryPlaylistsAction(20),
-    ]);
+  const [
+    feat,
+    lat,
+    spot,
+    rec,
+    most,
+    liveRes,
+    progRes,
+    tipRes,
+    topCommRes,
+    plRes,
+  ] = await Promise.all([
+    getAllFeaturedContentsAction(),
+    getDiscoverPanelLatestContents(),
+    getSpotlightContents(),
+    getRecommendedContents(),
+    getMostTippedContents(),
+    getLiveStreamContents(),
+    getDiscoveryProgramsAction(),
+    getAllTopTippers(),
+    getTopCommunitiesAction(3),
+    getDiscoveryPlaylistsAction(20),
+  ]);
 
   let liveStreams = {
     upcoming: [] as unknown[],

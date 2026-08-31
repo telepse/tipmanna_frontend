@@ -32,7 +32,8 @@ export function isAndroidChromium(): boolean {
 export function isDesktopSafari(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
-  const isSafari = /Safari\//i.test(ua) && !/Chrome|CriOS|FxiOS|Edg\//i.test(ua);
+  const isSafari =
+    /Safari\//i.test(ua) && !/Chrome|CriOS|FxiOS|Edg\//i.test(ua);
   const isDesktop = !/iPhone|iPad|iPod|Android/i.test(ua);
   return isSafari && isDesktop && !isIosSafariNonStandalone();
 }
@@ -52,9 +53,7 @@ export function getPwaInstallInstructionVariant(): PwaInstallInstructionVariant 
   return "default";
 }
 
-export function getPwaInstallInstructions(options?: {
-  forPush?: boolean;
-}): {
+export function getPwaInstallInstructions(options?: { forPush?: boolean }): {
   variant: PwaInstallInstructionVariant;
   steps: string[];
   title: string;

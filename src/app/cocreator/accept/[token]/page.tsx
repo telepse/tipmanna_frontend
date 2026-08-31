@@ -153,7 +153,7 @@ export default function CoCreatorAcceptPage() {
     normEmail(user.email ?? "") !== normEmail(inviteEmail);
 
   const acceptPath = `/cocreator/accept/${encodeURIComponent(token)}`;
-  const signUpHref = `/create-account?email=${encodeURIComponent(inviteEmail ?? "")}&redirect=${encodeURIComponent(acceptPath)}`;
+  const signUpHref = `/sign-up?email=${encodeURIComponent(inviteEmail ?? "")}&redirect=${encodeURIComponent(acceptPath)}`;
   const signInHref = `/sign-in?email=${encodeURIComponent(inviteEmail ?? "")}&redirect=${encodeURIComponent(acceptPath)}`;
 
   return (

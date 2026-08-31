@@ -4,7 +4,10 @@ import {
   type ExploreChannelMetrics,
 } from "@/actions/contents";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
-import { mergeExploreChannelRows, isExploreReelReadyRow } from "@/lib/explore-channel-row-merge";
+import {
+  mergeExploreChannelRows,
+  isExploreReelReadyRow,
+} from "@/lib/explore-channel-row-merge";
 import { unwrapContentChannelRows } from "@/lib/content-channel-rows";
 
 function isPlayableChannelRow(row: unknown): row is Record<string, unknown> {

@@ -21,7 +21,7 @@ todos:
     content: "Phase 4: make start-community host-only, consolidate on the shared dialog, restore the signed-in entry point, host sign-in gating, and the 5-second countdown handoff to /host/{eventSlug}/host-community in a new tab"
     status: completed
   - id: phase5-identity-hygiene
-    content: "Phase 5: unrelated-host-email logout, clearHostSession on logout, host-required notice on the sign-in modal, already-signed-in notice with logout-to-switch on /sign-in, /create-account and modal tabs, delete dead public-route.tsx, audit EXISTING_HOST tag usage"
+    content: "Phase 5: unrelated-host-email logout, clearHostSession on logout, host-required notice on the sign-in modal, already-signed-in notice with logout-to-switch on /sign-in, /sign-up and modal tabs, delete dead public-route.tsx, audit EXISTING_HOST tag usage"
     status: completed
   - id: phase6-cohost-parity
     content: "Phase 6: full cohost parity on all event-scoped routes including video-display-settings and toggle-pin (fixing its missing ownership check), frontend canManageRoomContent everywhere, missing auth headers on performers/projects modals, cohost stale-session modal, invite dispatch for creation-time cohosts"
@@ -68,7 +68,7 @@ Reads and affordances only. Never mutates host-owned data, never exposes host-pr
 - List own event rooms for the create dialog and TV source picker (`GET /events/host/me/summary`)
 - Recognize own creator profile (no Save Host button, Edit button visible but gated on click)
 - Owner and co-creator badges, "Manage" affordances rendered
-- Nav sends a linked tipper to host sign-in rather than `/create-account`
+- Nav sends a linked tipper to host sign-in rather than `/sign-up`
 - **Add videos to an existing owned event room/channel from the create dialog** (surface-scoped, see Phase 3)
 
 ### Tier B - active host session mandatory; stale opens the host login modal and resumes
@@ -157,7 +157,7 @@ Today `POST /communities/start-interest` in [backend/src/routes/community-discov
 - **Unrelated host account:** in [frontend/src/components/auth/signin-form.tsx](frontend/src/components/auth/signin-form.tsx), `tipperKeepsPrimarySession` (lines 234-255) checks only role and callback presence, never email. Add an email/id comparison against the signed-in tipper: on mismatch, run `performAuthLogout`, clear the host session, and make the host the primary session. Dual sessions are only ever the linked pair.
 - `performAuthLogout` in [frontend/src/lib/auth-logout.ts](frontend/src/lib/auth-logout.ts) does not call `clearHostSession()`; host cookies currently survive logout. Fix.
 - **Modal requirement notice:** add a prop to [frontend/src/components/auth/sign-in-dialog.tsx](frontend/src/components/auth/sign-in-dialog.tsx) that renders a visible notice ("This action needs your host creator account") and lands on the Host creator tab, used everywhere a Tier B action triggers sign-in. Reading your note as host-required, since the surrounding sentence says the action requires host rather than tipper sign-in - flag if you meant the reverse.
-- **Already-signed-in states:** add a shared notice component showing who is signed in plus a "Log out to use a different account" button, mounted on `/sign-in` and `/create-account` (neither guards today), and on the modal's tipper and host tabs. Do not auto-redirect - you asked for an indicator with a logout affordance. [frontend/src/components/public-route.tsx](frontend/src/components/public-route.tsx) is dead code that would redirect instead; delete it.
+- **Already-signed-in states:** add a shared notice component showing who is signed in plus a "Log out to use a different account" button, mounted on `/sign-in` and `/sign-up` (neither guards today), and on the modal's tipper and host tabs. Do not auto-redirect - you asked for an indicator with a logout affordance. [frontend/src/components/public-route.tsx](frontend/src/components/public-route.tsx) is dead code that would redirect instead; delete it.
 - **Never assume a host account:** audit every `tag === "EXISTING_HOST"` consumer so the tag drives copy only, never authorization. Authorization comes from `GET /auth/me/host-link`.
 
 ## Phase 6 - Cohost parity and cohost session
@@ -188,6 +188,6 @@ Today `POST /communities/start-interest` in [backend/src/routes/community-discov
 - Event room add-video button with a stale host session prompts host login; the create dialog path does not.
 - Cohost succeeds on every event-room action in the invited room and 403s in a sibling room owned by the same host; after 7 idle days the UI still renders but actions prompt cohost re-login while the tipper session persists.
 - Start community: signed-out user is asked for host sign-in/sign-up with a visible host-required notice, sees the form, submits, and is handed off to `/host/{eventSlug}/host-community` in a new tab after the countdown.
-- Signing into an unrelated host account ends the tipper session; `/sign-in` and `/create-account` show the signed-in notice with a working logout-to-switch button.
+- Signing into an unrelated host account ends the tipper session; `/sign-in` and `/sign-up` show the signed-in notice with a working logout-to-switch button.
 - Tipper stays signed in across 60 days of activity; host session goes stale after 7 days without a dashboard visit or host login.
 - Tipmanna Public appears in no search, browse, A-Z, top-communities, discovery, or sitemap surface, but still shows in My Community.

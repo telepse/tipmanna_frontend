@@ -35,15 +35,18 @@ export function useHostSubscriptionPrompt(options?: Options) {
   const [title, setTitle] = useState<string | undefined>();
   const [description, setDescription] = useState<string | undefined>();
 
-  const openForLapsed = useCallback((tier: "premium" | "community" = "premium") => {
-    setFocusTier(tier);
-    setRenewLabel("Renew plan");
-    setTitle("Renew your host plan");
-    setDescription(
-      "Your subscription has lapsed. Renew to unlock Growth and Community features."
-    );
-    setOpen(true);
-  }, []);
+  const openForLapsed = useCallback(
+    (tier: "premium" | "community" = "premium") => {
+      setFocusTier(tier);
+      setRenewLabel("Renew plan");
+      setTitle("Renew your host plan");
+      setDescription(
+        "Your subscription has lapsed. Renew to unlock Growth and Community features."
+      );
+      setOpen(true);
+    },
+    []
+  );
 
   const openForRequired = useCallback(
     (tier: "premium" | "community" = "premium") => {

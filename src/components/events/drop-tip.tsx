@@ -46,7 +46,9 @@ export const DropTip = ({ eventId }: { eventId: string }) => {
     if (!amount || Number(amount) <= 0) return;
 
     const pending = readPendingTipBroadcast();
-    const tips = pending?.selectedTips?.length ? pending.selectedTips : selectedTips;
+    const tips = pending?.selectedTips?.length
+      ? pending.selectedTips
+      : selectedTips;
     if (!tips?.length) return;
 
     const transactionId = resolvePaidTipTransactionId();

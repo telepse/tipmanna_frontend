@@ -6,10 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DRAWER_OVERLAY_Z_INDEX,
-  DRAWER_Z_INDEX,
-} from "@/lib/drawer-z-index";
+import { DRAWER_OVERLAY_Z_INDEX, DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
 import { cn } from "@/lib/utils";
 import { CommunityHowToJoinSection } from "@/components/community/community-how-to-join-section";
 

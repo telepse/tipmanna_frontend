@@ -51,7 +51,9 @@ export function buildExploreFeedOpenTarget(args: {
     videoId: args.content.id,
     eventId,
     ...(args.channelSnapshot ? { channelSnapshot: args.channelSnapshot } : {}),
-    ...(args.discoverReturnTo ? { discoverReturnTo: args.discoverReturnTo } : {}),
+    ...(args.discoverReturnTo
+      ? { discoverReturnTo: args.discoverReturnTo }
+      : {}),
     ...(args.discoverReturnLabel
       ? { discoverReturnLabel: args.discoverReturnLabel }
       : {}),

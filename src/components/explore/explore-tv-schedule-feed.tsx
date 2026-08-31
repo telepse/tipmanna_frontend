@@ -362,7 +362,9 @@ export function ExploreTvScheduleFeed({
           {dedicatedCommunityId && tvSource === dedicatedCommunityId ? (
             <p className="text-muted-foreground mb-1 flex items-center gap-1 text-[10px]">
               <span className="font-medium">Dedicated mode</span>
-              {lockedLabel ? `· ${lockedLabel.replace(/^Locked to /, "")}` : null}
+              {lockedLabel
+                ? `· ${lockedLabel.replace(/^Locked to /, "")}`
+                : null}
             </p>
           ) : null}
           {tvSourceLocked ? (

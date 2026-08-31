@@ -35,9 +35,9 @@ describe("Discover explore handoff contract", () => {
 
     for (const content of liveCases) {
       expect(shouldOpenLiveInChannelClient(content)).toBe(true);
-      expect(
-        resolveDiscoverContentTarget(content, "explorePanel", true)
-      ).toBe("channel");
+      expect(resolveDiscoverContentTarget(content, "explorePanel", true)).toBe(
+        "channel"
+      );
     }
   });
 

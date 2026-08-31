@@ -12,8 +12,6 @@ type Cause = {
   name: string;
 };
 
-
-
 export type TippedVideoSummary = {
   videoChannelId: string;
   videoTitle: string | null;

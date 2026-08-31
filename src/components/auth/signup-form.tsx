@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, Loader2 } from "lucide-react";
+import { Eye, Info, Loader2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -73,6 +73,12 @@ export const SignupForm = () => {
   const dispatch = useDispatch<AppDispatch>();
   const authUser = useSelector((s: RootState) => s.auth.user);
   const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
+
+  const [showTipperInfo, setShowTipperInfo] = useState(false);
+
+  const toggleTipperInfo = () => {
+    setShowTipperInfo(prev => !prev);
+  };
 
   const togglePasswordVisibility = () => {
     setShowPassword(prev => !prev);
@@ -302,10 +308,27 @@ export const SignupForm = () => {
           align="center"
           size="sm"
           color="muted"
+          className="relative flex items-center justify-center gap-1"
         >
           {userType === "host"
-            ? "Add content or event - co-owners can sign up here with their invite email"
-            : "Engage on content and join event"}
+            ? "Add content / event / community"
+            : "Send tips and join communities"}
+
+          {userType === "host" ? null : (
+            <span
+              onClick={toggleTipperInfo}
+              className="cursor-pointer"
+            >
+              <Info className="size-3" />
+            </span>
+          )}
+
+          {userType !== "host" && (
+            <span className="absolute top-4 right-0 left-0 block w-full text-center text-[10px]">
+              {showTipperInfo &&
+                "- a host creator account gets you a tipper account by default"}
+            </span>
+          )}
         </Paragraph>
 
         {/* Host form */}

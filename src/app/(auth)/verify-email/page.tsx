@@ -173,7 +173,7 @@ export default function VerifyEmailPage() {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center">
       <Link
-        href="/create-account"
+        href="/sign-up"
         className="hover:bg-secondary absolute top-4 left-4 flex w-fit items-center gap-2 rounded-full px-4 py-2 text-base sm:top-8 sm:left-8 sm:text-lg"
       >
         <MoveLeft /> Back

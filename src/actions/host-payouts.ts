@@ -59,6 +59,15 @@ export type HostPayoutObligationRow = {
   }>;
 };
 
+export type PayoutRequestReason =
+  | "profile_incomplete"
+  | "co_owner_outstanding"
+  | "payouts_frozen"
+  | "no_balance"
+  | "cooldown"
+  | "request_pending"
+  | "eligible";
+
 export type HostPayoutRequestStatus = {
   profileComplete: boolean;
   profileAccountType: "INDIVIDUAL" | "ORGANIZATION" | null;
@@ -66,6 +75,19 @@ export type HostPayoutRequestStatus = {
   hasCoOwnerObligations: boolean;
   payoutsFrozen: boolean;
   canRequest: boolean;
+  reasons: PayoutRequestReason[];
+  cooldownEndsAt: string | null;
+  pendingMinor?: number;
+  payableBreakdown?: {
+    eventTipsMinor: number;
+    communitySubscriptionMinor: number;
+  };
+  pendingRequest: {
+    id: string;
+    amountMinor: number;
+    requestedAt: string;
+    status: string;
+  } | null;
 };
 
 export type HostPayoutSummaryResponse = {
@@ -120,6 +142,13 @@ export async function requestHostPayoutAction(token?: string | null) {
     ok?: boolean;
     message?: string;
     pendingMinor?: number;
+    created?: boolean;
+    request?: {
+      id: string;
+      amountMinor: number;
+      status: string;
+      requestedAt: string;
+    };
   }>(
     `${api()}/me/payouts/request`,
     {

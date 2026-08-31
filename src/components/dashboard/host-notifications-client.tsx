@@ -57,9 +57,7 @@ export function HostNotificationsClient() {
       await markHostNotificationReadAction(row.id);
       setRows(prev =>
         prev.map(r =>
-          r.id === row.id
-            ? { ...r, readAt: new Date().toISOString() }
-            : r
+          r.id === row.id ? { ...r, readAt: new Date().toISOString() } : r
         )
       );
     }
@@ -118,10 +116,8 @@ export function HostNotificationsClient() {
               <button
                 type="button"
                 className={cn(
-                  "w-full rounded-md border p-4 text-left transition-colors hover:bg-muted/50",
-                  row.readAt
-                    ? "opacity-70"
-                    : "border-primary/30 bg-primary/5"
+                  "hover:bg-muted/50 w-full rounded-md border p-4 text-left transition-colors",
+                  row.readAt ? "opacity-70" : "border-primary/30 bg-primary/5"
                 )}
                 onClick={() => void openRow(row)}
               >
