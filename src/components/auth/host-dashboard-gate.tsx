@@ -20,6 +20,7 @@ function HostDashboardGateInner({ children }: Props) {
   const user = useSelector((s: RootState) => s.auth.user);
   const hostSession = useHostSessionContextOptional();
   const authRequestedRef = useRef(false);
+  const hadWriteGrantRef = useRef(false);
 
   const auth = useHostCapabilityWithAuth({ hostRequiredNotice: true });
   const {
@@ -43,13 +44,19 @@ function HostDashboardGateInner({ children }: Props) {
     hostSession?.code === "HOST_SESSION_PROBE_FAILED";
 
   useEffect(() => {
+    if (canWriteAsHost) {
+      hadWriteGrantRef.current = true;
+    }
+
     if (!user || user.role === "VISITOR") {
       router.replace("/sign-in");
       return;
     }
 
     if (probeLoading) {
-      setReady(false);
+      if (!hadWriteGrantRef.current) {
+        setReady(false);
+      }
       return;
     }
 

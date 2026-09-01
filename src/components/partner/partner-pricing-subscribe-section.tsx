@@ -19,7 +19,7 @@ export function PartnerPricingSubscribeSection() {
 
   const handleSignInSuccess = (payload: SignInModalPayload) => {
     const slug = payload.eventSlug ?? payload.username;
-    if (payload.role === "HOST" && slug) {
+    if (slug) {
       window.location.href = `/host/${encodeURIComponent(slug)}/host-premium`;
       return;
     }

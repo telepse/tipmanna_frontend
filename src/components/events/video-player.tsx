@@ -36,28 +36,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { YoutubeChromeMask } from "@/components/youtube-chrome-mask";
 import { onYoutubeIframeApiReady } from "@/lib/youtube-iframe-api-loader";
+import { loadReelSoundPref, persistReelSoundPref } from "@/lib/session-audio";
 
-const REEL_SOUND_SESSION_KEY = "tipmanna_yt_explore_sound_on";
-
-function persistReelSoundPref(on: boolean) {
-  try {
-    if (typeof window === "undefined") return;
-    window.sessionStorage?.setItem(REEL_SOUND_SESSION_KEY, on ? "1" : "0");
-  } catch {
-    /* noop */
-  }
-}
-
-export function loadReelSoundPref(): boolean {
-  try {
-    return (
-      typeof window !== "undefined" &&
-      window.sessionStorage?.getItem(REEL_SOUND_SESSION_KEY) === "1"
-    );
-  } catch {
-    return false;
-  }
-}
+export { loadReelSoundPref } from "@/lib/session-audio";
 
 declare global {
   interface Window {

@@ -39,51 +39,8 @@ export function useHostCapability(options?: Options) {
   const hostSession = useHostSessionContextOptional();
   const [link, setLink] = useState<HostLinkResponse | null>(null);
   const [linkLoading, setLinkLoading] = useState(enabled);
-  const refreshEpochRef = useRef(0);
+  const canWriteRef = useRef(false);
 
-  const refreshLink = useCallback(async () => {
-    if (!enabled || !isAuthenticated || !user) {
-      setLink(null);
-      setLinkLoading(false);
-      return;
-    }
-    if (user.role === "VISITOR") {
-      setLink(null);
-      setLinkLoading(false);
-      return;
-    }
-    setLinkLoading(true);
-    const token = getAuthToken();
-    const res = await getHostLinkAction(token);
-    refreshEpochRef.current += 1;
-    if (res.success && res.data) {
-      setLink(res.data);
-      if (
-        res.data.hostId &&
-        hostSession &&
-        !hostSession.isLoading &&
-        !hostSession.isActive
-      ) {
-        await clearStaleHostSessionIfMismatch(res.data.hostId);
-      }
-    } else {
-      setLink(null);
-    }
-    setLinkLoading(false);
-  }, [enabled, hostSession, isAuthenticated, user]);
-
-  const refresh = useCallback(async () => {
-    await Promise.all([
-      refreshLink(),
-      hostSession?.refresh?.() ?? Promise.resolve(),
-    ]);
-  }, [hostSession, refreshLink]);
-
-  useEffect(() => {
-    void refreshLink();
-  }, [refreshLink]);
-
-  const sessionLoading = hostSession?.isLoading ?? false;
   const hostSessionActive = (() => {
     if (!link?.hostId) return false;
     if (hostSession) {
@@ -101,7 +58,57 @@ export function useHostCapability(options?: Options) {
     return hasActiveHostSession(link.hostId);
   })();
 
-  const loading = linkLoading || (hostSession != null ? sessionLoading : false);
+  const refreshLink = useCallback(async () => {
+    if (!enabled || !isAuthenticated || !user) {
+      setLink(null);
+      setLinkLoading(false);
+      return;
+    }
+    if (user.role === "VISITOR") {
+      setLink(null);
+      setLinkLoading(false);
+      return;
+    }
+    if (!canWriteRef.current) {
+      setLinkLoading(true);
+    }
+    const token = getAuthToken();
+    const res = await getHostLinkAction(token);
+    if (res.success && res.data) {
+      setLink(res.data);
+    } else {
+      setLink(null);
+    }
+    setLinkLoading(false);
+  }, [enabled, isAuthenticated, user?.id, user?.role]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      refreshLink(),
+      hostSession?.refresh?.() ?? Promise.resolve(),
+    ]);
+  }, [hostSession?.refresh, refreshLink]);
+
+  useEffect(() => {
+    void refreshLink();
+  }, [refreshLink]);
+
+  useEffect(() => {
+    if (
+      link?.hostId &&
+      hostSession &&
+      !hostSession.isLoading &&
+      !hostSession.isActive
+    ) {
+      void clearStaleHostSessionIfMismatch(link.hostId);
+    }
+  }, [link?.hostId, hostSession?.isActive, hostSession?.isLoading]);
+
+  const sessionLoading = hostSession?.isLoading ?? false;
+
+  const loading =
+    (linkLoading && !(link?.hasHost && hostSessionActive)) ||
+    (sessionLoading && !hostSessionActive);
 
   const capability: HostCapability = (() => {
     if (!enabled || !isAuthenticated || !user || user.role === "VISITOR") {
@@ -130,6 +137,7 @@ export function useHostCapability(options?: Options) {
   const canReadAsHost =
     capability.status === "active" || capability.status === "stale";
   const canWriteAsHost = capability.status === "active";
+  canWriteRef.current = canWriteAsHost;
 
   return {
     capability,

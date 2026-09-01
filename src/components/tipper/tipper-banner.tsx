@@ -400,9 +400,7 @@ export const TipperBanner = ({
   const handleSwitchAccount = () => {
     if (!user) return;
 
-    if (user.role === "HOST") {
-      router.push(`/sign-in?email=${encodeURIComponent(user.email)}`);
-    } else if (user.role === "TIPPER") {
+    if (user.role === "TIPPER") {
       if (canReadAsHost) {
         requestHostAuth(() => {
           const slug =

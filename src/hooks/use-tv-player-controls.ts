@@ -32,6 +32,24 @@ export function useTvPlayerControls(opts: {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(() => readTvMutePref());
   const intentGraceUntilRef = useRef(0);
+  const pendingMuteRef = useRef<boolean | null>(null);
+
+  const applyMuteToPlayer = useCallback(
+    (muted: boolean) => {
+      const player = playerRef.current;
+      if (!player?.isReady()) return false;
+      safeYoutubeCall(() => {
+        if (muted) {
+          player.mute();
+        } else {
+          player.unmute();
+          player.setVolume(100);
+        }
+      }, undefined);
+      return true;
+    },
+    [playerRef]
+  );
 
   const markUserIntent = useCallback(() => {
     intentGraceUntilRef.current = Date.now() + USER_INTENT_GRACE_MS;
@@ -42,18 +60,12 @@ export function useTvPlayerControls(opts: {
   }, [isPlaying, setPlayerPlayingState]);
 
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player?.isReady()) return;
-
-    safeYoutubeCall(() => {
-      if (isMuted) {
-        player.mute();
-      } else {
-        player.unmute();
-        player.setVolume(100);
-      }
-    }, undefined);
-  }, [isMuted, playerRef]);
+    if (!applyMuteToPlayer(isMuted)) {
+      pendingMuteRef.current = isMuted;
+      return;
+    }
+    pendingMuteRef.current = null;
+  }, [applyMuteToPlayer, isMuted, playerRef]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -88,11 +100,23 @@ export function useTvPlayerControls(opts: {
   }, [playerRef]);
 
   const onPlayerReady = useCallback(() => {
-    const player = playerRef.current;
+    const pending = pendingMuteRef.current;
+    const targetMuted = pending ?? isMuted;
+    if (pending != null) {
+      pendingMuteRef.current = null;
+      setIsMuted(targetMuted);
+      writeTvMutePref(targetMuted);
+    }
     safeYoutubeCall(() => {
+      const player = playerRef.current;
       player?.syncMuteFromPlayer?.();
-      if (player?.isReady() && isMuted) {
-        player.mute();
+      if (player?.isReady()) {
+        if (targetMuted) {
+          player.mute();
+        } else {
+          player.unmute();
+          player.setVolume(100);
+        }
       }
     }, undefined);
     syncFromPlayer();
@@ -113,16 +137,18 @@ export function useTvPlayerControls(opts: {
 
   const toggleMute = useCallback(() => {
     markUserIntent();
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    writeTvMutePref(nextMuted);
     const player = playerRef.current;
-    if (!player?.isReady()) return;
-    if (isMuted) {
-      unmuteOnly(player, "TvLooper.toggleMute");
-      setIsMuted(false);
-      writeTvMutePref(false);
-    } else {
+    if (!player?.isReady()) {
+      pendingMuteRef.current = nextMuted;
+      return;
+    }
+    if (nextMuted) {
       safeYoutubeCall(() => player.mute(), undefined);
-      setIsMuted(true);
-      writeTvMutePref(true);
+    } else {
+      unmuteOnly(player, "TvLooper.toggleMute");
     }
   }, [isMuted, markUserIntent, playerRef]);
 

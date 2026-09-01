@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
-import { isHostRole } from "@/lib/is-host-role";
+import { useHostSession } from "@/hooks/use-host-session";
 import { toast } from "react-toastify";
 import type { SignInModalPayload } from "@/components/auth/sign-in-dialog";
 import type { Swiper as SwiperType } from "swiper";
@@ -42,10 +42,8 @@ const Swiper = dynamic(() => import("swiper/react").then(m => m.Swiper), {
   ssr: false,
 });
 
-function hostDashboardSlug(user: RootState["auth"]["user"]): string | null {
-  if (!user || !isHostRole(user.role)) return null;
-  if ("eventSlug" in user && user.eventSlug) return user.eventSlug;
-  return null;
+function hostDashboardSlug(eventSlug: string | null): string | null {
+  return eventSlug?.trim() || null;
 }
 
 export default function NewPricingGrid() {
@@ -66,7 +64,10 @@ export default function NewPricingGrid() {
     (state: RootState) => state.auth
   );
 
-  const isSignedInHost = isAuthenticated && !!user && isHostRole(user.role);
+  const { isActive: hostSessionActive, eventSlug: hostEventSlug } =
+    useHostSession();
+
+  const isSignedInHost = hostSessionActive;
 
   useEffect(() => {
     void getPlanPricingAction().then(res => {
@@ -109,7 +110,7 @@ export default function NewPricingGrid() {
         return;
       }
 
-      const slug = hostDashboardSlug(user);
+      const slug = hostDashboardSlug(hostEventSlug);
 
       if (!slug) {
         toast.error("Unable to open host dashboard. Please sign in again.");
@@ -132,7 +133,7 @@ export default function NewPricingGrid() {
           break;
       }
     },
-    [isSignedInHost, push, user]
+    [hostEventSlug, isSignedInHost, push]
   );
 
   const handleSeeMoreChange = useCallback((open: boolean) => {

@@ -156,10 +156,7 @@ export function HostCreatorPageClient({
   const showBottomExpressNav =
     !isDrawer &&
     !isOwnProfile &&
-    (!isAuthenticated ||
-      user?.role === "HOST" ||
-      user?.role === "TIPPER" ||
-      user?.role === "VISITOR");
+    (!isAuthenticated || user?.role === "TIPPER" || user?.role === "VISITOR");
 
   const viewerCreatorProfileHref =
     isAuthenticated &&
@@ -295,10 +292,8 @@ export function HostCreatorPageClient({
     setSignInOpen(false);
 
     const hostUsername =
-      payload.role === "HOST"
-        ? (payload.username ??
-          (user && "username" in user ? user.username : undefined))
-        : undefined;
+      payload.username ??
+      (user && "username" in user ? user.username : undefined);
 
     if (hostUsername && !pendingStartCommunity) {
       router.push(buildCreatorProfileSharePath(hostUsername));
@@ -925,7 +920,7 @@ function SecondaryStats({
   );
 }
 
-// /** All videos tab */
+/** All videos tab */
 function AllVideosTabContent({
   events,
   coOwnedVideos,
@@ -947,16 +942,15 @@ function AllVideosTabContent({
   );
 
   /**
-   * If this creator was added as a co-owner by another party,
-   * use the videos from that co-ownership relationship.
-   *
-   * Otherwise, fall back to the creator's regular co-owned videos.
+   * Party co-owner videos: approved submissions this creator was invited to.
+   * Kept separate from own-event `coOwnedVideos` and never merged into All.
    */
-  const coOwnedSubtabVideos =
-    coOwnerPartyVideos.length > 0 ? coOwnerPartyVideos : coOwnedVideos;
-
-  /** Locked invite name from the co-owner record (unique per email). */
+  const hasPartyCoOwnerVideos = coOwnerPartyVideos.length > 0;
   const trimmedCoOwnerInviteName = coOwnerPartyName?.trim() ?? "";
+
+  const coOwnedSubtabVideos = hasPartyCoOwnerVideos
+    ? coOwnerPartyVideos
+    : coOwnedVideos;
 
   const coOwnedSubtabLabel = trimmedCoOwnerInviteName
     ? `${trimmedCoOwnerInviteName} co-owner videos`
@@ -967,6 +961,12 @@ function AllVideosTabContent({
   const [activeVideosSubtab, setActiveVideosSubtab] = useState<
     "all" | typeof CO_OWNED_VIDEOS_SUBTAB_ID
   >("all");
+
+  useEffect(() => {
+    if (allVideos.length === 0 && hasPartyCoOwnerVideos) {
+      setActiveVideosSubtab(CO_OWNED_VIDEOS_SUBTAB_ID);
+    }
+  }, [allVideos.length, hasPartyCoOwnerVideos]);
 
   /**
    * Don't hide the co-owned subtab simply because the creator
@@ -1033,140 +1033,6 @@ function AllVideosTabContent({
     </div>
   );
 }
-
-/** All videos tab */
-// function AllVideosTabContent({
-//   events,
-//   coOwnedVideos,
-//   coOwnerPartyVideos,
-//   coOwnerPartyName,
-//   creatorName,
-//   onPlay,
-//   isOwnProfile,
-// }: {
-//   events: HostCreatorEvent[];
-//   coOwnedVideos: HostCreatorVideo[];
-//   coOwnerPartyVideos: HostCreatorVideo[];
-//   coOwnerPartyName: string | null;
-//   creatorName: string;
-//   onPlay: (video: HostCreatorVideo) => void;
-//   isOwnProfile: boolean;
-// }) {
-//   const allVideos = useMemo(
-//     () => events.flatMap(event => event.videos),
-//     [events]
-//   );
-
-//   /**
-//    * If this creator was added as a co-owner by another party,
-//    * use the videos belonging to that co-ownership relationship.
-//    *
-//    * Otherwise, fall back to the creator's regular co-owned videos.
-//    */
-//   const coOwnedSubtabVideos = coOwnerPartyName
-//     ? coOwnerPartyVideos
-//     : coOwnedVideos;
-
-//   /**
-//    * The label represents the party that added this creator
-//    * as a co-owner.
-//    *
-//    * Example:
-//    *   Profile: Annette
-//    *   Added as co-owner by: Emediong
-//    *
-//    *   Display:
-//    *   "Emediong co-owned videos"
-//    *
-//    * If there is no co-owner party name, fall back to the
-//    * generic "Co-owned videos" label.
-//    */
-//   const trimmedCoOwnerPartyName = coOwnerPartyName?.trim() ?? "";
-
-//   const coOwnedSubtabLabel = trimmedCoOwnerPartyName
-//     ? `${trimmedCoOwnerPartyName} co-owned videos`
-//     : "Co-owned videos";
-
-//   const showCoOwnedSubtab =
-//     coOwnedSubtabVideos.length > 0 ||
-//     isOwnProfile ||
-//     Boolean(trimmedCoOwnerPartyName);
-
-//   const [activeVideosSubtab, setActiveVideosSubtab] = useState<
-//     "all" | typeof CO_OWNED_VIDEOS_SUBTAB_ID
-//   >("all");
-
-//   /**
-//    * Allow the All Videos tab to render even when there are no
-//    * regular channel videos but co-owned videos are available.
-//    */
-//   const hasVideosToDisplay =
-//     allVideos.length > 0 || coOwnedSubtabVideos.length > 0;
-
-//   if (!hasVideosToDisplay) {
-//     return isOwnProfile ? (
-//       <EmptyTabMessage message="Add a video to one of your channels or create a new channel." />
-//     ) : (
-//       <EmptyTabMessage message="No videos available yet." />
-//     );
-//   }
-
-//   console.log("creatorName", creatorName);
-//   console.log("coOwnerPartyName", coOwnerPartyName);
-//   console.log("coOwnerPartyVideos", coOwnerPartyVideos);
-
-//   return (
-//     <div>
-//       <CreatorSubtabBar stickyClassName="top-[5.75rem]">
-//         <CreatorSubtabButton
-//           active={activeVideosSubtab === "all"}
-//           onClick={() => setActiveVideosSubtab("all")}
-//         >
-//           All
-//         </CreatorSubtabButton>
-
-//         {showCoOwnedSubtab ? (
-//           <CreatorSubtabButton
-//             subtabId={CO_OWNED_VIDEOS_SUBTAB_ID}
-//             active={activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID}
-//             onClick={() =>
-//               setActiveVideosSubtab(CO_OWNED_VIDEOS_SUBTAB_ID)
-//             }
-//             subtabLabel={coOwnedSubtabLabel}
-//           >
-//             {coOwnedSubtabLabel}
-//           </CreatorSubtabButton>
-//         ) : null}
-//       </CreatorSubtabBar>
-
-//       {activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID ? (
-//         coOwnedSubtabVideos.length === 0 ? (
-//           <p className="text-muted-foreground px-4 py-8 text-center text-sm">
-//             No co-owned videos yet.
-//           </p>
-//         ) : (
-//           <VideoCardGrid
-//             videos={coOwnedSubtabVideos}
-//             onPlay={onPlay}
-//           />
-//         )
-//       ) : allVideos.length === 0 ? (
-//         <EmptyTabMessage
-//           message={
-//             isOwnProfile
-//               ? "Add a video to one of your channels or create a new channel."
-//               : "No videos available yet."
-//           }
-//         />
-//       ) : (
-//         <VideoCardGrid
-//           videos={allVideos}
-//           onPlay={onPlay}
-//         />
-//       )}
-//     </div>
-//   );
-// }
 
 /** Channels tab: co-owned videos first, then sub-tabs per event channel. */
 function ChannelsTabContent({
@@ -1870,6 +1736,7 @@ function CommunityBannerSection({
   isOwnProfile?: boolean;
 }) {
   const hostSession = useHostSession();
+  const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
   const pathname = usePathname();
   const hostSlug = hostSession.eventSlug?.trim() || "";
   const joinHref = exploreCommunityJoinHref(community.id);
@@ -1979,6 +1846,7 @@ function CommunityBannerSection({
         compact && "mx-auto"
       )}
     >
+      {HostAuthModal}
       <button
         type="button"
         disabled={community.locked}
@@ -2176,7 +2044,7 @@ function CommunityBannerSection({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setAddVideoOpen(true)}
+              onClick={() => requestHostAuth(() => setAddVideoOpen(true))}
             >
               Add community video
             </Button>

@@ -14,16 +14,26 @@ import type { RootState } from "@/redux/store";
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 const INITIAL_TOUCH_DELAY_MS = 3_000;
 
+async function touchHostSession(): Promise<Response | null> {
+  return fetch("/api/auth/host-session/touch", {
+    method: "POST",
+    credentials: "include",
+  }).catch(() => null);
+}
+
 /** Refreshes host session cookies while the user is on the host dashboard. */
 export function HostDashboardSessionTouch() {
   const user = useSelector((s: RootState) => s.auth.user);
   const hostSession = useHostSessionContextOptional();
+  const hostId = hostSession?.hostId ?? null;
+  const hostSessionLoading = hostSession?.isLoading ?? false;
+  const refreshHostSession = hostSession?.refresh;
   const lastTouchRef = useRef(0);
   const initialTouchDoneRef = useRef(false);
 
   useEffect(() => {
     const touch = async (options?: { force?: boolean }) => {
-      if (hostSession?.isLoading && !options?.force) return;
+      if (hostSessionLoading && !options?.force) return;
 
       const now = Date.now();
       if (!options?.force && now - lastTouchRef.current < TOUCH_INTERVAL_MS) {
@@ -45,15 +55,14 @@ export function HostDashboardSessionTouch() {
         ).catch(() => {});
       }
 
-      const res = await fetch("/api/auth/host-session/touch", {
-        method: "POST",
-        credentials: "include",
-      }).catch(() => null);
-
+      let res = await touchHostSession();
       if (!res) return;
 
       if (res.status === 401 || res.status === 403) {
-        await clearHostSession();
+        res = await touchHostSession();
+        if (res?.status === 401 || res?.status === 403) {
+          await clearHostSession();
+        }
         return;
       }
 
@@ -67,13 +76,13 @@ export function HostDashboardSessionTouch() {
                 detail: {
                   active: true,
                   hostSessionExpiresAt: body.hostSessionExpiresAt,
-                  hostId: hostSession?.hostId ?? undefined,
+                  hostId: hostId ?? undefined,
                 },
               }
             )
           );
         } catch {
-          await hostSession?.refresh();
+          await refreshHostSession?.();
         }
       }
     };
@@ -88,7 +97,7 @@ export function HostDashboardSessionTouch() {
 
     const id = window.setInterval(() => void touch(), TOUCH_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [hostSession, user]);
+  }, [hostId, hostSessionLoading, refreshHostSession, user?.id]);
 
   return null;
 }

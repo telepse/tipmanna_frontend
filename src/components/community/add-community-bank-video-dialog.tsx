@@ -10,6 +10,7 @@ import {
   buildCreateChannelPayload,
   type AddVideoFormValues,
 } from "@/components/events/add-video-form";
+import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,8 @@ export function AddCommunityBankVideoDialog({
   seedDraftId: seedDraftIdProp = null,
   onSuccess,
 }: Props) {
+  const { handleAuthRequiredError, HostAuthModal } =
+    useHostCapabilityWithAuth();
   const [addLoading, setAddLoading] = useState(false);
   const [addVideoForm, setAddVideoForm] =
     useState<UseFormReturn<AddVideoFormValues> | null>(null);
@@ -64,6 +67,13 @@ export function AddCommunityBankVideoDialog({
         { useHostSession: true }
       );
       if (!res.success) {
+        if (
+          handleAuthRequiredError(res, () => {
+            void onAddVideo(values);
+          })
+        ) {
+          return;
+        }
         if (addVideoForm) {
           applyServerFormErrors(
             addVideoForm,
@@ -92,35 +102,38 @@ export function AddCommunityBankVideoDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-    >
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add video to community bank</DialogTitle>
-        </DialogHeader>
-        <AddVideoForm
-          onSubmit={onAddVideo}
-          loading={addLoading}
-          eventEventType={eventEventType}
-          showHostYoutubeSlot
-          requirePolicyFields
-          onFormReady={setAddVideoForm}
-          onDraftIdChange={setModalDraftId}
-          draftAutosave={{
-            kind: "community_video",
-            targetId: communityId,
-            enabled: true,
-            resumeOrigin: {
-              surface: "host_community",
-              pathname: resumePathname,
+    <>
+      {HostAuthModal}
+      <Dialog
+        open={open}
+        onOpenChange={onOpenChange}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add video to community bank</DialogTitle>
+          </DialogHeader>
+          <AddVideoForm
+            onSubmit={onAddVideo}
+            loading={addLoading}
+            eventEventType={eventEventType}
+            showHostYoutubeSlot
+            requirePolicyFields
+            onFormReady={setAddVideoForm}
+            onDraftIdChange={setModalDraftId}
+            draftAutosave={{
+              kind: "community_video",
               targetId: communityId,
-            } satisfies DraftResumeOrigin,
-          }}
-          seedDraftId={modalDraftId ?? seedDraftIdProp}
-        />
-      </DialogContent>
-    </Dialog>
+              enabled: true,
+              resumeOrigin: {
+                surface: "host_community",
+                pathname: resumePathname,
+                targetId: communityId,
+              } satisfies DraftResumeOrigin,
+            }}
+            seedDraftId={modalDraftId ?? seedDraftIdProp}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

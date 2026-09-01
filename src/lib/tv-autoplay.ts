@@ -1,4 +1,14 @@
 import type { TvPlayerRef } from "@/components/tv/tv-player";
+import {
+  canRestoreSessionAudio,
+  hasSessionAudioUnlocked,
+  wantsSessionSound,
+  writeTvMutePref,
+  readTvMutePref,
+  hasTvAudioUnlockedThisSession,
+  TV_AUDIO_UNLOCKED_SESSION_KEY,
+  TV_MUTE_PREF_KEY,
+} from "@/lib/session-audio";
 import { tracePlayVideoResult, tvTrace } from "@/lib/tvDebugLog";
 
 /** Deferred audio state after mute-during-load programmatic transitions. */
@@ -7,42 +17,13 @@ export type PendingAudioRestore = {
   shouldPlay: boolean;
 };
 
-export const TV_MUTE_PREF_KEY = "tipmanna_tv_mute_pref";
-export const TV_AUDIO_UNLOCKED_SESSION_KEY = "tipmanna_tv_audio_unlocked";
-
-export function readTvMutePref(): boolean {
-  try {
-    return (
-      typeof window !== "undefined" &&
-      window.sessionStorage?.getItem(TV_MUTE_PREF_KEY) !== "0"
-    );
-  } catch {
-    return true;
-  }
-}
-
-export function writeTvMutePref(muted: boolean): void {
-  try {
-    if (typeof window === "undefined") return;
-    window.sessionStorage?.setItem(TV_MUTE_PREF_KEY, muted ? "1" : "0");
-    if (!muted) {
-      window.sessionStorage?.setItem(TV_AUDIO_UNLOCKED_SESSION_KEY, "1");
-    }
-  } catch {
-    /* noop */
-  }
-}
-
-export function hasTvAudioUnlockedThisSession(): boolean {
-  try {
-    return (
-      typeof window !== "undefined" &&
-      window.sessionStorage?.getItem(TV_AUDIO_UNLOCKED_SESSION_KEY) === "1"
-    );
-  } catch {
-    return false;
-  }
-}
+export {
+  hasTvAudioUnlockedThisSession,
+  readTvMutePref,
+  writeTvMutePref,
+  TV_AUDIO_UNLOCKED_SESSION_KEY,
+  TV_MUTE_PREF_KEY,
+};
 
 /** Unmute only — does not change play/pause (mute button). */
 export function unmuteOnly(player: TvPlayerRef, source: string): void {
@@ -72,7 +53,7 @@ export function prepareMutedLoadForAutoplay(
   player: TvPlayerRef,
   shouldPlay = true
 ): PendingAudioRestore {
-  const wantsAudio = !readTvMutePref() && hasTvAudioUnlockedThisSession();
+  const wantsAudio = canRestoreSessionAudio();
   if (player.isReady() && !player.isMuted()) {
     player.mute();
     tvTrace("autoplay", "mute_before_load", { shouldPlay, wantsAudio });
@@ -113,7 +94,7 @@ export function applyPendingAudioRestore(
     }
 
     if (pending.restoreUnmuted) {
-      if (hasTvAudioUnlockedThisSession()) {
+      if (hasSessionAudioUnlocked()) {
         unmuteOnly(player, `${source}.session_restore`);
       } else {
         tvTrace("autoplay", "audio_restore_deferred", {
@@ -126,11 +107,7 @@ export function applyPendingAudioRestore(
     return null;
   }
 
-  if (
-    !readTvMutePref() &&
-    hasTvAudioUnlockedThisSession() &&
-    player.isMuted()
-  ) {
+  if (canRestoreSessionAudio() && player.isMuted()) {
     unmuteOnly(player, `${source}.pref_fallback_restore`);
   }
 
@@ -161,5 +138,5 @@ export function applyPaymentPlaybackRestore(
     source,
     wasPlaying: opts.wasPlaying,
   });
-  return { restoreUnmuted: true, shouldPlay: false };
+  return { restoreUnmuted: wantsSessionSound(), shouldPlay: false };
 }

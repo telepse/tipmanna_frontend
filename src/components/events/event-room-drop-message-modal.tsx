@@ -56,7 +56,7 @@ export function EventRoomDropMessageModal({
   const { canWriteAsHost, handleAuthRequiredError, HostAuthModal } =
     useHostCapabilityWithAuth({ cohostEventId: eventId });
 
-  const canManage = tag === "COHOST" || user?.role === "HOST" || canWriteAsHost;
+  const canManage = tag === "COHOST" || canWriteAsHost;
 
   const [messageText, setMessageText] = useState("");
   const [hostMessages, setHostMessages] = useState<HostMessage[]>([]);

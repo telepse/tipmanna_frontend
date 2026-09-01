@@ -28,6 +28,8 @@ export function HostConnectPayoutPanel({
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const returnUrl = `${baseUrl}/host/${slug}/revenue?connect=return`;
   const refreshUrl = `${baseUrl}/host/${slug}/revenue?connect=refresh`;
+  const bankHint = connect?.profileBankHint;
+  const orgBankMismatch = connect?.orgBankMismatch === true;
 
   const startOnboarding = async () => {
     setLoading(true);
@@ -58,6 +60,59 @@ export function HostConnectPayoutPanel({
     );
   }
 
+  if (orgBankMismatch) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-medium">
+              Bank account does not match your profile
+            </p>
+            <p className="mt-1">
+              The bank on Stripe does not match your organisation profile.
+              {bankHint?.sortCodeMasked || bankHint?.last4 ? (
+                <>
+                  {" "}
+                  Enter the account ending{" "}
+                  <span className="font-medium">
+                    {bankHint.last4 ?? "····"}
+                  </span>
+                  {bankHint.sortCodeMasked ? (
+                    <>
+                      {" "}
+                      with sort code{" "}
+                      <span className="font-medium">
+                        {bankHint.sortCodeMasked}
+                      </span>
+                    </>
+                  ) : null}{" "}
+                  in Stripe, or keep using manual payouts.
+                </>
+              ) : (
+                " Complete Stripe setup with the bank on your profile, or keep using manual payouts."
+              )}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={loading}
+            onClick={() => void startOnboarding()}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Opening…
+              </>
+            ) : (
+              "Continue Stripe setup"
+            )}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -67,6 +122,22 @@ export function HostConnectPayoutPanel({
             Connect your bank account via Stripe to receive payouts without
             manual receipt confirmation.
           </p>
+          {!connect?.accountId ? (
+            <p className="mt-2 text-xs">
+              Your legal name or organisation name from Settings will be sent to
+              Stripe. Correct it in Settings first if it is wrong.
+            </p>
+          ) : null}
+          {bankHint?.sortCodeMasked || bankHint?.last4 ? (
+            <p className="mt-2 text-xs">
+              Stripe must use this account: sort code{" "}
+              <span className="font-medium">
+                {bankHint.sortCodeMasked ?? "—"}
+              </span>
+              , account ending{" "}
+              <span className="font-medium">{bankHint.last4 ?? "····"}</span>.
+            </p>
+          ) : null}
           {connect?.detailsSubmitted && !connect.payoutsEnabled ? (
             <p className="mt-2 text-xs">
               Stripe is still verifying your account. Check back soon or

@@ -29,7 +29,7 @@ import {
 
 export function PwaInstallController() {
   const pathname = usePathname() ?? "";
-  const { installed } = useInstallPrompt();
+  const { installed, detectionSettled } = useInstallPrompt();
   const [open, setOpen] = useState(false);
   const [preference, setPreference] = useState<PwaPreferenceRecord | null>(
     null
@@ -111,7 +111,7 @@ export function PwaInstallController() {
   }, [tryOpenPrompt]);
 
   useEffect(() => {
-    if (installed || isDashboardPath(pathname)) return;
+    if (!detectionSettled || installed || isDashboardPath(pathname)) return;
     let cancelled = false;
     let timer: number | undefined;
 
@@ -126,7 +126,7 @@ export function PwaInstallController() {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [installed, loadPolicy, pathname]);
+  }, [detectionSettled, installed, loadPolicy, pathname]);
 
   useEffect(() => {
     if (installed) {

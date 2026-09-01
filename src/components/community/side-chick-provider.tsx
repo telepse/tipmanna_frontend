@@ -62,9 +62,7 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
     useState<SideChickActivationPayload | null>(null);
 
   const canHydrateSideChick = Boolean(
-    isAuthenticated &&
-      token &&
-      (user?.role === "TIPPER" || user?.role === "HOST")
+    isAuthenticated && token && user?.role === "TIPPER"
   );
 
   const load = useCallback(async () => {

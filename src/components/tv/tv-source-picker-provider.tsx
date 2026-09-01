@@ -123,7 +123,7 @@ export function TvSourcePickerProvider({
     }
     const joinedPromise = getMeJoinedCommunitiesAction(authToken);
     const hostCommunitiesPromise =
-      authUser?.role === "HOST" || authUser?.role === "TIPPER"
+      authUser?.role === "TIPPER"
         ? getMyCommunitiesAction(authToken)
         : Promise.resolve(null);
 

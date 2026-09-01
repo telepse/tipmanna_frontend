@@ -111,6 +111,7 @@ export const SettingsClient = () => {
   const [profileAccountType, setProfileAccountType] = useState<
     "INDIVIDUAL" | "ORGANIZATION" | null
   >(null);
+  const [connectLegalNameLocked, setConnectLegalNameLocked] = useState(false);
 
   const user = useSelector((state: RootState) => state.auth.user);
   const token = useSelector((state: RootState) => state.auth.token);
@@ -304,10 +305,12 @@ export const SettingsClient = () => {
         profileAccountType?: "INDIVIDUAL" | "ORGANIZATION" | null;
         individualProfile?: Partial<individualProfileFormData> | null;
         organisationProfile?: Partial<organisationProfileFormData> | null;
+        connectLegalNameLocked?: boolean;
       };
 
       const accountType = profile.profileAccountType ?? null;
       setProfileAccountType(accountType);
+      setConnectLegalNameLocked(Boolean(profile.connectLegalNameLocked));
 
       if (profile.individualProfile) {
         individualProfileForm.reset({
@@ -751,11 +754,14 @@ export const SettingsClient = () => {
                             <Input
                               placeholder="Enter first name"
                               autoComplete="off"
+                              disabled={connectLegalNameLocked}
                               {...field}
                             />
                           </FormControl>
                           <span className="text-muted-foreground text-sm">
-                            For official records and HMRC reporting
+                            {connectLegalNameLocked
+                              ? "Locked to match your Stripe payout identity."
+                              : "For official records and HMRC reporting"}
                           </span>
                           <FormMessage />
                         </FormItem>
@@ -772,11 +778,14 @@ export const SettingsClient = () => {
                             <Input
                               placeholder="Enter last name"
                               autoComplete="off"
+                              disabled={connectLegalNameLocked}
                               {...field}
                             />
                           </FormControl>
                           <span className="text-muted-foreground text-sm">
-                            For official records and HMRC reporting
+                            {connectLegalNameLocked
+                              ? "Locked to match your Stripe payout identity."
+                              : "For official records and HMRC reporting"}
                           </span>
                           <FormMessage />
                         </FormItem>
@@ -1031,12 +1040,15 @@ export const SettingsClient = () => {
                             placeholder="Enter registered company name"
                             autoComplete="off"
                             className="w-full min-w-0"
+                            disabled={connectLegalNameLocked}
                             {...field}
                           />
                         </FormControl>
 
                         <span className="text-muted-foreground block text-sm">
-                          For official records and invoices
+                          {connectLegalNameLocked
+                            ? "Locked to match your Stripe payout identity."
+                            : "For official records and invoices"}
                         </span>
 
                         <FormMessage />

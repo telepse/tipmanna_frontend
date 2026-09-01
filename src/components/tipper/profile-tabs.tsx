@@ -489,8 +489,7 @@ export const ProfileTabs = ({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Paragraph weight="bold">Tipper Wallet</Paragraph>
 
-              {(user?.role === "TIPPER" || user?.role === "HOST") &&
-              !walletLive?.exists ? (
+              {user?.role === "TIPPER" && !walletLive?.exists ? (
                 <Button
                   type="button"
                   size="sm"
@@ -513,7 +512,7 @@ export const ProfileTabs = ({
               ) : null}
             </div>
 
-            {user?.role !== "TIPPER" && user?.role !== "HOST" ? (
+            {user?.role !== "TIPPER" ? (
               <Paragraph
                 size="sm"
                 color="muted"

@@ -10,6 +10,10 @@ type HostNavContext = {
   hostSessionActive?: boolean;
 };
 
+function isSignedInAccount(user: AuthUser): boolean {
+  return user?.role === "TIPPER" || user?.role === "VISITOR";
+}
+
 /** Stable internal href for "My account" / sign-in entry points from nav chrome. */
 export function getAccountNavHref(
   user: AuthUser,
@@ -22,16 +26,11 @@ export function getAccountNavHref(
       if (hostCtx?.hostSessionActive && hostCtx.hostEventSlug) {
         return `/host/${hostCtx.hostEventSlug}`;
       }
-      return `/tipper/${user.username}`;
-    }
-    case "HOST": {
       const profilePath = buildCreatorProfileSharePath(
         hostCtx?.hostUsername ?? user.username
       );
-      if (profilePath !== "/") return profilePath;
-      return hostCtx?.hostEventSlug
-        ? `/host/${hostCtx.hostEventSlug}`
-        : `/tipper/${user.username}`;
+      if (hostCtx?.linkedHost && profilePath !== "/") return profilePath;
+      return `/tipper/${user.username}`;
     }
     case "VISITOR":
       return user.username ? `/visitor/${user.username}` : "/tv";
@@ -54,7 +53,6 @@ export function getAddEventNavHref(
   if (user.role === "TIPPER") {
     return `/sign-up?email=${encodeURIComponent(user.email)}`;
   }
-  if (user.role === "HOST") return "/event-only";
   return "/sign-in";
 }
 
@@ -69,7 +67,6 @@ export function getDashboardFooterCreateHref(
     if (linkedHost) return "/event-only";
     return `/tipper/${user.username}`;
   }
-  if (user.role === "HOST") return "/event-only";
   return "/sign-in";
 }
 
@@ -79,17 +76,7 @@ export function getDashboardFooterAccountHref(
   isAuthenticated: boolean,
   hostCtx?: HostNavContext
 ): string {
-  if (!isAuthenticated || !user) return "/sign-in";
-  if (user.role === "TIPPER") {
-    if (hostCtx?.hostSessionActive && hostCtx.hostEventSlug) {
-      return `/host/${hostCtx.hostEventSlug}`;
-    }
-    return `/tipper/${user.username}`;
-  }
-  if (user.role === "HOST") {
-    return hostCtx?.hostEventSlug
-      ? `/host/${hostCtx.hostEventSlug}`
-      : `/tipper/${user.username}`;
-  }
-  return "/sign-in";
+  return getAccountNavHref(user, isAuthenticated, hostCtx);
 }
+
+export { isSignedInAccount };

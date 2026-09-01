@@ -139,7 +139,7 @@ export default function SideChickMagicPage() {
   } else {
     const landing = data;
     const headerTint = landing.customization?.headerColor;
-    const tipperLike = user?.role === "TIPPER" || user?.role === "HOST";
+    const tipperLike = user?.role === "TIPPER";
 
     sideInner = (
       <div

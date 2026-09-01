@@ -37,11 +37,11 @@ export const EventUserInline = ({ iTipped, eventId }: Props) => {
   const userId = user?.id;
   const username = user?.username;
 
-  const isTipperOrHost = user?.role === "TIPPER" || user?.role === "HOST";
+  const isTipper = user?.role === "TIPPER";
   const isVisitor = user?.role === "VISITOR";
 
   const handleClick = () => {
-    if (isTipperOrHost) {
+    if (isTipper) {
       router.push(`/tipper/${username}?from=/room/${eventId}`);
     } else if (isVisitor) {
       router.push(`/visitor/${username}?from=/room/${eventId}`);

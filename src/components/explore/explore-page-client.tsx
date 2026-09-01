@@ -490,7 +490,7 @@ export default function ExplorePageClient({
   const exploreAuthToken = useSelector((s: RootState) => s.auth.token);
   const isSignedInExplore =
     useSelector((s: RootState) => s.auth.isAuthenticated) &&
-    (exploreUserRole === "HOST" || exploreUserRole === "TIPPER");
+    exploreUserRole === "TIPPER";
   const exploreUserId = useSelector((s: RootState) => s.auth.user?.id);
 
   useEffect(() => {
@@ -526,10 +526,7 @@ export default function ExplorePageClient({
         };
         const owned = raw.owned ?? [];
         const coCreator = raw.coCreator ?? [];
-        const showOwned =
-          exploreUserRole === "HOST" ||
-          owned.length > 0 ||
-          coCreator.length > 0;
+        const showOwned = owned.length > 0 || coCreator.length > 0;
         setHostTvCommunities(
           showOwned ? { owned, coCreator } : { owned: [], coCreator: [] }
         );
