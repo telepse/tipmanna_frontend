@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 export type ServerSessionUser = {
   id: string;
   username: string;
-  role: "TIPPER" | "VISITOR" | "HOST";
+  role: "TIPPER" | "VISITOR";
   displayUsername?: string;
   email?: string;
 };
@@ -19,10 +19,7 @@ export async function getServerSessionUser(): Promise<ServerSessionUser | null> 
     return {
       id: String(parsed.id),
       username: String(parsed.username),
-      role:
-        parsed.role === "VISITOR" || parsed.role === "HOST"
-          ? parsed.role
-          : "TIPPER",
+      role: parsed.role === "VISITOR" ? "VISITOR" : "TIPPER",
       displayUsername:
         typeof parsed.displayUsername === "string"
           ? parsed.displayUsername

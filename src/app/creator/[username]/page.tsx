@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -23,18 +24,18 @@ type CreatorProfileLoadResult =
   | { kind: "not_found" }
   | { kind: "transient" };
 
-async function loadCreatorProfile(
-  username: string
-): Promise<CreatorProfileLoadResult> {
-  const res = await getHostCreatorPublicProfileAction(username);
-  if (res.success && res.data) {
-    return { kind: "ok", profile: res.data };
+const loadCreatorProfile = cache(
+  async (username: string): Promise<CreatorProfileLoadResult> => {
+    const res = await getHostCreatorPublicProfileAction(username);
+    if (res.success && res.data) {
+      return { kind: "ok", profile: res.data };
+    }
+    if (res.httpStatus === 404) {
+      return { kind: "not_found" };
+    }
+    return { kind: "transient" };
   }
-  if (res.httpStatus === 404) {
-    return { kind: "not_found" };
-  }
-  return { kind: "transient" };
-}
+);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;

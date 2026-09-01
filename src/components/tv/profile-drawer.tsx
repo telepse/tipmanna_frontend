@@ -97,9 +97,6 @@ export const ProfileDrawer = ({
   const drawerData = useProfileDrawerData(isProfileDrawerOpen);
   const { capability } = useHostCapability();
   const viewerHostUsername = (() => {
-    if (user?.role === "HOST" && user.username?.trim()) {
-      return user.username.trim();
-    }
     if (capability.status === "active" && capability.username?.trim()) {
       return capability.username.trim();
     }

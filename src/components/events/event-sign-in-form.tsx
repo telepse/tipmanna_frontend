@@ -188,21 +188,22 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
 
       if (!values.email) {
         toast.error("Put in your email address first");
-      }
-
-      const res = await requestLoginCodeAction({ email: values.email });
-
-      toast.success((res.data as any)?.message as string);
-
-      const parsed = parseAuthResponse(res.data);
-      if (!parsed) {
-        toast.error("Unexpected sign-in response — please try again");
         return;
       }
 
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: true,
+      const res = await requestLoginCodeAction({
+        email: values.email,
+        accountType: "HOST",
       });
+      if (!res.success) {
+        toast.error(res.message);
+        return;
+      }
+
+      toast.success(
+        (res.data as { message?: string })?.message ??
+          "Verification code sent — check your email"
+      );
 
       setCode("");
       setSignInStep("signInVerifyCode");

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { upsertPwaPreference } from "@/lib/pwa-preference-client";
+import {
+  fetchPwaPreference,
+  upsertPwaPreference,
+} from "@/lib/pwa-preference-client";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -37,10 +40,13 @@ export function useInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [detectionSettled, setDetectionSettled] = useState(false);
   const persistedInstalledRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    let cancelled = false;
 
     const markInstalled = () => {
       setInstalled(true);
@@ -49,6 +55,10 @@ export function useInstallPrompt() {
         persistedInstalledRef.current = true;
         void upsertPwaPreference("installed").catch(() => {});
       }
+    };
+
+    const finishDetection = () => {
+      if (!cancelled) setDetectionSettled(true);
     };
 
     const onBeforeInstall = (e: Event) => {
@@ -63,15 +73,35 @@ export function useInstallPrompt() {
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
 
-    if (isDisplayModeStandalone() || isIosStandalone()) {
-      markInstalled();
-    } else {
-      void detectInstalledRelatedApps().then(found => {
-        if (found) markInstalled();
-      });
-    }
+    const runDetection = async () => {
+      if (isDisplayModeStandalone() || isIosStandalone()) {
+        markInstalled();
+        finishDetection();
+        return;
+      }
+
+      try {
+        const pref = await fetchPwaPreference();
+        if (pref?.status === "installed") {
+          markInstalled();
+          finishDetection();
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+
+      const foundRelated = await detectInstalledRelatedApps();
+      if (foundRelated) {
+        markInstalled();
+      }
+      finishDetection();
+    };
+
+    void runDetection();
 
     return () => {
+      cancelled = true;
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
       window.removeEventListener("appinstalled", onInstalled);
     };
@@ -93,6 +123,7 @@ export function useInstallPrompt() {
   return {
     canInstall: Boolean(deferredPrompt) && !installed,
     installed,
+    detectionSettled,
     promptInstall,
   };
 }

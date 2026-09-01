@@ -145,12 +145,12 @@ export default function CoCreatorAcceptPage() {
     );
   }
 
-  const signedInHost = user?.role === "HOST";
-  const signedInOtherRole = Boolean(user && user.role !== "HOST");
-  const emailMismatch =
-    signedInHost &&
+  const signedInAsInvitee =
+    isAuthenticated &&
     inviteEmail &&
-    normEmail(user.email ?? "") !== normEmail(inviteEmail);
+    normEmail(user?.email ?? "") === normEmail(inviteEmail);
+  const signedInWrongAccount =
+    isAuthenticated && inviteEmail && !signedInAsInvitee;
 
   const acceptPath = `/cocreator/accept/${encodeURIComponent(token)}`;
   const signUpHref = `/sign-up?email=${encodeURIComponent(inviteEmail ?? "")}&redirect=${encodeURIComponent(acceptPath)}`;
@@ -168,24 +168,17 @@ export default function CoCreatorAcceptPage() {
         account with that email to accept.
       </p>
 
-      {signedInOtherRole && (
+      {signedInWrongAccount && (
         <p className="text-destructive mt-4 text-sm">
-          You are signed in as {user?.role?.toLowerCase() ?? "a user"}. Open
-          this link in a private window or sign out, then sign in (or register)
-          as a <strong>host</strong> with {inviteEmail} to accept.
-        </p>
-      )}
-
-      {emailMismatch && (
-        <p className="text-destructive mt-4 text-sm">
-          You are signed in as {user?.email}. Sign out and sign in as{" "}
-          {inviteEmail}, or add this invite link in a private window after
-          signing in with the correct host account.
+          You are signed in as{" "}
+          {user?.email ?? user?.role?.toLowerCase() ?? "a user"}. Open this link
+          in a private window or sign out, then sign in (or register) with{" "}
+          <strong>{inviteEmail}</strong> to accept.
         </p>
       )}
 
       <div className="mt-6 flex flex-col gap-3">
-        {signedInHost && !emailMismatch && (
+        {signedInAsInvitee && (
           <Button
             type="button"
             disabled={accepting || !isAuthenticated}
@@ -202,7 +195,7 @@ export default function CoCreatorAcceptPage() {
           </Button>
         )}
 
-        {!signedInHost && !signedInOtherRole && (
+        {!signedInAsInvitee && !signedInWrongAccount && (
           <>
             <Button asChild>
               <Link href={signInHref}>Sign in as host</Link>

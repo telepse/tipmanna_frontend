@@ -24,6 +24,7 @@ import SignInDialog, {
 } from "@/components/auth/sign-in-dialog";
 import { StartCommunityRequestDialog } from "@/components/community/start-community-request-dialog";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { useHostSession } from "@/hooks/use-host-session";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -399,9 +400,12 @@ export default function CommunityHubClient() {
     [inactive]
   );
 
+  const { isActive: hostSessionActive, eventSlug: hostSessionEventSlug } =
+    useHostSession();
+
   const eventSlug =
-    user?.role === "HOST" && "eventSlug" in user
-      ? (user.eventSlug?.trim() ?? "")
+    hostSessionActive && hostSessionEventSlug?.trim()
+      ? hostSessionEventSlug.trim()
       : capability.status === "active"
         ? (capability.eventSlug?.trim() ?? "")
         : "";
@@ -513,18 +517,14 @@ export default function CommunityHubClient() {
   ]);
 
   const handleHostSignInSuccess = useCallback(
-    (payload: SignInModalPayload) => {
+    (_payload: SignInModalPayload) => {
       setHostSignInOpen(false);
       if (pendingStartCommunity) {
         setPendingStartCommunity(false);
-        if (payload.role === "HOST") {
-          openStartCommunityForm();
-        } else {
-          requestHostAuth(openStartCommunityForm);
-        }
+        openStartCommunityForm();
       }
     },
-    [openStartCommunityForm, pendingStartCommunity, requestHostAuth]
+    [openStartCommunityForm, pendingStartCommunity]
   );
 
   const catalogTotalDisplay = catalogLoading

@@ -171,13 +171,16 @@ export async function loginTipperAction(values: {
 }
 
 // -------- Resend code -------- //
-export async function resendCodeAction(email: string) {
+export async function resendCodeAction(
+  email: string,
+  accountType: "TIPPER" | "HOST" = "TIPPER"
+) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/resend-code`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, accountType }),
       cache: "no-store",
     },
     "resendCodeAction"

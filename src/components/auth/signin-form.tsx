@@ -40,7 +40,6 @@ import { Paragraph } from "@/components/shared/paragraph";
 import { type SignInModalPayload } from "@/components/auth/sign-in-dialog";
 import { AlreadySignedInNotice } from "@/components/auth/already-signed-in-notice";
 import {
-  checkCoOwnerSignupEligibilityAction,
   checkHostUsernameAvailabilityAction,
   forgotPasswordAction,
   loginHostAction,
@@ -48,6 +47,7 @@ import {
   loginOrRegisterTipperAction,
   loginTipperAction,
   requestLoginCodeAction,
+  resendCodeAction,
   verifyCodeAction,
 } from "@/actions/auth";
 import { setCredentials } from "@/features/auth-slice";
@@ -120,6 +120,7 @@ export const SigninForm = ({
   const [hostAuthView, setHostAuthView] = useState<HostAuthView>("signIn");
   const [hostVerifyEmail, setHostVerifyEmail] = useState("");
   const [hostVerifyCode, setHostVerifyCode] = useState("");
+  const [hostResendCooldown, setHostResendCooldown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [tipperStep, setTipperStep] = useState<"email" | "verify">("email");
   const [tipperCode, setTipperCode] = useState("");
@@ -132,12 +133,6 @@ export const SigninForm = ({
   const authUser = useSelector((s: RootState) => s.auth.user);
   const authToken = useSelector((s: RootState) => s.auth.token);
   const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
-
-  const [checkingCoOwnerEmail, setCheckingCoOwnerEmail] = useState(false);
-  const [coOwnerEligible, setCoOwnerEligible] = useState<boolean | null>(null);
-  const [coOwnerResolvedName, setCoOwnerResolvedName] = useState<string | null>(
-    nameParam?.trim() || null
-  );
 
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
@@ -189,36 +184,6 @@ export const SigninForm = ({
     },
   });
   const hostSignInEmailOrUsername = hostForm.watch("emailOrUsername");
-
-  useEffect(() => {
-    const email = hostSignInEmailOrUsername?.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setCoOwnerEligible(null);
-      if (!nameParam?.trim()) setCoOwnerResolvedName(null);
-      return;
-    }
-
-    const timeout = setTimeout(async () => {
-      try {
-        setCheckingCoOwnerEmail(true);
-        const res = await checkCoOwnerSignupEligibilityAction(email);
-        if (res.success && res.data?.eligible) {
-          setCoOwnerEligible(true);
-          const resolvedName = res.data.coOwnerName?.trim();
-          if (resolvedName) setCoOwnerResolvedName(resolvedName);
-        } else {
-          setCoOwnerEligible(false);
-          if (!nameParam?.trim()) setCoOwnerResolvedName(null);
-        }
-      } catch {
-        setCoOwnerEligible(null);
-      } finally {
-        setCheckingCoOwnerEmail(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeout);
-  }, [hostSignInEmailOrUsername, nameParam]);
 
   const signUpForm = useForm<HostSignUpFormData>({
     resolver: zodResolver(hostSignUpSchema),
@@ -329,11 +294,7 @@ export const SigninForm = ({
       return;
     }
 
-    const dest =
-      returnTo ??
-      (coOwnerEligible === true
-        ? buildCreatorProfileSharePath(hostUsername)
-        : buildCreatorProfileSharePath(hostUsername));
+    const dest = returnTo ?? buildCreatorProfileSharePath(hostUsername);
     push(dest);
   };
 
@@ -398,10 +359,11 @@ export const SigninForm = ({
             return;
           }
           const emailQ = encodeURIComponent(values.emailOrUsername);
+          const accountQ = "accountType=HOST";
           push(
             returnTo
-              ? `/verify-email?email=${emailQ}&next=${encodeURIComponent(returnTo)}`
-              : `/verify-email?email=${emailQ}`
+              ? `/verify-email?email=${emailQ}&${accountQ}&next=${encodeURIComponent(returnTo)}`
+              : `/verify-email?email=${emailQ}&${accountQ}`
           );
           return;
         }
@@ -649,10 +611,11 @@ export const SigninForm = ({
       }
 
       const emailQ = encodeURIComponent(values.email);
+      const accountQ = "accountType=HOST";
       push(
         returnTo
-          ? `/verify-email?email=${emailQ}&next=${encodeURIComponent(returnTo)}`
-          : `/verify-email?email=${emailQ}`
+          ? `/verify-email?email=${emailQ}&${accountQ}&next=${encodeURIComponent(returnTo)}`
+          : `/verify-email?email=${emailQ}&${accountQ}`
       );
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -671,10 +634,11 @@ export const SigninForm = ({
   const handleModalHostVerify = async () => {
     try {
       setIsHostLoading(true);
-      const user = authUser ?? store.getState().auth.user;
-      const token = authToken ?? store.getState().auth.token;
-      const email = hostVerifyEmail || user?.email;
-      if (!email || !token) return;
+      const email = hostVerifyEmail.trim() || authUser?.email?.trim();
+      if (!email) {
+        toast.error("Missing email for verification");
+        return;
+      }
 
       const verifyRes = await verifyCodeAction(email, hostVerifyCode, "HOST");
       if (!verifyRes.success) {
@@ -703,6 +667,37 @@ export const SigninForm = ({
       } else {
         toast.error("Failed to verify email");
       }
+    } finally {
+      setIsHostLoading(false);
+    }
+  };
+
+  const handleModalHostResend = async () => {
+    const email = hostVerifyEmail.trim() || authUser?.email?.trim();
+    if (!email || hostResendCooldown > 0) return;
+    try {
+      setIsHostLoading(true);
+      const res = await resendCodeAction(email, "HOST");
+      if (!res.success) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(
+        (res.data as { message?: string })?.message ??
+          "Verification code resent"
+      );
+      setHostResendCooldown(30);
+      const interval = window.setInterval(() => {
+        setHostResendCooldown(c => {
+          if (c <= 1) {
+            window.clearInterval(interval);
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to resend code");
     } finally {
       setIsHostLoading(false);
     }
@@ -800,9 +795,7 @@ export const SigninForm = ({
           className="relative flex items-center justify-center gap-1"
         >
           {userType === "host"
-            ? coOwnerEligible
-              ? "Co-owners sign in here as a host with their invite email"
-              : "Add content / event / community"
+            ? "Add content / event / community"
             : "Send tips and join communities"}
 
           {userType === "host" ? null : (
@@ -911,6 +904,23 @@ export const SigninForm = ({
                 >
                   {isHostLoading ? "Verifying email..." : "Verify email"}
                 </Button>
+                <Paragraph
+                  align="center"
+                  size="sm"
+                >
+                  Didn&apos;t receive the code?{" "}
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-primary h-auto p-0"
+                    disabled={hostResendCooldown > 0 || isHostLoading}
+                    onClick={() => void handleModalHostResend()}
+                  >
+                    {hostResendCooldown > 0
+                      ? `Resend in ${hostResendCooldown}s`
+                      : "Resend code"}
+                  </Button>
+                </Paragraph>
                 <Button
                   type="button"
                   variant="outline"
@@ -1105,20 +1115,6 @@ export const SigninForm = ({
                             type="text"
                           />
                         </FormControl>
-                        {checkingCoOwnerEmail ? (
-                          <p className="text-muted-foreground text-sm">
-                            Checking co-owner eligibility…
-                          </p>
-                        ) : null}
-                        {!checkingCoOwnerEmail &&
-                        hostSignInEmailOrUsername?.trim() &&
-                        coOwnerEligible === true ? (
-                          <p className="text-success text-sm">
-                            {coOwnerResolvedName
-                              ? `${coOwnerResolvedName}, sign in with your host password ✓`
-                              : "Co-owner email — sign in with your host password ✓"}
-                          </p>
-                        ) : null}
                         <FormMessage />
                       </FormItem>
                     )}

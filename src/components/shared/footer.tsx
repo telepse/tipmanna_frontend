@@ -22,6 +22,7 @@ import { CreateDialog } from "../home/create-dialog";
 import { getAccountNavHref, getAddEventNavHref } from "@/lib/account-nav-href";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { useHostSession } from "@/hooks/use-host-session";
 
 const supportLinks = [
   { href: "/partner#faq", label: "FAQ" },
@@ -56,6 +57,11 @@ export default function Footer() {
 
   const { canReadAsHost, requestHostAuth, HostAuthModal } =
     useHostCapabilityWithAuth({ requireHostAccount: true });
+  const {
+    isActive: hostSessionActive,
+    eventSlug: hostEventSlug,
+    username: hostUsername,
+  } = useHostSession();
 
   const linkedHost = user?.role === "TIPPER" && canReadAsHost;
 
@@ -70,8 +76,21 @@ export default function Footer() {
   );
 
   const accountHref = useMemo(
-    () => getAccountNavHref(user, isAuthenticated),
-    [user, isAuthenticated]
+    () =>
+      getAccountNavHref(user, isAuthenticated, {
+        linkedHost,
+        hostSessionActive,
+        hostEventSlug,
+        hostUsername,
+      }),
+    [
+      user,
+      isAuthenticated,
+      linkedHost,
+      hostSessionActive,
+      hostEventSlug,
+      hostUsername,
+    ]
   );
 
   const handleJoinClick = () => {
@@ -91,11 +110,6 @@ export default function Footer() {
   const handleAddEventClick = () => {
     if (!isAuthenticated || !user) {
       push(addEventHref);
-      return;
-    }
-
-    if (user.role === "HOST") {
-      openCreateFlow();
       return;
     }
 

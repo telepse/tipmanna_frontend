@@ -99,6 +99,12 @@ export type HostConnectPayoutStatus = {
     onboardingCompletedAt: string | null;
     requiresAction: boolean;
     detailsSubmitted: boolean;
+    bankMatch?: "matched" | "mismatch" | "pending" | "not_applicable";
+    profileBankHint?: {
+      sortCodeMasked: string | null;
+      last4: string | null;
+    } | null;
+    orgBankMismatch?: boolean;
   } | null;
 };
 

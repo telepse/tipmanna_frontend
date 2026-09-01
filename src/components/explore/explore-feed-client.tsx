@@ -126,6 +126,7 @@ import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-s
 import { ImmersiveChannelActionsRail } from "@/components/events/immersive-channel-actions-rail";
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import { scheduleEngagementPwaPromptFromPolicy } from "@/lib/pwa-install-trigger";
+import { setSessionSoundOn } from "@/lib/session-audio";
 import { TipsDrawer } from "@/components/events/tips-drawer";
 import { getSavedVideosForTipper } from "@/actions/events";
 import {
@@ -793,19 +794,19 @@ function ExploreReelSlideTitle({
             type="button"
             title={reelMuted ? "Unmute" : "Mute"}
             className={exploreReelMuteButtonClassName(layoutMode)}
-            onPointerDown={e => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
+            onPointerDown={e => e.stopPropagation()}
             onClick={e => {
               e.stopPropagation();
+              const nextMuted = !reelMuted;
+              setReelMuted(nextMuted);
+              setSessionSoundOn(!nextMuted);
               const p = videoRef.current;
               if (!p?.isReady()) return;
-              if (reelMuted) {
+              if (nextMuted) {
+                p.mute();
+              } else {
                 p.unmute();
                 onEngageUnlocked?.();
-              } else {
-                p.mute();
               }
             }}
           >
@@ -827,9 +828,11 @@ function ExploreReelSlideTitle({
                 <button
                   type="button"
                   className="cursor-pointer truncate underline-offset-2 hover:underline"
-                  onPointerDown={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  onPointerDown={e => e.stopPropagation()}
+                  onPointerEnter={() => {
+                    if (coOwnerDrawerUsername) {
+                      onPrefetchCreator?.(coOwnerDrawerUsername);
+                    }
                   }}
                   onClick={e => {
                     e.stopPropagation();
@@ -848,10 +851,7 @@ function ExploreReelSlideTitle({
                 <button
                   type="button"
                   className="cursor-pointer truncate underline-offset-2 hover:underline"
-                  onPointerDown={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
+                  onPointerDown={e => e.stopPropagation()}
                   onClick={e => {
                     e.stopPropagation();
                     onOpenCommunityDrawer?.(community!.id!);
@@ -867,10 +867,7 @@ function ExploreReelSlideTitle({
                   <button
                     type="button"
                     className="cursor-pointer truncate underline"
-                    onPointerDown={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
+                    onPointerDown={e => e.stopPropagation()}
                     onClick={e => {
                       e.stopPropagation();
                       onOpenCreatorDrawer(hostUsername);
