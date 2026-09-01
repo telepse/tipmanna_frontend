@@ -19,9 +19,7 @@ import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth
 import { useHostAuthOptional } from "@/contexts/host-auth-context";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
-import {
-  isSubscriptionLapsedError,
-} from "@/lib/host-subscription-errors";
+import { isSubscriptionLapsedError } from "@/lib/host-subscription-errors";
 
 type Props = {
   /** When set, only show this tier card (premium | community). */
