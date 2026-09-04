@@ -314,15 +314,13 @@ export const CreateDialog = ({
   ) => {
     setSignInIntent(intent);
     if (href) setPendingHref(href);
-    requestAnimationFrame(() => setSignInOpen(true));
-  };
-
-  const handleCreateOpenChange = (open: boolean) => {
-    setOpenPopup(open);
-    if (!open) {
-      setSignInOpen(false);
-      clearSignInPending();
-    }
+  
+    // Explicitly close the Create dialog before opening Sign In.
+    setOpenPopup(false);
+  
+    requestAnimationFrame(() => {
+      setSignInOpen(true);
+    });
   };
 
   const handleSignInOpenChange = (open: boolean) => {
