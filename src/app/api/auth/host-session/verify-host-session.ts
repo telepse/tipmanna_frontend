@@ -94,7 +94,20 @@ export async function verifyHostSessionWithBackend(
       return sessionInvalid ? clearHostSessionCookies(res) : res;
     }
 
-    const body = (await touchRes.json()) as { token?: string };
+    const body = (await touchRes.json()) as {
+      token?: string;
+      verified?: boolean;
+    };
+    if (body.verified === false) {
+      return NextResponse.json(
+        {
+          active: false,
+          code: "EMAIL_VERIFICATION_REQUIRED",
+          hostId: hostUser.id ?? null,
+        },
+        { status: 403 }
+      );
+    }
     if (body.token?.trim()) nextHostToken = body.token.trim();
   } catch {
     const res = NextResponse.json(

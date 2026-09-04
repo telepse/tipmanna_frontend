@@ -22,6 +22,7 @@ import {
 import { fetchSavedHostsMe } from "@/lib/save-host-client";
 import { getAuthToken, getAuthUserFromCookies } from "@/lib/getAuthToken";
 import { normalizeSavedVideosList } from "@/lib/save-video-client";
+import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import type { TipFeedRow } from "@/components/events/tips-feed-panel";
 
 export type TipsDrawerSnapshot = {
@@ -367,9 +368,7 @@ export function prefetchTvScheduleTips(
       i++
     ) {
       const row = rows[i];
-      const eventId = String(
-        row?.defaultChannelEventId ?? row?.channel?.eventId ?? ""
-      ).trim();
+      const eventId = resolveTvScheduleEventId(row);
       const channelId =
         row?.channel?.id != null ? String(row.channel.id) : null;
       if (!eventId) continue;

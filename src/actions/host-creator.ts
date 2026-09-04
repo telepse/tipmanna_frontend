@@ -97,6 +97,18 @@ export type HostCreatorPublicProfile = {
     totalTvFeatures: number;
     totalComments: number;
   };
+  /** Host-owned content only — dashboard true state (excludes co-owner party accrual). */
+  statsOwnedOnly?: {
+    totalVideos: number;
+    totalTipsReceived: number;
+    totalTipCount: number;
+    totalEncounters: number;
+    totalSubscribers: number;
+    totalSaves: number;
+    totalShares: number;
+    totalTvFeatures: number;
+    totalComments: number;
+  };
   contents: HostCreatorPublicContent[];
   coOwnedVideos: HostCreatorVideo[];
   coOwnerPartyVideos?: HostCreatorVideo[];

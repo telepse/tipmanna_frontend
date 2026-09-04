@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import OTPInput from "react-otp-input";
@@ -54,6 +54,7 @@ import { setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import {
+  isPendingEmailVerification,
   isUnverifiedHostMessage,
   parseAuthResponse,
 } from "@/lib/auth-response";
@@ -67,6 +68,8 @@ import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import { notifyHostSessionTouched } from "@/lib/host-session-probe";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
+import { parseAuthErrorFromBody } from "@/lib/host-auth-fetch";
+import { buildVerifyEmailPath } from "@/lib/verify-email-path";
 import { store, type AppDispatch, type RootState } from "@/redux/store";
 
 type HostAuthView = "signIn" | "signUp" | "forgotPassword" | "verifyEmail";
@@ -151,6 +154,37 @@ export const SigninForm = ({
 
   const { push } = useAppRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const resendCooldownIntervalRef = useRef<number | null>(null);
+  const hostVerifyInFlightRef = useRef(false);
+  const tipperVerifyInFlightRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (resendCooldownIntervalRef.current) {
+        window.clearInterval(resendCooldownIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const startResendCooldown = () => {
+    if (resendCooldownIntervalRef.current) {
+      window.clearInterval(resendCooldownIntervalRef.current);
+    }
+    setHostResendCooldown(30);
+    resendCooldownIntervalRef.current = window.setInterval(() => {
+      setHostResendCooldown(c => {
+        if (c <= 1) {
+          if (resendCooldownIntervalRef.current) {
+            window.clearInterval(resendCooldownIntervalRef.current);
+            resendCooldownIntervalRef.current = null;
+          }
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  };
+
   const isMobile = useMediaQuery({ query: "(max-width: 500px)" });
   const otpInputStyle = {
     background: "#f7c87c80",
@@ -197,6 +231,32 @@ export const SigninForm = ({
     },
   });
 
+  const fullName = signUpForm.watch("fullName");
+  const hostEmail = signUpForm.watch("email");
+  const username = signUpForm.watch("username");
+  const password = signUpForm.watch("password");
+
+  // Progressive signup fields
+  const slideUsernameField =
+    fullName.trim() !== "" && hostEmail?.trim().includes("@");
+  const slidePasswordFields =
+    fullName.trim() !== "" &&
+    hostEmail?.trim().includes("@") &&
+    username.trim() !== "";
+  const slideConfirmPasswordField =
+    fullName.trim() !== "" &&
+    hostEmail?.trim().includes("@") &&
+    username.trim() !== "" &&
+    password.trim() !== "";
+
+  useEffect(() => {
+    // Extract prefix before @
+    const prefix = hostEmail ? hostEmail.split("@")[0] : "";
+
+    // Automatically set username to prefix
+    signUpForm.setValue("username", prefix, { shouldValidate: true });
+  }, [hostEmail, signUpForm]);
+
   // 2. Define Tipper form
   const tipperForm = useForm<TipperSignInFormData>({
     resolver: zodResolver(tipperSignInSchema),
@@ -206,10 +266,31 @@ export const SigninForm = ({
   });
 
   const signUpUsername = signUpForm.watch("username");
+  const signUpEmail = signUpForm.watch("email");
 
   const finishHostAuth = async (
     parsed: NonNullable<ReturnType<typeof parseAuthResponse>>
   ) => {
+    if (isPendingEmailVerification(parsed)) {
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
+      if (mode === "modal") {
+        setHostVerifyEmail(parsed.user.email);
+        setHostAuthView("verifyEmail");
+        toast.success(parsed.message);
+        return;
+      }
+      push(
+        buildVerifyEmailPath({
+          email: parsed.user.email,
+          accountType: "HOST",
+          next: returnTo,
+        })
+      );
+      return;
+    }
+
     const hostUser = parsed.hostSession?.user;
     const hostSlug = hostUser?.eventSlug ?? null;
     const hostUsername = hostUser?.username ?? parsed.user.username;
@@ -245,7 +326,7 @@ export const SigninForm = ({
         return;
       }
 
-      if (parsed.hostSession) {
+      if (parsed.hostSession?.token) {
         const ok = await persistHostSession(
           parsed.hostSession.token,
           parsed.hostSession.user,
@@ -353,17 +434,20 @@ export const SigninForm = ({
       if (!res.success) {
         if (isUnverifiedHostMessage(res.message)) {
           toast.info("Verify your email to continue — we sent you a code.");
+          const resolvedEmail =
+            parseAuthErrorFromBody(res.validationBody).email?.trim() ||
+            values.emailOrUsername.trim();
           if (mode === "modal") {
-            setHostVerifyEmail(values.emailOrUsername);
+            setHostVerifyEmail(resolvedEmail);
             setHostAuthView("verifyEmail");
             return;
           }
-          const emailQ = encodeURIComponent(values.emailOrUsername);
-          const accountQ = "accountType=HOST";
           push(
-            returnTo
-              ? `/verify-email?email=${emailQ}&${accountQ}&next=${encodeURIComponent(returnTo)}`
-              : `/verify-email?email=${emailQ}&${accountQ}`
+            buildVerifyEmailPath({
+              email: resolvedEmail,
+              accountType: "HOST",
+              next: returnTo,
+            })
           );
           return;
         }
@@ -421,32 +505,26 @@ export const SigninForm = ({
         return;
       }
 
-      const { user, token, message, role, tag } = parsed;
-      toast.success(message);
-      setTipperAccountTag(tag ?? null);
+      setTipperAccountTag(parsed.tag ?? null);
       setTipperHasHostAccount(parsed.hasHostAccount === true);
       setTipperHostCodeFlow(false);
+      toast.success(parsed.message);
 
-      dispatch(
-        setCredentials({
-          user: parsed.user,
-          token,
-          requiresVerification: true,
-          tag: tag ?? null,
-        })
-      );
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
 
       if (mode === "modal") {
         setTipperStep("verify");
         return;
       }
 
-      await persistAuthSession(token, parsed.user, { expiresDays: 60 });
-
       push(
-        returnTo
-          ? `/verify-email?next=${encodeURIComponent(returnTo)}`
-          : "/verify-email?next=%2Fexplore"
+        buildVerifyEmailPath({
+          email: values.email.trim(),
+          accountType: "TIPPER",
+          next: returnTo ?? "/explore",
+        })
       );
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -466,8 +544,7 @@ export const SigninForm = ({
     try {
       setIsTipperLoading(true);
       const user = authUser ?? store.getState().auth.user;
-      const token = authToken ?? store.getState().auth.token;
-      if (!user?.email || !token) return;
+      if (!user?.email) return;
 
       const verifyRes = await verifyCodeAction(user.email, tipperCode);
       if (!verifyRes.success) {
@@ -476,23 +553,17 @@ export const SigninForm = ({
       }
 
       const parsed = parseAuthResponse(verifyRes.data);
-      const sessionUser = parsed?.user ?? user;
-      const sessionToken = parsed?.token ?? token;
+      if (!parsed) {
+        toast.error("Verification succeeded but session could not be restored");
+        return;
+      }
 
-      dispatch(
-        setCredentials({
-          user: sessionUser,
-          token: sessionToken,
-          requiresVerification: false,
-        })
-      );
-
-      await persistAuthSession(sessionToken, sessionUser, { expiresDays: 60 });
+      await applyPrimaryAndHostSessions(parsed, dispatch);
 
       toast.success("Email verified successfully!");
       onModalTipperSuccess?.({
         role: "TIPPER",
-        username: sessionUser.username,
+        username: parsed.user.username,
         eventSlug: null,
       });
     } catch (err: unknown) {
@@ -508,6 +579,16 @@ export const SigninForm = ({
       setIsTipperLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (mode !== "modal" || tipperStep !== "verify" || tipperHostCodeFlow)
+      return;
+    if (tipperCode.length !== 6 || tipperVerifyInFlightRef.current) return;
+    tipperVerifyInFlightRef.current = true;
+    void handleModalTipperVerify().finally(() => {
+      tipperVerifyInFlightRef.current = false;
+    });
+  }, [tipperCode, tipperHostCodeFlow, tipperStep, mode]);
 
   const handleTipperHostEmailCodeRequest = async () => {
     const email = tipperForm.getValues("email")?.trim();
@@ -610,12 +691,12 @@ export const SigninForm = ({
         return;
       }
 
-      const emailQ = encodeURIComponent(values.email);
-      const accountQ = "accountType=HOST";
       push(
-        returnTo
-          ? `/verify-email?email=${emailQ}&${accountQ}&next=${encodeURIComponent(returnTo)}`
-          : `/verify-email?email=${emailQ}&${accountQ}`
+        buildVerifyEmailPath({
+          email: values.email,
+          accountType: "HOST",
+          next: returnTo,
+        })
       );
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -672,6 +753,15 @@ export const SigninForm = ({
     }
   };
 
+  useEffect(() => {
+    if (mode !== "modal" || hostAuthView !== "verifyEmail") return;
+    if (hostVerifyCode.length !== 6 || hostVerifyInFlightRef.current) return;
+    hostVerifyInFlightRef.current = true;
+    void handleModalHostVerify().finally(() => {
+      hostVerifyInFlightRef.current = false;
+    });
+  }, [hostVerifyCode, hostAuthView, mode]);
+
   const handleModalHostResend = async () => {
     const email = hostVerifyEmail.trim() || authUser?.email?.trim();
     if (!email || hostResendCooldown > 0) return;
@@ -686,16 +776,7 @@ export const SigninForm = ({
         (res.data as { message?: string })?.message ??
           "Verification code resent"
       );
-      setHostResendCooldown(30);
-      const interval = window.setInterval(() => {
-        setHostResendCooldown(c => {
-          if (c <= 1) {
-            window.clearInterval(interval);
-            return 0;
-          }
-          return c - 1;
-        });
-      }, 1000);
+      startResendCooldown();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to resend code");
     } finally {
@@ -746,6 +827,7 @@ export const SigninForm = ({
 
         const res = await checkHostUsernameAvailabilityAction({
           username: signUpUsername,
+          email: signUpEmail?.trim(),
         });
 
         if (res.success) {
@@ -761,7 +843,7 @@ export const SigninForm = ({
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [signUpUsername]);
+  }, [signUpUsername, signUpEmail]);
 
   return (
     <div className={className ? "" : "mx-auto max-w-2xl"}>
@@ -969,86 +1051,99 @@ export const SigninForm = ({
                       </FormItem>
                     )}
                   />
-                  <div className="space-y-1">
+
+                  {/* USERNAME FIELD */}
+                  {slideUsernameField && (
+                    <div className="space-y-1">
+                      <FormField
+                        control={signUpForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Username</FormLabel>
+
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="Choose a username"
+                              />
+                            </FormControl>
+
+                            <FormMessage />
+
+                            {checkingUsername && (
+                              <p className="text-muted-foreground text-sm">
+                                Checking availability...
+                              </p>
+                            )}
+
+                            {!checkingUsername &&
+                              signUpUsername &&
+                              usernameAvailable === true && (
+                                <p className="text-success text-sm">
+                                  Username is available ✓
+                                </p>
+                              )}
+
+                            {!checkingUsername &&
+                              signUpUsername &&
+                              usernameAvailable === false && (
+                                <p className="text-destructive text-sm">
+                                  Username is already taken
+                                </p>
+                              )}
+                          </FormItem>
+                        )}
+                      />
+
+                      <span className="text-muted-foreground text-xs">
+                        This will be your unique creator username
+                      </span>
+                    </div>
+                  )}
+
+                  {/* PASSWORD FIELD */}
+                  {slidePasswordFields && (
                     <FormField
                       control={signUpForm.control}
-                      name="username"
+                      name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Username</FormLabel>
-
+                          <FormLabel>Password</FormLabel>
                           <FormControl>
                             <Input
+                              type="password"
+                              placeholder="Create password"
                               {...field}
-                              placeholder="Choose a username"
                             />
                           </FormControl>
-
                           <FormMessage />
-
-                          {checkingUsername && (
-                            <p className="text-muted-foreground text-sm">
-                              Checking availability...
-                            </p>
-                          )}
-
-                          {!checkingUsername &&
-                            signUpUsername &&
-                            usernameAvailable === true && (
-                              <p className="text-success text-sm">
-                                Username is available ✓
-                              </p>
-                            )}
-
-                          {!checkingUsername &&
-                            signUpUsername &&
-                            usernameAvailable === false && (
-                              <p className="text-destructive text-sm">
-                                Username is already taken
-                              </p>
-                            )}
                         </FormItem>
                       )}
                     />
+                  )}
 
-                    <span className="text-muted-foreground text-xs">
-                      This will be your unique creator username
-                    </span>
-                  </div>
-                  <FormField
-                    control={signUpForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Create password"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signUpForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirm password</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Confirm password"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* CONFIRM PASSWORD FIELD */}
+                  {slideConfirmPasswordField && (
+                    <FormField
+                      control={signUpForm.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm password</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Confirm password"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
                   <FormField
                     control={signUpForm.control}
                     name="acceptedTerms"
@@ -1070,7 +1165,11 @@ export const SigninForm = ({
                     type="submit"
                     size="lg"
                     className="w-full"
-                    disabled={isHostLoading}
+                    disabled={
+                      isHostLoading ||
+                      checkingUsername ||
+                      usernameAvailable === false
+                    }
                   >
                     {isHostLoading
                       ? "Creating account…"
@@ -1152,6 +1251,7 @@ export const SigninForm = ({
                   <button
                     type="button"
                     data-testid="signin-request-login-code"
+                    disabled={isHostLoading}
                     onClick={() =>
                       handleRequestLoginCode({
                         email: hostForm.getValues("emailOrUsername"),

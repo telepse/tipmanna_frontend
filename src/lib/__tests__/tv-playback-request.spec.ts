@@ -3,7 +3,28 @@ import { describe, expect, it } from "vitest";
 import {
   isSameOrchestratedPlayback,
   isUserIntentPlaybackReason,
+  resolveUnchangedPlaybackAction,
 } from "@/lib/tv-playback-request";
+
+describe("resolveUnchangedPlaybackAction", () => {
+  it("replays when user intent and player ready", () => {
+    expect(
+      resolveUnchangedPlaybackAction({ userIntent: true, playerReady: true })
+    ).toBe("replay");
+  });
+
+  it("queues when user intent but player not ready", () => {
+    expect(
+      resolveUnchangedPlaybackAction({ userIntent: true, playerReady: false })
+    ).toBe("queue");
+  });
+
+  it("skips duplicate non-user playback", () => {
+    expect(
+      resolveUnchangedPlaybackAction({ userIntent: false, playerReady: true })
+    ).toBe("skip");
+  });
+});
 
 describe("isSameOrchestratedPlayback", () => {
   it("matches video and start within one second", () => {

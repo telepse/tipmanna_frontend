@@ -158,6 +158,12 @@ type AddVideoFormProps = {
   seedDraftId?: string | null;
   /** When "ownerOnly", co-owned uploads are hidden (e.g. community co-creator tab). */
   coOwnerPolicyMode?: "full" | "ownerOnly";
+  /** Parent-provided host auth so Create dialog does not mount a second probe/modal. */
+  hostAuth?: {
+    canWriteAsHost: boolean;
+    requestHostAuth: (onSuccess?: () => void | Promise<void>) => void;
+  };
+  mountHostAuthModal?: boolean;
 };
 
 export function AddVideoForm({
@@ -173,9 +179,20 @@ export function AddVideoForm({
   draftAutosave,
   seedDraftId,
   coOwnerPolicyMode = "full",
+  hostAuth,
+  mountHostAuthModal,
 }: AddVideoFormProps) {
   const authUser = useSelector((s: RootState) => s.auth.user);
-  const { canWriteAsHost } = useHostCapabilityWithAuth();
+  const injectedHostAuth = hostAuth != null;
+  const fallbackHostAuth = useHostCapabilityWithAuth({
+    enabled: !injectedHostAuth,
+  });
+  const canWriteAsHost =
+    hostAuth?.canWriteAsHost ?? fallbackHostAuth.canWriteAsHost;
+  const requestHostAuth =
+    hostAuth?.requestHostAuth ?? fallbackHostAuth.requestHostAuth;
+  const HostAuthModal = fallbackHostAuth.HostAuthModal;
+  const shouldMountHostAuthModal = mountHostAuthModal ?? !injectedHostAuth;
   const [youtubeChannels, setYoutubeChannels] = useState<YoutubeChannelRow[]>(
     []
   );
@@ -340,6 +357,7 @@ export function AddVideoForm({
         verifyState={verifyState}
         setModalDraftId={setModalDraftId}
         onDraftIdChange={onDraftIdChange}
+        canWriteAsHost={canWriteAsHost}
       >
         {draftSave => (
           <Form {...form}>
@@ -349,7 +367,12 @@ export function AddVideoForm({
                 saving={draftSave.saving}
                 lastSavedAt={draftSave.lastSavedAt}
                 saveError={draftSave.saveError}
-                onSaveNow={() => void draftSave.saveNow()}
+                hostAuthRequired={!canWriteAsHost}
+                onSaveNow={
+                  canWriteAsHost
+                    ? () => void draftSave.saveNow()
+                    : () => requestHostAuth(() => void draftSave.saveNow())
+                }
               />
             ) : null}
 
@@ -909,6 +932,9 @@ export function AddVideoForm({
           </Form>
         )}
       </AddVideoFormDraftLayer>
+      {draftAutosave?.enabled && shouldMountHostAuthModal
+        ? HostAuthModal
+        : null}
     </CoOwnerDraftLifecycleProvider>
   );
 }
@@ -921,6 +947,7 @@ type AddVideoFormDraftLayerProps = {
   verifyState: "idle" | "checking" | "verified" | "failed";
   setModalDraftId: (id: string | null) => void;
   onDraftIdChange?: (id: string | null) => void;
+  canWriteAsHost: boolean;
   children: (draftSave: ReturnType<typeof useFormDraftAutosave>) => ReactNode;
 };
 
@@ -932,6 +959,7 @@ function AddVideoFormDraftLayer({
   verifyState,
   setModalDraftId,
   onDraftIdChange,
+  canWriteAsHost,
   children,
 }: AddVideoFormDraftLayerProps) {
   const { lifecycleReady } = useCoOwnerDraftLifecycle();
@@ -941,6 +969,7 @@ function AddVideoFormDraftLayer({
     title: form.watch("title") || "Add video draft",
     enabled:
       Boolean(draftAutosave?.enabled && draftAutosave.targetId) &&
+      canWriteAsHost &&
       !modalRestoring &&
       lifecycleReady,
     draftId: modalDraftId,

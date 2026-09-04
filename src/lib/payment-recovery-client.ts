@@ -1,4 +1,5 @@
 import { getAnalyticsSessionId } from "@/lib/analytics-session";
+import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
 import { isPayerOriginRecoveryEnabled } from "@/lib/payer-origin-recovery-flag";
 import {
   tracePaymentAnimation,
@@ -132,6 +133,7 @@ export async function exchangeRecoveryStateRequest(params: {
   });
 
   if (!res.ok) {
+    await assertNotEmailVerificationRequiredFromResponse(res);
     const kind = classifyStatus(res.status);
     const body = await parseJsonSafe(res);
     const serverMessage =
@@ -207,6 +209,7 @@ export async function claimRecoveryOccurrencesRequest(
   });
 
   if (!res.ok) {
+    await assertNotEmailVerificationRequiredFromResponse(res);
     const kind = classifyStatus(res.status);
     throw new RecoveryApiError(
       kind,
@@ -237,6 +240,7 @@ export async function renewRecoveryClaimRequest(
   });
 
   if (!res.ok) {
+    await assertNotEmailVerificationRequiredFromResponse(res);
     const kind = classifyStatus(res.status);
     throw new RecoveryApiError(
       kind,
@@ -281,6 +285,7 @@ export async function reportRecoveryProgressRequest(
   });
 
   if (!res.ok) {
+    await assertNotEmailVerificationRequiredFromResponse(res);
     const kind = classifyStatus(res.status);
     throw new RecoveryApiError(
       kind,

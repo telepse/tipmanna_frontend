@@ -1,5 +1,7 @@
 "use client";
 
+import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
+
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
 export type ChannelPlaybackRouteResult = {
@@ -18,7 +20,10 @@ export async function fetchChannelPlaybackRoute(
       `${API_BASE}/contents/channels/${encodeURIComponent(id)}/playback-route`,
       { cache: "no-store", credentials: "include" }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      await assertNotEmailVerificationRequiredFromResponse(res);
+      return null;
+    }
     const data = (await res.json()) as ChannelPlaybackRouteResult;
     if (data?.route !== "channel" && data?.route !== "explore-reel") {
       return null;

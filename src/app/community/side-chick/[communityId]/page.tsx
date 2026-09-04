@@ -15,6 +15,7 @@ import { JoinCommunityModal } from "@/components/community/join-community-modal"
 import { InstallPromptSheet } from "@/components/pwa/install-prompt-sheet";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { setPendingDedicatedEnter } from "@/lib/pending-dedicated-enter";
+import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
 
 const apiBase = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
@@ -69,6 +70,7 @@ export default function SideChickMagicPage() {
       }
     );
     if (!r.ok) {
+      await assertNotEmailVerificationRequiredFromResponse(r);
       setLoadErr(`Could not load community (${r.status})`);
       setData(null);
       return;
@@ -107,6 +109,7 @@ export default function SideChickMagicPage() {
         router.push("/explore");
         return;
       }
+      await assertNotEmailVerificationRequiredFromResponse(r);
       const j = (await r.json().catch(() => null)) as {
         error?: { message?: string };
       } | null;

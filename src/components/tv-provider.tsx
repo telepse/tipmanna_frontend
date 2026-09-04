@@ -33,6 +33,7 @@ import { requestTvYoutubeApiWarmup } from "@/lib/tv-youtube-api-warmup";
 import {
   isSameOrchestratedPlayback,
   isUserIntentPlaybackReason,
+  resolveUnchangedPlaybackAction,
   type TvPlaybackRequest,
 } from "@/lib/tv-playback-request";
 import {
@@ -210,6 +211,8 @@ export type LastLivePosition = Pick<
 
 export type TvPaymentPlaybackSnapshot = {
   mode: "GLOBAL" | "LOCAL";
+  /** Mode before the tip drawer opened (for post-payment live axis). */
+  originMode: "GLOBAL" | "LOCAL";
   currentIndex: number;
   currentTime: number;
   wasPlaying: boolean;
@@ -303,6 +306,9 @@ type TVContextType = {
 
   /** Notifies iframe readiness; triggers sync when becoming visible in GLOBAL */
   setPlayerVisible: (visible: boolean) => void;
+
+  /** Flushes a playback request that was deferred until the TV player became ready. */
+  flushPendingPlaybackRequest: () => void;
 
   /** Half-day thematic collection applied to ongoing batch (backend meta). */
   ongoingCollection: TvAdjustmentCollectionPayload;
@@ -416,6 +422,7 @@ function createFallbackTvContext(): TVContextType {
     onVideoEnd: noop,
     setPlayerPlayingState: noop,
     setPlayerVisible: noop,
+    flushPendingPlaybackRequest: noop,
     ongoingCollection: null,
     upcomingCollection: null,
     pauseForPayment: noop,
@@ -528,6 +535,7 @@ export default function GlobalTVProvider({
 
   const paymentActiveRef = useRef(false);
   const paymentSnapshotRef = useRef<TvPaymentPlaybackSnapshot | null>(null);
+  const postPaymentAxisRef = useRef(false);
   const pendingSchedulePayloadRef = useRef<any>(null);
   const [isPaymentActive, setIsPaymentActive] = useState(false);
   const isPlayingRef = useRef(false);
@@ -592,6 +600,7 @@ export default function GlobalTVProvider({
     startSeconds: number;
   } | null>(null);
   const pendingPlaybackRequestRef = useRef<TvPlaybackRequest | null>(null);
+  const pendingUserGesturePlayRef = useRef(false);
   const pendingAudioRestoreRef = useRef<PendingAudioRestore | null>(null);
   const paymentPlaybackRestoreRef = useRef<{
     wasMuted: boolean;
@@ -650,6 +659,7 @@ export default function GlobalTVProvider({
     setScheduleStale(false);
     orchestratedPlaybackRef.current = null;
     pendingPlaybackRequestRef.current = null;
+    pendingUserGesturePlayRef.current = false;
     pendingAudioRestoreRef.current = null;
     scheduleSwrBootstrappedRef.current = false;
     paymentPlaybackRestoreRef.current = null;
@@ -971,10 +981,15 @@ export default function GlobalTVProvider({
       }
 
       if (isSameOrchestratedPlayback(orchestratedPlaybackRef.current, req)) {
-        if (isUserIntentPlaybackReason(req.reason) && player?.isReady()) {
-          player.seekTo(req.startSeconds, true);
+        const userIntent = isUserIntentPlaybackReason(req.reason);
+        const action = resolveUnchangedPlaybackAction({
+          userIntent,
+          playerReady: !!player?.isReady(),
+        });
+        if (action === "replay") {
+          player!.seekTo(req.startSeconds, true);
           playWithUserGesture(
-            player,
+            player!,
             pendingAudioRestoreRef.current,
             "requestPlayback.replay"
           );
@@ -984,6 +999,16 @@ export default function GlobalTVProvider({
             startSeconds: req.startSeconds,
           });
           return true;
+        }
+        if (action === "queue") {
+          pendingPlaybackRequestRef.current = req;
+          pendingUserGesturePlayRef.current = true;
+          tvTrace("playback", "requestPlayback_queued_unchanged", {
+            reason: req.reason,
+            videoId: req.videoId,
+            startSeconds: req.startSeconds,
+          });
+          return false;
         }
         tvTrace("playback", "requestPlayback_skipped", {
           reason: "unchanged",
@@ -1039,11 +1064,28 @@ export default function GlobalTVProvider({
     [recordInitialEmbedSuccessOnce, isOrchestrationBlockedByTerminalFailure]
   );
 
+  const tryPendingUserGesturePlay = useCallback(() => {
+    if (!pendingUserGesturePlayRef.current) return;
+    const player = playerRef.current;
+    if (!player?.isReady()) return;
+    pendingUserGesturePlayRef.current = false;
+    playWithUserGesture(
+      player,
+      pendingAudioRestoreRef.current,
+      "TvProvider.pendingUserGesturePlay"
+    );
+  }, []);
+
   const flushPendingPlaybackRequest = useCallback(() => {
     const pending = pendingPlaybackRequestRef.current;
-    if (!pending) return;
+    if (!pending) {
+      tryPendingUserGesturePlay();
+      return;
+    }
+    pendingPlaybackRequestRef.current = null;
     requestPlayback(pending);
-  }, [requestPlayback]);
+    tryPendingUserGesturePlay();
+  }, [requestPlayback, tryPendingUserGesturePlay]);
 
   const reloadCurrentPlaybackAt = useCallback(
     (startSeconds: number) => {
@@ -1509,7 +1551,7 @@ export default function GlobalTVProvider({
         tvTrace("playback", "syncToLive_notice_pause", {
           scheduleIndex: effectivePos.scheduleIndex,
         });
-        player.pause();
+        player.pauseProgrammatic?.();
       }
     } else if (!isNotice) {
       const channelUrl = effectivePos.item.channel?.url;
@@ -1718,6 +1760,8 @@ export default function GlobalTVProvider({
       activeScheduleIdRef.current = sid;
       orchestratedPlaybackRef.current = null;
       pendingPlaybackRequestRef.current = null;
+      pendingUserGesturePlayRef.current = false;
+      postPaymentAxisRef.current = false;
       if (!startupPlaybackGuardRef.current.firstPlayReached) {
         committedInitialEmbedRef.current = null;
         provisionalInitialTargetRef.current = null;
@@ -2508,6 +2552,7 @@ export default function GlobalTVProvider({
 
   const enterGlobalMode = useCallback(() => {
     const fromMode = modeRef.current;
+    postPaymentAxisRef.current = false;
     setLocalModeReason(null);
     setPlayingItemOverride(null);
     setSchedulePlayingSlot(null);
@@ -2636,7 +2681,7 @@ export default function GlobalTVProvider({
               seekSeconds = player.getCurrentTime();
               const state = player.getPlayerState();
               wasPlaying = state === "PLAYING" || state === "BUFFERING";
-              player.pause();
+              player.pauseProgrammatic?.();
             } catch {
               /* YT iframe may be detached */
             }
@@ -2899,7 +2944,10 @@ export default function GlobalTVProvider({
       }
 
       let playIndex = index;
-      if (items[playIndex]?.segmentKind === "notice") {
+      if (
+        items[playIndex]?.segmentKind === "notice" &&
+        !postPaymentAxisRef.current
+      ) {
         playIndex = skipNoticeSegments(items, playIndex);
       }
 
@@ -2952,6 +3000,8 @@ export default function GlobalTVProvider({
             pendingAudioRestoreRef.current,
             "loadLocalAtIndex"
           );
+        } else {
+          pendingUserGesturePlayRef.current = true;
         }
       }
     },
@@ -3227,8 +3277,10 @@ export default function GlobalTVProvider({
 
   const pauseForPayment = useCallback(() => {
     const player = playerRef.current;
+    const originMode = modeRef.current;
     const snap: TvPaymentPlaybackSnapshot = {
-      mode: modeRef.current,
+      mode: "LOCAL",
+      originMode,
       currentIndex: currentIndexRef.current,
       currentTime: player?.isReady() ? player.getCurrentTime() : 0,
       wasPlaying: isPlayingRef.current,
@@ -3236,33 +3288,33 @@ export default function GlobalTVProvider({
       playingItemOverrideId:
         (playingItemOverride as { id?: string } | null)?.id ?? null,
       schedulePlayingSlot,
-      localModeReason,
+      localModeReason: "tip_drawer",
     };
+    if (originMode === "GLOBAL") {
+      enterLocalMode("tip_drawer", currentIndexRef.current);
+    }
     paymentSnapshotRef.current = snap;
-    const persisted: PersistedTvPaymentSnapshot = { v: 1, ...snap };
+    const persisted: PersistedTvPaymentSnapshot = { v: 2, ...snap };
     writePersistedPaymentSnapshot(persisted);
     paymentActiveRef.current = true;
     setIsPaymentActive(true);
     player?.pause();
-  }, [playingItemOverride, schedulePlayingSlot, localModeReason]);
+  }, [playingItemOverride, schedulePlayingSlot, enterLocalMode]);
 
   const preparePlaybackForTipDrawer = useCallback(
-    (hasSelectedTips: boolean) => {
-      if (!hasSelectedTips) {
-        pauseForPayment();
-        return;
-      }
+    (_hasSelectedTips: boolean) => {
       const player = playerRef.current;
-      if (modeRef.current === "GLOBAL") {
+      const originMode = modeRef.current;
+      if (originMode === "GLOBAL") {
         enterLocalMode("tip_drawer", currentIndexRef.current);
       }
       const idx = currentIndexRef.current;
-      const wasPlayingBefore = isPlayingRef.current;
       const snap: TvPaymentPlaybackSnapshot = {
         mode: "LOCAL",
+        originMode,
         currentIndex: idx,
         currentTime: player?.isReady() ? player.getCurrentTime() : 0,
-        wasPlaying: wasPlayingBefore,
+        wasPlaying: isPlayingRef.current,
         wasMuted: readTvMutePref(),
         playingItemOverrideId:
           (playingItemOverride as { id?: string } | null)?.id ?? null,
@@ -3270,18 +3322,20 @@ export default function GlobalTVProvider({
         localModeReason: "tip_drawer",
       };
       paymentSnapshotRef.current = snap;
-      writePersistedPaymentSnapshot({ v: 1, ...snap });
+      writePersistedPaymentSnapshot({ v: 2, ...snap });
       paymentActiveRef.current = true;
       setIsPaymentActive(true);
       player?.pause();
     },
-    [pauseForPayment, enterLocalMode, playingItemOverride]
+    [enterLocalMode, playingItemOverride]
   );
 
   const snapshotPlaybackForPaymentRedirect = useCallback(() => {
     const player = playerRef.current;
+    const originMode = modeRef.current;
     const snap: TvPaymentPlaybackSnapshot = {
-      mode: modeRef.current === "GLOBAL" ? "LOCAL" : modeRef.current,
+      mode: "LOCAL",
+      originMode,
       currentIndex: currentIndexRef.current,
       currentTime: player?.isReady() ? player.getCurrentTime() : 0,
       wasPlaying: isPlayingRef.current,
@@ -3290,9 +3344,9 @@ export default function GlobalTVProvider({
         (playingItemOverride as { id?: string } | null)?.id ?? null,
       schedulePlayingSlot,
       localModeReason:
-        modeRef.current === "GLOBAL" ? "payment_redirect" : localModeReason,
+        originMode === "GLOBAL" ? "payment_redirect" : localModeReason,
     };
-    writePersistedPaymentSnapshot({ v: 1, ...snap });
+    writePersistedPaymentSnapshot({ v: 2, ...snap });
     if (paymentSnapshotRef.current) {
       paymentSnapshotRef.current = snap;
     }
@@ -3330,6 +3384,7 @@ export default function GlobalTVProvider({
     }
 
     const player = playerRef.current;
+    const originMode = snap.originMode ?? snap.mode;
 
     if (snap.mode === "GLOBAL") {
       flushPendingSchedule();
@@ -3346,14 +3401,17 @@ export default function GlobalTVProvider({
       paymentActiveRef.current = false;
       setIsPaymentActive(false);
       syncToLive();
+      queueMicrotask(() => {
+        applyPendingPlaybackRestore();
+        applyPendingAudioRestore();
+      });
       return;
     }
 
     flushPendingSchedule();
-    if (!player?.isReady()) {
-      paymentActiveRef.current = false;
-      setIsPaymentActive(false);
-      return;
+
+    if (originMode === "GLOBAL") {
+      postPaymentAxisRef.current = true;
     }
 
     setPlayingItemOverride(resolveOverride(snap.playingItemOverrideId));
@@ -3364,20 +3422,28 @@ export default function GlobalTVProvider({
     modeRef.current = "LOCAL";
     setCurrentIndex(snap.currentIndex);
     currentIndexRef.current = snap.currentIndex;
-    player.seekTo(snap.currentTime, false);
+
     paymentActiveRef.current = false;
     setIsPaymentActive(false);
     paymentPlaybackRestoreRef.current = {
       wasMuted: snap.wasMuted,
       wasPlaying: snap.wasPlaying,
     };
+
+    if (!player?.isReady()) {
+      return;
+    }
+
+    player.seekTo(snap.currentTime, false);
     applyPendingPlaybackRestore();
+    applyPendingAudioRestore();
   }, [
     items,
     alternateBatchItems,
     applySchedulePayloadCore,
     syncToLive,
     applyPendingPlaybackRestore,
+    applyPendingAudioRestore,
   ]);
 
   useEffect(() => {
@@ -3433,9 +3499,17 @@ export default function GlobalTVProvider({
       };
       queueMicrotask(() => {
         syncToLive();
+        applyPendingPlaybackRestore();
+        applyPendingAudioRestore();
       });
       clearPendingReturnSoon();
       return;
+    }
+
+    const originMode = persisted.originMode ?? persisted.mode;
+
+    if (originMode === "GLOBAL") {
+      postPaymentAxisRef.current = true;
     }
 
     setPlayingItemOverride(resolveOverride(persisted.playingItemOverrideId));
@@ -3456,6 +3530,7 @@ export default function GlobalTVProvider({
         wasPlaying: persisted.wasPlaying,
       };
       applyPendingPlaybackRestore();
+      applyPendingAudioRestore();
     });
     clearPendingReturnSoon();
   }, [
@@ -3464,6 +3539,7 @@ export default function GlobalTVProvider({
     alternateBatchItems,
     syncToLive,
     applyPendingPlaybackRestore,
+    applyPendingAudioRestore,
   ]);
 
   return (
@@ -3521,6 +3597,7 @@ export default function GlobalTVProvider({
         onVideoEnd,
         setPlayerPlayingState,
         setPlayerVisible,
+        flushPendingPlaybackRequest,
 
         pauseForPayment,
         preparePlaybackForTipDrawer,

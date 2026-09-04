@@ -11,6 +11,7 @@ import {
   readPendingDedicatedEnter,
 } from "@/lib/pending-dedicated-enter";
 import type { RootState } from "@/redux/store";
+import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
 
 const apiBase = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
@@ -38,6 +39,8 @@ export function DedicatedEnterResumeController() {
           clearPendingDedicatedEnter();
           await sideChick.refresh();
           router.push("/explore");
+        } else {
+          await assertNotEmailVerificationRequiredFromResponse(r);
         }
       } catch {
         resumedRef.current = false;

@@ -36,7 +36,43 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { YoutubeChromeMask } from "@/components/youtube-chrome-mask";
 import { onYoutubeIframeApiReady } from "@/lib/youtube-iframe-api-loader";
-import { loadReelSoundPref, persistReelSoundPref } from "@/lib/session-audio";
+import {
+  loadReelSoundPref,
+  persistReelSoundPref,
+  readSessionMuted,
+} from "@/lib/session-audio";
+import {
+  isInsidePlayerAudioIntentGrace,
+  markPlayerAudioIntentGrace,
+  shouldSuppressPlayerMuteSync,
+} from "@/lib/player-audio-intent";
+import {
+  hasYoutubePlaybackApi,
+  safeYoutubeCall,
+} from "@/lib/tv/youtube-player-safe";
+
+function safeYtPlay(p: YT.Player | null | undefined): void {
+  if (!hasYoutubePlaybackApi(p)) return;
+  safeYoutubeCall(() => p.playVideo(), undefined);
+}
+
+function safeYtPause(p: YT.Player | null | undefined): void {
+  if (!hasYoutubePlaybackApi(p)) return;
+  safeYoutubeCall(() => p.pauseVideo(), undefined);
+}
+
+function safeYtMute(p: YT.Player | null | undefined): void {
+  if (!p || typeof p.mute !== "function") return;
+  safeYoutubeCall(() => p.mute(), undefined);
+}
+
+function safeYtUnmute(p: YT.Player | null | undefined, volume = 100): void {
+  if (!p || typeof p.unMute !== "function") return;
+  safeYoutubeCall(() => {
+    p.unMute();
+    p.setVolume?.(volume);
+  }, undefined);
+}
 
 export { loadReelSoundPref } from "@/lib/session-audio";
 
@@ -145,6 +181,8 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       `yt-player-${Math.random().toString(36).slice(2)}`
     );
     const hasUserInteracted = useRef(false);
+    const intentGraceUntilRef = useRef(0);
+    const pendingMuteRef = useRef<boolean | null>(null);
     const playbackActiveRef = useRef(playbackActive);
     playbackActiveRef.current = playbackActive;
     /** True when we should play as soon as the YT iframe becomes ready (active before `playerRef` exists). */
@@ -212,9 +250,11 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
     onMuteStateChangeRef.current = onMuteStateChange;
 
     const syncMuteFromPlayer = (target?: YT.Player | null) => {
+      if (isInsidePlayerAudioIntentGrace(intentGraceUntilRef)) return;
       const p = target ?? playerRef.current;
       if (!p || typeof p.isMuted !== "function") return;
       const muted = p.isMuted();
+      if (shouldSuppressPlayerMuteSync(muted, readSessionMuted())) return;
       setIsMuted(muted);
       onMuteStateChangeRef.current?.(muted);
     };
@@ -227,9 +267,16 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         syncMuteFromPlayer(p);
         return;
       }
-      p.unMute();
-      p.setVolume(100);
+      safeYtUnmute(p);
       syncMuteFromPlayer(p);
+    };
+
+    const invokeYtTarget = (
+      target: YT.Player,
+      fn: (t: YT.Player) => void
+    ): void => {
+      if (!hasYoutubePlaybackApi(target)) return;
+      safeYoutubeCall(() => fn(target), undefined);
     };
 
     /** Updates canonical Explore reel aspect via onVideoAspectInfo → onPlayerAspectInfo. */
@@ -267,8 +314,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       if (!playerRef.current || hasUserInteracted.current) return;
 
       hasUserInteracted.current = true;
-      playerRef.current.unMute();
-      playerRef.current.setVolume(100);
+      safeYtUnmute(playerRef.current);
       setIsMuted(false);
       persistReelSoundPref(true);
     };
@@ -343,18 +389,28 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
               : initialMutedRef.current !== false;
 
             if (wantPlay) {
-              event.target.playVideo();
+              invokeYtTarget(event.target, t => t.playVideo());
               if (!startMuted) {
-                event.target.unMute();
-                event.target.setVolume(100);
+                safeYtUnmute(event.target);
               } else {
-                event.target.mute();
+                safeYtMute(event.target);
               }
             } else {
-              event.target.pauseVideo();
-              event.target.mute();
+              safeYtPause(event.target);
+              safeYtMute(event.target);
             }
             syncMuteFromPlayer(event.target);
+            const pendingMute = pendingMuteRef.current;
+            if (pendingMute != null) {
+              pendingMuteRef.current = null;
+              markPlayerAudioIntentGrace(intentGraceUntilRef);
+              if (pendingMute) {
+                safeYtMute(event.target);
+              } else {
+                safeYtUnmute(event.target);
+              }
+              setIsMuted(pendingMute);
+            }
           },
           onError: (ev: { data?: number }) => {
             const code = ev?.data;
@@ -375,7 +431,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
             }
             if (event.data === window.YT.PlayerState.PLAYING) {
               if (!playbackActiveRef.current) {
-                event.target.pauseVideo();
+                safeYtPause(event.target);
                 return;
               }
               setLoading(false);
@@ -399,40 +455,41 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         typeof playerRef.current.getDuration === "function",
 
       play: () => {
-        if (!playerRef.current) return;
+        const p = playerRef.current;
+        if (!p) return;
 
-        const muted = playerRef.current.isMuted?.() ?? isMuted;
+        const muted = p.isMuted?.() ?? isMuted;
         if (muted) {
-          playerRef.current.mute();
+          safeYtMute(p);
         } else {
-          playerRef.current.unMute();
+          safeYtUnmute(p);
         }
 
-        playerRef.current.playVideo();
+        safeYtPlay(p);
       },
-      pause: () => playerRef.current?.pauseVideo(),
-      stop: () => playerRef.current?.stopVideo(),
+      pause: () => safeYtPause(playerRef.current),
+      stop: () => {
+        const p = playerRef.current;
+        if (!p || typeof p.stopVideo !== "function") return;
+        safeYoutubeCall(() => p.stopVideo(), undefined);
+      },
       mute: () => {
-        playerRef.current?.mute();
+        safeYtMute(playerRef.current);
         syncMuteFromPlayer();
         persistReelSoundPref(false);
       },
       unmute: () => {
-        const p = playerRef.current;
-        if (!p) return;
-        p.unMute();
-        p.setVolume(100);
+        safeYtUnmute(playerRef.current);
         syncMuteFromPlayer();
         persistReelSoundPref(true);
       },
       unmuteAndPlay: () => {
         const p = playerRef.current;
         if (!p) return;
-        p.unMute();
-        p.setVolume(100);
+        safeYtUnmute(p);
         syncMuteFromPlayer();
         persistReelSoundPref(true);
-        p.playVideo();
+        safeYtPlay(p);
       },
       isMuted: () => playerRef.current?.isMuted?.() ?? isMuted,
 
@@ -440,23 +497,24 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         const p = playerRef.current;
         if (!p) return;
         if (muted) {
-          p.mute();
+          safeYtMute(p);
           persistReelSoundPref(false);
         } else {
-          p.unMute();
-          p.setVolume(100);
+          safeYtUnmute(p);
           persistReelSoundPref(true);
         }
         syncMuteFromPlayer();
       },
 
       setvolume: (v: number) => {
-        playerRef.current?.setVolume(v);
+        const p = playerRef.current;
+        if (!p || typeof p.setVolume !== "function") return;
+        safeYoutubeCall(() => p.setVolume(v), undefined);
         if (v === 0) {
-          playerRef.current?.mute();
+          safeYtMute(p);
           persistReelSoundPref(false);
         } else {
-          playerRef.current?.unMute();
+          safeYtUnmute(p, v);
           persistReelSoundPref(true);
         }
         syncMuteFromPlayer();
@@ -469,25 +527,39 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
 
     useEffect(() => {
       playbackActiveRef.current = playbackActive;
-      if (playbackActive && !playerRef.current) {
-        pendingPlayAfterReadyRef.current = true;
-      }
+      const p = playerRef.current;
       if (!playbackActive) {
         pendingPlayAfterReadyRef.current = false;
-      }
-      const raf = requestAnimationFrame(() => {
-        const p = playerRef.current;
         if (!p) return;
-        pendingPlayAfterReadyRef.current = false;
-        if (!playbackActiveRef.current) {
-          p.pauseVideo();
-          p.mute();
-        } else {
-          p.playVideo();
-          restoreReelSoundIfPreferred(p);
+        safeYtPause(p);
+        safeYtMute(p);
+        return;
+      }
+      if (!p) {
+        pendingPlayAfterReadyRef.current = true;
+        return;
+      }
+      pendingPlayAfterReadyRef.current = false;
+      safeYtPlay(p);
+      restoreReelSoundIfPreferred(p);
+
+      let attempts = 0;
+      const retrySound = () => {
+        if (!playbackActiveRef.current || attempts >= 8) return;
+        attempts += 1;
+        const player = playerRef.current;
+        if (!player || typeof player.isMuted !== "function") {
+          window.setTimeout(retrySound, 120);
+          return;
         }
-      });
-      return () => cancelAnimationFrame(raf);
+        if (!loadReelSoundPref()) return;
+        if (!player.isMuted()) return;
+        safeYtUnmute(player);
+        syncMuteFromPlayer(player);
+      };
+      if (loadReelSoundPref()) {
+        window.setTimeout(retrySound, 120);
+      }
     }, [playbackActive]);
 
     useEffect(() => {
@@ -495,16 +567,21 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       setPlayerError(null);
 
       // If player exists, load the new video
-      if (playerRef.current && playerRef.current.loadVideoById) {
+      if (
+        playerRef.current &&
+        typeof playerRef.current.loadVideoById === "function"
+      ) {
         setLoading(true);
-        playerRef.current.loadVideoById(videoId);
-        const rafPlay = requestAnimationFrame(() => {
+        safeYoutubeCall(
+          () => playerRef.current!.loadVideoById(videoId),
+          undefined
+        );
+        if (playbackActiveRef.current) {
           const p = playerRef.current;
-          if (!p || !playbackActiveRef.current) return;
-          p.playVideo();
+          safeYtPlay(p);
           restoreReelSoundIfPreferred(p);
-        });
-        return () => cancelAnimationFrame(rafPlay);
+        }
+        return;
       }
 
       let alive = true;
@@ -617,10 +694,10 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       setPlayerError(null);
       setLoading(true);
       const p = playerRef.current;
-      if (p && videoId) {
-        p.loadVideoById(videoId);
+      if (p && videoId && typeof p.loadVideoById === "function") {
+        safeYoutubeCall(() => p.loadVideoById(videoId), undefined);
         if (playbackActiveRef.current) {
-          p.playVideo();
+          safeYtPlay(p);
           restoreReelSoundIfPreferred(p);
         }
       }

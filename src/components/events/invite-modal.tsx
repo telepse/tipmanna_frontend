@@ -13,10 +13,10 @@ import {
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { setCredentials } from "@/features/auth-slice";
-import { persistAuthSession } from "@/lib/session-client";
+import { parseAuthResponse } from "@/lib/auth-response";
+import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import { ApiError } from "@/types/api-error.types";
-import { RootState } from "@/redux/store";
+import { RootState, AppDispatch } from "@/redux/store";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Paragraph } from "../shared/paragraph";
@@ -35,7 +35,7 @@ type Step = "signIn" | "verifyCode";
 
 export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
   const [isLoading, setIsLoading] = useState(false);
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   const [step, setStep] = useState<Step>("signIn");
   const [code, setCode] = useState("");
@@ -60,7 +60,7 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
   });
   const email = form.watch("email");
 
-  const { user, token } = useSelector((state: RootState) => state.auth);
+  const { user } = useSelector((state: RootState) => state.auth);
 
   const handleLogin = async (values: { email: string }) => {
     try {
@@ -78,27 +78,15 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
         return;
       }
 
-      const { id, fullName, email, username } = (res.data as any).user as any;
-      const token = (res.data as unknown as { token: string })?.token;
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Unexpected sign-in response");
+        return;
+      }
 
-      dispatch(
-        setCredentials({
-          user: {
-            id,
-            fullName,
-            email,
-            username,
-            role: "TIPPER",
-          },
-          token,
-        })
-      );
-
-      await persistAuthSession(
-        token,
-        { id, fullName, email, username, role: "TIPPER" },
-        { expiresDays: 7 }
-      );
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: parsed.requiresVerification ?? true,
+      });
 
       if (res.success) setStep("verifyCode");
     } catch (err: unknown) {
@@ -121,15 +109,19 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
 
       if (!user?.email) return;
 
-      await verifyCodeAction(user.email, code);
+      const res = await verifyCodeAction(user.email, code);
+      if (!res.success) {
+        toast.error(res.message ?? "Verification failed");
+        return;
+      }
 
-      dispatch(
-        setCredentials({
-          user,
-          token: token!,
-          requiresVerification: false,
-        })
-      );
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Verification succeeded but session could not be restored");
+        return;
+      }
+
+      await applyPrimaryAndHostSessions(parsed, dispatch);
 
       toast.success("Email verified successfully!");
 

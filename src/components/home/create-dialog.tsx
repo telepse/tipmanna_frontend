@@ -55,6 +55,7 @@ import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { Button } from "@/components/ui/button";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
+import { resolveCreateDialogView } from "@/lib/create-dialog-view";
 import { cn } from "@/lib/utils";
 
 type SignInIntent = "add-video" | "type-picker-proceed" | null;
@@ -88,11 +89,6 @@ const FULL_CREATE_OPTIONS = [
 interface Props {
   openPopup: boolean;
   setOpenPopup: (value: boolean) => void;
-  /**
-   * When true, always show the event / content / event+content picker (routes on proceed),
-   * even for hosts when Community is enabled (Explore uses this; dashboard can keep add-video flow).
-   */
-  forceTypePicker?: boolean;
   /** Use explore-layer z-index so the dialog sits above explore filter chrome. */
   onExploreLayer?: boolean;
   /** Opens add-video flow or live-event picker (content-only disabled). */
@@ -117,7 +113,6 @@ const communityFeatureOn =
 export const CreateDialog = ({
   openPopup,
   setOpenPopup,
-  forceTypePicker = false,
   onExploreLayer = false,
   entry = "default",
 }: Props) => {
@@ -149,16 +144,31 @@ export const CreateDialog = ({
   const [resumeVideoSubmit, setResumeVideoSubmit] = useState(false);
 
   const {
+    capability,
     canReadAsHost,
     canWriteAsHost,
+    sessionLoading,
     requestHostAuth,
     handleAuthRequiredError,
     HostAuthModal,
   } = useHostCapabilityWithAuth({
     enabled: openPopup,
   });
-  const showHostCreateFlow =
-    communityFeatureOn && !forceTypePicker && canReadAsHost;
+  const showHostCreateFlow = communityFeatureOn && canReadAsHost;
+  const summarizedIntent =
+    showNewEventRoomPicker || (openPopup && entry === "event-room");
+
+  const dialogView = resolveCreateDialogView({
+    openPopup,
+    communityFeatureOn,
+    userId: user?.id,
+    userRole: user?.role,
+    capabilityStatus: capability.status,
+    sessionLoading,
+    pickerLoading,
+    canReadAsHost,
+    showNewEventRoomPicker: summarizedIntent,
+  });
 
   useCreateDialogResume({
     openCreateDialog: () => setOpenPopup(true),
@@ -209,7 +219,9 @@ export const CreateDialog = ({
     "Choose what you are creating. You will continue on the full create form.";
 
   useEffect(() => {
-    if (!openPopup || forceTypePicker || !communityFeatureOn) return;
+    if (!openPopup || !communityFeatureOn) return;
+
+    if (summarizedIntent) return;
 
     if (!user?.id || !canReadAsHost) {
       setEvents([]);
@@ -263,7 +275,13 @@ export const CreateDialog = ({
     return () => {
       cancelled = true;
     };
-  }, [openPopup, forceTypePicker, user?.id, canReadAsHost, communityFeatureOn]);
+  }, [
+    openPopup,
+    user?.id,
+    canReadAsHost,
+    communityFeatureOn,
+    summarizedIntent,
+  ]);
 
   useEffect(() => {
     if (!showHostCreateFlow) return;
@@ -499,14 +517,249 @@ export const CreateDialog = ({
     />
   );
 
-  const awaitingHostSessionProbe =
-    openPopup &&
-    communityFeatureOn &&
-    !forceTypePicker &&
-    Boolean(user?.id) &&
-    pickerLoading;
+  const summarizedPickerContent = (
+    <>
+      <p className="text-sm text-white/70">{hostEventRoomDialogSubtitle}</p>
+      <RadioGroup
+        value={selected}
+        onValueChange={handleCreateTypeChange}
+        className="mt-3 grid gap-2"
+      >
+        {createTypeOptions.map(opt => {
+          const isDisabled = disabledCreateOptions.has(opt.value);
 
-  if (awaitingHostSessionProbe) {
+          return (
+            <Label
+              key={opt.value}
+              htmlFor={`host-new-${opt.value}`}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border border-white/30 bg-[#251212] p-3 text-white",
+                isDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+              )}
+            >
+              <RadioGroupItem
+                value={opt.value}
+                id={`host-new-${opt.value}`}
+                disabled={isDisabled}
+              />
+              <span className="flex flex-col gap-0.5">
+                <span>{opt.title}</span>
+                {"subtitle" in opt ? (
+                  <span className="text-xs text-white/70">{opt.subtitle}</span>
+                ) : null}
+              </span>
+            </Label>
+          );
+        })}
+      </RadioGroup>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="border-white/40 bg-white text-black"
+          onClick={() => {
+            if (entry === "event-room") {
+              setOpenPopup(false);
+              return;
+            }
+            setShowNewEventRoomPicker(false);
+          }}
+        >
+          {entry === "event-room" ? "Cancel" : "Back to add video"}
+        </Button>
+        <Button
+          type="button"
+          disabled={!selected || isProceeding}
+          onClick={handleProceed}
+        >
+          {isProceeding ? "Opening…" : "Continue"}
+        </Button>
+      </div>
+    </>
+  );
+
+  const preparedViewContent = (
+    <div className="space-y-4">
+      {entry !== "event-room" ? (
+        <div className="mb-4">
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full sm:w-auto"
+            onClick={() => setShowNewEventRoomPicker(true)}
+          >
+            Create new channel
+          </Button>
+          <p className="mt-2 text-xs text-white/50">
+            Or add a video to an existing channel or community below.
+          </p>
+        </div>
+      ) : null}
+      <Tabs
+        value={hostTab}
+        onValueChange={v => setHostTab(v as "event" | "owner" | "cocreator")}
+        className="w-full"
+      >
+        <TabsList className="mb-4 grid w-full grid-cols-3 gap-1 bg-white/10">
+          <TabsTrigger
+            value="event"
+            className="text-xs text-white data-[state=active]:bg-white data-[state=active]:text-black sm:text-sm"
+          >
+            Channel
+          </TabsTrigger>
+          <TabsTrigger
+            value="owner"
+            className="text-xs text-white data-[state=active]:bg-white data-[state=active]:text-black sm:text-sm"
+          >
+            My community
+          </TabsTrigger>
+          <TabsTrigger
+            value="cocreator"
+            className="text-xs text-white data-[state=active]:bg-white data-[state=active]:text-black sm:text-sm"
+          >
+            Co-create
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="event"
+          className="mt-4"
+        >
+          <Label className={CREATE_FORM_LABEL_CLASS}>Existing Channel</Label>
+          <Select
+            value={targetId}
+            onValueChange={setTargetId}
+          >
+            <SelectTrigger
+              className={`mt-2 ${CREATE_FORM_SELECT_TRIGGER_CLASS}`}
+            >
+              <SelectValue placeholder="Select event" />
+            </SelectTrigger>
+            <SelectContent className={CREATE_FORM_SELECT_CONTENT_CLASS}>
+              {events.map(ev => (
+                <SelectItem
+                  key={ev.id}
+                  value={ev.id}
+                  className={CREATE_FORM_SELECT_ITEM_CLASS}
+                >
+                  {ev.eventName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!events.length && (
+            <p className="mt-2 text-xs text-white/50">
+              No events found — create one from your dashboard first.
+            </p>
+          )}
+        </TabsContent>
+        <TabsContent
+          value="owner"
+          className="mt-4"
+        >
+          <Label className={CREATE_FORM_LABEL_CLASS}>Community you own</Label>
+          <Select
+            value={targetId}
+            onValueChange={setTargetId}
+          >
+            <SelectTrigger
+              className={`mt-2 ${CREATE_FORM_SELECT_TRIGGER_CLASS}`}
+            >
+              <SelectValue placeholder="Select community" />
+            </SelectTrigger>
+            <SelectContent className={CREATE_FORM_SELECT_CONTENT_CLASS}>
+              {owned.map(c => (
+                <SelectItem
+                  key={c.id}
+                  value={c.id}
+                  className={CREATE_FORM_SELECT_ITEM_CLASS}
+                >
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!owned.length && (
+            <p className="mt-2 text-xs text-white/50">
+              You don’t own a community yet.
+            </p>
+          )}
+        </TabsContent>
+        <TabsContent
+          value="cocreator"
+          className="mt-4"
+        >
+          <Label className={CREATE_FORM_LABEL_CLASS}>
+            Community you co-create
+          </Label>
+          <Select
+            value={targetId}
+            onValueChange={setTargetId}
+          >
+            <SelectTrigger
+              className={`mt-2 ${CREATE_FORM_SELECT_TRIGGER_CLASS}`}
+            >
+              <SelectValue placeholder="Select community" />
+            </SelectTrigger>
+            <SelectContent className={CREATE_FORM_SELECT_CONTENT_CLASS}>
+              {coCreated.map(c => (
+                <SelectItem
+                  key={c.id}
+                  value={c.id}
+                  className={CREATE_FORM_SELECT_ITEM_CLASS}
+                >
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!coCreated.length && (
+            <p className="mt-2 text-xs text-white/50">
+              Accept a co-creator invite to show communities here.
+            </p>
+          )}
+        </TabsContent>
+      </Tabs>
+      {targetId ? (
+        <AddVideoForm
+          variant="create"
+          onSubmit={handleHostVideoSubmit}
+          loading={submitLoading}
+          eventEventType={resolvedEventType}
+          showHostYoutubeSlot
+          requirePolicyFields
+          hostAuth={{ canWriteAsHost, requestHostAuth }}
+          mountHostAuthModal={false}
+          coOwnerPolicyMode={hostTab === "cocreator" ? "ownerOnly" : "full"}
+          onFormReady={setAddVideoForm}
+          onDraftIdChange={setModalDraftId}
+          draftAutosave={
+            (hostTab === "owner" || hostTab === "cocreator") && targetId
+              ? {
+                  kind: "community_video",
+                  targetId,
+                  enabled: true,
+                  resumeOrigin: modalResumeOrigin,
+                }
+              : hostTab === "event" && targetId
+                ? {
+                    kind: "room_add_video",
+                    targetId,
+                    enabled: true,
+                    resumeOrigin: modalResumeOrigin,
+                  }
+                : undefined
+          }
+          seedDraftId={modalDraftId}
+        />
+      ) : (
+        <p className="mt-4 text-sm text-white/55">
+          Choose a channel or community above to add a video.
+        </p>
+      )}
+    </div>
+  );
+
+  if (dialogView === "loading") {
     return (
       <>
         {createDialogOpen ? (
@@ -528,11 +781,12 @@ export const CreateDialog = ({
           </Dialog>
         ) : null}
         {signInDialog}
+        {HostAuthModal}
       </>
     );
   }
 
-  if (showHostCreateFlow) {
+  if (dialogView === "summarized-picker") {
     return (
       <>
         {createDialogOpen ? (
@@ -546,284 +800,44 @@ export const CreateDialog = ({
             >
               <DialogHeader>
                 <DialogTitle className="text-white/70">
-                  {showNewEventRoomPicker
-                    ? hostEventRoomDialogTitle
-                    : "Add a video"}
+                  {hostEventRoomDialogTitle}
                 </DialogTitle>
               </DialogHeader>
+              {summarizedPickerContent}
+            </DialogContent>
+          </Dialog>
+        ) : null}
+        {signInDialog}
+        {HostAuthModal}
+      </>
+    );
+  }
 
+  if (dialogView === "prepared") {
+    return (
+      <>
+        {createDialogOpen ? (
+          <Dialog
+            open
+            onOpenChange={handleCreateOpenChange}
+          >
+            <DialogContent
+              overlayClassName={dialogOverlayZIndex}
+              className={`${dialogContentZIndex} max-h-[90vh] overflow-y-auto rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-2xl`}
+            >
+              <DialogHeader>
+                <DialogTitle className="text-white/70">Add a video</DialogTitle>
+              </DialogHeader>
               {pickerLoading ? (
                 <p className="text-sm text-white/70">Loading your events…</p>
-              ) : showNewEventRoomPicker ? (
-                <>
-                  <p className="text-sm text-white/70">
-                    {isLiveEventEntry
-                      ? hostEventRoomDialogSubtitle
-                      : "Choose what you are creating. You will continue on the full create form."}
-                  </p>
-                  <RadioGroup
-                    value={selected}
-                    onValueChange={handleCreateTypeChange}
-                    className="mt-3 grid gap-2"
-                  >
-                    {createTypeOptions.map(opt => {
-                      const isDisabled = disabledCreateOptions.has(opt.value);
-
-                      return (
-                        <Label
-                          key={opt.value}
-                          htmlFor={`host-new-${opt.value}`}
-                          className={cn(
-                            "flex items-center gap-2 rounded-lg border border-white/30 bg-[#251212] p-3 text-white",
-                            isDisabled
-                              ? "cursor-not-allowed opacity-50"
-                              : "cursor-pointer"
-                          )}
-                        >
-                          <RadioGroupItem
-                            value={opt.value}
-                            id={`host-new-${opt.value}`}
-                            disabled={isDisabled}
-                          />
-                          <span className="flex flex-col gap-0.5">
-                            <span>{opt.title}</span>
-                            {entry !== "event-room" && (
-                              <>
-                                {"subtitle" in opt ? (
-                                  <span className="text-xs text-white/70">
-                                    {opt.subtitle}
-                                  </span>
-                                ) : null}
-                              </>
-                            )}
-                          </span>
-                        </Label>
-                      );
-                    })}
-                  </RadioGroup>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="border-white/40 bg-white text-black"
-                      onClick={() => {
-                        if (entry === "event-room") {
-                          setOpenPopup(false);
-                          return;
-                        }
-                        setShowNewEventRoomPicker(false);
-                      }}
-                    >
-                      {entry === "event-room" ? "Cancel" : "Back to add video"}
-                    </Button>
-                    <Button
-                      type="button"
-                      disabled={!selected || isProceeding}
-                      onClick={handleProceed}
-                    >
-                      {isProceeding ? "Opening…" : "Continue"}
-                    </Button>
-                  </div>
-                </>
               ) : (
-                <div className="space-y-4">
-                  {entry !== "event-room" ? (
-                    <div className="mb-4">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="w-full sm:w-auto"
-                        onClick={() => setShowNewEventRoomPicker(true)}
-                      >
-                        Create new channel
-                      </Button>
-                      <p className="mt-2 text-xs text-white/50">
-                        Or add a video to an existing channel or community
-                        below.
-                      </p>
-                    </div>
-                  ) : null}
-                  <Tabs
-                    value={hostTab}
-                    onValueChange={v =>
-                      setHostTab(v as "event" | "owner" | "cocreator")
-                    }
-                    className="w-full"
-                  >
-                    <TabsList className="mb-4 grid w-full grid-cols-3 gap-1 bg-white/10">
-                      <TabsTrigger
-                        value="event"
-                        className="text-xs text-white data-[state=active]:bg-white data-[state=active]:text-black sm:text-sm"
-                      >
-                        Channel
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="owner"
-                        className="text-xs text-white data-[state=active]:bg-white data-[state=active]:text-black sm:text-sm"
-                      >
-                        My community
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="cocreator"
-                        className="text-xs text-white data-[state=active]:bg-white data-[state=active]:text-black sm:text-sm"
-                      >
-                        Co-create
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent
-                      value="event"
-                      className="mt-4"
-                    >
-                      <Label className={CREATE_FORM_LABEL_CLASS}>
-                        Existing Channel
-                      </Label>
-                      <Select
-                        value={targetId}
-                        onValueChange={setTargetId}
-                      >
-                        <SelectTrigger
-                          className={`mt-2 ${CREATE_FORM_SELECT_TRIGGER_CLASS}`}
-                        >
-                          <SelectValue placeholder="Select event" />
-                        </SelectTrigger>
-                        <SelectContent
-                          className={CREATE_FORM_SELECT_CONTENT_CLASS}
-                        >
-                          {events.map(ev => (
-                            <SelectItem
-                              key={ev.id}
-                              value={ev.id}
-                              className={CREATE_FORM_SELECT_ITEM_CLASS}
-                            >
-                              {ev.eventName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {!events.length && (
-                        <p className="mt-2 text-xs text-white/50">
-                          No events found — create one from your dashboard
-                          first.
-                        </p>
-                      )}
-                    </TabsContent>
-                    <TabsContent
-                      value="owner"
-                      className="mt-4"
-                    >
-                      <Label className={CREATE_FORM_LABEL_CLASS}>
-                        Community you own
-                      </Label>
-                      <Select
-                        value={targetId}
-                        onValueChange={setTargetId}
-                      >
-                        <SelectTrigger
-                          className={`mt-2 ${CREATE_FORM_SELECT_TRIGGER_CLASS}`}
-                        >
-                          <SelectValue placeholder="Select community" />
-                        </SelectTrigger>
-                        <SelectContent
-                          className={CREATE_FORM_SELECT_CONTENT_CLASS}
-                        >
-                          {owned.map(c => (
-                            <SelectItem
-                              key={c.id}
-                              value={c.id}
-                              className={CREATE_FORM_SELECT_ITEM_CLASS}
-                            >
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {!owned.length && (
-                        <p className="mt-2 text-xs text-white/50">
-                          You don’t own a community yet.
-                        </p>
-                      )}
-                    </TabsContent>
-                    <TabsContent
-                      value="cocreator"
-                      className="mt-4"
-                    >
-                      <Label className={CREATE_FORM_LABEL_CLASS}>
-                        Community you co-create
-                      </Label>
-                      <Select
-                        value={targetId}
-                        onValueChange={setTargetId}
-                      >
-                        <SelectTrigger
-                          className={`mt-2 ${CREATE_FORM_SELECT_TRIGGER_CLASS}`}
-                        >
-                          <SelectValue placeholder="Select community" />
-                        </SelectTrigger>
-                        <SelectContent
-                          className={CREATE_FORM_SELECT_CONTENT_CLASS}
-                        >
-                          {coCreated.map(c => (
-                            <SelectItem
-                              key={c.id}
-                              value={c.id}
-                              className={CREATE_FORM_SELECT_ITEM_CLASS}
-                            >
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {!coCreated.length && (
-                        <p className="mt-2 text-xs text-white/50">
-                          Accept a co-creator invite to show communities here.
-                        </p>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                  {targetId ? (
-                    <AddVideoForm
-                      variant="create"
-                      onSubmit={handleHostVideoSubmit}
-                      loading={submitLoading}
-                      eventEventType={resolvedEventType}
-                      showHostYoutubeSlot
-                      requirePolicyFields
-                      coOwnerPolicyMode={
-                        hostTab === "cocreator" ? "ownerOnly" : "full"
-                      }
-                      onFormReady={setAddVideoForm}
-                      onDraftIdChange={setModalDraftId}
-                      draftAutosave={
-                        (hostTab === "owner" || hostTab === "cocreator") &&
-                        targetId
-                          ? {
-                              kind: "community_video",
-                              targetId,
-                              enabled: true,
-                              resumeOrigin: modalResumeOrigin,
-                            }
-                          : hostTab === "event" && targetId
-                            ? {
-                                kind: "room_add_video",
-                                targetId,
-                                enabled: true,
-                                resumeOrigin: modalResumeOrigin,
-                              }
-                            : undefined
-                      }
-                      seedDraftId={modalDraftId}
-                    />
-                  ) : (
-                    <p className="mt-4 text-sm text-white/55">
-                      Choose a channel or community above to add a video.
-                    </p>
-                  )}
-                </div>
+                preparedViewContent
               )}
             </DialogContent>
           </Dialog>
         ) : null}
         {signInDialog}
+        {HostAuthModal}
       </>
     );
   }

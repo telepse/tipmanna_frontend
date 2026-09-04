@@ -12,6 +12,7 @@ import {
 import { useSelector } from "react-redux";
 
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
+import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
 import type { RootState } from "@/redux/store";
 
 const apiBase = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
@@ -78,6 +79,7 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${t}` },
       });
       if (!r.ok) {
+        await assertNotEmailVerificationRequiredFromResponse(r);
         setActivation(null);
         return;
       }
@@ -138,7 +140,10 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!r.ok) return false;
+    if (!r.ok) {
+      await assertNotEmailVerificationRequiredFromResponse(r);
+      return false;
+    }
     await load();
     return true;
   }, [token, load]);
@@ -150,7 +155,10 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
         `${apiBase()}/communities/${encodeURIComponent(communityId)}/side-chick/enter`,
         { method: "POST", headers: { Authorization: `Bearer ${token}` } }
       );
-      if (r.status !== 200 && r.status !== 409) return false;
+      if (r.status !== 200 && r.status !== 409) {
+        await assertNotEmailVerificationRequiredFromResponse(r);
+        return false;
+      }
       await load();
       return true;
     },

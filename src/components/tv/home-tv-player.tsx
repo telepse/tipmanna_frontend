@@ -70,6 +70,8 @@ export interface HomeTvPlayerRef {
   isReady: () => boolean;
   play: () => void;
   pause: () => void;
+  /** Pause without treating as user intent (enforcement, notice slate). */
+  pauseProgrammatic: () => void;
   stop: () => void;
   mute: () => void;
   unmute: () => void;
@@ -448,6 +450,10 @@ const HomeTvPlayer = forwardRef<HomeTvPlayerRef, Props>(
         },
         pause: () =>
           safeYoutubeCall(() => playerRef.current?.pauseVideo(), undefined),
+        pauseProgrammatic: () => {
+          beginProgrammaticPlayback();
+          safeYoutubeCall(() => playerRef.current?.pauseVideo(), undefined);
+        },
         stop: () => {
           beginProgrammaticPlayback();
           safeYoutubeCall(() => playerRef.current?.stopVideo(), undefined);

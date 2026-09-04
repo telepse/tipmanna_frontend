@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 // Third-party imports
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -36,12 +36,12 @@ import {
   registerHostAction,
   registerTipperAction,
 } from "@/actions/auth";
-import { setCredentials } from "@/features/auth-slice";
 import { ApiError } from "@/types/api-error.types";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
-import { persistAuthSession } from "@/lib/session-client";
+import { buildVerifyEmailPath } from "@/lib/verify-email-path";
+import { baseUsernameFromEmail } from "@/lib/base-username-from-email";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 import type { AppDispatch, RootState } from "@/redux/store";
@@ -65,9 +65,6 @@ export const SignupForm = () => {
   const [isTipperLoading, setIsTipperLoading] = useState(false);
   const [checkingCoOwnerEmail, setCheckingCoOwnerEmail] = useState(false);
   const [coOwnerEligible, setCoOwnerEligible] = useState<boolean | null>(null);
-  const [coOwnerResolvedName, setCoOwnerResolvedName] = useState<string | null>(
-    nameParam?.trim() || null
-  );
 
   const { push } = useAppRouter();
   const dispatch = useDispatch<AppDispatch>();
@@ -75,9 +72,14 @@ export const SignupForm = () => {
   const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
 
   const [showTipperInfo, setShowTipperInfo] = useState(false);
+  const [showHostInfo, setShowHostInfo] = useState(false);
 
   const toggleTipperInfo = () => {
     setShowTipperInfo(prev => !prev);
+  };
+
+  const toggleHostInfo = () => {
+    setShowHostInfo(prev => !prev);
   };
 
   const togglePasswordVisibility = () => {
@@ -88,10 +90,14 @@ export const SignupForm = () => {
     setShowConfirmPassword(prev => !prev);
   };
 
-  const hostVerifyRedirectPath = (username: string) => {
+  const hostVerifyRedirectPath = (username: string, email: string) => {
     const profilePath = buildCreatorProfileSharePath(username);
     const next = safeInternalPath(redirectParam) ?? profilePath;
-    return `/verify-email?next=${encodeURIComponent(next)}`;
+    return buildVerifyEmailPath({
+      email: email.trim(),
+      accountType: "HOST",
+      next,
+    });
   };
 
   const hostForm = useForm<HostSignUpFormData>({
@@ -106,13 +112,40 @@ export const SignupForm = () => {
     },
   });
 
+  const fullName = hostForm.watch("fullName");
   const username = hostForm.watch("username");
   const hostEmail = hostForm.watch("email");
+  const password = hostForm.watch("password");
 
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
     null
   );
+
+  // Progressive signup fields
+  const slideUsernameField =
+    fullName.trim() !== "" && hostEmail?.trim().includes("@");
+  const slidePasswordFields =
+    fullName.trim() !== "" &&
+    hostEmail?.trim().includes("@") &&
+    username.trim() !== "";
+  const slideConfirmPasswordField =
+    fullName.trim() !== "" &&
+    hostEmail?.trim().includes("@") &&
+    username.trim() !== "" &&
+    password.trim() !== "";
+
+  const isUsernameTouched = useRef(false);
+
+  const email = hostForm.watch("email");
+
+  useEffect(() => {
+    if (isUsernameTouched.current || !email?.includes("@")) return;
+    const derived = baseUsernameFromEmail(email);
+    if (derived) {
+      hostForm.setValue("username", derived, { shouldValidate: true });
+    }
+  }, [email, hostForm]);
 
   useEffect(() => {
     if (!username) {
@@ -131,7 +164,10 @@ export const SignupForm = () => {
       try {
         setCheckingUsername(true);
 
-        const res = await checkHostUsernameAvailabilityAction({ username });
+        const res = await checkHostUsernameAvailabilityAction({
+          username,
+          email: hostEmail?.trim(),
+        });
 
         if (res.success) {
           setUsernameAvailable(true);
@@ -146,13 +182,12 @@ export const SignupForm = () => {
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [username]);
+  }, [username, hostEmail]);
 
   useEffect(() => {
     const email = hostEmail?.trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setCoOwnerEligible(null);
-      if (!nameParam?.trim()) setCoOwnerResolvedName(null);
       return;
     }
 
@@ -160,20 +195,7 @@ export const SignupForm = () => {
       try {
         setCheckingCoOwnerEmail(true);
         const res = await checkCoOwnerSignupEligibilityAction(email);
-        if (res.success && res.data?.eligible) {
-          setCoOwnerEligible(true);
-          const resolvedName = res.data.coOwnerName?.trim();
-          if (resolvedName) {
-            setCoOwnerResolvedName(resolvedName);
-            const currentName = hostForm.getValues("fullName").trim();
-            if (!currentName) {
-              hostForm.setValue("fullName", resolvedName);
-            }
-          }
-        } else {
-          setCoOwnerEligible(false);
-          if (!nameParam?.trim()) setCoOwnerResolvedName(null);
-        }
+        setCoOwnerEligible(res.success && res.data?.eligible === true);
       } catch {
         setCoOwnerEligible(null);
       } finally {
@@ -182,7 +204,7 @@ export const SignupForm = () => {
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [hostEmail, hostForm, nameParam]);
+  }, [hostEmail]);
 
   const tipperForm = useForm<TipperSignUpFormData>({
     resolver: zodResolver(tipperSignUpSchema),
@@ -219,7 +241,7 @@ export const SignupForm = () => {
         requiresVerification: true,
       });
 
-      push(hostVerifyRedirectPath(values.username));
+      push(hostVerifyRedirectPath(values.username, values.email));
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -253,21 +275,21 @@ export const SignupForm = () => {
         return;
       }
 
-      const { user, token, message } = parsed;
+      const { message } = parsed;
       toast.success(message || "Tipper account created");
 
-      dispatch(
-        setCredentials({
-          user: { ...user, role: "TIPPER" },
-          token,
-          requiresVerification: true,
-        })
-      );
-
-      await persistAuthSession(token, user, { expiresDays: 60 });
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
 
       const next = safeInternalPath(redirectParam) ?? "/explore";
-      push(`/verify-email?next=${encodeURIComponent(next)}`);
+      push(
+        buildVerifyEmailPath({
+          email: values.email.trim(),
+          accountType: "TIPPER",
+          next,
+        })
+      );
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -323,10 +345,25 @@ export const SignupForm = () => {
             </span>
           )}
 
+          {userType === "host" && (
+            <span
+              onClick={toggleHostInfo}
+              className="cursor-pointer"
+            >
+              <Info className="size-3" />
+            </span>
+          )}
+
           {userType !== "host" && (
             <span className="absolute top-4 right-0 left-0 block w-full text-center text-[10px]">
               {showTipperInfo &&
                 "- a host creator account gets you a tipper account by default"}
+            </span>
+          )}
+
+          {userType === "host" && (
+            <span className="absolute top-4 right-0 left-0 block w-full text-center text-[10px]">
+              {showHostInfo && "- create a channel and add to your platform"}
             </span>
           )}
         </Paragraph>
@@ -359,6 +396,7 @@ export const SignupForm = () => {
                 )}
               />
 
+              {/* EMAIL FIELD */}
               <FormField
                 control={hostForm.control}
                 name="email"
@@ -385,9 +423,7 @@ export const SignupForm = () => {
                     hostEmail?.trim() &&
                     coOwnerEligible === true ? (
                       <p className="text-success text-sm">
-                        {coOwnerResolvedName
-                          ? `${coOwnerResolvedName}, your email is linked to a co-owner invite ✓`
-                          : "Email linked to a co-owner invite ✓"}
+                        Email linked to a co-owner invite ✓
                       </p>
                     ) : null}
                     <FormMessage />
@@ -395,83 +431,95 @@ export const SignupForm = () => {
                 )}
               />
 
-              <div className="space-y-1">
-                <FormField
-                  control={hostForm.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
+              {/* USERNAME FIELD */}
+              {slideUsernameField && (
+                <div className="space-y-1">
+                  <FormField
+                    control={hostForm.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
 
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="Choose a username"
-                        />
-                      </FormControl>
-
-                      <FormMessage />
-
-                      {checkingUsername && (
-                        <p className="text-muted-foreground text-sm">
-                          Checking availability...
-                        </p>
-                      )}
-
-                      {!checkingUsername &&
-                        username &&
-                        usernameAvailable === true && (
-                          <p className="text-success text-sm">
-                            Username is available ✓
-                          </p>
-                        )}
-
-                      {!checkingUsername &&
-                        username &&
-                        usernameAvailable === false && (
-                          <p className="text-destructive text-sm">
-                            Username is already taken
-                          </p>
-                        )}
-                    </FormItem>
-                  )}
-                />
-
-                <span className="text-muted-foreground text-xs">
-                  This will be your unique creator username
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <FormField
-                  control={hostForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Set password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
+                        <FormControl>
                           <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Create password"
-                            autoComplete="off"
                             {...field}
+                            placeholder="Choose a username"
+                            onChange={e => {
+                              isUsernameTouched.current = true;
+                              field.onChange(e);
+                            }}
                           />
+                        </FormControl>
 
-                          <button
-                            type="button"
-                            onClick={togglePasswordVisibility}
-                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
-                          >
-                            <Eye className="text-muted-foreground" />
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
 
+                        {checkingUsername && (
+                          <p className="text-muted-foreground text-sm">
+                            Checking availability...
+                          </p>
+                        )}
+
+                        {!checkingUsername &&
+                          username &&
+                          usernameAvailable === true && (
+                            <p className="text-success text-sm">
+                              Username is available ✓
+                            </p>
+                          )}
+
+                        {!checkingUsername &&
+                          username &&
+                          usernameAvailable === false && (
+                            <p className="text-destructive text-sm">
+                              Username is already taken
+                            </p>
+                          )}
+                      </FormItem>
+                    )}
+                  />
+
+                  <span className="text-muted-foreground text-xs">
+                    This will be your unique creator username
+                  </span>
+                </div>
+              )}
+
+              {/* PASSWORD AND CONFIRM PASSWORD FIELDS */}
+              {slidePasswordFields && (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <FormField
+                    control={hostForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Set password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Create password"
+                              autoComplete="off"
+                              {...field}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={togglePasswordVisibility}
+                              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
+                            >
+                              <Eye className="text-muted-foreground" />
+                            </button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {slideConfirmPasswordField && (
                 <FormField
                   control={hostForm.control}
                   name="confirmPassword"
@@ -500,8 +548,9 @@ export const SignupForm = () => {
                     </FormItem>
                   )}
                 />
-              </div>
+              )}
 
+              {/* ACCEPTED TERMS AND PRIVACY POLICY */}
               <FormField
                 control={hostForm.control}
                 name="acceptedTerms"
@@ -527,7 +576,11 @@ export const SignupForm = () => {
                 type="submit"
                 size="lg"
                 className="w-full"
-                disabled={isHostLoading}
+                disabled={
+                  isHostLoading ||
+                  checkingUsername ||
+                  usernameAvailable === false
+                }
               >
                 {isHostLoading ? (
                   <span className="flex items-center gap-2">

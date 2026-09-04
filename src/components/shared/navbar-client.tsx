@@ -77,7 +77,7 @@ export default function NavbarClient() {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-shadow ${
+      className={`sticky top-0 z-50 bg-white transition-shadow ${
         headerTint ? "" : "bg-white"
       } ${isScrolled ? "shadow" : ""}`}
       aria-label="Main navigation"
@@ -143,7 +143,7 @@ export default function NavbarClient() {
               asChild
               aria-label="Request a demo via email"
             >
-              <a href="mailto:hello@tipmanna.tv?subject=Request%20a%20demo">
+              <a href="https://calendly.com/partner-telepse/tipmanna-session">
                 Request Demo
               </a>
             </Button>
@@ -255,7 +255,7 @@ export default function NavbarClient() {
                     size="lg"
                     className="w-full"
                   >
-                    <a href="mailto:hello@tipmanna.tv?subject=Request%20a%20demo">
+                    <a href="https://calendly.com/partner-telepse/tipmanna-session">
                       Request Demo
                     </a>
                   </Button>

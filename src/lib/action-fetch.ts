@@ -132,10 +132,17 @@ function logFetchFailure(details: FetchFailureLog): void {
   });
 }
 
+export type ActionFailOptions = {
+  logContext?: string;
+  httpStatus?: number;
+  validationBody?: unknown;
+};
+
 /** Build a failed result without emitting a console log. */
 function makeActionFailResult<T = never>(
   message: string,
-  httpStatus?: number
+  httpStatus?: number,
+  validationBody?: unknown
 ): ActionResult<T> {
   return {
     data: null,
@@ -143,6 +150,7 @@ function makeActionFailResult<T = never>(
     success: false,
     message,
     ...(httpStatus != null ? { httpStatus } : {}),
+    ...(validationBody !== undefined ? { validationBody } : {}),
   };
 }
 
@@ -160,10 +168,17 @@ export function actionOk<T>(
 
 export function actionFail<T = never>(
   message: string,
-  logContext?: string
+  logContextOrOptions?: string | ActionFailOptions
 ): ActionResult<T> {
-  console.error(`[ServerAction${logContext ? `:${logContext}` : ""}]`, message);
-  return makeActionFailResult(message);
+  const opts: ActionFailOptions =
+    typeof logContextOrOptions === "string"
+      ? { logContext: logContextOrOptions }
+      : (logContextOrOptions ?? {});
+  console.error(
+    `[ServerAction${opts.logContext ? `:${opts.logContext}` : ""}]`,
+    message
+  );
+  return makeActionFailResult(message, opts.httpStatus, opts.validationBody);
 }
 
 /** Returned when a host-scoped server action has no hostToken cookie. */
@@ -368,10 +383,7 @@ async function fetchWithRetry(
           willRetry,
           retryDelayMs,
         });
-        lastResult = {
-          ...makeActionFailResult(msg, res.status),
-          validationBody: raw,
-        };
+        lastResult = makeActionFailResult(msg, res.status, raw);
         if (willRetry) {
           await sleep(retryDelayMs!);
           continue;

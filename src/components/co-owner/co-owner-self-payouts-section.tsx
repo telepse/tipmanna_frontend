@@ -1,6 +1,7 @@
 "use client";
 
 import { CoOwnerPayoutsClient } from "@/components/co-owner/co-owner-payouts-client";
+import { CreatorProfileMetricsCompare } from "@/components/co-owner/creator-profile-metrics-compare";
 
 export function CoOwnerSelfPayoutsSection() {
   return (
@@ -12,6 +13,7 @@ export function CoOwnerSelfPayoutsSection() {
           balances, and disputes.
         </p>
       </header>
+      <CreatorProfileMetricsCompare />
       <CoOwnerPayoutsClient
         mode="hostSession"
         compact

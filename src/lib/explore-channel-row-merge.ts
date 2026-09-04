@@ -47,6 +47,7 @@ export function mergeExploreChannelRows(
   for (const key of [
     "community",
     "coOwnerHostUsername",
+    "coOwnerHostIsUnclaimed",
     "coOwnerName",
     "coOwnerNames",
     "coOwnerApproved",

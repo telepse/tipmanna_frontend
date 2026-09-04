@@ -5,11 +5,13 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 import { getHostLinkAction, type HostLinkResponse } from "@/actions/auth";
 import { getAuthToken } from "@/lib/getAuthToken";
+import { detectEmailVerificationRequired } from "@/lib/detect-email-verification-required";
 import {
   clearStaleHostSessionIfMismatch,
   hasActiveHostSession,
 } from "@/lib/host-session-client";
 import { useHostSessionContextOptional } from "@/contexts/host-session-context";
+import { isHostLinkResolutionPending } from "@/lib/host-link-resolution";
 
 export type HostCapability =
   | { status: "loading" }
@@ -40,6 +42,15 @@ export function useHostCapability(options?: Options) {
   const [link, setLink] = useState<HostLinkResponse | null>(null);
   const [linkLoading, setLinkLoading] = useState(enabled);
   const canWriteRef = useRef(false);
+  const prevFetchKeyRef = useRef<string | null>(null);
+  const linkRef = useRef<HostLinkResponse | null>(null);
+  linkRef.current = link;
+
+  const shouldFetchLink =
+    enabled && isAuthenticated && Boolean(user) && user?.role !== "VISITOR";
+  const fetchKey = shouldFetchLink
+    ? `${user?.id ?? ""}:${user?.role ?? ""}`
+    : null;
 
   const hostSessionActive = (() => {
     if (!link?.hostId) return false;
@@ -59,13 +70,12 @@ export function useHostCapability(options?: Options) {
   })();
 
   const refreshLink = useCallback(async () => {
-    if (!enabled || !isAuthenticated || !user) {
+    if (!isAuthenticated || !user || user.role === "VISITOR") {
       setLink(null);
       setLinkLoading(false);
       return;
     }
-    if (user.role === "VISITOR") {
-      setLink(null);
+    if (!enabled) {
       setLinkLoading(false);
       return;
     }
@@ -77,6 +87,14 @@ export function useHostCapability(options?: Options) {
     if (res.success && res.data) {
       setLink(res.data);
     } else {
+      if (
+        detectEmailVerificationRequired(res, {
+          accountType: "HOST",
+        })
+      ) {
+        setLinkLoading(false);
+        return;
+      }
       setLink(null);
     }
     setLinkLoading(false);
@@ -90,8 +108,36 @@ export function useHostCapability(options?: Options) {
   }, [hostSession?.refresh, refreshLink]);
 
   useEffect(() => {
-    void refreshLink();
-  }, [refreshLink]);
+    if (!shouldFetchLink) {
+      if (!isAuthenticated || !user || user.role === "VISITOR") {
+        setLink(null);
+        prevFetchKeyRef.current = null;
+      }
+      setLinkLoading(false);
+      return;
+    }
+
+    const keyChanged = fetchKey !== prevFetchKeyRef.current;
+    if (keyChanged) {
+      prevFetchKeyRef.current = fetchKey;
+      setLink(null);
+      setLinkLoading(true);
+      void refreshLink();
+      return;
+    }
+
+    if (!linkRef.current) {
+      setLinkLoading(true);
+      void refreshLink();
+    }
+  }, [
+    fetchKey,
+    isAuthenticated,
+    refreshLink,
+    shouldFetchLink,
+    user,
+    user?.role,
+  ]);
 
   useEffect(() => {
     if (
@@ -106,7 +152,15 @@ export function useHostCapability(options?: Options) {
 
   const sessionLoading = hostSession?.isLoading ?? false;
 
+  const linkResolutionPending = isHostLinkResolutionPending({
+    shouldFetchLink,
+    fetchKey,
+    prevFetchKey: prevFetchKeyRef.current,
+    linkLoading,
+  });
+
   const loading =
+    linkResolutionPending ||
     (linkLoading && !(link?.hasHost && hostSessionActive)) ||
     (sessionLoading && !hostSessionActive);
 

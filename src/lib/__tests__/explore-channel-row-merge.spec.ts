@@ -26,6 +26,19 @@ describe("mergeExploreChannelRows", () => {
     expect(merged.coOwnerHostUsername).toBe("co-a");
     expect(merged.durationSeconds).toBe(120);
   });
+
+  it("preserves coOwnerHostIsUnclaimed from secondary snapshot", () => {
+    const merged = mergeExploreChannelRows(
+      { event: { username: "host-a" } },
+      {
+        coOwnerHostUsername: "co-a",
+        coOwnerHostIsUnclaimed: true,
+        coOwnerName: "Alex Creator",
+      }
+    );
+    expect(merged.coOwnerHostIsUnclaimed).toBe(true);
+    expect(merged.coOwnerName).toBe("Alex Creator");
+  });
 });
 
 describe("isExploreReelReadyRow", () => {

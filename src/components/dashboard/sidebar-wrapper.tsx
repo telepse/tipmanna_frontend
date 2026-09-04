@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { getHostEventsAction } from "@/actions/events";
+import { detectEmailVerificationRequired } from "@/lib/detect-email-verification-required";
 import type { RootState } from "@/redux/store";
 
 export function SidebarWrapper() {
@@ -18,7 +19,14 @@ export function SidebarWrapper() {
     }
 
     async function loadEvents() {
-      const { data: events } = await getHostEventsAction();
+      const res = await getHostEventsAction();
+      if (
+        !res.success &&
+        detectEmailVerificationRequired(res, { accountType: "HOST" })
+      ) {
+        return;
+      }
+      const events = res.data;
       setNumOfEvents(Array.isArray(events) ? events.length : 0);
     }
 

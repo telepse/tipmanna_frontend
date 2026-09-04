@@ -44,7 +44,7 @@ export type AuthUserPayload =
 
 export type ParsedAuthResponse = {
   message: string;
-  token: string;
+  token: string | null;
   user: TipperAuthUser;
   role: "TIPPER";
   tag?: string | null;
@@ -52,7 +52,7 @@ export type ParsedAuthResponse = {
   requiresVerification?: boolean;
   /** Present when host sign-in returns dual tokens. */
   hostSession?: {
-    token: string;
+    token: string | null;
     user: HostSessionUser;
   };
 };
@@ -103,47 +103,78 @@ function pickHostSessionUser(raw: any): HostSessionUser | null {
   };
 }
 
+function resolveRequiresVerification(body: Record<string, any>): boolean {
+  return body.requiresVerification === true;
+}
+
+function extractToken(body: Record<string, any>): string | null {
+  if (typeof body.token === "string" && body.token.trim()) {
+    return body.token.trim();
+  }
+  if (typeof body.primary?.token === "string" && body.primary.token.trim()) {
+    return body.primary.token.trim();
+  }
+  return null;
+}
+
+/** Pending verification: user known, no JWT until /verify-email succeeds. */
+export function isPendingEmailVerification(
+  parsed: ParsedAuthResponse
+): boolean {
+  return parsed.requiresVerification === true && !parsed.token;
+}
+
 /** Normalise backend auth payloads — primary is always tipper. */
 export function parseAuthResponse(data: unknown): ParsedAuthResponse | null {
   if (!data || typeof data !== "object") return null;
   const body = data as Record<string, any>;
   const message = typeof body.message === "string" ? body.message : "Success";
+  const requiresVerification = resolveRequiresVerification(body);
 
   // Dual host login: primary tipper + host session
-  if (body.primary?.token && body.primary?.user) {
+  if (body.primary?.user) {
     const user = pickTipperUser(body.primary.user);
     if (!user) return null;
+    const token =
+      typeof body.primary.token === "string" && body.primary.token.trim()
+        ? body.primary.token.trim()
+        : null;
+    if (!token && !requiresVerification) return null;
+
     const hostRaw = body.host?.user ?? body.hostUser;
-    const hostToken = body.host?.token ?? body.hostToken;
+    const hostToken =
+      typeof body.host?.token === "string" && body.host.token.trim()
+        ? body.host.token.trim()
+        : typeof body.hostToken === "string" && body.hostToken.trim()
+          ? body.hostToken.trim()
+          : null;
     const hostUser = hostRaw ? pickHostSessionUser(hostRaw) : null;
+
     return {
       message,
-      token: body.primary.token,
+      token,
       user,
       role: "TIPPER",
       tag: body.tag ?? null,
-      requiresVerification: body.requiresVerification === true,
+      requiresVerification,
       hostSession:
-        hostToken && hostUser
-          ? { token: hostToken, user: hostUser }
-          : undefined,
+        hostUser != null ? { token: hostToken, user: hostUser } : undefined,
     };
   }
 
-  const token =
-    typeof body.token === "string"
-      ? body.token
-      : typeof body.primary?.token === "string"
-        ? body.primary.token
-        : null;
-  if (!token) return null;
-
+  const token = extractToken(body);
   const tipperRaw = body.tipper ?? body.user ?? body.primary?.user;
   const user = pickTipperUser(tipperRaw);
   if (!user) return null;
+  if (!token && !requiresVerification) return null;
 
   const hostRaw = body.host ?? body.hostUser;
-  const hostToken = body.hostToken ?? body.host?.token;
+  const hostToken =
+    typeof body.hostToken === "string" && body.hostToken.trim()
+      ? body.hostToken.trim()
+      : typeof body.host?.token === "string" && body.host.token.trim()
+        ? body.host.token.trim()
+        : null;
   const hostUser = hostRaw ? pickHostSessionUser(hostRaw) : null;
 
   return {
@@ -153,9 +184,9 @@ export function parseAuthResponse(data: unknown): ParsedAuthResponse | null {
     role: "TIPPER",
     tag: body.tag ?? null,
     hasHostAccount: body.hasHostAccount === true || Boolean(hostUser),
-    requiresVerification: body.requiresVerification !== false,
+    requiresVerification,
     hostSession:
-      hostToken && hostUser ? { token: hostToken, user: hostUser } : undefined,
+      hostUser != null ? { token: hostToken, user: hostUser } : undefined,
   };
 }
 

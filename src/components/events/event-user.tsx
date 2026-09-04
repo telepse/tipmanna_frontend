@@ -28,14 +28,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { persistAuthSession } from "@/lib/session-client";
-
 // Local imports
 import { RootState } from "@/redux/store";
-import { setCredentials, updateTipper } from "@/features/auth-slice";
+import { updateTipper } from "@/features/auth-slice";
 import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
-
+import { parseAuthResponse } from "@/lib/auth-response";
+import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
+import type { AppDispatch } from "@/redux/store";
 import { ApiError } from "@/types/api-error.types";
 import { Paragraph } from "../shared/paragraph";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
@@ -55,8 +55,7 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
   const [code, setCode] = useState("");
 
   const user = useSelector((state: RootState) => state.auth.user);
-  const token = useSelector((state: RootState) => state.auth.token);
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
 
   const userId = user?.id;
@@ -100,27 +99,15 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
         return;
       }
 
-      const { id, fullName, email, username } = (res.data as any).user as any;
-      const token = (res.data as unknown as { token: string })?.token;
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Unexpected sign-in response");
+        return;
+      }
 
-      dispatch(
-        setCredentials({
-          user: {
-            id,
-            fullName,
-            email,
-            username,
-            role: "TIPPER",
-          },
-          token,
-        })
-      );
-
-      await persistAuthSession(
-        token,
-        { id, fullName, email, username, role: "TIPPER" },
-        { expiresDays: 7 }
-      );
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: parsed.requiresVerification ?? true,
+      });
 
       if (res.success) setStep("verifyCode");
     } catch (err: unknown) {
@@ -143,15 +130,19 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
 
       if (!user?.email) return;
 
-      await verifyCodeAction(user.email, code);
+      const res = await verifyCodeAction(user.email, code);
+      if (!res.success) {
+        toast.error(res.message ?? "Verification failed");
+        return;
+      }
 
-      dispatch(
-        setCredentials({
-          user,
-          token: token!,
-          requiresVerification: false,
-        })
-      );
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Verification succeeded but session could not be restored");
+        return;
+      }
+
+      await applyPrimaryAndHostSessions(parsed, dispatch);
 
       toast.success("Email verified successfully!");
 

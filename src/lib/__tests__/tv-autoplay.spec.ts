@@ -35,6 +35,7 @@ function makePlayer(overrides: Partial<TvPlayerRef> = {}): TvPlayerRef {
     setVolume: vi.fn(),
     play: vi.fn(),
     pause: vi.fn(),
+    pauseProgrammatic: vi.fn(),
     stop: vi.fn(),
     getDuration: () => 120,
     getCurrentTime: () => 0,

@@ -63,7 +63,7 @@ export const authSlice = createSlice({
       state,
       action: PayloadAction<{
         user: HostUser | TipperUser | VisitorUser;
-        token: string;
+        token: string | null;
         requiresVerification?: boolean;
         tag?: string | null;
       }>
@@ -89,9 +89,18 @@ export const authSlice = createSlice({
         state.user = { ...state.user, ...action.payload };
       }
     },
+    markRequiresVerification: state => {
+      state.requiresVerification = true;
+      state.isAuthenticated = false;
+      state.token = null;
+    },
   },
 });
 
-export const { setCredentials, clearCredentials, updateTipper } =
-  authSlice.actions;
+export const {
+  setCredentials,
+  clearCredentials,
+  updateTipper,
+  markRequiresVerification,
+} = authSlice.actions;
 export default authSlice.reducer;

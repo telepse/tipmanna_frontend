@@ -92,6 +92,8 @@ export async function getPublicTipperProfileAction(slug: string) {
         data: null,
         redirectSlug: undefined,
         message,
+        httpStatus: res.status,
+        validationBody: body,
       };
     }
 

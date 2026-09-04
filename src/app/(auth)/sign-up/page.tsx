@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSelector } from "react-redux";
 
 import { SignupForm } from "@/components/auth/signup-form";
@@ -14,7 +15,9 @@ export default function CreateAccountPage() {
     <>
       <AuthBanner title="Create an Account" />
       {isAuthenticated && user ? <AlreadySignedInNotice /> : null}
-      <SignupForm />
+      <Suspense fallback={null}>
+        <SignupForm />
+      </Suspense>
     </>
   );
 }

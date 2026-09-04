@@ -33,6 +33,9 @@ import { Button } from "@/components/ui/button";
 
 import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
 import { setCredentials } from "@/features/auth-slice";
+import { parseAuthResponse } from "@/lib/auth-response";
+import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
+import type { AppDispatch } from "@/redux/store";
 import { ApiError } from "@/types/api-error.types";
 import { Paragraph } from "@/components/shared/paragraph";
 import { TipperProfileClient } from "../tipper/tipper-profile-client";
@@ -211,25 +214,13 @@ export const ProfileDrawer = ({
         return;
       }
 
-      dispatch(
-        setCredentials({
-          user,
-          token: token!,
-          requiresVerification: false,
-        })
-      );
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Verification succeeded but session could not be restored");
+        return;
+      }
 
-      await persistAuthSession(
-        token!,
-        {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-          username: user.username,
-          role: "TIPPER",
-        },
-        { expiresDays: 60 }
-      );
+      await applyPrimaryAndHostSessions(parsed, dispatch as AppDispatch);
 
       toast.success("Email verified successfully!");
       dispatchAuthChanged();

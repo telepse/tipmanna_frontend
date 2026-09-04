@@ -20,6 +20,12 @@ export type PendingPaymentReturnV1 = {
   isRedirectPayment: boolean;
   /** Set on /success when server recovery exchange failed; enables local fallback only. */
   recoveryUnavailable?: boolean;
+  /** Playback restore — separate from analytics `playbackOffsetSec`. */
+  restoreChannelId?: string;
+  restoreOffsetSec?: number;
+  restoreWasMuted?: boolean;
+  /** Explore drawer-open snapshot (Group A); channel/content capture at payment intent (Group B). */
+  restoreCapture?: "drawer_open" | "payment_intent";
   createdAt: number;
 };
 
