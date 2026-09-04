@@ -51,6 +51,8 @@ import {
   type TipResumeWalletLineV1,
 } from "@/lib/payment-origin";
 import { writePendingPaymentReturn } from "@/lib/pending-payment-return";
+import type { PaymentPlaybackRestoreSnapshot } from "@/hooks/use-payment-playback-restore";
+import { readSessionMuted } from "@/lib/session-audio";
 import { isPayerOriginRecoveryEnabled } from "@/lib/payer-origin-recovery-flag";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import { setPaymentPendingReturn } from "@/lib/tv-payment-snapshot";
@@ -113,6 +115,7 @@ export const TipDrawer = ({
   paymentChannelId,
   getPlaybackOffsetSec,
   getWatchDurationBeforePayMs,
+  getPaymentRestoreSnapshot,
   stackAboveImmersive,
   walletDialogOpen: walletDialogOpenControlled,
   onWalletDialogOpenChange,
@@ -135,6 +138,8 @@ export const TipDrawer = ({
   paymentChannelId?: string | null;
   getPlaybackOffsetSec?: () => number | null;
   getWatchDurationBeforePayMs?: () => number | null;
+  /** Playback snapshot for post-redirect restore (drawer-open or payment-intent). */
+  getPaymentRestoreSnapshot?: () => PaymentPlaybackRestoreSnapshot | null;
   /** Raise overlay/content above mobile full-view shell (z-280). */
   stackAboveImmersive?: boolean;
   /** Controlled wallet modal (e.g. pay-button stamp opens wallet without drawer). */
@@ -837,6 +842,16 @@ export const TipDrawer = ({
         : undefined;
 
     if (typeof window !== "undefined" && tipTransactionId && eventId) {
+      const restoreSnap =
+        getPaymentRestoreSnapshot?.() ??
+        (paymentChannelId?.trim()
+          ? {
+              channelId: paymentChannelId.trim(),
+              offsetSec: getPlaybackOffsetSec?.() ?? 0,
+              wasMuted: readSessionMuted(),
+              capture: "payment_intent" as const,
+            }
+          : null);
       writePendingPaymentReturn({
         transactionId: tipTransactionId,
         eventId,
@@ -844,6 +859,14 @@ export const TipDrawer = ({
         paymentSurface,
         isRedirectPayment: true,
         ...(recoveryState ? { recoveryState } : {}),
+        ...(restoreSnap?.channelId
+          ? {
+              restoreChannelId: restoreSnap.channelId,
+              restoreOffsetSec: Math.max(0, Math.floor(restoreSnap.offsetSec)),
+              restoreWasMuted: restoreSnap.wasMuted,
+              restoreCapture: restoreSnap.capture,
+            }
+          : {}),
       });
       if (recoveryState) {
         tracePaymentAnimation({

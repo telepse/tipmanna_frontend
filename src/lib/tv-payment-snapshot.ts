@@ -14,8 +14,10 @@ export const TV_PAYMENT_SNAPSHOT_KEY = "tv_payment_snapshot_v1";
 export const TV_PAYMENT_PENDING_RETURN_KEY = "tv_payment_pending_return";
 
 export type PersistedTvPaymentSnapshot = {
-  v: 1;
+  v: 1 | 2;
   mode: "GLOBAL" | "LOCAL";
+  /** Pre-drawer mode (v2). Falls back to `mode` on v1 payloads. */
+  originMode?: "GLOBAL" | "LOCAL";
   currentIndex: number;
   currentTime: number;
   wasPlaying: boolean;
@@ -42,7 +44,7 @@ export function readPersistedPaymentSnapshot(): PersistedTvPaymentSnapshot | nul
     const raw = sessionStorage.getItem(TV_PAYMENT_SNAPSHOT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedTvPaymentSnapshot;
-    if (parsed?.v !== 1) return null;
+    if (parsed?.v !== 1 && parsed?.v !== 2) return null;
     return parsed;
   } catch {
     return null;

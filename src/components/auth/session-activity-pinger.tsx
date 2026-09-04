@@ -13,6 +13,7 @@ import {
   notifyHostSessionTouched,
   HOST_SESSION_CLEARED_EVENT,
 } from "@/lib/host-session-probe";
+import { notifyEmailVerificationRequired } from "@/lib/email-verification-events";
 
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -50,12 +51,17 @@ export function SessionActivityPinger() {
   const dispatch = useDispatch<AppDispatch>();
   const pathname = usePathname();
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
+  const requiresVerification = useSelector(
+    (s: RootState) => s.auth.requiresVerification
+  );
   const user = useSelector((s: RootState) => s.auth.user);
   const lastTouchRef = useRef(0);
   const onHostDashboard = pathname.startsWith("/host");
 
   useEffect(() => {
-    if (!isAuthenticated || !user || user.role === "VISITOR") return;
+    if (!user || user.role === "VISITOR") return;
+    const shouldTouch = isAuthenticated || requiresVerification;
+    if (!shouldTouch) return;
 
     const touch = async () => {
       const now = Date.now();
@@ -79,9 +85,23 @@ export function SessionActivityPinger() {
         const data = (await res.json()) as {
           token?: string;
           role?: string;
+          verified?: boolean;
         };
+        if (data.verified === false) {
+          notifyEmailVerificationRequired({
+            email: user.email,
+            accountType: "TIPPER",
+          });
+          return;
+        }
         if (data.token && user) {
-          dispatch(setCredentials({ user, token: data.token }));
+          dispatch(
+            setCredentials({
+              user,
+              token: data.token,
+              requiresVerification: false,
+            })
+          );
           await applyRotatedToken(data.token, data.role ?? user.role, user);
         }
       } catch {
@@ -126,7 +146,7 @@ export function SessionActivityPinger() {
       window.removeEventListener("focus", touch);
       document.removeEventListener("visibilitychange", touch);
     };
-  }, [dispatch, isAuthenticated, onHostDashboard, user]);
+  }, [dispatch, isAuthenticated, onHostDashboard, requiresVerification, user]);
 
   return null;
 }

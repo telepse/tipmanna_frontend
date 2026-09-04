@@ -15,6 +15,14 @@ export type TipConfigHookState =
   | { status: "loading" }
   | ({ status: "ready" } & ActiveTipConfigResponse);
 
+/** Ignore stale fetch responses after eventId changes. */
+export function shouldApplyTipConfigFetch(
+  requestId: number,
+  latestRequestId: number
+): boolean {
+  return requestId === latestRequestId;
+}
+
 export function useTipConfig(eventId: string | undefined): TipConfigHookState {
   const [state, setState] = useState<TipConfigHookState>(() =>
     !eventId || !isTipCustomizationEnabled()
@@ -22,36 +30,50 @@ export function useTipConfig(eventId: string | undefined): TipConfigHookState {
       : { status: "loading" }
   );
   const etagRef = useRef<string | null>(null);
+  const fetchGenerationRef = useRef(0);
 
-  const fetchConfig = useCallback(async () => {
-    if (!eventId || !isTipCustomizationEnabled()) return;
-    try {
-      const res = await fetch(`${apiBase()}/tip-config/${eventId}/active`, {
-        cache: "no-store",
-      });
-      if (!res.ok) {
+  const fetchConfig = useCallback(
+    async (requestId: number) => {
+      if (!eventId || !isTipCustomizationEnabled()) return;
+      try {
+        const res = await fetch(`${apiBase()}/tip-config/${eventId}/active`, {
+          cache: "no-store",
+        });
+        if (!shouldApplyTipConfigFetch(requestId, fetchGenerationRef.current)) {
+          return;
+        }
+        if (!res.ok) {
+          setState({ status: "ready", mode: "legacy" });
+          return;
+        }
+        const json = (await res.json()) as ActiveTipConfigResponse;
+        if (!shouldApplyTipConfigFetch(requestId, fetchGenerationRef.current)) {
+          return;
+        }
+        if (json.mode === "live") {
+          etagRef.current = json.etag;
+        } else {
+          etagRef.current = null;
+        }
+        setState({ status: "ready", ...json });
+      } catch {
+        if (!shouldApplyTipConfigFetch(requestId, fetchGenerationRef.current)) {
+          return;
+        }
         setState({ status: "ready", mode: "legacy" });
-        return;
       }
-      const json = (await res.json()) as ActiveTipConfigResponse;
-      if (json.mode === "live") {
-        etagRef.current = json.etag;
-      } else {
-        etagRef.current = null;
-      }
-      setState({ status: "ready", ...json });
-    } catch {
-      setState({ status: "ready", mode: "legacy" });
-    }
-  }, [eventId]);
+    },
+    [eventId]
+  );
 
   useEffect(() => {
     if (!eventId || !isTipCustomizationEnabled()) {
       setState({ status: "disabled" });
       return;
     }
+    const requestId = ++fetchGenerationRef.current;
     setState({ status: "loading" });
-    void fetchConfig();
+    void fetchConfig(requestId);
   }, [eventId, fetchConfig]);
 
   useEffect(() => {
@@ -65,7 +87,8 @@ export function useTipConfig(eventId: string | undefined): TipConfigHookState {
       if (typeof data?.etag === "string" && data.etag === etagRef.current) {
         return;
       }
-      void fetchConfig();
+      const requestId = ++fetchGenerationRef.current;
+      void fetchConfig(requestId);
     };
 
     channel.bind("config.published", onPublish);

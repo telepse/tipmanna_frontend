@@ -1,3 +1,5 @@
+import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
+
 export type TvChannelRowMetrics = {
   encounters: number;
   comments: number;
@@ -48,7 +50,10 @@ export async function fetchTvChannelMetricsBatch(
       body: JSON.stringify({ channelIds: unique.slice(0, 50) }),
       credentials: "include",
     });
-    if (!res.ok) return {};
+    if (!res.ok) {
+      await assertNotEmailVerificationRequiredFromResponse(res);
+      return {};
+    }
 
     const json = (await res.json()) as ChannelMetricsBatchResponse;
     const out: Record<string, TvChannelRowMetrics> = {};

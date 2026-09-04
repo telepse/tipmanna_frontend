@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
+import { usePaymentPlaybackRestore } from "@/hooks/use-payment-playback-restore";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
@@ -251,6 +252,7 @@ export const ContentClient = ({
     [tipPres.catalog, baseTipSets]
   );
   const videoRef = useRef<VideoPlayerRef>(null);
+  const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
   const [playlist, setPlaylist] = useState(playableInitial);
   const [currentContent, setCurrentContent] = useState(() =>
     pickInitialChannelContent(
@@ -306,6 +308,12 @@ export const ContentClient = ({
     paymentSurface: "content_client",
     characters: tipStrip as RoomCharacter[],
     surface: "content_client",
+  });
+  usePaymentPlaybackRestore({
+    paymentSurface: "content_client",
+    videoRef,
+    currentChannelId: currentContent?.id ? String(currentContent.id) : null,
+    onMuteChange: setIsMuted,
   });
   useAutoDropTip(eventId, true);
 
@@ -624,7 +632,6 @@ export const ContentClient = ({
     };
   }, [eventId, currentContent?.id, isPlaying]);
 
-  const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
   const [openPlaylist, setOpenPlaylist] = useState(false);
   const [openCommunityModal, setOpenCommunityModal] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });

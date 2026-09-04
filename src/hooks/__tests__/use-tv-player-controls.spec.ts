@@ -15,18 +15,25 @@ vi.mock("@/lib/tv-autoplay", () => ({
   hasTvAudioUnlockedThisSession: vi.fn(() => false),
 }));
 
+vi.mock("@/lib/session-audio", () => ({
+  hasSessionAudioUnlocked: vi.fn(() => false),
+  readSessionMuted: vi.fn(() => true),
+}));
+
 import {
   hasTvAudioUnlockedThisSession,
   readTvMutePref,
   unmuteOnly,
   writeTvMutePref,
 } from "@/lib/tv-autoplay";
+import { hasSessionAudioUnlocked } from "@/lib/session-audio";
 
 function makePlayer(overrides: Partial<TvPlayerRef> = {}): TvPlayerRef {
   return {
     isReady: () => true,
     play: vi.fn(),
     pause: vi.fn(),
+    pauseProgrammatic: vi.fn(),
     stop: vi.fn(),
     mute: vi.fn(),
     unmute: vi.fn(),
@@ -192,12 +199,13 @@ describe("useTvPlayerControls", () => {
     unmount();
   });
 
-  it("syncFromPlayer mirrors player mute state after restore", () => {
+  it("syncFromPlayer preserves unmuted pref during programmatic player mute", () => {
     const player = makePlayer({
       isMuted: () => true,
       getPlayerState: () => "BUFFERING",
     });
     vi.mocked(readTvMutePref).mockReturnValue(false);
+    vi.mocked(hasSessionAudioUnlocked).mockReturnValue(true);
     const { result, unmount } = renderControlsHook({ player });
 
     act(() => {
@@ -205,13 +213,13 @@ describe("useTvPlayerControls", () => {
     });
 
     expect(result.current.isPlaying).toBe(true);
-    expect(result.current.isMuted).toBe(true);
+    expect(result.current.isMuted).toBe(false);
     unmount();
   });
 
   it("reconcile does not flip mute during programmatic player mute", () => {
     vi.mocked(readTvMutePref).mockReturnValue(false);
-    vi.mocked(hasTvAudioUnlockedThisSession).mockReturnValue(true);
+    vi.mocked(hasSessionAudioUnlocked).mockReturnValue(true);
     const player = makePlayer({
       isMuted: () => true,
       getPlayerState: () => "PLAYING",
@@ -230,7 +238,7 @@ describe("useTvPlayerControls", () => {
 
   it("reconcile mirrors player mute when session audio is not unlocked", () => {
     vi.mocked(readTvMutePref).mockReturnValue(true);
-    vi.mocked(hasTvAudioUnlockedThisSession).mockReturnValue(false);
+    vi.mocked(hasSessionAudioUnlocked).mockReturnValue(false);
     const player = makePlayer({
       isMuted: () => false,
       getPlayerState: () => "PLAYING",

@@ -12,6 +12,7 @@ import {
   authErrorCodeFromActionResult,
   isAuthSessionRequired,
 } from "@/lib/host-auth-fetch";
+import { detectEmailVerificationRequired } from "@/lib/detect-email-verification-required";
 import type { RootState } from "@/redux/store";
 
 type PendingTask = () => void | Promise<void>;
@@ -119,6 +120,13 @@ export function useHostCapabilityWithAuth(options?: Options) {
       retry?: PendingTask
     ): boolean => {
       const { code, message } = authErrorCodeFromActionResult(result);
+      if (
+        detectEmailVerificationRequired(result, {
+          accountType: "HOST",
+        })
+      ) {
+        return true;
+      }
       const kind = isAuthSessionRequired(code, message);
       if (kind === "host") {
         requestHostAuth(retry);

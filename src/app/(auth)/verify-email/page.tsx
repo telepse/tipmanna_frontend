@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
 import { useMediaQuery } from "react-responsive";
 import { Button } from "@/components/ui/button";
 import { Loader2, MoveLeft } from "lucide-react";
@@ -27,6 +28,14 @@ function parseAccountType(raw: string | null): "TIPPER" | "HOST" {
 }
 
 export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={null}>
+      <VerifyEmailContent />
+    </Suspense>
+  );
+}
+
+function VerifyEmailContent() {
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -34,10 +43,13 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch<AppDispatch>();
+  const authEmail = useSelector((state: RootState) => state.auth.user?.email);
+  const verifyInFlightRef = useRef(false);
+  const resendCooldownIntervalRef = useRef<number | null>(null);
 
   const emailParam = searchParams.get("email");
   const accountType = parseAccountType(searchParams.get("accountType"));
-  const verifyEmail = emailParam?.trim() ?? "";
+  const verifyEmail = (emailParam?.trim() || authEmail?.trim()) ?? "";
 
   const isMobile = useMediaQuery({ query: "(max-width: 500px)" });
 
@@ -58,6 +70,33 @@ export default function VerifyEmailPage() {
     if (nextDest) return nextDest;
     return null;
   }, [searchParams]);
+
+  useEffect(() => {
+    return () => {
+      if (resendCooldownIntervalRef.current) {
+        window.clearInterval(resendCooldownIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const startResendCooldown = () => {
+    if (resendCooldownIntervalRef.current) {
+      window.clearInterval(resendCooldownIntervalRef.current);
+    }
+    setResendCooldown(30);
+    resendCooldownIntervalRef.current = window.setInterval(() => {
+      setResendCooldown(c => {
+        if (c <= 1) {
+          if (resendCooldownIntervalRef.current) {
+            window.clearInterval(resendCooldownIntervalRef.current);
+            resendCooldownIntervalRef.current = null;
+          }
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  };
 
   const handleVerify = async () => {
     try {
@@ -130,6 +169,14 @@ export default function VerifyEmailPage() {
     }
   };
 
+  useEffect(() => {
+    if (code.length !== 6 || verifyInFlightRef.current || isLoading) return;
+    verifyInFlightRef.current = true;
+    void handleVerify().finally(() => {
+      verifyInFlightRef.current = false;
+    });
+  }, [code, isLoading]);
+
   const handleResendCode = async () => {
     if (!verifyEmail || resendCooldown > 0) return;
 
@@ -144,16 +191,7 @@ export default function VerifyEmailPage() {
         (res.data as { message?: string })?.message ??
           "Verification code resent"
       );
-      setResendCooldown(30);
-      const interval = window.setInterval(() => {
-        setResendCooldown(c => {
-          if (c <= 1) {
-            window.clearInterval(interval);
-            return 0;
-          }
-          return c - 1;
-        });
-      }, 1000);
+      startResendCooldown();
       setCode("");
     } catch (err: unknown) {
       if (err instanceof Error) toast.error(err.message);
@@ -222,7 +260,7 @@ export default function VerifyEmailPage() {
           Didn&apos;t receive the code?{" "}
           <Button
             className="text-primary bg-transparent p-0"
-            disabled={resendCooldown > 0 || !verifyEmail}
+            disabled={resendCooldown > 0 || !verifyEmail || isLoading}
             onClick={handleResendCode}
           >
             {resendCooldown > 0

@@ -10,6 +10,8 @@ import { HostSubscriptionReturnHandler } from "@/components/dashboard/host-subsc
 import { HostAuthProvider } from "@/contexts/host-auth-context";
 import { useHostSessionContextOptional } from "@/contexts/host-session-context";
 import type { RootState } from "@/redux/store";
+import { AUTH_ERROR_CODES } from "@/lib/authorization-policy";
+import { buildVerifyEmailPath } from "@/lib/verify-email-path";
 
 type Props = {
   children: ReactNode;
@@ -61,6 +63,15 @@ function HostDashboardGateInner({ children }: Props) {
     }
 
     if (!canReadAsHost) {
+      if (hostSession?.code === AUTH_ERROR_CODES.EMAIL_VERIFICATION_REQUIRED) {
+        router.replace(
+          buildVerifyEmailPath({
+            email: user.email,
+            accountType: "HOST",
+          })
+        );
+        return;
+      }
       router.replace(user.username ? `/tipper/${user.username}` : "/sign-in");
       return;
     }

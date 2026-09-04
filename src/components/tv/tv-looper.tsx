@@ -9,6 +9,7 @@ import {
   useLayoutEffect,
 } from "react";
 import dynamic from "next/dynamic";
+import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
@@ -175,6 +176,7 @@ export const TvLooper = ({
     onVideoEnd,
     setPlayerPlayingState,
     setPlayerVisible,
+    flushPendingPlaybackRequest,
     playingItemOverride,
     applyPendingPlaybackRestore,
     applyPendingAudioRestore,
@@ -449,9 +451,7 @@ export const TvLooper = ({
     return () => onRegisterExitFull?.(null);
   }, [isFullView, isMobileTv, onFullViewChange, onRegisterExitFull, exitFull]);
 
-  const currentEventId = String(
-    current?.defaultChannelEventId ?? current?.channel?.eventId ?? ""
-  ).trim();
+  const currentEventId = resolveTvScheduleEventId(current);
   const tipsAndPaymentsEnabled =
     Boolean(currentEventId) && currentEventId !== "notice" && !isNotice;
   const currentChannelId = current?.channel?.id;
@@ -1388,6 +1388,7 @@ export const TvLooper = ({
                   onReady={() => {
                     setIsPlayerLoading(false);
                     onPlayerReady();
+                    flushPendingPlaybackRequest();
                     setPlayerVisible(true);
                     emitEncounterWhenVideoLoads();
                   }}

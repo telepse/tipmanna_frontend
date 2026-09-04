@@ -11,7 +11,7 @@ describe("buildExploreFeedQueryKey", () => {
       feedMode: "trends",
       trendsFilters: { eventTypes: [], language: "", country: "" },
     });
-    expect(key).toMatch(/^tipmanna:explore-feed:trends\|b:\d+$/);
+    expect(key).toMatch(/^tipmanna:explore-feed:v2:trends\|b:\d+$/);
   });
 
   it("includes sorted filter segments for filtered trends", () => {

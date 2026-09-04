@@ -1,6 +1,7 @@
 "use client";
 
 import { getAuthToken } from "@/lib/getAuthToken";
+import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
 import type { TvScheduleFetchResult } from "@/actions/tv-schedule";
 
 /** Client-side schedule fetch mirroring fetchTvScheduleAction (skips server-action hop). */
@@ -61,6 +62,9 @@ export async function fetchTvScheduleClient(opts?: {
     }
 
     if (!res.ok) {
+      if (await assertNotEmailVerificationRequiredFromResponse(res)) {
+        return { success: false, error: "EMAIL_VERIFICATION_REQUIRED" };
+      }
       return { success: false, error: `Schedule HTTP ${res.status}` };
     }
 

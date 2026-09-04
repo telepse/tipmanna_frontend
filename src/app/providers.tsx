@@ -14,6 +14,7 @@ import { DedicatedEnterResumeController } from "@/components/community/dedicated
 import { ChunkLoadRecovery } from "@/components/chunk-load-recovery";
 import { VisitorAutoLogoutWrapper } from "@/components/VistorAutoLogoutWrapper";
 import { SessionActivityPinger } from "@/components/auth/session-activity-pinger";
+import { EmailVerificationRequiredListener } from "@/components/auth/email-verification-required-listener";
 import { AuthIdentityBootstrap } from "@/components/auth/auth-identity-bootstrap";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <ChunkLoadRecovery />
           <VisitorAutoLogoutWrapper>
             <SessionActivityPinger />
+            <EmailVerificationRequiredListener />
             <AuthIdentityBootstrap />
             <TvAnalyticsAuthBridge />
             <SideChickProvider>

@@ -1,8 +1,23 @@
 # Production Readiness Report — Video & Event Creation Forms
 
-**Date:** 2026-08-24  
+**Date:** 2026-08-24 (updated 2026-09-03)  
 **Scope:** Wizards, add-video modals, Create dialog, form drafts, co-owner invite lifecycle  
 **Status:** Ready for production deploy after migration and smoke QA
+
+### 2026-09-03 — Create dialog first-paint + cache
+
+- **Fixed:** Host-link pending is computed during render (`isHostLinkResolutionPending`) so the first Create click never paints the full picker as `status: "none"`.
+- **Fixed:** Closing the dialog keeps the host-link cache for the same user; second open can show the prepared view without re-fetching `/auth/me/host-link`.
+- **Fixed:** Summarized picker (Create new channel / Add live event) is not blocked on events/communities fetch.
+- **Fixed:** Create dialog passes host auth into `AddVideoForm` so draft save and community submit share one host login modal.
+
+### 2026-09-03 — Create dialog Tier A routing
+
+- **Fixed:** Linked tippers no longer flash the full type picker while host linkage probes; prepared view shows after loading settles.
+- **Fixed:** Creator-profile **Add live event** opens the summarized picker (Event / Event+Content only), not the full card picker.
+- **Fixed:** Host login modal mounted on all create-dialog views (community/co-create submit and draft save).
+- **Fixed:** Draft autosave gated on active host session; neutral **“Sign in as host to save drafts”** hint when linked but not signed in as host (Channel tab Tier A submit unchanged).
+- **Docs:** [`product-behaviors/PRODUCT_GUIDE_VIDEO_FORMS.md`](../product-behaviors/PRODUCT_GUIDE_VIDEO_FORMS.md) §4 rewritten for view routing, Tier A/B split, and modal vs bridge distinction.
 
 ---
 

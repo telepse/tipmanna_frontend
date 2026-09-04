@@ -1,5 +1,6 @@
 import { getEventCharacterCatalogAction } from "@/actions/events";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
+import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import type { RoomCharacter } from "@/types";
 
 export type TvEventCatalog = {
@@ -124,7 +125,7 @@ export function collectTvScheduleEventIds(
 ): string[] {
   const ids: string[] = [];
   for (const item of items) {
-    const eventId = item?.channel?.eventId ?? item?.defaultChannelEventId;
+    const eventId = resolveTvScheduleEventId(item);
     if (!eventId || ids.includes(eventId)) continue;
     ids.push(eventId);
     if (ids.length >= limit) break;

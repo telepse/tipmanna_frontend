@@ -10,6 +10,8 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
+import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
+import { useTvEventTipCatalog } from "@/hooks/use-tv-event-tip-catalog";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
@@ -168,6 +170,7 @@ export const HomeTvLooper = ({
     onVideoEnd,
     setPlayerPlayingState,
     setPlayerVisible,
+    flushPendingPlaybackRequest,
     playingItemOverride,
     applyPendingPlaybackRestore,
     applyPendingAudioRestore,
@@ -439,9 +442,11 @@ export const HomeTvLooper = ({
     return () => onRegisterExitFull?.(null);
   }, [isFullView, isMobileTv, onFullViewChange, onRegisterExitFull, exitFull]);
 
-  const currentEventId = String(
-    current?.defaultChannelEventId ?? current?.channel?.eventId ?? ""
-  ).trim();
+  const currentEventId = resolveTvScheduleEventId(current);
+  const { tippingCharacters: videoTipCharacters } = useTvEventTipCatalog(
+    currentEventId,
+    characters
+  );
   const tipsAndPaymentsEnabled =
     Boolean(currentEventId) && currentEventId !== "notice" && !isNotice;
   const currentChannelId = current?.channel?.id;
@@ -637,7 +642,7 @@ export const HomeTvLooper = ({
   });
   usePaymentAnimationPlayer({
     eventId: currentEventId,
-    characters,
+    characters: videoTipCharacters,
     enabled: tipsAndPaymentsEnabled,
     animationMount: isMobileTv && !isFullView ? undefined : animationMountRef,
     surface: "tv_looper",
@@ -645,7 +650,7 @@ export const HomeTvLooper = ({
   usePayerOriginAnimationRecovery({
     eventId: currentEventId,
     paymentSurface: ["tv_looper", "community_tv_looper"],
-    characters,
+    characters: videoTipCharacters,
     enabled: tipsAndPaymentsEnabled,
     animationMount: isMobileTv && !isFullView ? undefined : animationMountRef,
     surface: "tv_looper",
@@ -974,38 +979,6 @@ export const HomeTvLooper = ({
               <Volume2 className="size-5" />
             )}
           </button>
-
-          <div className="border border-gray-300">
-            {isMobileTv && !isFullView && (
-              <button
-                type="button"
-                onClick={enterFull}
-                aria-label="Full view"
-              >
-                <Maximize2 className="size-5" />
-              </button>
-            )}
-          </div>
-
-          <div className="border-2 border-gray-300">
-            {isMobileTv && !isFullView && (
-              <button
-                type="button"
-                onClick={toggleFullVariant}
-                aria-label={
-                  fullLayoutToggleShowsPortraitIcon
-                    ? "Portrait full layout"
-                    : "Landscape full layout"
-                }
-              >
-                {fullLayoutToggleShowsPortraitIcon ? (
-                  <RectangleVertical className="size-5" />
-                ) : (
-                  <RectangleHorizontal className="size-5" />
-                )}
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Player area */}
@@ -1169,7 +1142,7 @@ export const HomeTvLooper = ({
                     : "")
                 }
                 numOfTips={liveNumOfTips}
-                tippingCharacters={characters}
+                tippingCharacters={videoTipCharacters}
                 onContinueToTip={onContinueCommentToTip}
                 hostName={
                   typeof current?.channel?.hostName === "string"
@@ -1369,6 +1342,7 @@ export const HomeTvLooper = ({
                   onReady={() => {
                     setIsPlayerLoading(false);
                     onPlayerReady();
+                    flushPendingPlaybackRequest();
                     setPlayerVisible(true);
                     emitEncounterWhenVideoLoads();
                   }}

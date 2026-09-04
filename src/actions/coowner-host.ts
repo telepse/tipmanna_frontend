@@ -68,7 +68,13 @@ export async function markCoOwnerPaidAction(
       raw && typeof raw === "object" && raw !== null && "message" in raw
         ? String((raw as { message?: string }).message)
         : `Request failed (${res.status})`;
-    return { success: false as const, error: msg, data: null };
+    return {
+      success: false as const,
+      error: msg,
+      data: null,
+      httpStatus: res.status,
+      validationBody: raw,
+    };
   }
   return { success: true as const, error: null, data: raw };
 }

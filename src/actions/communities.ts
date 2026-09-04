@@ -241,10 +241,10 @@ export async function acceptCoCreatorInviteAction(inviteToken: string) {
       try {
         raw = JSON.parse(text) as unknown;
       } catch {
-        return actionFail(
-          "Server returned invalid JSON",
-          "acceptCoCreatorInviteAction"
-        );
+        return actionFail("Server returned invalid JSON", {
+          logContext: "acceptCoCreatorInviteAction",
+          httpStatus: res.status,
+        });
       }
     }
 
@@ -269,7 +269,11 @@ export async function acceptCoCreatorInviteAction(inviteToken: string) {
     if (!res.ok) {
       return actionFail(
         messageFromUnknownBody(raw, `Request failed (${res.status})`),
-        "acceptCoCreatorInviteAction"
+        {
+          logContext: "acceptCoCreatorInviteAction",
+          httpStatus: res.status,
+          validationBody: raw ?? undefined,
+        }
       );
     }
 
@@ -656,10 +660,10 @@ export async function acceptCommunityInviteAction(inviteToken: string) {
       try {
         raw = JSON.parse(text) as unknown;
       } catch {
-        return actionFail(
-          "Server returned invalid JSON",
-          "acceptCommunityInviteAction"
-        );
+        return actionFail("Server returned invalid JSON", {
+          logContext: "acceptCommunityInviteAction",
+          httpStatus: res.status,
+        });
       }
     }
 
@@ -684,7 +688,11 @@ export async function acceptCommunityInviteAction(inviteToken: string) {
     if (!res.ok) {
       return actionFail(
         messageFromUnknownBody(raw, `Request failed (${res.status})`),
-        "acceptCommunityInviteAction"
+        {
+          logContext: "acceptCommunityInviteAction",
+          httpStatus: res.status,
+          validationBody: raw ?? undefined,
+        }
       );
     }
 

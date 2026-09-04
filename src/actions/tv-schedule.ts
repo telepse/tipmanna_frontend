@@ -61,8 +61,9 @@ export async function fetchTvScheduleAction(opts?: {
 
     if (!res.ok) {
       let detail = `Schedule HTTP ${res.status}`;
+      let errBody: unknown = null;
       try {
-        const errBody = await res.json();
+        errBody = await res.json();
         const msg =
           errBody &&
           typeof errBody === "object" &&
@@ -77,7 +78,10 @@ export async function fetchTvScheduleAction(opts?: {
       } catch {
         /* ignore non-JSON error bodies */
       }
-      return actionFail(detail);
+      return actionFail(detail, {
+        httpStatus: res.status,
+        validationBody: errBody ?? undefined,
+      });
     }
 
     const body = await res.json();

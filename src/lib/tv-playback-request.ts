@@ -34,3 +34,15 @@ export function isUserIntentPlaybackReason(
 ): boolean {
   return USER_INTENT_REASONS.has(reason);
 }
+
+export type UnchangedPlaybackAction = "replay" | "queue" | "skip";
+
+/** When orchestration target is unchanged, decide replay vs queue vs skip. */
+export function resolveUnchangedPlaybackAction(input: {
+  userIntent: boolean;
+  playerReady: boolean;
+}): UnchangedPlaybackAction {
+  if (input.userIntent && input.playerReady) return "replay";
+  if (input.userIntent && !input.playerReady) return "queue";
+  return "skip";
+}

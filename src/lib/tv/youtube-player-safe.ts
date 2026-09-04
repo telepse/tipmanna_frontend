@@ -2,7 +2,23 @@
 type YtPlayerLike = {
   getIframe?: () => HTMLIFrameElement | null | undefined;
   getCurrentTime?: () => number;
+  playVideo?: () => void;
+  pauseVideo?: () => void;
 };
+
+/** True when imperative playback APIs are present (post-destroy players may lack them). */
+export function hasYoutubePlaybackApi(
+  player: YtPlayerLike | null | undefined
+): player is YtPlayerLike & {
+  playVideo: () => void;
+  pauseVideo: () => void;
+} {
+  return (
+    !!player &&
+    typeof player.playVideo === "function" &&
+    typeof player.pauseVideo === "function"
+  );
+}
 
 export function isYoutubePlayerIframeLive(
   player: YtPlayerLike | null | undefined

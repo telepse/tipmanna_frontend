@@ -63,6 +63,7 @@ export const CAPABILITY_TIERS: Record<AuthCapability, AuthTier> = {
 export const AUTH_ERROR_CODES = {
   HOST_SESSION_REQUIRED: "HOST_SESSION_REQUIRED",
   COHOST_SESSION_REQUIRED: "COHOST_SESSION_REQUIRED",
+  EMAIL_VERIFICATION_REQUIRED: "EMAIL_VERIFICATION_REQUIRED",
 } as const;
 
 /** Tier A: linkage read — needs canReadAsHost. */
@@ -100,4 +101,10 @@ export function isCohostSessionRequiredError(
   code?: string | null
 ): boolean {
   return code === AUTH_ERROR_CODES.COHOST_SESSION_REQUIRED;
+}
+
+export function isEmailVerificationRequiredError(
+  code?: string | null
+): boolean {
+  return code === AUTH_ERROR_CODES.EMAIL_VERIFICATION_REQUIRED;
 }

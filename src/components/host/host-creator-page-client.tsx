@@ -431,7 +431,6 @@ export function HostCreatorPageClient({
           if (!open) setCreateDialogEntry("default");
         }}
         entry={createDialogEntry}
-        forceTypePicker={createDialogEntry === "event-room"}
       />
 
       <StartCommunityRequestDialog

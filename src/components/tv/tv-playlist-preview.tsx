@@ -28,6 +28,7 @@ import {
   fetchTvChannelMetricsBatch,
   type TvChannelRowMetrics,
 } from "@/lib/tv/channelEncountersClient";
+import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import type { RoomCharacter } from "@/types";
 
 const UUID_RE =
@@ -55,9 +56,10 @@ function resolveCommentDrawerTarget(item: {
     username?: string;
   };
 }): CommentDrawerTarget | null {
-  const eventId = String(
-    item.defaultChannelEventId ?? item.channel?.eventId ?? ""
-  ).trim();
+  const eventId = resolveTvScheduleEventId({
+    channel: item.channel,
+    defaultChannelEventId: item.defaultChannelEventId,
+  });
   if (!eventId || eventId === "notice") return null;
 
   return {
@@ -358,17 +360,16 @@ export function TvPlaylistPreview({
                   </p>
                 </div>
 
-                <div
-                  className="bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-0.5 rounded-md px-1 py-2.5 shadow-2xl"
-                  onClick={e => {
-                    e.stopPropagation();
-                    openCommentDrawer(item);
-                  }}
-                >
+                <div className="bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-0.5 rounded-md px-1 py-2.5 shadow-2xl">
                   <div className="flex w-fit items-center gap-1">
                     <button
                       type="button"
                       className="cursor-pointer"
+                      onClick={e => {
+                        e.stopPropagation();
+                        openCommentDrawer(item);
+                      }}
+                      aria-label="Video info"
                     >
                       <Info className="size-3" />
                     </button>

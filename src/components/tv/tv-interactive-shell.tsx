@@ -476,7 +476,7 @@ export function TvInteractiveShell({
           <div className="min-h-[50vh] object-cover lg:col-span-9 lg:min-h-[60vh]">
             {tvReady ? (
               <WebTvLooper
-                characters={characters}
+                characters={tipPriceCatalog as RoomCharacter[]}
                 playerLayout="wide"
                 analyticsSurface={tvAnalyticsSurface}
                 onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
@@ -662,7 +662,9 @@ export function TvInteractiveShell({
                             onContinueCommentToTip={() =>
                               setIsTipDrawerOpen(true)
                             }
-                            tippingCharacters={characters}
+                            tippingCharacters={
+                              tipPriceCatalog as RoomCharacter[]
+                            }
                           />
 
                           <button
@@ -789,7 +791,7 @@ export function TvInteractiveShell({
                 >
                   <TvLooper
                     key="mobile-tv-looper"
-                    characters={characters}
+                    characters={tipPriceCatalog as RoomCharacter[]}
                     layout={
                       showPhoneLandscapeImmersive
                         ? "mobileImmersive"
@@ -901,7 +903,9 @@ export function TvInteractiveShell({
                             onContinueCommentToTip={() =>
                               setIsTipDrawerOpen(true)
                             }
-                            tippingCharacters={characters}
+                            tippingCharacters={
+                              tipPriceCatalog as RoomCharacter[]
+                            }
                           />
 
                           <button
@@ -1006,14 +1010,14 @@ export function TvInteractiveShell({
         onOpenChange={setIsPreviewPlaylistDrawerOpen}
         onSelectChannel={handleSelectChannel}
         onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
-        tippingCharacters={characters}
+        tippingCharacters={tipPriceCatalog as RoomCharacter[]}
         onOpenFullSchedule={openScheduleDrawer}
       />
 
       <TVScheduleDrawer
         isTVDrawerOpen={isTVDrawerOpen}
         setIsTvDrawerOpen={setIsTvDrawerOpen}
-        tippingCharacters={characters}
+        tippingCharacters={tipPriceCatalog as RoomCharacter[]}
       />
 
       {isMobile && showPhoneLandscapeImmersive ? null : (

@@ -35,12 +35,9 @@ import {
 } from "./tv-interactive-shell";
 import { TvWebExperience } from "./tv-web-experience";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
-import {
-  getCachedTvEventCatalog,
-  loadTvEventCatalog,
-  type TvEventCatalog,
-} from "@/lib/tv-event-catalog-cache";
+import { useTvEventTipCatalog } from "@/hooks/use-tv-event-tip-catalog";
 import { useTvEnforcementDeepLink } from "@/hooks/use-tv-enforcement-deep-link";
+import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import { tvTrace } from "@/lib/tvDebugLog";
 import { schedulePostTtfvIdle } from "@/lib/tv-post-ttfv-idle";
 import { prefetchTvScheduleTips } from "@/lib/drawer-prefetch-cache";
@@ -185,10 +182,7 @@ export default function TVPageClientWrapper({
     [items, currentIndex, playingItemOverride]
   );
 
-  const tipDrawerEventId =
-    currentScheduleItem?.channel?.eventId ??
-    currentScheduleItem?.defaultChannelEventId ??
-    "";
+  const tipDrawerEventId = resolveTvScheduleEventId(currentScheduleItem);
 
   const playingVideoKey = useMemo(() => {
     if (!tipDrawerEventId || items.length === 0) return "";
@@ -205,27 +199,13 @@ export default function TVPageClientWrapper({
     setIsTipDrawerOpen
   );
 
-  const [videoTipCatalog, setVideoTipCatalog] = useState<TvEventCatalog | null>(
-    null
+  const {
+    tippingCharacters: tippingCharactersForDrawer,
+    characterSets: characterSetsForDrawer,
+  } = useTvEventTipCatalog(
+    playingVideoKey ? tipDrawerEventId : "",
+    characters as unknown as RoomCharacter[]
   );
-
-  useEffect(() => {
-    if (!playingVideoKey || !tipDrawerEventId) {
-      setVideoTipCatalog(null);
-      return;
-    }
-
-    setVideoTipCatalog(getCachedTvEventCatalog(tipDrawerEventId));
-
-    let cancelled = false;
-    void loadTvEventCatalog(tipDrawerEventId).then(catalog => {
-      if (!cancelled) setVideoTipCatalog(catalog);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [playingVideoKey, tipDrawerEventId]);
 
   useEffect(() => {
     if (!items.length || !tipDrawerEventId) return;
@@ -233,16 +213,6 @@ export default function TVPageClientWrapper({
       prefetchTvScheduleTips(items, currentIndex, 3);
     });
   }, [items, currentIndex, tipDrawerEventId, playingVideoKey]);
-
-  const characterSetsForDrawer = (videoTipCatalog?.characterSets ?? []).filter(
-    set => Array.isArray(set.characters) && set.characters.length > 0
-  );
-
-  const tippingCharactersForDrawer = (
-    videoTipCatalog?.characters?.length
-      ? videoTipCatalog.characters
-      : characters
-  ) as RoomCharacter[];
 
   const prevPlayingVideoKeyRef = useRef("");
 

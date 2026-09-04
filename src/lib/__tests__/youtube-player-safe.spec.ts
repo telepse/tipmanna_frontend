@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  hasYoutubePlaybackApi,
   isYoutubePlayerApiReady,
   isYoutubePlayerIframeLive,
   safeYoutubeCall,
@@ -45,6 +46,22 @@ describe("isYoutubePlayerApiReady", () => {
     expect(isYoutubePlayerApiReady(false, player)).toBe(false);
     expect(isYoutubePlayerApiReady(true, player)).toBe(true);
     iframe.remove();
+  });
+});
+
+describe("hasYoutubePlaybackApi", () => {
+  it("returns true when play and pause exist", () => {
+    expect(
+      hasYoutubePlaybackApi({
+        playVideo: () => {},
+        pauseVideo: () => {},
+      })
+    ).toBe(true);
+  });
+
+  it("returns false when methods are missing", () => {
+    expect(hasYoutubePlaybackApi({})).toBe(false);
+    expect(hasYoutubePlaybackApi(null)).toBe(false);
   });
 });
 

@@ -14,38 +14,42 @@ export async function applyPrimaryAndHostSessions(
   dispatch: AppDispatch,
   options?: { requiresVerification?: boolean }
 ): Promise<ApplyHostSessionResult> {
+  const requiresVerification =
+    options?.requiresVerification ?? parsed.requiresVerification ?? false;
+
   dispatch(
     setCredentials({
       user: parsed.user,
       token: parsed.token,
-      requiresVerification: options?.requiresVerification,
+      requiresVerification,
       tag: parsed.tag ?? null,
     })
   );
 
-  if (!options?.requiresVerification) {
+  if (!requiresVerification && parsed.token) {
     await persistAuthSession(parsed.token, parsed.user, { expiresDays: 60 });
-  }
 
-  let hostSessionPersisted = true;
-  if (parsed.hostSession) {
-    hostSessionPersisted = await persistHostSession(
-      parsed.hostSession.token,
-      parsed.hostSession.user,
-      {
-        expiresDays: 7,
+    let hostSessionPersisted = true;
+    if (parsed.hostSession?.token && parsed.hostSession.user) {
+      hostSessionPersisted = await persistHostSession(
+        parsed.hostSession.token,
+        parsed.hostSession.user,
+        {
+          expiresDays: 7,
+        }
+      );
+      if (hostSessionPersisted) {
+        notifyHostSessionTouched({
+          active: true,
+          hostId: parsed.hostSession.user.id,
+          hostSessionExpiresAt: new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        });
       }
-    );
-    if (hostSessionPersisted) {
-      notifyHostSessionTouched({
-        active: true,
-        hostId: parsed.hostSession.user.id,
-        hostSessionExpiresAt: new Date(
-          Date.now() + 7 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-      });
     }
+    return { hostSessionPersisted };
   }
 
-  return { hostSessionPersisted };
+  return { hostSessionPersisted: true };
 }

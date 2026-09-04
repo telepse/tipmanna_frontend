@@ -20,6 +20,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { toast } from "react-toastify";
 import { setCredentials } from "@/features/auth-slice";
+import { parseAuthResponse } from "@/lib/auth-response";
+import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
+import type { AppDispatch } from "@/redux/store";
 import { Input } from "../ui/input";
 import { Paragraph } from "../shared/paragraph";
 import OTPInput from "react-otp-input";
@@ -27,7 +30,6 @@ import { useMediaQuery } from "react-responsive";
 import { useRouter } from "next/navigation";
 import { NavbarShell } from "../shared/navbar-shell";
 import Footer from "../shared/footer";
-import { persistAuthSession } from "@/lib/session-client";
 import {
   Tooltip,
   TooltipContent,
@@ -82,7 +84,7 @@ export const VisitorProfileClient = ({
   const email = form.watch("email");
 
   const [isLoading, setIsLoading] = useState(false);
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   const user = useSelector((state: RootState) => state.auth.user);
   const userId = user ? user.id : "";
@@ -92,8 +94,6 @@ export const VisitorProfileClient = ({
     (isDrawer &&
       user?.role === "VISITOR" &&
       (!profileId || user.id === profileId));
-
-  const token = useSelector((state: RootState) => state.auth.token);
 
   const isMobile = useMediaQuery({
     query: "(max-width: 500px)",
@@ -129,25 +129,13 @@ export const VisitorProfileClient = ({
         return;
       }
 
-      dispatch(
-        setCredentials({
-          user,
-          token: token!,
-          requiresVerification: false,
-        })
-      );
+      const parsed = parseAuthResponse(res.data);
+      if (!parsed) {
+        toast.error("Verification succeeded but session could not be restored");
+        return;
+      }
 
-      await persistAuthSession(
-        token!,
-        {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-          username: user.username,
-          role: "TIPPER",
-        },
-        { expiresDays: 60 }
-      );
+      await applyPrimaryAndHostSessions(parsed, dispatch);
 
       toast.success("Email verified successfully!");
 
@@ -213,18 +201,6 @@ export const VisitorProfileClient = ({
           token: newToken,
           requiresVerification: true,
         })
-      );
-
-      await persistAuthSession(
-        newToken,
-        {
-          id,
-          fullName,
-          email,
-          username,
-          role: "TIPPER",
-        },
-        { expiresDays: 60 }
       );
 
       if (response.success) setStep("verifyCode");

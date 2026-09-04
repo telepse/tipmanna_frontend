@@ -1,6 +1,6 @@
 # Authorization Policy — Six User Sets
 
-**Last aligned:** 2026-08-25 (tipper-primary identity + hybrid tiers + staff plane + plans)
+**Last aligned:** 2026-09-01 (event-tip ledger; dashboard one-grant; Connect name lock + org bank match; deferred enforce routes verified via hybrid-auth)
 
 ## Six user sets (only these)
 
@@ -73,7 +73,7 @@ Subscription status: `none` | `active` | `lapsed`.
 - **none:** pricing surfaces; no premium actions.
 - **active:** full feature UI and mutations.
 - **lapsed:** **keep feature chrome visible; freeze mutations**; renew modal on action.
-- **admin_grant:** super admin assigns tier + `subscriptionPeriodEnd`; Stripe webhooks must not wipe active grants.
+- **Admin grant:** super admin assigns tier + `subscriptionPeriodEnd`; Stripe webhooks must not wipe active grants. Manage at **Host plan grants** (grant / extend / revoke).
 
 Pricing, VAT, and system-wide discounts are owned by super admin + Stripe (`automatic_tax`, coupon on checkout/renewals).
 
@@ -82,6 +82,7 @@ Pricing, VAT, and system-wide discounts are owned by super admin + Stripe (`auto
 - **Super admin:** all permissions; creates/terminates admins; grants plans; system discount.
 - **Admin:** only permissions assigned at creation (`Admin.permissions[]`). Cannot create/delete other admins.
 - Routes: `requireSuperadmin` for admin CRUD, grant-plan, system-discount. `requireAdminPermission(key)` for delegated features.
+- **Payout operations:** all `/api/v1/{superadmin,admin}/payouts/*` routes require permission key **`payouts`** (superadmin bypasses). Includes settle, force-accept, Connect batch trigger, receipt upload, and ledger reads.
 
 ## Tier A — linkage detection alone (no host login)
 
@@ -95,7 +96,26 @@ Requires **host-role JWT** in `hostToken`. Stale ⇒ host login modal via `reque
 
 Existing host may re-enter with **password or email code** (`verify-code` accountType HOST). First-time tipper→host **must set a host password**.
 
-Frontend: `useHostCapability().canWriteAsHost` + `serverHostAuthHeaders()` for server actions.
+Frontend: `useHostCapability().canWriteAsHost` + `serverHostAuthHeaders()` for server actions. Dashboard host writes also require a **server-verified** active host session (`GET /api/auth/host-session?verify=true`); a stale cookie alone does not grant write access.
+
+**Dashboard navigation (one grant per `/host/*` mount):** After the first successful host-session probe, background touch/refresh must **not** unmount dashboard content or reopen the host login modal. Writes remain gated by API `enforce()` + `403 HOST_SESSION_REQUIRED` → modal via `handleAuthRequiredError`.
+
+**Tier B capabilities in `enforce()` catalog:**
+
+| Capability                                            | Scope                                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `payouts.me.read` / `payouts.me.write`                | Host payout summary, request, settlement ack, Connect status/onboarding |
+| `subscriptions.host.me`                               | Host subscription checkout, portal, cancel, tier request                |
+| `community.contentBank.*`, `community.host.write`, …  | Community host mutations (existing)                                     |
+| `auth.creatorProfile.write`, `auth.hostProfile.write` | Profile mutations (existing)                                            |
+
+**Tier B via host JWT, not yet in `enforce()` catalog:** playlists, co-owners, video-requests, tip config, and other dashboard routes that already use `requireRole("host")` + `serverHostAuthHeaders()`. Treat as Tier B; migrate to named capabilities incrementally. **`npm run verify:hybrid-auth`** asserts those frontend actions still send `serverHostAuthHeaders()` — do not regress to primary tipper token.
+
+**Profile mutations:** `PUT /auth/host-profile` is gated by `enforce("auth.hostProfile.write")`. After Stripe Connect `details_submitted`, legal name / registered company name / account type are **business-rule locks inside** that capability (403 from controller), not a separate auth tier.
+
+**Host money/plan API calls:** always `serverHostAuthHeaders()` (host-role JWT in `hostToken`), never primary tipper token.
+
+**Event tips (Stripe + wallet):** Both paths credit `event_tip` ledger (70% host share) via `recordEventTipLedger` with idempotency key `event_tip_{transactionId}`.
 
 ## Tier C — cohost session (7 days, invited event only)
 
@@ -105,26 +125,75 @@ Frontend: `canManageRoomContent` (host session **or** cohost session for that ev
 
 ## Identity issuance (backend)
 
-| Endpoint                             | Primary JWT      | Host JWT | Cohost JWT |
-| ------------------------------------ | ---------------- | -------- | ---------- |
-| `POST /auth/login-tipper`            | tipper 60d       | —        | —          |
-| `POST /auth/verify-code` (HOST)      | tipper 60d       | host 7d  | —          |
-| `POST /auth/login-host`              | tipper 60d       | host 7d  | —          |
-| `POST /auth/login-or-register-host`  | tipper 60d       | host 7d  | —          |
-| `POST /cohost/invite/verify-code`    | tipper 60d       | —        | cohost 7d  |
-| `POST /visitors/claim-after-payment` | visitor (remint) | —        | —          |
+| Endpoint                                                  | Primary JWT              | Host JWT              | Cohost JWT |
+| --------------------------------------------------------- | ------------------------ | --------------------- | ---------- |
+| `POST /auth/login-tipper`                                 | tipper 60d (if verified) | —                     | —          |
+| `POST /auth/verify-code` (HOST)                           | tipper 60d               | host 7d               | —          |
+| `POST /auth/login-host`                                   | tipper 60d               | host 7d               | —          |
+| `POST /auth/login-or-register-host`                       | tipper 60d (if verified) | host 7d (if verified) | —          |
+| `POST /auth/register-tipper` / `POST /auth/register-host` | — (until verify)         | — (until verify)      | —          |
+| `POST /cohost/invite/verify-code`                         | tipper 60d               | —                     | cohost 7d  |
+| `POST /visitors/claim-after-payment`                      | visitor (remint)         | —                     | —          |
 
 ## Error codes
 
 - `403 { code: "HOST_SESSION_REQUIRED" }` — open host login modal, resume task
 - `403 { code: "COHOST_SESSION_REQUIRED" }` — open cohost login modal, resume task
 - `403 { code: "SUBSCRIPTION_LAPSED" }` — open renew modal
+- `403 { code: "EMAIL_VERIFICATION_REQUIRED" }` — redirect to `/verify-email` with stored email; no session cookies while unverified
 - `410 Gone` — visitor session expired; cannot merge activity
+
+## Email verification gate
+
+- `Host.verified` / `Tipper.verified` become `true` only after the existing code flow: code sent → user enters code on `/verify-email` → `POST /auth/verify-code` succeeds.
+- `authMiddleware` rejects tipper/host JWTs when `verified === false` (`EMAIL_VERIFICATION_REQUIRED`), unless `AUTH_REQUIRE_VERIFIED=false` (48h kill-switch).
+- Exempt from the gate: `POST /auth/session/touch`, `POST /auth/change-email` (recovery while unverified). Touch still returns `verified: false` in the JSON body; the host-session probe maps that to `EMAIL_VERIFICATION_REQUIRED` without clearing cookies.
+- Global frontend handler: `EmailVerificationRequiredListener` in `providers.tsx` listens for `tipmanna:email-verification-required` and redirects via `buildVerifyEmailPath`.
+- Global detection net: `SessionActivityPinger` reads `verified: false` from gate-exempt `POST /auth/session/touch` and fires the same event (covers legacy in-the-wild tokens).
+- Registration does **not** mint JWTs; tokens issue only from `POST /auth/verify-code` (Option C). Frontend stores user identity in Redux with `requiresVerification: true` but persists no cookies until verification completes.
+- Cohost access-code acceptance counts as email verification for the linked tipper row (same code-to-email proof).
+- Grandfather: run `npm run db:backfill-verified-grandfather` with `VERIFIED_GRANDFATHER_CUTOFF` before enabling the gate in production.
+- Deploy with `AUTH_REQUIRE_VERIFIED=false` until staging QA passes; remove the override to enable the gate.
+
+## TV monotonic / visitor identity (clarification)
+
+The TV realtime axis uses a device-scoped tracking key for deduplication and animation sequencing. That key carries **no JWT** and does **not** create a `Visitor`, tipper, or host account. Tracked visitor rows (`Visitor` set 3) are created only after a succeeded payment per the visitor rules above.
+
+## Dashboard host-session probe (fail-closed)
+
+The Next.js route `GET /api/auth/host-session?verify=true` validates `hostToken` via backend `POST /auth/session/touch`.
+
+| Outcome                                                     | Cookies     | Client behavior                                                               |
+| ----------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------- |
+| Valid host session                                          | Refreshed   | `active: true`; writes allowed                                                |
+| Invalid/expired session (401 / 403 `HOST_SESSION_REQUIRED`) | **Cleared** | Host login modal                                                              |
+| Transient failure (503 / network)                           | **Kept**    | `code: "HOST_SESSION_PROBE_FAILED"` — fail-closed (no writes, no cookie wipe) |
+
+Backend `requireActiveHostSession` increments `hostSessionObs.hostSessionRequired` when a non-host JWT hits a Tier B route.
+
+## Payout dual path (manual default, Connect optional)
+
+Stripe Connect is an **entitlement/ops path**, not a sixth user set or identity rule.
+
+| Path                   | When                                                                                                   | Flow                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| **Manual (default)**   | Always available                                                                                       | `PayoutRequest` → admin queue → settle with receipt → host ack → `fulfilled` |
+| **Connect (optional)** | `STRIPE_CONNECT_PAYOUTS_ENABLED=true` **and** host `connectPayoutsEnabled` **and** onboarding complete | Monthly/cron batch → Stripe transfer → bank (`payout.paid` notify)           |
+
+Hosts with restricted/KYC-failed Connect accounts remain on the manual path. Production ships manual payouts with Connect **off** until staging transfer succeeds.
+
+**Connect identity (not a sixth user set):**
+
+- First Express account create pre-fills individual name or organisation name from Settings.
+- When Stripe reports `details_submitted`, Tipmanna locks legal name fields (`connectLegalNameLockedAt`); other profile fields stay editable.
+- **Organisation hosts:** `connectPayoutsEnabled` requires UK sort code + account last4 on Stripe to match organisation profile bank. Mismatch keeps manual payout path; panel shows amber guidance.
+- **Individual hosts:** no bank fingerprint check (Stripe collects personal account).
 
 ## Machine-readable sources
 
 - Backend: `backend/src/configs/authorization-policy.ts` (`enforce()` factory)
 - Frontend mirror: `frontend/src/lib/authorization-policy.ts`
-- Admin permissions: `backend/src/configs/admin-permissions.config.ts`
+- Admin permissions: `backend/src/configs/admin-permissions.config.ts` (includes `payouts` key)
 - Host plan capabilities: `backend/src/configs/host-plan-capabilities.config.ts`
-- Verification: `npm run verify:hybrid-auth`
+- Verification: `npm run verify:hybrid-auth` (includes payout-admin permission + Tier B payout/subscription routes)
+- Ops runbooks: `docs/ops/manual-payout-production-smoke.md`, `docs/ops/stripe-connect-staging.md`, `docs/ops/staging-e2e-runbook.md`

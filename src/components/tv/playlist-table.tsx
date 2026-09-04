@@ -30,6 +30,7 @@ import {
   fetchTvChannelMetricsBatch,
   type TvChannelRowMetrics,
 } from "@/lib/tv/channelEncountersClient";
+import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import type { RoomCharacter } from "@/types";
 
 const UUID_RE =
@@ -57,9 +58,10 @@ function resolveCommentDrawerTarget(item: {
     username?: string;
   };
 }): CommentDrawerTarget | null {
-  const eventId = String(
-    item.defaultChannelEventId ?? item.channel?.eventId ?? ""
-  ).trim();
+  const eventId = resolveTvScheduleEventId({
+    channel: item.channel,
+    defaultChannelEventId: item.defaultChannelEventId,
+  });
   if (!eventId || eventId === "notice") return null;
 
   return {
@@ -379,14 +381,14 @@ export default function PlaylistTable({
 
                 <div
                   className={`bg-secondary/30 flex shrink-0 flex-col items-end justify-end gap-1 rounded-md border px-1 py-0.5 shadow-lg ${segmentKind === "notice" ? "border-white/50" : "border-gray-300"}`}
-                  onClick={e => {
-                    e.stopPropagation();
-                    openCommentDrawer(item);
-                  }}
                 >
                   <button
                     type="button"
                     className={`flex items-center gap-[0.25px] rounded px-1 py-[0.5px] text-[8px] font-semibold outline ${segmentKind === "notice" ? "outline-white/50" : ""}`}
+                    onClick={e => {
+                      e.stopPropagation();
+                      openCommentDrawer(item);
+                    }}
                   >
                     <span className="flex cursor-pointer items-center gap-0.5 whitespace-nowrap">
                       <span className="text-[8px] sm:text-[7px]">

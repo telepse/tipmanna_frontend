@@ -3,7 +3,7 @@
 
 import { getExploreDefaultBucketId } from "@/lib/explore-default-bucket";
 
-const STORAGE_PREFIX = "tipmanna:explore-feed:";
+const STORAGE_PREFIX = "tipmanna:explore-feed:v2:";
 
 export type ExploreFeedSessionKeyParams = {
   feedMode: "trends" | "saves" | "community";

@@ -8,8 +8,9 @@ import OTPInput from "react-otp-input";
 import { useMediaQuery } from "react-responsive";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { persistAuthSession } from "@/lib/session-client";
 import { parseAuthResponse } from "@/lib/auth-response";
+import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
+import type { AppDispatch } from "@/redux/store";
 
 import {
   Dialog,
@@ -177,25 +178,13 @@ export function TipperEmailOtpSignInDialog({
         return;
       }
 
-      dispatch(
-        setCredentials({
-          user: u,
-          token: tok!,
-          requiresVerification: false,
-        })
-      );
+      const parsed = parseAuthResponse(verifyRes.data);
+      if (!parsed) {
+        toast.error("Verification succeeded but session could not be restored");
+        return;
+      }
 
-      await persistAuthSession(
-        tok!,
-        {
-          id: u.id,
-          fullName: u.fullName,
-          email: u.email,
-          username: u.username,
-          role: u.role,
-        },
-        { expiresDays: u.role === "HOST" ? 7 : 60 }
-      );
+      await applyPrimaryAndHostSessions(parsed, dispatch as AppDispatch);
 
       toast.success("Email verified successfully!");
 

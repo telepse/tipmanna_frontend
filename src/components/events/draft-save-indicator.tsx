@@ -9,6 +9,8 @@ type Props = {
   lastSavedAt?: Date | null;
   saveError?: string | null;
   onSaveNow?: () => void;
+  /** When true, show neutral hint instead of autosave enabled / error. */
+  hostAuthRequired?: boolean;
   className?: string;
 };
 
@@ -17,6 +19,7 @@ export function DraftSaveIndicator({
   lastSavedAt = null,
   saveError = null,
   onSaveNow,
+  hostAuthRequired = false,
   className,
 }: Props) {
   return (
@@ -33,6 +36,8 @@ export function DraftSaveIndicator({
         </span>
       ) : saveError ? (
         <span className="text-destructive">{saveError}</span>
+      ) : hostAuthRequired ? (
+        <span className="text-white/55">Sign in as host to save drafts</span>
       ) : lastSavedAt ? (
         <span>Draft saved {lastSavedAt.toLocaleTimeString()}</span>
       ) : (

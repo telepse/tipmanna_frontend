@@ -28,6 +28,14 @@ import {
   VolumeX,
 } from "lucide-react";
 import { resolveContentLocaleDisplay } from "@/lib/tv/contentLocaleDisplay";
+import {
+  resolveExploreCoOwnerDrawerUsername,
+  resolveExploreCoOwnerReelLabel,
+} from "@/lib/explore-co-owner-label";
+import {
+  shouldHandleExploreReelEnded,
+  shouldPaginateExploreReelOnEnd,
+} from "@/lib/explore-reel-advance";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import {
   CREATOR_USERNAME_CHANGED_EVENT,
@@ -86,6 +94,7 @@ import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
+import { usePaymentPlaybackRestore } from "@/hooks/use-payment-playback-restore";
 import type { RoomCharacter } from "@/types";
 import {
   flushTvAnalytics,
@@ -126,7 +135,8 @@ import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-s
 import { ImmersiveChannelActionsRail } from "@/components/events/immersive-channel-actions-rail";
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import { scheduleEngagementPwaPromptFromPolicy } from "@/lib/pwa-install-trigger";
-import { setSessionSoundOn } from "@/lib/session-audio";
+import { setSessionSoundOn, persistReelSoundPref } from "@/lib/session-audio";
+import { readPendingPaymentReturn } from "@/lib/pending-payment-return";
 import { TipsDrawer } from "@/components/events/tips-drawer";
 import { getSavedVideosForTipper } from "@/actions/events";
 import {
@@ -600,7 +610,15 @@ function ExploreFeedSlideVideo({
               onActivePlaying();
             }}
             onPlaybackEnded={() => {
-              if (!feedSurfaceActive || slideIndex !== activeIndex) return;
+              if (
+                !shouldHandleExploreReelEnded({
+                  feedSurfaceActive,
+                  slideIndex,
+                  activeIndex,
+                })
+              ) {
+                return;
+              }
               const scheduleItemId = `explore-${item.id}`;
               trackTvVideoComplete(scheduleItemId, {
                 channelId: item.id,
@@ -769,21 +787,8 @@ function ExploreReelSlideTitle({
     | null
     | undefined;
   const isCommunityBank = Boolean(community?.id && community?.name);
-  const coOwnerHostUsername =
-    typeof item.coOwnerHostUsername === "string"
-      ? item.coOwnerHostUsername.trim()
-      : "";
-  const coOwnerDrawerUsername =
-    coOwnerHostUsername ||
-    (typeof item.coOwnerUsername === "string"
-      ? item.coOwnerUsername.trim()
-      : "") ||
-    null;
-  const coOwnerLabel = coOwnerHostUsername
-    ? `@${coOwnerHostUsername}`
-    : item.coOwnerName
-      ? String(item.coOwnerName)
-      : null;
+  const coOwnerDrawerUsername = resolveExploreCoOwnerDrawerUsername(item);
+  const coOwnerLabel = resolveExploreCoOwnerReelLabel(item);
   const { flagUrl, contentLanguage } = resolveExploreItemLocale(item);
 
   return (
@@ -1587,6 +1592,69 @@ export const ExploreFeedClient = forwardRef<
     enabled: feedSurfaceActive,
     surface: "explore_feed",
   });
+  usePaymentPlaybackRestore({
+    enabled: feedSurfaceActive,
+    paymentSurface: ["explore_feed", "community_feed"],
+    videoRef,
+    currentChannelId: active?.id != null ? String(active.id) : null,
+    onMuteChange: setReelMuted,
+  });
+
+  const tipDrawerPlaybackSnapshotRef = useRef<{
+    channelId: string | null;
+    offsetSec: number;
+    wasPlaying: boolean;
+    wasMuted: boolean;
+  } | null>(null);
+  const prevTipDrawerOpenRef = useRef(false);
+
+  useEffect(() => {
+    const wasOpen = prevTipDrawerOpenRef.current;
+    prevTipDrawerOpenRef.current = isTipDrawerOpen;
+
+    if (isTipDrawerOpen && !wasOpen) {
+      const p = videoRef.current;
+      const cur = activeRef.current;
+      tipDrawerPlaybackSnapshotRef.current = {
+        channelId: cur?.id != null ? String(cur.id) : null,
+        offsetSec: p?.getCurrentTime() ?? 0,
+        wasPlaying: true,
+        wasMuted: reelMuted,
+      };
+      p?.pause();
+      return;
+    }
+
+    if (!isTipDrawerOpen && wasOpen) {
+      if (readPendingPaymentReturn()?.isRedirectPayment) return;
+      const snap = tipDrawerPlaybackSnapshotRef.current;
+      tipDrawerPlaybackSnapshotRef.current = null;
+      if (!snap) return;
+      const p = videoRef.current;
+      if (!p) return;
+      if (snap.offsetSec > 0) p.seekTo(snap.offsetSec);
+      if (snap.wasPlaying) p.play();
+      if (snap.wasMuted) {
+        p.mute();
+        setReelMuted(true);
+      } else {
+        p.unmute();
+        setReelMuted(false);
+        persistReelSoundPref(true);
+      }
+    }
+  }, [isTipDrawerOpen, reelMuted]);
+
+  const getExplorePaymentRestoreSnapshot = useCallback(() => {
+    const snap = tipDrawerPlaybackSnapshotRef.current;
+    if (!snap?.channelId) return null;
+    return {
+      channelId: snap.channelId,
+      offsetSec: snap.offsetSec,
+      wasMuted: snap.wasMuted,
+      capture: "drawer_open" as const,
+    };
+  }, []);
   useAutoDropTip(activeEventId, Boolean(activeEventId) && feedSurfaceActive);
 
   const {
@@ -1796,8 +1864,10 @@ export const ExploreFeedClient = forwardRef<
       if (h <= 0) return;
       const idx = Math.min(itemsRef.current.length - 1, Math.max(0, index));
       scrollExploreFeedToIndex(root, idx, behavior);
-      activeIndexRef.current = idx;
-      setActiveIndex(prev => (prev === idx ? prev : idx));
+      if (behavior !== "smooth") {
+        activeIndexRef.current = idx;
+        setActiveIndex(prev => (prev === idx ? prev : idx));
+      }
       const len = itemsRef.current.length;
       if (len > 0 && idx >= len - EXPLORE_NEAR_END_SLOTS) {
         setPaginationScrollEpoch(e => e + 1);
@@ -1818,7 +1888,13 @@ export const ExploreFeedClient = forwardRef<
   const advanceReelAfterEnd = useCallback(() => {
     if (!feedSurfaceActive) return;
     const idx = activeIndexRef.current;
-    if (idx >= itemsRef.current.length - 1) return;
+    const len = itemsRef.current.length;
+    if (idx >= len - 1) {
+      if (shouldPaginateExploreReelOnEnd(idx, len, EXPLORE_NEAR_END_SLOTS)) {
+        setPaginationScrollEpoch(e => e + 1);
+      }
+      return;
+    }
     scrollToIndex(idx + 1, "smooth");
   }, [feedSurfaceActive, scrollToIndex]);
 
@@ -3015,6 +3091,7 @@ export const ExploreFeedClient = forwardRef<
               active?.community?.id ? active.community.id : undefined
             }
             paymentChannelId={active?.id ?? null}
+            getPaymentRestoreSnapshot={getExplorePaymentRestoreSnapshot}
             openWalletModalNonce={openWalletModalNonce}
             stackAboveImmersive
             textTipUnitPrice={tipPres.textUnitPrice}

@@ -3,6 +3,9 @@
 import { runServerFetch } from "@/lib/action-fetch";
 import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
 
+/** Auth mutations must not retry — codes are single-use. */
+const AUTH_MUTATION_RETRY = { maxAttempts: 1 } as const;
+
 // -------- Register host -------- //
 export async function registerHostAction(values: {
   fullName: string;
@@ -20,7 +23,9 @@ export async function registerHostAction(values: {
       body: JSON.stringify(values),
       cache: "no-store",
     },
-    "registerHostAction"
+    "registerHostAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 
@@ -39,7 +44,9 @@ export async function registerTipperAction(values: {
       body: JSON.stringify(values),
       cache: "no-store",
     },
-    "registerTipperAction"
+    "registerTipperAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 
@@ -58,7 +65,9 @@ export async function loginOrRegisterTipperAction(values: {
       body: JSON.stringify(values),
       cache: "no-store",
     },
-    "loginOrRegisterTipperAction"
+    "loginOrRegisterTipperAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 
@@ -80,7 +89,9 @@ export async function loginOrRegisterHostAction(values: {
       body: JSON.stringify(values),
       cache: "no-store",
     },
-    "loginOrRegisterHostAction"
+    "loginOrRegisterHostAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 
@@ -100,7 +111,9 @@ export async function verifyCodeAction(
       body: JSON.stringify({ email, code, accountType }),
       cache: "no-store",
     },
-    "verifyCodeAction"
+    "verifyCodeAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 
@@ -118,16 +131,25 @@ export async function loginHostAction(values: {
       body: JSON.stringify(values),
       cache: "no-store",
     },
-    "loginHostAction"
+    "loginHostAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 
 // -------- Check host username availability -------- //
 export async function checkHostUsernameAvailabilityAction(values: {
   username: string;
+  email?: string;
 }) {
+  const params = new URLSearchParams({
+    username: values.username,
+  });
+  if (values.email?.trim()) {
+    params.set("email", values.email.trim());
+  }
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/hosts/check-username?username=${encodeURIComponent(values.username)}`,
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/hosts/check-username?${params.toString()}`,
     {
       method: "GET",
       headers: { "Content-Type": "application/json" },
@@ -141,7 +163,6 @@ export async function checkHostUsernameAvailabilityAction(values: {
 export async function checkCoOwnerSignupEligibilityAction(email: string) {
   return runServerFetch<{
     eligible: boolean;
-    coOwnerName?: string;
   }>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/public/co-owner-signup-eligibility?email=${encodeURIComponent(email.trim())}`,
     {
@@ -166,7 +187,9 @@ export async function loginTipperAction(values: {
       body: JSON.stringify(values),
       cache: "no-store",
     },
-    "loginTipperAction"
+    "loginTipperAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 
@@ -183,7 +206,9 @@ export async function resendCodeAction(
       body: JSON.stringify({ email, accountType }),
       cache: "no-store",
     },
-    "resendCodeAction"
+    "resendCodeAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 
@@ -203,7 +228,9 @@ export async function requestLoginCodeAction(values: {
       }),
       cache: "no-store",
     },
-    "requestLoginCodeAction"
+    "requestLoginCodeAction",
+    undefined,
+    AUTH_MUTATION_RETRY
   );
 }
 

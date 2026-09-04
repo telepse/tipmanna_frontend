@@ -17,6 +17,18 @@ function communityPrefix(communityId: string): string {
   return `/communities/${encodeURIComponent(communityId.trim())}/tv`;
 }
 
+function messageFromUnknownBody(raw: unknown, fallback: string): string {
+  if (raw && typeof raw === "object" && raw !== null && "error" in raw) {
+    const err = (raw as { error?: { message?: string } }).error;
+    if (typeof err?.message === "string" && err.message) return err.message;
+  }
+  if (raw && typeof raw === "object" && raw !== null && "message" in raw) {
+    const m = (raw as { message?: string }).message;
+    if (typeof m === "string" && m) return m;
+  }
+  return fallback;
+}
+
 async function runHostBlobFetch(
   path: string,
   init: RequestInit,
@@ -34,13 +46,25 @@ async function runHostBlobFetch(
     });
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
+      let errBody: unknown = null;
       try {
         const text = await res.text();
-        if (text) detail = text.slice(0, 512);
+        if (text) {
+          try {
+            errBody = JSON.parse(text) as unknown;
+            detail = messageFromUnknownBody(errBody, detail);
+          } catch {
+            detail = text.slice(0, 512);
+          }
+        }
       } catch {
         /* ignore */
       }
-      return actionFail(detail, label);
+      return actionFail(detail, {
+        logContext: label,
+        httpStatus: res.status,
+        validationBody: errBody ?? undefined,
+      });
     }
     const buf = await res.arrayBuffer();
     return actionOk({

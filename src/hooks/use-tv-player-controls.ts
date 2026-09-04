@@ -8,16 +8,15 @@ import {
   type RefObject,
 } from "react";
 import type { TvPlayerRef } from "@/components/tv/tv-player";
+import { readTvMutePref, unmuteOnly, writeTvMutePref } from "@/lib/tv-autoplay";
 import {
-  hasTvAudioUnlockedThisSession,
-  readTvMutePref,
-  unmuteOnly,
-  writeTvMutePref,
-} from "@/lib/tv-autoplay";
+  isInsidePlayerAudioIntentGrace,
+  markPlayerAudioIntentGrace,
+  shouldSuppressPlayerMuteSync,
+} from "@/lib/player-audio-intent";
 import { safeYoutubeCall } from "@/lib/tv/youtube-player-safe";
 
 const RECONCILE_MS = 500;
-const USER_INTENT_GRACE_MS = 1_000;
 
 type Mode = "GLOBAL" | "LOCAL";
 
@@ -33,6 +32,7 @@ export function useTvPlayerControls(opts: {
   const [isMuted, setIsMuted] = useState(() => readTvMutePref());
   const intentGraceUntilRef = useRef(0);
   const pendingMuteRef = useRef<boolean | null>(null);
+  const pendingPlayRef = useRef<boolean | null>(null);
 
   const applyMuteToPlayer = useCallback(
     (muted: boolean) => {
@@ -52,7 +52,7 @@ export function useTvPlayerControls(opts: {
   );
 
   const markUserIntent = useCallback(() => {
-    intentGraceUntilRef.current = Date.now() + USER_INTENT_GRACE_MS;
+    markPlayerAudioIntentGrace(intentGraceUntilRef);
   }, []);
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export function useTvPlayerControls(opts: {
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      if (Date.now() < intentGraceUntilRef.current) return;
+      if (isInsidePlayerAudioIntentGrace(intentGraceUntilRef)) return;
       const player = playerRef.current;
       if (!player?.isReady()) return;
       safeYoutubeCall(() => {
@@ -77,8 +77,7 @@ export function useTvPlayerControls(opts: {
         setIsPlaying(state === "PLAYING" || state === "BUFFERING");
         const playerMuted = player.isMuted();
         const prefMuted = readTvMutePref();
-        const unlocked = hasTvAudioUnlockedThisSession();
-        if (playerMuted && !prefMuted && unlocked) {
+        if (shouldSuppressPlayerMuteSync(playerMuted, prefMuted)) {
           return;
         }
         setIsMuted(playerMuted);
@@ -93,7 +92,11 @@ export function useTvPlayerControls(opts: {
     if (!player?.isReady()) return;
     safeYoutubeCall(() => {
       player.syncMuteFromPlayer?.();
-      setIsMuted(player.isMuted());
+      const playerMuted = player.isMuted();
+      const prefMuted = readTvMutePref();
+      if (!shouldSuppressPlayerMuteSync(playerMuted, prefMuted)) {
+        setIsMuted(playerMuted);
+      }
       const state = player.getPlayerState();
       setIsPlaying(state === "PLAYING" || state === "BUFFERING");
     }, undefined);
@@ -120,12 +123,30 @@ export function useTvPlayerControls(opts: {
       }
     }, undefined);
     syncFromPlayer();
+
+    const pendingPlay = pendingPlayRef.current;
+    if (pendingPlay != null) {
+      pendingPlayRef.current = null;
+      const player = playerRef.current;
+      if (player?.isReady()) {
+        if (pendingPlay) {
+          safeYoutubeCall(() => player.play(), undefined);
+          setIsPlaying(true);
+        } else {
+          safeYoutubeCall(() => player.pause(), undefined);
+          setIsPlaying(false);
+        }
+      }
+    }
   }, [isMuted, playerRef, syncFromPlayer]);
 
   const togglePlayPause = useCallback(() => {
     markUserIntent();
     const player = playerRef.current;
-    if (!player?.isReady()) return;
+    if (!player?.isReady()) {
+      pendingPlayRef.current = !isPlaying;
+      return;
+    }
     if (isPlaying) {
       safeYoutubeCall(() => player.pause(), undefined);
       setIsPlaying(false);
