@@ -1,5 +1,5 @@
 import type { RootState } from "@/redux/store";
-import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
+import { resolveLinkedHostCreatorProfilePath } from "@/lib/post-host-auth-destination";
 
 type AuthUser = RootState["auth"]["user"];
 
@@ -26,10 +26,11 @@ export function getAccountNavHref(
       if (hostCtx?.hostSessionActive && hostCtx.hostEventSlug) {
         return `/host/${hostCtx.hostEventSlug}`;
       }
-      const profilePath = buildCreatorProfileSharePath(
-        hostCtx?.hostUsername ?? user.username
-      );
-      if (hostCtx?.linkedHost && profilePath !== "/") return profilePath;
+      const profilePath =
+        resolveLinkedHostCreatorProfilePath(hostCtx?.hostUsername) ??
+        `/tipper/${user.username}`;
+      if (hostCtx?.linkedHost && profilePath.startsWith("/@"))
+        return profilePath;
       return `/tipper/${user.username}`;
     }
     case "VISITOR":

@@ -55,14 +55,14 @@ describe("buildExploreFeedQueryKey", () => {
     expect(a).not.toBe(b);
   });
 
-  it("includes community scope on trends when communityIds are set", () => {
+  it("ignores communityIds on trends (global feed only)", () => {
     const key = buildExploreFeedQueryKey({
       feedMode: "trends",
       communityIds: ["c1"],
       trendsFilters: { eventTypes: [], language: "", country: "" },
     });
-    expect(key).toContain("comm:c1");
-    expect(key).not.toBe(
+    expect(key).not.toContain("comm:c1");
+    expect(key).toBe(
       buildExploreFeedQueryKey({
         feedMode: "trends",
         trendsFilters: { eventTypes: [], language: "", country: "" },
@@ -84,7 +84,7 @@ describe("buildExploreFeedQueryKey", () => {
 });
 
 describe("buildExploreFeedIdentity", () => {
-  it("aligns storageKey with fetchScope for scoped trends", () => {
+  it("does not scope trends fetch to communityIds", () => {
     const { storageKey, fetchScope } = buildExploreFeedIdentity({
       feedMode: "trends",
       communityIds: ["c1"],
@@ -94,11 +94,10 @@ describe("buildExploreFeedIdentity", () => {
         country: "GB",
       },
     });
-    expect(storageKey).toContain("comm:c1");
+    expect(storageKey).not.toContain("comm:c1");
     expect(storageKey).toContain("t:music");
     expect(fetchScope).toEqual({
       feedMode: "trends",
-      communityIds: ["c1"],
       eventVideoTypes: ["music"],
       language: "en",
       country: "GB",

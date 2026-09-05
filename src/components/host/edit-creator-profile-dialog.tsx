@@ -38,7 +38,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { updateTipper } from "@/features/auth-slice";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { uploadImage } from "@/lib/cloudinary";
@@ -145,6 +144,9 @@ export function EditCreatorProfileDialog({
   const [creatorPayoutVerified, setCreatorPayoutVerified] = useState(false);
 
   const { eventSlug: hostSlug, username: hostUsername } = useHostSession();
+  const [loadedHostUsername, setLoadedHostUsername] = useState<string | null>(
+    null
+  );
 
   const premiumHref = hostSlug ? `/host/${hostSlug}/host-premium` : "/host";
   const hostDashboardHref = hostSlug ? `/host/${hostSlug}/profile` : "/host";
@@ -170,7 +172,7 @@ export function EditCreatorProfileDialog({
   const creatorForm = useForm<CreatorFormData>({
     resolver: zodResolver(creatorSchema),
     defaultValues: {
-      username: user?.username ?? "",
+      username: hostUsername ?? "",
       pageDescription: "",
       profileCategory: "content_creator",
       profileImageUrl: null,
@@ -219,6 +221,7 @@ export function EditCreatorProfileDialog({
       }
 
       const profile = res.data;
+      setLoadedHostUsername(profile.username);
       creatorForm.reset({
         username: profile.username,
         pageDescription: profile.pageDescription ?? "",
@@ -312,7 +315,8 @@ export function EditCreatorProfileDialog({
         profileImageUrl = savedProfilePhotoUrl;
       }
 
-      const previousUsername = user?.username ?? "";
+      const previousUsername =
+        loadedHostUsername ?? creatorForm.getValues("username") ?? "";
       const res = await updateCreatorProfileHostAction({
         username: values.username.trim(),
         profileImageUrl,
@@ -344,7 +348,6 @@ export function EditCreatorProfileDialog({
       setCreatorDefaultTab(updated.creatorDefaultTab ?? "all_videos");
 
       if (updated.username !== previousUsername) {
-        dispatch(updateTipper({ username: updated.username }));
         migrateCreatorProfileCacheUsername(previousUsername, updated.username);
         dispatchCreatorUsernameChanged({
           previousUsername,

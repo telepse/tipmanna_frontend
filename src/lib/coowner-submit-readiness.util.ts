@@ -30,12 +30,12 @@ export function evaluateCoOwnerSubmitReadiness(
     };
   }
 
-  if (invites.some(i => i.status === "pending")) {
-    return { blocked: true, reason: "has_pending", willDropOnSubmit: false };
-  }
-
   if (invites.some(i => i.status === "approved")) {
     return { blocked: false, reason: null, willDropOnSubmit: false };
+  }
+
+  if (invites.some(i => i.status === "pending")) {
+    return { blocked: true, reason: "has_pending", willDropOnSubmit: false };
   }
 
   if (invites.length === 0) {

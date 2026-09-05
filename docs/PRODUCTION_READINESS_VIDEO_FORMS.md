@@ -19,6 +19,23 @@
 - **Fixed:** Draft autosave gated on active host session; neutral **“Sign in as host to save drafts”** hint when linked but not signed in as host (Channel tab Tier A submit unchanged).
 - **Docs:** [`product-behaviors/PRODUCT_GUIDE_VIDEO_FORMS.md`](../product-behaviors/PRODUCT_GUIDE_VIDEO_FORMS.md) §4 rewritten for view routing, Tier A/B split, and modal vs bridge distinction.
 
+### 2026-09-04 — Create dialog journey + submit hardening
+
+- **Fixed:** **Proceed** sign-in closes the create dialog and navigates to the wizard without a full-picker flash; resume intent stored in refs so sign-in close does not race success handlers.
+- **Fixed:** **Sign in as host creator** from the full picker uses a `return-prepared` intent — after auth the prepared view shows (not the full picker).
+- **Fixed:** Modal email verification no longer applies Redux sessions before the code step; **Already signed in** banner only when `isAuthenticated`.
+- **Fixed:** Host-link refresh prefers in-memory Redux token over stale `visitorToken` cookie fallback.
+- **Fixed:** Create POST actions (`createEventChannelAction`, `newCreateEventAction`, `addCommunityVideoAction`) use `maxAttempts: 1` plus in-flight submit locks to prevent duplicate videos.
+- **Fixed:** Co-owner invite status GET accepts Tier A tipper JWT (`requireHostOrPairedTipper`); readiness checks **approved-wins** before pending.
+
+### 2026-09-04 (b) — Gap closure
+
+- **Fixed:** Pure resume resolver (`create-dialog-signin-resume.ts`) unit-tested; Proceed never reopens full picker.
+- **Fixed:** `exclusive-submit` helper locks wizard, create-dialog, and add-video submits before first `await`.
+- **Fixed:** Backend `classifyCoOwnedInvites` mirrors frontend approved-wins (pending siblings ignored when approved exists).
+- **Fixed:** Page signup (`signup-form.tsx`) no longer applies sessions before email verify (Option C alignment).
+- **Tests:** `getAuthToken.spec.ts` for visitor-cookie fallback rules.
+
 ---
 
 ## Executive summary
@@ -83,7 +100,8 @@ Wizard create responses include `excludedVideos: [{ title, reason }]`.
 
 - `coowner-submit-readiness.util.spec.ts` — approved-wins, will_drop
 - `coowner-draft-submit.util.spec.ts` — wizard vs single-video validate paths
-- `form-draft-utils.spec.ts` — modal verify round-trip
+- `create-dialog-signin-resume.spec.ts` — Proceed / return-prepared / add-video resume
+- `getAuthToken.spec.ts` — visitor fallback vs signed-in roles
 
 ### Backend
 
@@ -101,6 +119,10 @@ Wizard create responses include `excludedVideos: [{ title, reason }]`.
 - [ ] Resend — cooldown starts immediately after success (no second 429)
 - [ ] Remove — clears stale invite; form returns to editable state
 - [ ] Revoked duplicate on create — resend works (not error loop)
+- [ ] Proceed (visitor) → sign-in → wizard with **no full-picker flash**
+- [ ] Full picker “sign in as host creator” → prepared view after auth
+- [ ] Channel tab: approved + pending sibling invites → submit succeeds (one POST)
+- [ ] Wizard final submit: double-click → one POST only
 
 ---
 

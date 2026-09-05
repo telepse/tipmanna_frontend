@@ -56,9 +56,18 @@ import { Button } from "@/components/ui/button";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
 import { resolveCreateDialogView } from "@/lib/create-dialog-view";
+import { resolveCreateDialogSignInSuccess } from "@/lib/create-dialog-signin-resume";
+import {
+  beginExclusiveSubmit,
+  endExclusiveSubmit,
+} from "@/lib/exclusive-submit";
 import { cn } from "@/lib/utils";
 
-type SignInIntent = "add-video" | "type-picker-proceed" | null;
+type SignInIntent =
+  | "add-video"
+  | "type-picker-proceed"
+  | "return-prepared"
+  | null;
 
 export type CreateDialogEntry = "default" | "add-video" | "event-room";
 
@@ -141,6 +150,10 @@ export const CreateDialog = ({
     useState<UseFormReturn<AddVideoFormValues> | null>(null);
   const [modalDraftId, setModalDraftId] = useState<string | null>(null);
   const pendingVideoSubmitRef = useRef<AddVideoFormValues | null>(null);
+  const signInIntentRef = useRef<SignInIntent>(null);
+  const pendingHrefRef = useRef<string | null>(null);
+  const signInHandledRef = useRef(false);
+  const submitInFlightRef = useRef(false);
   const [resumeVideoSubmit, setResumeVideoSubmit] = useState(false);
 
   const {
@@ -150,6 +163,7 @@ export const CreateDialog = ({
     sessionLoading,
     requestHostAuth,
     handleAuthRequiredError,
+    refresh,
     HostAuthModal,
   } = useHostCapabilityWithAuth({
     enabled: openPopup,
@@ -312,25 +326,31 @@ export const CreateDialog = ({
     intent: NonNullable<SignInIntent>,
     href?: string
   ) => {
+    signInHandledRef.current = false;
+    signInIntentRef.current = intent;
+    pendingHrefRef.current = href ?? null;
     setSignInIntent(intent);
-    if (href) setPendingHref(href);
-  
-    // Explicitly close the Create dialog before opening Sign In.
-    setOpenPopup(false);
-  
-    requestAnimationFrame(() => {
-      setSignInOpen(true);
-    });
+    setPendingHref(href ?? null);
+    requestAnimationFrame(() => setSignInOpen(true));
+  };
+
+  const handleCreateOpenChange = (open: boolean) => {
+    setOpenPopup(open);
+    if (!open) {
+      setSignInOpen(false);
+      clearSignInPending();
+    }
   };
 
   const handleSignInOpenChange = (open: boolean) => {
     setSignInOpen(open);
-    if (!open && signInIntent) {
-      if (signInIntent === "add-video") {
+    if (!open && !signInHandledRef.current) {
+      if (signInIntentRef.current === "add-video") {
         pendingVideoSubmitRef.current = null;
       }
-      setSignInIntent(null);
-      setPendingHref(null);
+      signInIntentRef.current = null;
+      pendingHrefRef.current = null;
+      clearSignInPending();
     }
   };
 
@@ -363,23 +383,36 @@ export const CreateDialog = ({
   };
 
   const handleModalSignInSuccess = () => {
-    setSignInOpen(false);
-    if (signInIntent === "type-picker-proceed" && pendingHref) {
-      setIsProceeding(true);
+    signInHandledRef.current = true;
+    const intent = signInIntentRef.current;
+    const href = pendingHrefRef.current;
+    const hasPendingVideo = Boolean(pendingVideoSubmitRef.current);
+    signInIntentRef.current = null;
+    pendingHrefRef.current = null;
+    clearSignInPending();
+
+    const resume = resolveCreateDialogSignInSuccess({
+      intent,
+      href,
+      hasPendingVideo,
+    });
+
+    if (resume.closeCreate) {
       setOpenPopup(false);
-      push(pendingHref);
-      setPendingHref(null);
-      setSignInIntent(null);
-      return;
-    }
-    if (signInIntent === "add-video" && pendingVideoSubmitRef.current) {
+    } else if (resume.keepCreateOpen) {
       setOpenPopup(true);
-      setSignInIntent(null);
-      setResumeVideoSubmit(true);
-      return;
     }
-    setOpenPopup(true);
-    setSignInIntent(null);
+
+    if (resume.navigateTo) {
+      setIsProceeding(true);
+      push(resume.navigateTo);
+    }
+    if (resume.refreshHostLink) {
+      void refresh();
+    }
+    if (resume.resumeVideoSubmit) {
+      setResumeVideoSubmit(true);
+    }
   };
 
   const handleHostVideoSubmit = async (values: AddVideoFormValues) => {
@@ -395,6 +428,7 @@ export const CreateDialog = ({
     }
 
     const runSubmit = async () => {
+      if (submitLoading || !beginExclusiveSubmit(submitInFlightRef)) return;
       setSubmitLoading(true);
       try {
         const payload = buildCreateChannelPayload(values);
@@ -458,6 +492,7 @@ export const CreateDialog = ({
           toast.error("Something went wrong");
         }
       } finally {
+        endExclusiveSubmit(submitInFlightRef);
         setSubmitLoading(false);
       }
     };
@@ -934,7 +969,7 @@ export const CreateDialog = ({
                 <button
                   type="button"
                   className="text-primary cursor-pointer underline underline-offset-2 hover:underline"
-                  onClick={() => openSignInFromCreate("type-picker-proceed")}
+                  onClick={() => openSignInFromCreate("return-prepared")}
                 >
                   host creator
                 </button>{" "}

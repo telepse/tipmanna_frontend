@@ -136,6 +136,10 @@ import { ImmersiveChannelActionsRail } from "@/components/events/immersive-chann
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import { scheduleEngagementPwaPromptFromPolicy } from "@/lib/pwa-install-trigger";
 import { setSessionSoundOn, persistReelSoundPref } from "@/lib/session-audio";
+import {
+  openWatchTvFromExplore,
+  prefetchWatchTvFromExplore,
+} from "@/lib/explore-watch-tv";
 import { readPendingPaymentReturn } from "@/lib/pending-payment-return";
 import { TipsDrawer } from "@/components/events/tips-drawer";
 import { getSavedVideosForTipper } from "@/actions/events";
@@ -509,6 +513,7 @@ function ExploreFeedSlideVideo({
         const p = slideIndex === activeIndex ? videoRef.current : null;
         if (p?.isReady()) {
           p.unmute();
+          onActiveReelMuteChange?.(false);
         }
         return;
       }
@@ -614,7 +619,7 @@ function ExploreFeedSlideVideo({
                 !shouldHandleExploreReelEnded({
                   feedSurfaceActive,
                   slideIndex,
-                  activeIndex,
+                  activeIndex: activeIndexRef.current,
                 })
               ) {
                 return;
@@ -957,6 +962,8 @@ export interface ExploreFeedClientProps {
   feedMode?: "trends" | "saves" | "community";
   /** Required for `feedMode="community"` batch requests (approved bank only). */
   communityIds?: string[];
+  /** TV source for Watch TV handoff from reel dock (community id or tipmanna). */
+  tvExploreSource?: string;
   trendsFilters?: {
     eventTypes: string[];
     language: string;
@@ -986,6 +993,7 @@ export const ExploreFeedClient = forwardRef<
     feedSurfaceActive = true,
     feedMode = "trends",
     communityIds,
+    tvExploreSource = "tipmanna",
     trendsFilters = {
       eventTypes: [] as string[],
       language: "",
@@ -1209,6 +1217,9 @@ export const ExploreFeedClient = forwardRef<
   ) {
     loadedQueryKeyRef.current = feedQueryKey;
   }
+  const [bootSettled, setBootSettled] = useState(
+    () => exploreBootRef.current!.items.length > 0
+  );
   const feedLoadGenerationRef = useRef(0);
   const paginationFailCountRef = useRef(0);
   const paginationUiCycleRef = useRef(0);
@@ -2108,6 +2119,7 @@ export const ExploreFeedClient = forwardRef<
   useEffect(() => {
     if (loadedQueryKeyRef.current === feedQueryKey) {
       setInitialLoading(false);
+      setBootSettled(true);
       return;
     }
 
@@ -2117,6 +2129,7 @@ export const ExploreFeedClient = forwardRef<
     endOfFeedRef.current = false;
     setSavesBlocked(null);
     setBootLoadFailed(false);
+    setBootSettled(false);
     if (isIntentionalReload) {
       setActiveIndex(0);
     }
@@ -2171,6 +2184,7 @@ export const ExploreFeedClient = forwardRef<
       } finally {
         if (cancelled || gen !== feedLoadGenerationRef.current) return;
         setInitialLoading(false);
+        setBootSettled(true);
       }
     })();
     return () => {
@@ -2540,6 +2554,9 @@ export const ExploreFeedClient = forwardRef<
   }
 
   if (items.length === 0) {
+    if (!bootSettled && feedMode === "trends") {
+      return <ExploreFeedSkeleton />;
+    }
     if (feedMode === "saves" && savesBlocked === null) {
       return <ExploreFeedSkeleton />;
     }
@@ -3011,10 +3028,24 @@ export const ExploreFeedClient = forwardRef<
                           <div className="flex items-center">
                             <Button
                               type="button"
+                              data-testid="explore-watch-tv"
                               className={exploreReelDockPrimaryButtonClassName(
                                 slideLayoutMode
                               )}
-                              onClick={() => router.push("/tv")}
+                              onPointerEnter={() =>
+                                prefetchWatchTvFromExplore(
+                                  router,
+                                  tvExploreSource,
+                                  {
+                                    eventVideoTypes: trendsFilters.eventTypes,
+                                    language: trendsFilters.language,
+                                    country: trendsFilters.country,
+                                  }
+                                )
+                              }
+                              onClick={() =>
+                                openWatchTvFromExplore(router, tvExploreSource)
+                              }
                             >
                               Watch TV
                             </Button>

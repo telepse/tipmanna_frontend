@@ -16,7 +16,7 @@ import type { YouTubeEvent } from "react-youtube";
 
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
-  isYoutubePlayerApiReady,
+  isYoutubePlayerCommandReady,
   safeYoutubeCall,
 } from "@/lib/tv/youtube-player-safe";
 import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
@@ -402,7 +402,7 @@ const HomeTvPlayer = forwardRef<HomeTvPlayerRef, Props>(
     }, []);
 
     const getReady = useCallback(
-      () => isYoutubePlayerApiReady(readyRef.current, playerRef.current),
+      () => isYoutubePlayerCommandReady(readyRef.current, playerRef.current),
       []
     );
 
@@ -600,9 +600,11 @@ const HomeTvPlayer = forwardRef<HomeTvPlayerRef, Props>(
                     event.target.playVideo()
                   );
                 }
-              } else if (autoplay && !externallyControlled) {
+              } else if (autoplay) {
                 tracePlayVideoResult(
-                  "TvPlayer.onReady.autoplay",
+                  externallyControlled
+                    ? "TvPlayer.onReady.orchestrated_play"
+                    : "TvPlayer.onReady.autoplay",
                   event.target.playVideo()
                 );
               }

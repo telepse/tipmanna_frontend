@@ -33,12 +33,13 @@ export function unmuteOnly(player: TvPlayerRef, source: string): void {
   tvTrace("autoplay", "unmute_only", { source });
 }
 
-/** Unmute and play in one user-gesture stack (playlist clicks). */
+/** Play in user-gesture stack; unmute only when session already unlocked. */
 export function unmuteAndPlay(player: TvPlayerRef, source: string): void {
   if (!player.isReady()) return;
-  player.unmute();
-  player.setVolume(100);
   tracePlayVideoResult(`${source}.play`, player.play());
+  if (canRestoreSessionAudio()) {
+    unmuteOnly(player, `${source}.session_restore`);
+  }
 }
 
 /** @deprecated Use unmuteAndPlay — kept for gradual migration */
@@ -68,12 +69,11 @@ export function playWithUserGesture(
   source: string
 ): void {
   if (!player.isReady()) return;
-  if (pending?.restoreUnmuted) {
-    unmuteAndPlay(player, source);
-    return;
-  }
   if (pending?.shouldPlay ?? true) {
     tracePlayVideoResult(`${source}.gesture_play`, player.play());
+  }
+  if (pending?.restoreUnmuted && hasSessionAudioUnlocked()) {
+    unmuteOnly(player, `${source}.session_restore`);
   }
 }
 

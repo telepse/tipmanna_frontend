@@ -421,7 +421,7 @@ export const SettingsClient = () => {
         return;
       }
 
-      const { id, fullName, email, username } = res.data as {
+      const { id, fullName, email } = res.data as {
         id: string;
         fullName: string;
         email: string;
@@ -437,14 +437,15 @@ export const SettingsClient = () => {
               id,
               fullName,
               email,
-              username,
             },
             token,
           })
         );
       }
 
-      replace(`/host/${eventSlug ?? user?.username}/profile`);
+      if (eventSlug) {
+        replace(`/host/${eventSlug}/profile`);
+      }
 
       toast.success("Profile updated successfully");
     } catch (err: unknown) {

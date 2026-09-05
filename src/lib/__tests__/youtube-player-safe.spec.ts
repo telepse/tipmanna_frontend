@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasYoutubePlaybackApi,
   isYoutubePlayerApiReady,
+  isYoutubePlayerCommandReady,
   isYoutubePlayerIframeLive,
   safeYoutubeCall,
 } from "@/lib/tv/youtube-player-safe";
@@ -32,6 +33,25 @@ describe("isYoutubePlayerIframeLive", () => {
       getIframe: () => iframe,
     };
     expect(isYoutubePlayerIframeLive(player)).toBe(false);
+  });
+});
+
+describe("isYoutubePlayerCommandReady", () => {
+  it("requires ready flag and playback API only (not live iframe)", () => {
+    const iframe = document.createElement("iframe");
+    const player = {
+      getIframe: () => iframe,
+      playVideo: () => {},
+      pauseVideo: () => {},
+    };
+    expect(isYoutubePlayerCommandReady(false, player)).toBe(false);
+    expect(isYoutubePlayerCommandReady(true, player)).toBe(true);
+  });
+
+  it("returns false when play/pause APIs are missing", () => {
+    expect(isYoutubePlayerCommandReady(true, { getCurrentTime: () => 0 })).toBe(
+      false
+    );
   });
 });
 

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 
 // Third-party imports
 import { Control, useForm, type Resolver } from "react-hook-form";
@@ -55,6 +55,10 @@ import {
   resolveLiveVideoOwnershipAnswer,
 } from "@/lib/validate-privacy-video-links";
 import { syncHostAuthFromCreateEventResponse } from "@/lib/sync-host-auth-after-submission";
+import {
+  beginExclusiveSubmit,
+  endExclusiveSubmit,
+} from "@/lib/exclusive-submit";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { NavbarShell } from "@/components/shared/navbar-shell";
@@ -62,6 +66,7 @@ import { NavbarShell } from "@/components/shared/navbar-shell";
 export default function ContentOnlyPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [pendingCoOwnerInviteIds, setPendingCoOwnerInviteIds] = useState<
     string[]
@@ -273,16 +278,17 @@ export default function ContentOnlyPage() {
     if (!runPrivacyChecks()) {
       return;
     }
-
-    const coOwnerErr = await validateCoOwnerDraftsForSubmit(
-      values.videoLinks ?? []
-    );
-    if (coOwnerErr) {
-      toast.error(coOwnerErr);
-      return;
-    }
+    if (isLoading || !beginExclusiveSubmit(submitInFlightRef)) return;
 
     try {
+      const coOwnerErr = await validateCoOwnerDraftsForSubmit(
+        values.videoLinks ?? []
+      );
+      if (coOwnerErr) {
+        toast.error(coOwnerErr);
+        return;
+      }
+
       setIsLoading(true);
 
       const result = await newCreateEventAction({
@@ -343,7 +349,8 @@ export default function ContentOnlyPage() {
         toast.error("Failed to create event");
       }
     } finally {
-      setIsLoading(false); // reset loading state
+      endExclusiveSubmit(submitInFlightRef);
+      setIsLoading(false);
     }
   };
 

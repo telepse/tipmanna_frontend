@@ -67,7 +67,7 @@ import { performAuthLogout } from "@/lib/auth-logout";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import { notifyHostSessionTouched } from "@/lib/host-session-probe";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
-import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
+import { resolvePostHostAuthDestination } from "@/lib/post-host-auth-destination";
 import { parseAuthErrorFromBody } from "@/lib/host-auth-fetch";
 import { buildVerifyEmailPath } from "@/lib/verify-email-path";
 import { store, type AppDispatch, type RootState } from "@/redux/store";
@@ -134,6 +134,7 @@ export const SigninForm = ({
   const [tipperHostVerifyCode, setTipperHostVerifyCode] = useState("");
 
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
   const authToken = useSelector((s: RootState) => s.auth.token);
   const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
 
@@ -272,15 +273,15 @@ export const SigninForm = ({
     parsed: NonNullable<ReturnType<typeof parseAuthResponse>>
   ) => {
     if (isPendingEmailVerification(parsed)) {
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: true,
-      });
       if (mode === "modal") {
         setHostVerifyEmail(parsed.user.email);
         setHostAuthView("verifyEmail");
         toast.success(parsed.message);
         return;
       }
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
       push(
         buildVerifyEmailPath({
           email: parsed.user.email,
@@ -375,7 +376,11 @@ export const SigninForm = ({
       return;
     }
 
-    const dest = returnTo ?? buildCreatorProfileSharePath(hostUsername);
+    const dest = resolvePostHostAuthDestination({
+      hostUsername,
+      eventSlug: hostSlug,
+      returnTo,
+    });
     push(dest);
   };
 
@@ -402,9 +407,6 @@ export const SigninForm = ({
         return;
       }
       if (mode === "modal") {
-        await applyPrimaryAndHostSessions(parsed, dispatch, {
-          requiresVerification: true,
-        });
         setHostVerifyEmail(values.email);
         setHostAuthView("verifyEmail");
         toast.success(parsed.message);
@@ -510,14 +512,14 @@ export const SigninForm = ({
       setTipperHostCodeFlow(false);
       toast.success(parsed.message);
 
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: true,
-      });
-
       if (mode === "modal") {
         setTipperStep("verify");
         return;
       }
+
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
 
       push(
         buildVerifyEmailPath({
@@ -543,10 +545,13 @@ export const SigninForm = ({
   const handleModalTipperVerify = async () => {
     try {
       setIsTipperLoading(true);
-      const user = authUser ?? store.getState().auth.user;
-      if (!user?.email) return;
+      const email = tipperForm.getValues("email")?.trim();
+      if (!email) {
+        toast.error("Missing email for verification");
+        return;
+      }
 
-      const verifyRes = await verifyCodeAction(user.email, tipperCode);
+      const verifyRes = await verifyCodeAction(email, tipperCode);
       if (!verifyRes.success) {
         toast.error(verifyRes.message ?? "Verification failed");
         return;
@@ -847,7 +852,9 @@ export const SigninForm = ({
 
   return (
     <div className={className ? "" : "mx-auto max-w-2xl"}>
-      {mode === "page" && authUser ? <AlreadySignedInNotice /> : null}
+      {mode === "page" && isAuthenticated && authUser ? (
+        <AlreadySignedInNotice />
+      ) : null}
       <Tabs
         value={userType}
         onValueChange={val => setUserType(val as "host" | "tipper")}
@@ -902,7 +909,7 @@ export const SigninForm = ({
           value="host"
           className="mt-6 space-y-6"
         >
-          {mode === "modal" && authUser ? (
+          {mode === "modal" && isAuthenticated && authUser ? (
             <AlreadySignedInNotice compact />
           ) : null}
           <div key={`host-${hostAuthView}-${hostStep}`}>
@@ -1335,7 +1342,7 @@ export const SigninForm = ({
           value="tipper"
           className="space-y-6"
         >
-          {mode === "modal" && authUser ? (
+          {mode === "modal" && isAuthenticated && authUser ? (
             <AlreadySignedInNotice compact />
           ) : null}
           {mode === "modal" && tipperStep === "verify" ? (

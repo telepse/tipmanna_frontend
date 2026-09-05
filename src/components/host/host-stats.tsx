@@ -172,7 +172,7 @@ export const HostStats = ({ events, stats, payoutSummary }: Props) => {
               >
                 <SquarePen className="size-4 shrink-0" />
                 <span className="max-w-[180px] truncate">
-                  @{user?.username}
+                  @{hostSession.username ?? ""}
                 </span>
               </button>
             </div>

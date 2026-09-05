@@ -7,8 +7,10 @@ import {
   applyPendingAudioRestore,
   applyPaymentPlaybackRestore,
   hasTvAudioUnlockedThisSession,
+  playWithUserGesture,
   prepareMutedLoadForAutoplay,
   readTvMutePref,
+  unmuteAndPlay,
   writeTvMutePref,
 } from "@/lib/tv-autoplay";
 
@@ -130,6 +132,42 @@ describe("applyPendingAudioRestore", () => {
     expect(applyPendingAudioRestore(player, pending, "test")).toBeNull();
     expect(player.play).toHaveBeenCalled();
     expect(player.unmute).toHaveBeenCalled();
+  });
+});
+
+describe("playWithUserGesture / unmuteAndPlay", () => {
+  beforeEach(() => {
+    installBrowserGlobals();
+  });
+
+  it("playWithUserGesture plays first and skips unmute when session not unlocked", () => {
+    const player = makePlayer({ isMuted: () => true });
+    playWithUserGesture(
+      player,
+      { restoreUnmuted: true, shouldPlay: true },
+      "gesture"
+    );
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+  });
+
+  it("playWithUserGesture unmute after play when session unlocked", () => {
+    writeTvMutePref(false);
+    const player = makePlayer({ isMuted: () => true });
+    playWithUserGesture(
+      player,
+      { restoreUnmuted: true, shouldPlay: true },
+      "gesture"
+    );
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).toHaveBeenCalled();
+  });
+
+  it("unmuteAndPlay plays first and only unmute when session allows restore", () => {
+    const player = makePlayer({ isMuted: () => true });
+    unmuteAndPlay(player, "click");
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
   });
 });
 

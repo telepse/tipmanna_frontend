@@ -50,7 +50,7 @@ export function buildExploreFeedIdentity(
     parts.push(`b:${getExploreDefaultBucketId()}`);
   }
 
-  if (communityIds?.length) {
+  if (feedMode === "community" && communityIds?.length) {
     parts.push(`comm:${[...communityIds].sort().join(",")}`);
   }
 
@@ -71,7 +71,7 @@ export function buildExploreFeedIdentity(
   const storageKey = `${STORAGE_PREFIX}${parts.join("|")}`;
 
   const fetchScope: ExploreFeedFetchScope = { feedMode };
-  if (communityIds?.length) {
+  if (feedMode === "community" && communityIds?.length) {
     fetchScope.communityIds = [...communityIds];
   }
   if (feedMode === "trends" && trendsFilters) {

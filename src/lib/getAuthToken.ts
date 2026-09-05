@@ -1,6 +1,33 @@
 "use client";
 
 import Cookies from "js-cookie";
+import { store } from "@/redux/store";
+
+const SIGNED_IN_ROLES = new Set([
+  "tipper",
+  "host",
+  "cohost",
+  "admin",
+  "superadmin",
+]);
+
+function roleFromPersist(): string | null {
+  try {
+    const persistRoot = localStorage.getItem("persist:root");
+    if (!persistRoot) return null;
+    const root = JSON.parse(persistRoot) as { auth?: string };
+    if (!root.auth) return null;
+    const auth = JSON.parse(root.auth) as { user?: { role?: string } };
+    return auth.user?.role?.toLowerCase() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function hasSignedInRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return SIGNED_IN_ROLES.has(role.toLowerCase());
+}
 
 /**
  * Client auth token for immediate API calls after login.
@@ -21,6 +48,20 @@ export function getAuthToken(): string | null {
     }
   } catch {
     /* ignore */
+  }
+
+  try {
+    const { token, user } = store.getState().auth;
+    if (token?.trim()) return token.trim();
+    if (hasSignedInRole(user?.role)) {
+      return null;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (hasSignedInRole(roleFromPersist())) {
+    return null;
   }
 
   const visitorToken = Cookies.get("visitorToken")?.trim();

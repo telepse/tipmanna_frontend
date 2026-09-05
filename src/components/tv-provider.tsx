@@ -16,7 +16,12 @@ import {
   type ScheduleItem,
 } from "@/lib/tv/broadcastEngine";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { logTV, tvLoadMark, tvTrace } from "@/lib/tvDebugLog";
+import {
+  logTV,
+  tracePlayVideoResult,
+  tvLoadMark,
+  tvTrace,
+} from "@/lib/tvDebugLog";
 import {
   getTvStartupTraceId,
   hashShortId,
@@ -977,6 +982,20 @@ export default function GlobalTVProvider({
           liveOffsetSeconds: req.startSeconds,
         });
         lastSyncedIndex.current = req.scheduleIndex ?? currentIndexRef.current;
+        if (player?.isReady()) {
+          const state = player.getPlayerState?.() ?? null;
+          if (state !== "PLAYING" && state !== "BUFFERING") {
+            tracePlayVideoResult(
+              "requestPlayback.skip_reload_play",
+              player.play()
+            );
+            pendingAudioRestoreRef.current = applyPendingAudioRestoreHelper(
+              player,
+              pendingAudioRestoreRef.current,
+              "requestPlayback.skip_reload"
+            );
+          }
+        }
         return false;
       }
 
@@ -1059,6 +1078,13 @@ export default function GlobalTVProvider({
         true
       );
       player.load(req.videoId, req.startSeconds);
+      if (isUserIntentPlaybackReason(req.reason)) {
+        playWithUserGesture(
+          player,
+          pendingAudioRestoreRef.current,
+          "requestPlayback.user_intent"
+        );
+      }
       return true;
     },
     [recordInitialEmbedSuccessOnce, isOrchestrationBlockedByTerminalFailure]

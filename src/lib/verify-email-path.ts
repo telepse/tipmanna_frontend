@@ -1,7 +1,4 @@
-function safeInternalPath(next: string | null | undefined): string | null {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
-  return next;
-}
+import { safeInternalPath } from "@/lib/post-host-auth-destination";
 
 export function buildVerifyEmailPath(opts: {
   email?: string;

@@ -179,7 +179,11 @@ Shows three cards:
 - Event channel → `/event-only`
 - Event and Content → `/event-and-content`
 
-**Proceed** for non-logged-in users and visitors opens the **sign-in/sign-up modal** (`SignInDialog` with inline sign-up). On success the user resumes into the chosen wizard without a broken journey. This is **not** the wizard step-3 **bridge** (`EventSignInForm`) — that appears later inside the wizard when the user still needs a host account.
+**Proceed** for non-logged-in users and visitors opens the **sign-in/sign-up modal** (`SignInDialog` with inline sign-up). On success the create dialog **closes** and the user lands on the chosen wizard route — no full-picker flash. This is **not** the wizard step-3 **bridge** (`EventSignInForm`).
+
+The **“sign in as host creator”** link on the full picker uses a separate resume intent: after auth the dialog stays open on the **prepared view** (existing rooms + tabs), not the full picker.
+
+Modal email verification does **not** show “Already signed in” until the code step completes (`isAuthenticated`).
 
 Logged-in tippers without a host link proceed directly into the wizard and meet the bridge at step 3 if they need to sign up as a host.
 
@@ -323,7 +327,7 @@ Applies to **wizards (step 4)** and **all add-video modals**.
 | Co-create bank     | Co-creators **cannot** submit co-owned videos to a community they co-create; only the community owner can add co-owned videos to their own bank.                                              |
 | YouTube URL        | Required when sending invite (server validates)                                                                                                                                               |
 | Submit gate        | Blocked while invite is **pending** or no invite sent yet                                                                                                                                     |
-| Approved-wins      | If an **approved** invite exists, stale expired/declined/revoked rows on the same draft are ignored                                                                                           |
+| Approved-wins      | If an **approved** invite exists, stale expired/declined/revoked **and pending** sibling rows on the same draft are ignored                                                                   |
 | Wizard drop        | Co-owned videos with **only** terminal invites are **excluded** from submission (warning shown pre-submit)                                                                                    |
 | Single-video modal | Cannot drop the only video — submit blocked with resend/remove/switch-to-full-ownership guidance                                                                                              |
 | Default video      | Cannot mark as default while co-owner invite pending                                                                                                                                          |

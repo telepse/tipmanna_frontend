@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, Info, Loader2, X } from "lucide-react";
 import { toast } from "react-toastify";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 
 // Local imports
 import { HostSignUpFormData, hostSignUpSchema } from "@/schemas/host.schema";
@@ -39,12 +39,11 @@ import {
 import { ApiError } from "@/types/api-error.types";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { parseAuthResponse } from "@/lib/auth-response";
-import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import { buildVerifyEmailPath } from "@/lib/verify-email-path";
 import { baseUsernameFromEmail } from "@/lib/base-username-from-email";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
-import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
-import type { AppDispatch, RootState } from "@/redux/store";
+import { resolvePostHostAuthDestination } from "@/lib/post-host-auth-destination";
+import type { RootState } from "@/redux/store";
 
 function safeInternalPath(next: string | null): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
@@ -67,7 +66,6 @@ export const SignupForm = () => {
   const [coOwnerEligible, setCoOwnerEligible] = useState<boolean | null>(null);
 
   const { push } = useAppRouter();
-  const dispatch = useDispatch<AppDispatch>();
   const authUser = useSelector((s: RootState) => s.auth.user);
   const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
 
@@ -91,7 +89,9 @@ export const SignupForm = () => {
   };
 
   const hostVerifyRedirectPath = (username: string, email: string) => {
-    const profilePath = buildCreatorProfileSharePath(username);
+    const profilePath = resolvePostHostAuthDestination({
+      hostUsername: username,
+    });
     const next = safeInternalPath(redirectParam) ?? profilePath;
     return buildVerifyEmailPath({
       email: email.trim(),
@@ -237,10 +237,6 @@ export const SignupForm = () => {
       const { message } = parsed;
       toast.success(message);
 
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: true,
-      });
-
       push(hostVerifyRedirectPath(values.username, values.email));
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -277,10 +273,6 @@ export const SignupForm = () => {
 
       const { message } = parsed;
       toast.success(message || "Tipper account created");
-
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: true,
-      });
 
       const next = safeInternalPath(redirectParam) ?? "/explore";
       push(
