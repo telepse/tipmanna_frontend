@@ -11,6 +11,7 @@ export type RealtimeSurface =
   | "payment_player"
   | "room_messages"
   | "global_tip_stream"
+  | "tiplink"
   | "unknown";
 
 export type RealtimeTelemetryEvent =

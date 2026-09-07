@@ -63,6 +63,8 @@ import {
 } from "@/lib/exclusive-submit";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useHostSession } from "@/hooks/use-host-session";
+import { resolveWizardPostSubmitDestination } from "@/lib/post-host-auth-destination";
 import { NavbarShell } from "@/components/shared/navbar-shell";
 
 export default function EventOnlyPage() {
@@ -92,6 +94,7 @@ export default function EventOnlyPage() {
   const isExistingHost = tag === "EXISTING_HOST";
   const { canWriteAsHost } = useHostCapabilityWithAuth();
   const { hasActivePremium } = useHostPlanCapabilities();
+  const { username: hostUsername } = useHostSession();
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof NewEventFormData)[] = [];
@@ -335,12 +338,24 @@ export default function EventOnlyPage() {
         void deleteFormDraftAction(draftId);
       }
 
-      // redirect to manage event page
-      if (canWriteAsHost && user?.username) {
-        push(`/@${user.username}`);
-      } else {
+      if (!canWriteAsHost) {
         toast.error("Host session required to create events");
+        return;
       }
+
+      const dest = resolveWizardPostSubmitDestination({
+        hostSessionUsername: hostUsername,
+        createEventResponse: result.data,
+      });
+
+      if (dest === "/explore") {
+        toast.error(
+          "Could not open your creator profile. Try My account from the menu."
+        );
+        return;
+      }
+
+      push(dest);
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);

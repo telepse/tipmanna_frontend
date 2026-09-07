@@ -43,6 +43,7 @@ import type {
   HostCreatorVideo,
 } from "@/actions/host-creator";
 import type { HostPlaylistSummary } from "@/actions/host-playlist";
+import type { TipLinkSummary } from "@/actions/tiplink";
 import {
   getCommunityAccessStateAction,
   type CommunityFeaturedVideo,
@@ -131,6 +132,7 @@ export function HostCreatorPageClient({
     events,
     communities,
     playlists = [],
+    tipLinks = [],
     coOwnedVideos = [],
     coOwnerPartyVideos = [],
     coOwnerPartyName = null,
@@ -419,6 +421,7 @@ export function HostCreatorPageClient({
         defaultUserType="host"
         hostRequiredNotice={!pendingStartCommunity}
         allowInlineSignUp
+        signupSurface="creator_profile"
         onSuccess={handleSignInSuccess}
       />
 
@@ -503,6 +506,7 @@ export function HostCreatorPageClient({
                 coOwnerPartyName={coOwnerPartyName}
                 onPlay={playVideo}
                 isOwnProfile={isOwnProfile}
+                hostEventSlug={host.eventSlug}
               />
             </TabsContent>
 
@@ -533,7 +537,13 @@ export function HostCreatorPageClient({
             </TabsContent>
 
             <TabsContent value="playlists">
-              <PlaylistsTabContent playlists={playlists} />
+              <PlaylistsTabContent
+                playlists={playlists}
+                tipLinks={tipLinks}
+                isOwnProfile={isOwnProfile}
+                hostEventSlug={host.eventSlug}
+                events={events}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -927,6 +937,7 @@ function AllVideosTabContent({
   coOwnerPartyName,
   onPlay,
   isOwnProfile,
+  hostEventSlug,
 }: {
   events: HostCreatorEvent[];
   coOwnedVideos: HostCreatorVideo[];
@@ -934,6 +945,7 @@ function AllVideosTabContent({
   coOwnerPartyName: string | null;
   onPlay: (video: HostCreatorVideo) => void;
   isOwnProfile: boolean;
+  hostEventSlug: string | null;
 }) {
   const allVideos = useMemo(
     () => events.flatMap(event => event.videos),
@@ -1001,6 +1013,16 @@ function AllVideosTabContent({
           >
             {coOwnedSubtabLabel}
           </CreatorSubtabButton>
+        ) : null}
+
+        {isOwnProfile && hostEventSlug && events[0]?.id ? (
+          <Link
+            href={`/host/${hostEventSlug}/manage-event/${events[0].id}?tab=tiplink`}
+            className="border-primary/30 text-primary ml-auto inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold"
+          >
+            <Plus className="size-3.5" />
+            Create TipLink
+          </Link>
         ) : null}
       </CreatorSubtabBar>
 
@@ -2229,33 +2251,103 @@ function LockedBadge() {
 
 function PlaylistsTabContent({
   playlists,
+  tipLinks,
+  isOwnProfile,
+  hostEventSlug,
+  events,
 }: {
   playlists: HostPlaylistSummary[];
+  tipLinks: TipLinkSummary[];
+  isOwnProfile: boolean;
+  hostEventSlug: string | null;
+  events: HostCreatorEvent[];
 }) {
-  if (playlists.length === 0) {
-    return <EmptyTabMessage message="No playlists published yet." />;
-  }
+  const firstEventId = events[0]?.id;
 
   return (
-    <ul className="space-y-3 px-2 py-4">
-      {playlists.map(pl => (
-        <li key={pl.id}>
+    <div className="space-y-6 px-2 py-4">
+      {isOwnProfile && hostEventSlug && firstEventId ? (
+        <div className="flex justify-end px-2">
           <Link
-            href={`/playlist/${pl.id}`}
-            className="hover:bg-muted/30 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
+            href={`/host/${hostEventSlug}/manage-event/${firstEventId}?tab=tiplink`}
+            className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
           >
-            <span className="font-semibold">{pl.name}</span>
-            <span className="text-muted-foreground text-xs">
-              {pl.videoCount} videos · {pl.pageVisitCount} visits ·{" "}
-              {pl.totalTipCount} tips
-              {pl.kind === "community" && pl.communityName
-                ? ` · c ${pl.communityName}`
-                : ""}
-            </span>
+            <Plus className="size-3.5" />
+            Create TipLink
           </Link>
-        </li>
-      ))}
-    </ul>
+        </div>
+      ) : null}
+
+      {tipLinks.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
+            TipLinks
+          </p>
+          <ul className="space-y-3">
+            {tipLinks.map(tl => {
+              const vid = extractYoutubeID(tl.videoUrl);
+              const thumb = vid
+                ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
+                : tl.bannerUrl;
+              return (
+                <li key={tl.id}>
+                  <Link
+                    href={tl.landingUrl}
+                    className="hover:bg-muted/30 flex items-center gap-3 rounded-lg border p-3 transition-colors"
+                  >
+                    {thumb ? (
+                      <Image
+                        src={thumb}
+                        alt=""
+                        width={72}
+                        height={54}
+                        className="rounded object-cover"
+                        unoptimized
+                      />
+                    ) : null}
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-semibold">{tl.title}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {tl.pageVisits90d} visits · {tl.landingUrl}
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      {playlists.length === 0 && tipLinks.length === 0 ? (
+        <EmptyTabMessage message="No playlists or TipLinks published yet." />
+      ) : playlists.length === 0 ? null : (
+        <div className="space-y-2">
+          <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
+            Playlists
+          </p>
+          <ul className="space-y-3">
+            {playlists.map(pl => (
+              <li key={pl.id}>
+                <Link
+                  href={`/playlist/${pl.id}`}
+                  className="hover:bg-muted/30 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
+                >
+                  <span className="font-semibold">{pl.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {pl.videoCount} videos · {pl.pageVisitCount} visits ·{" "}
+                    {pl.totalTipCount} tips
+                    {pl.kind === "community" && pl.communityName
+                      ? ` · c ${pl.communityName}`
+                      : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 

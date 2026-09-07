@@ -16,6 +16,7 @@ export type CreateDialogSignInResumeResult = {
   keepCreateOpen: boolean;
   refreshHostLink: boolean;
   resumeVideoSubmit: boolean;
+  holdUntilLinkSettled: boolean;
 };
 
 /**
@@ -34,6 +35,7 @@ export function resolveCreateDialogSignInSuccess(
       keepCreateOpen: false,
       refreshHostLink: false,
       resumeVideoSubmit: false,
+      holdUntilLinkSettled: false,
     };
   }
 
@@ -44,6 +46,7 @@ export function resolveCreateDialogSignInSuccess(
       keepCreateOpen: true,
       refreshHostLink: true,
       resumeVideoSubmit: false,
+      holdUntilLinkSettled: true,
     };
   }
 
@@ -52,8 +55,9 @@ export function resolveCreateDialogSignInSuccess(
       closeCreate: false,
       navigateTo: null,
       keepCreateOpen: true,
-      refreshHostLink: false,
+      refreshHostLink: true,
       resumeVideoSubmit: true,
+      holdUntilLinkSettled: true,
     };
   }
 
@@ -63,5 +67,6 @@ export function resolveCreateDialogSignInSuccess(
     keepCreateOpen: true,
     refreshHostLink: false,
     resumeVideoSubmit: false,
+    holdUntilLinkSettled: false,
   };
 }

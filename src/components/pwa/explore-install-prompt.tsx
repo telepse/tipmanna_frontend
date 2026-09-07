@@ -14,6 +14,7 @@ import {
   markPwaInstalled,
   type PwaPreferenceRecord,
 } from "@/lib/pwa-preference-client";
+import { currentAppPath } from "@/lib/app-path";
 import { getPwaInstallInstructions } from "@/lib/pwa-utils";
 
 /** Manual install affordance — ignores do_not_show; shown after at least one dismiss. */
@@ -50,7 +51,7 @@ export function ExploreInstallPrompt() {
   const handleInstallClick = () => {
     if (canInstall) {
       void promptInstall().then(ok => {
-        if (ok) void markPwaInstalled();
+        if (ok) void markPwaInstalled(currentAppPath());
       });
       return;
     }

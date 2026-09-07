@@ -133,6 +133,19 @@ describe("applyPendingAudioRestore", () => {
     expect(player.play).toHaveBeenCalled();
     expect(player.unmute).toHaveBeenCalled();
   });
+
+  it("auto-advance (non-gesture) restores session audio after muted load", () => {
+    writeTvMutePref(false);
+    const player = makePlayer({ isMuted: () => true });
+    const pending = prepareMutedLoadForAutoplay(player, true);
+
+    expect(pending).toEqual({ restoreUnmuted: true, shouldPlay: true });
+    expect(
+      applyPendingAudioRestore(player, pending, "auto_advance")
+    ).toBeNull();
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).toHaveBeenCalled();
+  });
 });
 
 describe("playWithUserGesture / unmuteAndPlay", () => {
@@ -140,34 +153,44 @@ describe("playWithUserGesture / unmuteAndPlay", () => {
     installBrowserGlobals();
   });
 
-  it("playWithUserGesture plays first and skips unmute when session not unlocked", () => {
-    const player = makePlayer({ isMuted: () => true });
-    playWithUserGesture(
-      player,
-      { restoreUnmuted: true, shouldPlay: true },
-      "gesture"
-    );
-    expect(player.play).toHaveBeenCalled();
-    expect(player.unmute).not.toHaveBeenCalled();
-  });
-
-  it("playWithUserGesture unmute after play when session unlocked", () => {
+  it("playWithUserGesture unmutes then plays when pending requests restore", () => {
     writeTvMutePref(false);
     const player = makePlayer({ isMuted: () => true });
+    const callOrder: string[] = [];
+    player.unmute = vi.fn(() => callOrder.push("unmute"));
+    player.play = vi.fn(() => callOrder.push("play"));
+
     playWithUserGesture(
       player,
       { restoreUnmuted: true, shouldPlay: true },
       "gesture"
     );
-    expect(player.play).toHaveBeenCalled();
-    expect(player.unmute).toHaveBeenCalled();
+
+    expect(callOrder).toEqual(["unmute", "play"]);
+    expect(player.setVolume).toHaveBeenCalledWith(100);
   });
 
-  it("unmuteAndPlay plays first and only unmute when session allows restore", () => {
+  it("playWithUserGesture plays only when session has not unlocked audio", () => {
     const player = makePlayer({ isMuted: () => true });
-    unmuteAndPlay(player, "click");
+    playWithUserGesture(
+      player,
+      { restoreUnmuted: false, shouldPlay: true },
+      "gesture"
+    );
     expect(player.play).toHaveBeenCalled();
     expect(player.unmute).not.toHaveBeenCalled();
+  });
+
+  it("unmuteAndPlay unmutes then plays in gesture stack", () => {
+    const player = makePlayer({ isMuted: () => true });
+    const callOrder: string[] = [];
+    player.unmute = vi.fn(() => callOrder.push("unmute"));
+    player.play = vi.fn(() => callOrder.push("play"));
+
+    unmuteAndPlay(player, "click");
+
+    expect(callOrder).toEqual(["unmute", "play"]);
+    expect(player.setVolume).toHaveBeenCalledWith(100);
   });
 });
 

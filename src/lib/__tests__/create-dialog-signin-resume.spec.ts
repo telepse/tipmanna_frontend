@@ -15,6 +15,7 @@ describe("resolveCreateDialogSignInSuccess", () => {
       keepCreateOpen: false,
       refreshHostLink: false,
       resumeVideoSubmit: false,
+      holdUntilLinkSettled: false,
     });
   });
 
@@ -41,6 +42,7 @@ describe("resolveCreateDialogSignInSuccess", () => {
       keepCreateOpen: true,
       refreshHostLink: true,
       resumeVideoSubmit: false,
+      holdUntilLinkSettled: true,
     });
   });
 
@@ -55,8 +57,9 @@ describe("resolveCreateDialogSignInSuccess", () => {
       closeCreate: false,
       navigateTo: null,
       keepCreateOpen: true,
-      refreshHostLink: false,
+      refreshHostLink: true,
       resumeVideoSubmit: true,
+      holdUntilLinkSettled: true,
     });
   });
 

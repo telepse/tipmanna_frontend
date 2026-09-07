@@ -155,6 +155,7 @@ export const CreateDialog = ({
   const signInHandledRef = useRef(false);
   const submitInFlightRef = useRef(false);
   const [resumeVideoSubmit, setResumeVideoSubmit] = useState(false);
+  const [holdUntilLinkSettled, setHoldUntilLinkSettled] = useState(false);
 
   const {
     capability,
@@ -182,6 +183,7 @@ export const CreateDialog = ({
     pickerLoading,
     canReadAsHost,
     showNewEventRoomPicker: summarizedIntent,
+    holdUntilLinkSettled,
   });
 
   useCreateDialogResume({
@@ -338,6 +340,7 @@ export const CreateDialog = ({
     setOpenPopup(open);
     if (!open) {
       setSignInOpen(false);
+      setHoldUntilLinkSettled(false);
       clearSignInPending();
     }
   };
@@ -397,18 +400,26 @@ export const CreateDialog = ({
       hasPendingVideo,
     });
 
+    if (resume.holdUntilLinkSettled) {
+      setHoldUntilLinkSettled(true);
+    }
+
     if (resume.closeCreate) {
       setOpenPopup(false);
     } else if (resume.keepCreateOpen) {
       setOpenPopup(true);
     }
 
+    setSignInOpen(false);
+
     if (resume.navigateTo) {
       setIsProceeding(true);
       push(resume.navigateTo);
     }
     if (resume.refreshHostLink) {
-      void refresh();
+      void refresh().finally(() => setHoldUntilLinkSettled(false));
+    } else if (resume.holdUntilLinkSettled) {
+      setHoldUntilLinkSettled(false);
     }
     if (resume.resumeVideoSubmit) {
       setResumeVideoSubmit(true);
@@ -544,6 +555,9 @@ export const CreateDialog = ({
       title="Sign in to continue"
       defaultUserType="host"
       allowInlineSignUp
+      closeOnSuccess={false}
+      showSignedInNotice={false}
+      signupSurface="create_dialog"
       onSuccess={handleModalSignInSuccess}
       overlayClassName={signInOverlayZIndex}
       contentClassName={signInContentZIndex}

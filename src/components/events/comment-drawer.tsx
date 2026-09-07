@@ -926,6 +926,7 @@ export const CommentDrawer = ({
         }
         defaultUserType="tipper"
         allowInlineSignUp
+        signupSurface="comment_drawer"
         overlayClassName={signInOverlayClassName}
         contentClassName={signInContentClassName}
         onSuccess={() => {

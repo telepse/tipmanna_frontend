@@ -32,9 +32,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 
 import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
-import { setCredentials } from "@/features/auth-slice";
 import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
+import { buildSignupAttributionPayload } from "@/lib/signup-attribution";
 import type { AppDispatch } from "@/redux/store";
 import { ApiError } from "@/types/api-error.types";
 import { Paragraph } from "@/components/shared/paragraph";
@@ -86,6 +86,7 @@ export const ProfileDrawer = ({
   const [activeTab, setActiveTab] = useState<ProfileDrawerTab>(initialTab);
   const [profileStep, setProfileStep] = useState<ProfileStep>("signIn");
   const [code, setCode] = useState("");
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState("");
 
   const user = useSelector((state: RootState) => state.auth.user);
   const token = useSelector((state: RootState) => state.auth.token);
@@ -162,6 +163,7 @@ export const ProfileDrawer = ({
         email: values.email,
         acceptedTerms: true,
         visitorId: getVisitorIdForAuthMerge(user),
+        ...buildSignupAttributionPayload("tv_profile"),
       });
 
       if (!res.success) {
@@ -169,23 +171,7 @@ export const ProfileDrawer = ({
         return;
       }
 
-      const { id, fullName, email, username } = (res.data as any).user as any;
-      const newToken = (res.data as unknown as { token: string })?.token;
-
-      dispatch(
-        setCredentials({
-          user: {
-            id,
-            fullName,
-            email,
-            username,
-            role: "TIPPER",
-          },
-          token: newToken,
-          requiresVerification: true,
-        })
-      );
-
+      setPendingVerifyEmail(values.email.trim());
       setProfileStep("verifyCode");
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -205,9 +191,11 @@ export const ProfileDrawer = ({
     try {
       setIsLoading(true);
 
-      if (!user?.email) return;
+      const verifyEmail =
+        pendingVerifyEmail.trim() || email.trim() || user?.email?.trim() || "";
+      if (!verifyEmail) return;
 
-      const res = await verifyCodeAction(user.email, code);
+      const res = await verifyCodeAction(verifyEmail, code);
 
       if (!res.success) {
         toast.error(res.message ?? "Verification failed");

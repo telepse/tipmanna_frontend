@@ -468,9 +468,11 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         safeYoutubeCall(() => p.stopVideo(), undefined);
       },
       mute: () => {
-        safeYtMute(playerRef.current);
-        syncMuteFromPlayer();
         persistReelSoundPref(false);
+        markPlayerAudioIntentGrace(intentGraceUntilRef);
+        setIsMuted(true);
+        onMuteStateChangeRef.current?.(true);
+        safeYtMute(playerRef.current);
       },
       unmute: () => {
         persistReelSoundPref(true);

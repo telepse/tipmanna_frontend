@@ -16,12 +16,7 @@ import {
   type ScheduleItem,
 } from "@/lib/tv/broadcastEngine";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import {
-  logTV,
-  tracePlayVideoResult,
-  tvLoadMark,
-  tvTrace,
-} from "@/lib/tvDebugLog";
+import { logTV, tvLoadMark, tvTrace } from "@/lib/tvDebugLog";
 import {
   getTvStartupTraceId,
   hashShortId,
@@ -982,20 +977,6 @@ export default function GlobalTVProvider({
           liveOffsetSeconds: req.startSeconds,
         });
         lastSyncedIndex.current = req.scheduleIndex ?? currentIndexRef.current;
-        if (player?.isReady()) {
-          const state = player.getPlayerState?.() ?? null;
-          if (state !== "PLAYING" && state !== "BUFFERING") {
-            tracePlayVideoResult(
-              "requestPlayback.skip_reload_play",
-              player.play()
-            );
-            pendingAudioRestoreRef.current = applyPendingAudioRestoreHelper(
-              player,
-              pendingAudioRestoreRef.current,
-              "requestPlayback.skip_reload"
-            );
-          }
-        }
         return false;
       }
 
@@ -1039,6 +1020,9 @@ export default function GlobalTVProvider({
 
       if (!player?.isReady()) {
         pendingPlaybackRequestRef.current = req;
+        if (isUserIntentPlaybackReason(req.reason)) {
+          pendingUserGesturePlayRef.current = true;
+        }
         tvTrace("playback", "requestPlayback_deferred", {
           reason: "player_not_ready",
           videoId: req.videoId,
@@ -1078,13 +1062,6 @@ export default function GlobalTVProvider({
         true
       );
       player.load(req.videoId, req.startSeconds);
-      if (isUserIntentPlaybackReason(req.reason)) {
-        playWithUserGesture(
-          player,
-          pendingAudioRestoreRef.current,
-          "requestPlayback.user_intent"
-        );
-      }
       return true;
     },
     [recordInitialEmbedSuccessOnce, isOrchestrationBlockedByTerminalFailure]
@@ -3115,6 +3092,8 @@ export default function GlobalTVProvider({
             pendingAudioRestoreRef.current,
             "playLocalScheduleItem"
           );
+        } else {
+          pendingUserGesturePlayRef.current = true;
         }
       }
     },

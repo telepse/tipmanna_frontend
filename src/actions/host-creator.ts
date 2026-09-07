@@ -10,6 +10,7 @@ import type {
   HostCreatorProfileEdit,
 } from "@/schemas/creator.schema";
 import type { HostPlaylistSummary } from "@/actions/host-playlist";
+import type { TipLinkSummary } from "@/actions/tiplink";
 
 export type HostCreatorVideo = {
   id: string;
@@ -117,6 +118,7 @@ export type HostCreatorPublicProfile = {
   events: HostCreatorEvent[];
   communities: HostCreatorCommunity[];
   playlists: HostPlaylistSummary[];
+  tipLinks: TipLinkSummary[];
 };
 
 export async function getHostCreatorPublicProfileAction(username: string) {

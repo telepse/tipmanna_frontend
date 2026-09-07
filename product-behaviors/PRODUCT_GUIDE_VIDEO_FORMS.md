@@ -181,9 +181,9 @@ Shows three cards:
 
 **Proceed** for non-logged-in users and visitors opens the **sign-in/sign-up modal** (`SignInDialog` with inline sign-up). On success the create dialog **closes** and the user lands on the chosen wizard route — no full-picker flash. This is **not** the wizard step-3 **bridge** (`EventSignInForm`).
 
-The **“sign in as host creator”** link on the full picker uses a separate resume intent: after auth the dialog stays open on the **prepared view** (existing rooms + tabs), not the full picker.
+The **“sign in as host creator”** link on the full picker uses a separate resume intent: after auth the dialog shows **“Checking your host session…”** until host-link settles, then the **prepared view** if linked (or the full picker if not). Host login-code accepts **username or email**; verify uses the resolved email.
 
-Modal email verification does **not** show “Already signed in” until the code step completes (`isAuthenticated`).
+Modal verification does **not** show “Signed in as tipper” on the code step or in the success close frame.
 
 Logged-in tippers without a host link proceed directly into the wizard and meet the bridge at step 3 if they need to sign up as a host.
 

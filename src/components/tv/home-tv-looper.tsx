@@ -218,6 +218,7 @@ export const HomeTvLooper = ({
 
   const lastTrackedItemIdRef = useRef<string | null>(null);
   const userSeekedForCompleteRef = useRef(false);
+  const pendingSeekTimeRef = useRef<number | null>(null);
   const lastSegmentChannelIdRef = useRef<string | undefined>(undefined);
   const segmentStartMsRef = useRef(0);
   const videoErrorReloadsRef = useRef(0);
@@ -810,13 +811,28 @@ export const HomeTvLooper = ({
   }, [playerRef, isSeeking]);
 
   const seekTo = (time: number) => {
-    const player = playerRef.current;
-    if (!player || !player.isReady()) return;
     userSeekedForCompleteRef.current = true;
     trackTvUserInteraction("seek", "scrubber");
-    player.seekTo(time, true);
     setCurrentTime(time);
+    const player = playerRef.current;
+    if (!player || !player.isReady()) {
+      pendingSeekTimeRef.current = time;
+      onPlayerSeek(time);
+      return;
+    }
+    pendingSeekTimeRef.current = null;
+    player.seekTo(time, true);
   };
+
+  const flushPendingSeek = useCallback(() => {
+    const pending = pendingSeekTimeRef.current;
+    if (pending == null) return;
+    const player = playerRef.current;
+    if (!player?.isReady()) return;
+    pendingSeekTimeRef.current = null;
+    player.seekTo(pending, true);
+    setCurrentTime(pending);
+  }, [playerRef]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1342,6 +1358,7 @@ export const HomeTvLooper = ({
                   onReady={() => {
                     setIsPlayerLoading(false);
                     onPlayerReady();
+                    flushPendingSeek();
                     flushPendingPlaybackRequest();
                     setPlayerVisible(true);
                     emitEncounterWhenVideoLoads();

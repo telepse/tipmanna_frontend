@@ -5,7 +5,7 @@ import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.
 import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 import {
   buildTvPagePath,
-  persistTvSourceCommunityId,
+  navigateToTvSource,
 } from "@/lib/tv-source-navigation";
 import { persistTvScheduleSessionCache } from "@/lib/tv-schedule-session-cache";
 import { requestTvYoutubeApiWarmup } from "@/lib/tv-youtube-api-warmup";
@@ -81,10 +81,9 @@ export function prefetchWatchTvFromExplore(
 
 /** Navigate to /tv immediately; prefetch may still be warming in background. */
 export function openWatchTvFromExplore(
-  router: AppRouterInstance,
+  _router: AppRouterInstance,
   tvSource: ExploreWatchTvSource = "tipmanna"
 ): void {
   const communityId = resolveCommunityId(tvSource);
-  persistTvSourceCommunityId(communityId);
-  router.push(buildTvPagePath(communityId));
+  navigateToTvSource(communityId);
 }

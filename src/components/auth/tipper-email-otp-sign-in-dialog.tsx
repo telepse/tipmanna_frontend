@@ -31,11 +31,14 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Paragraph } from "@/components/shared/paragraph";
 import { store } from "@/redux/store";
-import { setCredentials } from "@/features/auth-slice";
 import { verifyCodeAction, loginOrRegisterTipperAction } from "@/actions/auth";
 import { ApiError } from "@/types/api-error.types";
 import { dispatchAuthChanged } from "@/lib/auth-events";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import {
+  buildSignupAttributionPayload,
+  type SignupSurface,
+} from "@/lib/signup-attribution";
 import {
   SIGN_IN_NESTED_OVERLAY_Z_INDEX,
   SIGN_IN_NESTED_Z_INDEX,
@@ -54,6 +57,8 @@ export type TipperEmailOtpSignInDialogProps = {
   overlayClassName?: string;
   contentClassName?: string;
   signupHint?: string;
+  /** Analytics: UI surface that opened this sign-in flow. */
+  signupSurface: SignupSurface;
 };
 
 export function TipperEmailOtpSignInDialog({
@@ -67,6 +72,7 @@ export function TipperEmailOtpSignInDialog({
   overlayClassName = SIGN_IN_NESTED_OVERLAY_Z_INDEX,
   contentClassName = SIGN_IN_NESTED_Z_INDEX,
   signupHint = "No account yet? Continue and we will create a free tipper account when you verify.",
+  signupSurface,
 }: TipperEmailOtpSignInDialogProps) {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -76,6 +82,7 @@ export function TipperEmailOtpSignInDialog({
   const [code, setCode] = useState("");
   const [accountTag, setAccountTag] = useState<string | null>(null);
   const [pendingSignup, setPendingSignup] = useState(false);
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState("");
 
   const form = useForm<{
     fullName: string;
@@ -103,6 +110,7 @@ export function TipperEmailOtpSignInDialog({
     setCode("");
     setAccountTag(null);
     setPendingSignup(false);
+    setPendingVerifyEmail(initialEmail?.trim() ?? "");
     form.reset({
       fullName: "",
       email: initialEmail ?? "",
@@ -119,12 +127,14 @@ export function TipperEmailOtpSignInDialog({
       setIsLoading(true);
 
       const visitorId = getVisitorIdForAuthMerge(store.getState().auth.user);
+      const trimmedEmail = values.email.trim();
 
       const res = await loginOrRegisterTipperAction({
         fullName: "",
-        email: values.email,
+        email: trimmedEmail,
         acceptedTerms: values.acceptedTerms ?? true,
         visitorId,
+        ...buildSignupAttributionPayload(signupSurface),
       });
 
       if (!res.success) {
@@ -140,16 +150,7 @@ export function TipperEmailOtpSignInDialog({
 
       setAccountTag(parsed.tag ?? null);
       setPendingSignup(parsed.tag === "NEW_TIPPER");
-
-      dispatch(
-        setCredentials({
-          user: { ...parsed.user, role: parsed.role },
-          token: parsed.token,
-          requiresVerification: true,
-          tag: parsed.tag ?? null,
-        })
-      );
-
+      setPendingVerifyEmail(trimmedEmail);
       setStep("verifyCode");
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -169,10 +170,11 @@ export function TipperEmailOtpSignInDialog({
     try {
       setIsLoading(true);
 
-      const { user: u, token: tok } = store.getState().auth;
-      if (!u?.email) return;
+      const verifyEmail =
+        pendingVerifyEmail.trim() || email.trim() || initialEmail?.trim() || "";
+      if (!verifyEmail) return;
 
-      const verifyRes = await verifyCodeAction(u.email, code);
+      const verifyRes = await verifyCodeAction(verifyEmail, code);
       if (!verifyRes.success) {
         toast.error(verifyRes.message ?? "Verification failed");
         return;
@@ -328,7 +330,8 @@ export function TipperEmailOtpSignInDialog({
                   size="sm"
                   color="muted"
                 >
-                  Sending verification code to <strong>{email}</strong>…
+                  Sending verification code to{" "}
+                  <strong>{pendingVerifyEmail || email}</strong>…
                 </Paragraph>
               ) : (
                 <Paragraph
@@ -336,8 +339,8 @@ export function TipperEmailOtpSignInDialog({
                   size="sm"
                   color="muted"
                 >
-                  We&apos;ve sent a 6-digit code to <strong>{email}</strong>.{" "}
-                  {verifyHint}
+                  We&apos;ve sent a 6-digit code to{" "}
+                  <strong>{pendingVerifyEmail || email}</strong>. {verifyHint}
                   {signInHint ? <> {signInHint}</> : null}
                 </Paragraph>
               )}

@@ -116,6 +116,7 @@ export function ExploreCommunityPickerMenu({
         open={signInOpen}
         onOpenChange={setSignInOpen}
         signInTitle="Sign in to join this community"
+        signupSurface="community_picker"
         getRedirectPathAfterVerify={() => signInReturnTo}
         onVerified={() => router.push(signInReturnTo)}
       />

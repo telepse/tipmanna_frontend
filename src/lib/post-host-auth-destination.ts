@@ -45,3 +45,37 @@ export function resolveLinkedHostCreatorProfilePath(
   const path = buildCreatorProfileSharePath(handle);
   return path === "/" ? null : path;
 }
+
+function hostFieldFromCreateResponse(
+  data: unknown,
+  field: "username" | "eventSlug"
+): string | null {
+  if (!data || typeof data !== "object") return null;
+  const host = (data as Record<string, unknown>).host;
+  if (!host || typeof host !== "object") return null;
+  const value = (host as Record<string, unknown>)[field];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/**
+ * After create-event wizards: never use Redux tipper slug.
+ * Prefer host session handle, then host snapshot from the create response.
+ */
+export function resolveWizardPostSubmitDestination(input: {
+  hostSessionUsername?: string | null;
+  createEventResponse?: unknown;
+}): string {
+  const hostUsername =
+    input.hostSessionUsername?.trim() ||
+    hostFieldFromCreateResponse(input.createEventResponse, "username");
+
+  const eventSlug = hostFieldFromCreateResponse(
+    input.createEventResponse,
+    "eventSlug"
+  );
+
+  return resolvePostHostAuthDestination({
+    hostUsername,
+    eventSlug,
+  });
+}

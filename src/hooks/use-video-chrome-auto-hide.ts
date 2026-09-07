@@ -43,6 +43,9 @@ export function useVideoChromeAutoHide({
     ? "opacity-100"
     : "opacity-0 pointer-events-none";
 
+  /** Opacity fade only — keep pointer-events on scrubber/controls below the iframe. */
+  const chromeVisualOpacityClass = visible ? "opacity-100" : "opacity-0";
+
   const interactionProps = {
     onPointerDownCapture: scheduleHide,
     onKeyDownCapture: () => {
@@ -53,6 +56,7 @@ export function useVideoChromeAutoHide({
   return {
     visible,
     chromeOpacityClass,
+    chromeVisualOpacityClass,
     chromeTransitionClass:
       "transition-opacity duration-200 ease-out will-change-[opacity]",
     interactionProps,

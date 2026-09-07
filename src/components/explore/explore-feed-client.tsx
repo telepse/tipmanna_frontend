@@ -2595,6 +2595,7 @@ export const ExploreFeedClient = forwardRef<
             open={signInOpen}
             onOpenChange={setSignInOpen}
             signInTitle="Sign in to view your saves feed"
+            signupSurface="explore"
             onVerified={() => {
               setSavesBlocked(null);
               handleSaveSignInVerified();
@@ -2622,6 +2623,7 @@ export const ExploreFeedClient = forwardRef<
             open={signInOpen}
             onOpenChange={setSignInOpen}
             signInTitle="Sign in to browse community clips"
+            signupSurface="explore"
             onVerified={handleSaveSignInVerified}
           />
         </>
@@ -3043,9 +3045,11 @@ export const ExploreFeedClient = forwardRef<
                                   }
                                 )
                               }
-                              onClick={() =>
-                                openWatchTvFromExplore(router, tvExploreSource)
-                              }
+                              onClick={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openWatchTvFromExplore(router, tvExploreSource);
+                              }}
                             >
                               Watch TV
                             </Button>
@@ -3184,6 +3188,7 @@ export const ExploreFeedClient = forwardRef<
         open={signInOpen}
         onOpenChange={setSignInOpen}
         signInTitle="Sign in as a tipper to save videos"
+        signupSurface="explore"
         onVerified={handleSaveSignInVerified}
       />
     </div>

@@ -15,6 +15,7 @@ import {
   markPwaDismissed,
   markPwaInstalled,
 } from "@/lib/pwa-preference-client";
+import { currentAppPath } from "@/lib/app-path";
 import type { PwaPreferenceSnapshot } from "@/lib/pwa-install-trigger";
 import {
   PWA_INSTALL_SHEET_OVERLAY_Z_INDEX,
@@ -50,7 +51,7 @@ export function InstallPromptSheet({
     if (canInstall) {
       const ok = await promptInstall();
       if (ok) {
-        const pref = await markPwaInstalled().catch(() => null);
+        const pref = await markPwaInstalled(currentAppPath()).catch(() => null);
         onPreferenceChange?.(pref);
         onOpenChange(false);
       }

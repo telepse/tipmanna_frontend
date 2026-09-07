@@ -998,6 +998,7 @@ export function CommunityJoinPanel({
         open={signInOpen}
         onOpenChange={setSignInOpen}
         signInTitle="Sign in to join this community"
+        signupSurface="community_join"
         getRedirectPathAfterVerify={() => signInReturnTo}
         onVerified={() => {
           if (signInReturnTo === signInRedirectPath) {

@@ -610,6 +610,7 @@ export function CommunityHowToJoinSection({
         open={signInOpen}
         onOpenChange={setSignInOpen}
         signInTitle="Sign in to join this community"
+        signupSurface="community_join"
         overlayClassName={signInOverlayClassName}
         contentClassName={signInContentClassName}
         getRedirectPathAfterVerify={() => signInReturnTo}

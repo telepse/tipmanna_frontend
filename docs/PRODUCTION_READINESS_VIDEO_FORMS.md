@@ -36,6 +36,28 @@
 - **Fixed:** Page signup (`signup-form.tsx`) no longer applies sessions before email verify (Option C alignment).
 - **Tests:** `getAuthToken.spec.ts` for visitor-cookie fallback rules.
 
+### 2026-09-05 — Auth resume + username login-code
+
+- **Fixed:** `request-login-code` returns the resolved host **email**; verify/resend and `/verify-email?email=` never use a username. `verify-code` HOST lookup also accepts username.
+- **Fixed:** Create-dialog `SignInDialog` does not auto-close or show “Signed in as tipper” after apply; parent closes and holds **loading** until host-link refresh finishes (`holdUntilLinkSettled`).
+- **Fixed:** Modal verify success no longer remounts the host sign-in form before close.
+
+### 2026-09-05 (b) — Signup attribution + system-wide Option C
+
+- **Added:** `signupSurface` + `deviceKey` on first Tipper/Host create (analytics only; not auth). PWA install rows attach on signup when the device key matches.
+- **Fixed:** All auth modals follow Option C — no Redux/cookie session until email verify (wizard bridge, invite modal, event room, OTP dialogs, TV profile).
+- **Fixed:** Host auth modals hide “Signed in as tipper” when parent owns close (`onSuccess`); `HostAuthModal` uses same pattern as create dialog.
+- **Superadmin:** Users tables show signup surface + PWA status; PWA analytics shows identified vs anonymous devices and a recent-device join list.
+- **Deploy:** Run `npx prisma migrate deploy` for `20260905120000_signup_attribution`.
+
+### 2026-09-05 (c) — Remaining attribution gaps + install page
+
+- **Fixed:** Visitor profile claim (`POST /visitors/login`) records `signupSurface` + `deviceKey` on new tipper create; claim modal follows Option C (no session until verify).
+- **Fixed:** Helper-created tippers (`ensureTipperForHostEmail`) return `created: boolean`; `loginOrRegisterTipper` treats helper-created rows as new for attribution.
+- **Fixed:** Dual PWA join — superadmin users and PWA analytics resolve identity by `deviceKey` **or** `recipientId`.
+- **Added:** `PwaInstallPreference.installPath` (first install URL) and `lastPromptPath` (first prompt URL); superadmin PWA table shows **Install page** separately from account signup surface.
+- **Deploy:** Run `npx prisma migrate deploy` for `20260905160000_pwa_install_path`.
+
 ---
 
 ## Executive summary

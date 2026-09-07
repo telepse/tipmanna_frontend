@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import { buildSignupAttributionPayload } from "@/lib/signup-attribution";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import {
   Form,
@@ -39,6 +40,7 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
 
   const [step, setStep] = useState<Step>("signIn");
   const [code, setCode] = useState("");
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState("");
 
   const isMobile = useMediaQuery({ query: "(max-width: 500px)" });
   const inputStyle = {
@@ -71,6 +73,7 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
         email: values.email,
         acceptedTerms: true,
         visitorId: getVisitorIdForAuthMerge(user),
+        ...buildSignupAttributionPayload("invite_modal"),
       });
 
       if (!res.success) {
@@ -84,11 +87,8 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
         return;
       }
 
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: parsed.requiresVerification ?? true,
-      });
-
-      if (res.success) setStep("verifyCode");
+      setPendingVerifyEmail(values.email.trim());
+      setStep("verifyCode");
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -107,9 +107,11 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
     try {
       setIsLoading(true);
 
-      if (!user?.email) return;
+      const verifyEmail =
+        pendingVerifyEmail.trim() || email.trim() || user?.email?.trim() || "";
+      if (!verifyEmail) return;
 
-      const res = await verifyCodeAction(user.email, code);
+      const res = await verifyCodeAction(verifyEmail, code);
       if (!res.success) {
         toast.error(res.message ?? "Verification failed");
         return;

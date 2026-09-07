@@ -150,6 +150,7 @@ export function useHostCapabilityWithAuth(options?: Options) {
         defaultUserType="host"
         hostRequiredNotice={hostRequiredNotice}
         allowInlineSignUp
+        signupSurface="host_auth_modal"
         onSuccess={onHostSignInSuccess}
       />
       {cohostEventId ? (

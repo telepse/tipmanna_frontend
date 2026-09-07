@@ -152,6 +152,7 @@ export function ExploreTopCommunitiesGrid({
           setSignInOpen(open);
         }}
         signInTitle="Sign in to join this community"
+        signupSurface="community_picker"
         getRedirectPathAfterVerify={() => signInReturnTo}
         onVerified={() => router.push(signInReturnTo)}
       />

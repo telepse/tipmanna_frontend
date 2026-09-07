@@ -42,6 +42,7 @@ import { parseAuthResponse } from "@/lib/auth-response";
 import { buildVerifyEmailPath } from "@/lib/verify-email-path";
 import { baseUsernameFromEmail } from "@/lib/base-username-from-email";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import { buildSignupAttributionPayload } from "@/lib/signup-attribution";
 import { resolvePostHostAuthDestination } from "@/lib/post-host-auth-destination";
 import type { RootState } from "@/redux/store";
 
@@ -222,6 +223,7 @@ export const SignupForm = () => {
       const res = await registerHostAction({
         ...values,
         visitorId: visitorIdForMerge,
+        ...buildSignupAttributionPayload("sign_up_page"),
       });
       if (!res.success) {
         toast.error(res.message);
@@ -259,6 +261,7 @@ export const SignupForm = () => {
       const res = await registerTipperAction({
         ...values,
         visitorId: visitorIdForMerge,
+        ...buildSignupAttributionPayload("sign_up_page"),
       });
       if (!res.success) {
         toast.error(res.message);

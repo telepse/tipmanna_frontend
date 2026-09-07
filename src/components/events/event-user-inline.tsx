@@ -145,6 +145,7 @@ export const EventUserInline = ({ iTipped, eventId }: Props) => {
         open={openSignIn}
         onOpenChange={setOpenSignIn}
         signInTitle="Enter email to view profile"
+        signupSurface="event_inline"
         getRedirectPathAfterVerify={() => {
           const u = store.getState().auth.user?.username;
           if (!u) return undefined;

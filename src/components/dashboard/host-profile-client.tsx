@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "react-toastify";
-import { Crown, Loader2 } from "lucide-react";
+import { Crown, Loader2, Settings, UserRound, Wallet } from "lucide-react";
+import { useMediaQuery } from "react-responsive";
 
 import { useHostEvents } from "@/hooks/useHostEvents";
 import { useHostPayoutSummary } from "@/hooks/useHostPayoutSummary";
@@ -75,7 +76,11 @@ export const HostProfileClient = () => {
 
   const [tabType, setTabType] = useState<
     "account_info" | "payout" | "subscriptions" | "account_settings"
-  >("account_info");
+  >("payout");
+
+  const isMobile = useMediaQuery({
+    query: "(max-width: 640px)",
+  });
 
   const openBillingPortal = () => {
     setBillingBusy(true);
@@ -170,28 +175,30 @@ export const HostProfileClient = () => {
       >
         <TabsList className="scrollbar-hide flex h-14! w-full max-w-full touch-pan-x justify-start gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain sm:justify-center">
           <TabsTrigger
-            value="account_info"
-            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
-          >
-            Account info
-          </TabsTrigger>
-          <TabsTrigger
             value="payout"
             className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
           >
-            Payouts
+            {isMobile ? <Wallet /> : "Payouts"}
           </TabsTrigger>
+
+          <TabsTrigger
+            value="account_info"
+            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
+          >
+            {isMobile ? <UserRound /> : "Account info"}
+          </TabsTrigger>
+
           <TabsTrigger
             value="subscriptions"
             className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
           >
-            Subscriptions
+            {isMobile ? <Crown /> : "Subscriptions"}
           </TabsTrigger>
           <TabsTrigger
             value="account_settings"
             className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
           >
-            Account settings
+            {isMobile ? <Settings /> : "Account settings"}
           </TabsTrigger>
         </TabsList>
 

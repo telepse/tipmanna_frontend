@@ -224,6 +224,7 @@ export const TvLooper = ({
 
   const lastTrackedItemIdRef = useRef<string | null>(null);
   const userSeekedForCompleteRef = useRef(false);
+  const pendingSeekTimeRef = useRef<number | null>(null);
   const lastSegmentChannelIdRef = useRef<string | undefined>(undefined);
   const segmentStartMsRef = useRef(0);
   const videoErrorReloadsRef = useRef(0);
@@ -815,13 +816,28 @@ export const TvLooper = ({
   }, [playerRef, isSeeking]);
 
   const seekTo = (time: number) => {
-    const player = playerRef.current;
-    if (!player || !player.isReady()) return;
     userSeekedForCompleteRef.current = true;
     trackTvUserInteraction("seek", "scrubber");
-    player.seekTo(time, true);
     setCurrentTime(time);
+    const player = playerRef.current;
+    if (!player || !player.isReady()) {
+      pendingSeekTimeRef.current = time;
+      onPlayerSeek(time);
+      return;
+    }
+    pendingSeekTimeRef.current = null;
+    player.seekTo(time, true);
   };
+
+  const flushPendingSeek = useCallback(() => {
+    const pending = pendingSeekTimeRef.current;
+    if (pending == null) return;
+    const player = playerRef.current;
+    if (!player?.isReady()) return;
+    pendingSeekTimeRef.current = null;
+    player.seekTo(pending, true);
+    setCurrentTime(pending);
+  }, [playerRef]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1388,6 +1404,7 @@ export const TvLooper = ({
                   onReady={() => {
                     setIsPlayerLoading(false);
                     onPlayerReady();
+                    flushPendingSeek();
                     flushPendingPlaybackRequest();
                     setPlayerVisible(true);
                     emitEncounterWhenVideoLoads();
@@ -1489,8 +1506,8 @@ export const TvLooper = ({
           <div
             className={cn(
               chromeHide.chromeTransitionClass,
-              chromeHide.chromeOpacityClass,
-              "absolute z-10",
+              chromeHide.chromeVisualOpacityClass,
+              "pointer-events-auto absolute z-[1110]",
               isFullView && isMobileTv && "hidden",
               !isFullView && isMobileTv ? "right-2 bottom-7 left-2" : null,
               !isFullView && !isMobileTv ? "right-2 -bottom-12 left-10" : null
@@ -1502,6 +1519,7 @@ export const TvLooper = ({
               max={seekBarMax}
               step={0.1}
               value={seekBarValue}
+              className="accent-primary pointer-events-auto h-2 w-full rounded-full"
               onMouseDown={() => setIsSeeking(true)}
               onTouchStart={() => setIsSeeking(true)}
               onChange={e => setCurrentTime(parseFloat(e.target.value))}
@@ -1515,15 +1533,14 @@ export const TvLooper = ({
                 seekTo(time);
                 setIsSeeking(false);
               }}
-              className="accent-primary h-2 w-full rounded-full"
             />
           </div>
 
           <div
             className={cn(
               chromeHide.chromeTransitionClass,
-              chromeHide.chromeOpacityClass,
-              "absolute",
+              chromeHide.chromeVisualOpacityClass,
+              "pointer-events-none absolute z-[1110]",
               isFullView && isMobileTv && "hidden",
               !isFullView && isMobileTv ? "right-2 bottom-3 left-2" : null,
               !isFullView && !isMobileTv ? "right-2 -bottom-16 left-10" : null
