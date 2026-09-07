@@ -23,7 +23,9 @@ export type SignupSurface =
   | "partner"
   | "reminder"
   | "push_prompt"
-  | "notifications";
+  | "notifications"
+  | "cohost_invite"
+  | "cohost_sign_in";
 
 export type SignupAttributionPayload = {
   deviceKey: string;

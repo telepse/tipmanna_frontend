@@ -61,19 +61,38 @@ export function prepareMutedLoadForAutoplay(
   return { restoreUnmuted: wantsAudio, shouldPlay };
 }
 
-/** Play in user-gesture stack after load (LOCAL playlist clicks). */
+/**
+ * Play in the user-gesture stack after load (playlist / schedule clicks).
+ * Always play only — never unmute. New ids are not CUED yet; unmute happens
+ * in applyPendingAudioRestore on CUED/PLAYING.
+ */
 export function playWithUserGesture(
   player: TvPlayerRef,
   pending: PendingAudioRestore | null,
   source: string
 ): void {
   if (!player.isReady()) return;
-  if (pending?.restoreUnmuted) {
-    unmuteAndPlay(player, source);
-    return;
-  }
+  if (pending && pending.shouldPlay === false) return;
+  tracePlayVideoResult(`${source}.gesture_play`, player.play());
+}
+
+const ALREADY_LOADED_STATES = new Set(["PLAYING", "BUFFERING", "CUED"]);
+
+/**
+ * Same-id replay: play in the gesture; unmute only when that id is already loaded.
+ */
+export function playAlreadyLoadedWithGesture(
+  player: TvPlayerRef,
+  pending: PendingAudioRestore | null,
+  source: string
+): void {
+  if (!player.isReady()) return;
   if (pending?.shouldPlay ?? true) {
-    tracePlayVideoResult(`${source}.gesture_play`, player.play());
+    tracePlayVideoResult(`${source}.replay_play`, player.play());
+  }
+  const state = player.getPlayerState?.() ?? null;
+  if (pending?.restoreUnmuted && state && ALREADY_LOADED_STATES.has(state)) {
+    unmuteOnly(player, `${source}.replay_restore`);
   }
 }
 

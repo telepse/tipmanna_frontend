@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -32,6 +33,12 @@ import { subscriptionActionErrorMessage } from "@/lib/host-subscription-errors";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { uploadImage } from "@/lib/cloudinary";
+import {
+  TIPLINK_STORE_FIELDS,
+  TipLinkStoreIcon,
+} from "@/components/tiplink/tiplink-store-icons";
+import { TIPLINK_SOCIAL_PLATFORMS } from "@/components/tiplink/tiplink-social-icons";
+import { cn } from "@/lib/utils";
 
 type Content = {
   id: string;
@@ -63,17 +70,21 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
   const [form, setForm] = useState({
     slug: "",
     pitch: "",
-    titleOverride: "",
-    descriptionOverride: "",
+    title: "",
+    description: "",
     appleMusicUrl: "",
     spotifyUrl: "",
     audiomackUrl: "",
     tiktokUrl: "",
+    customLinkLabel: "",
+    customLinkUrl: "",
     featuredPlaylistId: "",
-    socialPlatform1: "",
+    socialPlatform1: "instagram",
     socialUrl1: "",
-    socialPlatform2: "",
+    socialPlatform2: "instagram",
     socialUrl2: "",
+    bannerSource: null as "thumbnail" | "upload" | null,
+    bannerUrl: null as string | null,
   });
 
   const {
@@ -81,7 +92,12 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     inputRef: bannerInputRef,
     handleImageUpload: handleBannerUpload,
     handleRemoveImage: handleRemoveBanner,
+    error: bannerUploadError,
   } = useImageUpload({ maxSizeMB: 2 });
+
+  const searchParams = useSearchParams();
+  const autoCreateChannelId = searchParams.get("channelId")?.trim() ?? "";
+  const autoCreateAttemptedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -124,53 +140,80 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
   };
 
-  const startCreate = async (channelId: string, title: string) => {
-    if (!eligibility?.canCreate) {
-      handleSubscriptionActionError(
-        { success: false, validationBody: { code: "SUBSCRIPTION_REQUIRED" } },
-        { focusTier: "premium" }
-      );
-      return;
-    }
-    setCreatingForChannel(channelId);
-    try {
-      const slugRes = await suggestTipLinkSlugAction(title);
-      const slug = slugRes.success && slugRes.data ? slugRes.data.slug : "link";
-      const res = await createTipLinkDraftAction({
-        eventChannelId: channelId,
-        slug,
-      });
-      if (!res.success || !res.data) {
-        if (handleSubscriptionActionError(res, { focusTier: "premium" }))
-          return;
-        toast.error(res.message ?? "Could not create TipLink");
+  const startCreate = useCallback(
+    async (channelId: string, title: string) => {
+      if (!eligibility?.canCreate) {
+        handleSubscriptionActionError(
+          { success: false, validationBody: { code: "SUBSCRIPTION_REQUIRED" } },
+          { focusTier: "premium" }
+        );
         return;
       }
-      toast.success("TipLink draft created");
-      setEditing(res.data.tipLink);
-      setForm(f => ({ ...f, slug: res.data!.tipLink.slug, pitch: "" }));
-      await load();
-    } finally {
-      setCreatingForChannel("");
+      setCreatingForChannel(channelId);
+      try {
+        const slugRes = await suggestTipLinkSlugAction(title);
+        const slug =
+          slugRes.success && slugRes.data ? slugRes.data.slug : "link";
+        const res = await createTipLinkDraftAction({
+          eventChannelId: channelId,
+          slug,
+        });
+        if (!res.success || !res.data) {
+          if (handleSubscriptionActionError(res, { focusTier: "premium" }))
+            return;
+          toast.error(res.message ?? "Could not create TipLink");
+          return;
+        }
+        toast.success("TipLink draft created");
+        setEditing(res.data.tipLink);
+        setForm(f => ({ ...f, slug: res.data!.tipLink.slug, pitch: "" }));
+        await load();
+      } finally {
+        setCreatingForChannel("");
+      }
+    },
+    [eligibility?.canCreate, handleSubscriptionActionError, load]
+  );
+
+  useEffect(() => {
+    if (
+      loading ||
+      editing ||
+      !autoCreateChannelId ||
+      autoCreateAttemptedRef.current
+    ) {
+      return;
     }
-  };
+    const channel = contents.find(c => c.id === autoCreateChannelId);
+    const alreadyHasTipLink = tipLinks.some(
+      t => t.eventChannelId === autoCreateChannelId
+    );
+    if (!channel || alreadyHasTipLink) return;
+    autoCreateAttemptedRef.current = true;
+    void startCreate(channel.id, channel.title);
+  }, [autoCreateChannelId, contents, editing, loading, startCreate, tipLinks]);
 
   const openEdit = (row: TipLinkSummary) => {
     setEditing(row);
+    handleRemoveBanner();
     setForm({
       slug: row.slug,
       pitch: row.pitch ?? "",
-      titleOverride: row.title,
-      descriptionOverride: row.description ?? "",
+      title: row.title,
+      description: row.description ?? "",
       appleMusicUrl: row.appleMusicUrl ?? "",
       spotifyUrl: row.spotifyUrl ?? "",
       audiomackUrl: row.audiomackUrl ?? "",
       tiktokUrl: row.tiktokUrl ?? "",
+      customLinkLabel: row.customLinkLabel ?? "",
+      customLinkUrl: row.customLinkUrl ?? "",
       featuredPlaylistId: row.featuredPlaylistId ?? "",
-      socialPlatform1: row.socials[0]?.platform ?? "",
+      socialPlatform1: row.socials[0]?.platform ?? "instagram",
       socialUrl1: row.socials[0]?.url ?? "",
-      socialPlatform2: row.socials[1]?.platform ?? "",
+      socialPlatform2: row.socials[1]?.platform ?? "instagram",
       socialUrl2: row.socials[1]?.url ?? "",
+      bannerSource: row.bannerSource,
+      bannerUrl: row.bannerUrl,
     });
   };
 
@@ -178,44 +221,45 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     const socials = [];
     if (form.socialUrl1.trim()) {
       socials.push({
-        platform: form.socialPlatform1.trim() || "link",
+        platform: form.socialPlatform1.trim() || "instagram",
         url: form.socialUrl1.trim(),
       });
     }
     if (form.socialUrl2.trim()) {
       socials.push({
-        platform: form.socialPlatform2.trim() || "link",
+        platform: form.socialPlatform2.trim() || "instagram",
         url: form.socialUrl2.trim(),
       });
     }
     return socials;
   };
 
-  const saveDraft = async () => {
-    if (!editing) return;
-    setSaving(true);
+  const persistDraft = async (): Promise<boolean> => {
+    if (!editing) return false;
     try {
-      let bannerUrl = editing.bannerUrl;
-      let bannerSource = editing.bannerSource;
+      let bannerUrl = form.bannerUrl ?? editing.bannerUrl;
+      let bannerSource = form.bannerSource ?? editing.bannerSource;
       if (bannerPreview) {
         const uploaded = await uploadImage(bannerPreview);
-        if (!uploaded) {
+        if (!uploaded?.secure_url) {
           toast.error("Could not upload banner image");
-          return;
+          return false;
         }
-        bannerUrl = uploaded;
+        bannerUrl = uploaded.secure_url;
         bannerSource = "upload";
       }
 
       const res = await updateTipLinkAction(editing.id, {
         slug: form.slug,
         pitch: form.pitch || null,
-        titleOverride: form.titleOverride || null,
-        descriptionOverride: form.descriptionOverride || null,
+        titleOverride: form.title || null,
+        descriptionOverride: form.description || null,
         appleMusicUrl: form.appleMusicUrl || null,
         spotifyUrl: form.spotifyUrl || null,
         audiomackUrl: form.audiomackUrl || null,
         tiktokUrl: form.tiktokUrl || null,
+        customLinkLabel: form.customLinkLabel.trim() || null,
+        customLinkUrl: form.customLinkUrl.trim() || null,
         featuredPlaylistId: form.featuredPlaylistId || null,
         socials: buildSocials(),
         bannerUrl,
@@ -223,11 +267,22 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       });
       if (!res.success || !res.data) {
         toast.error(res.message ?? "Save failed");
-        return;
+        return false;
       }
       toast.success("Draft saved");
       setEditing(res.data.tipLink);
       await load();
+      return true;
+    } catch {
+      toast.error("Save failed");
+      return false;
+    }
+  };
+
+  const saveDraft = async () => {
+    setSaving(true);
+    try {
+      await persistDraft();
     } finally {
       setSaving(false);
     }
@@ -241,7 +296,8 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     }
     setSaving(true);
     try {
-      await saveDraft();
+      const savedOk = await persistDraft();
+      if (!savedOk) return;
       const res = await updateTipLinkAction(editing.id, {
         status: "published",
         pitch: form.pitch.trim(),
@@ -309,9 +365,25 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                   <div>
                     <p className="font-medium">{row.title}</p>
                     <p className="text-muted-foreground text-xs">
-                      {row.status} · {row.pageVisits90d} visits (90d) · /l/
-                      {row.slug}
+                      {row.status} · {row.pageVisits90d} visits (90d)
+                      {row.visitAnalytics
+                        ? ` · ${row.visitAnalytics.visits7d} (7d) · ${row.visitAnalytics.visits24h} (24h)`
+                        : ""}{" "}
+                      · /l/{row.slug}
                     </p>
+                    {row.visitAnalytics &&
+                    row.visitAnalytics.topCountries.length > 0 ? (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Top countries (90d):{" "}
+                        {row.visitAnalytics.topCountries
+                          .map(c => `${c.code} (${c.count})`)
+                          .join(", ")}
+                      </p>
+                    ) : row.visitAnalytics ? (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Top countries: not enough data yet
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -412,18 +484,16 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
             <div className="space-y-2">
               <Label>Title</Label>
               <Input
-                value={form.titleOverride}
-                onChange={e =>
-                  setForm(f => ({ ...f, titleOverride: e.target.value }))
-                }
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
               <Textarea
-                value={form.descriptionOverride}
+                value={form.description}
                 onChange={e =>
-                  setForm(f => ({ ...f, descriptionOverride: e.target.value }))
+                  setForm(f => ({ ...f, description: e.target.value }))
                 }
               />
             </div>
@@ -437,64 +507,140 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Banner</Label>
-              <input
-                ref={bannerInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleBannerUpload}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => bannerInputRef.current?.click()}
-              >
-                Upload banner
-              </Button>
-              {bannerPreview ? (
-                <div className="relative mt-2 h-32 w-full">
-                  <Image
-                    src={bannerPreview}
-                    alt=""
-                    fill
-                    className="rounded object-cover"
-                    unoptimized
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="absolute top-1 right-1"
-                    onClick={handleRemoveBanner}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              ) : null}
+              {editing
+                ? (() => {
+                    const youtubeThumb = thumbFor(editing.videoUrl);
+                    const activeBanner =
+                      bannerPreview ??
+                      (form.bannerSource === "thumbnail" && youtubeThumb
+                        ? youtubeThumb
+                        : null) ??
+                      (form.bannerUrl && form.bannerSource === "upload"
+                        ? form.bannerUrl
+                        : null) ??
+                      (editing.bannerUrl && !bannerPreview
+                        ? editing.bannerUrl
+                        : null);
+                    return (
+                      <div className="space-y-3">
+                        {youtubeThumb ? (
+                          <button
+                            type="button"
+                            className={cn(
+                              "relative block h-32 w-full overflow-hidden rounded-lg border-2 transition",
+                              form.bannerSource === "thumbnail" &&
+                                !bannerPreview
+                                ? "border-primary"
+                                : "hover:border-primary/40 border-transparent"
+                            )}
+                            onClick={() => {
+                              handleRemoveBanner();
+                              setForm(f => ({
+                                ...f,
+                                bannerSource: "thumbnail",
+                                bannerUrl: youtubeThumb,
+                              }));
+                            }}
+                          >
+                            <Image
+                              src={youtubeThumb}
+                              alt="YouTube thumbnail"
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                            <span className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-0.5 text-xs">
+                              Use video thumbnail
+                            </span>
+                          </button>
+                        ) : null}
+                        <input
+                          ref={bannerInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleBannerUpload}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => bannerInputRef.current?.click()}
+                        >
+                          Upload banner
+                        </Button>
+                        {bannerUploadError ? (
+                          <p className="text-destructive text-xs">
+                            {bannerUploadError}
+                          </p>
+                        ) : null}
+                        {activeBanner && bannerPreview ? (
+                          <div className="relative mt-2 h-32 w-full">
+                            <Image
+                              src={activeBanner}
+                              alt=""
+                              fill
+                              className="rounded object-cover"
+                              unoptimized
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="absolute top-1 right-1"
+                              onClick={() => {
+                                handleRemoveBanner();
+                                setForm(f => ({
+                                  ...f,
+                                  bannerSource: null,
+                                  bannerUrl: null,
+                                }));
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })()
+                : null}
             </div>
-            {(
-              [
-                "appleMusicUrl",
-                "spotifyUrl",
-                "audiomackUrl",
-                "tiktokUrl",
-              ] as const
-            ).map(key => (
+            {TIPLINK_STORE_FIELDS.map(field => (
               <div
-                key={key}
+                key={field.key}
                 className="space-y-2"
               >
-                <Label>{key.replace("Url", "")}</Label>
+                <Label className="inline-flex items-center gap-2">
+                  <TipLinkStoreIcon storeKey={field.key} />
+                  {field.label}
+                </Label>
                 <Input
-                  value={form[key]}
+                  value={form[field.key]}
                   onChange={e =>
-                    setForm(f => ({ ...f, [key]: e.target.value }))
+                    setForm(f => ({ ...f, [field.key]: e.target.value }))
                   }
                   placeholder="https://"
                 />
               </div>
             ))}
+            <div className="space-y-2 rounded border p-3">
+              <Label>Custom link (optional)</Label>
+              <Input
+                placeholder="Link name"
+                value={form.customLinkLabel}
+                onChange={e =>
+                  setForm(f => ({ ...f, customLinkLabel: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="https://"
+                value={form.customLinkUrl}
+                onChange={e =>
+                  setForm(f => ({ ...f, customLinkUrl: e.target.value }))
+                }
+              />
+            </div>
             <div className="space-y-2">
               <Label>Featured playlist</Label>
               <Select
@@ -529,19 +675,33 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                   className="space-y-2 rounded border p-2"
                 >
                   <Label>Social {n}</Label>
-                  <Input
-                    placeholder="Platform"
+                  <Select
                     value={
-                      n === 1 ? form.socialPlatform1 : form.socialPlatform2
+                      (n === 1 ? form.socialPlatform1 : form.socialPlatform2) ||
+                      "instagram"
                     }
-                    onChange={e =>
+                    onValueChange={v =>
                       setForm(f =>
                         n === 1
-                          ? { ...f, socialPlatform1: e.target.value }
-                          : { ...f, socialPlatform2: e.target.value }
+                          ? { ...f, socialPlatform1: v }
+                          : { ...f, socialPlatform2: v }
                       )
                     }
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPLINK_SOCIAL_PLATFORMS.map(p => (
+                        <SelectItem
+                          key={p.id}
+                          value={p.id}
+                        >
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     placeholder="https://"
                     value={n === 1 ? form.socialUrl1 : form.socialUrl2}

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { runServerFetch } from "@/lib/action-fetch";
 import { serverHostAuthHeaders } from "@/lib/server-auth";
@@ -15,6 +16,12 @@ export type TipLinkSocial = {
   platform: string;
   url: string;
   label?: string;
+};
+
+export type TipLinkVisitAnalytics = {
+  visits7d: number;
+  visits24h: number;
+  topCountries: Array<{ code: string; count: number }>;
 };
 
 export type TipLinkSummary = {
@@ -33,10 +40,14 @@ export type TipLinkSummary = {
   spotifyUrl: string | null;
   audiomackUrl: string | null;
   tiktokUrl: string | null;
+  customLinkLabel: string | null;
+  customLinkUrl: string | null;
   featuredPlaylistId: string | null;
   socials: TipLinkSocial[];
   pageVisitCount: number;
   pageVisits90d: number;
+  videoTipCount: number;
+  visitAnalytics?: TipLinkVisitAnalytics;
   landingUrl: string;
   createdAt: string;
   updatedAt: string;
@@ -62,6 +73,7 @@ export type TipLinkPublicPayload = {
     url: string;
     numOfTips: number;
     contentCountry: string;
+    contentLanguage: string;
   };
   event: {
     id: string;
@@ -73,6 +85,8 @@ export type TipLinkPublicPayload = {
     showEncounterOnVideos: boolean | null;
     amountRaised: number;
     numOfTips: number;
+    contentCountry: string;
+    contentLanguage: string;
   };
   host: {
     id: string;
@@ -196,6 +210,8 @@ export type UpdateTipLinkInput = {
   spotifyUrl?: string | null;
   audiomackUrl?: string | null;
   tiktokUrl?: string | null;
+  customLinkLabel?: string | null;
+  customLinkUrl?: string | null;
   featuredPlaylistId?: string | null;
   socials?: TipLinkSocial[];
 };
@@ -262,11 +278,20 @@ export async function getTipLinkPreviewAction(id: string) {
 }
 
 export async function postTipLinkVisitAction(slug: string, path: string) {
+  const incoming = await headers();
+  const visitHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const cfCountry = incoming.get("cf-ipcountry");
+  const vercelCountry = incoming.get("x-vercel-ip-country");
+  if (cfCountry) visitHeaders["cf-ipcountry"] = cfCountry;
+  if (vercelCountry) visitHeaders["x-vercel-ip-country"] = vercelCountry;
+
   return runServerFetch<{ ok: boolean }>(
     `${base()}/tiplinks/${encodeURIComponent(slug)}/visit`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: visitHeaders,
       body: JSON.stringify({ path }),
     },
     "postTipLinkVisitAction"

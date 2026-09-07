@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -20,9 +21,13 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
+const loadPublicTipLink = cache(async (slug: string) => {
+  return getPublicTipLinkAction(slug);
+});
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const res = await getPublicTipLinkAction(slug);
+  const res = await loadPublicTipLink(slug);
   if (!res.success || !res.data) {
     return { title: "TipLink · Tipmanna", robots: { index: false } };
   }
@@ -37,6 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${channel.title} · @${host.username}`,
     description:
       tipLink.pitch ?? channel.description ?? `TipLink by @${host.username}`,
+    robots: { index: true, follow: true },
     alternates: { canonical: url },
     openGraph: {
       title: channel.title,
@@ -56,7 +62,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TipLinkPage({ params }: Props) {
   const { slug } = await params;
-  const res = await getPublicTipLinkAction(slug);
+  const res = await loadPublicTipLink(slug);
   if (!res.success || !res.data) {
     notFound();
   }
@@ -94,6 +100,9 @@ export default async function TipLinkPage({ params }: Props) {
     description:
       payload.tipLink.pitch ?? payload.channel.description ?? undefined,
     uploadDate: payload.tipLink.createdAt,
+    thumbnailUrl:
+      payload.tipLink.bannerUrl?.trim() ||
+      resolveVideoOgImageUrl(payload.channel.url),
   });
 
   return (

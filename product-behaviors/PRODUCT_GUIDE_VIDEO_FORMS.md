@@ -362,6 +362,8 @@ Applies to **wizards (step 4)** and **all add-video modals**.
 | Add video — event room modal            | Tier B/C: event owner/cohost                      |
 | Co-owner approve                        | Email OTP on public page                          |
 
+**Signup attribution (ops):** First account create records `signupSurface` and `deviceKey` for superadmin analytics only — not used for auth or create-dialog Tier A/B routing. Option C (no session until email verify) applies to modals and OTP flows; full-page `/sign-in` still uses a pending session before `/verify-email`.
+
 ---
 
 ## Support quick reference

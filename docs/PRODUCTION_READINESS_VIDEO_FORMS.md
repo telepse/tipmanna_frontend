@@ -58,6 +58,12 @@
 - **Added:** `PwaInstallPreference.installPath` (first install URL) and `lastPromptPath` (first prompt URL); superadmin PWA table shows **Install page** separately from account signup surface.
 - **Deploy:** Run `npx prisma migrate deploy` for `20260905160000_pwa_install_path`.
 
+### 2026-09-07 — Leftover attribution closure
+
+- **Fixed:** Visitor claim onto an existing tipper fills empty `deviceKey` (PWA attach) without overwriting signup surface.
+- **Fixed:** Cohost invite accept + cohost re-auth modal attribute first create (`cohost_invite` / `cohost_sign_in`); existing tippers fill-empty deviceKey only.
+- **Fixed:** PWA path sanitizer rejects `//` and strips `utm_*`; superadmin Users show truncated device key; PWA table splits Install page vs Prompt page.
+
 ---
 
 ## Executive summary

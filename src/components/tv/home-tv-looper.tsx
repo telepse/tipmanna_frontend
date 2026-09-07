@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { writeTvPlaybackSnapshot } from "@/lib/tv-playback-session";
 import {
   flushTvAnalytics,
   setTvAnalyticsContext,
@@ -171,6 +172,7 @@ export const HomeTvLooper = ({
     setPlayerPlayingState,
     setPlayerVisible,
     flushPendingPlaybackRequest,
+    applyTabPlaybackSnapshotRestore,
     playingItemOverride,
     applyPendingPlaybackRestore,
     applyPendingAudioRestore,
@@ -368,9 +370,9 @@ export const HomeTvLooper = ({
       liveOffsetEmbed.videoId === extractYoutubeID(effectiveEmbedPlaybackUrl)
   );
 
-  const playerEmbedKey = enableLiveOffsetEmbedFinal
-    ? `tv-embed-gen-${startupEmbedGeneration}`
-    : "tv-player";
+  useEffect(() => {
+    setIsPlayerLoading(true);
+  }, [startupEmbedGeneration]);
 
   useEffect(() => {
     tvTrace("playback", "playbackUrl_change", {
@@ -405,6 +407,14 @@ export const HomeTvLooper = ({
       });
     }
   }, [isPlayerLoading, current?.id, isNotice, playerRef]);
+
+  useEffect(() => {
+    if (!isPlayerLoading) return;
+    const timeout = window.setTimeout(() => {
+      setIsPlayerLoading(false);
+    }, 8000);
+    return () => window.clearTimeout(timeout);
+  }, [isPlayerLoading, startupEmbedGeneration]);
 
   const showPlaybackError =
     !isNotice && Boolean(current?.channel) && !playbackUrl.trim();
@@ -774,13 +784,49 @@ export const HomeTvLooper = ({
     }
   }, [current?.channel, currentEventId]);
 
+  const snapshotCtxRef = useRef({
+    mode,
+    currentIndex,
+    current,
+    scheduleSourceCommunityId,
+    playbackUrl,
+  });
+  snapshotCtxRef.current = {
+    mode,
+    currentIndex,
+    current,
+    scheduleSourceCommunityId,
+    playbackUrl,
+  };
+
   useEffect(() => {
     setPlayerVisible(true);
     return () => {
+      const ctx = snapshotCtxRef.current;
+      const player = playerRef.current;
+      if (player?.isReady?.()) {
+        try {
+          player.pauseProgrammatic?.();
+          player.mute();
+        } catch {
+          /* iframe may be tearing down */
+        }
+        const vid =
+          extractYoutubeID(ctx.current?.channel?.url ?? "") ??
+          extractYoutubeID(ctx.playbackUrl) ??
+          null;
+        writeTvPlaybackSnapshot({
+          mode: ctx.mode,
+          currentIndex: ctx.currentIndex,
+          startSeconds: player.getCurrentTime(),
+          videoId: vid,
+          communityId: ctx.scheduleSourceCommunityId,
+        });
+      }
       setPlayerVisible(false);
       unregisterTvPlayer();
     };
-  }, [setPlayerVisible, unregisterTvPlayer]);
+  }, [setPlayerVisible, unregisterTvPlayer, playerRef]);
 
   // ---- Fullscreen detection ----
   useEffect(() => {
@@ -1328,7 +1374,6 @@ export const HomeTvLooper = ({
                       import("./home-tv-player").HomeTvPlayerRef
                     >
                   }
-                  key={playerEmbedKey}
                   videoUrl={effectiveEmbedPlaybackUrl}
                   externallyControlled
                   autoplay
@@ -1358,6 +1403,7 @@ export const HomeTvLooper = ({
                   onReady={() => {
                     setIsPlayerLoading(false);
                     onPlayerReady();
+                    applyTabPlaybackSnapshotRestore("player_ready");
                     flushPendingSeek();
                     flushPendingPlaybackRequest();
                     setPlayerVisible(true);

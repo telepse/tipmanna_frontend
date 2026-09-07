@@ -482,36 +482,34 @@ export const SignupForm = () => {
 
               {/* PASSWORD AND CONFIRM PASSWORD FIELDS */}
               {slidePasswordFields && (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <FormField
-                    control={hostForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Set password</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input
-                              type={showPassword ? "text" : "password"}
-                              placeholder="Create password"
-                              autoComplete="off"
-                              {...field}
-                            />
+                <FormField
+                  control={hostForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Set password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Create password"
+                            autoComplete="off"
+                            {...field}
+                          />
 
-                            <button
-                              type="button"
-                              onClick={togglePasswordVisibility}
-                              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
-                            >
-                              <Eye className="text-muted-foreground" />
-                            </button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                          <button
+                            type="button"
+                            onClick={togglePasswordVisibility}
+                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
+                          >
+                            <Eye className="text-muted-foreground" />
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
 
               {slideConfirmPasswordField && (

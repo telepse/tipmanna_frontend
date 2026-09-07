@@ -19,6 +19,7 @@ import { setCredentials } from "@/features/auth-slice";
 import type { AppDispatch } from "@/redux/store";
 import { persistAuthSession } from "@/lib/session-client";
 import { normalizeEmail } from "@/lib/normalize-email";
+import { buildSignupAttributionPayload } from "@/lib/signup-attribution";
 
 type Props = {
   open: boolean;
@@ -92,7 +93,12 @@ export function CohostSignInDialog({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: normalized, code, eventId }),
+          body: JSON.stringify({
+            email: normalized,
+            code,
+            eventId,
+            ...buildSignupAttributionPayload("cohost_sign_in"),
+          }),
         }
       );
       const data = await res.json().catch(() => ({}));
