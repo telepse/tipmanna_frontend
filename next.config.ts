@@ -6,6 +6,8 @@ const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
+// Serwist is a webpack plugin — production `next build` must not use --turbopack.
+// Dev may keep turbopack; SW generation is disabled in development.
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",

@@ -312,6 +312,7 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
         open={signInOpen}
         onOpenChange={setSignInOpen}
         signInTitle="Sign in for personal alerts"
+        signupSurface="notifications"
         onVerified={() => void load()}
       />
 

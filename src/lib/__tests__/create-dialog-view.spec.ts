@@ -165,6 +165,33 @@ describe("resolveCreateDialogView", () => {
     ).toBe("summarized-picker");
   });
 
+  it("holds loading after host-creator sign-in until host-link settles", () => {
+    expect(
+      resolveCreateDialogView(
+        base({
+          userId: "t1",
+          userRole: "TIPPER",
+          capabilityStatus: "none",
+          canReadAsHost: false,
+          holdUntilLinkSettled: true,
+        })
+      )
+    ).toBe("loading");
+
+    expect(
+      resolveCreateDialogView(
+        base({
+          userId: "t1",
+          userRole: "TIPPER",
+          capabilityStatus: "stale",
+          canReadAsHost: true,
+          showNewEventRoomPicker: true,
+          holdUntilLinkSettled: true,
+        })
+      )
+    ).toBe("loading");
+  });
+
   it("never returns full-picker for linked tipper while linkage is loading", () => {
     const view = resolveCreateDialogView(
       base({

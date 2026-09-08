@@ -38,6 +38,7 @@ export function useHostCapability(options?: Options) {
   const enabled = options?.enabled ?? true;
   const user = useSelector((s: RootState) => s.auth.user);
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
+  const authToken = useSelector((s: RootState) => s.auth.token);
   const hostSession = useHostSessionContextOptional();
   const [link, setLink] = useState<HostLinkResponse | null>(null);
   const [linkLoading, setLinkLoading] = useState(enabled);
@@ -82,7 +83,7 @@ export function useHostCapability(options?: Options) {
     if (!canWriteRef.current) {
       setLinkLoading(true);
     }
-    const token = getAuthToken();
+    const token = authToken?.trim() || getAuthToken();
     const res = await getHostLinkAction(token);
     if (res.success && res.data) {
       setLink(res.data);
@@ -98,7 +99,7 @@ export function useHostCapability(options?: Options) {
       setLink(null);
     }
     setLinkLoading(false);
-  }, [enabled, isAuthenticated, user?.id, user?.role]);
+  }, [authToken, enabled, isAuthenticated, user?.id, user?.role]);
 
   const refresh = useCallback(async () => {
     await Promise.all([

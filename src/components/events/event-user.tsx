@@ -33,6 +33,7 @@ import { RootState } from "@/redux/store";
 import { updateTipper } from "@/features/auth-slice";
 import { loginOrRegisterTipperAction, verifyCodeAction } from "@/actions/auth";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import { buildSignupAttributionPayload } from "@/lib/signup-attribution";
 import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import type { AppDispatch } from "@/redux/store";
@@ -53,6 +54,7 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<Step>("signIn");
   const [code, setCode] = useState("");
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState("");
 
   const user = useSelector((state: RootState) => state.auth.user);
   const dispatch = useDispatch<AppDispatch>();
@@ -92,6 +94,7 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
         email: values.email,
         acceptedTerms: true,
         visitorId: getVisitorIdForAuthMerge(user),
+        ...buildSignupAttributionPayload("event_room"),
       });
 
       if (!res.success) {
@@ -105,11 +108,8 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
         return;
       }
 
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: parsed.requiresVerification ?? true,
-      });
-
-      if (res.success) setStep("verifyCode");
+      setPendingVerifyEmail(values.email.trim());
+      setStep("verifyCode");
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -128,9 +128,11 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
     try {
       setIsLoading(true);
 
-      if (!user?.email) return;
+      const verifyEmail =
+        pendingVerifyEmail.trim() || email.trim() || user?.email?.trim() || "";
+      if (!verifyEmail) return;
 
-      const res = await verifyCodeAction(user.email, code);
+      const res = await verifyCodeAction(verifyEmail, code);
       if (!res.success) {
         toast.error(res.message ?? "Verification failed");
         return;

@@ -18,6 +18,19 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
     });
   });
 
+  it("approved wins over pending sibling invites", () => {
+    expect(
+      evaluateCoOwnerSubmitReadiness([
+        { status: "pending" },
+        { status: "approved" },
+      ])
+    ).toEqual({
+      blocked: false,
+      reason: null,
+      willDropOnSubmit: false,
+    });
+  });
+
   it("approved wins over declined sibling invites", () => {
     expect(
       evaluateCoOwnerSubmitReadiness([

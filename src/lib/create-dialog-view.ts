@@ -16,6 +16,8 @@ export type ResolveCreateDialogViewInput = {
   pickerLoading: boolean;
   canReadAsHost: boolean;
   showNewEventRoomPicker: boolean;
+  /** After host-creator sign-in, hold loading until host-link refresh finishes. */
+  holdUntilLinkSettled?: boolean;
 };
 
 /**
@@ -35,6 +37,7 @@ export function resolveCreateDialogView(
     pickerLoading,
     canReadAsHost,
     showNewEventRoomPicker,
+    holdUntilLinkSettled = false,
   } = input;
 
   if (!openPopup) {
@@ -48,6 +51,10 @@ export function resolveCreateDialogView(
   const isSignedInNonVisitor = Boolean(userId) && userRole !== "VISITOR";
 
   if (isSignedInNonVisitor) {
+    if (holdUntilLinkSettled) {
+      return "loading";
+    }
+
     const linkageUnsettled = capabilityStatus === "loading" || sessionLoading;
 
     if (linkageUnsettled) {

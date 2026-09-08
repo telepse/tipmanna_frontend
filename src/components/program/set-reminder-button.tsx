@@ -321,6 +321,7 @@ export function SetReminderButton({
         open={tipperSignInOpen}
         onOpenChange={setTipperSignInOpen}
         signInTitle="Sign in to set program reminders"
+        signupSurface="reminder"
         onVerified={() => {
           setTipperSignInOpen(false);
           setOpen(true);

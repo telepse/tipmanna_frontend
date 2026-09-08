@@ -1,7 +1,7 @@
 "use client";
 
 import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
-import { getDeviceKey } from "@/lib/getAuthToken";
+import { getAuthToken, getDeviceKey } from "@/lib/getAuthToken";
 import {
   notifyPwaPreferenceRefresh,
   type PwaPreferenceSnapshot,
@@ -14,6 +14,8 @@ function apiBase(): string {
 export type PwaPreferenceRecord = PwaPreferenceSnapshot & {
   id?: string;
   deviceKey?: string;
+  installPath?: string | null;
+  lastPromptPath?: string | null;
 };
 
 export async function fetchPwaPreference(): Promise<PwaPreferenceRecord | null> {
@@ -31,18 +33,31 @@ export async function fetchPwaPreference(): Promise<PwaPreferenceRecord | null> 
 
 export async function upsertPwaPreference(
   status: string,
-  opts?: { incrementPayment?: boolean; incrementDismiss?: boolean }
+  opts?: {
+    incrementPayment?: boolean;
+    incrementDismiss?: boolean;
+    installPath?: string;
+    lastPromptPath?: string;
+  }
 ): Promise<PwaPreferenceRecord | null> {
   if (isExploreE2eFixturesActiveOnClient()) return null;
   const deviceKey = getDeviceKey();
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const res = await fetch(`${apiBase()}/pwa/preference`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       deviceKey,
       status,
       incrementPayment: opts?.incrementPayment ?? false,
       incrementDismiss: opts?.incrementDismiss ?? false,
+      installPath: opts?.installPath,
+      lastPromptPath: opts?.lastPromptPath,
     }),
   });
   if (!res.ok) return null;
@@ -59,8 +74,10 @@ export async function markPwaDismissed(): Promise<PwaPreferenceRecord | null> {
   return upsertPwaPreference("dismissed", { incrementDismiss: true });
 }
 
-export async function markPwaInstalled(): Promise<PwaPreferenceRecord | null> {
-  return upsertPwaPreference("installed");
+export async function markPwaInstalled(
+  installPath?: string
+): Promise<PwaPreferenceRecord | null> {
+  return upsertPwaPreference("installed", { installPath });
 }
 
 export async function incrementPwaPaymentCount(): Promise<PwaPreferenceRecord | null> {

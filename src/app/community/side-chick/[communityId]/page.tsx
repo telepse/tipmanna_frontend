@@ -203,6 +203,7 @@ export default function SideChickMagicPage() {
                 open={signInOpen}
                 onOpenChange={setSignInOpen}
                 signInTitle="Enter email to sign in"
+                signupSurface="side_chick"
                 onVerified={() => void loadLanding()}
               />
             </div>

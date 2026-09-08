@@ -33,7 +33,9 @@ import { ApiError } from "@/types/api-error.types";
 import { RootState, type AppDispatch } from "@/redux/store";
 import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
+import { resolvedEmailFromAuthPayload } from "@/lib/resolved-auth-email";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import { buildSignupAttributionPayload } from "@/lib/signup-attribution";
 import { useMediaQuery } from "react-responsive";
 
 type signIn_Step = "signIn" | "signInVerifyCode" | "signUp";
@@ -48,6 +50,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
   const [signInStep, setSignInStep] = useState<signIn_Step>("signUp");
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [hostVerifyEmail, setHostVerifyEmail] = useState("");
 
   const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((state: RootState) => state.auth.user);
@@ -103,6 +106,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
         username: values.username,
         acceptedTerms: values.acceptedTerms,
         visitorId: getVisitorIdForAuthMerge(user),
+        ...buildSignupAttributionPayload("wizard_bridge"),
       });
 
       if (!res.success) {
@@ -116,11 +120,8 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
         return;
       }
 
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: true,
-      });
-
-      if (res.success) setSignInStep("signInVerifyCode");
+      setHostVerifyEmail(values.email.trim());
+      setSignInStep("signInVerifyCode");
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -139,9 +140,14 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
     try {
       setIsLoading(true);
 
-      if (!user?.email) return;
+      const verifyEmail =
+        hostVerifyEmail.trim() ||
+        signInForm.getValues("email")?.trim() ||
+        user?.email?.trim() ||
+        "";
+      if (!verifyEmail) return;
 
-      const res = await verifyCodeAction(user.email, code, "HOST");
+      const res = await verifyCodeAction(verifyEmail, code, "HOST");
       if (!res.success) {
         toast.error(res.message);
         return;
@@ -199,6 +205,12 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
         toast.error(res.message);
         return;
       }
+
+      const resolvedEmail = resolvedEmailFromAuthPayload(
+        res.data,
+        values.email
+      );
+      setHostVerifyEmail(resolvedEmail);
 
       toast.success(
         (res.data as { message?: string })?.message ??

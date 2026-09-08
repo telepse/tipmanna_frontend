@@ -19,6 +19,51 @@
 - **Fixed:** Draft autosave gated on active host session; neutral **“Sign in as host to save drafts”** hint when linked but not signed in as host (Channel tab Tier A submit unchanged).
 - **Docs:** [`product-behaviors/PRODUCT_GUIDE_VIDEO_FORMS.md`](../product-behaviors/PRODUCT_GUIDE_VIDEO_FORMS.md) §4 rewritten for view routing, Tier A/B split, and modal vs bridge distinction.
 
+### 2026-09-04 — Create dialog journey + submit hardening
+
+- **Fixed:** **Proceed** sign-in closes the create dialog and navigates to the wizard without a full-picker flash; resume intent stored in refs so sign-in close does not race success handlers.
+- **Fixed:** **Sign in as host creator** from the full picker uses a `return-prepared` intent — after auth the prepared view shows (not the full picker).
+- **Fixed:** Modal email verification no longer applies Redux sessions before the code step; **Already signed in** banner only when `isAuthenticated`.
+- **Fixed:** Host-link refresh prefers in-memory Redux token over stale `visitorToken` cookie fallback.
+- **Fixed:** Create POST actions (`createEventChannelAction`, `newCreateEventAction`, `addCommunityVideoAction`) use `maxAttempts: 1` plus in-flight submit locks to prevent duplicate videos.
+- **Fixed:** Co-owner invite status GET accepts Tier A tipper JWT (`requireHostOrPairedTipper`); readiness checks **approved-wins** before pending.
+
+### 2026-09-04 (b) — Gap closure
+
+- **Fixed:** Pure resume resolver (`create-dialog-signin-resume.ts`) unit-tested; Proceed never reopens full picker.
+- **Fixed:** `exclusive-submit` helper locks wizard, create-dialog, and add-video submits before first `await`.
+- **Fixed:** Backend `classifyCoOwnedInvites` mirrors frontend approved-wins (pending siblings ignored when approved exists).
+- **Fixed:** Page signup (`signup-form.tsx`) no longer applies sessions before email verify (Option C alignment).
+- **Tests:** `getAuthToken.spec.ts` for visitor-cookie fallback rules.
+
+### 2026-09-05 — Auth resume + username login-code
+
+- **Fixed:** `request-login-code` returns the resolved host **email**; verify/resend and `/verify-email?email=` never use a username. `verify-code` HOST lookup also accepts username.
+- **Fixed:** Create-dialog `SignInDialog` does not auto-close or show “Signed in as tipper” after apply; parent closes and holds **loading** until host-link refresh finishes (`holdUntilLinkSettled`).
+- **Fixed:** Modal verify success no longer remounts the host sign-in form before close.
+
+### 2026-09-05 (b) — Signup attribution + system-wide Option C
+
+- **Added:** `signupSurface` + `deviceKey` on first Tipper/Host create (analytics only; not auth). PWA install rows attach on signup when the device key matches.
+- **Fixed:** All auth modals follow Option C — no Redux/cookie session until email verify (wizard bridge, invite modal, event room, OTP dialogs, TV profile).
+- **Fixed:** Host auth modals hide “Signed in as tipper” when parent owns close (`onSuccess`); `HostAuthModal` uses same pattern as create dialog.
+- **Superadmin:** Users tables show signup surface + PWA status; PWA analytics shows identified vs anonymous devices and a recent-device join list.
+- **Deploy:** Run `npx prisma migrate deploy` for `20260905120000_signup_attribution`.
+
+### 2026-09-05 (c) — Remaining attribution gaps + install page
+
+- **Fixed:** Visitor profile claim (`POST /visitors/login`) records `signupSurface` + `deviceKey` on new tipper create; claim modal follows Option C (no session until verify).
+- **Fixed:** Helper-created tippers (`ensureTipperForHostEmail`) return `created: boolean`; `loginOrRegisterTipper` treats helper-created rows as new for attribution.
+- **Fixed:** Dual PWA join — superadmin users and PWA analytics resolve identity by `deviceKey` **or** `recipientId`.
+- **Added:** `PwaInstallPreference.installPath` (first install URL) and `lastPromptPath` (first prompt URL); superadmin PWA table shows **Install page** separately from account signup surface.
+- **Deploy:** Run `npx prisma migrate deploy` for `20260905160000_pwa_install_path`.
+
+### 2026-09-07 — Leftover attribution closure
+
+- **Fixed:** Visitor claim onto an existing tipper fills empty `deviceKey` (PWA attach) without overwriting signup surface.
+- **Fixed:** Cohost invite accept + cohost re-auth modal attribute first create (`cohost_invite` / `cohost_sign_in`); existing tippers fill-empty deviceKey only.
+- **Fixed:** PWA path sanitizer rejects `//` and strips `utm_*`; superadmin Users show truncated device key; PWA table splits Install page vs Prompt page.
+
 ---
 
 ## Executive summary
@@ -83,7 +128,8 @@ Wizard create responses include `excludedVideos: [{ title, reason }]`.
 
 - `coowner-submit-readiness.util.spec.ts` — approved-wins, will_drop
 - `coowner-draft-submit.util.spec.ts` — wizard vs single-video validate paths
-- `form-draft-utils.spec.ts` — modal verify round-trip
+- `create-dialog-signin-resume.spec.ts` — Proceed / return-prepared / add-video resume
+- `getAuthToken.spec.ts` — visitor fallback vs signed-in roles
 
 ### Backend
 
@@ -101,6 +147,10 @@ Wizard create responses include `excludedVideos: [{ title, reason }]`.
 - [ ] Resend — cooldown starts immediately after success (no second 429)
 - [ ] Remove — clears stale invite; form returns to editable state
 - [ ] Revoked duplicate on create — resend works (not error loop)
+- [ ] Proceed (visitor) → sign-in → wizard with **no full-picker flash**
+- [ ] Full picker “sign in as host creator” → prepared view after auth
+- [ ] Channel tab: approved + pending sibling invites → submit succeeds (one POST)
+- [ ] Wizard final submit: double-click → one POST only
 
 ---
 

@@ -13,6 +13,8 @@ import { SigninForm } from "./signin-form";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 
+import type { SignupSurface } from "@/lib/signup-attribution";
+
 export type SignInModalPayload = {
   role: "HOST" | "TIPPER";
   username?: string;
@@ -34,6 +36,15 @@ type SignInDialogProps = {
   allowInlineSignUp?: boolean;
   /** Shows a banner directing users to the Host creator tab. */
   hostRequiredNotice?: boolean;
+  /**
+   * When false, the parent closes the modal from onSuccess.
+   * Avoids racing create-dialog resume (picker flash).
+   */
+  closeOnSuccess?: boolean;
+  /** Hide the already-signed-in banner (create-dialog auth must not flash it). */
+  showSignedInNotice?: boolean;
+  /** Analytics: UI surface that opened this sign-in flow. */
+  signupSurface: SignupSurface;
 };
 
 /**
@@ -51,8 +62,14 @@ export default function SignInDialog({
   contentClassName,
   allowInlineSignUp = false,
   hostRequiredNotice = false,
+  closeOnSuccess = true,
+  showSignedInNotice,
+  signupSurface,
 }: SignInDialogProps) {
   const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
+  const resolvedCloseOnSuccess = onSuccess ? false : closeOnSuccess;
+  const resolvedShowSignedInNotice =
+    showSignedInNotice ?? (onSuccess ? false : true);
 
   return (
     <Dialog
@@ -78,7 +95,9 @@ export default function SignInDialog({
           </div>
         ) : null}
 
-        {isAuthenticated && user ? <AlreadySignedInNotice compact /> : null}
+        {resolvedShowSignedInNotice && isAuthenticated && user ? (
+          <AlreadySignedInNotice compact />
+        ) : null}
 
         <SigninForm
           key={open ? "open" : "closed"}
@@ -86,13 +105,14 @@ export default function SignInDialog({
           returnTo={returnTo}
           defaultUserType={defaultUserType}
           allowInlineSignUp={allowInlineSignUp}
+          signupSurface={signupSurface}
           onModalHostSuccess={payload => {
             onSuccess?.(payload);
-            onOpenChange(false);
+            if (resolvedCloseOnSuccess) onOpenChange(false);
           }}
           onModalTipperSuccess={payload => {
             onSuccess?.(payload);
-            onOpenChange(false);
+            if (resolvedCloseOnSuccess) onOpenChange(false);
           }}
           className="py-4"
         />

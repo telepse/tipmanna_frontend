@@ -9,7 +9,7 @@ export default function SignInPage() {
     <>
       <AuthBanner title="Sign In" />
       <Suspense fallback={null}>
-        <SigninForm />
+        <SigninForm signupSurface="sign_in_page" />
       </Suspense>
     </>
   );

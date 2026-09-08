@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 
 // Third-party imports
 import { Control, useForm, type Resolver } from "react-hook-form";
@@ -55,13 +55,20 @@ import {
   resolveLiveVideoOwnershipAnswer,
 } from "@/lib/validate-privacy-video-links";
 import { syncHostAuthFromCreateEventResponse } from "@/lib/sync-host-auth-after-submission";
+import {
+  beginExclusiveSubmit,
+  endExclusiveSubmit,
+} from "@/lib/exclusive-submit";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useHostSession } from "@/hooks/use-host-session";
+import { resolveWizardPostSubmitDestination } from "@/lib/post-host-auth-destination";
 import { NavbarShell } from "@/components/shared/navbar-shell";
 
 export default function ContentOnlyPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [pendingCoOwnerInviteIds, setPendingCoOwnerInviteIds] = useState<
     string[]
@@ -85,6 +92,7 @@ export default function ContentOnlyPage() {
   const isExistingHost = tag === "EXISTING_HOST";
   const { canWriteAsHost } = useHostCapabilityWithAuth();
   const { hasActivePremium } = useHostPlanCapabilities();
+  const { username: hostUsername } = useHostSession();
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof NewEventFormData)[] = [];
@@ -273,16 +281,17 @@ export default function ContentOnlyPage() {
     if (!runPrivacyChecks()) {
       return;
     }
-
-    const coOwnerErr = await validateCoOwnerDraftsForSubmit(
-      values.videoLinks ?? []
-    );
-    if (coOwnerErr) {
-      toast.error(coOwnerErr);
-      return;
-    }
+    if (isLoading || !beginExclusiveSubmit(submitInFlightRef)) return;
 
     try {
+      const coOwnerErr = await validateCoOwnerDraftsForSubmit(
+        values.videoLinks ?? []
+      );
+      if (coOwnerErr) {
+        toast.error(coOwnerErr);
+        return;
+      }
+
       setIsLoading(true);
 
       const result = await newCreateEventAction({
@@ -327,12 +336,24 @@ export default function ContentOnlyPage() {
         void deleteFormDraftAction(draftId);
       }
 
-      // redirect to manage event page
-      if (canWriteAsHost && user?.username) {
-        push(`/@${user.username}`);
-      } else {
+      if (!canWriteAsHost) {
         toast.error("Host session required to create events");
+        return;
       }
+
+      const dest = resolveWizardPostSubmitDestination({
+        hostSessionUsername: hostUsername,
+        createEventResponse: result.data,
+      });
+
+      if (dest === "/explore") {
+        toast.error(
+          "Could not open your creator profile. Try My account from the menu."
+        );
+        return;
+      }
+
+      push(dest);
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -343,7 +364,8 @@ export default function ContentOnlyPage() {
         toast.error("Failed to create event");
       }
     } finally {
-      setIsLoading(false); // reset loading state
+      endExclusiveSubmit(submitInFlightRef);
+      setIsLoading(false);
     }
   };
 

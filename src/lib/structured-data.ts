@@ -8,10 +8,17 @@ type VideoJsonLdInput = {
   videoUrl?: string;
   description?: string;
   uploadDate?: string;
+  /** Overrides YouTube-derived thumbnail when set (e.g. TipLink banner). */
+  thumbnailUrl?: string | null;
 };
 
 export function buildVideoObjectJsonLd(input: VideoJsonLdInput) {
   const ytId = input.videoUrl ? extractYoutubeID(input.videoUrl) : null;
+  const ytThumb = ytId
+    ? `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`
+    : undefined;
+  const thumbnailUrl = input.thumbnailUrl?.trim() || ytThumb;
+
   return {
     "@context": "https://schema.org",
     "@type": "VideoObject",
@@ -21,12 +28,8 @@ export function buildVideoObjectJsonLd(input: VideoJsonLdInput) {
       `Watch "${input.title}" by ${input.hostName} on Tipmanna.`,
     uploadDate: input.uploadDate,
     url: input.url,
-    ...(ytId
-      ? {
-          embedUrl: `https://www.youtube.com/embed/${ytId}`,
-          thumbnailUrl: `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`,
-        }
-      : {}),
+    ...(ytId ? { embedUrl: `https://www.youtube.com/embed/${ytId}` } : {}),
+    ...(thumbnailUrl ? { thumbnailUrl } : {}),
     publisher: {
       "@type": "Organization",
       name: "Tipmanna",

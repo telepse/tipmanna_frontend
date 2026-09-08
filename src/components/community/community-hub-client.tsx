@@ -542,6 +542,7 @@ export default function CommunityHubClient() {
           if (!open) setJoinSignInReturnTo(null);
         }}
         signInTitle="Sign in required"
+        signupSurface="community_hub"
         getRedirectPathAfterVerify={() => joinSignInReturnTo ?? undefined}
       />
       <SignInDialog
@@ -554,6 +555,7 @@ export default function CommunityHubClient() {
         defaultUserType="host"
         hostRequiredNotice
         allowInlineSignUp
+        signupSurface="community_hub"
         onSuccess={handleHostSignInSuccess}
       />
       {HostAuthModal}

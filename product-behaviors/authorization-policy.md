@@ -109,7 +109,7 @@ Frontend: `useHostCapability().canWriteAsHost` + `serverHostAuthHeaders()` for s
 | `community.contentBank.*`, `community.host.write`, …  | Community host mutations (existing)                                     |
 | `auth.creatorProfile.write`, `auth.hostProfile.write` | Profile mutations (existing)                                            |
 
-**Tier B via host JWT, not yet in `enforce()` catalog:** playlists, co-owners, video-requests, tip config, and other dashboard routes that already use `requireRole("host")` + `serverHostAuthHeaders()`. Treat as Tier B; migrate to named capabilities incrementally. **`npm run verify:hybrid-auth`** asserts those frontend actions still send `serverHostAuthHeaders()` — do not regress to primary tipper token.
+**Tier B via host JWT, not yet in `enforce()` catalog:** playlists, TipLinks, co-owners, video-requests, tip config, and other dashboard routes that already use `requireRole("host")` + `serverHostAuthHeaders()`. Treat as Tier B; migrate to named capabilities incrementally. **`npm run verify:hybrid-auth`** asserts those frontend actions still send `serverHostAuthHeaders()` — do not regress to primary tipper token.
 
 **Profile mutations:** `PUT /auth/host-profile` is gated by `enforce("auth.hostProfile.write")`. After Stripe Connect `details_submitted`, legal name / registered company name / account type are **business-rule locks inside** that capability (403 from controller), not a separate auth tier.
 

@@ -298,6 +298,7 @@ export default function NewPricingGrid() {
           title="Sign in as host to continue"
           defaultUserType="host"
           allowInlineSignUp
+          signupSurface="pricing"
           onSuccess={handlePricingSignInSuccess}
         />
       ) : null}

@@ -198,6 +198,7 @@ export function GuestReminderPushOffer({
         onOpenChange={setOtpOpen}
         initialEmail={email}
         autoSendCode
+        signupSurface="reminder"
         signInTitle={
           flow === "push"
             ? "Verify your email for push alerts"

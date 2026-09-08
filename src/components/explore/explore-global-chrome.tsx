@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { useSelector } from "react-redux";
 
@@ -31,6 +31,7 @@ import { usePusherTrackingGlobalTV } from "@/hooks/use-global-viewer-count";
 import type { UserInfo } from "@/types/tracking.types";
 import type { RootState } from "@/redux/store";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import { prefetchWatchTvFromExplore } from "@/lib/explore-watch-tv";
 import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
 import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
 
@@ -197,6 +198,7 @@ export function ExploreGlobalChrome({
   activeSurface?: ExploreGlobalChromeSurface;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const sideChick = useSideChick();
   const communityFeatureEnabled =
@@ -280,6 +282,9 @@ export function ExploreGlobalChrome({
   const tab = searchParams.get("tab");
   const feedTab = searchParams.get("feedTab");
   const isExplore = pathname === EXPLORE || pathname === `${EXPLORE}/`;
+  const isTvPage =
+    pathname === "/tv" ||
+    (typeof pathname === "string" && pathname.startsWith("/tv/"));
   const feedActive =
     isExplore &&
     tab !== "discover" &&
@@ -287,7 +292,7 @@ export function ExploreGlobalChrome({
     feedTab !== "tv";
   const discoverActive = isExplore && tab === "discover";
   const findCommunitiesActive = isExplore && tab === "my-communities";
-  const watchTvActive = isExplore && feedTab === "tv";
+  const watchTvActive = isTvPage;
   const communityFeedActive = isExplore && feedTab === "community";
 
   return (
@@ -453,8 +458,9 @@ export function ExploreGlobalChrome({
             </Link>
 
             <Link
-              href={`${EXPLORE}?feedTab=tv`}
-              onMouseEnter={prefetchExploreFeedInitial}
+              href="/tv"
+              data-testid="explore-watch-tv"
+              onMouseEnter={() => prefetchWatchTvFromExplore(router)}
               className={cn(
                 "inline-block rounded-full px-2.5 py-1 text-xs transition sm:px-3",
                 watchTvActive && "bg-background shadow-sm"

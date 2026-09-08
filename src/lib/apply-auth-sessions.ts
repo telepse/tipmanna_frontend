@@ -27,17 +27,19 @@ export async function applyPrimaryAndHostSessions(
   );
 
   if (!requiresVerification && parsed.token) {
-    await persistAuthSession(parsed.token, parsed.user, { expiresDays: 60 });
+    const persistPrimary = persistAuthSession(parsed.token, parsed.user, {
+      expiresDays: 60,
+    });
 
     let hostSessionPersisted = true;
     if (parsed.hostSession?.token && parsed.hostSession.user) {
-      hostSessionPersisted = await persistHostSession(
-        parsed.hostSession.token,
-        parsed.hostSession.user,
-        {
+      const [, hostOk] = await Promise.all([
+        persistPrimary,
+        persistHostSession(parsed.hostSession.token, parsed.hostSession.user, {
           expiresDays: 7,
-        }
-      );
+        }),
+      ]);
+      hostSessionPersisted = hostOk;
       if (hostSessionPersisted) {
         notifyHostSessionTouched({
           active: true,
@@ -47,6 +49,8 @@ export async function applyPrimaryAndHostSessions(
           ).toISOString(),
         });
       }
+    } else {
+      await persistPrimary;
     }
     return { hostSessionPersisted };
   }

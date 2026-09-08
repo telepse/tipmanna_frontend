@@ -151,6 +151,7 @@ Hook: `usePayerOriginAnimationRecovery` — mounted on:
 | tv-looper / home / web   | `tv_looper`, `community_tv_looper` |
 | channel-client           | `channel_client`                   |
 | content-client           | `content_client`                   |
+| tiplink landing          | `tiplink`                          |
 | room-messages            | (dynamic)                          |
 
 Guards (all must pass):

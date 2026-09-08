@@ -34,7 +34,6 @@ import {
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { uploadImage } from "@/lib/cloudinary";
 import { cn } from "@/lib/utils";
-import { updateTipper } from "@/features/auth-slice";
 import { dispatchCreatorUsernameChanged } from "@/lib/creator-username-alias";
 import { migrateCreatorProfileCacheUsername } from "@/lib/drawer-prefetch-cache";
 import { useHostSession } from "@/hooks/use-host-session";
@@ -61,7 +60,7 @@ export const HostBanner = () => {
 
   const user = useSelector((state: RootState) => state.auth.user);
 
-  const { eventSlug } = useHostSession();
+  const { eventSlug, username: hostUsername } = useHostSession();
 
   const full_name = user?.fullName ?? "";
 
@@ -97,12 +96,17 @@ export const HostBanner = () => {
     maxSizeMB: 2,
   });
 
+  const [loadedHostUsername, setLoadedHostUsername] = useState<string | null>(
+    null
+  );
+
   const eventSlugFromSession = eventSlug;
+  const displayHostUsername = loadedHostUsername ?? hostUsername ?? "";
 
   const creatorForm = useForm<CreatorFormData>({
     resolver: zodResolver(creatorSchema),
     defaultValues: {
-      username: user?.username ?? "",
+      username: hostUsername ?? "",
       pageDescription: "",
       profileImageUrl: null,
       externalLinkUrl: "",
@@ -167,6 +171,7 @@ export const HostBanner = () => {
       }
 
       const profile = res.data;
+      setLoadedHostUsername(profile.username);
 
       creatorForm.reset({
         username: profile.username,
@@ -253,7 +258,8 @@ export const HostBanner = () => {
         profileImageUrl = null;
       }
 
-      const previousUsername = user?.username ?? "";
+      const previousUsername =
+        loadedHostUsername ?? creatorForm.getValues("username") ?? "";
 
       const res = await updateCreatorProfileHostAction({
         username: values.username.trim(),
@@ -278,12 +284,7 @@ export const HostBanner = () => {
       setUsernameChangeOverride(updated.usernameChangeOverride);
 
       if (updated.username !== previousUsername) {
-        dispatch(
-          updateTipper({
-            username: updated.username,
-          })
-        );
-
+        setLoadedHostUsername(updated.username);
         migrateCreatorProfileCacheUsername(previousUsername, updated.username);
 
         dispatchCreatorUsernameChanged({
@@ -340,13 +341,17 @@ export const HostBanner = () => {
               onClick={handleOpenCreatorDialog}
             >
               <SquarePen className="size-4 shrink-0 text-white/90" />
-              <span className="truncate">@{user?.username}</span>
+              <span className="truncate">@{displayHostUsername}</span>
             </button>
           </div>
         </div>
 
         <Link
-          href={`/host/${eventSlugFromSession ?? user?.username}/settings`}
+          href={
+            eventSlugFromSession
+              ? `/host/${eventSlugFromSession}/settings`
+              : "/host"
+          }
           className="flex w-full items-center justify-center gap-2 rounded border border-white/50 px-4 py-2 text-sm text-white"
         >
           <SquarePen className="size-4 text-white/90" />
@@ -380,7 +385,11 @@ export const HostBanner = () => {
 
             <div className="flex items-center gap-2">
               <Link
-                href={`/host/${eventSlugFromSession ?? user?.username}/settings`}
+                href={
+                  eventSlugFromSession
+                    ? `/host/${eventSlugFromSession}/settings`
+                    : "/host"
+                }
                 className="flex w-fit items-center gap-2 rounded border border-white/50 px-4 py-2 text-white"
               >
                 <SquarePen className="size-4 text-white/90" />
@@ -393,7 +402,7 @@ export const HostBanner = () => {
                 onClick={handleOpenCreatorDialog}
               >
                 <SquarePen className="size-4 shrink-0 text-white/90" />
-                <span className="truncate">@{user?.username}</span>
+                <span className="truncate">@{displayHostUsername}</span>
               </button>
             </div>
           </div>

@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Bookmark,
   Lock,
+  Link2,
   MessageCircleMore,
   Share2,
   SquarePen,
@@ -43,6 +44,8 @@ import type {
   HostCreatorVideo,
 } from "@/actions/host-creator";
 import type { HostPlaylistSummary } from "@/actions/host-playlist";
+import type { TipLinkSummary } from "@/actions/tiplink";
+import { listHostTipLinksAction } from "@/actions/tiplink";
 import {
   getCommunityAccessStateAction,
   type CommunityFeaturedVideo,
@@ -90,6 +93,32 @@ import {
 import { ProfileDrawer } from "@/components/tv/profile-drawer";
 import { StartCommunityRequestDialog } from "@/components/community/start-community-request-dialog";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+
+function buildTipLinkManageHref(
+  hostEventSlug: string,
+  eventId: string,
+  channelId?: string
+) {
+  const base = `/host/${hostEventSlug}/manage-event/${eventId}?tab=tiplink`;
+  return channelId
+    ? `${base}&channelId=${encodeURIComponent(channelId)}`
+    : base;
+}
+
+function resolveTipLinkCreateTarget(
+  events: HostCreatorEvent[],
+  tipLinks: TipLinkSummary[]
+): { eventId: string; channelId?: string } | null {
+  const usedChannels = new Set(tipLinks.map(t => t.eventChannelId));
+  for (const event of events) {
+    const videoWithout = event.videos.find(v => !usedChannels.has(v.id));
+    if (videoWithout) {
+      return { eventId: event.id, channelId: videoWithout.id };
+    }
+  }
+  const first = events[0];
+  return first ? { eventId: first.id } : null;
+}
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { awaitProfileDrawerPrefetch } from "@/lib/drawer-prefetch-cache";
 
@@ -131,6 +160,7 @@ export function HostCreatorPageClient({
     events,
     communities,
     playlists = [],
+    tipLinks = [],
     coOwnedVideos = [],
     coOwnerPartyVideos = [],
     coOwnerPartyName = null,
@@ -419,6 +449,7 @@ export function HostCreatorPageClient({
         defaultUserType="host"
         hostRequiredNotice={!pendingStartCommunity}
         allowInlineSignUp
+        signupSurface="creator_profile"
         onSuccess={handleSignInSuccess}
       />
 
@@ -503,6 +534,8 @@ export function HostCreatorPageClient({
                 coOwnerPartyName={coOwnerPartyName}
                 onPlay={playVideo}
                 isOwnProfile={isOwnProfile}
+                hostEventSlug={host.eventSlug}
+                tipLinks={tipLinks}
               />
             </TabsContent>
 
@@ -533,7 +566,13 @@ export function HostCreatorPageClient({
             </TabsContent>
 
             <TabsContent value="playlists">
-              <PlaylistsTabContent playlists={playlists} />
+              <PlaylistsTabContent
+                playlists={playlists}
+                tipLinks={tipLinks}
+                isOwnProfile={isOwnProfile}
+                hostEventSlug={host.eventSlug}
+                events={events}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -927,6 +966,8 @@ function AllVideosTabContent({
   coOwnerPartyName,
   onPlay,
   isOwnProfile,
+  hostEventSlug,
+  tipLinks,
 }: {
   events: HostCreatorEvent[];
   coOwnedVideos: HostCreatorVideo[];
@@ -934,7 +975,25 @@ function AllVideosTabContent({
   coOwnerPartyName: string | null;
   onPlay: (video: HostCreatorVideo) => void;
   isOwnProfile: boolean;
+  hostEventSlug: string | null;
+  tipLinks: TipLinkSummary[];
 }) {
+  const router = useRouter();
+  const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
+
+  const openTipLinkManage = useCallback(
+    (eventId: string, channelId?: string) => {
+      if (!hostEventSlug) return;
+      router.push(buildTipLinkManageHref(hostEventSlug, eventId, channelId));
+    },
+    [hostEventSlug, router]
+  );
+
+  const handleCreateTipLink = useCallback(() => {
+    const target = resolveTipLinkCreateTarget(events, tipLinks);
+    if (!target) return;
+    requestHostAuth(() => openTipLinkManage(target.eventId, target.channelId));
+  }, [events, openTipLinkManage, requestHostAuth, tipLinks]);
   const allVideos = useMemo(
     () => events.flatMap(event => event.videos),
     [events]
@@ -1002,6 +1061,17 @@ function AllVideosTabContent({
             {coOwnedSubtabLabel}
           </CreatorSubtabButton>
         ) : null}
+
+        {isOwnProfile && hostEventSlug ? (
+          <button
+            type="button"
+            onClick={handleCreateTipLink}
+            className="border-primary/30 text-primary ml-auto inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold"
+          >
+            <Plus className="size-3.5" />
+            Create TipLink
+          </button>
+        ) : null}
       </CreatorSubtabBar>
 
       {activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID ? (
@@ -1027,8 +1097,17 @@ function AllVideosTabContent({
         <VideoCardGrid
           videos={allVideos}
           onPlay={onPlay}
+          onTipLinkManage={
+            isOwnProfile && hostEventSlug
+              ? video =>
+                  requestHostAuth(() =>
+                    openTipLinkManage(video.event.id, video.id)
+                  )
+              : undefined
+          }
         />
       )}
+      {HostAuthModal}
     </div>
   );
 }
@@ -2137,10 +2216,12 @@ function VideoCardGrid({
   videos,
   onPlay,
   forceLocked = false,
+  onTipLinkManage,
 }: {
   videos: HostCreatorVideo[];
   onPlay: (video: HostCreatorVideo) => void;
   forceLocked?: boolean;
+  onTipLinkManage?: (video: HostCreatorVideo) => void;
 }) {
   return (
     <div className="grid grid-cols-3 gap-0.5 sm:grid-cols-4 md:grid-cols-5">
@@ -2152,6 +2233,9 @@ function VideoCardGrid({
             video={video}
             locked={locked}
             onPlay={() => onPlay(video)}
+            onTipLinkManage={
+              onTipLinkManage ? () => onTipLinkManage(video) : undefined
+            }
           />
         );
       })}
@@ -2163,10 +2247,12 @@ function VideoCard({
   video,
   locked,
   onPlay,
+  onTipLinkManage,
 }: {
   video: HostCreatorVideo;
   locked: boolean;
   onPlay: () => void;
+  onTipLinkManage?: () => void;
 }) {
   const thumb = useMemo(() => {
     const videoId = extractYoutubeID(video.url);
@@ -2197,6 +2283,19 @@ function VideoCard({
           !locked && "group-hover:scale-[1.03]"
         )}
       />
+      {onTipLinkManage ? (
+        <button
+          type="button"
+          aria-label={`Create TipLink for ${video.title}`}
+          className="absolute top-1 right-1 z-10 rounded-full bg-black/70 p-1.5 text-white hover:bg-black/90"
+          onClick={e => {
+            e.stopPropagation();
+            onTipLinkManage();
+          }}
+        >
+          <Link2 className="size-3.5" />
+        </button>
+      ) : null}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pt-8 pb-1.5">
         <p className="line-clamp-2 text-left text-[10px] font-medium text-white">
           {video.title}
@@ -2229,33 +2328,186 @@ function LockedBadge() {
 
 function PlaylistsTabContent({
   playlists,
+  tipLinks,
+  isOwnProfile,
+  hostEventSlug,
+  events,
 }: {
   playlists: HostPlaylistSummary[];
+  tipLinks: TipLinkSummary[];
+  isOwnProfile: boolean;
+  hostEventSlug: string | null;
+  events: HostCreatorEvent[];
 }) {
-  if (playlists.length === 0) {
-    return <EmptyTabMessage message="No playlists published yet." />;
-  }
+  const router = useRouter();
+  const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
+  const [draftTipLinks, setDraftTipLinks] = useState<TipLinkSummary[]>([]);
+
+  useEffect(() => {
+    if (!isOwnProfile) {
+      setDraftTipLinks([]);
+      return;
+    }
+    let cancelled = false;
+    void listHostTipLinksAction().then(res => {
+      if (cancelled || !res.success || !res.data) return;
+      const publishedIds = new Set(tipLinks.map(t => t.id));
+      setDraftTipLinks(
+        res.data.tipLinks.filter(
+          t => t.status === "draft" && !publishedIds.has(t.id)
+        )
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwnProfile, tipLinks]);
+
+  const handleCreateTipLink = useCallback(() => {
+    const target = resolveTipLinkCreateTarget(events, tipLinks);
+    if (!target || !hostEventSlug) return;
+    requestHostAuth(() =>
+      router.push(
+        buildTipLinkManageHref(hostEventSlug, target.eventId, target.channelId)
+      )
+    );
+  }, [events, hostEventSlug, requestHostAuth, router, tipLinks]);
 
   return (
-    <ul className="space-y-3 px-2 py-4">
-      {playlists.map(pl => (
-        <li key={pl.id}>
-          <Link
-            href={`/playlist/${pl.id}`}
-            className="hover:bg-muted/30 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
+    <div className="space-y-6 px-2 py-4">
+      {isOwnProfile && hostEventSlug ? (
+        <div className="flex justify-end px-2">
+          <button
+            type="button"
+            onClick={handleCreateTipLink}
+            className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
           >
-            <span className="font-semibold">{pl.name}</span>
-            <span className="text-muted-foreground text-xs">
-              {pl.videoCount} videos · {pl.pageVisitCount} visits ·{" "}
-              {pl.totalTipCount} tips
-              {pl.kind === "community" && pl.communityName
-                ? ` · c ${pl.communityName}`
-                : ""}
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+            <Plus className="size-3.5" />
+            Create TipLink
+          </button>
+        </div>
+      ) : null}
+
+      {tipLinks.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
+            TipLinks
+          </p>
+          <ul className="space-y-3">
+            {tipLinks.map(tl => {
+              const vid = extractYoutubeID(tl.videoUrl);
+              const thumb = vid
+                ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
+                : tl.bannerUrl;
+              return (
+                <li key={tl.id}>
+                  <Link
+                    href={tl.landingUrl}
+                    className="hover:bg-muted/30 flex items-center gap-3 rounded-lg border p-3 transition-colors"
+                  >
+                    {thumb ? (
+                      <Image
+                        src={thumb}
+                        alt=""
+                        width={72}
+                        height={54}
+                        className="rounded object-cover"
+                        unoptimized
+                      />
+                    ) : null}
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-semibold">{tl.title}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {tl.pageVisits90d} visits (90d) · {tl.videoTipCount}{" "}
+                        tips · {tl.landingUrl}
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      {isOwnProfile && draftTipLinks.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
+            Draft TipLinks
+          </p>
+          <ul className="space-y-3">
+            {draftTipLinks.map(tl => {
+              const eventSlug =
+                events.find(e => e.id === tl.eventId)?.eventSlug ??
+                hostEventSlug;
+              return (
+                <li key={tl.id}>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3">
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-semibold">{tl.title}</span>
+                      <span className="text-muted-foreground text-xs">
+                        Draft · not published
+                      </span>
+                    </div>
+                    {eventSlug ? (
+                      <button
+                        type="button"
+                        className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
+                        onClick={() =>
+                          requestHostAuth(() =>
+                            router.push(
+                              buildTipLinkManageHref(
+                                eventSlug,
+                                tl.eventId,
+                                tl.eventChannelId
+                              )
+                            )
+                          )
+                        }
+                      >
+                        Continue setup
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      {playlists.length === 0 &&
+      tipLinks.length === 0 &&
+      draftTipLinks.length === 0 ? (
+        <EmptyTabMessage message="No playlists or TipLinks published yet." />
+      ) : playlists.length === 0 ? null : (
+        <div className="space-y-2">
+          <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
+            Playlists
+          </p>
+          <ul className="space-y-3">
+            {playlists.map(pl => (
+              <li key={pl.id}>
+                <Link
+                  href={`/playlist/${pl.id}`}
+                  className="hover:bg-muted/30 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
+                >
+                  <span className="font-semibold">{pl.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {pl.videoCount} videos · {pl.pageVisitCount} visits ·{" "}
+                    {pl.totalTipCount} tips
+                    {pl.kind === "community" && pl.communityName
+                      ? ` · c ${pl.communityName}`
+                      : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {HostAuthModal}
+    </div>
   );
 }
 

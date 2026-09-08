@@ -33,7 +33,9 @@ export async function newCreateEventAction(formData: NewCreateEventPayload) {
       body: JSON.stringify(formData),
       cache: "no-store",
     },
-    "newCreateEventAction"
+    "newCreateEventAction",
+    undefined,
+    { maxAttempts: 1 }
   );
 }
 
@@ -107,7 +109,9 @@ export async function createEventChannelAction(
       body: JSON.stringify(values),
       cache: "no-store",
     },
-    "createEventChannelAction"
+    "createEventChannelAction",
+    undefined,
+    { maxAttempts: 1 }
   );
 }
 
@@ -148,7 +152,7 @@ export async function getVideoCoOwnerInviteStatusAction(draftKey: string) {
     `${COOWNER_API}/host/video-co-owner-invites/status?${q}`,
     {
       method: "GET",
-      headers: await serverHostAuthHeaders(),
+      headers: await serverAuthHeaders(),
       cache: "no-store",
     },
     "getVideoCoOwnerInviteStatusAction"

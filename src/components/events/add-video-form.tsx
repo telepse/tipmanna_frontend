@@ -26,6 +26,10 @@ import { EventVideoTypeTagPicker } from "@/components/events/event-video-type-ta
 import { EVENT_VIDEO_TYPE_OPTIONS } from "@/lib/event-video-type-options";
 import { AddVideoPolicyFields } from "@/components/events/add-video-policy-fields";
 import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
+import {
+  beginExclusiveSubmit,
+  endExclusiveSubmit,
+} from "@/lib/exclusive-submit";
 import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
 import {
   coOwnerBlockReasonMessage,
@@ -202,6 +206,7 @@ export function AddVideoForm({
     "idle" | "checking" | "verified" | "failed"
   >("idle");
   const nextVerifyRequestIdRef = useRef(0);
+  const submitInFlightRef = useRef(false);
   const latestVerifyRequestIdRef = useRef(0);
   const [modalDraftId, setModalDraftId] = useState<string | null>(() => {
     if (typeof window === "undefined" || !draftAutosave?.targetId) return null;
@@ -381,55 +386,60 @@ export function AddVideoForm({
 
             <form
               onSubmit={form.handleSubmit(async values => {
-                const slot = values.hostYoutubeSlot;
-                if (
-                  showHostYoutubeSlot &&
-                  (slot === "1" || slot === "2") &&
-                  verifyState !== "verified"
-                ) {
-                  toast.error(
-                    "Verify the video on your YouTube channel before submitting"
-                  );
-                  return;
-                }
-                if (
-                  showHostYoutubeSlot &&
-                  (slot === "1" || slot === "2") &&
-                  !youtubeChannels.some(
-                    c => c.slot === Number(slot) && c.url?.trim()
-                  )
-                ) {
-                  toast.error(
-                    `Configure YouTube channel slot ${slot} in your dashboard before linking this video`
-                  );
-                  return;
-                }
-                if (requirePolicyFields && !values.ownershipAnswer) {
-                  toast.error("Please answer the ownership question");
-                  return;
-                }
-                if (requirePolicyFields && values.ownershipAnswer === "no") {
-                  if (!values.coOwnerDraftKey?.trim()) {
+                if (loading || !beginExclusiveSubmit(submitInFlightRef)) return;
+                try {
+                  const slot = values.hostYoutubeSlot;
+                  if (
+                    showHostYoutubeSlot &&
+                    (slot === "1" || slot === "2") &&
+                    verifyState !== "verified"
+                  ) {
                     toast.error(
-                      "Co-owner draft id missing — refresh and try again"
+                      "Verify the video on your YouTube channel before submitting"
                     );
                     return;
                   }
-                  const coOwnerErr = await validateCoOwnerDraftsForSubmit(
-                    [
-                      {
-                        ownershipAnswer: values.ownershipAnswer,
-                        coOwnerDraftKey: values.coOwnerDraftKey,
-                      },
-                    ],
-                    { singleVideo: true }
-                  );
-                  if (coOwnerErr) {
-                    toast.error(coOwnerErr);
+                  if (
+                    showHostYoutubeSlot &&
+                    (slot === "1" || slot === "2") &&
+                    !youtubeChannels.some(
+                      c => c.slot === Number(slot) && c.url?.trim()
+                    )
+                  ) {
+                    toast.error(
+                      `Configure YouTube channel slot ${slot} in your dashboard before linking this video`
+                    );
                     return;
                   }
+                  if (requirePolicyFields && !values.ownershipAnswer) {
+                    toast.error("Please answer the ownership question");
+                    return;
+                  }
+                  if (requirePolicyFields && values.ownershipAnswer === "no") {
+                    if (!values.coOwnerDraftKey?.trim()) {
+                      toast.error(
+                        "Co-owner draft id missing — refresh and try again"
+                      );
+                      return;
+                    }
+                    const coOwnerErr = await validateCoOwnerDraftsForSubmit(
+                      [
+                        {
+                          ownershipAnswer: values.ownershipAnswer,
+                          coOwnerDraftKey: values.coOwnerDraftKey,
+                        },
+                      ],
+                      { singleVideo: true }
+                    );
+                    if (coOwnerErr) {
+                      toast.error(coOwnerErr);
+                      return;
+                    }
+                  }
+                  await onSubmit(values);
+                } finally {
+                  endExclusiveSubmit(submitInFlightRef);
                 }
-                await onSubmit(values);
               })}
               className="space-y-4"
             >

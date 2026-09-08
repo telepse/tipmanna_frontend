@@ -140,7 +140,9 @@ export async function addCommunityVideoAction(
       body: JSON.stringify(body),
       cache: "no-store",
     },
-    "addCommunityVideoAction"
+    "addCommunityVideoAction",
+    undefined,
+    { maxAttempts: 1 }
   );
 }
 

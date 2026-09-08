@@ -7,8 +7,11 @@ import {
   applyPendingAudioRestore,
   applyPaymentPlaybackRestore,
   hasTvAudioUnlockedThisSession,
+  playAlreadyLoadedWithGesture,
+  playWithUserGesture,
   prepareMutedLoadForAutoplay,
   readTvMutePref,
+  unmuteAndPlay,
   writeTvMutePref,
 } from "@/lib/tv-autoplay";
 
@@ -130,6 +133,80 @@ describe("applyPendingAudioRestore", () => {
     expect(applyPendingAudioRestore(player, pending, "test")).toBeNull();
     expect(player.play).toHaveBeenCalled();
     expect(player.unmute).toHaveBeenCalled();
+  });
+
+  it("auto-advance (non-gesture) restores session audio after muted load", () => {
+    writeTvMutePref(false);
+    const player = makePlayer({ isMuted: () => true });
+    const pending = prepareMutedLoadForAutoplay(player, true);
+    const callOrder: string[] = [];
+    player.play = vi.fn(() => callOrder.push("play"));
+    player.unmute = vi.fn(() => callOrder.push("unmute"));
+
+    expect(pending).toEqual({ restoreUnmuted: true, shouldPlay: true });
+    expect(
+      applyPendingAudioRestore(player, pending, "auto_advance")
+    ).toBeNull();
+    expect(callOrder).toEqual(["play", "unmute"]);
+  });
+});
+
+describe("playWithUserGesture / unmuteAndPlay", () => {
+  beforeEach(() => {
+    installBrowserGlobals();
+  });
+
+  it("playWithUserGesture plays only and never unmutes on a new load", () => {
+    writeTvMutePref(false);
+    const player = makePlayer({ isMuted: () => true });
+
+    playWithUserGesture(
+      player,
+      { restoreUnmuted: true, shouldPlay: true },
+      "gesture"
+    );
+
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+  });
+
+  it("playWithUserGesture plays only when session has not unlocked audio", () => {
+    const player = makePlayer({ isMuted: () => true });
+    playWithUserGesture(
+      player,
+      { restoreUnmuted: false, shouldPlay: true },
+      "gesture"
+    );
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+  });
+
+  it("playAlreadyLoadedWithGesture unmutes after play when already PLAYING", () => {
+    writeTvMutePref(false);
+    const player = makePlayer({ isMuted: () => true });
+    const callOrder: string[] = [];
+    player.play = vi.fn(() => callOrder.push("play"));
+    player.unmute = vi.fn(() => callOrder.push("unmute"));
+
+    playAlreadyLoadedWithGesture(
+      player,
+      { restoreUnmuted: true, shouldPlay: true },
+      "replay"
+    );
+
+    expect(callOrder).toEqual(["play", "unmute"]);
+  });
+
+  it("unmuteAndPlay unmutes then plays in gesture stack", () => {
+    const player = makePlayer({ isMuted: () => true });
+    const callOrder: string[] = [];
+    player.unmute = vi.fn(() => callOrder.push("unmute"));
+    player.play = vi.fn(() => callOrder.push("play"));
+
+    unmuteAndPlay(player, "click");
+
+    expect(callOrder).toEqual(["unmute", "play"]);
+    expect(player.setVolume).toHaveBeenCalledWith(100);
   });
 });
 

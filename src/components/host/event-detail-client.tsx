@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
 // Third-party imports
@@ -50,6 +51,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EventTipLinkTab } from "@/components/tiplink/event-tiplink-tab";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -285,8 +287,16 @@ export const EventDetailClient = ({
   submissionKind,
 }: Props) => {
   const [tabType, setTabType] = useState<
-    "event_info" | "contents" | "post_to_event" | "generate_report"
+    "event_info" | "contents" | "tiplink" | "post_to_event" | "generate_report"
   >("event_info");
+
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "tiplink") {
+      setTabType("tiplink");
+    }
+  }, [searchParams]);
 
   const user = useSelector((state: RootState) => state.auth.user) as HostUser;
   const userType = (user as HostUser)?.individualLegalFirstName
@@ -735,6 +745,7 @@ export const EventDetailClient = ({
               val as
                 | "event_info"
                 | "contents"
+                | "tiplink"
                 | "post_to_event"
                 | "generate_report"
             )
@@ -754,6 +765,13 @@ export const EventDetailClient = ({
               className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
             >
               Contents
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="tiplink"
+              className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
+            >
+              TipLink
             </TabsTrigger>
 
             <TabsTrigger
@@ -1629,6 +1647,13 @@ export const EventDetailClient = ({
                 );
               })}
             </div>
+          </TabsContent>
+
+          <TabsContent value="tiplink">
+            <EventTipLinkTab
+              eventId={eventId}
+              contents={contents}
+            />
           </TabsContent>
 
           <TabsContent value="post_to_event">

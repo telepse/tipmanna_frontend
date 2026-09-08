@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -47,11 +48,14 @@ import {
 import {
   applyPaymentPlaybackRestore,
   applyPendingAudioRestore as applyPendingAudioRestoreHelper,
+  playAlreadyLoadedWithGesture,
   playWithUserGesture,
   prepareMutedLoadForAutoplay,
   readTvMutePref,
   type PendingAudioRestore,
 } from "@/lib/tv-autoplay";
+import { shouldRemountTvPlayer } from "@/lib/tv-player-resume";
+import { readTvPlaybackSnapshot } from "@/lib/tv-playback-session";
 import {
   initTvAnalyticsRuntime,
   shutdownTvAnalyticsRuntime,
@@ -310,6 +314,9 @@ type TVContextType = {
   /** Flushes a playback request that was deferred until the TV player became ready. */
   flushPendingPlaybackRequest: () => void;
 
+  /** Restores tab-scoped playback snapshot after same-tab route leave/return. */
+  applyTabPlaybackSnapshotRestore: (trigger: string) => void;
+
   /** Half-day thematic collection applied to ongoing batch (backend meta). */
   ongoingCollection: TvAdjustmentCollectionPayload;
   upcomingCollection: TvAdjustmentCollectionPayload;
@@ -345,7 +352,7 @@ type TVContextType = {
 
   /** Phase C1 — provisional target for initial live-offset embed (read-only). */
   initialPlaybackTarget: InitialTvPlaybackTarget | null;
-  /** Phase C1 — stable key generation for startup embed remounts. */
+  /** Phase C1 — stable generation for visibility remount reconstruct only. */
   startupEmbedGeneration: number;
 
   /** Phase C1 — TvPlayer reports committed iframe target at mount. */
@@ -423,6 +430,7 @@ function createFallbackTvContext(): TVContextType {
     setPlayerPlayingState: noop,
     setPlayerVisible: noop,
     flushPendingPlaybackRequest: noop,
+    applyTabPlaybackSnapshotRestore: noop,
     ongoingCollection: null,
     upcomingCollection: null,
     pauseForPayment: noop,
@@ -572,13 +580,15 @@ export default function GlobalTVProvider({
   const documentWasHiddenRef = useRef(
     typeof document !== "undefined" && document.visibilityState === "hidden"
   );
+  const remountedThisHideShowCycleRef = useRef(false);
   const startupPlaybackGuardRef = useRef<StartupPlaybackGuardState>(
     createStartupPlaybackGuardState()
   );
   const inFlightOrchestratedVideoIdRef = useRef<string | null>(null);
   const legacyVideoErrorReloadsRef = useRef(0);
   const lastOrchestratedCommandRef = useRef<string | null>(null);
-  const startupGenerationRef = useRef(1);
+  const initialEmbedGen = 1;
+  const startupGenerationRef = useRef(initialEmbedGen);
   const provisionalInitialTargetRef = useRef<InitialTvPlaybackTarget | null>(
     null
   );
@@ -592,6 +602,11 @@ export default function GlobalTVProvider({
   const preStableCorrectiveSeekCountRef = useRef(0);
   const syncMissRef = useRef(0);
   const isReadyRef = useRef(false);
+  const playbackTabSnapshotRestoreAppliedRef = useRef(false);
+  const pendingTabSnapshotSeekRef = useRef<number | null>(null);
+  const applyTabPlaybackSnapshotRestoreRef = useRef<(trigger: string) => void>(
+    () => {}
+  );
   const broadcastEpochRef = useRef<number | null>(null);
   const totalDurationRef = useRef(0);
   const itemsLenRef = useRef(0);
@@ -617,7 +632,8 @@ export default function GlobalTVProvider({
     });
   const [initialPlaybackTarget, setInitialPlaybackTarget] =
     useState<InitialTvPlaybackTarget | null>(null);
-  const [startupEmbedGeneration, setStartupEmbedGeneration] = useState(1);
+  const [startupEmbedGeneration, setStartupEmbedGeneration] =
+    useState(initialEmbedGen);
 
   const setScheduleSourceCommunityId = useCallback((id: string | null) => {
     scheduleSourceCommunityIdRef.current = id;
@@ -764,6 +780,14 @@ export default function GlobalTVProvider({
   const unregisterTvPlayer = useCallback(() => {
     tvTrace("playback", "player_unregister", {});
     playerRef.current = null;
+  }, []);
+
+  const remountPlayerForResume = useCallback((reason: string) => {
+    tvTrace("playback", "player_resume_remount", { reason });
+    playerRef.current = null;
+    startupGenerationRef.current += 1;
+    setStartupEmbedGeneration(startupGenerationRef.current);
+    remountedThisHideShowCycleRef.current = true;
   }, []);
 
   const markPrePlayExecutedSeekIfNeeded = useCallback(() => {
@@ -988,7 +1012,7 @@ export default function GlobalTVProvider({
         });
         if (action === "replay") {
           player!.seekTo(req.startSeconds, true);
-          playWithUserGesture(
+          playAlreadyLoadedWithGesture(
             player!,
             pendingAudioRestoreRef.current,
             "requestPlayback.replay"
@@ -1020,6 +1044,9 @@ export default function GlobalTVProvider({
 
       if (!player?.isReady()) {
         pendingPlaybackRequestRef.current = req;
+        if (isUserIntentPlaybackReason(req.reason)) {
+          pendingUserGesturePlayRef.current = true;
+        }
         tvTrace("playback", "requestPlayback_deferred", {
           reason: "player_not_ready",
           videoId: req.videoId,
@@ -1733,19 +1760,54 @@ export default function GlobalTVProvider({
         visible,
         mode: modeRef.current,
       });
-      if (visible && modeRef.current === "GLOBAL") {
+      if (visible) {
         queueMicrotask(() => {
+          applyTabPlaybackSnapshotRestoreRef.current("setPlayerVisible");
           flushPendingPlaybackRequest();
-          maybeSyncToLive("setPlayerVisible");
+          if (modeRef.current === "GLOBAL") {
+            maybeSyncToLive("setPlayerVisible");
+          } else {
+            const seek = pendingTabSnapshotSeekRef.current;
+            const player = playerRef.current;
+            if (player?.isReady() && seek != null) {
+              player.seekTo(seek, false);
+              pendingTabSnapshotSeekRef.current = null;
+            }
+          }
         });
-      } else if (visible) {
-        flushPendingPlaybackRequest();
       }
       if (!visible) {
         paymentPlaybackRestoreRef.current = null;
       }
     },
     [maybeSyncToLive, flushPendingPlaybackRequest]
+  );
+
+  const resumePlayerAfterForeground = useCallback(
+    (source: string, persisted = false) => {
+      if (persisted) documentWasHiddenRef.current = true;
+      const player = playerRef.current;
+      if (
+        shouldRemountTvPlayer({
+          documentWasHidden: documentWasHiddenRef.current,
+          visibilityState: "visible",
+          startupInFlight: initialStartupInFlightRef.current,
+          firstPlayReached: startupPlaybackGuardRef.current.firstPlayReached,
+          iframeLive: player?.isIframeLive?.() ?? false,
+          commandReady: !!player?.isReady(),
+          playerState: player?.getPlayerState?.() ?? null,
+          remountedThisHideShowCycle: remountedThisHideShowCycleRef.current,
+        })
+      ) {
+        remountPlayerForResume(source);
+        return;
+      }
+      flushPendingPlaybackRequest();
+      if (modeRef.current === "GLOBAL") {
+        maybeSyncToLive(source);
+      }
+    },
+    [flushPendingPlaybackRequest, maybeSyncToLive, remountPlayerForResume]
   );
 
   const applySchedulePayloadCore = useCallback((data: any) => {
@@ -2506,6 +2568,28 @@ export default function GlobalTVProvider({
   }, [loadSchedule]);
 
   useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        documentWasHiddenRef.current = true;
+        remountedThisHideShowCycleRef.current = false;
+        return;
+      }
+      if (document.visibilityState === "visible") {
+        resumePlayerAfterForeground("visibilitychange");
+      }
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      resumePlayerAfterForeground("pageshow", event.persisted);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [resumePlayerAfterForeground]);
+
+  useEffect(() => {
     if (mode !== "GLOBAL") return;
     if (!broadcastEpoch || !items.length || !totalDuration) return;
 
@@ -2549,6 +2633,91 @@ export default function GlobalTVProvider({
       });
     }
   }, []);
+
+  const applyTabPlaybackSnapshotRestore = useCallback(
+    (trigger: string) => {
+      const flushPendingSeek = () => {
+        const seek = pendingTabSnapshotSeekRef.current;
+        const player = playerRef.current;
+        if (seek == null || !player?.isReady()) return;
+        player.seekTo(seek, false);
+        pendingTabSnapshotSeekRef.current = null;
+      };
+
+      if (playbackTabSnapshotRestoreAppliedRef.current) {
+        flushPendingSeek();
+        return;
+      }
+
+      const snap = readTvPlaybackSnapshot();
+      if (!snap) return;
+
+      const currentCommunity = scheduleSourceCommunityIdRef.current ?? null;
+      if (snap.communityId !== currentCommunity) return;
+
+      playbackTabSnapshotRestoreAppliedRef.current = true;
+
+      if (snap.mode === "LOCAL") {
+        let index = snap.currentIndex;
+        if (typeof window !== "undefined") {
+          try {
+            const stored = sessionStorage.getItem(SESSION_LOCAL_INDEX_KEY);
+            if (stored != null) {
+              const parsed = parseInt(stored, 10);
+              if (!Number.isNaN(parsed)) index = parsed;
+            }
+          } catch {
+            /* private mode */
+          }
+        }
+
+        const len = itemsLenRef.current;
+        if (len > 0) {
+          index = Math.max(0, Math.min(index, len - 1));
+        }
+
+        enterLocalMode("tab_return", index);
+
+        const item = items[index];
+        const videoId =
+          snap.videoId ?? extractYoutubeID(item?.channel?.url ?? "") ?? null;
+        const startSeconds = Math.max(0, snap.startSeconds);
+
+        if (videoId) {
+          requestPlayback({
+            reason: "tab_snapshot_restore",
+            videoId,
+            startSeconds,
+            scheduleIndex: index,
+          });
+        } else {
+          pendingTabSnapshotSeekRef.current = startSeconds;
+        }
+
+        tvTrace("navigation", "tab_snapshot_restore_local", {
+          trigger,
+          index,
+          startSeconds: snap.startSeconds,
+          videoId,
+        });
+      } else {
+        tvTrace("navigation", "tab_snapshot_restore_global", { trigger });
+      }
+
+      flushPendingSeek();
+    },
+    [enterLocalMode, items, requestPlayback]
+  );
+
+  useEffect(() => {
+    applyTabPlaybackSnapshotRestoreRef.current =
+      applyTabPlaybackSnapshotRestore;
+  }, [applyTabPlaybackSnapshotRestore]);
+
+  useEffect(() => {
+    if (!items.length) return;
+    applyTabPlaybackSnapshotRestore("items_loaded");
+  }, [items.length, applyTabPlaybackSnapshotRestore]);
 
   const enterGlobalMode = useCallback(() => {
     const fromMode = modeRef.current;
@@ -3089,6 +3258,8 @@ export default function GlobalTVProvider({
             pendingAudioRestoreRef.current,
             "playLocalScheduleItem"
           );
+        } else {
+          pendingUserGesturePlayRef.current = true;
         }
       }
     },
@@ -3598,6 +3769,7 @@ export default function GlobalTVProvider({
         setPlayerPlayingState,
         setPlayerVisible,
         flushPendingPlaybackRequest,
+        applyTabPlaybackSnapshotRestore,
 
         pauseForPayment,
         preparePlaybackForTipDrawer,

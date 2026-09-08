@@ -2342,7 +2342,12 @@ export default function ExplorePageClient({
                       ? "saves"
                       : "trends"
                 }
-                communityIds={scopedExploreCommunityIds}
+                communityIds={
+                  feedSubTab === "community"
+                    ? scopedExploreCommunityIds
+                    : undefined
+                }
+                tvExploreSource={tvExploreSource}
                 trendsFilters={trendsFilters}
                 ssrBoot={ssrBoot}
               />

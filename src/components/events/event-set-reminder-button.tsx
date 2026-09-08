@@ -271,6 +271,7 @@ export function EventSetReminderButton({
         }}
         initialEmail={guestEmailUsed}
         autoSendCode
+        signupSurface="reminder"
         signInTitle={
           pendingGuestMerge
             ? "Sign in for in-app event reminders"

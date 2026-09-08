@@ -1,0 +1,106 @@
+/**
+ * Locked TV playback contract — see product-behaviors/tv-system-product-behavior.md
+ * (LOCKED PLAYBACK CONTRACT). These tests must fail if the gesture/CUED order regresses.
+ */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { TvPlayerRef } from "@/components/tv/tv-player";
+import {
+  applyPendingAudioRestore,
+  playWithUserGesture,
+  prepareMutedLoadForAutoplay,
+} from "@/lib/tv-autoplay";
+import { writeTvMutePref } from "@/lib/session-audio";
+
+const frontendRoot = join(dirname(fileURLToPath(import.meta.url)), "../../..");
+const tvProviderSource = readFileSync(
+  join(frontendRoot, "src/components/tv-provider.tsx"),
+  "utf8"
+);
+
+function makePlayer(): TvPlayerRef {
+  return {
+    isReady: () => true,
+    isMuted: () => true,
+    mute: vi.fn(),
+    unmute: vi.fn(),
+    setVolume: vi.fn(),
+    play: vi.fn(),
+    pause: vi.fn(),
+    pauseProgrammatic: vi.fn(),
+    stop: vi.fn(),
+    getDuration: () => 120,
+    getCurrentTime: () => 0,
+    seekTo: vi.fn(),
+    load: vi.fn(),
+    getPlayerState: () => "PLAYING",
+    syncMuteFromPlayer: vi.fn(),
+  };
+}
+
+function installBrowserGlobals() {
+  const map = new Map<string, string>();
+  vi.stubGlobal("window", {
+    sessionStorage: {
+      getItem: (key: string) => (map.has(key) ? map.get(key)! : null),
+      setItem: (key: string, value: string) => {
+        map.set(key, value);
+      },
+      removeItem: (key: string) => {
+        map.delete(key);
+      },
+      clear: () => map.clear(),
+    },
+    location: { search: "" },
+  });
+}
+
+describe("TV playback contract — gesture stays muted until CUED", () => {
+  beforeEach(() => {
+    installBrowserGlobals();
+  });
+
+  it("playWithUserGesture never unmutes before the new id is CUED", () => {
+    writeTvMutePref(false);
+    const player = makePlayer();
+
+    playWithUserGesture(
+      player,
+      { restoreUnmuted: true, shouldPlay: true },
+      "contract"
+    );
+
+    expect(player.play).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+  });
+
+  it("applyPendingAudioRestore plays muted then unmutes after CUED", () => {
+    writeTvMutePref(false);
+    const player = makePlayer();
+    const order: string[] = [];
+    player.play = vi.fn(() => order.push("play"));
+    player.unmute = vi.fn(() => order.push("unmute"));
+    const pending = prepareMutedLoadForAutoplay(player, true);
+
+    applyPendingAudioRestore(player, pending, "contract.cued");
+
+    expect(order).toEqual(["play", "unmute"]);
+  });
+});
+
+describe("TV playback contract — requestPlayback must not gesture-play after load", () => {
+  it("requestPlayback does not call playWithUserGesture immediately after player.load", () => {
+    expect(tvProviderSource).not.toMatch(
+      /player\.load\([^)]+\);\s*\n\s*if \(isUserIntentPlaybackReason/
+    );
+    expect(tvProviderSource).not.toContain('"requestPlayback.user_intent"');
+  });
+
+  it("requestPlayback skip_reload path does not inject play on syncToLive", () => {
+    expect(tvProviderSource).not.toContain("requestPlayback.skip_reload_play");
+  });
+});

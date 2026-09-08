@@ -19,10 +19,10 @@ import { loginVisitorAction, verifyCodeAction } from "@/actions/auth";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { toast } from "react-toastify";
-import { setCredentials } from "@/features/auth-slice";
 import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import type { AppDispatch } from "@/redux/store";
+import { buildSignupAttributionPayload } from "@/lib/signup-attribution";
 import { Input } from "../ui/input";
 import { Paragraph } from "../shared/paragraph";
 import OTPInput from "react-otp-input";
@@ -100,6 +100,7 @@ export const VisitorProfileClient = ({
   });
 
   const [code, setCode] = useState("");
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -122,8 +123,11 @@ export const VisitorProfileClient = ({
     try {
       setIsLoading(true);
 
-      if (!user?.email) return;
-      const res = await verifyCodeAction(user.email, code);
+      const verifyEmail =
+        pendingVerifyEmail.trim() || email.trim() || user?.email?.trim() || "";
+      if (!verifyEmail) return;
+
+      const res = await verifyCodeAction(verifyEmail, code);
       if (!res.success) {
         toast.error(res.message ?? "Verification failed");
         return;
@@ -139,7 +143,7 @@ export const VisitorProfileClient = ({
 
       toast.success("Email verified successfully!");
 
-      const slug = profileSlug ?? user.username;
+      const slug = profileSlug ?? parsed.user.username;
       if (isDrawer) {
         setOpenEmail(false);
         return;
@@ -167,8 +171,9 @@ export const VisitorProfileClient = ({
 
       const response = await loginVisitorAction({
         visitorId: userId,
-        email: values.email,
+        email: values.email.trim(),
         role: "TIPPER",
+        ...buildSignupAttributionPayload("visitor_profile"),
       });
 
       if (!response.success) {
@@ -176,34 +181,8 @@ export const VisitorProfileClient = ({
         return;
       }
 
-      const { id, fullName, email, username } = (
-        response.data as {
-          tipper: {
-            id: string;
-            fullName: string;
-            email: string;
-            username: string;
-          };
-        }
-      ).tipper;
-      const newToken = (response.data as { token: string }).token;
-
-      dispatch(
-        setCredentials({
-          user: {
-            ...user!,
-            id,
-            fullName,
-            email,
-            username,
-            role: "TIPPER",
-          },
-          token: newToken,
-          requiresVerification: true,
-        })
-      );
-
-      if (response.success) setStep("verifyCode");
+      setPendingVerifyEmail(values.email.trim());
+      setStep("verifyCode");
     } finally {
       setIsLoading(false);
     }
@@ -327,8 +306,9 @@ export const VisitorProfileClient = ({
                     size="sm"
                     color="muted"
                   >
-                    We&apos;ve sent a 6-digit code to <strong>{email}</strong>.
-                    Enter it below to verify your account.
+                    We&apos;ve sent a 6-digit code to{" "}
+                    <strong>{pendingVerifyEmail || email}</strong>. Enter it
+                    below to verify your account.
                   </Paragraph>
 
                   <div className="react-otp-input">

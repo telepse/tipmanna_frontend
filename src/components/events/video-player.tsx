@@ -248,6 +248,10 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
 
     const onMuteStateChangeRef = useRef(onMuteStateChange);
     onMuteStateChangeRef.current = onMuteStateChange;
+    const onPlayStateChangeRef = useRef(onPlayStateChange);
+    onPlayStateChangeRef.current = onPlayStateChange;
+    const onPlaybackEndedRef = useRef(onPlaybackEnded);
+    onPlaybackEndedRef.current = onPlaybackEnded;
 
     const syncMuteFromPlayer = (target?: YT.Player | null) => {
       if (isInsidePlayerAudioIntentGrace(intentGraceUntilRef)) return;
@@ -436,13 +440,13 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
               }
               setLoading(false);
               restoreReelSoundIfPreferred(event.target);
-              onPlayStateChange?.(true);
+              onPlayStateChangeRef.current?.(true);
             } else if (event.data === window.YT.PlayerState.ENDED) {
-              onPlayStateChange?.(false);
-              onPlaybackEnded?.();
+              onPlayStateChangeRef.current?.(false);
+              onPlaybackEndedRef.current?.();
             } else if (event.data === window.YT.PlayerState.PAUSED) {
               syncMuteFromPlayer(event.target);
-              onPlayStateChange?.(false);
+              onPlayStateChangeRef.current?.(false);
             }
           },
         },
@@ -455,17 +459,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         typeof playerRef.current.getDuration === "function",
 
       play: () => {
-        const p = playerRef.current;
-        if (!p) return;
-
-        const muted = p.isMuted?.() ?? isMuted;
-        if (muted) {
-          safeYtMute(p);
-        } else {
-          safeYtUnmute(p);
-        }
-
-        safeYtPlay(p);
+        safeYtPlay(playerRef.current);
       },
       pause: () => safeYtPause(playerRef.current),
       stop: () => {
@@ -474,21 +468,27 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
         safeYoutubeCall(() => p.stopVideo(), undefined);
       },
       mute: () => {
-        safeYtMute(playerRef.current);
-        syncMuteFromPlayer();
         persistReelSoundPref(false);
+        markPlayerAudioIntentGrace(intentGraceUntilRef);
+        setIsMuted(true);
+        onMuteStateChangeRef.current?.(true);
+        safeYtMute(playerRef.current);
       },
       unmute: () => {
-        safeYtUnmute(playerRef.current);
-        syncMuteFromPlayer();
         persistReelSoundPref(true);
+        safeYtUnmute(playerRef.current);
+        markPlayerAudioIntentGrace(intentGraceUntilRef);
+        setIsMuted(false);
+        onMuteStateChangeRef.current?.(false);
       },
       unmuteAndPlay: () => {
         const p = playerRef.current;
         if (!p) return;
-        safeYtUnmute(p);
-        syncMuteFromPlayer();
         persistReelSoundPref(true);
+        safeYtUnmute(p);
+        markPlayerAudioIntentGrace(intentGraceUntilRef);
+        setIsMuted(false);
+        onMuteStateChangeRef.current?.(false);
         safeYtPlay(p);
       },
       isMuted: () => playerRef.current?.isMuted?.() ?? isMuted,

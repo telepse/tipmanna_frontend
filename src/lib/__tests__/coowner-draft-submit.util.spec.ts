@@ -23,15 +23,15 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
     });
   });
 
-  it("blocks when any invite is pending", () => {
+  it("approved wins over pending sibling invites", () => {
     expect(
       evaluateCoOwnerSubmitReadiness([
         { status: "approved" },
         { status: "pending" },
       ])
     ).toEqual({
-      blocked: true,
-      reason: "has_pending",
+      blocked: false,
+      reason: null,
       willDropOnSubmit: false,
     });
   });

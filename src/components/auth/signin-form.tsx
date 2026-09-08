@@ -67,10 +67,15 @@ import { performAuthLogout } from "@/lib/auth-logout";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import { notifyHostSessionTouched } from "@/lib/host-session-probe";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
-import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
+import { resolvePostHostAuthDestination } from "@/lib/post-host-auth-destination";
 import { parseAuthErrorFromBody } from "@/lib/host-auth-fetch";
 import { buildVerifyEmailPath } from "@/lib/verify-email-path";
+import { resolvedEmailFromAuthPayload } from "@/lib/resolved-auth-email";
 import { store, type AppDispatch, type RootState } from "@/redux/store";
+import {
+  buildSignupAttributionPayload,
+  type SignupSurface,
+} from "@/lib/signup-attribution";
 
 type HostAuthView = "signIn" | "signUp" | "forgotPassword" | "verifyEmail";
 
@@ -95,6 +100,8 @@ export type SigninFormProps = {
   onModalTipperSuccess?: (payload: SignInModalPayload) => void;
   /** When true, host tab can toggle inline sign-up instead of navigating away. */
   allowInlineSignUp?: boolean;
+  /** Analytics: UI surface that opened this sign-in flow. */
+  signupSurface: SignupSurface;
   className?: string;
 };
 
@@ -105,8 +112,9 @@ export const SigninForm = ({
   onModalHostSuccess,
   onModalTipperSuccess,
   allowInlineSignUp = false,
+  signupSurface,
   className,
-}: SigninFormProps = {}) => {
+}: SigninFormProps) => {
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email");
   const nameParam = searchParams.get("name");
@@ -134,8 +142,10 @@ export const SigninForm = ({
   const [tipperHostVerifyCode, setTipperHostVerifyCode] = useState("");
 
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
   const authToken = useSelector((s: RootState) => s.auth.token);
   const visitorIdForMerge = getVisitorIdForAuthMerge(authUser);
+  const signupAttribution = buildSignupAttributionPayload(signupSurface);
 
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
@@ -157,6 +167,7 @@ export const SigninForm = ({
   const resendCooldownIntervalRef = useRef<number | null>(null);
   const hostVerifyInFlightRef = useRef(false);
   const tipperVerifyInFlightRef = useRef(false);
+  const [modalSuccessLock, setModalSuccessLock] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -272,15 +283,15 @@ export const SigninForm = ({
     parsed: NonNullable<ReturnType<typeof parseAuthResponse>>
   ) => {
     if (isPendingEmailVerification(parsed)) {
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: true,
-      });
       if (mode === "modal") {
         setHostVerifyEmail(parsed.user.email);
         setHostAuthView("verifyEmail");
         toast.success(parsed.message);
         return;
       }
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
       push(
         buildVerifyEmailPath({
           email: parsed.user.email,
@@ -300,6 +311,10 @@ export const SigninForm = ({
       authUser?.role === "TIPPER" &&
       Boolean(onModalHostSuccess);
 
+    if (mode === "modal" && onModalHostSuccess) {
+      setModalSuccessLock(true);
+    }
+
     if (tipperKeepsPrimarySession) {
       const tipperEmail = authUser?.email?.trim().toLowerCase();
       const hostEmail = (hostUser?.email ?? parsed.user.email)
@@ -314,6 +329,7 @@ export const SigninForm = ({
           dispatch
         );
         if (parsed.hostSession && !hostSessionPersisted) {
+          setModalSuccessLock(false);
           toast.error("Host session could not be saved. Please sign in again.");
           return;
         }
@@ -333,6 +349,7 @@ export const SigninForm = ({
           { expiresDays: 7 }
         );
         if (!ok) {
+          setModalSuccessLock(false);
           toast.error(
             "Host session could not be saved. Please try signing in again."
           );
@@ -360,6 +377,7 @@ export const SigninForm = ({
       dispatch
     );
     if (parsed.hostSession && !hostSessionPersisted) {
+      setModalSuccessLock(false);
       toast.error("Host session could not be saved. Please sign in again.");
       return;
     }
@@ -375,7 +393,11 @@ export const SigninForm = ({
       return;
     }
 
-    const dest = returnTo ?? buildCreatorProfileSharePath(hostUsername);
+    const dest = resolvePostHostAuthDestination({
+      hostUsername,
+      eventSlug: hostSlug,
+      returnTo,
+    });
     push(dest);
   };
 
@@ -391,6 +413,7 @@ export const SigninForm = ({
         password: values.password,
         acceptedTerms: values.acceptedTerms,
         visitorId: visitorIdForMerge,
+        ...signupAttribution,
       });
       if (!res.success) {
         toast.error(res.message);
@@ -402,9 +425,6 @@ export const SigninForm = ({
         return;
       }
       if (mode === "modal") {
-        await applyPrimaryAndHostSessions(parsed, dispatch, {
-          requiresVerification: true,
-        });
         setHostVerifyEmail(values.email);
         setHostAuthView("verifyEmail");
         toast.success(parsed.message);
@@ -488,6 +508,7 @@ export const SigninForm = ({
               email: values.email,
               acceptedTerms: tipperAcceptedTerms,
               visitorId: visitorIdForMerge,
+              ...signupAttribution,
             })
           : await loginTipperAction({
               ...values,
@@ -510,14 +531,14 @@ export const SigninForm = ({
       setTipperHostCodeFlow(false);
       toast.success(parsed.message);
 
-      await applyPrimaryAndHostSessions(parsed, dispatch, {
-        requiresVerification: true,
-      });
-
       if (mode === "modal") {
         setTipperStep("verify");
         return;
       }
+
+      await applyPrimaryAndHostSessions(parsed, dispatch, {
+        requiresVerification: true,
+      });
 
       push(
         buildVerifyEmailPath({
@@ -543,10 +564,13 @@ export const SigninForm = ({
   const handleModalTipperVerify = async () => {
     try {
       setIsTipperLoading(true);
-      const user = authUser ?? store.getState().auth.user;
-      if (!user?.email) return;
+      const email = tipperForm.getValues("email")?.trim();
+      if (!email) {
+        toast.error("Missing email for verification");
+        return;
+      }
 
-      const verifyRes = await verifyCodeAction(user.email, tipperCode);
+      const verifyRes = await verifyCodeAction(email, tipperCode);
       if (!verifyRes.success) {
         toast.error(verifyRes.message ?? "Verification failed");
         return;
@@ -558,6 +582,7 @@ export const SigninForm = ({
         return;
       }
 
+      setModalSuccessLock(true);
       await applyPrimaryAndHostSessions(parsed, dispatch);
 
       toast.success("Email verified successfully!");
@@ -646,6 +671,7 @@ export const SigninForm = ({
         return;
       }
 
+      setModalSuccessLock(true);
       await applyPrimaryAndHostSessions(parsed, dispatch);
       toast.success("Host email verified successfully!");
       setTipperHostCodeFlow(false);
@@ -680,20 +706,25 @@ export const SigninForm = ({
         return;
       }
 
+      const resolvedEmail = resolvedEmailFromAuthPayload(
+        res.data,
+        values.email
+      );
+
       toast.success(
         (res.data as { message?: string })?.message ??
           "Verification code sent — check your email"
       );
 
       if (mode === "modal") {
-        setHostVerifyEmail(values.email);
+        setHostVerifyEmail(resolvedEmail);
         setHostAuthView("verifyEmail");
         return;
       }
 
       push(
         buildVerifyEmailPath({
-          email: values.email,
+          email: resolvedEmail,
           accountType: "HOST",
           next: returnTo,
         })
@@ -733,10 +764,9 @@ export const SigninForm = ({
         return;
       }
 
+      setModalSuccessLock(true);
       await applyPrimaryAndHostSessions(parsed, dispatch);
       toast.success("Email verified successfully!");
-      setHostAuthView("signIn");
-      setHostStep("signIn");
       onModalHostSuccess?.({
         role: "HOST",
         username: parsed.hostSession?.user.username ?? parsed.user.username,
@@ -847,7 +877,9 @@ export const SigninForm = ({
 
   return (
     <div className={className ? "" : "mx-auto max-w-2xl"}>
-      {mode === "page" && authUser ? <AlreadySignedInNotice /> : null}
+      {mode === "page" && isAuthenticated && authUser ? (
+        <AlreadySignedInNotice />
+      ) : null}
       <Tabs
         value={userType}
         onValueChange={val => setUserType(val as "host" | "tipper")}
@@ -902,7 +934,11 @@ export const SigninForm = ({
           value="host"
           className="mt-6 space-y-6"
         >
-          {mode === "modal" && authUser ? (
+          {mode === "modal" &&
+          isAuthenticated &&
+          authUser &&
+          !modalSuccessLock &&
+          hostAuthView !== "verifyEmail" ? (
             <AlreadySignedInNotice compact />
           ) : null}
           <div key={`host-${hostAuthView}-${hostStep}`}>
@@ -1335,7 +1371,11 @@ export const SigninForm = ({
           value="tipper"
           className="space-y-6"
         >
-          {mode === "modal" && authUser ? (
+          {mode === "modal" &&
+          isAuthenticated &&
+          authUser &&
+          !modalSuccessLock &&
+          tipperStep !== "verify" ? (
             <AlreadySignedInNotice compact />
           ) : null}
           {mode === "modal" && tipperStep === "verify" ? (

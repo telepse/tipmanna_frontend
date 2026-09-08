@@ -68,6 +68,7 @@ export function PartnerPricingSubscribeSection() {
           title="Sign in as host to subscribe"
           defaultUserType="host"
           allowInlineSignUp
+          signupSurface="partner"
           onSuccess={handleSignInSuccess}
         />
       ) : null}

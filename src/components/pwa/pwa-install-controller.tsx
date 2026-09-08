@@ -24,8 +24,10 @@ import {
 import {
   fetchPwaPreference,
   incrementPwaPaymentCount,
+  upsertPwaPreference,
   type PwaPreferenceRecord,
 } from "@/lib/pwa-preference-client";
+import { currentAppPath } from "@/lib/app-path";
 
 export function PwaInstallController() {
   const pathname = usePathname() ?? "";
@@ -89,6 +91,11 @@ export function PwaInstallController() {
       if (isPwaAutoPromptSuppressed(prefRef.current, installedRef.current)) {
         return;
       }
+
+      const promptStatus = prefRef.current?.status ?? "prompted";
+      void upsertPwaPreference(promptStatus, {
+        lastPromptPath: currentAppPath(),
+      });
 
       setOpen(true);
     },

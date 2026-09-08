@@ -11,6 +11,7 @@ import {
   applyPrimaryAndCohostSessions,
   parseCohostAuthResponse,
 } from "@/lib/apply-cohost-sessions";
+import { buildSignupAttributionPayload } from "@/lib/signup-attribution";
 
 // Local imports
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
@@ -108,6 +109,7 @@ export default function InvitePage() {
           body: JSON.stringify({
             token,
             code: accessCode,
+            ...buildSignupAttributionPayload("cohost_invite"),
           }),
         }
       );

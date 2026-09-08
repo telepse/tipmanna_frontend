@@ -65,6 +65,12 @@ import { performAuthLogout } from "@/lib/auth-logout";
 import { HostUpgradeDialog } from "@/components/auth/host-upgrade-dialog";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { setCredentials, updateTipper } from "@/features/auth-slice";
+import {
+  composeTipperDisplayHandle,
+  formatTipperDisplayLabel,
+  slugDigits,
+  splitTipperDisplayHandle,
+} from "@/lib/tipper-display-handle";
 import Image from "next/image";
 
 interface Props {
@@ -134,6 +140,7 @@ export const TipperBanner = ({
       : user?.username) ??
     "";
   const profile_slug = profileSlug ?? (user ? user.username : "");
+  const displayLabel = formatTipperDisplayLabel(user_name, profile_slug);
   const full_name = user ? user?.fullName : "";
   const e_mail = user ? user?.email : "";
   const userId = user ? user.id : "";
@@ -388,14 +395,31 @@ export const TipperBanner = ({
   const form = useForm<EditProfileFormData>({
     resolver: zodResolver(editProfileSchema),
     defaultValues: {
-      username:
-        (user && "displayUsername" in user
-          ? `${user.displayUsername}` || `${user.username}`
-          : `${user?.username}`) || "",
+      username: profile_slug
+        ? splitTipperDisplayHandle(
+            (user && "displayUsername" in user
+              ? user.displayUsername || user.username
+              : user?.username) ?? "",
+            profile_slug
+          ).middle
+        : "",
       fullName: user?.fullName || "",
       email: user?.email || "",
     },
   });
+
+  const resetEditFormFromUser = () => {
+    if (!profile_slug) return;
+    const source =
+      (user && "displayUsername" in user
+        ? user.displayUsername || user.username
+        : user?.username) ?? "";
+    form.reset({
+      username: splitTipperDisplayHandle(source, profile_slug).middle,
+      fullName: user?.fullName || "",
+      email: user?.email || "",
+    });
+  };
 
   const handleSwitchAccount = () => {
     if (!user) return;
@@ -413,19 +437,9 @@ export const TipperBanner = ({
     }
   };
 
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Keep cursor strictly on the username input field
-  const enforceCursorPosition = () => {
-    const input = inputRef.current;
-    if (!input) return;
-
-    if (input.selectionStart !== null && input.selectionStart < PREFIX.length) {
-      input.setSelectionRange(
-        PREFIX.length,
-        Math.max(PREFIX.length, input.selectionEnd || PREFIX.length)
-      );
-    }
+  const handleOpenEditProfile = () => {
+    resetEditFormFromUser();
+    setOpenEditProfile(true);
   };
 
   const onSubmit = async (values: EditProfileFormData) => {
@@ -437,9 +451,25 @@ export const TipperBanner = ({
         return;
       }
 
+      if (!profile_slug) {
+        toast.error("Profile slug missing");
+        return;
+      }
+
+      let composedUsername: string;
+      try {
+        composedUsername = composeTipperDisplayHandle(
+          values.username,
+          profile_slug
+        );
+      } catch {
+        toast.error("Enter a valid display name");
+        return;
+      }
+
       const res = await updateTipperAction(
         {
-          username: values.username,
+          username: composedUsername,
           fullName: values.fullName,
           email: values.email,
         },
@@ -467,7 +497,7 @@ export const TipperBanner = ({
         updateTipper({
           fullName,
           username,
-          displayUsername: displayUsername ?? values.username,
+          displayUsername: displayUsername ?? composedUsername,
           email,
         })
       );
@@ -482,7 +512,7 @@ export const TipperBanner = ({
             ...currentUser,
             fullName,
             username,
-            displayUsername: displayUsername ?? values.username,
+            displayUsername: displayUsername ?? composedUsername,
             email,
           }),
           {
@@ -597,7 +627,7 @@ export const TipperBanner = ({
               <div className="absolute top-1 right-[-12px] cursor-pointer bg-transparent">
                 <Button
                   size="icon"
-                  onClick={() => setOpenEditProfile(true)}
+                  onClick={handleOpenEditProfile}
                 >
                   <PencilLine className="size-4 text-white/90" />
                 </Button>
@@ -624,7 +654,7 @@ export const TipperBanner = ({
             color="white"
             className="text-lg"
           >
-            {`${PREFIX}${user_name}${user?.username.slice(-2)}`}
+            {displayLabel}
           </Paragraph>
 
           {/* Anonymous toggle */}
@@ -701,12 +731,12 @@ export const TipperBanner = ({
                   weight="bold"
                   color="white"
                 >
-                  {`${PREFIX}${user_name}${user?.username.slice(-2)}`}
+                  {displayLabel}
                 </Paragraph>
                 {showOwnerControls ? (
                   <Button
                     size="icon"
-                    onClick={() => setOpenEditProfile(true)}
+                    onClick={handleOpenEditProfile}
                   >
                     <PencilLine className="size-4 text-white/90" />
                   </Button>
@@ -913,7 +943,7 @@ export const TipperBanner = ({
                           />
                         </FormControl>
                         <span className="bg-muted flex h-13 flex-col items-center justify-center rounded-tr-md rounded-br-md px-4 py-2 text-sm text-black">
-                          {user?.username.slice(-2)}
+                          {profile_slug ? slugDigits(profile_slug) : ""}
                         </span>
                       </div>
                       <FormMessage />

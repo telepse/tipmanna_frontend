@@ -5,6 +5,7 @@ import {
   fetchPwaPreference,
   upsertPwaPreference,
 } from "@/lib/pwa-preference-client";
+import { currentAppPath } from "@/lib/app-path";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -53,7 +54,9 @@ export function useInstallPrompt() {
       setDeferredPrompt(null);
       if (!persistedInstalledRef.current) {
         persistedInstalledRef.current = true;
-        void upsertPwaPreference("installed").catch(() => {});
+        void upsertPwaPreference("installed", {
+          installPath: currentAppPath(),
+        }).catch(() => {});
       }
     };
 
@@ -115,7 +118,9 @@ export function useInstallPrompt() {
     if (choice.outcome === "accepted") {
       setInstalled(true);
       persistedInstalledRef.current = true;
-      void upsertPwaPreference("installed").catch(() => {});
+      void upsertPwaPreference("installed", {
+        installPath: currentAppPath(),
+      }).catch(() => {});
     }
     return choice.outcome === "accepted";
   }, [deferredPrompt]);

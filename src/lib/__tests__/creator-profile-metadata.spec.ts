@@ -39,6 +39,7 @@ const baseProfile: HostCreatorPublicProfile = {
   events: [],
   communities: [],
   playlists: [],
+  tipLinks: [],
 };
 
 function toMediaUrl(value: string | URL | undefined): string | undefined {

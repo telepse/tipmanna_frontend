@@ -2,19 +2,27 @@
 
 import { runServerFetch } from "@/lib/action-fetch";
 import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
+import type { SignupSurface } from "@/lib/signup-attribution";
+
+type SignupAttributionFields = {
+  visitorId?: string;
+  deviceKey?: string;
+  signupSurface?: SignupSurface;
+};
 
 /** Auth mutations must not retry — codes are single-use. */
 const AUTH_MUTATION_RETRY = { maxAttempts: 1 } as const;
 
 // -------- Register host -------- //
-export async function registerHostAction(values: {
-  fullName: string;
-  email: string;
-  username: string;
-  password: string;
-  acceptedTerms: boolean;
-  visitorId?: string;
-}) {
+export async function registerHostAction(
+  values: {
+    fullName: string;
+    email: string;
+    username: string;
+    password: string;
+    acceptedTerms: boolean;
+  } & SignupAttributionFields
+) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/register-host`,
     {
@@ -30,12 +38,13 @@ export async function registerHostAction(values: {
 }
 
 // -------- Register tipper -------- //
-export async function registerTipperAction(values: {
-  fullName: string;
-  email: string;
-  acceptedTerms: boolean;
-  visitorId?: string;
-}) {
+export async function registerTipperAction(
+  values: {
+    fullName: string;
+    email: string;
+    acceptedTerms: boolean;
+  } & SignupAttributionFields
+) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/register-tipper`,
     {
@@ -51,12 +60,13 @@ export async function registerTipperAction(values: {
 }
 
 // -------- Login or register tipper -------- //
-export async function loginOrRegisterTipperAction(values: {
-  fullName: string;
-  email: string;
-  acceptedTerms: boolean;
-  visitorId?: string;
-}) {
+export async function loginOrRegisterTipperAction(
+  values: {
+    fullName: string;
+    email: string;
+    acceptedTerms: boolean;
+  } & SignupAttributionFields
+) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/login-or-register`,
     {
@@ -72,15 +82,16 @@ export async function loginOrRegisterTipperAction(values: {
 }
 
 // -------- Login or register host -------- //
-export async function loginOrRegisterHostAction(values: {
-  fullName: string;
-  emailOrUsername: string;
-  email: string;
-  username: string;
-  acceptedTerms: boolean;
-  password: string;
-  visitorId?: string;
-}) {
+export async function loginOrRegisterHostAction(
+  values: {
+    fullName: string;
+    emailOrUsername: string;
+    email: string;
+    username: string;
+    acceptedTerms: boolean;
+    password: string;
+  } & SignupAttributionFields
+) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/login-or-register-host`,
     {
@@ -311,6 +322,8 @@ export async function loginVisitorAction(values: {
   visitorId: string;
   email: string;
   role: string;
+  deviceKey?: string;
+  signupSurface?: string;
 }) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/visitors/login`,

@@ -15,7 +15,7 @@ import { resendCodeAction, verifyCodeAction } from "@/actions/auth";
 import { ApiError } from "@/types/api-error.types";
 import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
-import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
+import { resolvePostHostAuthDestination } from "@/lib/post-host-auth-destination";
 import type { AppDispatch } from "@/redux/store";
 
 function safeInternalPath(next: string | null): string | null {
@@ -143,11 +143,13 @@ function VerifyEmailContent() {
         return;
       }
 
-      if (accountType === "HOST" && parsed.hostSession?.user.eventSlug) {
-        router.push(`/host/${parsed.hostSession.user.eventSlug}`);
-      } else if (accountType === "HOST" && parsed.hostSession?.user.username) {
+      if (accountType === "HOST") {
         router.push(
-          buildCreatorProfileSharePath(parsed.hostSession.user.username)
+          resolvePostHostAuthDestination({
+            hostUsername:
+              parsed.hostSession?.user.username ?? parsed.user.username,
+            eventSlug: parsed.hostSession?.user.eventSlug ?? null,
+          })
         );
       } else {
         router.push("/explore");

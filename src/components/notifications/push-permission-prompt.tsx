@@ -134,6 +134,7 @@ export function PushPermissionPrompt({ className }: Props) {
         open={signInOpen}
         onOpenChange={setSignInOpen}
         signInTitle="Sign in to enable push alerts"
+        signupSurface="push_prompt"
         onVerified={handleVerifiedPush}
       />
     </>
