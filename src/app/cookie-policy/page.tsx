@@ -66,7 +66,7 @@ export default function CookiePolicy() {
 
           <Paragraph size="sm">
             For simplicity, this policy sometimes refers to these technologies
-            collectively as "cookies".
+            collectively as &quot;cookies&quot;.
           </Paragraph>
         </div>
 
@@ -239,7 +239,7 @@ export default function CookiePolicy() {
           </ul>
 
           <Paragraph size="sm">
-            Depending on Tipmanna's Stripe configuration, technologies used by
+            Depending on Tipmanna&apos;s Stripe configuration, technologies used by
             Stripe may include:
           </Paragraph>
 
@@ -275,7 +275,7 @@ export default function CookiePolicy() {
             <strong>Purpose</strong>: Fraud prevention and risk assessment
           </Paragraph>
           <Paragraph size="sm">
-            <strong>Duration</strong>: May depend on Stripe's current
+            <strong>Duration</strong>: May depend on Stripe&apos;s current
             implementation
           </Paragraph>
           <Paragraph size="sm">
@@ -313,11 +313,11 @@ export default function CookiePolicy() {
 
           <Paragraph size="sm">
             The precise technical names of these technologies may change as
-            Tipmanna's platform develops.
+            Tipmanna&apos;s platform develops.
           </Paragraph>
 
           <Paragraph size="sm">
-            Current details should be available through Tipmanna's Cookie
+            Current details should be available through Tipmanna&apos;s Cookie
             Settings or consent-management interface where applicable.
           </Paragraph>
         </div>
@@ -389,7 +389,7 @@ export default function CookiePolicy() {
           <Title size="md">9. COOKIE CONTROLS</Title>
 
           <Paragraph size="sm">
-            Where applicable, Tipmanna's cookie interface should allow users to:
+            Where applicable, Tipmanna&apos;s cookie interface should allow users to:
           </Paragraph>
 
           <ul className="list-inside list-disc text-sm sm:text-base">

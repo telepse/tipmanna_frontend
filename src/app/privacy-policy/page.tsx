@@ -53,7 +53,7 @@ export default function PrivacyPolicy() {
           </Paragraph>
           <Paragraph size="sm">
             In this Privacy Policy, references to{" "}
-            <strong>"Tipmanna", "we", "us" or "our"</strong> mean Tipmanna
+            <strong>&quot;Tipmanna&quot;, &quot;we&quot;, &quot;us&quot; or &quot;our&quot;</strong> mean Tipmanna
             Limited.
           </Paragraph>
           <Paragraph size="sm">
@@ -300,7 +300,7 @@ export default function PrivacyPolicy() {
             Do not publish information that you do not want others to see.
           </Paragraph>
           <Paragraph size="sm">
-            You should also avoid publishing another person's personal
+            You should also avoid publishing another person&apos;s personal
             information unless you have an appropriate legal basis or permission
             to do so.
           </Paragraph>
@@ -649,7 +649,7 @@ export default function PrivacyPolicy() {
           <h4 className="text-2xl font-bold">Legitimate interests</h4>
 
           <Paragraph size="sm">
-            Where processing is necessary for Tipmanna's or another person's
+            Where processing is necessary for Tipmanna&apos;s or another person&apos;s
             legitimate interests and those interests are not overridden by your
             rights.
           </Paragraph>
@@ -1101,7 +1101,7 @@ export default function PrivacyPolicy() {
 
           <Paragraph size="sm">
             Public information that has already been independently copied or
-            shared by another person may remain outside Tipmanna's control.
+            shared by another person may remain outside Tipmanna&apos;s control.
           </Paragraph>
         </div>
 
@@ -1223,9 +1223,9 @@ export default function PrivacyPolicy() {
           </Paragraph>
 
           <Paragraph size="sm">
-            You also have the right to complain to the UK's data protection
+            You also have the right to complain to the UK&apos;s data protection
             regulator, the{" "}
-            <strong>Information Commissioner's Office (ICO)</strong>.
+            <strong>Information Commissioner&apos;s Office (ICO)</strong>.
           </Paragraph>
         </div>
 
