@@ -718,6 +718,10 @@ export function TipLinkLandingClient({
               )}
             </section>
 
+            <section>
+            <h1 className="text-2xl font-bold">{channel.title}</h1>
+            </section>
+
             <section className="space-y-3 text-sm text-white/80">
               <p>{metricsLine}</p>
               <div className="flex flex-wrap gap-2">
@@ -759,7 +763,7 @@ export function TipLinkLandingClient({
             </section>
 
             <section className="space-y-2">
-              <h1 className="text-2xl font-bold">{channel.title}</h1>
+              
               {channel.description ? (
                 <button
                   type="button"
