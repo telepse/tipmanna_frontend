@@ -88,20 +88,36 @@ export function buildTipPresentation(
     if (row) drawerChars.push(row);
   }
 
+  const eliteIds = new Set(payload.eliteCharacterIds ?? []);
+  const eliteDrawer = drawerChars.filter(c => eliteIds.has(c.id));
+  const restDrawer = drawerChars.filter(c => !eliteIds.has(c.id));
+  const orderedDrawer = [...eliteDrawer, ...restDrawer];
+
   const byId = new Map<string, EnrichedRoomCharacter>();
   for (const c of sectionStrip) byId.set(c.id, c);
-  for (const c of drawerChars) byId.set(c.id, c);
+  for (const c of orderedDrawer) byId.set(c.id, c);
   const allEnriched = [...byId.values()];
+
+  const drawerSets = [
+    ...(eliteDrawer.length
+      ? [
+          {
+            id: "tip-config-elite",
+            name: "Elite",
+            characters: eliteDrawer,
+          },
+        ]
+      : []),
+    {
+      id: "tip-config-drawer",
+      name: "Tips",
+      characters: orderedDrawer,
+    },
+  ];
 
   return {
     sectionStrip,
-    drawerSets: [
-      {
-        id: "tip-config-drawer",
-        name: "Tips",
-        characters: drawerChars,
-      },
-    ],
+    drawerSets,
     allEnriched,
     ctaSectionLabel: payload.ctaSectionLabel,
     ctaPayLabel: payload.ctaPayLabel,

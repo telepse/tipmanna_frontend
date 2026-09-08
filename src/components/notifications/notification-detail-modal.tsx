@@ -27,7 +27,26 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   deepLink: string | null;
+  onMarkRead?: (row: FeedNotificationRow) => void | Promise<void>;
 };
+
+function payloadLinkFields(row: FeedNotificationRow): {
+  linkUrl: string | null;
+  linkText: string | null;
+  openLightbox: boolean;
+} {
+  const payload = (row.payloadJson as Record<string, unknown> | null) ?? null;
+  const linkUrl =
+    typeof payload?.linkUrl === "string" ? payload.linkUrl.trim() : null;
+  const linkText =
+    typeof payload?.linkText === "string" ? payload.linkText.trim() : null;
+  const openLightbox = payload?.openLightbox === true;
+  return {
+    linkUrl: linkUrl || null,
+    linkText: linkText || null,
+    openLightbox,
+  };
+}
 
 function canTrackAnalytics(row: FeedNotificationRow): boolean {
   return row.source === "personal" && /^[0-9a-f-]{36}$/i.test(row.id);
@@ -38,6 +57,7 @@ export function NotificationDetailModal({
   open,
   onOpenChange,
   deepLink,
+  onMarkRead,
 }: Props) {
   const token = useSelector((s: RootState) => s.auth.token);
 
@@ -48,7 +68,11 @@ export function NotificationDetailModal({
 
   if (!row) return null;
 
+  const { linkUrl, linkText, openLightbox } = payloadLinkFields(row);
+  const customLinkLabel = linkText || "Open link";
+
   const onOpenLink = () => {
+    void onMarkRead?.(row);
     if (canTrackAnalytics(row)) {
       void recordNotificationClickAction(row.id, token ?? undefined);
     }
@@ -84,6 +108,37 @@ export function NotificationDetailModal({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2 sm:justify-start">
+          {linkUrl ? (
+            linkUrl.startsWith("/") && !openLightbox ? (
+              <Button
+                asChild
+                size="sm"
+                variant="default"
+              >
+                <Link
+                  href={linkUrl}
+                  onClick={onOpenLink}
+                >
+                  {customLinkLabel}
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                asChild
+                size="sm"
+                variant="default"
+              >
+                <a
+                  href={linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={onOpenLink}
+                >
+                  {customLinkLabel}
+                </a>
+              </Button>
+            )
+          ) : null}
           {deepLink ? (
             deepLink.startsWith("/") ? (
               <Button

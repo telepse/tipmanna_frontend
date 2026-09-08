@@ -53,8 +53,11 @@ export default function PrivacyPolicy() {
           </Paragraph>
           <Paragraph size="sm">
             In this Privacy Policy, references to{" "}
-            <strong>&quot;Tipmanna&quot;, &quot;we&quot;, &quot;us&quot; or &quot;our&quot;</strong> mean Tipmanna
-            Limited.
+            <strong>
+              &quot;Tipmanna&quot;, &quot;we&quot;, &quot;us&quot; or
+              &quot;our&quot;
+            </strong>{" "}
+            mean Tipmanna Limited.
           </Paragraph>
           <Paragraph size="sm">
             For the purposes of applicable UK data protection law, Tipmanna
@@ -649,9 +652,9 @@ export default function PrivacyPolicy() {
           <h4 className="text-2xl font-bold">Legitimate interests</h4>
 
           <Paragraph size="sm">
-            Where processing is necessary for Tipmanna&apos;s or another person&apos;s
-            legitimate interests and those interests are not overridden by your
-            rights.
+            Where processing is necessary for Tipmanna&apos;s or another
+            person&apos;s legitimate interests and those interests are not
+            overridden by your rights.
           </Paragraph>
 
           <Paragraph size="sm">These interests may include:</Paragraph>

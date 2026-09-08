@@ -79,10 +79,12 @@ import {
   type TipLinkStoreRow,
 } from "@/components/tiplink/tiplink-store-icons";
 import { TipLinkPlayerShell } from "@/components/tiplink/tiplink-player-shell";
+import { TipLinkMetricsTicker } from "@/components/tiplink/tiplink-metrics-ticker";
 import {
   TipLinkSocialIcon,
   tipLinkSocialAriaLabel,
 } from "@/components/tiplink/tiplink-social-icons";
+import { tipLinkGlobalStreamOptions } from "@/lib/tiplink-stream-options";
 
 const formatTime = (seconds: number) => {
   if (!seconds || Number.isNaN(seconds)) return "00:00";
@@ -90,10 +92,6 @@ const formatTime = (seconds: number) => {
   const secs = Math.floor(seconds % 60);
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
-
-export function tipLinkGlobalStreamOptions(eventId: string) {
-  return { eventId, surface: "tiplink" as const };
-}
 
 const TipDrawer = dynamic(
   () =>
@@ -135,6 +133,17 @@ export function TipLinkLandingClient({
   const userRole = (user as { role?: string } | null)?.role;
   const userId = user?.id;
   const videoRef = useRef<VideoPlayerRef>(null);
+  const playerAnchorRef = useRef<HTMLDivElement>(null);
+  const stickyClusterRef = useRef<HTMLDivElement>(null);
+  const miniDockSlotRef = useRef<HTMLDivElement>(null);
+  const miniDockTargetRef = useRef<HTMLDivElement>(null);
+  const [isPlayerInView, setIsPlayerInView] = useState(true);
+  const [dockRect, setDockRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
@@ -175,6 +184,10 @@ export function TipLinkLandingClient({
 
   const hidePageChrome = isMobileLandscape || (isFullView && isMobile);
   const isImmersiveRoom = hidePageChrome || (isDesktopImmersive && !isMobile);
+  const isDocked =
+    !isPlayerInView && !hidePageChrome && !isDesktopImmersive && !preview;
+  const hostFirstName =
+    host.fullName.trim().split(/\s+/)[0] || host.fullName.trim();
   const stackImmersive = isImmersiveRoom;
   const desktopPresentationFit =
     isDesktopImmersive && !isMobile ? "cover" : null;
@@ -263,6 +276,51 @@ export function TipLinkLandingClient({
     };
   }, [isDesktopImmersive, isFullView, isMobileLandscape]);
 
+  useEffect(() => {
+    const anchor = playerAnchorRef.current;
+    if (!anchor || hidePageChrome || isDesktopImmersive) {
+      setIsPlayerInView(true);
+      return;
+    }
+
+    const headerHeight = stickyClusterRef.current?.offsetHeight ?? 120;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsPlayerInView(entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: `-${headerHeight}px 0px 0px 0px` }
+    );
+    observer.observe(anchor);
+    return () => observer.disconnect();
+  }, [hidePageChrome, isDesktopImmersive]);
+
+  useEffect(() => {
+    if (!isDocked) {
+      setDockRect(null);
+      return;
+    }
+
+    const updateDockRect = () => {
+      const slot = miniDockTargetRef.current ?? miniDockSlotRef.current;
+      if (!slot) return;
+      const rect = slot.getBoundingClientRect();
+      setDockRect({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    updateDockRect();
+    window.addEventListener("scroll", updateDockRect, { passive: true });
+    window.addEventListener("resize", updateDockRect);
+    return () => {
+      window.removeEventListener("scroll", updateDockRect);
+      window.removeEventListener("resize", updateDockRect);
+    };
+  }, [isDocked]);
+
   const emitEncounter = useCallback(() => {
     if (!eventId || !channelId) return;
     trackTvVideoEncounter(`tiplink-${tipLink.slug}`, {
@@ -338,6 +396,17 @@ export function TipLinkLandingClient({
     if (isPlaying) videoRef.current?.pause();
     else videoRef.current?.play();
   }, [isPlaying]);
+
+  const handlePlayerSurfaceClick = useCallback(() => {
+    if (isDocked) {
+      playerAnchorRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      return;
+    }
+    togglePlayPause();
+  }, [isDocked, togglePlayPause]);
 
   const enterImmersive = useCallback(() => {
     if (isMobile) {
@@ -440,14 +509,6 @@ export function TipLinkLandingClient({
       },
     });
   }, [user]);
-
-  const metricsLine = [
-    `${metrics.saves} saves`,
-    `${metrics.shares} shares`,
-    `${metrics.comments} comments`,
-    `${metrics.encounters} seen`,
-    `${metrics.pageVisits90d} visits (90d)`,
-  ].join(" · ");
 
   const tipDrawerMounted = isTipDrawerOpen || openWalletModalNonce > 0;
 
@@ -563,8 +624,12 @@ export function TipLinkLandingClient({
                 ? "landscape_video"
                 : immersiveLayout
             )
-          : "relative aspect-video w-full",
-        isMobileLandscape && !isFullView && "h-full min-h-0 flex-1"
+          : cn(
+              "overflow-hidden",
+              isDocked ? "h-full w-full" : "relative aspect-video w-full"
+            ),
+        isMobileLandscape && !isFullView && "h-full min-h-0 flex-1",
+        isDocked && "rounded-lg shadow-lg ring-1 ring-white/15"
       )}
     >
       <VideoPlayer
@@ -582,7 +647,7 @@ export function TipLinkLandingClient({
         type="button"
         aria-label={isPlaying ? "Pause video" : "Play video"}
         className="absolute inset-0 z-[50] cursor-pointer bg-transparent"
-        onClick={togglePlayPause}
+        onClick={handlePlayerSurfaceClick}
       />
       {countryDisplay ? (
         <div
@@ -610,11 +675,42 @@ export function TipLinkLandingClient({
     </TipLinkPlayerShell>
   );
 
+  const playerWithDock = (
+    <div
+      ref={playerAnchorRef}
+      className="relative w-full"
+    >
+      {isDocked ? (
+        <div
+          className="aspect-video w-full rounded-2xl bg-black/40"
+          aria-hidden
+        />
+      ) : null}
+      <div
+        className={cn(!isDocked && "relative w-full")}
+        style={
+          isDocked && dockRect
+            ? {
+                position: "fixed",
+                top: dockRect.top,
+                left: dockRect.left,
+                width: dockRect.width,
+                height: dockRect.height,
+                zIndex: 60,
+              }
+            : undefined
+        }
+      >
+        {playerStage}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div
         className={cn(
-          "min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-white",
+          "tiplink-landing-bg min-h-screen text-white",
           isMobileLandscape &&
             "fixed inset-0 flex h-full max-h-[100dvh] w-full flex-col bg-black p-4 text-white",
           isFullView &&
@@ -630,37 +726,67 @@ export function TipLinkLandingClient({
         ) : null}
 
         {!hidePageChrome && !isDesktopImmersive ? (
-          <header className="sticky top-0 z-50 flex items-center justify-between border-b border-white/10 bg-black/70 px-4 py-3 backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="rounded-full"
-                onClick={handleCreateYours}
+          <div
+            ref={stickyClusterRef}
+            className="sticky top-0 z-50"
+          >
+            <header className="flex items-center justify-between border-b border-white/10 bg-black/70 px-4 py-3 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={handleCreateYours}
+                >
+                  Create Yours
+                </Button>
+                <button
+                  type="button"
+                  aria-label="Profile"
+                  className="relative rounded-full border border-white/20 p-2"
+                  onClick={() => setIsProfileDrawerOpen(true)}
+                >
+                  <UserRound className="size-5" />
+                  <NotificationBadge
+                    variant="dot"
+                    className="-top-0.5 -right-0.5"
+                  />
+                </button>
+              </div>
+              <Link
+                href="/"
+                className="flex items-center gap-2 font-semibold tracking-wide"
               >
-                Create Yours
-              </Button>
-              <button
-                type="button"
-                aria-label="Profile"
-                className="relative rounded-full border border-white/20 p-2"
-                onClick={() => setIsProfileDrawerOpen(true)}
-              >
-                <UserRound className="size-5" />
-                <NotificationBadge
-                  variant="dot"
-                  className="-top-0.5 -right-0.5"
-                />
-              </button>
-            </div>
-            <Link
-              href="/"
-              className="flex items-center gap-2 font-semibold tracking-wide"
+                <span className="text-primary">Tipmanna</span>
+                <span className="text-sm text-white/70">link</span>
+              </Link>
+            </header>
+            {!preview ? (
+              <TipLinkMetricsTicker
+                visits={metrics.pageVisits90d}
+                tips={liveNumOfTips}
+                shares={metrics.shares}
+                onTipsClick={() => setShowTipsDrawer(true)}
+              />
+            ) : null}
+            <div
+              ref={miniDockSlotRef}
+              className={cn(
+                "border-b border-white/10 bg-black/70 backdrop-blur-md transition-[height]",
+                isDocked
+                  ? "flex h-[54px] items-center justify-end px-3 md:h-[72px] md:px-4"
+                  : "h-0 overflow-hidden border-b-0"
+              )}
+              aria-hidden={!isDocked}
             >
-              <span className="text-primary">Tipmanna</span>
-              <span className="text-sm text-white/70">link</span>
-            </Link>
-          </header>
+              {isDocked ? (
+                <div
+                  ref={miniDockTargetRef}
+                  className="h-[46px] w-[96px] shrink-0 md:h-[64px] md:w-[128px]"
+                />
+              ) : null}
+            </div>
+          </div>
         ) : null}
 
         {!hidePageChrome && !isDesktopImmersive && preview ? (
@@ -710,7 +836,8 @@ export function TipLinkLandingClient({
             <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
               {!(isDesktopImmersive && !isMobile) ? (
                 <>
-                  {playerStage}
+                  {playerWithDock}
+
                   {renderScrubber("inline")}
                 </>
               ) : (
@@ -718,52 +845,53 @@ export function TipLinkLandingClient({
               )}
             </section>
 
-            <section>
-            <h1 className="text-2xl font-bold">{channel.title}</h1>
-            </section>
-
             <section className="space-y-3 text-sm text-white/80">
-              <p>{metricsLine}</p>
+              <h1 className="text-2xl font-bold">{channel.title}</h1>
+
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"
+                  className="flex-1 shrink-0 border border-white/20 bg-black/50! text-sm text-white! hover:bg-black/80"
                   onClick={() => setShowCommentDrawer(true)}
                 >
-                  <MessageCircleMore className="mr-1 size-4" /> Comments
+                  <MessageCircleMore className="mr-1 size-4" />{" "}
+                  {metrics.comments} Comments
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="flex-1 shrink-0 border border-white/20 bg-black/50! text-xs text-white! hover:bg-black/80 sm:text-sm"
                   onClick={handleSave}
                 >
-                  <Bookmark className="mr-1 size-4" />{" "}
+                  <Bookmark className="mr-1 size-4" /> {metrics.saves}{" "}
                   {saved ? "Saved" : "Save"}
                 </Button>
                 <SaveHostToggleButton
                   hostId={host.id}
-                  className="inline-flex items-center gap-1 rounded-md border border-white/20 px-3 py-1.5 text-sm"
+                  className="inline-flex flex-1 shrink-0 items-center gap-1 rounded-md border border-white/20 px-3 py-1.5 text-xs sm:text-sm"
                   onRequireSignIn={() => setSignInOpen(true)}
                 />
                 <Button
                   variant="outline"
                   size="sm"
+                  className="flex-1 shrink-0 border border-white/20 bg-black/50! text-xs text-white! hover:bg-black/80 sm:text-sm"
                   onClick={handleShare}
                 >
-                  <Share2 className="mr-1 size-4" /> Share
+                  <Share2 className="mr-1 size-4" /> {metrics.shares} Share
                 </Button>
-                <Button
+                {/* <Button
                   variant="outline"
                   size="sm"
+                  className="bg-black/50! text-white! border border-white/20 hover:bg-black/80 text-xs sm:text-sm"
                   onClick={() => setShowTipsDrawer(true)}
                 >
                   Tips ({liveChannelNumOfTips ?? channel.numOfTips})
-                </Button>
+                </Button> */}
               </div>
             </section>
 
             <section className="space-y-2">
-              
               {channel.description ? (
                 <button
                   type="button"
@@ -827,7 +955,7 @@ export function TipLinkLandingClient({
             {tipLink.pitch ? (
               <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
                 <h2 className="border-b border-white/10 px-4 py-3 text-sm font-semibold tracking-wide text-white/80 uppercase">
-                  Pitch
+                  {hostFirstName}&apos;s Pitch
                 </h2>
                 <div className="relative h-40 w-full">
                   <Image
@@ -839,6 +967,7 @@ export function TipLinkLandingClient({
                     className="object-cover"
                     unoptimized
                   />
+                  <div className="to-primary/15 absolute inset-0 bg-gradient-to-t from-black/85 via-black/25" />
                 </div>
                 <p className="px-4 py-4 text-lg leading-relaxed font-medium text-white/95">
                   {tipLink.pitch}

@@ -21,6 +21,10 @@ import {
   createCommunityReminderPostAction,
   searchReminderEnforcementsAction,
 } from "@/actions/reminder-bucket";
+import {
+  getCommunityEmailBlastStatusAction,
+  requestCommunityEmailBlastAction,
+} from "@/actions/host-email-blast";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { toast } from "react-toastify";
 import type { RootState } from "@/redux/store";
@@ -48,7 +52,12 @@ export function HostReminderBucketTab({ communityId }: Props) {
   const [busy, setBusy] = useState(false);
   const [channelInApp, setChannelInApp] = useState(true);
   const [channelPush, setChannelPush] = useState(true);
-  const [channelEmail, setChannelEmail] = useState(true);
+  const [channelEmail, setChannelEmail] = useState(false);
+  const [emailBlastStatus, setEmailBlastStatus] = useState<string | null>(null);
+  const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(
+    null
+  );
+  const [requestingEmail, setRequestingEmail] = useState(false);
   const authUser = useSelector((s: RootState) => s.auth.user);
 
   const landingUrl = useMemo(
@@ -81,6 +90,40 @@ export function HostReminderBucketTab({ communityId }: Props) {
   useEffect(() => {
     void loadEnforcements();
   }, [loadEnforcements]);
+
+  useEffect(() => {
+    void (async () => {
+      const res = await getCommunityEmailBlastStatusAction(communityId);
+      if (res.success && res.data?.request) {
+        setEmailBlastStatus(res.data.request.status);
+        setEmailRecipientCount(res.data.request.recipientCount);
+        if (res.data.request.status === "unlocked") {
+          setChannelEmail(true);
+        }
+      }
+    })();
+  }, [communityId]);
+
+  const requestEmailUnlock = async () => {
+    setRequestingEmail(true);
+    try {
+      const res = await requestCommunityEmailBlastAction(communityId);
+      if (!res.success) {
+        throw new Error(res.message ?? "Could not send request");
+      }
+      setEmailBlastStatus(res.data?.request.status ?? "requested");
+      setEmailRecipientCount(res.data?.request.recipientCount ?? null);
+      toast.success(
+        res.data?.alreadyOpen
+          ? "Email blast request already open"
+          : "Request sent to superadmin"
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setRequestingEmail(false);
+    }
+  };
 
   useEffect(() => {
     setSelected(null);
@@ -233,14 +276,42 @@ export function HostReminderBucketTab({ communityId }: Props) {
             />
             Push
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm opacity-60">
             <Checkbox
               checked={channelEmail}
+              disabled={emailBlastStatus !== "unlocked"}
               onCheckedChange={v => setChannelEmail(v === true)}
             />
             Email
+            {emailRecipientCount != null ? (
+              <span className="text-muted-foreground text-xs">
+                ({emailRecipientCount} recipients)
+              </span>
+            ) : null}
           </label>
         </div>
+        {emailBlastStatus !== "unlocked" ? (
+          <div className="bg-muted/30 space-y-2 rounded-md border p-3 text-sm">
+            <p>
+              Email is an on-demand paid feature. Send a request to superadmin
+              to unlock email for your community members and subscribers.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={requestingEmail}
+              onClick={() => void requestEmailUnlock()}
+            >
+              {requestingEmail ? "Sending…" : "Send request to superadmin"}
+            </Button>
+            {emailBlastStatus ? (
+              <p className="text-muted-foreground text-xs">
+                Current request status: {emailBlastStatus.replace(/_/g, " ")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-2">

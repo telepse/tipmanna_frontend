@@ -119,6 +119,9 @@ import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
 import { useTV } from "../tv-provider";
+import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
+import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
 import { WebTvLooper } from "./web-tv-looper";
@@ -205,6 +208,7 @@ export function TvInteractiveShell({
 }: TvInteractiveShellProps) {
   const { currentIndex, playingItemOverride, scheduleSourceCommunityId } =
     useTV();
+  const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
   const currentPlaying = playingItemOverride ?? items[currentIndex] ?? items[0];
   const paymentChannelId = currentPlaying?.channel?.id ?? null;
   const tvAnalyticsSurface = scheduleSourceCommunityId
@@ -240,20 +244,27 @@ export function TvInteractiveShell({
     { paymentSurface: tvAnalyticsSurface }
   );
 
+  const resolvedDrawerSets = useMemo(
+    () => resolveTipDrawerSets(tipPres.drawerSets, characterSetsForDrawer),
+    [tipPres.drawerSets, characterSetsForDrawer]
+  );
+
+  const handleTipFromFeatureCard = useCallback(
+    (cardId: string) => {
+      setActiveVideoFeatureCardId(cardId);
+      setIsTipDrawerOpen(true);
+    },
+    [setActiveVideoFeatureCardId, setIsTipDrawerOpen]
+  );
+
   const tipPriceCatalog = useMemo(
     () =>
       buildSurfaceTipPriceCatalog({
         enrichedCatalog: tipPres.catalog as RoomCharacter[],
         videoCatalog: tippingCharactersForDrawer as RoomCharacter[],
-        fallbackCatalog: characters as RoomCharacter[],
-        characterSets: characterSetsForDrawer,
+        characterSets: resolvedDrawerSets,
       }),
-    [
-      tipPres.catalog,
-      tippingCharactersForDrawer,
-      characters,
-      characterSetsForDrawer,
-    ]
+    [tipPres.catalog, tippingCharactersForDrawer, resolvedDrawerSets]
   );
 
   const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
@@ -481,6 +492,8 @@ export function TvInteractiveShell({
                 analyticsSurface={tvAnalyticsSurface}
                 onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
                 onEngage={() => setIsTipDrawerOpen(true)}
+                onTipFeatured={handleTipFromFeatureCard}
+                sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
                 commentDrawerVideoTitle={
                   typeof currentPlaying?.channel?.title === "string"
                     ? currentPlaying.channel.title
@@ -801,6 +814,8 @@ export function TvInteractiveShell({
                     analyticsSurface={tvAnalyticsSurface}
                     onContinueCommentToTip={() => setIsTipDrawerOpen(true)}
                     onEngage={() => setIsTipDrawerOpen(true)}
+                    onTipFeatured={handleTipFromFeatureCard}
+                    sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
                     onFullViewChange={setIsMobileFullView}
                     onRegisterExitFull={registerExitFull}
                     commentDrawerVideoTitle={
@@ -1079,7 +1094,7 @@ export function TvInteractiveShell({
                   key={videoTipKey || tipDrawerEventId}
                   eventId={tipDrawerEventId}
                   tippingCharacters={tipPriceCatalog as RoomCharacter[]}
-                  characterSets={characterSetsForDrawer}
+                  characterSets={resolvedDrawerSets}
                   paymentSurface={tvAnalyticsSurface}
                   paymentCommunityId={scheduleSourceCommunityId ?? undefined}
                   paymentChannelId={paymentChannelId}
@@ -1107,7 +1122,7 @@ export function TvInteractiveShell({
             onOpenChange={setIsTipDrawerOpen}
             eventId={tipDrawerEventId}
             tippingCharacters={tipPriceCatalog}
-            characterSets={characterSetsForDrawer}
+            characterSets={resolvedDrawerSets}
             paymentSurface={tvAnalyticsSurface}
             paymentCommunityId={scheduleSourceCommunityId ?? undefined}
             paymentChannelId={paymentChannelId}

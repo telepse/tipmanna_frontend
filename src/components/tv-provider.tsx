@@ -780,6 +780,7 @@ export default function GlobalTVProvider({
   const unregisterTvPlayer = useCallback(() => {
     tvTrace("playback", "player_unregister", {});
     playerRef.current = null;
+    playbackTabSnapshotRestoreAppliedRef.current = false;
   }, []);
 
   const remountPlayerForResume = useCallback((reason: string) => {

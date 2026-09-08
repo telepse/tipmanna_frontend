@@ -23,6 +23,7 @@ export type TipConfigPayload = {
   textCharacter: TipConfigTextBlock;
   sectionItems: TipConfigItem[];
   drawerItems: TipConfigItem[];
+  eliteCharacterIds?: string[];
 };
 
 export type ActiveTipConfigResponse =

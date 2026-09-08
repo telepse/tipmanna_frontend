@@ -85,6 +85,7 @@ import { LiveStreamFeedBadge } from "@/components/video/live-stream-feed-badge";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
+import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
 import { Button } from "@/components/ui/button";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
@@ -1304,9 +1305,8 @@ export const ExploreFeedClient = forwardRef<
     set => Array.isArray(set.characters) && set.characters.length > 0
   );
 
-  const tippingCharactersForDrawer = videoTipCatalog?.characters?.length
-    ? (videoTipCatalog.characters as RoomCharacter[])
-    : (characters as RoomCharacter[]);
+  const tippingCharactersForDrawer = (videoTipCatalog?.characters ??
+    []) as RoomCharacter[];
 
   const tipPres = useTipPresentation(
     activeEventId || undefined,
@@ -1317,20 +1317,19 @@ export const ExploreFeedClient = forwardRef<
     }
   );
 
+  const resolvedDrawerSets = useMemo(
+    () => resolveTipDrawerSets(tipPres.drawerSets, characterSetsForDrawer),
+    [tipPres.drawerSets, characterSetsForDrawer]
+  );
+
   const tipPriceCatalog = useMemo(
     () =>
       buildSurfaceTipPriceCatalog({
         enrichedCatalog: tipPres.catalog as RoomCharacter[],
         videoCatalog: tippingCharactersForDrawer,
-        fallbackCatalog: characters as RoomCharacter[],
-        characterSets: characterSetsForDrawer,
+        characterSets: resolvedDrawerSets,
       }),
-    [
-      tipPres.catalog,
-      tippingCharactersForDrawer,
-      characters,
-      characterSetsForDrawer,
-    ]
+    [tipPres.catalog, tippingCharactersForDrawer, resolvedDrawerSets]
   );
 
   const dispatch = useDispatch();
@@ -3118,7 +3117,7 @@ export const ExploreFeedClient = forwardRef<
             onOpenChange={setIsTipDrawerOpen}
             eventId={activeEventId}
             tippingCharacters={tipPriceCatalog}
-            characterSets={characterSetsForDrawer}
+            characterSets={resolvedDrawerSets}
             paymentSurface={
               feedMode === "community" ? "community_feed" : "explore_feed"
             }

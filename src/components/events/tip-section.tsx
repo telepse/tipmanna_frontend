@@ -84,7 +84,7 @@ export const TipSection = ({
   payLabel,
   tipQuoteContext,
 }: Props) => {
-  const sectionCta = "Engage";
+  const sectionCta = sectionCtaLabel?.trim() || "Engage";
   const [openDrawer, setOpenDrawer] = useState(false);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [openWalletAfterPerformer, setOpenWalletAfterPerformer] =
@@ -130,16 +130,18 @@ export const TipSection = ({
 
   const allTips = useMemo(() => {
     const ordered = buildTipSectionPreviewCharacters(tippingCharacters);
-    if (ordered.length <= 1) return ordered;
-
+    const maxStrip = 20;
+    if (ordered.length <= maxStrip) {
+      if (ordered.length <= 1) return ordered;
+      const [pinnedComment, ...rest] = ordered;
+      const shuffled = [...rest];
+      shuffled.sort(() => Math.random() - 0.5);
+      return [pinnedComment, ...shuffled];
+    }
     const [pinnedComment, ...rest] = ordered;
     const shuffled = [...rest];
-    // for (let i = shuffled.length - 1; i > 0; i--) {
-    //   const j = Math.floor(Math.random() * (i + 1));
-    //   [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    // }
     shuffled.sort(() => Math.random() - 0.5);
-    return [pinnedComment, ...shuffled];
+    return [pinnedComment, ...shuffled.slice(0, maxStrip - 1)];
   }, [tippingCharacters]);
 
   const openTextDraftModalOnly = () => {

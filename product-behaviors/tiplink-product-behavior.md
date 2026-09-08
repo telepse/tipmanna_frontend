@@ -36,11 +36,23 @@ Frontend host mutations use `serverHostAuthHeaders()` in `frontend/src/actions/t
 
 - Tip strip stays at the top (not player-first).
 - Portrait mobile scroll is unlocked; document overflow locks only in full-view, desktop Enlarge overlay, or device landscape.
+- Sticky header includes a metrics ticker: `{visits} visits · {tips} tips · {shares} shares · Watch · Engage · Support` (marquee on desktop; static on mobile / `prefers-reduced-motion`).
+- When the inline player scrolls out of view, the same iframe docks into the sticky header mini slot (no remount); tap mini scrolls back to inline.
+- Spotify-style orange-on-black page background; pitch heading uses host first name (`{firstName}'s Pitch`).
 - Store grid includes a Tipmanna **ENGAGE** row linking to the creator profile.
 - Pitch is a composed card (heading, banner/thumbnail, text).
 - YouTube iframe is non-interactive (`pointer-events-none`); play/pause uses app chrome only (no click-through to YouTube).
 - Country flag overlays the player (channel country, then event country — same as explore).
 - Desktop **Enlarge** opens a fixed black-room overlay (landscape cover); mobile Enlarge uses existing full-view hook.
+
+## Host video rebind
+
+- PATCH `/api/v1/host/tiplinks/:id` accepts optional `eventChannelId` to point an existing TipLink at another video in the **same event**.
+- Target must be host-owned, not deleted, and must not already have another TipLink (409).
+- Published TipLinks require the target to pass publish eligibility; drafts use draft eligibility.
+- Does not increment `tipLinksCreatedCount`.
+- When `bannerSource === thumbnail`, banner refreshes from the new video YouTube thumbnail.
+- Host manage-event form exposes a video picker when multiple eligible videos exist.
 
 ## Create Yours funnel
 

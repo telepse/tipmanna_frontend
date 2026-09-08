@@ -189,8 +189,7 @@ export function useHostCapability(options?: Options) {
     };
   })();
 
-  const canReadAsHost =
-    capability.status === "active" || capability.status === "stale";
+  const canReadAsHost = capability.status === "active";
   const canWriteAsHost = capability.status === "active";
   canWriteRef.current = canWriteAsHost;
 

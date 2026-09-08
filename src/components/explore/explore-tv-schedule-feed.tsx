@@ -153,7 +153,6 @@ export function ExploreTvScheduleFeed({
       buildSurfaceTipPriceCatalog({
         enrichedCatalog: tipPres.catalog as RoomCharacter[],
         videoCatalog: characters as RoomCharacter[],
-        fallbackCatalog: characters as RoomCharacter[],
         characterSets: characterSets,
       }),
     [tipPres.catalog, characters, characterSets]

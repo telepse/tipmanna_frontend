@@ -1,8 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import Link from "next/link";
-import { ChevronDown, ChevronUp, Gift, Sparkles, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  CircleX,
+  Gift,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   flushTvAnalytics,
@@ -10,6 +23,8 @@ import {
 } from "@/lib/tvAnalytics";
 import { cn } from "@/lib/utils";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
+import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 
 export type FeatureCardPayload = {
   id: string;
@@ -41,75 +56,15 @@ type Props = {
   className?: string;
   compact?: boolean;
   onTipFeatured?: (cardId: string) => void;
+  /** Pause underlying playback while the featured overlay is open. */
+  onOverlayOpenChange?: (open: boolean) => void;
 };
 
-function FeatureCardChip({
-  card,
-  muted,
-  showSecondaryBadge,
-  expanded,
-  onTipFeatured,
-}: {
-  card: FeatureCardPayload;
-  muted?: boolean;
-  showSecondaryBadge?: boolean;
-  expanded: boolean;
-  onTipFeatured?: (cardId: string) => void;
-}) {
-  return (
-    <div
-      className={cn(
-        "bg-background/95 flex max-w-sm flex-col gap-1 rounded-lg border p-2 text-xs shadow-md backdrop-blur-sm",
-        muted && "opacity-90"
-      )}
-    >
-      <div className="flex items-center gap-2">
-        {card.scope === "global" ? (
-          <Sparkles className="text-primary size-4 shrink-0" />
-        ) : (
-          <Gift className="text-primary size-4 shrink-0" />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{card.featured.title}</p>
-          {showSecondaryBadge ? (
-            <p className="text-muted-foreground text-[10px]">Also live</p>
-          ) : null}
-        </div>
-      </div>
-      {(card.announcementText || card.adminMessage) && expanded ? (
-        <p className="text-muted-foreground line-clamp-4 whitespace-pre-wrap">
-          {card.announcementText || card.adminMessage}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap gap-1 pt-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-[11px]"
-          asChild
-        >
-          <Link
-            href={card.featured.url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Watch
-          </Link>
-        </Button>
-        {onTipFeatured ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 px-2 text-[11px]"
-            onClick={() => onTipFeatured(card.id)}
-          >
-            Tip from card
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
+function featureCardThumb(url: string): string {
+  const id = extractYoutubeID(url);
+  return id
+    ? `https://img.youtube.com/vi/${id}/hqdefault.jpg`
+    : "/default-event-image.jpg";
 }
 
 export function VideoFeatureCardBanner({
@@ -118,19 +73,24 @@ export function VideoFeatureCardBanner({
   className,
   compact,
   onTipFeatured,
+  onOverlayOpenChange,
 }: Props) {
   const panelId = useId();
   const [targetCard, setTargetCard] = useState<FeatureCardPayload | null>(null);
   const [globalCard, setGlobalCard] = useState<FeatureCardPayload | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [expandedMax, setExpandedMax] = useState(false);
+  const [overlayOpen, setOverlayOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const openedMaxAtMs = useRef<number | null>(null);
   const cardSessionRef = useRef("");
   const impressionSent = useRef<Set<string>>(new Set());
 
   const primaryCard = targetCard ?? globalCard;
-  const secondaryCard = targetCard && globalCard ? globalCard : null;
+
+  const thumbSrc = useMemo(
+    () => (primaryCard ? featureCardThumb(primaryCard.featured.url) : null),
+    [primaryCard]
+  );
 
   const ensureSessionId = () => {
     if (cardSessionRef.current) return cardSessionRef.current;
@@ -147,11 +107,12 @@ export function VideoFeatureCardBanner({
   useEffect(() => {
     openedMaxAtMs.current = null;
     setExpanded(false);
-    setExpandedMax(false);
+    setOverlayOpen(false);
     setDismissed(false);
     cardSessionRef.current = "";
     impressionSent.current = new Set();
-  }, [surfaceChannelId]);
+    onOverlayOpenChange?.(false);
+  }, [surfaceChannelId, onOverlayOpenChange]);
 
   const refetchActiveCards = useCallback(async () => {
     if (!videoRequestsClientEnabled || !surfaceChannelId.trim()) {
@@ -214,7 +175,7 @@ export function VideoFeatureCardBanner({
       });
       void flushTvAnalytics();
     },
-    [surfaceChannelId, hostSurfaceChannelId]
+    [hostSurfaceChannelId, surfaceChannelId]
   );
 
   useEffect(() => {
@@ -233,7 +194,7 @@ export function VideoFeatureCardBanner({
     void flushTvAnalytics();
   };
 
-  const openMax = () => {
+  const openOverlay = () => {
     if (!primaryCard) return;
     ensureSessionId();
     openedMaxAtMs.current = Date.now();
@@ -243,8 +204,8 @@ export function VideoFeatureCardBanner({
       hostSurfaceChannelId: analyticsChannel(),
     });
     void flushTvAnalytics();
-    setExpanded(true);
-    setExpandedMax(true);
+    setOverlayOpen(true);
+    onOverlayOpenChange?.(true);
   };
 
   const closeOverlay = () => {
@@ -261,7 +222,8 @@ export function VideoFeatureCardBanner({
       void flushTvAnalytics();
     }
     openedMaxAtMs.current = null;
-    setExpandedMax(false);
+    setOverlayOpen(false);
+    onOverlayOpenChange?.(false);
   };
 
   if (
@@ -273,95 +235,129 @@ export function VideoFeatureCardBanner({
     return null;
   }
 
+  const embedId = extractYoutubeID(primaryCard.featured.url);
+
   return (
-    <div
-      className={cn(
-        "pointer-events-auto flex flex-col gap-2",
-        compact ? "max-w-[min(100%,18rem)]" : "max-w-md",
-        className
-      )}
-    >
-      <div className="bg-background/90 flex items-start gap-2 rounded-lg border shadow-md backdrop-blur-sm">
-        <div className="min-w-0 flex-1 p-2">
-          <p className="text-[11px] font-semibold tracking-wide uppercase">
-            {primaryCard.scope === "global"
-              ? "Platform feature"
-              : "Featured video"}
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-sm font-medium">
-            {primaryCard.featured.title}
-          </p>
+    <>
+      <div
+        className={cn(
+          "pointer-events-auto flex flex-col gap-2",
+          compact ? "max-w-[min(100%,18rem)]" : "max-w-md",
+          className
+        )}
+      >
+        <div className="bg-background/90 flex items-start gap-2 rounded-lg border shadow-md backdrop-blur-sm">
+          <div className="min-w-0 flex-1 p-2">
+            <p className="text-[11px] font-semibold tracking-wide uppercase">
+              {primaryCard.scope === "global"
+                ? "Platform feature"
+                : "Featured video"}
+            </p>
+            <p className="mt-0.5 line-clamp-2 text-sm font-medium">
+              {primaryCard.featured.title}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-col gap-0.5 p-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label="Dismiss feature card"
+              onClick={() => {
+                closeOverlay();
+                setDismissed(true);
+              }}
+            >
+              <X className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-expanded={expanded}
+              aria-controls={panelId}
+              onClick={() => {
+                const next = !expanded;
+                setExpanded(next);
+                if (next) trackExpandMini();
+              }}
+            >
+              {expanded ? (
+                <ChevronUp className="size-4" />
+              ) : (
+                <ChevronDown className="size-4" />
+              )}
+            </Button>
+          </div>
         </div>
-        <div className="flex shrink-0 flex-col gap-0.5 p-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            aria-label="Dismiss feature card"
-            onClick={() => {
-              closeOverlay();
-              setDismissed(true);
-            }}
+
+        {expanded ? (
+          <div
+            id={panelId}
+            className="bg-background/95 flex flex-col gap-2 rounded-lg border p-2 text-xs shadow-md backdrop-blur-sm"
           >
-            <X className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            aria-expanded={expanded}
-            aria-controls={panelId}
-            onClick={() => {
-              const next = !expanded;
-              setExpanded(next);
-              if (next) trackExpandMini();
-            }}
-          >
-            {expanded ? (
-              <ChevronUp className="size-4" />
-            ) : (
-              <ChevronDown className="size-4" />
-            )}
-          </Button>
-        </div>
+            {thumbSrc ? (
+              <button
+                type="button"
+                className="relative aspect-video w-full overflow-hidden rounded-md bg-black"
+                onClick={openOverlay}
+                aria-label={`Play featured video: ${primaryCard.featured.title}`}
+              >
+                <img
+                  src={thumbSrc}
+                  alt=""
+                  className="size-full object-cover"
+                />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/35 text-[11px] font-semibold text-white">
+                  Play featured
+                </span>
+              </button>
+            ) : null}
+            {primaryCard.announcementText ? (
+              <p className="text-muted-foreground line-clamp-4 whitespace-pre-wrap">
+                {primaryCard.announcementText}
+              </p>
+            ) : null}
+            {primaryCard.adminMessage ? (
+              <p className="text-muted-foreground/90 line-clamp-4 text-[11px] whitespace-pre-wrap italic">
+                {primaryCard.adminMessage}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-1 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                onClick={openOverlay}
+              >
+                {primaryCard.scope === "global" ? (
+                  <Sparkles className="mr-1 size-3" />
+                ) : (
+                  <Gift className="mr-1 size-3" />
+                )}
+                Watch here
+              </Button>
+              {onTipFeatured ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => onTipFeatured(primaryCard.id)}
+                >
+                  Tip featured
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {expanded ? (
+      {overlayOpen && embedId ? (
         <div
-          id={panelId}
-          className="flex flex-col gap-2"
-        >
-          <FeatureCardChip
-            card={primaryCard}
-            expanded
-            onTipFeatured={onTipFeatured}
-          />
-          {secondaryCard && secondaryCard.id !== primaryCard.id && !compact ? (
-            <FeatureCardChip
-              card={secondaryCard}
-              expanded
-              muted
-              showSecondaryBadge
-              onTipFeatured={onTipFeatured}
-            />
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="w-full text-[11px]"
-            onClick={openMax}
-          >
-            Expand details
-          </Button>
-        </div>
-      ) : null}
-
-      {expandedMax ? (
-        <div
-          className="animate-in fade-in fixed inset-0 z-[280] flex items-end justify-center bg-black/50 p-3 sm:items-center"
+          className={`${OVERLAY_Z_INDEX} fixed inset-0 flex items-center justify-center bg-black/80 p-3 sm:p-4`}
           role="dialog"
           aria-modal="true"
         >
@@ -369,41 +365,55 @@ export function VideoFeatureCardBanner({
             type="button"
             className="absolute inset-0 cursor-default bg-transparent"
             aria-label="Close overlay"
-            onClick={() => closeOverlay()}
+            onClick={closeOverlay}
           />
-          <div className="bg-background relative z-[1] max-h-[min(560px,90vh)] w-full max-w-lg overflow-auto rounded-xl border p-4 shadow-xl">
-            <Button
+          <div
+            className="relative z-[1] w-full max-w-3xl rounded-xl border bg-white p-3 shadow-xl sm:p-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 right-2 z-[2]"
-              aria-label="Close"
-              onClick={() => closeOverlay()}
+              aria-label="Close featured video"
+              onClick={closeOverlay}
+              className="absolute top-3 right-3 z-[2] rounded-full bg-black/60 p-1.5 text-white"
             >
-              <X className="size-4" />
-            </Button>
-            <div className="pr-10">
-              <FeatureCardChip
-                card={primaryCard}
-                expanded
-                onTipFeatured={onTipFeatured}
+              <CircleX className="size-4" />
+            </button>
+            <div className="aspect-video overflow-hidden rounded-lg bg-black">
+              <iframe
+                title={primaryCard.featured.title}
+                src={`https://www.youtube.com/embed/${embedId}?autoplay=1&rel=0`}
+                className="size-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
               />
             </div>
-            {secondaryCard &&
-            secondaryCard.id !== primaryCard.id &&
-            !compact ? (
-              <div className="mt-4 border-t pt-4">
-                <FeatureCardChip
-                  card={secondaryCard}
-                  expanded
-                  showSecondaryBadge
-                  onTipFeatured={onTipFeatured}
-                />
-              </div>
+            <p className="mt-3 pr-8 text-sm font-medium">
+              {primaryCard.featured.title}
+            </p>
+            {primaryCard.announcementText ? (
+              <p className="text-muted-foreground mt-1 text-xs whitespace-pre-wrap">
+                {primaryCard.announcementText}
+              </p>
+            ) : null}
+            {primaryCard.adminMessage ? (
+              <p className="text-muted-foreground/90 mt-1 text-[11px] whitespace-pre-wrap italic">
+                {primaryCard.adminMessage}
+              </p>
+            ) : null}
+            {onTipFeatured ? (
+              <Button
+                type="button"
+                size="sm"
+                className="mt-3"
+                onClick={() => onTipFeatured(primaryCard.id)}
+              >
+                Tip featured video
+              </Button>
             ) : null}
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

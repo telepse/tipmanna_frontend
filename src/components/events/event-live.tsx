@@ -70,6 +70,8 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
 import { toast } from "react-toastify";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
+import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 
 interface Props {
@@ -160,6 +162,7 @@ export const EventLive = ({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [tipsListOpen, setTipsListOpen] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
 
   const searchParams = useSearchParams();
 
@@ -729,6 +732,23 @@ export const EventLive = ({
               {...pickVideoSurfaceBadgeProps(currentChannel, eventId)}
               position="top-right"
             />
+            {currentChannel?.id &&
+            process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
+              <div className="pointer-events-none absolute top-3 left-3 z-30 max-w-[min(92vw,18rem)]">
+                <VideoFeatureCardBanner
+                  surfaceChannelId={String(currentChannel.id)}
+                  hostSurfaceChannelId={String(currentChannel.id)}
+                  compact
+                  onTipFeatured={id => {
+                    setActiveVideoFeatureCardId(id);
+                    setOpenDrawer(true);
+                  }}
+                  onOverlayOpenChange={open => {
+                    if (open) videoRef.current?.pause?.();
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
         )}
 

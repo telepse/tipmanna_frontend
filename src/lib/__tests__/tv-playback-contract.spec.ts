@@ -104,3 +104,26 @@ describe("TV playback contract — requestPlayback must not gesture-play after l
     expect(tvProviderSource).not.toContain("requestPlayback.skip_reload_play");
   });
 });
+
+describe("TV playback contract — leave/return player lifecycle", () => {
+  const tvPlayerSource = readFileSync(
+    join(frontendRoot, "src/components/tv/tv-player.tsx"),
+    "utf8"
+  );
+
+  it("does not reject onReady with module-level commandGeneration", () => {
+    expect(tvPlayerSource).not.toContain("bumpTvCommandGeneration");
+    expect(tvPlayerSource).not.toContain("isStaleTvCommandGeneration");
+  });
+
+  it("destroys the YT player on unmount, not in construct-effect cleanup", () => {
+    expect(tvPlayerSource).toContain("shouldAcceptTvPlayerYtCallback");
+    expect(tvPlayerSource).toContain("shouldReuseExistingTvYtPlayer");
+    expect(tvPlayerSource).toMatch(
+      /return \(\) => \{\s*alive = false;[\s\S]*?clearWatchdog\(\);[\s\S]*?\};/
+    );
+    expect(tvPlayerSource).not.toMatch(
+      /return \(\) => \{\s*alive = false;[\s\S]*?teardownImperativeMount\(\);[\s\S]*?clearWatchdog/
+    );
+  });
+});

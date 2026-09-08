@@ -4,8 +4,11 @@ import {
   allocateTvEmbedGeneration,
   isTvPlayerStateUsable,
   resetTvEmbedGenerationForTests,
+  shouldAcceptTvPlayerYtCallback,
   shouldForceEmbedRemount,
   shouldRemountTvPlayer,
+  shouldReplaceTvYtPlayer,
+  shouldReuseExistingTvYtPlayer,
   TV_EMBED_ONREADY_TIMEOUT_MS,
 } from "@/lib/tv-player-resume";
 
@@ -159,5 +162,58 @@ describe("shouldForceEmbedRemount", () => {
         youtubeChildReleased: true,
       })
     ).toBe(true);
+  });
+});
+
+describe("shouldAcceptTvPlayerYtCallback", () => {
+  it("accepts callbacks until the instance is torn down", () => {
+    expect(shouldAcceptTvPlayerYtCallback(false)).toBe(true);
+    expect(shouldAcceptTvPlayerYtCallback(true)).toBe(false);
+  });
+});
+
+describe("shouldReuseExistingTvYtPlayer / shouldReplaceTvYtPlayer", () => {
+  it("reuses the player across construct-effect re-runs with the same key", () => {
+    expect(
+      shouldReuseExistingTvYtPlayer({
+        hasPlayer: true,
+        constructKey: "1:abc",
+        constructedKey: "1:abc",
+      })
+    ).toBe(true);
+    expect(
+      shouldReplaceTvYtPlayer({
+        hasPlayer: true,
+        constructKey: "1:abc",
+        constructedKey: "1:abc",
+      })
+    ).toBe(false);
+  });
+
+  it("replaces the player when startup generation or video id changes", () => {
+    expect(
+      shouldReuseExistingTvYtPlayer({
+        hasPlayer: true,
+        constructKey: "2:abc",
+        constructedKey: "1:abc",
+      })
+    ).toBe(false);
+    expect(
+      shouldReplaceTvYtPlayer({
+        hasPlayer: true,
+        constructKey: "2:abc",
+        constructedKey: "1:abc",
+      })
+    ).toBe(true);
+  });
+
+  it("does not replace when no player exists yet", () => {
+    expect(
+      shouldReplaceTvYtPlayer({
+        hasPlayer: false,
+        constructKey: "1:abc",
+        constructedKey: null,
+      })
+    ).toBe(false);
   });
 });

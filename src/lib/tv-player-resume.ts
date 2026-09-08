@@ -83,3 +83,29 @@ export function shouldForceEmbedRemount(
   if (opts.remountCount >= maxRemounts) return false;
   return true;
 }
+
+/** Ignore YouTube callbacks after this player instance was torn down. */
+export function shouldAcceptTvPlayerYtCallback(destroyed: boolean): boolean {
+  return !destroyed;
+}
+
+/**
+ * Keep the existing YT.Player across construct-effect re-runs (React Strict Mode)
+ * when the construct key is unchanged. Destroy only on unmount or key change.
+ */
+export function shouldReuseExistingTvYtPlayer(opts: {
+  hasPlayer: boolean;
+  constructKey: string;
+  constructedKey: string | null;
+}): boolean {
+  return opts.hasPlayer && opts.constructedKey === opts.constructKey;
+}
+
+/** Visibility remount or target change: tear down before constructing a new player. */
+export function shouldReplaceTvYtPlayer(opts: {
+  hasPlayer: boolean;
+  constructKey: string;
+  constructedKey: string | null;
+}): boolean {
+  return opts.hasPlayer && opts.constructedKey !== opts.constructKey;
+}

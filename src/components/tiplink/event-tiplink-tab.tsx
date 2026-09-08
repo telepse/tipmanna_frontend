@@ -68,6 +68,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     useHostSubscriptionPrompt({ focusTier: "premium" });
 
   const [form, setForm] = useState({
+    eventChannelId: "",
     slug: "",
     pitch: "",
     title: "",
@@ -135,6 +136,23 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     return contents.filter(c => !used.has(c.id));
   }, [contents, tipLinks]);
 
+  const selectableVideos = useMemo(() => {
+    if (!editing) return [];
+    const usedByOther = new Set(
+      tipLinks.filter(t => t.id !== editing.id).map(t => t.eventChannelId)
+    );
+    return contents.filter(
+      c => c.id === editing.eventChannelId || !usedByOther.has(c.id)
+    );
+  }, [contents, editing, tipLinks]);
+
+  const activeVideoUrl = useMemo(() => {
+    if (!editing) return "";
+    const selectedId = form.eventChannelId || editing.eventChannelId;
+    const selected = contents.find(c => c.id === selectedId);
+    return selected?.url ?? editing.videoUrl;
+  }, [contents, editing, form.eventChannelId]);
+
   const thumbFor = (url: string) => {
     const id = extractYoutubeID(url);
     return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
@@ -197,6 +215,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     setEditing(row);
     handleRemoveBanner();
     setForm({
+      eventChannelId: row.eventChannelId,
       slug: row.slug,
       pitch: row.pitch ?? "",
       title: row.title,
@@ -250,6 +269,10 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       }
 
       const res = await updateTipLinkAction(editing.id, {
+        ...(form.eventChannelId &&
+        form.eventChannelId !== editing.eventChannelId
+          ? { eventChannelId: form.eventChannelId }
+          : {}),
         slug: form.slug,
         pitch: form.pitch || null,
         titleOverride: form.title || null,
@@ -481,6 +504,39 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                 onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
               />
             </div>
+            {selectableVideos.length > 1 ? (
+              <div className="space-y-2">
+                <Label>Video</Label>
+                <Select
+                  value={form.eventChannelId || editing.eventChannelId}
+                  onValueChange={channelId => {
+                    const next = contents.find(c => c.id === channelId);
+                    const youtubeThumb = next ? thumbFor(next.url) : null;
+                    setForm(f => ({
+                      ...f,
+                      eventChannelId: channelId,
+                      ...(f.bannerSource === "thumbnail" && youtubeThumb
+                        ? { bannerUrl: youtubeThumb }
+                        : {}),
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select video" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectableVideos.map(video => (
+                      <SelectItem
+                        key={video.id}
+                        value={video.id}
+                      >
+                        {video.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label>Title</Label>
               <Input
@@ -509,7 +565,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
               <Label>Banner</Label>
               {editing
                 ? (() => {
-                    const youtubeThumb = thumbFor(editing.videoUrl);
+                    const youtubeThumb = thumbFor(activeVideoUrl);
                     const activeBanner =
                       bannerPreview ??
                       (form.bannerSource === "thumbnail" && youtubeThumb

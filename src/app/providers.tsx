@@ -10,6 +10,8 @@ import { SideChickProvider } from "@/components/community/side-chick-provider";
 import { FeatureCardTipProvider } from "@/components/video-feature/feature-card-tip-context";
 import { PwaInstallController } from "@/components/pwa/pwa-install-controller";
 import { PushOptInResumeController } from "@/components/pwa/push-opt-in-resume-controller";
+import { PushPromptController } from "@/components/pwa/push-prompt-controller";
+import { NotificationPresencePinger } from "@/components/notifications/notification-presence-pinger";
 import { DedicatedEnterResumeController } from "@/components/community/dedicated-enter-resume-controller";
 import { ChunkLoadRecovery } from "@/components/chunk-load-recovery";
 import { VisitorAutoLogoutWrapper } from "@/components/VistorAutoLogoutWrapper";
@@ -35,6 +37,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
               <FeatureCardTipProvider>
                 <PwaInstallController />
                 <PushOptInResumeController />
+                <PushPromptController />
+                <NotificationPresencePinger />
                 <DedicatedEnterResumeController />
                 <ClientErrorBoundary>{children}</ClientErrorBoundary>
               </FeatureCardTipProvider>

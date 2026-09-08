@@ -454,10 +454,8 @@ export const HomeTvLooper = ({
   }, [isFullView, isMobileTv, onFullViewChange, onRegisterExitFull, exitFull]);
 
   const currentEventId = resolveTvScheduleEventId(current);
-  const { tippingCharacters: videoTipCharacters } = useTvEventTipCatalog(
-    currentEventId,
-    characters
-  );
+  const { tippingCharacters: videoTipCharacters } =
+    useTvEventTipCatalog(currentEventId);
   const tipsAndPaymentsEnabled =
     Boolean(currentEventId) && currentEventId !== "notice" && !isNotice;
   const currentChannelId = current?.channel?.id;

@@ -66,6 +66,7 @@ interface Props {
   savedContents?: any[];
   tippedVideos?: any[];
   initialTab?: ProfileDrawerTab;
+  initialAccountTab?: "tipper" | "host";
 }
 
 type ProfileStep = "signIn" | "verifyCode" | "tipperProfile";
@@ -81,6 +82,7 @@ export const ProfileDrawer = ({
   savedContents: savedContentsProp,
   tippedVideos: tippedVideosProp,
   initialTab = "notifications",
+  initialAccountTab = "tipper",
 }: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileDrawerTab>(initialTab);
@@ -446,7 +448,10 @@ export const ProfileDrawer = ({
               className={TAB_PANEL_CLASS}
             >
               <PushPermissionPrompt />
-              <NotificationsTab variant="drawer" />
+              <NotificationsTab
+                variant="drawer"
+                initialAccountTab={initialAccountTab}
+              />
             </TabsContent>
 
             <TabsContent

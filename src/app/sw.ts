@@ -55,6 +55,27 @@ async function getStoredToken(): Promise<string | null> {
   }
 }
 
+async function recordNotificationRead(notificationId: string): Promise<void> {
+  if (!notificationId || !API_BASE) return;
+  const token = await getStoredToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  try {
+    await fetch(
+      `${API_BASE}/notifications/${encodeURIComponent(notificationId)}/read`,
+      {
+        method: "POST",
+        headers,
+      }
+    );
+  } catch (e) {
+    console.error("[sw] notification read failed", e);
+  }
+}
+
 async function recordNotificationClick(
   notificationId: string,
   url: string
@@ -85,7 +106,9 @@ self.addEventListener("push", (event: PushEvent) => {
     title?: string;
     body?: string;
     deepLink?: string;
+    linkUrl?: string;
     notificationId?: string;
+    actions?: { action: string; title: string }[];
   } = {};
   try {
     payload = event.data ? event.data.json() : {};
@@ -94,15 +117,23 @@ self.addEventListener("push", (event: PushEvent) => {
   }
 
   const title = payload.title || "Tipmanna";
-  const options: NotificationOptions = {
+  const options: NotificationOptions & {
+    actions?: { action: string; title: string }[];
+  } = {
     body: payload.body || "",
     data: {
       deepLink: payload.deepLink || "/tv",
+      linkUrl: payload.linkUrl || null,
       notificationId: payload.notificationId || null,
     },
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
   };
+  if (payload.linkUrl) {
+    options.actions = payload.actions ?? [
+      { action: "open-link", title: "Open link" },
+    ];
+  }
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
@@ -111,16 +142,23 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
   const data = (event.notification.data || {}) as {
     deepLink?: string;
+    linkUrl?: string | null;
     notificationId?: string | null;
   };
   const deepLink = data.deepLink || "/tv";
+  const linkUrl = data.linkUrl || null;
   const notificationId = data.notificationId;
-  const targetUrl = new URL(deepLink, self.location.origin).href;
+  const useLinkAction = event.action === "open-link" && linkUrl;
+  const targetPath = useLinkAction ? linkUrl : deepLink;
+  const targetUrl = new URL(targetPath, self.location.origin).href;
 
   event.waitUntil(
     (async () => {
       if (notificationId) {
-        await recordNotificationClick(notificationId, targetUrl);
+        await recordNotificationRead(notificationId);
+        if (!useLinkAction) {
+          await recordNotificationClick(notificationId, targetUrl);
+        }
       }
 
       const windowClients = await self.clients.matchAll({

@@ -25,6 +25,7 @@ import type { RootState } from "@/redux/store";
 
 type Props = {
   variant?: "drawer" | "page";
+  initialAccountTab?: "tipper" | "host";
 };
 
 const FILTERS = [
@@ -68,8 +69,13 @@ function matchesFilter(row: FeedNotificationRow, filter: Filter): boolean {
   return true;
 }
 
-export function NotificationsTab({ variant = "drawer" }: Props) {
-  const [accountTab, setAccountTab] = useState<"tipper" | "host">("tipper");
+export function NotificationsTab({
+  variant = "drawer",
+  initialAccountTab = "tipper",
+}: Props) {
+  const [accountTab, setAccountTab] = useState<"tipper" | "host">(
+    initialAccountTab
+  );
   const [rows, setRows] = useState<FeedNotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -81,13 +87,19 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
   const { canReadAsHost, capability, requestHostAuth, HostAuthModal } =
     useHostCapabilityWithAuth();
 
+  useEffect(() => {
+    setAccountTab(initialAccountTab);
+  }, [initialAccountTab]);
+
+  const hostFetchAllowed = capability.status === "active";
+
   const load = useCallback(
     async (opts?: { append?: boolean; cursor?: string | null }) => {
       if (opts?.append) setLoadingMore(true);
       else setLoading(true);
 
       if (accountTab === "host") {
-        if (!canReadAsHost) {
+        if (!hostFetchAllowed) {
           setRows([]);
           setNextCursor(null);
           setLoading(false);
@@ -132,7 +144,7 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
       setLoading(false);
       setLoadingMore(false);
     },
-    [accountTab, canReadAsHost]
+    [accountTab, hostFetchAllowed]
   );
 
   useEffect(() => {
@@ -390,6 +402,31 @@ export function NotificationsTab({ variant = "drawer" }: Props) {
           if (!open) setSelected(null);
         }}
         deepLink={selected ? deepLinkFromRow(selected) : null}
+        onMarkRead={async (row: FeedNotificationRow) => {
+          if (accountTab === "host") {
+            if (!hostFetchAllowed || row.readAt) return;
+            const res = await markHostNotificationReadAction(row.id);
+            if (res.success) {
+              setRows(prev =>
+                prev.map(r =>
+                  r.id === row.id
+                    ? { ...r, readAt: new Date().toISOString() }
+                    : r
+                )
+              );
+            }
+            return;
+          }
+          if (!authUser || row.source !== "personal" || row.readAt) return;
+          const res = await markNotificationReadAction(row.id);
+          if (res.success) {
+            setRows(prev =>
+              prev.map(r =>
+                r.id === row.id ? { ...r, readAt: new Date().toISOString() } : r
+              )
+            );
+          }
+        }}
       />
     </div>
   );

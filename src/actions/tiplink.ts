@@ -199,6 +199,7 @@ export async function createTipLinkDraftAction(input: {
 }
 
 export type UpdateTipLinkInput = {
+  eventChannelId?: string;
   slug?: string;
   status?: TipLinkStatus;
   titleOverride?: string | null;

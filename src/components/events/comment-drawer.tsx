@@ -678,6 +678,7 @@ export const CommentDrawer = ({
                       Video tips: {metrics?.videoTipCount ?? 0}
                     </span>
 
+                    {/* HOST GROWTH TOGGLE VALUES */}
                     {(showViewCount ||
                       showEncounterCount ||
                       amountRaisedLabel) && (

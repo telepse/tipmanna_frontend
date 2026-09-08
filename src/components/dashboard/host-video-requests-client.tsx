@@ -42,10 +42,20 @@ type VideoRequestSent = {
   kind?: string;
   status?: string;
   createdAt?: string;
+  desiredEarliestAt?: string;
+  desiredLatestAt?: string;
+  approvedFromAt?: string;
+  approvedUntilAt?: string;
   targetChannel?: { title?: string; id?: string };
   sourceChannel?: { title?: string; id?: string };
   card?: { id?: string; active?: boolean; fromAt?: string; untilAt?: string };
-  rollup?: { impressions?: unknown } | null;
+  rollup?: {
+    impressions?: number;
+    miniExpands?: number;
+    maxExpands?: number;
+    tipsInMaxCount?: number;
+    tipsInMaxGbp?: number;
+  } | null;
 };
 
 type VideoRequestInbox = {
@@ -61,6 +71,29 @@ type VideoRequestInbox = {
   sourceChannel?: { title?: string; id?: string };
   targetChannel?: { title?: string; id?: string };
 };
+
+function formatRollupMetrics(
+  rollup: VideoRequestSent["rollup"]
+): string | null {
+  if (!rollup) return null;
+  const parts: string[] = [];
+  if (typeof rollup.impressions === "number") {
+    parts.push(`${rollup.impressions} encounters`);
+  }
+  if (typeof rollup.miniExpands === "number") {
+    parts.push(`${rollup.miniExpands} card clicks`);
+  }
+  if (typeof rollup.maxExpands === "number") {
+    parts.push(`${rollup.maxExpands} overlay opens`);
+  }
+  if (typeof rollup.tipsInMaxCount === "number") {
+    parts.push(`${rollup.tipsInMaxCount} tips`);
+  }
+  if (typeof rollup.tipsInMaxGbp === "number" && rollup.tipsInMaxGbp > 0) {
+    parts.push(`£${rollup.tipsInMaxGbp.toFixed(2)} from overlay`);
+  }
+  return parts.length ? parts.join(" · ") : null;
+}
 
 const ACCEPT_MODES = [
   "everyone",
@@ -93,6 +126,8 @@ export function HostVideoRequestsClient() {
   const [tvSourceChannelId, setTvSourceChannelId] = useState("");
   const [tvReason, setTvReason] = useState("");
   const [tvNote, setTvNote] = useState("");
+  const [tvWindowStart, setTvWindowStart] = useState("");
+  const [tvWindowEnd, setTvWindowEnd] = useState("");
 
   const [approveHours, setApproveHours] = useState<Record<string, string>>({});
 
@@ -226,11 +261,17 @@ export function HostVideoRequestsClient() {
 
   const onSubmitTv = async () => {
     if (!userId || !tvSourceChannelId) return;
+    if (!tvWindowStart || !tvWindowEnd) {
+      toast.error("Pick a future 7-day window for TV placement.");
+      return;
+    }
     const r = await createVideoRequestAction({
       kind: "tv_feature",
       sourceChannelId: tvSourceChannelId,
       reason: tvReason,
       desiredSlotNote: tvNote,
+      desiredEarliestAt: new Date(tvWindowStart).toISOString(),
+      desiredLatestAt: new Date(tvWindowEnd).toISOString(),
     });
     if (!r.success) {
       toast.error(r.message ?? "Submit failed");
@@ -239,6 +280,8 @@ export function HostVideoRequestsClient() {
     toast.success("TV feature request submitted");
     setTvReason("");
     setTvNote("");
+    setTvWindowStart("");
+    setTvWindowEnd("");
     void loadSent();
   };
 
@@ -576,6 +619,28 @@ export function HostVideoRequestsClient() {
                 />
               </div>
 
+              {/* Preferred window (max 7 days, must start in the future) */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <label className="text-sm font-medium">Window start</label>
+                  <Input
+                    type="datetime-local"
+                    value={tvWindowStart}
+                    onChange={e => setTvWindowStart(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-sm font-medium">Window end</label>
+                  <Input
+                    type="datetime-local"
+                    value={tvWindowEnd}
+                    onChange={e => setTvWindowEnd(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+              </div>
+
               {/* Preferred slot */}
               <div className="grid gap-1.5">
                 <label className="text-sm font-medium">
@@ -631,6 +696,28 @@ export function HostVideoRequestsClient() {
                 {row.card?.active ? (
                   <p className="text-muted-foreground mt-1 text-[11px]">
                     Active card · from {String(row.card.fromAt ?? "")}
+                  </p>
+                ) : null}
+                {formatRollupMetrics(row.rollup) ? (
+                  <p className="text-muted-foreground mt-1 text-[11px]">
+                    {formatRollupMetrics(row.rollup)}
+                  </p>
+                ) : null}
+                {row.kind === "tv_feature" &&
+                (row.desiredEarliestAt || row.approvedFromAt) ? (
+                  <p className="text-muted-foreground mt-1 text-[11px]">
+                    Window:{" "}
+                    {row.approvedFromAt
+                      ? new Date(row.approvedFromAt).toLocaleString()
+                      : row.desiredEarliestAt
+                        ? new Date(row.desiredEarliestAt).toLocaleString()
+                        : "—"}{" "}
+                    →{" "}
+                    {row.approvedUntilAt
+                      ? new Date(row.approvedUntilAt).toLocaleString()
+                      : row.desiredLatestAt
+                        ? new Date(row.desiredLatestAt).toLocaleString()
+                        : "—"}
                   </p>
                 ) : null}
                 {row.status === "pending" ? (

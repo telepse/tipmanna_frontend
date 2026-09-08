@@ -999,3 +999,41 @@ video::-webkit-media-controls-fullscreen-button,
 video::-webkit-media-controls-picture-in-picture-button {
   display: none !important;
 }
+
+/* TipLink landing: Spotify-style orange-on-black backdrop */
+.tiplink-landing-bg {
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -10%,
+      rgba(245, 125, 17, 0.28),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 100% 100%,
+      rgba(245, 125, 17, 0.08),
+      transparent 50%
+    ),
+    linear-gradient(180deg, #1a1008 0%, #0a0a0a 45%, #000 100%);
+}
+
+.tiplink-metrics-ticker-marquee {
+  overflow: hidden;
+}
+
+.tiplink-metrics-ticker-track {
+  animation: scroll-left 20s linear infinite;
+}
+
+.tiplink-metrics-ticker-marquee:hover .tiplink-metrics-ticker-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiplink-metrics-ticker-marquee {
+    display: none !important;
+  }
+
+  .tiplink-metrics-ticker-static {
+    display: flex !important;
+  }
+}

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-toastify";
 
@@ -30,6 +30,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { TipSection } from "@/components/events/tip-section";
+import { buildTipPresentation } from "@/lib/merge-tip-config";
+import type { RoomCharacter } from "@/types";
 
 export default function TipCustomizationClient({
   hostSlug,
@@ -48,6 +51,8 @@ export default function TipCustomizationClient({
   const [frozen, setFrozen] = useState(false);
   const [draft, setDraft] = useState<TipConfigPayload | null>(null);
   const [library, setLibrary] = useState<any[]>([]);
+  const [eliteLibrary, setEliteLibrary] = useState<any[]>([]);
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,9 +82,23 @@ export default function TipCustomizationClient({
   useEffect(() => {
     const run = async () => {
       try {
-        const res = await getHostAnimationLibraryAction({ library: "premium" });
-        if (res.success && res.data && Array.isArray(res.data.items)) {
-          setLibrary(res.data.items);
+        const [premiumRes, eliteRes] = await Promise.all([
+          getHostAnimationLibraryAction({ library: "premium" }),
+          getHostAnimationLibraryAction({ library: "elite" }),
+        ]);
+        if (
+          premiumRes.success &&
+          premiumRes.data &&
+          Array.isArray(premiumRes.data.items)
+        ) {
+          setLibrary(premiumRes.data.items);
+        }
+        if (
+          eliteRes.success &&
+          eliteRes.data &&
+          Array.isArray(eliteRes.data.items)
+        ) {
+          setEliteLibrary(eliteRes.data.items);
         }
       } catch {
         /* ignore */
@@ -199,6 +218,34 @@ export default function TipCustomizationClient({
       setSaving(false);
     }
   };
+
+  const toggleEliteCharacter = (characterId: string) => {
+    if (!draft) return;
+    const current = draft.eliteCharacterIds ?? [];
+    const has = current.includes(characterId);
+    const next = has
+      ? current.filter(id => id !== characterId)
+      : current.length >= 10
+        ? current
+        : [...current, characterId];
+    if (!has && current.length >= 10) {
+      toast.error("Maximum 10 elite animations");
+      return;
+    }
+    setDraft({ ...draft, eliteCharacterIds: next });
+  };
+
+  const previewPresentation = useMemo(() => {
+    if (!draft) return null;
+    const baseChars = [...draft.sectionItems, ...draft.drawerItems].map(it => ({
+      id: it.characterId,
+      name: it.characterId.slice(0, 8),
+      iconUrl: "/icons/chicken.png",
+      price: it.priceMinor / 100,
+      styleName: "Confetti",
+    })) as RoomCharacter[];
+    return buildTipPresentation(baseChars, draft, 1);
+  }, [draft, previewRefreshKey]);
 
   const updatePremiumPrice = (itemId: string, priceGbp: number) => {
     if (!draft) return;
@@ -382,6 +429,65 @@ export default function TipCustomizationClient({
               </p>
             )}
           </div>
+
+          {eliteLibrary.length > 0 ? (
+            <div className="space-y-3 rounded-lg border p-4">
+              <h2 className="font-medium">Elite self-list (max 10)</h2>
+              <p className="text-muted-foreground text-xs">
+                Selected elite animations appear in their own drawer tab and are
+                prioritized in the tip strip.
+              </p>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {eliteLibrary.map((item: { id: string; name?: string }) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={frozen}
+                      checked={(draft.eliteCharacterIds ?? []).includes(
+                        item.id
+                      )}
+                      onChange={() => toggleEliteCharacter(item.id)}
+                    />
+                    <span>{item.name ?? item.id.slice(0, 8)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {previewPresentation ? (
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-medium">Preview studio (no Stripe)</h2>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewRefreshKey(k => k + 1)}
+                >
+                  Refresh strip shuffle
+                </Button>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Dummy preview of your draft layout. Publish to update live
+                playback.
+              </p>
+              <div className="rounded-md border bg-white p-2">
+                <TipSection
+                  key={`preview-${previewRefreshKey}`}
+                  eventId={eventId}
+                  tippingCharacters={previewPresentation.sectionStrip}
+                  characterSets={previewPresentation.drawerSets}
+                  paymentSurface="event_room"
+                  sectionCtaLabel={draft.ctaSectionLabel}
+                  payLabel={draft.ctaPayLabel}
+                />
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             <Button

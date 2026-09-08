@@ -15,7 +15,10 @@ export type TvPlaybackSnapshot = {
 
 let commandGeneration = 0;
 
-/** Monotonic id for stale onReady / construct rejection (not a remount key). */
+/**
+ * Test helper only. Live TV rejects stale YouTube callbacks with an
+ * instance `destroyed` flag (Explore path), not this module counter.
+ */
 export function bumpTvCommandGeneration(): number {
   commandGeneration += 1;
   return commandGeneration;

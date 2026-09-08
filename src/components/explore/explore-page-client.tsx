@@ -67,6 +67,7 @@ import {
   seedExploreFeedBootFromSsr,
   seedExploreE2eSavesBoot,
 } from "@/lib/explore-feed-prefetch-cache";
+import { useNotificationDrawerQuery } from "@/hooks/use-notification-drawer-query";
 import { measureExploreBoot } from "@/lib/web-vitals";
 import {
   isExploreSessionShellEnabled,
@@ -470,6 +471,26 @@ export default function ExplorePageClient({
   const [profileDrawerTab, setProfileDrawerTab] = useState<
     "notifications" | "reminders" | "saved" | "profile"
   >("notifications");
+  const [notificationAccountTab, setNotificationAccountTab] = useState<
+    "tipper" | "host"
+  >("tipper");
+  const {
+    openDrawer: openNotificationDrawer,
+    accountTab: notificationDrawerAccountTab,
+    consumeParams: consumeNotificationDrawerParams,
+  } = useNotificationDrawerQuery();
+
+  useEffect(() => {
+    if (!openNotificationDrawer) return;
+    setProfileDrawerTab("notifications");
+    setNotificationAccountTab(notificationDrawerAccountTab);
+    setIsProfileDrawerOpen(true);
+    consumeNotificationDrawerParams();
+  }, [
+    consumeNotificationDrawerParams,
+    notificationDrawerAccountTab,
+    openNotificationDrawer,
+  ]);
   const [communityFeedSelIds, setCommunityFeedSelIds] = useState<string[]>(
     () => initialFeedUrlStateFromKey(searchParamsKey).communityFeedSelIds
   );
@@ -2542,6 +2563,7 @@ export default function ExplorePageClient({
         isProfileDrawerOpen={isProfileDrawerOpen}
         setIsProfileDrawerOpen={setIsProfileDrawerOpen}
         initialTab={profileDrawerTab}
+        initialAccountTab={notificationAccountTab}
         tipperEvents={tipperEvents}
         iTipped={iTipped}
         causes={causes}
