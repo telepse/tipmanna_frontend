@@ -268,15 +268,23 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         bannerSource = "upload";
       }
 
+      const isRebinding =
+        Boolean(form.eventChannelId) &&
+        form.eventChannelId !== editing.eventChannelId;
+      const usesThumbnailBanner =
+        bannerSource === "thumbnail" ||
+        (bannerSource == null && editing.bannerSource === "thumbnail");
+
       const res = await updateTipLinkAction(editing.id, {
-        ...(form.eventChannelId &&
-        form.eventChannelId !== editing.eventChannelId
-          ? { eventChannelId: form.eventChannelId }
-          : {}),
+        ...(isRebinding ? { eventChannelId: form.eventChannelId } : {}),
         slug: form.slug,
         pitch: form.pitch || null,
-        titleOverride: form.title || null,
-        descriptionOverride: form.description || null,
+        ...(!isRebinding
+          ? {
+              titleOverride: form.title || null,
+              descriptionOverride: form.description || null,
+            }
+          : {}),
         appleMusicUrl: form.appleMusicUrl || null,
         spotifyUrl: form.spotifyUrl || null,
         audiomackUrl: form.audiomackUrl || null,
@@ -285,8 +293,9 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         customLinkUrl: form.customLinkUrl.trim() || null,
         featuredPlaylistId: form.featuredPlaylistId || null,
         socials: buildSocials(),
-        bannerUrl,
-        bannerSource,
+        ...(!(isRebinding && usesThumbnailBanner)
+          ? { bannerUrl, bannerSource }
+          : {}),
       });
       if (!res.success || !res.data) {
         toast.error(res.message ?? "Save failed");

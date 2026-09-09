@@ -37,21 +37,21 @@ describe("isYoutubePlayerIframeLive", () => {
 });
 
 describe("isYoutubePlayerCommandReady", () => {
-  it("requires ready flag and playback API only (not live iframe)", () => {
+  it("requires playback API only (not onReady flag or live iframe)", () => {
     const iframe = document.createElement("iframe");
     const player = {
       getIframe: () => iframe,
       playVideo: () => {},
       pauseVideo: () => {},
     };
-    expect(isYoutubePlayerCommandReady(false, player)).toBe(false);
-    expect(isYoutubePlayerCommandReady(true, player)).toBe(true);
+    expect(isYoutubePlayerCommandReady(player)).toBe(true);
   });
 
   it("returns false when play/pause APIs are missing", () => {
-    expect(isYoutubePlayerCommandReady(true, { getCurrentTime: () => 0 })).toBe(
+    expect(isYoutubePlayerCommandReady({ getCurrentTime: () => 0 })).toBe(
       false
     );
+    expect(isYoutubePlayerCommandReady(null)).toBe(false);
   });
 });
 

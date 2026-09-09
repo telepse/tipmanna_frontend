@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,7 @@ export function NotificationsTab({
     setAccountTab(initialAccountTab);
   }, [initialAccountTab]);
 
+  const hostAuthPromptedRef = useRef(false);
   const hostFetchAllowed = capability.status === "active";
 
   const load = useCallback(
@@ -150,6 +151,19 @@ export function NotificationsTab({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (initialAccountTab !== "host") {
+      hostAuthPromptedRef.current = false;
+      return;
+    }
+    if (hostAuthPromptedRef.current) return;
+    if (capability.status === "loading") return;
+    if (capability.status === "stale") {
+      hostAuthPromptedRef.current = true;
+      requestHostAuth(() => void load());
+    }
+  }, [capability.status, initialAccountTab, load, requestHostAuth]);
 
   const filtered = useMemo(
     () => rows.filter(r => matchesFilter(r, filter)),

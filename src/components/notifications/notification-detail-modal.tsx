@@ -52,6 +52,14 @@ function canTrackAnalytics(row: FeedNotificationRow): boolean {
   return row.source === "personal" && /^[0-9a-f-]{36}$/i.test(row.id);
 }
 
+function resolveLinkHref(linkUrl: string): string {
+  if (/^https?:\/\//i.test(linkUrl)) return linkUrl;
+  if (typeof window !== "undefined") {
+    return new URL(linkUrl, window.location.origin).href;
+  }
+  return linkUrl;
+}
+
 export function NotificationDetailModal({
   row,
   open,
@@ -109,35 +117,20 @@ export function NotificationDetailModal({
         </DialogHeader>
         <DialogFooter className="gap-2 sm:justify-start">
           {linkUrl ? (
-            linkUrl.startsWith("/") && !openLightbox ? (
-              <Button
-                asChild
-                size="sm"
-                variant="default"
+            <Button
+              asChild
+              size="sm"
+              variant="default"
+            >
+              <a
+                href={resolveLinkHref(linkUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onOpenLink}
               >
-                <Link
-                  href={linkUrl}
-                  onClick={onOpenLink}
-                >
-                  {customLinkLabel}
-                </Link>
-              </Button>
-            ) : (
-              <Button
-                asChild
-                size="sm"
-                variant="default"
-              >
-                <a
-                  href={linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={onOpenLink}
-                >
-                  {customLinkLabel}
-                </a>
-              </Button>
-            )
+                {customLinkLabel}
+              </a>
+            </Button>
           ) : null}
           {deepLink ? (
             deepLink.startsWith("/") ? (

@@ -68,25 +68,32 @@ export function shouldRemountTvPlayer(opts: TvPlayerResumeProbe): boolean {
 }
 
 /**
- * SPA remount recovery: warm window.YT present but onReady never fires.
- * Does not require documentWasHidden or firstPlayReached.
+ * SPA remount recovery: only when the iframe is dead and playback API is gone.
+ * Does not remount merely because onReady is late (command-ready uses playback API).
  */
 export function shouldForceEmbedRemount(
-  opts: TvEmbedOnReadyWatchdogInput
+  opts: TvEmbedOnReadyWatchdogInput & {
+    iframeLive?: boolean;
+    commandReady?: boolean;
+  }
 ): boolean {
   const timeoutMs = opts.timeoutMs ?? TV_EMBED_ONREADY_TIMEOUT_MS;
   const maxRemounts = opts.maxRemounts ?? TV_EMBED_ONREADY_MAX_REMOUNTS;
   if (!opts.youtubeChildReleased) return false;
   if (!opts.hasVideoId) return false;
-  if (opts.onReadyFired) return false;
-  if (opts.elapsedMs < timeoutMs) return false;
   if (opts.remountCount >= maxRemounts) return false;
+  if (opts.elapsedMs < timeoutMs) return false;
+  if (opts.commandReady) return false;
+  if (opts.iframeLive) return false;
   return true;
 }
 
-/** Ignore YouTube callbacks after this player instance was torn down. */
-export function shouldAcceptTvPlayerYtCallback(destroyed: boolean): boolean {
-  return !destroyed;
+/** Ignore YouTube callbacks from a prior construct epoch after teardown. */
+export function shouldAcceptTvPlayerYtCallback(
+  callbackEpoch: number,
+  currentEpoch: number
+): boolean {
+  return callbackEpoch === currentEpoch;
 }
 
 /**

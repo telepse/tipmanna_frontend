@@ -163,6 +163,7 @@ export const EventLive = ({
   const [tipsListOpen, setTipsListOpen] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
+  const featureOverlayWasPlayingRef = useRef(false);
 
   const searchParams = useSearchParams();
 
@@ -744,7 +745,16 @@ export const EventLive = ({
                     setOpenDrawer(true);
                   }}
                   onOverlayOpenChange={open => {
-                    if (open) videoRef.current?.pause?.();
+                    if (open) {
+                      featureOverlayWasPlayingRef.current =
+                        videoRef.current?.isReady?.() ?? false;
+                      videoRef.current?.pause?.();
+                    } else if (featureOverlayWasPlayingRef.current) {
+                      featureOverlayWasPlayingRef.current = false;
+                      videoRef.current?.play?.();
+                    } else {
+                      featureOverlayWasPlayingRef.current = false;
+                    }
                   }}
                 />
               </div>

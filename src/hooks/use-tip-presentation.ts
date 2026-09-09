@@ -31,6 +31,7 @@ export function useTipPresentation(
   textUnitPrice: number;
   sectionCtaLabel?: string;
   payLabel?: string;
+  eliteCharacterIds?: string[];
 } {
   const tipCfg = useTipConfig(eventId);
   const quoteLock = Boolean(opts?.quoteLock);
@@ -52,6 +53,7 @@ export function useTipPresentation(
         textUnitPrice: 5,
         sectionCtaLabel: undefined,
         payLabel: undefined,
+        eliteCharacterIds: undefined,
       };
     }
 
@@ -79,6 +81,7 @@ export function useTipPresentation(
       textUnitPrice: p.textUnitPrice,
       sectionCtaLabel: p.ctaSectionLabel,
       payLabel: p.ctaPayLabel,
+      eliteCharacterIds: tipCfg.config.eliteCharacterIds,
     };
   }, [baseCharacters, eventId, quoteLock, surface, tipCfg]);
 }

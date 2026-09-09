@@ -128,6 +128,30 @@ export async function createCommunityReminderPostAction(
   );
 }
 
+export async function previewCommunityReminderPostAction(
+  communityId: string,
+  channels: Array<"in_app" | "push" | "email">
+): Promise<
+  ActionResult<{
+    recipientCount: number;
+    channelCounts: { inApp: number; push: number; email: number };
+  }>
+> {
+  return runServerFetch(
+    `${base()}/communities/${encodeURIComponent(communityId)}/reminder-posts/preview`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await serverHostAuthHeaders()),
+      },
+      body: JSON.stringify({ channels }),
+      cache: "no-store",
+    },
+    "previewCommunityReminderPostAction"
+  );
+}
+
 export async function mergeSubscriberRemindersAction(
   body: { email?: string; subscriberId?: string },
   clientToken?: string | null

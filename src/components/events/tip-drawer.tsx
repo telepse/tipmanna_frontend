@@ -21,6 +21,7 @@ import { dispatchAuthChanged } from "@/lib/auth-events";
 import { touchVisitorTimestamp } from "@/lib/visitor-session";
 import { useMediaQuery } from "react-responsive";
 import { BeatLoader } from "react-spinners";
+import { toast } from "react-toastify";
 import {
   ExpressCheckoutElement,
   PaymentElement,
@@ -125,6 +126,7 @@ export const TipDrawer = ({
   textTipUnitPrice,
   payLabel,
   tipQuoteContext,
+  previewMode = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -154,6 +156,8 @@ export const TipDrawer = ({
   textTipUnitPrice?: number;
   payLabel?: string;
   tipQuoteContext?: TipQuoteContext | null;
+  /** Host customization preview — browse layout without checkout. */
+  previewMode?: boolean;
 }) => {
   const textUnit = textTipUnitPrice ?? 5;
   const payCta = payLabel?.trim() || "Pay";
@@ -163,7 +167,8 @@ export const TipDrawer = ({
   const cancelTextPreviewRef = useRef<(() => void) | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [cardModalOpen, setCardModalOpen] = useState(false);
-  const [isLoadingPaymentOptions, setIsLoadingPaymentOptions] = useState(true);
+  const [isLoadingPaymentOptions, setIsLoadingPaymentOptions] =
+    useState(!previewMode);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const [walletDebitSnapshot, setWalletDebitSnapshot] = useState<{
@@ -663,6 +668,10 @@ export const TipDrawer = ({
   };
 
   const onConfirm = async () => {
+    if (previewMode) {
+      toast.info("Preview only — publish your layout to accept tips");
+      return;
+    }
     if (!stripe || !elements) {
       // Stripe.js hasn't loaded yet.
       return;
@@ -934,7 +943,7 @@ export const TipDrawer = ({
 
   const isMobile = useMediaQuery({ maxWidth: 768 });
 
-  const canPay = walletPayTotal > 0 && !paymentCompleted;
+  const canPay = !previewMode && walletPayTotal > 0 && !paymentCompleted;
 
   // Express checkout stays mounted for Stripe token flow but is never shown in the drawer UI.
   useEffect(() => {
@@ -1178,6 +1187,11 @@ export const TipDrawer = ({
             </div>
 
             <div className="space-y-3">
+              {previewMode && walletPayTotal > 0 ? (
+                <p className="text-muted-foreground text-center text-sm">
+                  Preview only — publish your layout to accept tips.
+                </p>
+              ) : null}
               {/* Loading State - Show when Stripe elements are loading */}
               {isLoadingPaymentOptions && canPay && (
                 <div className="flex items-center justify-center py-4">

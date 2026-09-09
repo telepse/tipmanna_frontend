@@ -332,6 +332,10 @@ type TVContextType = {
   snapshotPlaybackForPaymentRedirect: () => void;
   /** Call when tip/payment UI closes: restores GLOBAL (live sync) or LOCAL (same index + time) */
   resumeAfterPayment: () => void;
+  /** Pause host playback for feature-card overlay without entering LOCAL mode. */
+  pauseForOverlay: () => void;
+  /** Resume host playback after feature-card overlay closes. */
+  resumeAfterOverlay: () => void;
 
   /** After payment + GLOBAL `syncToLive` / new video cue, restores mute/play from snapshot */
   applyPendingPlaybackRestore: () => void;
@@ -437,6 +441,8 @@ function createFallbackTvContext(): TVContextType {
     preparePlaybackForTipDrawer: noop,
     snapshotPlaybackForPaymentRedirect: noop,
     resumeAfterPayment: noop,
+    pauseForOverlay: noop,
+    resumeAfterOverlay: noop,
     applyPendingPlaybackRestore: noop,
     applyPendingAudioRestore: noop,
     unregisterTvPlayer: noop,
@@ -542,6 +548,7 @@ export default function GlobalTVProvider({
   } | null>(null);
 
   const paymentActiveRef = useRef(false);
+  const overlayResumePlayingRef = useRef(false);
   const paymentSnapshotRef = useRef<TvPaymentPlaybackSnapshot | null>(null);
   const postPaymentAxisRef = useRef(false);
   const pendingSchedulePayloadRef = useRef<any>(null);
@@ -3473,6 +3480,23 @@ export default function GlobalTVProvider({
     player?.pause();
   }, [playingItemOverride, schedulePlayingSlot, enterLocalMode]);
 
+  const pauseForOverlay = useCallback(() => {
+    const player = playerRef.current;
+    overlayResumePlayingRef.current = isPlayingRef.current;
+    paymentActiveRef.current = true;
+    setIsPaymentActive(true);
+    player?.pause();
+  }, []);
+
+  const resumeAfterOverlay = useCallback(() => {
+    const player = playerRef.current;
+    const resume = overlayResumePlayingRef.current;
+    overlayResumePlayingRef.current = false;
+    paymentActiveRef.current = false;
+    setIsPaymentActive(false);
+    if (resume) player?.play();
+  }, []);
+
   const preparePlaybackForTipDrawer = useCallback(
     (_hasSelectedTips: boolean) => {
       const player = playerRef.current;
@@ -3776,6 +3800,8 @@ export default function GlobalTVProvider({
         preparePlaybackForTipDrawer,
         snapshotPlaybackForPaymentRedirect,
         resumeAfterPayment,
+        pauseForOverlay,
+        resumeAfterOverlay,
         applyPendingPlaybackRestore,
         applyPendingAudioRestore,
         unregisterTvPlayer,

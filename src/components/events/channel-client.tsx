@@ -161,6 +161,7 @@ import { useFeatureCardTipContext } from "@/components/video-feature/feature-car
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { mergeTipPriceCatalog } from "@/lib/tip-text-selection";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
+import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
 import { NotificationBadge } from "../notifications/notification-badge";
 
 interface Props {
@@ -214,7 +215,10 @@ export const ChannelClient = ({
     paymentSurface: "channel_client",
   });
   const tipStrip = tipPres.strip;
-  const tipSets = baseTipSets;
+  const tipSets = useMemo(
+    () => resolveTipDrawerSets(tipPres.drawerSets, baseTipSets),
+    [tipPres.drawerSets, baseTipSets]
+  );
   const tipPriceCatalog = useMemo(
     () =>
       mergeTipPriceCatalog(
@@ -1493,6 +1497,7 @@ export const ChannelClient = ({
                       sectionCtaLabel={tipPres.sectionCtaLabel}
                       payLabel={tipPres.payLabel}
                       tipQuoteContext={tipPres.quoteCtx}
+                      eliteCharacterIds={tipPres.eliteCharacterIds}
                     />
 
                     <button
@@ -1852,6 +1857,7 @@ export const ChannelClient = ({
             sectionCtaLabel={tipPres.sectionCtaLabel}
             payLabel={tipPres.payLabel}
             tipQuoteContext={tipPres.quoteCtx}
+            eliteCharacterIds={tipPres.eliteCharacterIds}
           />
         </div>
       </TippingElementsProvider>

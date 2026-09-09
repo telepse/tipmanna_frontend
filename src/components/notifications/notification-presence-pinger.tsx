@@ -3,16 +3,11 @@
 import { useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 
-import { getAuthToken } from "@/lib/getAuthToken";
 import type { RootState } from "@/redux/store";
 
 const PRESENCE_INTERVAL_MS = 45_000;
 
-function apiBase(): string {
-  return (process.env.NEXT_PUBLIC_BACKEND_API_URL || "").replace(/\/$/, "");
-}
-
-/** Keeps backend presence key warm while the tab is visible (suppresses push). */
+/** Keeps backend presence keys warm while the tab is visible (suppresses push). */
 export function NotificationPresencePinger() {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
   const requiresVerification = useSelector(
@@ -45,14 +40,9 @@ export function NotificationPresencePinger() {
       ) {
         return;
       }
-      const token = getAuthToken();
-      if (!token) return;
-      void fetch(`${apiBase()}/notifications/presence`, {
+      void fetch("/api/notifications/presence-ping", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        credentials: "include",
       }).catch(() => undefined);
     };
 

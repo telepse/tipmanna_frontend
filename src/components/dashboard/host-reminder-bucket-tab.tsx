@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   datetimeLocalToUtcIso,
@@ -19,11 +20,14 @@ import {
 } from "@/components/ui/select";
 import {
   createCommunityReminderPostAction,
+  previewCommunityReminderPostAction,
   searchReminderEnforcementsAction,
 } from "@/actions/reminder-bucket";
 import {
   getCommunityEmailBlastStatusAction,
   requestCommunityEmailBlastAction,
+  submitCommunityEmailBlastCopyAction,
+  submitCommunityEmailBlastPaymentAction,
 } from "@/actions/host-email-blast";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { toast } from "react-toastify";
@@ -54,11 +58,20 @@ export function HostReminderBucketTab({ communityId }: Props) {
   const [channelPush, setChannelPush] = useState(true);
   const [channelEmail, setChannelEmail] = useState(false);
   const [emailBlastStatus, setEmailBlastStatus] = useState<string | null>(null);
-  const [emailRecipientCount, setEmailRecipientCount] = useState<number | null>(
-    null
-  );
+  const [quotedAmountGbp, setQuotedAmountGbp] = useState<string | null>(null);
   const [requestingEmail, setRequestingEmail] = useState(false);
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [submittingCopy, setSubmittingCopy] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewCounts, setPreviewCounts] = useState<{
+    recipientCount: number;
+    channelCounts: { inApp: number; push: number; email: number };
+  } | null>(null);
+  const [emailTitle, setEmailTitle] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const authUser = useSelector((s: RootState) => s.auth.user);
+
+  const emailUnlockedForReminders = emailBlastStatus === "sent";
 
   const landingUrl = useMemo(
     () =>
@@ -67,6 +80,23 @@ export function HostReminderBucketTab({ communityId }: Props) {
         : null,
     [communityId, selected]
   );
+
+  const refreshEmailBlastStatus = useCallback(async () => {
+    const res = await getCommunityEmailBlastStatusAction(communityId);
+    if (res.success && res.data?.request) {
+      setEmailBlastStatus(res.data.request.status);
+      setQuotedAmountGbp(res.data.request.quotedAmountGbp);
+      if (res.data.request.emailTitle) {
+        setEmailTitle(res.data.request.emailTitle);
+      }
+      if (res.data.request.emailBody) {
+        setEmailBody(res.data.request.emailBody);
+      }
+    } else if (res.success) {
+      setEmailBlastStatus(null);
+      setQuotedAmountGbp(null);
+    }
+  }, [communityId]);
 
   const loadEnforcements = useCallback(async () => {
     setOptionsLoading(true);
@@ -92,16 +122,12 @@ export function HostReminderBucketTab({ communityId }: Props) {
   }, [loadEnforcements]);
 
   useEffect(() => {
-    void (async () => {
-      const res = await getCommunityEmailBlastStatusAction(communityId);
-      if (res.success && res.data?.request) {
-        setEmailBlastStatus(res.data.request.status);
-        setEmailRecipientCount(res.data.request.recipientCount);
-        if (res.data.request.status === "unlocked") {
-          setChannelEmail(true);
-        }
-      }
-    })();
+    void refreshEmailBlastStatus();
+  }, [refreshEmailBlastStatus]);
+
+  useEffect(() => {
+    setSelected(null);
+    setPreviewCounts(null);
   }, [communityId]);
 
   const requestEmailUnlock = async () => {
@@ -112,12 +138,12 @@ export function HostReminderBucketTab({ communityId }: Props) {
         throw new Error(res.message ?? "Could not send request");
       }
       setEmailBlastStatus(res.data?.request.status ?? "requested");
-      setEmailRecipientCount(res.data?.request.recipientCount ?? null);
       toast.success(
         res.data?.alreadyOpen
           ? "Email blast request already open"
           : "Request sent to superadmin"
       );
+      await refreshEmailBlastStatus();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Request failed");
     } finally {
@@ -125,9 +151,76 @@ export function HostReminderBucketTab({ communityId }: Props) {
     }
   };
 
-  useEffect(() => {
-    setSelected(null);
-  }, [communityId]);
+  const submitPayment = async (file: File) => {
+    setSubmittingPayment(true);
+    try {
+      const formData = new FormData();
+      formData.append("receipt", file);
+      const res = await submitCommunityEmailBlastPaymentAction(
+        communityId,
+        formData
+      );
+      if (!res.success) {
+        throw new Error(res.error ?? "Payment submission failed");
+      }
+      toast.success("Payment receipt submitted");
+      await refreshEmailBlastStatus();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Payment submission failed");
+    } finally {
+      setSubmittingPayment(false);
+    }
+  };
+
+  const submitCopy = async () => {
+    if (!emailTitle.trim() || !emailBody.trim()) {
+      toast.error("Email title and body required");
+      return;
+    }
+    setSubmittingCopy(true);
+    try {
+      const res = await submitCommunityEmailBlastCopyAction(
+        communityId,
+        emailTitle,
+        emailBody
+      );
+      if (!res.success) {
+        throw new Error(res.error ?? "Could not submit copy");
+      }
+      toast.success("Email copy submitted for approval");
+      await refreshEmailBlastStatus();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not submit copy");
+    } finally {
+      setSubmittingCopy(false);
+    }
+  };
+
+  const previewRecipients = async () => {
+    const channels: Array<"in_app" | "push" | "email"> = [];
+    if (channelInApp) channels.push("in_app");
+    if (channelPush) channels.push("push");
+    if (channelEmail) channels.push("email");
+    if (channels.length === 0) {
+      toast.error("Select at least one channel to preview");
+      return;
+    }
+    setPreviewing(true);
+    try {
+      const res = await previewCommunityReminderPostAction(
+        communityId,
+        channels
+      );
+      if (!res.success || !res.data) {
+        throw new Error(res.error ?? "Preview failed");
+      }
+      setPreviewCounts(res.data);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Preview failed");
+    } finally {
+      setPreviewing(false);
+    }
+  };
 
   const pickEnforcement = (row: EnforcementRow) => {
     setSelected(row);
@@ -176,6 +269,7 @@ export function HostReminderBucketTab({ communityId }: Props) {
       setBody("");
       setScheduledAt("");
       setSelected(null);
+      setPreviewCounts(null);
       void loadEnforcements();
     } catch (e) {
       toast.error(
@@ -191,6 +285,7 @@ export function HostReminderBucketTab({ communityId }: Props) {
       <p className="text-muted-foreground text-sm">
         Broadcast reminders linked to an approved community program or video.
       </p>
+
       <div className="space-y-2">
         <Label>Enforced program or video</Label>
         <Select
@@ -276,26 +371,43 @@ export function HostReminderBucketTab({ communityId }: Props) {
             />
             Push
           </label>
-          <label className="flex items-center gap-2 text-sm opacity-60">
+          <label className="flex items-center gap-2 text-sm">
             <Checkbox
               checked={channelEmail}
-              disabled={emailBlastStatus !== "unlocked"}
+              disabled={!emailUnlockedForReminders}
               onCheckedChange={v => setChannelEmail(v === true)}
             />
             Email
-            {emailRecipientCount != null ? (
-              <span className="text-muted-foreground text-xs">
-                ({emailRecipientCount} recipients)
-              </span>
-            ) : null}
           </label>
         </div>
-        {emailBlastStatus !== "unlocked" ? (
-          <div className="bg-muted/30 space-y-2 rounded-md border p-3 text-sm">
-            <p>
-              Email is an on-demand paid feature. Send a request to superadmin
-              to unlock email for your community members and subscribers.
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={previewing}
+            onClick={() => void previewRecipients()}
+          >
+            {previewing ? "Previewing…" : "Preview recipient counts"}
+          </Button>
+          {previewCounts ? (
+            <p className="text-muted-foreground text-xs">
+              Audience: {previewCounts.recipientCount} · In-app:{" "}
+              {previewCounts.channelCounts.inApp} · Push:{" "}
+              {previewCounts.channelCounts.push} · Email:{" "}
+              {previewCounts.channelCounts.email}
             </p>
+          ) : null}
+        </div>
+      </div>
+
+      {!emailUnlockedForReminders ? (
+        <div className="bg-muted/30 space-y-3 rounded-md border p-3 text-sm">
+          <p>
+            Community email blasts are a paid, superadmin-approved workflow.
+            Reminder-post email unlocks after your commercial blast is sent.
+          </p>
+          {!emailBlastStatus ? (
             <Button
               type="button"
               size="sm"
@@ -303,16 +415,75 @@ export function HostReminderBucketTab({ communityId }: Props) {
               disabled={requestingEmail}
               onClick={() => void requestEmailUnlock()}
             >
-              {requestingEmail ? "Sending…" : "Send request to superadmin"}
+              {requestingEmail
+                ? "Sending…"
+                : "Request email blast from superadmin"}
             </Button>
-            {emailBlastStatus ? (
-              <p className="text-muted-foreground text-xs">
-                Current request status: {emailBlastStatus.replace(/_/g, " ")}
+          ) : null}
+          {emailBlastStatus === "quoted" && quotedAmountGbp ? (
+            <div className="space-y-2">
+              <p>
+                Quote: <strong>£{quotedAmountGbp}</strong>. Upload your payment
+                receipt to continue.
               </p>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+              <Input
+                type="file"
+                accept="image/*,application/pdf"
+                disabled={submittingPayment}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) void submitPayment(file);
+                }}
+              />
+            </div>
+          ) : null}
+          {emailBlastStatus === "paid_submitted" ? (
+            <p className="text-muted-foreground text-xs">
+              Payment submitted — waiting for superadmin to confirm receipt.
+            </p>
+          ) : null}
+          {emailBlastStatus === "unlocked" ? (
+            <div className="space-y-2">
+              <Label htmlFor="blast-email-title">Commercial email title</Label>
+              <Input
+                id="blast-email-title"
+                value={emailTitle}
+                onChange={e => setEmailTitle(e.target.value)}
+              />
+              <Label htmlFor="blast-email-body">Commercial email body</Label>
+              <Textarea
+                id="blast-email-body"
+                rows={4}
+                value={emailBody}
+                onChange={e => setEmailBody(e.target.value)}
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={submittingCopy}
+                onClick={() => void submitCopy()}
+              >
+                {submittingCopy ? "Submitting…" : "Submit copy for approval"}
+              </Button>
+            </div>
+          ) : null}
+          {emailBlastStatus === "pending_approval" ? (
+            <p className="text-muted-foreground text-xs">
+              Copy submitted — waiting for superadmin to approve and send.
+            </p>
+          ) : null}
+          {emailBlastStatus ? (
+            <p className="text-muted-foreground text-xs">
+              Current request status: {emailBlastStatus.replace(/_/g, " ")}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-xs">
+          Commercial email blast completed — you may include email on reminder
+          posts.
+        </p>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="reminder-scheduled">Scheduled at</Label>

@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -19,6 +20,7 @@ import type { UserInfo } from "@/types/tracking.types";
 import { usePusherTracking } from "@/hooks/use-pusher-tracking";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
+import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
 import { EventDialog } from "./event-dialog";
 import { getEventStatus } from "@/lib/utils";
 import { GlobalTipStreamProvider } from "@/providers/global-tip-stream-provider";
@@ -211,16 +213,21 @@ export const EventRoomClient = ({
 
   const {
     strip: tipStripCharacters,
+    drawerSets: tipDrawerSets,
     quoteCtx: tipQuoteCtx,
     textUnitPrice: tipTextUnitPrice,
     sectionCtaLabel: tipSectionCtaLabel,
     payLabel: tipPayLabel,
+    eliteCharacterIds: tipEliteCharacterIds,
   } = useTipPresentation(eventId, safeTippingCharacters as RoomCharacter[], {
     quoteLock: isTipCustomizationEnabled(),
     paymentSurface: "event_room",
   });
 
-  const footerCharacterSets = rawCharacterSets;
+  const footerCharacterSets = useMemo(
+    () => resolveTipDrawerSets(tipDrawerSets, rawCharacterSets),
+    [tipDrawerSets, rawCharacterSets]
+  );
 
   const [liveMessages, setLiveMessages] = useState<Message[]>(safeMessages);
 
@@ -590,6 +597,7 @@ export const EventRoomClient = ({
                 sectionCtaLabel={tipSectionCtaLabel}
                 payLabel={tipPayLabel}
                 tipQuoteContext={tipQuoteCtx}
+                eliteCharacterIds={tipEliteCharacterIds}
               />
             </StripeProvider>
           </div>

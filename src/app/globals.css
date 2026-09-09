@@ -1018,14 +1018,51 @@ video::-webkit-media-controls-picture-in-picture-button {
 
 .tiplink-metrics-ticker-marquee {
   overflow: hidden;
+  white-space: nowrap;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
 }
 
 .tiplink-metrics-ticker-track {
-  animation: scroll-left 20s linear infinite;
+  display: inline-flex;
+  width: max-content;
+  white-space: nowrap;
+  animation: tiplink-metrics-scroll 28s linear infinite;
 }
 
 .tiplink-metrics-ticker-marquee:hover .tiplink-metrics-ticker-track {
   animation-play-state: paused;
+}
+
+.tiplink-metrics-ticker-docked {
+  padding-right: var(--tiplink-pip-pr-mobile, 108px);
+}
+
+@media (min-width: 768px) {
+  .tiplink-metrics-ticker-docked {
+    padding-right: var(--tiplink-pip-pr-desktop, 140px);
+  }
+}
+
+@keyframes tiplink-metrics-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1035,5 +1072,10 @@ video::-webkit-media-controls-picture-in-picture-button {
 
   .tiplink-metrics-ticker-static {
     display: flex !important;
+    pointer-events: auto !important;
+  }
+
+  .tiplink-metrics-ticker-track {
+    animation: none;
   }
 }

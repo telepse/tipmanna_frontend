@@ -120,7 +120,6 @@ import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
 import { useTV } from "../tv-provider";
 import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
-import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
@@ -1102,6 +1101,7 @@ export function TvInteractiveShell({
                   textTipUnitPrice={tipPres.textUnitPrice}
                   sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
                   payLabel={tipPres.payLabel ?? "Pay"}
+                  eliteCharacterIds={tipPres.eliteCharacterIds}
                   stackDrawerAboveImmersive
                 />
               </div>

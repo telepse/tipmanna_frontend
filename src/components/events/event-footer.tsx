@@ -19,6 +19,7 @@ interface Props {
   sectionCtaLabel?: string;
   payLabel?: string;
   tipQuoteContext?: TipQuoteContext | null;
+  eliteCharacterIds?: string[];
 }
 
 export const EventFooter = ({
@@ -30,6 +31,7 @@ export const EventFooter = ({
   sectionCtaLabel,
   payLabel,
   tipQuoteContext,
+  eliteCharacterIds,
 }: Props) => {
   return (
     <div className="mini-wrapper h-[210px] w-full flex-shrink-0 rounded-t-xl border-t bg-white px-4 py-1 shadow-sm">
@@ -43,6 +45,7 @@ export const EventFooter = ({
           sectionCtaLabel={sectionCtaLabel}
           payLabel={payLabel}
           tipQuoteContext={tipQuoteContext}
+          eliteCharacterIds={eliteCharacterIds}
         />
       </div>
     </div>

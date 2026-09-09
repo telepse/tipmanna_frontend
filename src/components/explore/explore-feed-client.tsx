@@ -3060,7 +3060,7 @@ export const ExploreFeedClient = forwardRef<
                               )}
                               onClick={() => setIsTipDrawerOpen(true)}
                             >
-                              Engage
+                              {tipPres.sectionCtaLabel?.trim() || "Engage"}
                             </Button>
                           </div>
                           <Button

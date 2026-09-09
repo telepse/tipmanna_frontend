@@ -13,7 +13,10 @@ export type HostEmailBlastRequest = {
   quotedAmountGbp: string | null;
   hostMessage: string | null;
   saMessage: string | null;
+  emailTitle: string | null;
+  emailBody: string | null;
   unlockedAt: string | null;
+  sentAt: string | null;
 };
 
 export async function requestCommunityEmailBlastAction(
@@ -50,5 +53,63 @@ export async function getCommunityEmailBlastStatusAction(
       cache: "no-store",
     },
     "getCommunityEmailBlastStatusAction"
+  );
+}
+
+export async function submitCommunityEmailBlastPaymentAction(
+  communityId: string,
+  formData: FormData
+): Promise<ActionResult<{ request: HostEmailBlastRequest }>> {
+  const headers = await serverHostAuthHeaders();
+  const auth = headers.Authorization;
+  const res = await fetch(
+    `${base()}/communities/${encodeURIComponent(communityId)}/email-blast/paid`,
+    {
+      method: "POST",
+      headers: auth ? { Authorization: auth } : {},
+      body: formData,
+      cache: "no-store",
+    }
+  );
+  const raw = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg =
+      raw && typeof raw === "object" && raw !== null && "message" in raw
+        ? String((raw as { message?: string }).message)
+        : `Request failed (${res.status})`;
+    return {
+      success: false,
+      error: msg,
+      data: null,
+      httpStatus: res.status,
+      validationBody: raw,
+    };
+  }
+  return {
+    success: true,
+    error: null,
+    data: raw as { request: HostEmailBlastRequest },
+  };
+}
+
+export async function submitCommunityEmailBlastCopyAction(
+  communityId: string,
+  emailTitle: string,
+  emailBody: string
+): Promise<ActionResult<{ request: HostEmailBlastRequest }>> {
+  return runServerFetch(
+    `${base()}/communities/${encodeURIComponent(communityId)}/email-blast/compose`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await serverHostAuthHeaders()),
+      },
+      body: JSON.stringify({
+        emailTitle: emailTitle.trim(),
+        emailBody: emailBody.trim(),
+      }),
+    },
+    "submitCommunityEmailBlastCopyAction"
   );
 }

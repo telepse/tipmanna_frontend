@@ -126,6 +126,8 @@ describe("shouldForceEmbedRemount", () => {
     onReadyFired: false,
     elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS,
     remountCount: 0,
+    iframeLive: false,
+    commandReady: false,
   };
 
   it("returns false before timeout", () => {
@@ -141,34 +143,30 @@ describe("shouldForceEmbedRemount", () => {
     expect(shouldForceEmbedRemount({ ...base, hasVideoId: false })).toBe(false);
   });
 
-  it("returns false after onReady fired", () => {
-    expect(shouldForceEmbedRemount({ ...base, onReadyFired: true })).toBe(
+  it("returns false when playback API is already command-ready", () => {
+    expect(shouldForceEmbedRemount({ ...base, commandReady: true })).toBe(
       false
     );
+  });
+
+  it("returns false when iframe is still live", () => {
+    expect(shouldForceEmbedRemount({ ...base, iframeLive: true })).toBe(false);
   });
 
   it("returns false when remount cap reached", () => {
     expect(shouldForceEmbedRemount({ ...base, remountCount: 1 })).toBe(false);
   });
 
-  it("returns true after timeout when child is up and onReady never fired", () => {
+  it("returns true after timeout when iframe is dead and API is gone", () => {
     expect(shouldForceEmbedRemount(base)).toBe(true);
-  });
-
-  it("does not require documentWasHidden (SPA route return)", () => {
-    expect(
-      shouldForceEmbedRemount({
-        ...base,
-        youtubeChildReleased: true,
-      })
-    ).toBe(true);
   });
 });
 
 describe("shouldAcceptTvPlayerYtCallback", () => {
-  it("accepts callbacks until the instance is torn down", () => {
-    expect(shouldAcceptTvPlayerYtCallback(false)).toBe(true);
-    expect(shouldAcceptTvPlayerYtCallback(true)).toBe(false);
+  it("accepts callbacks only for the active construct epoch", () => {
+    expect(shouldAcceptTvPlayerYtCallback(2, 2)).toBe(true);
+    expect(shouldAcceptTvPlayerYtCallback(1, 2)).toBe(false);
+    expect(shouldAcceptTvPlayerYtCallback(2, 3)).toBe(false);
   });
 });
 

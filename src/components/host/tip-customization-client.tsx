@@ -50,6 +50,8 @@ export default function TipCustomizationClient({
   const [initialized, setInitialized] = useState(false);
   const [frozen, setFrozen] = useState(false);
   const [draft, setDraft] = useState<TipConfigPayload | null>(null);
+  const [publishedConfig, setPublishedConfig] =
+    useState<TipConfigPayload | null>(null);
   const [library, setLibrary] = useState<any[]>([]);
   const [eliteLibrary, setEliteLibrary] = useState<any[]>([]);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
@@ -67,6 +69,11 @@ export default function TipCustomizationClient({
       if (j.draft) setDraft(j.draft as TipConfigPayload);
       else if (j.active?.config) setDraft(j.active.config as TipConfigPayload);
       else setDraft(null);
+      if (j.active?.config) {
+        setPublishedConfig(j.active.config as TipConfigPayload);
+      } else {
+        setPublishedConfig(null);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Load failed");
     } finally {
@@ -246,6 +253,21 @@ export default function TipCustomizationClient({
     })) as RoomCharacter[];
     return buildTipPresentation(baseChars, draft, 1);
   }, [draft, previewRefreshKey]);
+
+  const livePresentation = useMemo(() => {
+    if (!publishedConfig) return null;
+    const baseChars = [
+      ...publishedConfig.sectionItems,
+      ...publishedConfig.drawerItems,
+    ].map(it => ({
+      id: it.characterId,
+      name: it.characterId.slice(0, 8),
+      iconUrl: "/icons/chicken.png",
+      price: it.priceMinor / 100,
+      styleName: "Confetti",
+    })) as RoomCharacter[];
+    return buildTipPresentation(baseChars, publishedConfig, 1);
+  }, [publishedConfig]);
 
   const updatePremiumPrice = (itemId: string, priceGbp: number) => {
     if (!draft) return;
@@ -458,6 +480,47 @@ export default function TipCustomizationClient({
             </div>
           ) : null}
 
+          {livePresentation && previewPresentation ? (
+            <div className="space-y-3 rounded-lg border p-4">
+              <h2 className="font-medium">Before / after</h2>
+              <p className="text-muted-foreground text-xs">
+                Compare your published live layout with the current draft.
+              </p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Live (published)</p>
+                  <div className="rounded-md border bg-white p-2">
+                    <TipSection
+                      eventId={eventId}
+                      tippingCharacters={livePresentation.sectionStrip}
+                      characterSets={livePresentation.drawerSets}
+                      paymentSurface="event_room"
+                      sectionCtaLabel={publishedConfig?.ctaSectionLabel}
+                      payLabel={publishedConfig?.ctaPayLabel}
+                      previewMode
+                      eliteCharacterIds={publishedConfig?.eliteCharacterIds}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Draft</p>
+                  <div className="rounded-md border bg-white p-2">
+                    <TipSection
+                      eventId={eventId}
+                      tippingCharacters={previewPresentation.sectionStrip}
+                      characterSets={previewPresentation.drawerSets}
+                      paymentSurface="event_room"
+                      sectionCtaLabel={draft.ctaSectionLabel}
+                      payLabel={draft.ctaPayLabel}
+                      previewMode
+                      eliteCharacterIds={draft.eliteCharacterIds}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {previewPresentation ? (
             <div className="space-y-3 rounded-lg border p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -484,6 +547,8 @@ export default function TipCustomizationClient({
                   paymentSurface="event_room"
                   sectionCtaLabel={draft.ctaSectionLabel}
                   payLabel={draft.ctaPayLabel}
+                  previewMode
+                  eliteCharacterIds={draft.eliteCharacterIds}
                 />
               </div>
             </div>

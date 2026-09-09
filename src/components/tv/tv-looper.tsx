@@ -178,6 +178,8 @@ export const TvLooper = ({
     goLive,
     enterLocalMode,
     onPlayerPause,
+    pauseForOverlay,
+    resumeAfterOverlay,
     onPlayerSeek,
     onVideoEnd,
     setPlayerPlayingState,
@@ -1344,7 +1346,8 @@ export const TvLooper = ({
                 compact
                 onTipFeatured={onTipFeatured}
                 onOverlayOpenChange={open => {
-                  if (open) onPlayerPause?.();
+                  if (open) pauseForOverlay();
+                  else resumeAfterOverlay();
                 }}
               />
             </div>

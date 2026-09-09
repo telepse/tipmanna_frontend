@@ -66,6 +66,13 @@ interface Props {
   sectionCtaLabel?: string;
   payLabel?: string;
   tipQuoteContext?: TipQuoteContext | null;
+  buttonColor?: "black" | "white";
+  shadowStyle?: string;
+  tipLink?: boolean;
+  /** Host customization preview — no Stripe or wallet checkout. */
+  previewMode?: boolean;
+  /** Elite animations prioritized in strip shuffle when host layout is live. */
+  eliteCharacterIds?: string[];
 }
 
 export const TipSection = ({
@@ -83,6 +90,11 @@ export const TipSection = ({
   sectionCtaLabel,
   payLabel,
   tipQuoteContext,
+  buttonColor = "black",
+  shadowStyle,
+  tipLink,
+  previewMode = false,
+  eliteCharacterIds,
 }: Props) => {
   const sectionCta = sectionCtaLabel?.trim() || "Engage";
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -131,18 +143,21 @@ export const TipSection = ({
   const allTips = useMemo(() => {
     const ordered = buildTipSectionPreviewCharacters(tippingCharacters);
     const maxStrip = 20;
+    const eliteSet = new Set(eliteCharacterIds ?? []);
+    const prioritizeElite = (rest: typeof ordered) => {
+      const elite = rest.filter(c => eliteSet.has(c.id));
+      const nonElite = rest.filter(c => !eliteSet.has(c.id));
+      const shuffledNonElite = [...nonElite].sort(() => Math.random() - 0.5);
+      return [...elite, ...shuffledNonElite];
+    };
     if (ordered.length <= maxStrip) {
       if (ordered.length <= 1) return ordered;
       const [pinnedComment, ...rest] = ordered;
-      const shuffled = [...rest];
-      shuffled.sort(() => Math.random() - 0.5);
-      return [pinnedComment, ...shuffled];
+      return [pinnedComment, ...prioritizeElite(rest)];
     }
     const [pinnedComment, ...rest] = ordered;
-    const shuffled = [...rest];
-    shuffled.sort(() => Math.random() - 0.5);
-    return [pinnedComment, ...shuffled.slice(0, maxStrip - 1)];
-  }, [tippingCharacters]);
+    return [pinnedComment, ...prioritizeElite(rest).slice(0, maxStrip - 1)];
+  }, [tippingCharacters, eliteCharacterIds]);
 
   const openTextDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();
@@ -269,10 +284,14 @@ export const TipSection = ({
 
   const stripe = useStripe();
   const elements = useElements();
-  const [stripeLoading, setStripeLoading] = useState(true);
+  const [stripeLoading, setStripeLoading] = useState(!previewMode);
   const [isOpeningDrawer, setIsOpeningDrawer] = useState(false);
 
   useEffect(() => {
+    if (previewMode) {
+      setStripeLoading(false);
+      return;
+    }
     // Wait one tick so the UI renders before checking stripe
     const t = setTimeout(() => {
       if (stripe && elements) {
@@ -281,10 +300,10 @@ export const TipSection = ({
     }, 0);
 
     return () => clearTimeout(t);
-  }, [stripe, elements]);
+  }, [stripe, elements, previewMode]);
 
   const handleOpenDrawer = () => {
-    if (stripeLoading) {
+    if (!previewMode && stripeLoading) {
       toast.error("Payment system is still loading...");
       return;
     }
@@ -325,7 +344,7 @@ export const TipSection = ({
   const proceedToDrawer = () => {
     setIsOpeningDrawer(true);
     try {
-      if (!stripe || !elements) {
+      if (!previewMode && (!stripe || !elements)) {
         toast.error("Payment system not ready yet");
         return;
       }
@@ -342,12 +361,16 @@ export const TipSection = ({
   return (
     <div className="space-y-2">
       {/* Payment options */}
-      <div className="relative z-20 grid items-center justify-between gap-2 rounded-tl-2xl rounded-tr-2xl border p-1">
+      <div
+        className={`relative z-20 grid items-center justify-between gap-2 rounded-tl-2xl rounded-tr-2xl p-1 ${shadowStyle}`}
+      >
         <div className="grid grid-cols-12 items-center justify-center gap-4">
           {/* Turbo Reward */}
           <div className="col-span-3 flex flex-row items-center lg:col-span-5 lg:flex-row lg:gap-2">
             <div className="flex justify-between text-[10px] sm:text-[11px]">
-              <span className="whitespace-nowrap">
+              <span
+                className={`whitespace-nowrap ${tipLink ? "text-white/40" : ""}`}
+              >
                 Turbo ({turboDisplayCount}/{TURBO_MIN_DISTINCT_STYLES}{" "}
                 <span className="hidden lg:inline-block">styles</span>)
               </span>
@@ -361,7 +384,10 @@ export const TipSection = ({
             size="lg"
             onClick={handleOpenDrawer}
             disabled={paymentCompleted || stripeLoading || isOpeningDrawer}
-            className="relative col-span-6 mb-2 ml-4 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:col-span-2"
+            className="relative col-span-6 mb-2 ml-4 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm lg:col-span-2"
+            style={{
+              color: buttonColor,
+            }}
           >
             <ChevronsUp className="text-primary -mr-2" /> {sectionCta}{" "}
             <ChevronsUp className="text-primary -ml-2" />
@@ -387,7 +413,9 @@ export const TipSection = ({
             <TipRewardGalaxyIcons eligibility={rewardEligibility} />
 
             <div className="flex justify-between text-[10px] sm:text-[11px]">
-              <span className="whitespace-nowrap">
+              <span
+                className={`whitespace-nowrap ${tipLink ? "text-white/40" : ""}`}
+              >
                 Galaxy (£{galaxyDisplayAmount.toFixed(0)}/£
                 {GALAXY_MIN_AMOUNT_GBP})
               </span>
@@ -427,7 +455,7 @@ export const TipSection = ({
                     count > 0
                       ? "border-orange-500 bg-orange-50"
                       : "border-gray-200"
-                  } ${paymentCompleted ? "opacity-50" : ""}`}
+                  } ${paymentCompleted ? "opacity-50" : ""} ${tipLink ? "bg-white/80" : ""}`}
                 >
                   {isPremium ? <TipPremiumIndicator /> : null}
                   {count > 0 && (
@@ -444,10 +472,14 @@ export const TipSection = ({
                     className="size-12 object-contain"
                   />
 
-                  <h5 className="mt-0.5 text-center text-[8px] font-medium whitespace-nowrap sm:text-xs">
+                  <h5
+                    className={`mt-0.5 text-center text-[8px] font-medium whitespace-nowrap sm:text-xs ${tipLink ? "text-black" : ""}`}
+                  >
                     {label.substring(0, 7)}
                   </h5>
-                  <p className="text-muted-foreground absolute -bottom-4 left-1/2 -translate-x-1/2 overflow-visible rounded-full bg-white text-[10px] sm:text-xs">
+                  <p
+                    className={`text-muted-foreground absolute -bottom-4 left-1/2 -translate-x-1/2 overflow-visible bg-white text-[10px] sm:text-xs ${tipLink ? "px-1" : "rounded-full"}`}
+                  >
                     <span className="relative inline-block">
                       £{character.price}
                       <span
@@ -468,50 +500,52 @@ export const TipSection = ({
           <Button
             disabled={
               paymentCompleted ||
-              stripeLoading ||
+              (!previewMode && stripeLoading) ||
               totalAmount <= 0 ||
-              isOpeningDrawer // NEW: Add isOpeningDrawer to disabled conditions
+              isOpeningDrawer
             }
-            className={`h-6 w-full bg-black pr-10 text-white ${totalAmount > 0 ? "" : "opacity-50"}`}
+            className={`h-6 w-full bg-black pr-10 text-white ${totalAmount > 0 ? "" : "opacity-50"} ${tipLink ? "bg-white text-black" : ""}`}
             onClick={handleOpenDrawer}
           >
             {isOpeningDrawer
               ? "Loading..."
-              : stripeLoading
+              : !previewMode && stripeLoading
                 ? "Loading..."
                 : `£${totalAmount}`}{" "}
           </Button>
-          <button
-            type="button"
-            className="absolute top-1/2 right-1.5 z-10 -translate-y-1/2 rounded-full bg-white/95 p-1.5 shadow-sm ring-1 ring-black/10 transition hover:bg-white"
-            aria-label="Pay with Tipper Wallet"
-            disabled={paymentCompleted || totalAmount <= 0 || isOpeningDrawer}
-            onClick={e => {
-              e.stopPropagation();
-              if (totalAmount <= 0) {
-                toast.error("Please select at least one tip item");
-                return;
-              }
-              if (performers && performers.length > 0) {
-                setOpenWalletAfterPerformer(true);
-                setOpenPerformerModal(true);
-                return;
-              }
-              setWalletDialogOpen(true);
-            }}
-          >
-            <Wallet
-              className="text-primary size-4"
-              aria-hidden
-            />
-          </button>
+          {!previewMode ? (
+            <button
+              type="button"
+              className="absolute top-1/2 right-1.5 z-10 -translate-y-1/2 rounded-full bg-white/95 p-1.5 shadow-sm ring-1 ring-black/10 transition hover:bg-white"
+              aria-label="Pay with Tipper Wallet"
+              disabled={paymentCompleted || totalAmount <= 0 || isOpeningDrawer}
+              onClick={e => {
+                e.stopPropagation();
+                if (totalAmount <= 0) {
+                  toast.error("Please select at least one tip item");
+                  return;
+                }
+                if (performers && performers.length > 0) {
+                  setOpenWalletAfterPerformer(true);
+                  setOpenPerformerModal(true);
+                  return;
+                }
+                setWalletDialogOpen(true);
+              }}
+            >
+              <Wallet
+                className="text-primary size-4"
+                aria-hidden
+              />
+            </button>
+          ) : null}
         </div>
       </div>
 
       {/* Tip drawer */}
       <TippingElementsProvider
         tippingCharacters={tippingCharacters as RoomCharacter[]}
-        enabled
+        enabled={!previewMode}
         textTipUnitPrice={textTipUnitPrice}
       >
         <TipDrawer
@@ -533,6 +567,7 @@ export const TipSection = ({
           textTipUnitPrice={textTipUnitPrice}
           payLabel={payLabel}
           tipQuoteContext={tipQuoteContext}
+          previewMode={previewMode}
         />
       </TippingElementsProvider>
 

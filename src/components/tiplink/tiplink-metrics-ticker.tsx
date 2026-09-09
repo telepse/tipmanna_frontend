@@ -1,11 +1,16 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
+
+import { cn } from "@/lib/utils";
 
 type Props = {
   visits: number;
   tips: number;
   shares: number;
+  docked?: boolean;
+  pipReserveMobile?: number;
+  pipReserveDesktop?: number;
   onTipsClick?: () => void;
 };
 
@@ -30,7 +35,20 @@ function TickerSegment({
   return <span className="text-primary shrink-0">{children}</span>;
 }
 
-function TickerLine({ visits, tips, shares, onTipsClick }: Props) {
+function TickerLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="shrink-0 text-[11px] tracking-wide text-white/50 uppercase">
+      {children}
+    </span>
+  );
+}
+
+function TickerLine({
+  visits,
+  tips,
+  shares,
+  onTipsClick,
+}: Omit<Props, "docked" | "pipReserveMobile" | "pipReserveDesktop">) {
   return (
     <>
       <TickerSegment>{visits} visits</TickerSegment>
@@ -39,11 +57,11 @@ function TickerLine({ visits, tips, shares, onTipsClick }: Props) {
       <span className="shrink-0 text-white/30">·</span>
       <TickerSegment>{shares} shares</TickerSegment>
       <span className="shrink-0 text-white/30">·</span>
-      <span className="shrink-0">Watch</span>
+      <TickerLabel>Watch</TickerLabel>
       <span className="shrink-0 text-white/30">·</span>
-      <span className="shrink-0">Engage</span>
+      <TickerLabel>Engage</TickerLabel>
       <span className="shrink-0 text-white/30">·</span>
-      <span className="shrink-0">Support</span>
+      <TickerLabel>Support</TickerLabel>
     </>
   );
 }
@@ -53,6 +71,9 @@ export function TipLinkMetricsTicker({
   visits,
   tips,
   shares,
+  docked = false,
+  pipReserveMobile = 108,
+  pipReserveDesktop = 140,
   onTipsClick,
 }: Props) {
   const line = (
@@ -66,18 +87,35 @@ export function TipLinkMetricsTicker({
 
   return (
     <div
-      className="group relative h-8 overflow-hidden border-b border-white/10 bg-black/35 backdrop-blur-md"
+      className="group relative h-8 overflow-hidden border-b border-white/10"
       aria-live="polite"
+      style={
+        docked
+          ? ({
+              "--tiplink-pip-pr-mobile": `${pipReserveMobile}px`,
+              "--tiplink-pip-pr-desktop": `${pipReserveDesktop}px`,
+            } as CSSProperties)
+          : undefined
+      }
     >
-      <div className="tiplink-metrics-ticker-static flex h-full items-center justify-center gap-2 px-4 text-xs text-white/70 md:hidden">
-        {line}
-      </div>
-      <div className="tiplink-metrics-ticker-marquee hidden h-full items-center md:flex">
-        <div className="tiplink-metrics-ticker-track flex w-max items-center gap-2 px-4 text-xs text-white/70">
+      <div
+        className={cn(
+          "tiplink-metrics-ticker-marquee flex h-full items-center",
+          docked && "tiplink-metrics-ticker-docked"
+        )}
+      >
+        <div className="tiplink-metrics-ticker-track flex items-center gap-2 px-4 text-xs whitespace-nowrap text-white/70">
+          {line}
+          <span className="shrink-0 px-2 text-white/20">|</span>
+          {line}
+          <span className="shrink-0 px-2 text-white/20">|</span>
           {line}
           <span className="shrink-0 px-2 text-white/20">|</span>
           {line}
         </div>
+      </div>
+      <div className="tiplink-metrics-ticker-static pointer-events-none absolute inset-0 hidden items-center justify-center gap-2 px-4 text-xs whitespace-nowrap text-white/70">
+        {line}
       </div>
     </div>
   );

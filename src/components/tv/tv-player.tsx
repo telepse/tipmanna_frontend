@@ -63,10 +63,8 @@ import {
 } from "@/lib/youtube-iframe-api-loader";
 import {
   shouldAcceptTvPlayerYtCallback,
-  shouldForceEmbedRemount,
   shouldReplaceTvYtPlayer,
   shouldReuseExistingTvYtPlayer,
-  TV_EMBED_ONREADY_TIMEOUT_MS,
 } from "@/lib/tv-player-resume";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
@@ -207,7 +205,8 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const playerIdRef = useRef(
       `tv-yt-${startupGeneration}-${Math.random().toString(36).slice(2, 9)}`
     );
-    const destroyedRef = useRef(false);
+    const callbackEpochRef = useRef(0);
+    const onReadyNotifiedEpochRef = useRef(-1);
     const constructedKeyRef = useRef<string | null>(null);
     const startupGenerationRef = useRef(startupGeneration);
     startupGenerationRef.current = startupGeneration;
@@ -319,7 +318,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     }, []);
 
     const getReady = useCallback(
-      () => isYoutubePlayerCommandReady(readyRef.current, playerRef.current),
+      () => isYoutubePlayerCommandReady(playerRef.current),
       []
     );
 
@@ -403,7 +402,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     }, []);
 
     const teardownImperativeMount = useCallback(() => {
-      destroyedRef.current = true;
+      callbackEpochRef.current += 1;
       readyRef.current = false;
       const p = playerRef.current;
       playerRef.current = null;
@@ -457,61 +456,25 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         allocatePlayerId(startupGeneration);
       }
 
-      destroyedRef.current = false;
       constructedKeyRef.current = constructKey;
 
       let alive = true;
       let raf = 0;
       let offReady: (() => void) | undefined;
-      let watchdog: ReturnType<typeof setTimeout> | undefined;
-      let remountCount = 0;
-      let constructStartedAt =
-        typeof performance !== "undefined" ? performance.now() : Date.now();
-
-      const clearWatchdog = () => {
-        if (watchdog != null) {
-          clearTimeout(watchdog);
-          watchdog = undefined;
-        }
-      };
-
-      const scheduleOnReadyWatchdog = () => {
-        clearWatchdog();
-        watchdog = setTimeout(() => {
-          if (!alive) return;
-          if (
-            !shouldForceEmbedRemount({
-              youtubeChildReleased: true,
-              hasVideoId: true,
-              onReadyFired: readyRef.current,
-              elapsedMs:
-                (typeof performance !== "undefined"
-                  ? performance.now()
-                  : Date.now()) - constructStartedAt,
-              remountCount,
-            })
-          ) {
-            return;
-          }
-          remountCount += 1;
-          tvTrace("playback", "yt_onReady_watchdog_reconstruct", {
-            remountCount,
-          });
-          teardownImperativeMount();
-          allocatePlayerId(startupGenerationRef.current);
-          destroyedRef.current = false;
-          constructStartedAt =
-            typeof performance !== "undefined" ? performance.now() : Date.now();
-          createPlayer();
-        }, TV_EMBED_ONREADY_TIMEOUT_MS);
-      };
 
       const createPlayer = () => {
         const w = getYtWindow();
         if (!alive || !w?.YT?.Player) return;
-        if (destroyedRef.current) return;
         if (playerRef.current) return;
         if (!ensureImperativeMount()) return;
+
+        const constructEpoch = callbackEpochRef.current;
+
+        const notifyProviderReadyOnce = () => {
+          if (onReadyNotifiedEpochRef.current === constructEpoch) return;
+          onReadyNotifiedEpochRef.current = constructEpoch;
+          onReadyRef.current?.();
+        };
 
         const playerVars = getYoutubePlayerVarsChromeless({
           autoplay: autoplayRef.current,
@@ -530,14 +493,16 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
             playerVars,
             events: {
               onReady: (event: { target: YtPlayerLike }) => {
-                if (!shouldAcceptTvPlayerYtCallback(destroyedRef.current)) {
+                if (
+                  !shouldAcceptTvPlayerYtCallback(
+                    constructEpoch,
+                    callbackEpochRef.current
+                  )
+                ) {
                   return;
                 }
-                clearWatchdog();
                 const target = event.target;
                 playerRef.current = target;
-                readyRef.current = true;
-                applyIframePresentationToTarget(target);
 
                 if (pendingLoadRef.current) {
                   const { videoId: vid, start } = pendingLoadRef.current;
@@ -597,14 +562,21 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                   });
                 }
 
+                notifyProviderReadyOnce();
+                readyRef.current = true;
+                applyIframePresentationToTarget(target);
                 syncMuteFromPlayer(target);
-                onReadyRef.current?.();
               },
               onStateChange: (event: {
                 data: number;
                 target: YtPlayerLike;
               }) => {
-                if (!shouldAcceptTvPlayerYtCallback(destroyedRef.current)) {
+                if (
+                  !shouldAcceptTvPlayerYtCallback(
+                    constructEpoch,
+                    callbackEpochRef.current
+                  )
+                ) {
                   return;
                 }
                 const target = event.target;
@@ -665,14 +637,31 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                 if (state === 0) onEndRef.current?.();
               },
               onError: (event: { data: number }) => {
-                if (!shouldAcceptTvPlayerYtCallback(destroyedRef.current)) {
+                if (
+                  !shouldAcceptTvPlayerYtCallback(
+                    constructEpoch,
+                    callbackEpochRef.current
+                  )
+                ) {
                   return;
                 }
                 onPlayerErrorRef.current?.(event.data);
               },
             },
           });
-          scheduleOnReadyWatchdog();
+          queueMicrotask(() => {
+            if (
+              !shouldAcceptTvPlayerYtCallback(
+                constructEpoch,
+                callbackEpochRef.current
+              )
+            ) {
+              return;
+            }
+            const p = playerRef.current;
+            if (!isYoutubePlayerCommandReady(p)) return;
+            notifyProviderReadyOnce();
+          });
         } catch (err) {
           tvTrace("playback", "yt_player_construct_failed", {
             error: String(err),
@@ -686,9 +675,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       };
 
       if (reuse) {
-        if (!readyRef.current) {
-          scheduleOnReadyWatchdog();
-        }
+        /* keep existing YT.Player across construct-effect re-runs */
       } else if (getYtWindow()?.YT?.Player) {
         init();
       } else {
@@ -699,7 +686,6 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         alive = false;
         cancelAnimationFrame(raf);
         offReady?.();
-        clearWatchdog();
       };
     }, [
       youtubeChildReleased,
@@ -911,9 +897,15 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
 
     useLayoutEffect(() => {
       const p = playerRef.current;
-      if (!p || !readyRef.current) return;
+      if (!p || !getReady()) return;
       applyIframePresentationToTarget(p);
-    }, [cover, containFill, youtubeVideoId, applyIframePresentationToTarget]);
+    }, [
+      cover,
+      containFill,
+      youtubeVideoId,
+      applyIframePresentationToTarget,
+      getReady,
+    ]);
 
     return (
       <div

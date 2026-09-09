@@ -118,12 +118,23 @@ describe("TV playback contract — leave/return player lifecycle", () => {
 
   it("destroys the YT player on unmount, not in construct-effect cleanup", () => {
     expect(tvPlayerSource).toContain("shouldAcceptTvPlayerYtCallback");
+    expect(tvPlayerSource).toContain("callbackEpochRef");
     expect(tvPlayerSource).toContain("shouldReuseExistingTvYtPlayer");
-    expect(tvPlayerSource).toMatch(
-      /return \(\) => \{\s*alive = false;[\s\S]*?clearWatchdog\(\);[\s\S]*?\};/
+    const constructCleanup = tvPlayerSource.match(
+      /return \(\) => \{\s*alive = false;[\s\S]*?\};\s*\}, \[\s*youtubeChildReleased/
     );
-    expect(tvPlayerSource).not.toMatch(
-      /return \(\) => \{\s*alive = false;[\s\S]*?teardownImperativeMount\(\);[\s\S]*?clearWatchdog/
+    expect(constructCleanup).toBeTruthy();
+    expect(constructCleanup![0]).not.toContain("teardownImperativeMount");
+    expect(constructCleanup![0]).not.toContain("clearWatchdog");
+    expect(tvPlayerSource).toMatch(
+      /useEffect\(\(\) => \{\s*return \(\) => \{\s*teardownImperativeMount\(\);/
+    );
+    expect(tvPlayerSource).not.toContain("destroyedRef");
+  });
+
+  it("isReady uses playback API only (isYoutubePlayerCommandReady)", () => {
+    expect(tvPlayerSource).toContain(
+      "isYoutubePlayerCommandReady(playerRef.current)"
     );
   });
 });

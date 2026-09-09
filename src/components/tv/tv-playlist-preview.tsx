@@ -1,5 +1,7 @@
 "use client";
 
+/** Host playlist preview drawer — feature-card banner intentionally omitted (not a live tip surface). */
+
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
