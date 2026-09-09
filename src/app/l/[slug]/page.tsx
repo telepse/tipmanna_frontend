@@ -2,11 +2,6 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
-import {
-  getAllCharacterSets,
-  getCharactersForTipping,
-} from "@/actions/characters";
-import { getEventByIdAction } from "@/actions/events";
 import { getPublicTipLinkAction } from "@/actions/tiplink";
 import { TipLinkLandingClient } from "@/components/tiplink/tiplink-landing-client";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
@@ -68,28 +63,9 @@ export default async function TipLinkPage({ params }: Props) {
   }
 
   const payload = res.data;
-  const [eventRes, globalCharactersRes, globalCharacterSetsRes] =
-    await Promise.all([
-      getEventByIdAction(payload.eventId),
-      getCharactersForTipping(),
-      getAllCharacterSets(),
-    ]);
-
-  const eventCatalog = parseEventCharacterCatalog(
-    eventRes.success ? eventRes.data?.characterSets : []
-  );
-  const characterSets =
-    eventCatalog.characterSets.length > 0
-      ? eventCatalog.characterSets
-      : Array.isArray(globalCharacterSetsRes.data)
-        ? globalCharacterSetsRes.data
-        : [];
-  const characters =
-    eventCatalog.tippingCharacters.length > 0
-      ? eventCatalog.tippingCharacters
-      : Array.isArray(globalCharactersRes.data)
-        ? globalCharactersRes.data
-        : [];
+  const eventCatalog = parseEventCharacterCatalog(payload.characterSets ?? []);
+  const characterSets = eventCatalog.characterSets;
+  const characters = eventCatalog.tippingCharacters;
 
   const origin = getPrimaryOrigin();
   const jsonLd = buildVideoObjectJsonLd({

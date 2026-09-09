@@ -73,6 +73,9 @@ import { toast } from "react-toastify";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import type { RoomCharacter } from "@/types";
+import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 
 interface Props {
   liveVideoLink: string;
@@ -164,6 +167,14 @@ export const EventLive = ({
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
   const featureOverlayWasPlayingRef = useRef(false);
+  const tipPres = useTipPresentation(
+    eventId,
+    tippingCharacters as RoomCharacter[],
+    {
+      paymentSurface: "event_room",
+    }
+  );
+  const sectionCta = tipPres.sectionCtaLabel?.trim() || "Engage";
 
   const searchParams = useSearchParams();
 
@@ -744,18 +755,11 @@ export const EventLive = ({
                     setActiveVideoFeatureCardId(id);
                     setOpenDrawer(true);
                   }}
-                  onOverlayOpenChange={open => {
-                    if (open) {
-                      featureOverlayWasPlayingRef.current =
-                        videoRef.current?.isReady?.() ?? false;
-                      videoRef.current?.pause?.();
-                    } else if (featureOverlayWasPlayingRef.current) {
-                      featureOverlayWasPlayingRef.current = false;
-                      videoRef.current?.play?.();
-                    } else {
-                      featureOverlayWasPlayingRef.current = false;
-                    }
-                  }}
+                  onOverlayOpenChange={createFeatureCardOverlayPlaybackHandlers(
+                    videoRef,
+                    featureOverlayWasPlayingRef,
+                    { getWasPlaying: () => isPlayingRef.current }
+                  )}
                 />
               </div>
             ) : null}
@@ -802,7 +806,7 @@ export const EventLive = ({
                 height={10}
                 className="size-5"
               />{" "}
-              Engage{" "}
+              {sectionCta}{" "}
               <div className="flex items-center gap-1">
                 <Image
                   src="/icons/burger.png"

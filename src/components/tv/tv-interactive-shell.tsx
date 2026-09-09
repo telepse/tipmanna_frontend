@@ -1064,7 +1064,8 @@ export function TvInteractiveShell({
                 className="size-5"
               />
               <ChevronsUp className="text-primary" />
-              Engage <ChevronsUp className="text-primary" />{" "}
+              {tipPres.sectionCtaLabel?.trim() || "Engage"}{" "}
+              <ChevronsUp className="text-primary" />{" "}
               <Image
                 src="/icons/burger.png"
                 alt="Burger"

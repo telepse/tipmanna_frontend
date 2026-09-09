@@ -105,6 +105,10 @@ interface Content {
   description: string;
   url: string;
   eventVideoType: string;
+  communityBankEntry?: {
+    status?: string | null;
+    visibility?: string | null;
+  } | null;
 }
 
 interface ReportRecipient {

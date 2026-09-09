@@ -16,6 +16,7 @@ import {
 import { getPrimaryOrigin } from "@/lib/site-config";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 import {
   buildOgImageMetadata,
   resolveVideoOgImageUrl,
@@ -63,7 +64,7 @@ export async function generateMetadata({
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return { title: "Private event room" };
   }
 
@@ -121,7 +122,7 @@ export default async function ChannelPage({ params, searchParams }: Props) {
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return <PrivateEventRoomBlocked />;
   }
 

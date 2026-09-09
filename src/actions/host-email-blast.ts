@@ -15,6 +15,7 @@ export type HostEmailBlastRequest = {
   saMessage: string | null;
   emailTitle: string | null;
   emailBody: string | null;
+  declineReason: string | null;
   unlockedAt: string | null;
   sentAt: string | null;
 };
@@ -41,7 +42,12 @@ export async function requestCommunityEmailBlastAction(
 
 export async function getCommunityEmailBlastStatusAction(
   communityId: string
-): Promise<ActionResult<{ request: HostEmailBlastRequest | null }>> {
+): Promise<
+  ActionResult<{
+    request: HostEmailBlastRequest | null;
+    hasSentBlast?: boolean;
+  }>
+> {
   return runServerFetch(
     `${base()}/communities/${communityId}/email-blast/status`,
     {

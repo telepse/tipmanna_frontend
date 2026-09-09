@@ -34,17 +34,19 @@ Frontend host mutations use `serverHostAuthHeaders()` in `frontend/src/actions/t
 
 ## Landing UX
 
+- **Fast load:** public `/l/{slug}` RSC waits on a single `GET /tiplinks/:slug` (includes event `characterSets` for the tip strip). No full event-room fetch on first paint. Stripe.js loads only when the tip drawer opens.
 - Tip strip stays at the top (not player-first).
-- Portrait mobile scroll is unlocked; document overflow locks only in full-view, desktop Enlarge overlay, or device landscape.
-- Sticky header is a two-row glass stack: nav row (Create Yours, profile, logo) plus metrics ticker row.
+- Portrait mobile scroll is unlocked; document overflow locks only in Enlarge (mobile full-view/landscape or desktop overlay).
+- Sticky header is a two-row glass stack: nav row (Create Yours, profile, logo) plus metrics ticker row. Ticker stays mounted during mobile Enlarge.
 - Ticker shows `{visits} visits · {tips} tips · {shares} shares · Watch · Engage · Support` (continuous LTR marquee; static fallback on `prefers-reduced-motion`).
-- When the inline player scrolls out of view, the same VideoPlayer instance docks into a 16:9 pip slot on the right of the ticker row (96×54 mobile, 128×72 desktop); tap pip scrolls back to inline. No third collapsing header row; no iframe remount.
+- When the inline player scrolls out of view, the same VideoPlayer instance docks into a 16:9 pip slot on the right of the ticker row (96×54 mobile, 128×72 desktop); tap pip scrolls back to inline. Player uses always-`fixed` measured rects (inline / dock / enlarge) — no iframe remount on iOS.
 - Spotify-style orange-on-black page background; pitch heading uses host first name (`{firstName}'s Pitch`).
-- Store grid includes a Tipmanna **ENGAGE** row linking to the creator profile.
+- Store grid first row: **Tipmanna Explore / ENGAGE** opens `/explore?feedTab=trends&channel={channelId}&eventId={eventId}` in a **new tab** (standard Explore reel UI).
+- Guest **Save** and **Subscribe** open tipper `SignInDialog` (`signupSurface="tiplink"`) and complete save-video / save-host after successful sign-in.
 - Pitch is a composed card (heading, banner/thumbnail, text).
 - YouTube iframe is non-interactive (`pointer-events-none`); play/pause uses app chrome only (no click-through to YouTube).
 - Country flag overlays the player (channel country, then event country — same as explore).
-- Desktop **Enlarge** opens a fixed black-room overlay (landscape cover); mobile Enlarge uses existing full-view hook.
+- Desktop **Enlarge** opens a fixed black-room overlay (landscape cover); mobile Enlarge keeps the metrics ticker at the top with a close control.
 
 ## Host video rebind
 
@@ -68,6 +70,7 @@ Frontend host mutations use `serverHostAuthHeaders()` in `frontend/src/actions/t
 ## Draft vs publish eligibility
 
 - **Draft create/update:** host-owned video, not deleted/rejected; unapproved videos may draft.
+- **Private community bank:** approved community-bank videos with `visibility: private` cannot create, rebind, publish, or serve a public `/l/{slug}` (member-only content).
 - **Publish + public GET:** video must be admin-approved; otherwise publish is blocked and `/l/{slug}` returns 404.
 
 ## SEO

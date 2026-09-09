@@ -14,7 +14,7 @@ export const TIPLINK_STORE_FIELDS = [
   { key: "appleMusicUrl" as const, label: "Apple Music", verb: "Play" },
   { key: "spotifyUrl" as const, label: "Spotify", verb: "Play" },
   { key: "audiomackUrl" as const, label: "Audiomack", verb: "Play" },
-  { key: "tiktokUrl" as const, label: "TikTok", verb: "Use video" },
+  { key: "tiktokUrl" as const, label: "TikTok", verb: "Use sound" },
 ] as const;
 
 export function TipLinkStoreIcon({
@@ -83,7 +83,7 @@ export function buildTipLinkStoreRows(input: {
   tiktokUrl?: string | null;
   customLinkLabel?: string | null;
   customLinkUrl?: string | null;
-  tipmannaProfileUrl?: string | null;
+  tipmannaExploreUrl?: string | null;
 }): TipLinkStoreRow[] {
   const rows: TipLinkStoreRow[] = TIPLINK_STORE_FIELDS.map(
     (field): TipLinkStoreRow => ({
@@ -105,12 +105,12 @@ export function buildTipLinkStoreRows(input: {
     });
   }
 
-  const tipmannaUrl = input.tipmannaProfileUrl?.trim();
-  if (tipmannaUrl) {
+  const exploreUrl = input.tipmannaExploreUrl?.trim();
+  if (exploreUrl) {
     rows.unshift({
       key: "tipmanna",
-      label: "Tipmanna",
-      url: tipmannaUrl,
+      label: "Tipmanna Explore",
+      url: exploreUrl,
       verb: "ENGAGE",
     });
   }

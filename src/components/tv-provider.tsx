@@ -54,7 +54,11 @@ import {
   readTvMutePref,
   type PendingAudioRestore,
 } from "@/lib/tv-autoplay";
-import { shouldRemountTvPlayer } from "@/lib/tv-player-resume";
+import {
+  shouldRecoverTvPlayerEmbed,
+  shouldRemountTvPlayer,
+  TV_EMBED_HEALTH_POLL_MS,
+} from "@/lib/tv-player-resume";
 import { readTvPlaybackSnapshot } from "@/lib/tv-playback-session";
 import {
   initTvAnalyticsRuntime,
@@ -588,6 +592,10 @@ export default function GlobalTVProvider({
     typeof document !== "undefined" && document.visibilityState === "hidden"
   );
   const remountedThisHideShowCycleRef = useRef(false);
+  const playerVisibleRef = useRef(false);
+  const embedRecoveryInFlightRef = useRef(false);
+  const lastEmbedRecoveryAtRef = useRef(0);
+  const deadIframeSinceRef = useRef<number | null>(null);
   const startupPlaybackGuardRef = useRef<StartupPlaybackGuardState>(
     createStartupPlaybackGuardState()
   );
@@ -792,10 +800,22 @@ export default function GlobalTVProvider({
 
   const remountPlayerForResume = useCallback((reason: string) => {
     tvTrace("playback", "player_resume_remount", { reason });
-    playerRef.current = null;
     startupGenerationRef.current += 1;
     setStartupEmbedGeneration(startupGenerationRef.current);
     remountedThisHideShowCycleRef.current = true;
+    embedRecoveryInFlightRef.current = true;
+    lastEmbedRecoveryAtRef.current = Date.now();
+    tvStartupEvent("player_embed_recovery", {
+      trigger: reason,
+      data: { startupGeneration: startupGenerationRef.current },
+    });
+  }, []);
+
+  const clearEmbedRecoveryIfReady = useCallback(() => {
+    if (playerRef.current?.isReady()) {
+      embedRecoveryInFlightRef.current = false;
+      deadIframeSinceRef.current = null;
+    }
   }, []);
 
   const markPrePlayExecutedSeekIfNeeded = useCallback(() => {
@@ -1112,6 +1132,7 @@ export default function GlobalTVProvider({
   }, []);
 
   const flushPendingPlaybackRequest = useCallback(() => {
+    clearEmbedRecoveryIfReady();
     const pending = pendingPlaybackRequestRef.current;
     if (!pending) {
       tryPendingUserGesturePlay();
@@ -1120,7 +1141,7 @@ export default function GlobalTVProvider({
     pendingPlaybackRequestRef.current = null;
     requestPlayback(pending);
     tryPendingUserGesturePlay();
-  }, [requestPlayback, tryPendingUserGesturePlay]);
+  }, [requestPlayback, tryPendingUserGesturePlay, clearEmbedRecoveryIfReady]);
 
   const reloadCurrentPlaybackAt = useCallback(
     (startSeconds: number) => {
@@ -1764,6 +1785,7 @@ export default function GlobalTVProvider({
 
   const setPlayerVisible = useCallback(
     (visible: boolean) => {
+      playerVisibleRef.current = visible;
       tvTrace("navigation", "setPlayerVisible", {
         visible,
         mode: modeRef.current,
@@ -2596,6 +2618,56 @@ export default function GlobalTVProvider({
       window.removeEventListener("pageshow", onPageShow);
     };
   }, [resumePlayerAfterForeground]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (!playerVisibleRef.current) {
+        deadIframeSinceRef.current = null;
+        return;
+      }
+
+      const player = playerRef.current;
+      const iframeLive = player?.isIframeLive?.() ?? false;
+      const commandReady = !!player?.isReady();
+      const now = Date.now();
+
+      if (iframeLive) {
+        deadIframeSinceRef.current = null;
+      } else if (
+        deadIframeSinceRef.current === null &&
+        startupPlaybackGuardRef.current.firstPlayReached
+      ) {
+        deadIframeSinceRef.current = now;
+      }
+
+      const orphanedRef =
+        playerVisibleRef.current &&
+        startupPlaybackGuardRef.current.firstPlayReached &&
+        !player;
+
+      if (
+        shouldRecoverTvPlayerEmbed({
+          playerVisible: playerVisibleRef.current,
+          startupInFlight: initialStartupInFlightRef.current,
+          firstPlayReached: startupPlaybackGuardRef.current.firstPlayReached,
+          scheduleReady: isReadyRef.current,
+          commandReady,
+          iframeLive,
+          orphanedRef,
+          embedRecoveryInFlight: embedRecoveryInFlightRef.current,
+          msSinceLastRecovery: now - lastEmbedRecoveryAtRef.current,
+          deadIframeSinceMs: deadIframeSinceRef.current,
+          nowMs: now,
+        })
+      ) {
+        remountPlayerForResume("embed_health");
+      } else {
+        clearEmbedRecoveryIfReady();
+      }
+    }, TV_EMBED_HEALTH_POLL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [remountPlayerForResume, clearEmbedRecoveryIfReady]);
 
   useEffect(() => {
     if (mode !== "GLOBAL") return;

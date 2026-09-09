@@ -511,6 +511,7 @@ export const TvLooper = ({
     numOfTips?: number;
     showAmountRaisedOnVideos?: boolean;
     showViewCountOnVideos?: boolean;
+    showEncounterOnVideos?: boolean;
   };
 
   const [displayEventMeta, setDisplayEventMeta] =
@@ -538,6 +539,7 @@ export const TvLooper = ({
         numOfTips: typeof ev.numOfTips === "number" ? ev.numOfTips : 0,
         showAmountRaisedOnVideos: ev.showAmountRaisedOnVideos,
         showViewCountOnVideos: ev.showViewCountOnVideos,
+        showEncounterOnVideos: ev.showEncounterOnVideos,
       });
     })();
     return () => {
@@ -551,8 +553,12 @@ export const TvLooper = ({
   const showViewCountOnVideos =
     displayEventMeta?.showViewCountOnVideos ??
     (scheduleEvent as DisplayEventMeta | undefined)?.showViewCountOnVideos;
+  const showEncounterOnVideos =
+    displayEventMeta?.showEncounterOnVideos ??
+    (scheduleEvent as DisplayEventMeta | undefined)?.showEncounterOnVideos;
   const showRaisedAmount = showAmountRaisedOnVideos !== false;
   const showViewCount = showViewCountOnVideos === true;
+  const showEncounterCount = showEncounterOnVideos === true;
 
   useEffect(() => {
     if (!showViewCount) {
@@ -1263,6 +1269,14 @@ export const TvLooper = ({
                     : "")
                 }
                 numOfTips={liveNumOfTips}
+                amountRaised={
+                  showRaisedAmount ? Number(liveAmountRaised) : null
+                }
+                amountToRaise={
+                  showRaisedAmount ? (progressAmountToRaise ?? null) : null
+                }
+                showViewCount={showViewCount}
+                showEncounterCount={showEncounterCount}
                 tippingCharacters={characters}
                 onContinueToTip={onContinueCommentToTip}
                 hostName={
@@ -1445,6 +1459,7 @@ export const TvLooper = ({
               });
               return (
                 <TvPlayer
+                  key={`tv-yt-${startupEmbedGeneration}`}
                   ref={
                     playerRef as React.Ref<import("./tv-player").TvPlayerRef>
                   }

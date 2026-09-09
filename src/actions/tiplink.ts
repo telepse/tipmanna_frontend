@@ -84,6 +84,7 @@ export type TipLinkPublicPayload = {
     showViewCountOnVideos: boolean | null;
     showEncounterOnVideos: boolean | null;
     amountRaised: number;
+    amountToRaise: number;
     numOfTips: number;
     contentCountry: string;
     contentLanguage: string;
@@ -109,6 +110,17 @@ export type TipLinkPublicPayload = {
     description: string | null;
     bannerUrl: string | null;
   } | null;
+  characterSets?: Array<{
+    id: string;
+    name: string;
+    characters: Array<{
+      id: string;
+      name: string;
+      iconUrl: string;
+      price: number;
+      styleName?: string;
+    }>;
+  }>;
   preview?: boolean;
 };
 
@@ -261,8 +273,11 @@ export async function getPublicTipLinkAction(slug: string) {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
+      perAttemptTimeoutMs: 8000,
     },
-    "getPublicTipLinkAction"
+    "getPublicTipLinkAction",
+    undefined,
+    { maxAttempts: 2, totalDeadlineMs: 12000 }
   );
 }
 

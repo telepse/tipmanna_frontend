@@ -896,16 +896,30 @@ export async function addEventProjectsAction(
   );
 }
 
+export type EventAccessMode =
+  | "public"
+  | "invite_only"
+  | "host_code"
+  | "custom_code"
+  | "email_gate"
+  | "community_members";
+
 export async function patchEventAccessModeAction(
   eventId: string,
-  accessMode: "public" | "invite_only"
+  payload: {
+    accessMode: EventAccessMode;
+    accessHostCode?: string | null;
+    accessCustomCode?: string | null;
+    accessEmailAutoApprove?: boolean;
+    accessRequiresApproval?: boolean;
+  }
 ) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/access-mode`,
     {
       method: "PATCH",
       headers: await serverHostAuthHeaders(),
-      body: JSON.stringify({ accessMode }),
+      body: JSON.stringify(payload),
       cache: "no-store",
     },
     "patchEventAccessModeAction"
@@ -966,7 +980,8 @@ export async function acceptEventRoomInviteAction(token: string) {
 
 export async function getEventRoomAccessAction(
   eventId: string,
-  inviteToken?: string | null
+  inviteToken?: string | null,
+  opts?: { accessCode?: string | null; email?: string | null }
 ) {
   const { getToken } = await import("@/lib/getToken");
   const { getEventRoomInviteToken } = await import(
@@ -978,6 +993,12 @@ export async function getEventRoomAccessAction(
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (resolvedInvite) headers["x-event-room-invite-token"] = resolvedInvite;
+  if (opts?.accessCode?.trim()) {
+    headers["x-event-room-access-code"] = opts.accessCode.trim();
+  }
+  if (opts?.email?.trim()) {
+    headers["x-event-room-access-email"] = opts.email.trim();
+  }
 
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access`,
@@ -987,5 +1008,34 @@ export async function getEventRoomAccessAction(
       cache: "no-store",
     },
     "getEventRoomAccessAction"
+  );
+}
+
+export async function submitEventRoomAccessAction(
+  eventId: string,
+  body: { accessCode?: string; email?: string; answersJson?: unknown }
+) {
+  const { getToken } = await import("@/lib/getToken");
+  const token = await getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body.accessCode?.trim()) {
+    headers["x-event-room-access-code"] = body.accessCode.trim();
+  }
+  if (body.email?.trim()) {
+    headers["x-event-room-access-email"] = body.email.trim();
+  }
+
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access/submit`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      cache: "no-store",
+    },
+    "submitEventRoomAccessAction"
   );
 }

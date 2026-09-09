@@ -8,6 +8,7 @@ type Props = {
   visits: number;
   tips: number;
   shares: number;
+  sectionCtaLabel?: string;
   docked?: boolean;
   pipReserveMobile?: number;
   pipReserveDesktop?: number;
@@ -47,8 +48,10 @@ function TickerLine({
   visits,
   tips,
   shares,
+  sectionCtaLabel,
   onTipsClick,
 }: Omit<Props, "docked" | "pipReserveMobile" | "pipReserveDesktop">) {
+  const engageLabel = sectionCtaLabel?.trim() || "Engage";
   return (
     <>
       <TickerSegment>{visits} visits</TickerSegment>
@@ -59,7 +62,7 @@ function TickerLine({
       <span className="shrink-0 text-white/30">·</span>
       <TickerLabel>Watch</TickerLabel>
       <span className="shrink-0 text-white/30">·</span>
-      <TickerLabel>Engage</TickerLabel>
+      <TickerLabel>{engageLabel}</TickerLabel>
       <span className="shrink-0 text-white/30">·</span>
       <TickerLabel>Support</TickerLabel>
     </>
@@ -71,6 +74,7 @@ export function TipLinkMetricsTicker({
   visits,
   tips,
   shares,
+  sectionCtaLabel,
   docked = false,
   pipReserveMobile = 108,
   pipReserveDesktop = 140,
@@ -81,6 +85,7 @@ export function TipLinkMetricsTicker({
       visits={visits}
       tips={tips}
       shares={shares}
+      sectionCtaLabel={sectionCtaLabel}
       onTipsClick={onTipsClick}
     />
   );

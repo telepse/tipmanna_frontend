@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import { useTvEventTipCatalog } from "@/hooks/use-tv-event-tip-catalog";
+import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
@@ -456,6 +457,14 @@ export const HomeTvLooper = ({
   const currentEventId = resolveTvScheduleEventId(current);
   const { tippingCharacters: videoTipCharacters } =
     useTvEventTipCatalog(currentEventId);
+  const tipPres = useTipPresentation(
+    currentEventId && currentEventId !== "notice" ? currentEventId : undefined,
+    (videoTipCharacters.length
+      ? videoTipCharacters
+      : characters) as RoomCharacter[],
+    { paymentSurface: analyticsSurface }
+  );
+  const engageLabel = tipPres.sectionCtaLabel?.trim() || "Engage";
   const tipsAndPaymentsEnabled =
     Boolean(currentEventId) && currentEventId !== "notice" && !isNotice;
   const currentChannelId = current?.channel?.id;
@@ -493,6 +502,7 @@ export const HomeTvLooper = ({
     numOfTips?: number;
     showAmountRaisedOnVideos?: boolean;
     showViewCountOnVideos?: boolean;
+    showEncounterOnVideos?: boolean;
   };
 
   const [displayEventMeta, setDisplayEventMeta] =
@@ -520,6 +530,7 @@ export const HomeTvLooper = ({
         numOfTips: typeof ev.numOfTips === "number" ? ev.numOfTips : 0,
         showAmountRaisedOnVideos: ev.showAmountRaisedOnVideos,
         showViewCountOnVideos: ev.showViewCountOnVideos,
+        showEncounterOnVideos: ev.showEncounterOnVideos,
       });
     })();
     return () => {
@@ -533,8 +544,12 @@ export const HomeTvLooper = ({
   const showViewCountOnVideos =
     displayEventMeta?.showViewCountOnVideos ??
     (scheduleEvent as DisplayEventMeta | undefined)?.showViewCountOnVideos;
+  const showEncounterOnVideos =
+    displayEventMeta?.showEncounterOnVideos ??
+    (scheduleEvent as DisplayEventMeta | undefined)?.showEncounterOnVideos;
   const showRaisedAmount = showAmountRaisedOnVideos !== false;
   const showViewCount = showViewCountOnVideos === true;
+  const showEncounterCount = showEncounterOnVideos === true;
 
   useEffect(() => {
     if (!showViewCount) {
@@ -1202,6 +1217,14 @@ export const HomeTvLooper = ({
                     : "")
                 }
                 numOfTips={liveNumOfTips}
+                amountRaised={
+                  showRaisedAmount ? Number(liveAmountRaised) : null
+                }
+                amountToRaise={
+                  showRaisedAmount ? (progressAmountToRaise ?? null) : null
+                }
+                showViewCount={showViewCount}
+                showEncounterCount={showEncounterCount}
                 tippingCharacters={videoTipCharacters}
                 onContinueToTip={onContinueCommentToTip}
                 hostName={
@@ -1367,6 +1390,7 @@ export const HomeTvLooper = ({
               });
               return (
                 <HomeTvPlayer
+                  key={`tv-yt-${startupEmbedGeneration}`}
                   ref={
                     playerRef as React.Ref<
                       import("./home-tv-player").HomeTvPlayerRef
@@ -1578,7 +1602,7 @@ export const HomeTvLooper = ({
                 className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
               >
                 <ChevronsUp className="text-primary size-4" />
-                Engage <ChevronsUp className="text-primary size-4" />
+                {engageLabel} <ChevronsUp className="text-primary size-4" />
               </button>
             ) : null}
           </div>

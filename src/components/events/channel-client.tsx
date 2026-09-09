@@ -162,6 +162,7 @@ import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { mergeTipPriceCatalog } from "@/lib/tip-text-selection";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
 import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { NotificationBadge } from "../notifications/notification-badge";
 
 interface Props {
@@ -231,6 +232,7 @@ export const ChannelClient = ({
   );
 
   const videoRef = useRef<VideoPlayerRef>(null);
+  const featureOverlayWasPlayingRef = useRef(false);
   const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
   const baseList = Array.isArray(initialContents) ? initialContents : [];
   const playableInitial = baseList.filter((c: any) => !c?.restricted);
@@ -1097,6 +1099,11 @@ export const ChannelClient = ({
                     setActiveVideoFeatureCardId(id);
                     setIsTipDrawerOpen(true);
                   }}
+                  onOverlayOpenChange={createFeatureCardOverlayPlaybackHandlers(
+                    videoRef,
+                    featureOverlayWasPlayingRef,
+                    { getWasPlaying: () => isPlayingRef.current }
+                  )}
                   className="pointer-events-auto"
                 />
               </div>
@@ -1365,6 +1372,13 @@ export const ChannelClient = ({
               }
               numOfTips={liveNumOfTips}
               amountRaised={showRaisedAmount ? Number(liveAmountRaised) : null}
+              amountToRaise={
+                showRaisedAmount
+                  ? (currentContent?.event?.amountToRaise ??
+                    playlist[0]?.event?.amountToRaise ??
+                    null)
+                  : null
+              }
               showViewCount={showViewCount}
               showEncounterCount={showEncounterCount}
               tippingCharacters={tipPriceCatalog}
@@ -1474,7 +1488,8 @@ export const ChannelClient = ({
               className="relative -mt-2 flex cursor-pointer rounded-full bg-gray-200 p-1 text-sm text-black"
             >
               <ChevronsUp className="text-primary" />
-              Engage <ChevronsUp className="text-primary" />{" "}
+              {tipPres.sectionCtaLabel?.trim() || "Engage"}{" "}
+              <ChevronsUp className="text-primary" />{" "}
               <span className="absolute -bottom-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-gray-500"></span>
             </button>
 
@@ -1623,7 +1638,8 @@ export const ChannelClient = ({
                 className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
               >
                 <ChevronsUp className="text-primary size-4" />
-                Engage <ChevronsUp className="text-primary size-4" />
+                {tipPres.sectionCtaLabel?.trim() || "Engage"}{" "}
+                <ChevronsUp className="text-primary size-4" />
               </button>
             </div>
           </div>
@@ -1821,7 +1837,8 @@ export const ChannelClient = ({
               className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
             >
               <ChevronsUp className="text-primary size-4" />
-              Engage <ChevronsUp className="text-primary size-4" />
+              {tipPres.sectionCtaLabel?.trim() || "Engage"}{" "}
+              <ChevronsUp className="text-primary size-4" />
             </button>
           ) : null}
         </div>

@@ -39,11 +39,16 @@ import {
 } from "@/components/tiplink/tiplink-store-icons";
 import { TIPLINK_SOCIAL_PLATFORMS } from "@/components/tiplink/tiplink-social-icons";
 import { cn } from "@/lib/utils";
+import { isTipLinkEligibleChannel } from "@/lib/tiplink-channel-eligibility";
 
 type Content = {
   id: string;
   title: string;
   url: string;
+  communityBankEntry?: {
+    status?: string | null;
+    visibility?: string | null;
+  } | null;
 };
 
 type Props = {
@@ -133,7 +138,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
 
   const channelsWithoutTipLink = useMemo(() => {
     const used = new Set(tipLinks.map(t => t.eventChannelId));
-    return contents.filter(c => !used.has(c.id));
+    return contents.filter(c => !used.has(c.id) && isTipLinkEligibleChannel(c));
   }, [contents, tipLinks]);
 
   const selectableVideos = useMemo(() => {
@@ -142,7 +147,9 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       tipLinks.filter(t => t.id !== editing.id).map(t => t.eventChannelId)
     );
     return contents.filter(
-      c => c.id === editing.eventChannelId || !usedByOther.has(c.id)
+      c =>
+        (c.id === editing.eventChannelId || !usedByOther.has(c.id)) &&
+        (c.id === editing.eventChannelId || isTipLinkEligibleChannel(c))
     );
   }, [contents, editing, tipLinks]);
 
@@ -206,7 +213,9 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     const alreadyHasTipLink = tipLinks.some(
       t => t.eventChannelId === autoCreateChannelId
     );
-    if (!channel || alreadyHasTipLink) return;
+    if (!channel || alreadyHasTipLink || !isTipLinkEligibleChannel(channel)) {
+      return;
+    }
     autoCreateAttemptedRef.current = true;
     void startCreate(channel.id, channel.title);
   }, [autoCreateChannelId, contents, editing, loading, startCreate, tipLinks]);

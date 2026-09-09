@@ -6,10 +6,13 @@ import {
   resetTvEmbedGenerationForTests,
   shouldAcceptTvPlayerYtCallback,
   shouldForceEmbedRemount,
+  shouldRecoverTvPlayerEmbed,
   shouldRemountTvPlayer,
   shouldReplaceTvYtPlayer,
   shouldReuseExistingTvYtPlayer,
+  TV_EMBED_DEAD_IFRAME_MS,
   TV_EMBED_ONREADY_TIMEOUT_MS,
+  TV_EMBED_RECOVERY_COOLDOWN_MS,
 } from "@/lib/tv-player-resume";
 
 const alive = {
@@ -111,11 +114,68 @@ describe("shouldRemountTvPlayer", () => {
     expect(shouldRemountTvPlayer({ ...alive, commandReady: false })).toBe(true);
   });
 
-  it("remounts when probe state is unusable", () => {
-    expect(shouldRemountTvPlayer({ ...alive, playerState: null })).toBe(true);
+  it("does not remount when iframe and command API are healthy despite UNSTARTED state", () => {
+    expect(shouldRemountTvPlayer({ ...alive, playerState: null })).toBe(false);
     expect(shouldRemountTvPlayer({ ...alive, playerState: "UNSTARTED" })).toBe(
-      true
+      false
     );
+  });
+});
+
+describe("shouldRecoverTvPlayerEmbed", () => {
+  const healthy = {
+    playerVisible: true,
+    startupInFlight: false,
+    firstPlayReached: true,
+    scheduleReady: true,
+    commandReady: true,
+    iframeLive: true,
+    orphanedRef: false,
+    embedRecoveryInFlight: false,
+    msSinceLastRecovery: TV_EMBED_RECOVERY_COOLDOWN_MS,
+    deadIframeSinceMs: null as number | null,
+    nowMs: 10_000,
+  };
+
+  it("recovers immediately when the provider ref is orphaned", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        orphanedRef: true,
+        commandReady: false,
+        iframeLive: false,
+      })
+    ).toBe(true);
+  });
+
+  it("recovers after sustained dead iframe", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        iframeLive: false,
+        commandReady: true,
+        deadIframeSinceMs: 10_000 - TV_EMBED_DEAD_IFRAME_MS,
+      })
+    ).toBe(true);
+  });
+
+  it("does not recover during startup or cooldown", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        startupInFlight: true,
+        iframeLive: false,
+        deadIframeSinceMs: 0,
+      })
+    ).toBe(false);
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        iframeLive: false,
+        msSinceLastRecovery: 100,
+        deadIframeSinceMs: 0,
+      })
+    ).toBe(false);
   });
 });
 

@@ -19,7 +19,7 @@ export function TipLinkPlayerShell({
       className={cn(
         "relative overflow-hidden",
         variant === "inline" &&
-          "rounded-2xl border border-white/15 bg-gradient-to-br from-white/[0.09] via-white/[0.03] to-transparent shadow-[0_0_48px_-16px_rgba(168,85,247,0.45)] backdrop-blur-sm",
+          "rounded-2xl border border-white/15 bg-gradient-to-br from-white/[0.09] via-white/[0.03] to-transparent shadow-[0_0_48px_-16px_rgba(168,85,247,0.45)]",
         variant === "docked" &&
           "rounded-md bg-black shadow-lg ring-1 ring-white/15",
         variant === "immersive" && "h-full w-full bg-black",

@@ -137,4 +137,30 @@ describe("TV playback contract — leave/return player lifecycle", () => {
       "isYoutubePlayerCommandReady(playerRef.current)"
     );
   });
+
+  it("remount bumps embed generation without nulling playerRef while mounted", () => {
+    expect(tvProviderSource).toMatch(
+      /const remountPlayerForResume = useCallback\(\(reason: string\) => \{[\s\S]*?setStartupEmbedGeneration\(startupGenerationRef\.current\);[\s\S]*?\}, \[\]\);/
+    );
+    const remountBody = tvProviderSource.match(
+      /const remountPlayerForResume = useCallback\([\s\S]*?\}, \[\]\);/
+    )?.[0];
+    expect(remountBody).toBeTruthy();
+    expect(remountBody!).not.toContain("playerRef.current = null");
+  });
+
+  it("loopers key TvPlayer by startupEmbedGeneration for ref rebind", () => {
+    const tvLooperSource = readFileSync(
+      join(frontendRoot, "src/components/tv/tv-looper.tsx"),
+      "utf8"
+    );
+    const homeLooperSource = readFileSync(
+      join(frontendRoot, "src/components/tv/home-tv-looper.tsx"),
+      "utf8"
+    );
+    expect(tvLooperSource).toContain("key={`tv-yt-${startupEmbedGeneration}`}");
+    expect(homeLooperSource).toContain(
+      "key={`tv-yt-${startupEmbedGeneration}`}"
+    );
+  });
 });

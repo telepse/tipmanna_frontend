@@ -12,6 +12,7 @@ import {
   createEventRoomInviteAction,
   getEventRoomInvitesAction,
   patchEventAccessModeAction,
+  type EventAccessMode,
 } from "@/actions/events";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 
@@ -26,7 +27,7 @@ type InviteRow = {
 
 type Props = {
   eventId: string;
-  initialAccessMode?: "public" | "invite_only";
+  initialAccessMode?: EventAccessMode;
 };
 
 export function EventRoomAccessControl({
@@ -35,16 +36,17 @@ export function EventRoomAccessControl({
 }: Props) {
   const { handleSubscriptionActionError, SubscriptionPromptModal } =
     useHostSubscriptionPrompt({ focusTier: "premium" });
-  const [accessMode, setAccessMode] = useState<"public" | "invite_only">(
-    initialAccessMode
-  );
+  const [accessMode, setAccessMode] =
+    useState<EventAccessMode>(initialAccessMode);
+  const [hostCode, setHostCode] = useState("");
+  const [customCode, setCustomCode] = useState("");
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [email, setEmail] = useState("");
   const [loadingInvites, setLoadingInvites] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const loadInvites = useCallback(async () => {
-    if (accessMode !== "invite_only") return;
+    if (accessMode !== "invite_only" && accessMode !== "email_gate") return;
     setLoadingInvites(true);
     try {
       const res = await getEventRoomInvitesAction(eventId);
@@ -62,10 +64,12 @@ export function EventRoomAccessControl({
   }, [loadInvites]);
 
   const toggleAccessMode = async (next: boolean) => {
-    const mode = next ? "invite_only" : "public";
+    const mode: EventAccessMode = next ? "invite_only" : "public";
     setBusy("mode");
     try {
-      const res = await patchEventAccessModeAction(eventId, mode);
+      const res = await patchEventAccessModeAction(eventId, {
+        accessMode: mode,
+      });
       if (!res.success) {
         if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
           return;
@@ -80,6 +84,34 @@ export function EventRoomAccessControl({
           : "Event room is now public"
       );
       if (mode === "invite_only") void loadInvites();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveAccessCodeMode = async (mode: "host_code" | "custom_code") => {
+    const code = mode === "host_code" ? hostCode.trim() : customCode.trim();
+    if (!code) {
+      toast.error("Enter an access code");
+      return;
+    }
+    setBusy("mode");
+    try {
+      const res = await patchEventAccessModeAction(eventId, {
+        accessMode: mode,
+        ...(mode === "host_code"
+          ? { accessHostCode: code }
+          : { accessCustomCode: code }),
+      });
+      if (!res.success) {
+        if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
+          return;
+        }
+        toast.error(res.message ?? "Could not update access mode");
+        return;
+      }
+      setAccessMode(mode);
+      toast.success("Access code enabled");
     } finally {
       setBusy(null);
     }
@@ -130,7 +162,43 @@ export function EventRoomAccessControl({
         />
       </div>
 
-      {accessMode === "invite_only" ? (
+      <div className="bg-card space-y-3 rounded-lg border p-4">
+        <p className="font-medium">Access code (Growth+)</p>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            placeholder="Host access code"
+            value={hostCode}
+            onChange={e => setHostCode(e.target.value)}
+            className="max-w-xs"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy === "mode"}
+            onClick={() => void saveAccessCodeMode("host_code")}
+          >
+            Enable host code
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            placeholder="Shared invitation code"
+            value={customCode}
+            onChange={e => setCustomCode(e.target.value)}
+            className="max-w-xs"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy === "mode"}
+            onClick={() => void saveAccessCodeMode("custom_code")}
+          >
+            Enable shared code
+          </Button>
+        </div>
+      </div>
+
+      {accessMode === "invite_only" || accessMode === "email_gate" ? (
         <div className="bg-card space-y-4 rounded-lg border p-4">
           <div className="space-y-2">
             <Label htmlFor="invite-email">Invite by email</Label>

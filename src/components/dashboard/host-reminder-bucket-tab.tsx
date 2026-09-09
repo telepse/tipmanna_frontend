@@ -58,6 +58,7 @@ export function HostReminderBucketTab({ communityId }: Props) {
   const [channelPush, setChannelPush] = useState(true);
   const [channelEmail, setChannelEmail] = useState(false);
   const [emailBlastStatus, setEmailBlastStatus] = useState<string | null>(null);
+  const [hasSentBlast, setHasSentBlast] = useState(false);
   const [quotedAmountGbp, setQuotedAmountGbp] = useState<string | null>(null);
   const [requestingEmail, setRequestingEmail] = useState(false);
   const [submittingPayment, setSubmittingPayment] = useState(false);
@@ -69,9 +70,10 @@ export function HostReminderBucketTab({ communityId }: Props) {
   } | null>(null);
   const [emailTitle, setEmailTitle] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  const [declineReason, setDeclineReason] = useState<string | null>(null);
   const authUser = useSelector((s: RootState) => s.auth.user);
 
-  const emailUnlockedForReminders = emailBlastStatus === "sent";
+  const emailUnlockedForReminders = hasSentBlast;
 
   const landingUrl = useMemo(
     () =>
@@ -85,7 +87,9 @@ export function HostReminderBucketTab({ communityId }: Props) {
     const res = await getCommunityEmailBlastStatusAction(communityId);
     if (res.success && res.data?.request) {
       setEmailBlastStatus(res.data.request.status);
+      setHasSentBlast(Boolean(res.data.hasSentBlast));
       setQuotedAmountGbp(res.data.request.quotedAmountGbp);
+      setDeclineReason(res.data.request.declineReason ?? null);
       if (res.data.request.emailTitle) {
         setEmailTitle(res.data.request.emailTitle);
       }
@@ -94,7 +98,9 @@ export function HostReminderBucketTab({ communityId }: Props) {
       }
     } else if (res.success) {
       setEmailBlastStatus(null);
+      setHasSentBlast(Boolean(res.data?.hasSentBlast));
       setQuotedAmountGbp(null);
+      setDeclineReason(null);
     }
   }, [communityId]);
 
@@ -444,6 +450,11 @@ export function HostReminderBucketTab({ communityId }: Props) {
           ) : null}
           {emailBlastStatus === "unlocked" ? (
             <div className="space-y-2">
+              {declineReason ? (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Copy needs changes: {declineReason}
+                </p>
+              ) : null}
               <Label htmlFor="blast-email-title">Commercial email title</Label>
               <Input
                 id="blast-email-title"

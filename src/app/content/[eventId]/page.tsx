@@ -18,6 +18,7 @@ import {
   pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { notFound, redirect } from "next/navigation";
+import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 import { Metadata } from "next";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
 import {
@@ -77,7 +78,7 @@ export async function generateMetadata({
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return { title: "Private event room" };
   }
 
@@ -139,7 +140,7 @@ export default async function ContentPage({ params, searchParams }: Props) {
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return <PrivateEventRoomBlocked />;
   }
 

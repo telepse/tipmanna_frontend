@@ -22,6 +22,7 @@ import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { resolveRoomOgImage } from "@/lib/room-og-image";
 import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
+import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -55,7 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return { title: "Private event room" };
   }
 
@@ -137,7 +138,7 @@ export default async function EventRoomPage({ params }: Props) {
         })
       : null;
 
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return <PrivateEventRoomBlocked />;
   }
 

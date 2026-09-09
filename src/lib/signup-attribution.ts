@@ -25,7 +25,8 @@ export type SignupSurface =
   | "push_prompt"
   | "notifications"
   | "cohost_invite"
-  | "cohost_sign_in";
+  | "cohost_sign_in"
+  | "tiplink";
 
 export type SignupAttributionPayload = {
   deviceKey: string;

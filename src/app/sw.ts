@@ -12,65 +12,42 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-let API_BASE = "";
-
-function normalizeApiBase(base: string | undefined): string {
-  if (!base || typeof base !== "string") return "";
-  return base.replace(/\/$/, "");
+function pushKindLabel(recipientKind?: string, kindLabel?: string): string {
+  if (kindLabel?.trim()) return kindLabel.trim();
+  if (recipientKind === "host") return "Host";
+  if (recipientKind === "tipper") return "Tipper";
+  return "Tipmanna";
 }
 
-self.addEventListener("message", (event: ExtendableMessageEvent) => {
-  const data = event.data as { type?: string; apiBase?: string } | undefined;
-  if (data?.type === "SET_CONFIG") {
-    API_BASE = normalizeApiBase(data.apiBase);
+function resolveNotificationDeepLink(data: {
+  deepLink?: string;
+  recipientKind?: string | null;
+}): string {
+  const raw = data.deepLink?.trim() || "/explore?drawer=notifications";
+  if (
+    raw.includes("notifications=host") ||
+    raw.includes("notifications=tipper")
+  ) {
+    return raw;
   }
-});
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open("tipmanna-push", 1);
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains("kv")) {
-        db.createObjectStore("kv");
-      }
-    };
-  });
-}
-
-async function getStoredToken(): Promise<string | null> {
-  try {
-    const db = await openDb();
-    return new Promise(resolve => {
-      const tx = db.transaction("kv", "readonly");
-      const store = tx.objectStore("kv");
-      const getReq = store.get("authToken");
-      getReq.onsuccess = () => resolve((getReq.result as string) || null);
-      getReq.onerror = () => resolve(null);
-    });
-  } catch {
-    return null;
+  if (data.recipientKind === "host") {
+    return "/explore?drawer=notifications&notifications=host";
   }
+  if (data.recipientKind === "tipper") {
+    return "/explore?drawer=notifications&notifications=tipper";
+  }
+  return raw;
 }
 
 async function recordNotificationRead(notificationId: string): Promise<void> {
-  if (!notificationId || !API_BASE) return;
-  const token = await getStoredToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
+  if (!notificationId) return;
   try {
-    await fetch(
-      `${API_BASE}/notifications/${encodeURIComponent(notificationId)}/read`,
-      {
-        method: "POST",
-        headers,
-      }
-    );
+    await fetch("/api/notifications/mark-read", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notificationId, action: "read" }),
+    });
   } catch (e) {
     console.error("[sw] notification read failed", e);
   }
@@ -80,22 +57,14 @@ async function recordNotificationClick(
   notificationId: string,
   url: string
 ): Promise<void> {
-  if (!notificationId || !API_BASE) return;
-  const token = await getStoredToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
+  if (!notificationId) return;
   try {
-    await fetch(
-      `${API_BASE}/notifications/${encodeURIComponent(notificationId)}/click`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ url: url || undefined }),
-      }
-    );
+    await fetch("/api/notifications/mark-read", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notificationId, action: "click", url }),
+    });
   } catch (e) {
     console.error("[sw] notification click failed", e);
   }
@@ -108,6 +77,8 @@ self.addEventListener("push", (event: PushEvent) => {
     deepLink?: string;
     linkUrl?: string;
     notificationId?: string;
+    recipientKind?: string;
+    kindLabel?: string;
     actions?: { action: string; title: string }[];
   } = {};
   try {
@@ -116,18 +87,29 @@ self.addEventListener("push", (event: PushEvent) => {
     payload = { title: "Tipmanna", body: event.data?.text() || "" };
   }
 
-  const title = payload.title || "Tipmanna";
+  const label = pushKindLabel(payload.recipientKind, payload.kindLabel);
+  const title = payload.title
+    ? `[${label}] ${payload.title}`
+    : `[${label}] Tipmanna`;
+  const deepLink = resolveNotificationDeepLink({
+    deepLink: payload.deepLink,
+    recipientKind: payload.recipientKind,
+  });
   const options: NotificationOptions & {
     actions?: { action: string; title: string }[];
   } = {
     body: payload.body || "",
     data: {
-      deepLink: payload.deepLink || "/tv",
+      deepLink,
       linkUrl: payload.linkUrl || null,
       notificationId: payload.notificationId || null,
+      recipientKind: payload.recipientKind || null,
     },
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
+    tag: payload.notificationId
+      ? `notification-${payload.notificationId}`
+      : `notification-${label.toLowerCase()}`,
   };
   if (payload.linkUrl) {
     options.actions = payload.actions ?? [
@@ -144,8 +126,9 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
     deepLink?: string;
     linkUrl?: string | null;
     notificationId?: string | null;
+    recipientKind?: string | null;
   };
-  const deepLink = data.deepLink || "/tv";
+  const deepLink = resolveNotificationDeepLink(data);
   const linkUrl = data.linkUrl || null;
   const notificationId = data.notificationId;
   const useLinkAction = event.action === "open-link" && linkUrl;

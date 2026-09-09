@@ -86,6 +86,7 @@ import { TippingElementsProvider } from "@/components/payments/tipping-elements-
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { Button } from "@/components/ui/button";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
@@ -1017,6 +1018,14 @@ export const ExploreFeedClient = forwardRef<
   const pendingSaveAfterSignInRef = useRef(false);
   const [savesRefreshEpoch, setSavesRefreshEpoch] = useState(0);
   const videoRef = useRef<VideoPlayerRef>(null);
+  const featureOverlayWasPlayingRef = useRef(false);
+  const handleFeatureOverlayPlayback = useCallback(
+    createFeatureCardOverlayPlaybackHandlers(
+      videoRef,
+      featureOverlayWasPlayingRef
+    ),
+    []
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useSelector((s: RootState) => s.auth);
   const hasExploreSession = hasExploreSessionAuth(isAuthenticated);
@@ -2837,6 +2846,7 @@ export const ExploreFeedClient = forwardRef<
                                 setActiveVideoFeatureCardId(id);
                                 setIsTipDrawerOpen(true);
                               }}
+                              onOverlayOpenChange={handleFeatureOverlayPlayback}
                             />
                           </div>
                         ) : null}
@@ -3165,6 +3175,18 @@ export const ExploreFeedClient = forwardRef<
               : ""
           }
           numOfTips={liveNumOfTips}
+          amountRaised={
+            active?.event?.showAmountRaisedOnVideos !== false
+              ? Number(active?.event?.amountRaised ?? liveAmountRaised)
+              : null
+          }
+          amountToRaise={
+            active?.event?.showAmountRaisedOnVideos !== false
+              ? (active?.event?.amountToRaise ?? null)
+              : null
+          }
+          showViewCount={active?.event?.showViewCountOnVideos === true}
+          showEncounterCount={active?.event?.showEncounterOnVideos === true}
           tippingCharacters={tipPriceCatalog as RoomCharacter[]}
           onContinueToTip={() => setIsTipDrawerOpen(true)}
           hostName={active?.event?.hostName ?? undefined}
