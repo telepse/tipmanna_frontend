@@ -70,16 +70,24 @@ export interface UpdateEventContentPayload {
   id: string;
   title: string;
   description?: string;
+  url?: string;
+  eventVideoType?: string;
+  reminders?: number[];
 }
 
 export interface UpdateHostEventDetailsPayload {
   eventName?: string;
   eventDescription?: string;
+  organizationName?: string;
   eventType?: string;
   eventDate?: string;
   startTime?: string;
   endTime?: string;
   timeZone?: string;
+  venueName?: string;
+  venueLocation?: string;
+  eventBanner?: string | null;
+  activities?: string[];
 
   cohosts?: UpdateEventCohostPayload[];
 
@@ -168,6 +176,7 @@ export async function sendHostEventReportAction({
 
 export interface PostHostEventMessagePayload {
   text: string;
+  imageUrls?: string[];
 }
 
 export async function postHostEventMessageAction({

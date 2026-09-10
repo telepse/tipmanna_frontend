@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { toast } from "react-toastify";
+import { incrementEventTargetAmountAction } from "@/actions/events";
 
 // UI Components
 import {
@@ -77,6 +79,8 @@ interface Props {
   sessions: Session[];
   activeSession: Session | null;
   refetchSessions: () => void;
+  initialAmountToRaise?: number;
+  onTargetAmountUpdated?: (amount: number) => void;
 }
 
 // Default labels for each enum value
@@ -105,6 +109,8 @@ export const EventScreenSettings = ({
   sessions,
   activeSession,
   refetchSessions,
+  initialAmountToRaise = 0,
+  onTargetAmountUpdated,
 }: Props) => {
   const [background, setBackground] = useState(initialBackground || "");
   const [moneyFor, setMoneyFor] = useState(initialMoneyFor);
@@ -123,6 +129,10 @@ export const EventScreenSettings = ({
 
   const [newSessionName, setNewSessionName] = useState("");
   const [newAmount, setNewAmount] = useState("");
+  const [currentTargetAmount, setCurrentTargetAmount] =
+    useState(initialAmountToRaise);
+  const [targetIncrement, setTargetIncrement] = useState("");
+  const [targetIncrementBusy, setTargetIncrementBusy] = useState(false);
 
   const handleCreateSession = async () => {
     if (!newSessionName || !newAmount) return;
@@ -167,6 +177,37 @@ export const EventScreenSettings = ({
   };
 
   // Initialize state when modal opens
+  useEffect(() => {
+    setCurrentTargetAmount(initialAmountToRaise);
+  }, [initialAmountToRaise, open]);
+
+  const handleAddToTarget = async () => {
+    const increment = Number(targetIncrement);
+    if (!Number.isFinite(increment) || increment <= 0) {
+      toast.error("Enter a positive amount to add.");
+      return;
+    }
+    setTargetIncrementBusy(true);
+    try {
+      const res = await incrementEventTargetAmountAction(eventId, increment);
+      if (!res.success) {
+        toast.error(res.message ?? "Could not update target amount.");
+        return;
+      }
+      const next =
+        typeof (res.data as { amountToRaise?: number })?.amountToRaise ===
+        "number"
+          ? (res.data as { amountToRaise: number }).amountToRaise
+          : currentTargetAmount + increment;
+      setCurrentTargetAmount(next);
+      onTargetAmountUpdated?.(next);
+      setTargetIncrement("");
+      toast.success("Target amount updated.");
+    } finally {
+      setTargetIncrementBusy(false);
+    }
+  };
+
   useEffect(() => {
     setBackground(initialBackground || "");
     setMoneyFor(initialMoneyFor);
@@ -660,6 +701,31 @@ export const EventScreenSettings = ({
             onClose={() => setShowViewPerformerModal(false)}
             performers={performers}
           />
+        </div>
+
+        <div className="space-y-3">
+          <Label>Fundraising target</Label>
+          <p className="text-muted-foreground text-sm">
+            Current target: £{currentTargetAmount.toLocaleString()}
+          </p>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Add amount"
+              value={targetIncrement}
+              onChange={e => setTargetIncrement(e.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={targetIncrementBusy}
+              onClick={() => void handleAddToTarget()}
+            >
+              {targetIncrementBusy ? "Adding…" : "Add to target"}
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-3">

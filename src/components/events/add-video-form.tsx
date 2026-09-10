@@ -40,6 +40,9 @@ import {
   mintYoutubeVerifyRequest,
   resolveYoutubeVerifyOutcome,
 } from "@/lib/youtube-verify-request.util";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { isVideoTipReminderSlotLocked } from "@/lib/video-tip-reminder-slots";
+import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
 import {
   CREATE_FORM_INPUT_CLASS,
   CREATE_FORM_LABEL_CLASS,
@@ -187,6 +190,7 @@ export function AddVideoForm({
   mountHostAuthModal,
 }: AddVideoFormProps) {
   const authUser = useSelector((s: RootState) => s.auth.user);
+  const { hasActivePremium } = useHostPlanCapabilities();
   const injectedHostAuth = hostAuth != null;
   const fallbackHostAuth = useHostCapabilityWithAuth({
     enabled: !injectedHostAuth,
@@ -865,41 +869,51 @@ export function AddVideoForm({
                   </p>
 
                   <div className="grid grid-cols-3 gap-4">
-                    {reminderKeys.map(key => (
-                      <FormField
-                        key={key}
-                        control={form.control}
-                        name={`reminders.${key}`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <div className="flex gap-1">
-                                <Input
-                                  type="number"
-                                  placeholder=""
-                                  {...field}
-                                  onChange={e =>
-                                    field.onChange(
-                                      e.target.value === ""
-                                        ? undefined
-                                        : Number(e.target.value)
-                                    )
-                                  }
-                                  className={cn("h-8 w-10", inputClass)}
-                                />{" "}
-                                <span
-                                  className={
-                                    isCreate ? "text-white/80" : undefined
-                                  }
-                                >
-                                  mins
-                                </span>
-                              </div>
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    ))}
+                    {reminderKeys.map((key, slotIndex) => {
+                      const locked = isVideoTipReminderSlotLocked(
+                        slotIndex,
+                        hasActivePremium
+                      );
+                      return (
+                        <FormField
+                          key={key}
+                          control={form.control}
+                          name={`reminders.${key}`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <div className="relative flex gap-1">
+                                  {locked ? (
+                                    <TipPremiumIndicator className="absolute -top-1 -right-1 z-10" />
+                                  ) : null}
+                                  <Input
+                                    type="number"
+                                    placeholder=""
+                                    disabled={locked}
+                                    {...field}
+                                    onChange={e =>
+                                      field.onChange(
+                                        e.target.value === ""
+                                          ? undefined
+                                          : Number(e.target.value)
+                                      )
+                                    }
+                                    className={cn("h-8 w-10", inputClass)}
+                                  />{" "}
+                                  <span
+                                    className={
+                                      isCreate ? "text-white/80" : undefined
+                                    }
+                                  >
+                                    mins
+                                  </span>
+                                </div>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               )}

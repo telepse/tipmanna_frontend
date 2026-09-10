@@ -15,6 +15,7 @@ import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player"
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
 import type { RoomCharacter } from "@/types";
 
 const CommentDrawer = dynamic(
@@ -478,6 +479,26 @@ export const TvLooper = ({
     Boolean(currentEventId) && currentEventId !== "notice" && !isNotice;
   const currentChannelId = current?.channel?.id;
   const scheduleEvent = current?.channel?.event;
+
+  const tvHostFirstName =
+    scheduleEvent?.hostName?.trim().split(/\s+/)[0] ??
+    scheduleEvent?.hostName ??
+    "Host";
+  useVideoTipReminder({
+    surface: "tv_looper",
+    channelId:
+      tipsAndPaymentsEnabled && currentChannelId != null
+        ? String(currentChannelId)
+        : null,
+    eventId: tipsAndPaymentsEnabled ? currentEventId : "",
+    reminders: (current?.channel as { reminders?: number[] } | undefined)
+      ?.reminders,
+    currentTimeSec: currentTime,
+    hostFirstName: tvHostFirstName,
+    videoTitle: current?.channel?.title ?? "this video",
+    deepLinkUrl:
+      typeof window !== "undefined" ? window.location.pathname : "/tv",
+  });
   const channelFinancial = current?.channel as {
     amountRaised?: number;
     amountToRaise?: number;

@@ -1,18 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2, Lock, Mail } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useSelector } from "react-redux";
+import { Bell, Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "react-toastify";
 
 import {
   getEventRoomAccessAction,
   submitEventRoomAccessAction,
+  type EventRoomAccessFormConfig,
 } from "@/actions/events";
+import { setEventReminderAction } from "@/actions/event-reminders";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { persistEventRoomInviteToken } from "@/lib/event-room-invite-cookie";
+import type { RootState } from "@/redux/store";
 
 const inviteStorageKey = (eventId: string) => `event-room-invite:${eventId}`;
 const accessCodeStorageKey = (eventId: string) =>
@@ -37,7 +45,9 @@ function getStoredAccessEmail(eventId: string): string | null {
 
 type Props = {
   eventId: string;
-  children: React.ReactNode;
+  eventName?: string;
+  isEventOver?: boolean;
+  children?: React.ReactNode;
 };
 
 type AccessMode =
@@ -53,6 +63,8 @@ type GateHints = {
   requiresEmail?: boolean;
   requiresCommunityMembership?: boolean;
   requiresInvite?: boolean;
+  formConfig?: EventRoomAccessFormConfig | null;
+  communityId?: string | null;
 };
 
 type AccessPayload = {
@@ -62,6 +74,8 @@ type AccessPayload = {
   pending?: boolean;
   gate?: GateHints;
 };
+
+type GateStep = "verify" | "details";
 
 export function PrivateEventRoomBlocked({
   accessMode = "invite_only",
@@ -105,31 +119,154 @@ export function PrivateEventRoomBlocked({
   );
 }
 
+function parseFormConfig(raw: unknown): EventRoomAccessFormConfig {
+  if (!raw || typeof raw !== "object") return {};
+  const cfg = raw as Record<string, unknown>;
+  return {
+    collectName: Boolean(cfg.collectName),
+    collectPhone: Boolean(cfg.collectPhone),
+    collectTicketId: Boolean(cfg.collectTicketId),
+    customQuestion:
+      typeof cfg.customQuestion === "string" ? cfg.customQuestion : null,
+  };
+}
+
 function EventRoomAccessForm({
   eventId,
+  eventName,
+  isEventOver,
   accessMode,
   gate,
   pending,
   onSuccess,
 }: {
   eventId: string;
+  eventName?: string;
+  isEventOver?: boolean;
   accessMode: AccessMode;
   gate?: GateHints;
   pending?: boolean;
   onSuccess: () => void;
 }) {
+  const pathname = usePathname();
+  const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
+  const user = useSelector((s: RootState) => s.auth.user);
+  const authToken = useSelector((s: RootState) => s.auth.token);
+
+  const signedInEmail =
+    isAuthenticated && user?.role !== "VISITOR" && user?.email?.trim()
+      ? user.email.trim()
+      : "";
+
+  const [step, setStep] = useState<GateStep>(() =>
+    signedInEmail || getStoredAccessEmail(eventId) ? "details" : "verify"
+  );
+  const [email, setEmail] = useState(
+    () => signedInEmail || getStoredAccessEmail(eventId) || ""
+  );
   const [accessCode, setAccessCode] = useState(
     () => getStoredAccessCode(eventId) ?? ""
   );
-  const [email, setEmail] = useState(() => getStoredAccessEmail(eventId) ?? "");
+  const [answers, setAnswers] = useState({
+    name: "",
+    phone: "",
+    ticketId: "",
+    customAnswer: "",
+  });
+  const [setReminder, setSetReminder] = useState(false);
+  const [reminderOffset, setReminderOffset] = useState(15);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [communityOpen, setCommunityOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const formConfig = useMemo(
+    () => parseFormConfig(gate?.formConfig),
+    [gate?.formConfig]
+  );
+
+  const persistCredentials = () => {
+    if (accessCode.trim()) {
+      window.localStorage.setItem(
+        accessCodeStorageKey(eventId),
+        accessCode.trim()
+      );
+    }
+    if (email.trim()) {
+      window.localStorage.setItem(accessEmailStorageKey(eventId), email.trim());
+    }
+  };
+
+  const maybeSetReminder = async (verifiedEmail: string) => {
+    if (!setReminder || isEventOver) return;
+    try {
+      if (isAuthenticated && user?.role !== "VISITOR") {
+        await setEventReminderAction(
+          eventId,
+          {
+            offsetMinutes: reminderOffset,
+            title: eventName ?? "Event reminder",
+          },
+          authToken
+        );
+      } else if (verifiedEmail.trim()) {
+        const apiBase = (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "").replace(
+          /\/$/,
+          ""
+        );
+        await fetch(
+          `${apiBase}/events/${encodeURIComponent(eventId)}/reminders`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              offsetMinutes: reminderOffset,
+              email: verifiedEmail.trim(),
+            }),
+          }
+        );
+      }
+    } catch {
+      toast.warn("Access granted, but reminder could not be saved.");
+    }
+  };
+
   const submit = async () => {
+    if (!email.trim() && gate?.requiresEmail) {
+      toast.error("Email is required");
+      return;
+    }
+    if (gate?.requiresCode && !accessCode.trim()) {
+      toast.error("Access code is required");
+      return;
+    }
+
     setBusy(true);
     try {
+      const answersJson =
+        formConfig.collectName ||
+        formConfig.collectPhone ||
+        formConfig.collectTicketId ||
+        formConfig.customQuestion
+          ? {
+              ...(formConfig.collectName && answers.name.trim()
+                ? { name: answers.name.trim() }
+                : {}),
+              ...(formConfig.collectPhone && answers.phone.trim()
+                ? { phone: answers.phone.trim() }
+                : {}),
+              ...(formConfig.collectTicketId && answers.ticketId.trim()
+                ? { ticketId: answers.ticketId.trim() }
+                : {}),
+              ...(formConfig.customQuestion && answers.customAnswer.trim()
+                ? { customAnswer: answers.customAnswer.trim() }
+                : {}),
+            }
+          : undefined;
+
       const res = await submitEventRoomAccessAction(eventId, {
         accessCode: gate?.requiresCode ? accessCode.trim() : undefined,
         email: gate?.requiresEmail ? email.trim() : undefined,
+        answersJson,
       });
       if (!res.success || !res.data) {
         toast.error(res.message ?? "Could not verify access");
@@ -137,22 +274,13 @@ function EventRoomAccessForm({
       }
       const data = res.data as AccessPayload;
       if (data.allowed) {
-        if (accessCode.trim()) {
-          window.localStorage.setItem(
-            accessCodeStorageKey(eventId),
-            accessCode.trim()
-          );
-        }
-        if (email.trim()) {
-          window.localStorage.setItem(
-            accessEmailStorageKey(eventId),
-            email.trim()
-          );
-        }
+        persistCredentials();
+        await maybeSetReminder(email.trim());
         onSuccess();
         return;
       }
       if (data.pending) {
+        persistCredentials();
         toast.info("Access request submitted — awaiting host approval");
         onSuccess();
         return;
@@ -176,8 +304,108 @@ function EventRoomAccessForm({
     return <PrivateEventRoomBlocked accessMode={accessMode} />;
   }
 
+  if (step === "verify") {
+    return (
+      <div className="mx-auto flex min-h-[50vh] max-w-md flex-col justify-center gap-6 px-4 py-10">
+        <div className="space-y-2 text-center">
+          <Lock className="text-muted-foreground mx-auto size-10" />
+          <h1 className="text-2xl font-semibold">Verify your email</h1>
+          <p className="text-muted-foreground text-sm">
+            Sign in or verify your email to continue into this event room.
+          </p>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="gate-verify-email">Email</Label>
+            <Input
+              id="gate-verify-email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+            />
+          </div>
+          <Button
+            type="button"
+            className="w-full"
+            onClick={() => setSignInOpen(true)}
+          >
+            <Mail className="mr-2 size-4" />
+            Verify email
+          </Button>
+          {signedInEmail ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                setEmail(signedInEmail);
+                setStep("details");
+              }}
+            >
+              Continue as {signedInEmail}
+            </Button>
+          ) : null}
+        </div>
+        <TipperEmailOtpSignInDialog
+          open={signInOpen}
+          onOpenChange={setSignInOpen}
+          signInTitle="Verify email for event access"
+          initialEmail={email.trim() || undefined}
+          autoSendCode={Boolean(email.trim())}
+          signupSurface="event_room"
+          onVerified={() => {
+            const verified =
+              user?.email?.trim() || email.trim() || signedInEmail;
+            if (verified) {
+              setEmail(verified);
+              window.localStorage.setItem(
+                accessEmailStorageKey(eventId),
+                verified
+              );
+            }
+            setSignInOpen(false);
+            setStep("details");
+          }}
+        />
+      </div>
+    );
+  }
+
   if (gate?.requiresCommunityMembership) {
-    return <PrivateEventRoomBlocked accessMode={accessMode} />;
+    const communityId = gate.communityId?.trim();
+    if (!communityId) {
+      return <PrivateEventRoomBlocked accessMode={accessMode} />;
+    }
+    return (
+      <div className="mx-auto flex min-h-[50vh] max-w-md flex-col justify-center gap-6 px-4 py-10">
+        <div className="space-y-2 text-center">
+          <Lock className="text-muted-foreground mx-auto size-10" />
+          <h1 className="text-2xl font-semibold">Community members only</h1>
+          <p className="text-muted-foreground text-sm">
+            Join the host&apos;s community to access this event room.
+          </p>
+        </div>
+        <Button
+          type="button"
+          className="w-full"
+          onClick={() => setCommunityOpen(true)}
+        >
+          Join community
+        </Button>
+        <JoinCommunityModal
+          open={communityOpen}
+          onOpenChange={setCommunityOpen}
+          communityId={communityId}
+          signInRedirectPath={`${pathname}?communityJoin=1`}
+          title="Join community to enter"
+          onJoined={() => {
+            setCommunityOpen(false);
+            onSuccess();
+          }}
+        />
+      </div>
+    );
   }
 
   return (
@@ -187,12 +415,25 @@ function EventRoomAccessForm({
         <h1 className="text-2xl font-semibold">Event room access</h1>
         <p className="text-muted-foreground text-sm">
           {gate?.requiresCode
-            ? "Enter the access code from your host."
-            : "Enter your email to request access."}
+            ? "Enter the access code and your details."
+            : "Complete the form to request access."}
         </p>
       </div>
 
       <div className="space-y-4">
+        {gate?.requiresEmail ? (
+          <div className="space-y-2">
+            <Label htmlFor="event-access-email">Email</Label>
+            <Input
+              id="event-access-email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              readOnly={Boolean(signedInEmail)}
+            />
+          </div>
+        ) : null}
+
         {gate?.requiresCode ? (
           <div className="space-y-2">
             <Label htmlFor="event-access-code">Access code</Label>
@@ -205,15 +446,83 @@ function EventRoomAccessForm({
           </div>
         ) : null}
 
-        {gate?.requiresEmail && accessMode === "email_gate" ? (
+        {formConfig.collectName ? (
           <div className="space-y-2">
-            <Label htmlFor="event-access-email">Email</Label>
+            <Label htmlFor="event-access-name">Name</Label>
             <Input
-              id="event-access-email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+              id="event-access-name"
+              value={answers.name}
+              onChange={e =>
+                setAnswers(prev => ({ ...prev, name: e.target.value }))
+              }
             />
+          </div>
+        ) : null}
+
+        {formConfig.collectPhone ? (
+          <div className="space-y-2">
+            <Label htmlFor="event-access-phone">Phone</Label>
+            <Input
+              id="event-access-phone"
+              value={answers.phone}
+              onChange={e =>
+                setAnswers(prev => ({ ...prev, phone: e.target.value }))
+              }
+            />
+          </div>
+        ) : null}
+
+        {formConfig.collectTicketId ? (
+          <div className="space-y-2">
+            <Label htmlFor="event-access-ticket">Ticket ID</Label>
+            <Input
+              id="event-access-ticket"
+              value={answers.ticketId}
+              onChange={e =>
+                setAnswers(prev => ({ ...prev, ticketId: e.target.value }))
+              }
+            />
+          </div>
+        ) : null}
+
+        {formConfig.customQuestion ? (
+          <div className="space-y-2">
+            <Label htmlFor="event-access-custom">
+              {formConfig.customQuestion}
+            </Label>
+            <Input
+              id="event-access-custom"
+              value={answers.customAnswer}
+              onChange={e =>
+                setAnswers(prev => ({
+                  ...prev,
+                  customAnswer: e.target.value,
+                }))
+              }
+            />
+          </div>
+        ) : null}
+
+        {!isEventOver ? (
+          <div className="space-y-2 rounded-md border p-3">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={setReminder}
+                onCheckedChange={v => setSetReminder(Boolean(v))}
+              />
+              <Bell className="size-3.5" />
+              Remind me before the event
+            </label>
+            {setReminder ? (
+              <select
+                className="border-input bg-background w-full rounded-md border px-2 py-1.5 text-sm"
+                value={reminderOffset}
+                onChange={e => setReminderOffset(Number(e.target.value))}
+              >
+                <option value={15}>15 minutes before</option>
+                <option value={30}>30 minutes before</option>
+              </select>
+            ) : null}
           </div>
         ) : null}
 
@@ -237,7 +546,12 @@ function EventRoomAccessForm({
   );
 }
 
-export function EventRoomAccessGate({ eventId, children }: Props) {
+export function EventRoomAccessGate({
+  eventId,
+  eventName,
+  isEventOver,
+  children,
+}: Props) {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(true);
   const [accessMode, setAccessMode] = useState<AccessMode>("public");
@@ -288,6 +602,8 @@ export function EventRoomAccessGate({ eventId, children }: Props) {
     return (
       <EventRoomAccessForm
         eventId={eventId}
+        eventName={eventName}
+        isEventOver={isEventOver}
         accessMode={accessMode}
         gate={gate}
         pending={pending}

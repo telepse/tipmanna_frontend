@@ -6,6 +6,7 @@ import {
   getMostTippedContents,
   getSpotlightContents,
   getRecommendedContents,
+  getDiscoveryEventsAction,
 } from "@/actions/contents";
 import { getDiscoveryPlaylistsAction } from "@/actions/host-playlist";
 import { getAllTopTippers } from "@/actions/events";
@@ -40,6 +41,7 @@ export async function fetchDiscoverCatalogSnapshot(): Promise<
     tipRes,
     topCommRes,
     plRes,
+    eventsRes,
   ] = await Promise.all([
     getAllFeaturedContentsAction(),
     getDiscoverPanelLatestContents(),
@@ -51,6 +53,7 @@ export async function fetchDiscoverCatalogSnapshot(): Promise<
     getAllTopTippers(),
     getTopCommunitiesAction(3),
     getDiscoveryPlaylistsAction(20),
+    getDiscoveryEventsAction(),
   ]);
 
   let liveStreams = {
@@ -87,5 +90,7 @@ export async function fetchDiscoverCatalogSnapshot(): Promise<
       topCommRes.success && Array.isArray(topCommRes.data?.communities)
         ? topCommRes.data.communities
         : [],
+    discoverEvents:
+      eventsRes.success && Array.isArray(eventsRes.data) ? eventsRes.data : [],
   };
 }

@@ -454,6 +454,7 @@ export default function EventAndContentPage() {
               {step === 2 && (
                 <HostEventAndContentInfo
                   control={form.control as unknown as Control<NewEventFormData>}
+                  hasActivePremium={hasActivePremium}
                 />
               )}
 

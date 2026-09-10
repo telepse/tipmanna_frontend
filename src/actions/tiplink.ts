@@ -11,6 +11,7 @@ const base = () =>
 
 export type TipLinkStatus = "draft" | "published";
 export type TipLinkBannerSource = "thumbnail" | "upload";
+export type TipLinkBannerAspect = "landscape" | "square";
 
 export type TipLinkSocial = {
   platform: string;
@@ -36,6 +37,7 @@ export type TipLinkSummary = {
   pitch: string | null;
   bannerUrl: string | null;
   bannerSource: TipLinkBannerSource | null;
+  bannerAspect: TipLinkBannerAspect | null;
   appleMusicUrl: string | null;
   spotifyUrl: string | null;
   audiomackUrl: string | null;
@@ -74,6 +76,7 @@ export type TipLinkPublicPayload = {
     numOfTips: number;
     contentCountry: string;
     contentLanguage: string;
+    reminders: number[];
   };
   event: {
     id: string;
@@ -219,6 +222,7 @@ export type UpdateTipLinkInput = {
   pitch?: string | null;
   bannerUrl?: string | null;
   bannerSource?: TipLinkBannerSource | null;
+  bannerAspect?: TipLinkBannerAspect | null;
   appleMusicUrl?: string | null;
   spotifyUrl?: string | null;
   audiomackUrl?: string | null;

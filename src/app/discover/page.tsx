@@ -51,6 +51,7 @@ export default async function DiscoverPage() {
           initialTippers={catalog.tippers as never[]}
           initialTopCommunities={catalog.topCommunities as never[]}
           initialPlaylists={catalog.playlists as never[]}
+          initialDiscoverEvents={catalog.discoverEvents as never[]}
         />
       </Suspense>
     </>

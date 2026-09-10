@@ -45,7 +45,12 @@ import type {
 } from "@/actions/host-creator";
 import type { HostPlaylistSummary } from "@/actions/host-playlist";
 import type { TipLinkSummary } from "@/actions/tiplink";
-import { listHostTipLinksAction } from "@/actions/tiplink";
+import { TipLinkCreatePickerDialog } from "@/components/tiplink/tiplink-create-picker-dialog";
+import { useTipLinkProfileCreate } from "@/hooks/use-tip-link-profile-create";
+import {
+  tipLinkListThumb,
+  tipLinkThumbClassName,
+} from "@/lib/tiplink-eligible-videos";
 import {
   getCommunityAccessStateAction,
   type CommunityFeaturedVideo,
@@ -105,20 +110,6 @@ function buildTipLinkManageHref(
     : base;
 }
 
-function resolveTipLinkCreateTarget(
-  events: HostCreatorEvent[],
-  tipLinks: TipLinkSummary[]
-): { eventId: string; channelId?: string } | null {
-  const usedChannels = new Set(tipLinks.map(t => t.eventChannelId));
-  for (const event of events) {
-    const videoWithout = event.videos.find(v => !usedChannels.has(v.id));
-    if (videoWithout) {
-      return { eventId: event.id, channelId: videoWithout.id };
-    }
-  }
-  const first = events[0];
-  return first ? { eventId: first.id } : null;
-}
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { awaitProfileDrawerPrefetch } from "@/lib/drawer-prefetch-cache";
 
@@ -978,22 +969,18 @@ function AllVideosTabContent({
   hostEventSlug: string | null;
   tipLinks: TipLinkSummary[];
 }) {
-  const router = useRouter();
-  const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
+  const {
+    pickerOpen,
+    setPickerOpen,
+    eligibleVideos,
+    creatingChannelId,
+    openPicker,
+    createDraftForVideo,
+    createDraftForChannelVideo,
+    HostAuthModal,
+    SubscriptionPromptModal,
+  } = useTipLinkProfileCreate({ events, tipLinks, isOwnProfile });
 
-  const openTipLinkManage = useCallback(
-    (eventId: string, channelId?: string) => {
-      if (!hostEventSlug) return;
-      router.push(buildTipLinkManageHref(hostEventSlug, eventId, channelId));
-    },
-    [hostEventSlug, router]
-  );
-
-  const handleCreateTipLink = useCallback(() => {
-    const target = resolveTipLinkCreateTarget(events, tipLinks);
-    if (!target) return;
-    requestHostAuth(() => openTipLinkManage(target.eventId, target.channelId));
-  }, [events, openTipLinkManage, requestHostAuth, tipLinks]);
   const allVideos = useMemo(
     () => events.flatMap(event => event.videos),
     [events]
@@ -1065,7 +1052,7 @@ function AllVideosTabContent({
         {isOwnProfile && hostEventSlug ? (
           <button
             type="button"
-            onClick={handleCreateTipLink}
+            onClick={openPicker}
             className="border-primary/30 text-primary ml-auto inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold"
           >
             <Plus className="size-3.5" />
@@ -1100,14 +1087,24 @@ function AllVideosTabContent({
           onTipLinkManage={
             isOwnProfile && hostEventSlug
               ? video =>
-                  requestHostAuth(() =>
-                    openTipLinkManage(video.event.id, video.id)
+                  createDraftForChannelVideo(
+                    video.event.id,
+                    video.id,
+                    video.title
                   )
               : undefined
           }
         />
       )}
+      <TipLinkCreatePickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        videos={eligibleVideos}
+        creatingChannelId={creatingChannelId}
+        onSelect={createDraftForVideo}
+      />
       {HostAuthModal}
+      {SubscriptionPromptModal}
     </div>
   );
 }
@@ -2340,38 +2337,18 @@ function PlaylistsTabContent({
   events: HostCreatorEvent[];
 }) {
   const router = useRouter();
-  const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
-  const [draftTipLinks, setDraftTipLinks] = useState<TipLinkSummary[]>([]);
-
-  useEffect(() => {
-    if (!isOwnProfile) {
-      setDraftTipLinks([]);
-      return;
-    }
-    let cancelled = false;
-    void listHostTipLinksAction().then(res => {
-      if (cancelled || !res.success || !res.data) return;
-      const publishedIds = new Set(tipLinks.map(t => t.id));
-      setDraftTipLinks(
-        res.data.tipLinks.filter(
-          t => t.status === "draft" && !publishedIds.has(t.id)
-        )
-      );
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwnProfile, tipLinks]);
-
-  const handleCreateTipLink = useCallback(() => {
-    const target = resolveTipLinkCreateTarget(events, tipLinks);
-    if (!target || !hostEventSlug) return;
-    requestHostAuth(() =>
-      router.push(
-        buildTipLinkManageHref(hostEventSlug, target.eventId, target.channelId)
-      )
-    );
-  }, [events, hostEventSlug, requestHostAuth, router, tipLinks]);
+  const { requestHostAuth } = useHostCapabilityWithAuth();
+  const {
+    pickerOpen,
+    setPickerOpen,
+    eligibleVideos,
+    creatingChannelId,
+    draftTipLinks,
+    openPicker,
+    createDraftForVideo,
+    HostAuthModal,
+    SubscriptionPromptModal,
+  } = useTipLinkProfileCreate({ events, tipLinks, isOwnProfile });
 
   return (
     <div className="space-y-6 px-2 py-4">
@@ -2379,7 +2356,7 @@ function PlaylistsTabContent({
         <div className="flex justify-end px-2">
           <button
             type="button"
-            onClick={handleCreateTipLink}
+            onClick={openPicker}
             className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
           >
             <Plus className="size-3.5" />
@@ -2395,10 +2372,8 @@ function PlaylistsTabContent({
           </p>
           <ul className="space-y-3">
             {tipLinks.map(tl => {
-              const vid = extractYoutubeID(tl.videoUrl);
-              const thumb = vid
-                ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg`
-                : tl.bannerUrl;
+              const thumb = tipLinkListThumb(tl.bannerUrl, tl.videoUrl);
+              const thumbClass = tipLinkThumbClassName(tl.bannerAspect);
               return (
                 <li key={tl.id}>
                   <Link
@@ -2410,8 +2385,8 @@ function PlaylistsTabContent({
                         src={thumb}
                         alt=""
                         width={72}
-                        height={54}
-                        className="rounded object-cover"
+                        height={tl.bannerAspect === "square" ? 72 : 54}
+                        className={cn(thumbClass, "w-[72px] shrink-0")}
                         unoptimized
                       />
                     ) : null}
@@ -2465,7 +2440,7 @@ function PlaylistsTabContent({
                           )
                         }
                       >
-                        Continue setup
+                        Complete
                       </button>
                     ) : null}
                   </div>
@@ -2506,7 +2481,15 @@ function PlaylistsTabContent({
           </ul>
         </div>
       )}
+      <TipLinkCreatePickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        videos={eligibleVideos}
+        creatingChannelId={creatingChannelId}
+        onSelect={createDraftForVideo}
+      />
       {HostAuthModal}
+      {SubscriptionPromptModal}
     </div>
   );
 }

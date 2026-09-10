@@ -67,6 +67,7 @@ export type Message = {
   tip?: number;
   secondaryText?: string;
   purchasedSummary?: string;
+  imageUrls?: string[];
 };
 
 export type RoomCharacter = {

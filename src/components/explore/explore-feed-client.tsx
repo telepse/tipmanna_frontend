@@ -97,6 +97,8 @@ import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { usePaymentPlaybackRestore } from "@/hooks/use-payment-playback-restore";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
+import { buildExploreVideoHref } from "@/lib/explore-video-navigation";
 import type { RoomCharacter } from "@/types";
 import {
   flushTvAnalytics,
@@ -1261,6 +1263,39 @@ export const ExploreFeedClient = forwardRef<
   const active = items[activeIndex];
   const activeEventId = active?.event?.id ?? "";
   const activeChannelId = active?.id;
+  const [reelPlaybackSec, setReelPlaybackSec] = useState(0);
+
+  useEffect(() => {
+    if (!feedSurfaceActive) return undefined;
+    const id = window.setInterval(() => {
+      const t = videoRef.current?.getCurrentTime();
+      if (typeof t === "number" && Number.isFinite(t)) setReelPlaybackSec(t);
+    }, 300);
+    return () => window.clearInterval(id);
+  }, [feedSurfaceActive, activeChannelId]);
+
+  const exploreHostFirstName =
+    active?.event?.hostName?.trim().split(/\s+/)[0] ??
+    active?.event?.hostName ??
+    "Host";
+
+  useVideoTipReminder({
+    surface: "explore",
+    channelId: activeChannelId != null ? String(activeChannelId) : null,
+    eventId: activeEventId,
+    reminders: (active as { reminders?: number[] } | undefined)?.reminders,
+    currentTimeSec: reelPlaybackSec,
+    hostFirstName: exploreHostFirstName,
+    videoTitle: typeof active?.title === "string" ? active.title : "this video",
+    deepLinkUrl:
+      activeChannelId != null && activeEventId
+        ? buildExploreVideoHref({
+            videoId: String(activeChannelId),
+            eventId: activeEventId,
+          })
+        : "/explore",
+    onTipNow: () => setIsTipDrawerOpen(true),
+  });
 
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
 

@@ -22,6 +22,7 @@ import {
   getLiveStreamContents,
   getMostTippedContents,
   getSpotlightContents,
+  getDiscoveryEventsAction,
   getRecommendedContents,
 } from "@/actions/contents";
 import { getDiscoveryPlaylistsAction } from "@/actions/host-playlist";
@@ -447,6 +448,7 @@ export default function ExplorePageClient({
   const [headerSearch, setHeaderSearch] = useState("");
   const [discoverSearchTerm, setDiscoverSearchTerm] = useState("");
   const catalogLoadedRef = useRef(false);
+  const [discoverEvents, setDiscoverEvents] = useState<any[]>([]);
   const [topCommunities, setTopCommunities] = useState<
     CommunityExploreCatalogRow[]
   >([]);
@@ -1326,6 +1328,7 @@ export default function ExplorePageClient({
       setTopCommunities(
         snapshot.topCommunities as CommunityExploreCatalogRow[]
       );
+      setDiscoverEvents(snapshot.discoverEvents as any[]);
     },
     []
   );
@@ -1359,6 +1362,7 @@ export default function ExplorePageClient({
           topCommRes,
           commRes,
           plRes,
+          eventsRes,
         ] = await Promise.all([
           getAllFeaturedContentsAction(),
           getDiscoverPanelLatestContents(),
@@ -1378,6 +1382,7 @@ export default function ExplorePageClient({
           getTopCommunitiesAction(3),
           getCommunityExploreCatalogAction(),
           getDiscoveryPlaylistsAction(20),
+          getDiscoveryEventsAction(),
         ]);
 
         const nextContents = feat.success
@@ -1430,6 +1435,10 @@ export default function ExplorePageClient({
           topCommRes.success && Array.isArray(topCommRes.data?.communities)
             ? topCommRes.data.communities
             : [];
+        const nextDiscoverEvents =
+          eventsRes.success && Array.isArray(eventsRes.data)
+            ? eventsRes.data
+            : [];
 
         setContents(nextContents);
         setLatestContents(nextLatest);
@@ -1452,6 +1461,7 @@ export default function ExplorePageClient({
             : []
         );
         setTopCommunities(nextTopCommunities);
+        setDiscoverEvents(nextDiscoverEvents);
         topCommunitiesStatusRef.current = "loaded";
         setExploreCatalogAlphabetical(
           commRes.success && Array.isArray(commRes.data?.alphabetical)
@@ -1471,6 +1481,7 @@ export default function ExplorePageClient({
           playlists: nextPlaylists,
           tippers: nextTippers,
           topCommunities: nextTopCommunities,
+          discoverEvents: nextDiscoverEvents,
         });
         catalogLoadedRef.current = true;
       } finally {
@@ -2428,6 +2439,7 @@ export default function ExplorePageClient({
             playlists={playlists}
             liveStreams={liveStreams}
             topCommunities={topCommunities}
+            discoverEvents={discoverEvents}
             catalogLoading={catalogLoading}
             catalogRefreshing={catalogRefreshing}
             onRefreshCatalog={() =>
@@ -2460,6 +2472,7 @@ export default function ExplorePageClient({
         playlists={playlists}
         liveStreams={liveStreams}
         topCommunities={topCommunities}
+        discoverEvents={discoverEvents}
         catalogLoading={catalogLoading}
         catalogRefreshing={catalogRefreshing}
         onRefreshCatalog={() => void loadExploreCatalog({ background: true })}

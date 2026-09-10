@@ -451,6 +451,7 @@ export default function EventOnlyPage() {
               {step === 2 && (
                 <HostEventInfo
                   control={form.control as unknown as Control<NewEventFormData>}
+                  hasActivePremium={hasActivePremium}
                 />
               )}
 

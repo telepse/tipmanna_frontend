@@ -23,7 +23,10 @@ import {
   Tv,
   UserRound,
   UsersRound,
+  CalendarDays,
 } from "lucide-react";
+import type { DiscoveryEventRow } from "@/actions/contents";
+import { Badge } from "@/components/ui/badge";
 import { cn, formatProgramScheduleDisplay, trimTitle } from "@/lib/utils";
 import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 
@@ -157,6 +160,7 @@ export interface DiscoverPanelProps {
     recentlyEnded: any[];
   };
   topCommunities?: CommunityExploreCatalogRow[];
+  discoverEvents?: DiscoveryEventRow[];
   playlists?: Array<{
     id: string;
     name: string;
@@ -242,6 +246,7 @@ export function DiscoverPanel({
   programs = [],
   liveStreams = { upcoming: [], live: [], recentlyEnded: [] },
   topCommunities = [],
+  discoverEvents = [],
   playlists = [],
   catalogLoading = false,
   initialSearchTerm = "",
@@ -809,6 +814,13 @@ export function DiscoverPanel({
   );
 
   const topCommunitiesRef = useRef<HTMLDivElement>(null);
+  const discoverEventsRef = useRef<HTMLDivElement>(null);
+
+  const discoverEventBadgeLabel = (badge: DiscoveryEventRow["badge"]) => {
+    if (badge === "community") return "Community";
+    if (badge === "restricted") return "Restricted";
+    return "Public";
+  };
 
   const tipperSkeleton = (
     <div className="mt-4 mb-8 flex flex-wrap items-center gap-2">
@@ -1512,6 +1524,78 @@ export function DiscoverPanel({
               >
                 <ChevronRight size={24} />
               </button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* EVENTS */}
+        {discoverEvents.length > 0 || catalogLoading ? (
+          <div className="space-y-4">
+            <DiscoverRailHeading
+              title="Events"
+              railKey="events"
+            />
+            <div className="relative">
+              <div
+                ref={discoverEventsRef}
+                className="scrollbar-none hide__scrollbar overflow-x-auto"
+              >
+                <div className="flex gap-4">
+                  {catalogLoading && discoverEvents.length === 0
+                    ? carouselSkeleton
+                    : discoverEvents.map(event => (
+                        <Link
+                          key={event.id}
+                          href={`/room/${event.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "rounded-md border bg-gray-200 p-2",
+                            CONTENT_CARD_MIN
+                          )}
+                        >
+                          {event.banner ? (
+                            <RailCoverImage
+                              src={event.banner}
+                              alt={event.name}
+                              aspectClassName="aspect-video"
+                            />
+                          ) : (
+                            <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                              <CalendarDays className="size-8 text-neutral-500" />
+                            </div>
+                          )}
+                          <div className="space-y-1 p-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <h5 className="line-clamp-2 text-sm font-medium">
+                                {trimTitle(event.name, 40)}
+                              </h5>
+                              <Badge
+                                variant="secondary"
+                                className="shrink-0 text-[10px]"
+                              >
+                                {discoverEventBadgeLabel(event.badge)}
+                              </Badge>
+                            </div>
+                            {event.eventDate ? (
+                              <p className="text-muted-foreground text-xs">
+                                {formatProgramScheduleDisplay(event.eventDate)}
+                              </p>
+                            ) : null}
+                          </div>
+                        </Link>
+                      ))}
+                </div>
+              </div>
+              {discoverEvents.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => scrollNext(discoverEventsRef)}
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}

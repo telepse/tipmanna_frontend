@@ -91,6 +91,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     socialUrl2: "",
     bannerSource: null as "thumbnail" | "upload" | null,
     bannerUrl: null as string | null,
+    bannerAspect: "landscape" as "landscape" | "square",
   });
 
   const {
@@ -200,26 +201,6 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     [eligibility?.canCreate, handleSubscriptionActionError, load]
   );
 
-  useEffect(() => {
-    if (
-      loading ||
-      editing ||
-      !autoCreateChannelId ||
-      autoCreateAttemptedRef.current
-    ) {
-      return;
-    }
-    const channel = contents.find(c => c.id === autoCreateChannelId);
-    const alreadyHasTipLink = tipLinks.some(
-      t => t.eventChannelId === autoCreateChannelId
-    );
-    if (!channel || alreadyHasTipLink || !isTipLinkEligibleChannel(channel)) {
-      return;
-    }
-    autoCreateAttemptedRef.current = true;
-    void startCreate(channel.id, channel.title);
-  }, [autoCreateChannelId, contents, editing, loading, startCreate, tipLinks]);
-
   const openEdit = (row: TipLinkSummary) => {
     setEditing(row);
     handleRemoveBanner();
@@ -242,8 +223,33 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       socialUrl2: row.socials[1]?.url ?? "",
       bannerSource: row.bannerSource,
       bannerUrl: row.bannerUrl,
+      bannerAspect: row.bannerAspect ?? "landscape",
     });
   };
+
+  useEffect(() => {
+    if (
+      loading ||
+      editing ||
+      !autoCreateChannelId ||
+      autoCreateAttemptedRef.current
+    ) {
+      return;
+    }
+    autoCreateAttemptedRef.current = true;
+    const existing = tipLinks.find(
+      t => t.eventChannelId === autoCreateChannelId
+    );
+    if (existing) {
+      openEdit(existing);
+      return;
+    }
+    const channel = contents.find(c => c.id === autoCreateChannelId);
+    if (!channel || !isTipLinkEligibleChannel(channel)) {
+      return;
+    }
+    void startCreate(channel.id, channel.title);
+  }, [autoCreateChannelId, contents, editing, loading, startCreate, tipLinks]);
 
   const buildSocials = () => {
     const socials = [];
@@ -303,7 +309,11 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         featuredPlaylistId: form.featuredPlaylistId || null,
         socials: buildSocials(),
         ...(!(isRebinding && usesThumbnailBanner)
-          ? { bannerUrl, bannerSource }
+          ? {
+              bannerUrl,
+              bannerSource,
+              bannerAspect: form.bannerAspect,
+            }
           : {}),
       });
       if (!res.success || !res.data) {
@@ -679,6 +689,32 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                     );
                   })()
                 : null}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    form.bannerAspect === "landscape" ? "default" : "outline"
+                  }
+                  onClick={() =>
+                    setForm(f => ({ ...f, bannerAspect: "landscape" }))
+                  }
+                >
+                  Landscape
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    form.bannerAspect === "square" ? "default" : "outline"
+                  }
+                  onClick={() =>
+                    setForm(f => ({ ...f, bannerAspect: "square" }))
+                  }
+                >
+                  Square
+                </Button>
+              </div>
             </div>
             {TIPLINK_STORE_FIELDS.map(field => (
               <div

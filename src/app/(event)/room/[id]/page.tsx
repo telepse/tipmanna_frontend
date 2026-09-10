@@ -9,10 +9,7 @@ import {
 } from "@/actions/events";
 import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
-import {
-  EventRoomAccessGate,
-  PrivateEventRoomBlocked,
-} from "@/components/events/event-room-access-gate";
+import { EventRoomAccessGate } from "@/components/events/event-room-access-gate";
 import { getEventRoomAccessAction } from "@/actions/events";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
@@ -139,7 +136,7 @@ export default async function EventRoomPage({ params }: Props) {
       : null;
 
   if (isEventRoomAccessDenied(access ?? undefined)) {
-    return <PrivateEventRoomBlocked />;
+    return <EventRoomAccessGate eventId={trimmedId} />;
   }
 
   const token = await getToken();
@@ -274,7 +271,16 @@ export default async function EventRoomPage({ params }: Props) {
         />
       ) : null}
       <ClientErrorBoundary>
-        <EventRoomAccessGate eventId={eventId}>
+        <EventRoomAccessGate
+          eventId={eventId}
+          eventName={eventName}
+          isEventOver={
+            eventDate
+              ? new Date(`${eventDate}T${endTime ?? "23:59"}`).getTime() <
+                Date.now()
+              : false
+          }
+        >
           <EventRoomClient
             eventId={eventId}
             eventName={eventName}

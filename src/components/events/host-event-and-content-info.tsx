@@ -47,9 +47,11 @@ import { VideoLinkContentLanguageCombobox } from "@/components/events/video-link
 import { NewEventFormData } from "@/schemas";
 import { EventTimezoneField } from "@/components/events/event-timezone-field";
 import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
+import { VideoTipReminderSlotsEditor } from "@/components/events/video-tip-reminder-slots-editor";
 
 interface Props {
   control: Control<NewEventFormData>;
+  hasActivePremium: boolean;
 }
 
 const DEFAULT_ADMIN_VIDEO = {
@@ -60,7 +62,10 @@ const DEFAULT_ADMIN_VIDEO = {
 
 const API_URL = "https://nominatim.openstreetmap.org/search";
 
-export const HostEventAndContentInfo = ({ control }: Props) => {
+export const HostEventAndContentInfo = ({
+  control,
+  hasActivePremium,
+}: Props) => {
   const { setValue } = useFormContext();
 
   const postalCode = useWatch({ control, name: "postalCode" });
@@ -113,34 +118,6 @@ export const HostEventAndContentInfo = ({ control }: Props) => {
 
     fetchPostalData();
   }, [postalCode, setValue]);
-
-  // Helper to handle reminder logic (Requirement 2 & 3)
-  const handleReminderToggle = (
-    videoIndex: number,
-    reminderId: number,
-    isChecked: boolean,
-    value: string
-  ) => {
-    const currentReminders = [...(videoLinks?.[videoIndex]?.reminders || [])];
-    const numericValue = parseInt(value);
-
-    if (isChecked) {
-      // Add or Update value
-      if (!isNaN(numericValue)) {
-        // If we want to replace the old value for this specific slot, we manage it here
-        // For simplicity, we filter out any existing entry for this specific "slot" if needed,
-        // or just append if it's a new unique value.
-        const updatedReminders = Array.from(
-          new Set([...currentReminders, numericValue])
-        );
-        setValue(`videoLinks.${videoIndex}.reminders`, updatedReminders);
-      }
-    } else {
-      // Remove value
-      const updatedReminders = currentReminders.filter(r => r !== numericValue);
-      setValue(`videoLinks.${videoIndex}.reminders`, updatedReminders);
-    }
-  };
 
   const handleAddressSearch = async () => {
     if (!postalCode) return;
@@ -745,90 +722,14 @@ export const HostEventAndContentInfo = ({ control }: Props) => {
                       label="Event and content"
                     />
 
-                    <div className="space-y-2">
-                      <h2 className="font-semibold">Set fundraise reminders</h2>
-
-                      <p className="text-xs text-white/80">
-                        Show reminders to viewers while they are watching the
-                        content
-                      </p>
-
-                      {/* Reminder 1 */}
-                      <div className="flex items-center gap-3 text-sm">
-                        <input
-                          type="checkbox"
-                          onChange={e => {
-                            const input = document.getElementById(
-                              `v-${index}-r1`
-                            ) as HTMLInputElement;
-                            handleReminderToggle(
-                              index,
-                              0,
-                              e.target.checked,
-                              input.value
-                            );
-                          }}
-                        />
-                        <span>After</span>
-                        <Input
-                          id={`v-${index}-r1`}
-                          type="number"
-                          defaultValue="0"
-                          className="h-8 w-16 bg-black/20 text-center"
-                          onChange={e => {
-                            // If already checked, update the value in real-time
-                            const cb = e.target.previousElementSibling
-                              ?.previousElementSibling as HTMLInputElement;
-                            if (cb?.checked)
-                              handleReminderToggle(
-                                index,
-                                0,
-                                true,
-                                e.target.value
-                              );
-                          }}
-                        />
-                        <span>mins</span>
-                      </div>
-
-                      {/* Reminder 2 */}
-                      <div className="flex items-center gap-3 text-sm">
-                        <input
-                          type="checkbox"
-                          onChange={e => {
-                            const input = document.getElementById(
-                              `v-${index}-r2`
-                            ) as HTMLInputElement;
-                            handleReminderToggle(
-                              index,
-                              1,
-                              e.target.checked,
-                              input.value
-                            );
-                          }}
-                        />
-                        <span>After</span>
-                        <Input
-                          id={`v-${index}-r2`}
-                          type="number"
-                          defaultValue="0"
-                          className="h-8 w-16 bg-black/20 text-center"
-                          onChange={e => {
-                            // If already checked, update the value in real-time
-                            const cb = e.target.previousElementSibling
-                              ?.previousElementSibling as HTMLInputElement;
-                            if (cb?.checked)
-                              handleReminderToggle(
-                                index,
-                                1,
-                                true,
-                                e.target.value
-                              );
-                          }}
-                        />
-                        <span>mins</span>
-                      </div>
-                    </div>
+                    <VideoTipReminderSlotsEditor
+                      value={videoLinks?.[index]?.reminders ?? []}
+                      onChange={next =>
+                        setValue(`videoLinks.${index}.reminders`, next)
+                      }
+                      hasActivePremium={hasActivePremium}
+                      appearance="onDark"
+                    />
                   </>
                 )}
               </div>

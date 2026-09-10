@@ -129,6 +129,23 @@ export const ChatContainer = ({
               </span>
             </div>
 
+            {msg.imageUrls?.[0] ? (
+              <button
+                type="button"
+                className="mb-2 block"
+                onClick={() => window.open(msg.imageUrls![0], "_blank")}
+              >
+                <Image
+                  src={msg.imageUrls[0]}
+                  alt="Message attachment"
+                  width={220}
+                  height={160}
+                  unoptimized
+                  className="max-h-40 rounded-md object-cover"
+                />
+              </button>
+            ) : null}
+
             <p>
               {msg.text}{" "}
               {msg.tip && (

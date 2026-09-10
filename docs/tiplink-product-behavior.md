@@ -77,3 +77,21 @@ Frontend host mutations use `serverHostAuthHeaders()` in `frontend/src/actions/t
 
 - Published `/l/{slug}`: indexed (`robots: index`), canonical, OG/VideoObject JSON-LD (banner or YouTube thumbnail).
 - Draft preview `/l/preview/{id}`: `noindex`.
+
+## Creator profile Create TipLink
+
+- **Create TipLink** on All Videos and List opens a video picker (eligible host videos without an existing TipLink).
+- Empty picker: host must add a video first; no dashboard redirect.
+- On select: `POST /host/tiplinks` draft; host stays on profile List tab; draft row shows **Complete**.
+- **Complete** requires host auth and opens manage-event TipLink tab for that draft (`?tab=tiplink&channelId=`).
+- Dashboard auto-opens the existing draft in the edit form when a TipLink already exists for `channelId`.
+
+## Banner display
+
+- List tab and published rows prefer custom `bannerUrl` over YouTube `hqdefault`.
+- `bannerAspect`: `landscape` (default) or `square` — host picks in manage-event form; landing pitch media uses matching aspect.
+
+## Video tip reminders
+
+- TipLink public payload includes `channel.reminders`.
+- TipLink uses the shared video tip reminder engine (flash + in-app). See `docs/video-tip-reminder-product-behavior.md`.

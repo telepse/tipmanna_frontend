@@ -97,6 +97,8 @@ import {
 } from "@/components/tiplink/tiplink-social-icons";
 import { tipLinkGlobalStreamOptions } from "@/lib/tiplink-stream-options";
 import { buildExploreVideoHref } from "@/lib/explore-video-navigation";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
+import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-overlay";
 
 type TipLinkSignInPurpose = "create" | "saveVideo" | "saveHost";
 
@@ -273,6 +275,24 @@ export function TipLinkLandingClient({
     onMuteChange: setIsMuted,
   });
   useAutoDropTip(eventId, true);
+
+  const [openTipDrawerNonce, setOpenTipDrawerNonce] = useState(0);
+  const { showFlashOverlay, handleTipNow, handleDismiss } = useVideoTipReminder(
+    {
+      surface: "tiplink",
+      channelId,
+      eventId,
+      reminders: channel.reminders,
+      currentTimeSec: currentTime,
+      hostFirstName,
+      videoTitle: channel.title,
+      deepLinkUrl: `/l/${tipLink.slug}`,
+      onTipNow: () => {
+        setOpenTipDrawerNonce(n => n + 1);
+        setIsTipDrawerOpen(true);
+      },
+    }
+  );
 
   const { openWalletModalNonce } = useWalletTopupTipResume(
     eventId,
@@ -875,6 +895,14 @@ export function TipLinkLandingClient({
         id="preview-animation-root"
         className="pointer-events-none absolute inset-0"
       />
+      {showFlashOverlay ? (
+        <VideoTipReminderOverlay
+          hostFirstName={hostFirstName}
+          sectionCta={tipPres.sectionCtaLabel?.trim() || "Engage"}
+          onTipNow={handleTipNow}
+          onDismiss={handleDismiss}
+        />
+      ) : null}
     </TipLinkPlayerShell>
   );
 
@@ -1048,28 +1076,23 @@ export function TipLinkLandingClient({
               id="tip-section"
               style={{ scrollMarginTop: "120px" }}
             >
-              <TippingElementsProvider
-                enabled={false}
+              <TipSection
+                eventId={eventId}
                 tippingCharacters={tipPres.strip as RoomCharacter[]}
+                characterSets={baseTipSets}
+                paymentSurface="tiplink"
+                paymentChannelId={paymentChannelId}
+                getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
+                getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
                 textTipUnitPrice={tipPres.textUnitPrice}
-              >
-                <TipSection
-                  eventId={eventId}
-                  tippingCharacters={tipPres.strip as RoomCharacter[]}
-                  characterSets={baseTipSets}
-                  paymentSurface="tiplink"
-                  paymentChannelId={paymentChannelId}
-                  getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
-                  getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
-                  textTipUnitPrice={tipPres.textUnitPrice}
-                  sectionCtaLabel={tipPres.sectionCtaLabel}
-                  payLabel={tipPres.payLabel}
-                  tipQuoteContext={tipPres.quoteCtx}
-                  buttonColor="white"
-                  shadowStyle="shadow-[0px_0px_2px_2px_#000]"
-                  tipLink={true}
-                />
-              </TippingElementsProvider>
+                sectionCtaLabel={tipPres.sectionCtaLabel}
+                payLabel={tipPres.payLabel}
+                tipQuoteContext={tipPres.quoteCtx}
+                buttonColor="white"
+                shadowStyle="shadow-[0px_0px_2px_2px_#000]"
+                tipLink={true}
+                openTipDrawerNonce={openTipDrawerNonce}
+              />
             </section>
           ) : null}
 
@@ -1210,7 +1233,14 @@ export function TipLinkLandingClient({
                     </a>
                   </div>
 
-                  <div className="relative h-40 w-full">
+                  <div
+                    className={cn(
+                      "relative w-full",
+                      tipLink.bannerAspect === "square"
+                        ? "aspect-square max-h-80"
+                        : "aspect-video"
+                    )}
+                  >
                     <Image
                       src={bannerSrc}
                       alt=""
@@ -1342,12 +1372,14 @@ export function TipLinkLandingClient({
 
         {tipDrawerMounted ? (
           <TippingElementsProvider
+            enabled={isTipDrawerOpen}
             tippingCharacters={tipPres.strip as RoomCharacter[]}
             textTipUnitPrice={tipPres.textUnitPrice}
           >
             <TipDrawer
               open={isTipDrawerOpen}
               onOpenChange={setIsTipDrawerOpen}
+              stripeCheckout={isTipDrawerOpen}
               eventId={eventId}
               tippingCharacters={tipPres.strip as RoomCharacter[]}
               characterSets={baseTipSets}

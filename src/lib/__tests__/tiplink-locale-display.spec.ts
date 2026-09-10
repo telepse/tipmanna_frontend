@@ -13,6 +13,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         numOfTips: 0,
         contentCountry: "Nigeria",
         contentLanguage: "en-GB",
+        reminders: [],
       },
       event: {
         id: "ev-1",
@@ -43,6 +44,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         numOfTips: 0,
         contentCountry: "all",
         contentLanguage: "en-GB",
+        reminders: [],
       },
       event: {
         id: "ev-1",
@@ -72,6 +74,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         numOfTips: 0,
         contentCountry: "all",
         contentLanguage: "en-GB",
+        reminders: [],
       },
       event: {
         id: "ev-1",

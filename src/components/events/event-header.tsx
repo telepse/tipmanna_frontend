@@ -43,6 +43,7 @@ interface Props {
   totalAttendees: number;
   openDrawer: boolean;
   setOpenDrawer: (v: boolean) => void;
+  onOpenTipDrawer?: () => void;
 
   characterSets: any[];
 
@@ -93,6 +94,7 @@ export const EventHeader = ({
   venueLocation,
   openDrawer,
   setOpenDrawer,
+  onOpenTipDrawer,
   performers,
   channels,
   onChannelCreated,
@@ -227,6 +229,7 @@ export const EventHeader = ({
             iTipped={iTipped}
             openDrawer={openDrawer}
             setOpenDrawer={setOpenDrawer}
+            onOpenTipDrawer={onOpenTipDrawer}
             characterSets={safeCharacterSets}
             channels={safeChannels}
             onChannelCreated={onChannelCreated}

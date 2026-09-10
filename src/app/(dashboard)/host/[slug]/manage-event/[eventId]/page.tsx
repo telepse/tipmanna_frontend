@@ -58,6 +58,7 @@ export default async function ManageEventDetailPage({ params }: Props) {
     channels: contents,
     submissionKind,
     thankYouMessage,
+    eventBanner,
     host: { email: hostEmail },
   } = eventDetails as any;
 
@@ -81,6 +82,7 @@ export default async function ManageEventDetailPage({ params }: Props) {
         cohosts={cohosts}
         amountToRaise={amountToRaise}
         thankYouMessage={thankYouMessage}
+        eventBanner={eventBanner}
         activities={activities}
         resourcesRequested={resourcesRequested}
         tipUsageDisclosure={tipUsageDisclosure}

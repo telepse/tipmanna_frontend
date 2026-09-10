@@ -20,6 +20,7 @@ interface Props {
   payLabel?: string;
   tipQuoteContext?: TipQuoteContext | null;
   eliteCharacterIds?: string[];
+  openTipDrawerNonce?: number;
 }
 
 export const EventFooter = ({
@@ -32,6 +33,7 @@ export const EventFooter = ({
   payLabel,
   tipQuoteContext,
   eliteCharacterIds,
+  openTipDrawerNonce,
 }: Props) => {
   return (
     <div className="mini-wrapper h-[210px] w-full flex-shrink-0 rounded-t-xl border-t bg-white px-4 py-1 shadow-sm">
@@ -46,6 +48,7 @@ export const EventFooter = ({
           payLabel={payLabel}
           tipQuoteContext={tipQuoteContext}
           eliteCharacterIds={eliteCharacterIds}
+          openTipDrawerNonce={openTipDrawerNonce}
         />
       </div>
     </div>

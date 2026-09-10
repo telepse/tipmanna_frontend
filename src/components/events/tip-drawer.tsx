@@ -28,6 +28,7 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
+import type { Stripe, StripeElements } from "@stripe/stripe-js";
 
 // Local imports
 import { markPaymentCompleted, setSelectedTips } from "@/features/tip-slice";
@@ -104,30 +105,7 @@ interface Character {
   styleName?: string;
 }
 
-export const TipDrawer = ({
-  open,
-  onOpenChange,
-  eventId,
-  tippingCharacters = [],
-  characterSets = [],
-  performerId = null,
-  paymentSurface = "unknown",
-  paymentCommunityId,
-  paymentChannelId,
-  getPlaybackOffsetSec,
-  getWatchDurationBeforePayMs,
-  getPaymentRestoreSnapshot,
-  stackAboveImmersive,
-  walletDialogOpen: walletDialogOpenControlled,
-  onWalletDialogOpenChange,
-  openWalletModalNonce = 0,
-  onSnapshotPaymentRedirect,
-  videoFeatureCardId,
-  textTipUnitPrice,
-  payLabel,
-  tipQuoteContext,
-  previewMode = false,
-}: {
+export type TipDrawerProps = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   eventId?: string;
@@ -158,7 +136,41 @@ export const TipDrawer = ({
   tipQuoteContext?: TipQuoteContext | null;
   /** Host customization preview — browse layout without checkout. */
   previewMode?: boolean;
-}) => {
+  /** When false, Stripe hooks are skipped (drawer closed or preview). Defaults to `open`. */
+  stripeCheckout?: boolean;
+};
+
+type TipDrawerContentProps = TipDrawerProps & {
+  stripe: Stripe | null;
+  elements: StripeElements | null;
+};
+
+function TipDrawerContent({
+  open,
+  onOpenChange,
+  eventId,
+  tippingCharacters = [],
+  characterSets = [],
+  performerId = null,
+  paymentSurface = "unknown",
+  paymentCommunityId,
+  paymentChannelId,
+  getPlaybackOffsetSec,
+  getWatchDurationBeforePayMs,
+  getPaymentRestoreSnapshot,
+  stackAboveImmersive,
+  walletDialogOpen: walletDialogOpenControlled,
+  onWalletDialogOpenChange,
+  openWalletModalNonce = 0,
+  onSnapshotPaymentRedirect,
+  videoFeatureCardId,
+  textTipUnitPrice,
+  payLabel,
+  tipQuoteContext,
+  previewMode = false,
+  stripe,
+  elements,
+}: TipDrawerContentProps) {
   const textUnit = textTipUnitPrice ?? 5;
   const payCta = payLabel?.trim() || "Pay";
   const [textTipActive, setTextTipActive] = useState(false);
@@ -605,10 +617,6 @@ export const TipDrawer = ({
       return false;
     }
   }, [tipsForTotals, draftSyncEpoch]);
-
-  // Stripe payments
-  const stripe = useStripe();
-  const elements = useElements();
 
   const ensureVisitorAccount = useCallback(
     async (transactionId?: string) => {
@@ -1350,4 +1358,30 @@ export const TipDrawer = ({
       />
     </>
   );
-};
+}
+
+function TipDrawerWithStripe(props: TipDrawerProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  return (
+    <TipDrawerContent
+      {...props}
+      stripe={stripe}
+      elements={elements}
+    />
+  );
+}
+
+export function TipDrawer(props: TipDrawerProps) {
+  const stripeCheckout = props.stripeCheckout ?? props.open;
+  if (props.previewMode || !stripeCheckout) {
+    return (
+      <TipDrawerContent
+        {...props}
+        stripe={null}
+        elements={null}
+      />
+    );
+  }
+  return <TipDrawerWithStripe {...props} />;
+}

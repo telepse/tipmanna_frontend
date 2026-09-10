@@ -452,6 +452,7 @@ export default function ContentOnlyPage() {
               {step === 2 && (
                 <HostContentInfo
                   control={form.control as unknown as Control<NewEventFormData>}
+                  hasActivePremium={hasActivePremium}
                 />
               )}
 

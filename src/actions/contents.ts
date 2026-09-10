@@ -150,6 +150,25 @@ export async function getLiveStreamContents() {
   );
 }
 
+export type DiscoveryEventRow = {
+  id: string;
+  name: string;
+  banner: string | null;
+  accessMode: string;
+  communityId: string | null;
+  eventDate: string | null;
+  badge: "unrestricted" | "restricted" | "community";
+};
+
+export async function getDiscoveryEventsAction(limit = 5) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/discover/events?limit=${limit}`,
+    DISCOVER_CATALOG_GET,
+    "getDiscoveryEventsAction",
+    raw => (Array.isArray(raw) ? raw : []) as DiscoveryEventRow[]
+  );
+}
+
 export async function searchContentsAction(
   q: string,
   limit = 30,

@@ -736,6 +736,38 @@ export async function changeEventScreenSettings(
   );
 }
 
+export async function incrementEventTargetAmountAction(
+  eventId: string,
+  increment: number
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/target-amount`,
+    {
+      method: "PATCH",
+      headers: await serverEventActorAuthHeaders(),
+      body: JSON.stringify({ increment }),
+      cache: "no-store",
+    },
+    "incrementEventTargetAmountAction"
+  );
+}
+
+export async function postEventArchiveRequestAction(
+  eventId: string,
+  payload: Record<string, unknown>
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/archive-request`,
+    {
+      method: "POST",
+      headers: await serverAuthHeaders(),
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+    "postEventArchiveRequestAction"
+  );
+}
+
 // -------- Change event video display settings (premium hosts) -------- //
 export async function changeEventVideoDisplaySettingsAction(
   values: {
@@ -904,6 +936,45 @@ export type EventAccessMode =
   | "email_gate"
   | "community_members";
 
+export type EventRoomAccessFormConfig = {
+  collectName?: boolean;
+  collectPhone?: boolean;
+  collectTicketId?: boolean;
+  customQuestion?: string | null;
+};
+
+export type EventAccessModeSettings = {
+  accessMode: EventAccessMode;
+  accessHostCode?: string | null;
+  accessCustomCode?: string | null;
+  accessEmailAutoApprove?: boolean;
+  accessRequiresApproval?: boolean;
+  accessFormConfigJson?: EventRoomAccessFormConfig | null;
+  communityId?: string | null;
+  submissionKind?: string | null;
+};
+
+export type EventRoomAccessRequestRow = {
+  id: string;
+  email: string;
+  tipperId?: string | null;
+  answersJson?: unknown;
+  status: string;
+  createdAt: string;
+};
+
+export async function getEventAccessModeSettingsAction(eventId: string) {
+  return runServerFetch<EventAccessModeSettings>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/access-mode`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getEventAccessModeSettingsAction"
+  );
+}
+
 export async function patchEventAccessModeAction(
   eventId: string,
   payload: {
@@ -912,6 +983,7 @@ export async function patchEventAccessModeAction(
     accessCustomCode?: string | null;
     accessEmailAutoApprove?: boolean;
     accessRequiresApproval?: boolean;
+    accessFormConfigJson?: EventRoomAccessFormConfig | null;
   }
 ) {
   return runServerFetch(
@@ -1008,6 +1080,35 @@ export async function getEventRoomAccessAction(
       cache: "no-store",
     },
     "getEventRoomAccessAction"
+  );
+}
+
+export async function listEventRoomAccessRequestsAction(eventId: string) {
+  return runServerFetch<{ requests: EventRoomAccessRequestRow[] }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access/requests`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "listEventRoomAccessRequestsAction"
+  );
+}
+
+export async function resolveEventRoomAccessRequestAction(
+  eventId: string,
+  requestId: string,
+  action: "approve" | "reject"
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access/requests/${encodeURIComponent(requestId)}/resolve`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ action }),
+      cache: "no-store",
+    },
+    "resolveEventRoomAccessRequestAction"
   );
 }
 

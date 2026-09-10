@@ -13,10 +13,11 @@ export type DiscoverCatalogSnapshot = {
   };
   tippers: unknown[];
   topCommunities: unknown[];
+  discoverEvents: unknown[];
   loadedAt: number;
 };
 
-const STORAGE_KEY = "tipmanna:discover-catalog:v2";
+const STORAGE_KEY = "tipmanna:discover-catalog:v3";
 const TTL_MS = 10 * 60 * 1000;
 
 export function readDiscoverCatalogCache(): DiscoverCatalogSnapshot | null {

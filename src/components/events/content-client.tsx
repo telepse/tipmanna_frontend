@@ -81,6 +81,8 @@ import {
   toggleChannelSaveForUser,
 } from "@/lib/save-video-client";
 import { TipSection } from "./tip-section";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
+import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-overlay";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { ChannelProgressBar } from "./channel-progress-bar";
 import { SaveEventId } from "./save-event-id";
@@ -475,6 +477,29 @@ export const ContentClient = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [openTipDrawerNonce, setOpenTipDrawerNonce] = useState(0);
+
+  const contentHostFirstName =
+    currentContent?.event?.hostName?.trim().split(/\s+/)[0] ??
+    currentContent?.event?.hostName ??
+    "Host";
+  const { showFlashOverlay, handleTipNow, handleDismiss } = useVideoTipReminder(
+    {
+      surface: "content_client",
+      channelId: currentContent?.id ? String(currentContent.id) : null,
+      eventId,
+      reminders: (currentContent as { reminders?: number[] })?.reminders,
+      currentTimeSec: currentTime,
+      hostFirstName: contentHostFirstName,
+      videoTitle: currentContent?.title ?? "this video",
+      deepLinkUrl:
+        typeof window !== "undefined" ? window.location.pathname : "",
+      onTipNow: () => {
+        setOpenTipDrawerNonce(n => n + 1);
+        setIsTipDrawerOpen(true);
+      },
+    }
+  );
 
   const currentContentIndex = playlist.findIndex(
     c => c.id === currentContent?.id
@@ -1117,6 +1142,14 @@ export const ContentClient = ({
                 />
               </div>
             ) : null}
+            {showFlashOverlay ? (
+              <VideoTipReminderOverlay
+                hostFirstName={contentHostFirstName}
+                sectionCta={tipPres.sectionCtaLabel?.trim() || "Engage"}
+                onTipNow={handleTipNow}
+                onDismiss={handleDismiss}
+              />
+            ) : null}
             <VideoPlayer
               ref={videoRef}
               videoUrl={currentContent?.url}
@@ -1738,6 +1771,7 @@ export const ContentClient = ({
                       payLabel={tipPres.payLabel}
                       tipQuoteContext={tipPres.quoteCtx}
                       eliteCharacterIds={tipPres.eliteCharacterIds}
+                      openTipDrawerNonce={openTipDrawerNonce}
                     />
 
                     <button
@@ -2096,6 +2130,7 @@ export const ContentClient = ({
             payLabel={tipPres.payLabel}
             tipQuoteContext={tipPres.quoteCtx}
             eliteCharacterIds={tipPres.eliteCharacterIds}
+            openTipDrawerNonce={openTipDrawerNonce}
           />
         </div>
       </TippingElementsProvider>

@@ -8,6 +8,7 @@ import {
   getMostTippedContents,
   getRecommendedContents,
   getSpotlightContents,
+  getDiscoveryEventsAction,
 } from "@/actions/contents";
 import { getDiscoveryPlaylistsAction } from "@/actions/host-playlist";
 import { getTopCommunitiesAction } from "@/actions/communities";
@@ -30,25 +31,38 @@ export type DiscoverCatalog = {
   tippers: unknown[];
   topCommunities: unknown[];
   playlists: unknown[];
+  discoverEvents: unknown[];
 };
 
 /** Fail-open cap when Discover catalog fetch runs on the SSR path. */
 export const DISCOVER_CATALOG_FETCH_TIMEOUT_MS = 5000;
 
 async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
-  const [feat, lat, spot, rec, most, liveRes, progRes, tipRes, commRes, plRes] =
-    await Promise.all([
-      getAllFeaturedContentsAction(),
-      getDiscoverPanelLatestContents(),
-      getSpotlightContents(),
-      getRecommendedContents(),
-      getMostTippedContents(),
-      getLiveStreamContents(),
-      getDiscoveryProgramsAction(),
-      getAllTopTippers(),
-      getTopCommunitiesAction(3),
-      getDiscoveryPlaylistsAction(20),
-    ]);
+  const [
+    feat,
+    lat,
+    spot,
+    rec,
+    most,
+    liveRes,
+    progRes,
+    tipRes,
+    commRes,
+    plRes,
+    eventsRes,
+  ] = await Promise.all([
+    getAllFeaturedContentsAction(),
+    getDiscoverPanelLatestContents(),
+    getSpotlightContents(),
+    getRecommendedContents(),
+    getMostTippedContents(),
+    getLiveStreamContents(),
+    getDiscoveryProgramsAction(),
+    getAllTopTippers(),
+    getTopCommunitiesAction(3),
+    getDiscoveryPlaylistsAction(20),
+    getDiscoveryEventsAction(),
+  ]);
 
   const liveData =
     liveRes.success && liveRes.data && typeof liveRes.data === "object"
@@ -79,6 +93,8 @@ async function fetchDiscoverCatalog(): Promise<DiscoverCatalog> {
         ? commRes.data.communities
         : [],
     playlists: plRes.success && Array.isArray(plRes.data) ? plRes.data : [],
+    discoverEvents:
+      eventsRes.success && Array.isArray(eventsRes.data) ? eventsRes.data : [],
   };
 }
 

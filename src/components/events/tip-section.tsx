@@ -9,7 +9,6 @@ import { ChevronsUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { useStripe, useElements } from "@stripe/react-stripe-js";
 
 // Local imports
 import { TipDrawer } from "@/components/events/tip-drawer";
@@ -47,6 +46,7 @@ import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
 import { TippingElementsProvider } from "../payments/tipping-elements-provider";
 import { RoomCharacter } from "@/types";
 import { computeTipCartTotal } from "@/lib/tip-cart-total";
+import { shouldLoadTipStripe } from "@/lib/should-load-tip-stripe";
 import { CopyLinkButton } from "./copy-link-button";
 
 interface Props {
@@ -74,6 +74,8 @@ interface Props {
   previewMode?: boolean;
   /** Elite animations prioritized in strip shuffle when host layout is live. */
   eliteCharacterIds?: string[];
+  /** Increment to open the tip drawer without character-strip interaction. */
+  openTipDrawerNonce?: number;
 }
 
 export const TipSection = ({
@@ -94,6 +96,8 @@ export const TipSection = ({
   buttonColor = "black",
   shadowStyle,
   tipLink,
+  previewMode = false,
+  openTipDrawerNonce = 0,
 }: Props) => {
   const sectionCta = sectionCtaLabel?.trim() || "Engage";
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -278,28 +282,7 @@ export const TipSection = ({
     void prefetch("/success");
   }, [prefetch]);
 
-  const stripe = useStripe();
-  const elements = useElements();
-  const [stripeLoading, setStripeLoading] = useState(true);
-  const [isOpeningDrawer, setIsOpeningDrawer] = useState(false);
-
-  useEffect(() => {
-    // Wait one tick so the UI renders before checking stripe
-    const t = setTimeout(() => {
-      if (stripe && elements) {
-        setStripeLoading(false);
-      }
-    }, 0);
-
-    return () => clearTimeout(t);
-  }, [stripe, elements]);
-
   const handleOpenDrawer = () => {
-    if (stripeLoading) {
-      toast.error("Payment system is still loading...");
-      return;
-    }
-
     if (totalAmount <= 0) {
       toast.error("Please select at least one tip item");
       return;
@@ -334,17 +317,48 @@ export const TipSection = ({
 
   // Separated this out so both handleOpenDrawer and the modal can use it
   const proceedToDrawer = () => {
-    setIsOpeningDrawer(true);
-    try {
-      if (!stripe || !elements) {
-        toast.error("Payment system not ready yet");
-        return;
-      }
-      setOpenDrawer(true);
-    } finally {
-      setIsOpeningDrawer(false);
-    }
+    setOpenDrawer(true);
   };
+
+  const drawerStripeEnabled = shouldLoadTipStripe({
+    previewMode,
+    drawerOpen: openDrawer,
+  });
+
+  const tipDrawer = (
+    <TipDrawer
+      open={openDrawer}
+      onOpenChange={setOpenDrawer}
+      eventId={eventId}
+      tippingCharacters={tippingCharacters}
+      characterSets={characterSets}
+      performerId={selectedPerformerId}
+      paymentSurface={paymentSurface}
+      paymentChannelId={paymentChannelId}
+      paymentCommunityId={paymentCommunityId}
+      getPlaybackOffsetSec={getPlaybackOffsetSec}
+      getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
+      stackAboveImmersive={stackDrawerAboveImmersive}
+      walletDialogOpen={walletDialogOpen}
+      onWalletDialogOpenChange={setWalletDialogOpen}
+      openWalletModalNonce={openWalletModalNonce}
+      textTipUnitPrice={textTipUnitPrice}
+      payLabel={payLabel}
+      tipQuoteContext={tipQuoteContext}
+      previewMode={previewMode}
+      stripeCheckout={drawerStripeEnabled}
+    />
+  );
+
+  useEffect(() => {
+    if (!openTipDrawerNonce) return;
+    if (performers && performers.length > 0) {
+      setOpenPerformerModal(true);
+      return;
+    }
+    proceedToDrawer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nonce edge only
+  }, [openTipDrawerNonce]);
 
   const { distinctStyleCount, totalGbp } = rewardEligibility;
   const turboDisplayCount = displayTurboStyleCount(distinctStyleCount);
@@ -387,7 +401,7 @@ export const TipSection = ({
           </Button> */}
           <button
             onClick={handleOpenDrawer}
-            disabled={paymentCompleted || stripeLoading || isOpeningDrawer}
+            disabled={paymentCompleted}
             className="open_sans relative col-span-6 mb-2 ml-6 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm lg:col-span-2"
             style={{
               color: buttonColor,
@@ -488,26 +502,17 @@ export const TipSection = ({
       <div className="flex items-center gap-1">
         <div className="relative w-full flex-1">
           <Button
-            disabled={
-              paymentCompleted ||
-              stripeLoading ||
-              totalAmount <= 0 ||
-              isOpeningDrawer // NEW: Add isOpeningDrawer to disabled conditions
-            }
+            disabled={paymentCompleted || totalAmount <= 0}
             className={`h-6 w-full bg-black pr-10 text-white ${totalAmount > 0 ? "" : "opacity-50"} ${tipLink ? "bg-white text-black" : ""}`}
             onClick={handleOpenDrawer}
           >
-            {isOpeningDrawer
-              ? "Loading..."
-              : stripeLoading
-                ? "Loading..."
-                : `£${totalAmount}`}{" "}
+            {`£${totalAmount}`}{" "}
           </Button>
           <button
             type="button"
             className="absolute top-1/2 right-1.5 z-10 -translate-y-1/2 rounded-full bg-white/40 p-1.5 shadow-sm ring-1 ring-black/10 transition hover:bg-white/50"
             aria-label="Pay with Tipper Wallet"
-            disabled={paymentCompleted || totalAmount <= 0 || isOpeningDrawer}
+            disabled={paymentCompleted || totalAmount <= 0}
             onClick={e => {
               e.stopPropagation();
               if (totalAmount <= 0) {
@@ -530,33 +535,18 @@ export const TipSection = ({
         </div>
       </div>
 
-      {/* Tip drawer */}
-      <TippingElementsProvider
-        tippingCharacters={tippingCharacters as RoomCharacter[]}
-        enabled
-        textTipUnitPrice={textTipUnitPrice}
-      >
-        <TipDrawer
-          open={openDrawer}
-          onOpenChange={setOpenDrawer}
-          eventId={eventId}
-          tippingCharacters={tippingCharacters}
-          characterSets={characterSets}
-          performerId={selectedPerformerId}
-          paymentSurface={paymentSurface}
-          paymentChannelId={paymentChannelId}
-          paymentCommunityId={paymentCommunityId}
-          getPlaybackOffsetSec={getPlaybackOffsetSec}
-          getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
-          stackAboveImmersive={stackDrawerAboveImmersive}
-          walletDialogOpen={walletDialogOpen}
-          onWalletDialogOpenChange={setWalletDialogOpen}
-          openWalletModalNonce={openWalletModalNonce}
+      {/* Tip drawer — Stripe loads only while a live drawer is open */}
+      {drawerStripeEnabled ? (
+        <TippingElementsProvider
+          tippingCharacters={tippingCharacters as RoomCharacter[]}
+          enabled
           textTipUnitPrice={textTipUnitPrice}
-          payLabel={payLabel}
-          tipQuoteContext={tipQuoteContext}
-        />
-      </TippingElementsProvider>
+        >
+          {tipDrawer}
+        </TippingElementsProvider>
+      ) : (
+        tipDrawer
+      )}
 
       {/* 👈 ADDED: Performer Selection Modal */}
       <Dialog

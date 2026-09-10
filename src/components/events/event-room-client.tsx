@@ -246,6 +246,7 @@ export const EventRoomClient = ({
   });
 
   const [openDrawer, setOpenDrawer] = useState(false);
+  const [openTipDrawerNonce, setOpenTipDrawerNonce] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -598,6 +599,7 @@ export const EventRoomClient = ({
                 payLabel={tipPayLabel}
                 tipQuoteContext={tipQuoteCtx}
                 eliteCharacterIds={tipEliteCharacterIds}
+                openTipDrawerNonce={openTipDrawerNonce}
               />
             </StripeProvider>
           </div>
