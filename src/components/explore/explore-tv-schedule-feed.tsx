@@ -24,6 +24,8 @@ import {
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { useTvEventTipCatalog } from "@/hooks/use-tv-event-tip-catalog";
+import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
 import { buildSurfaceTipPriceCatalog } from "@/lib/surface-tip-price-catalog";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
@@ -140,22 +142,41 @@ export function ExploreTvScheduleFeed({
   );
   const tipDrawerStripeMounted = tipDrawerOpen || openWalletModalNonce > 0;
 
+  const {
+    characterSets: eventCatalogSets,
+    tippingCharacters: eventTipCharacters,
+  } = useTvEventTipCatalog(tipEventId ?? "");
+
+  const tippingCharactersForDrawer = (
+    tipEventId ? eventTipCharacters : characters
+  ) as RoomCharacter[];
+
   const tipPres = useTipPresentation(
     tipEventId ?? undefined,
-    characters as RoomCharacter[],
+    tippingCharactersForDrawer,
     {
       paymentSurface: "explore_feed",
     }
+  );
+
+  const resolvedDrawerSets = useMemo(
+    () =>
+      resolveTipDrawerSets(
+        tipEventId ? eventCatalogSets : [],
+        tipPres.catalog as RoomCharacter[],
+        tipEventId ? eventCatalogSets : characterSets
+      ),
+    [tipEventId, eventCatalogSets, tipPres.catalog, characterSets]
   );
 
   const tipPriceCatalog = useMemo(
     () =>
       buildSurfaceTipPriceCatalog({
         enrichedCatalog: tipPres.catalog as RoomCharacter[],
-        videoCatalog: characters as RoomCharacter[],
-        characterSets: characterSets,
+        videoCatalog: tippingCharactersForDrawer,
+        characterSets: resolvedDrawerSets,
       }),
-    [tipPres.catalog, characters, characterSets]
+    [tipPres.catalog, tippingCharactersForDrawer, resolvedDrawerSets]
   );
 
   useGlobalTipStream({
@@ -438,12 +459,13 @@ export function ExploreTvScheduleFeed({
             onOpenChange={setTipDrawerOpen}
             eventId={tipEventId ?? ""}
             tippingCharacters={tipPriceCatalog}
-            characterSets={characterSets}
+            characterSets={resolvedDrawerSets}
             paymentSurface="explore_feed"
             paymentChannelId={tipChannelId}
             openWalletModalNonce={openWalletModalNonce}
             stackAboveImmersive
             textTipUnitPrice={tipPres.textUnitPrice}
+            payLabel={tipPres.payLabel}
             tipQuoteContext={tipPres.quoteCtx}
           />
         </TippingElementsProvider>

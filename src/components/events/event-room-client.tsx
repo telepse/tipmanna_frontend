@@ -213,7 +213,8 @@ export const EventRoomClient = ({
 
   const {
     strip: tipStripCharacters,
-    drawerSets: tipDrawerSets,
+    catalog: tipPriceCatalog,
+    hasLiveLayout: tipHasLiveLayout,
     quoteCtx: tipQuoteCtx,
     textUnitPrice: tipTextUnitPrice,
     sectionCtaLabel: tipSectionCtaLabel,
@@ -225,8 +226,12 @@ export const EventRoomClient = ({
   });
 
   const footerCharacterSets = useMemo(
-    () => resolveTipDrawerSets(tipDrawerSets, rawCharacterSets),
-    [tipDrawerSets, rawCharacterSets]
+    () =>
+      resolveTipDrawerSets(
+        rawCharacterSets,
+        tipPriceCatalog as RoomCharacter[]
+      ),
+    [rawCharacterSets, tipPriceCatalog]
   );
 
   const [liveMessages, setLiveMessages] = useState<Message[]>(safeMessages);
@@ -600,6 +605,7 @@ export const EventRoomClient = ({
                 tipQuoteContext={tipQuoteCtx}
                 eliteCharacterIds={tipEliteCharacterIds}
                 openTipDrawerNonce={openTipDrawerNonce}
+                preserveStripOrder={tipHasLiveLayout}
               />
             </StripeProvider>
           </div>

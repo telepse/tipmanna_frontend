@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { getPublicTipLinkAction } from "@/actions/tiplink";
 import { TipLinkLandingClient } from "@/components/tiplink/tiplink-landing-client";
+import { TipLinkLoadRetry } from "@/components/tiplink/tiplink-load-retry";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { getPrimaryOrigin } from "@/lib/site-config";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
@@ -19,6 +20,10 @@ type Props = {
 const loadPublicTipLink = cache(async (slug: string) => {
   return getPublicTipLinkAction(slug);
 });
+
+function isTipLinkNotFound(res: Awaited<ReturnType<typeof loadPublicTipLink>>) {
+  return res.httpStatus === 404;
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -58,8 +63,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function TipLinkPage({ params }: Props) {
   const { slug } = await params;
   const res = await loadPublicTipLink(slug);
+
   if (!res.success || !res.data) {
-    notFound();
+    if (isTipLinkNotFound(res)) {
+      notFound();
+    }
+    return (
+      <div className="min-h-screen bg-black">
+        <TipLinkLoadRetry message={res.message ?? res.error ?? undefined} />
+      </div>
+    );
   }
 
   const payload = res.data;

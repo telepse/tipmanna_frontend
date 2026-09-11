@@ -149,6 +149,26 @@ describe("TV playback contract — leave/return player lifecycle", () => {
     expect(remountBody!).not.toContain("playerRef.current = null");
   });
 
+  it("applyPendingAudioRestore re-applies mute when session pref is muted", () => {
+    const autoplaySource = readFileSync(
+      join(frontendRoot, "src/lib/tv-autoplay.ts"),
+      "utf8"
+    );
+    expect(autoplaySource).toContain("session_mute_reapplied");
+    expect(autoplaySource).toMatch(
+      /if \(pending\.restoreUnmuted && hasSessionAudioUnlocked\(\)\)/
+    );
+  });
+
+  it("firstPlayReached is marked on PLAYING without C0 env gate", () => {
+    expect(tvProviderSource).toMatch(
+      /const firstPlayThisEvent = markStartupFirstPlay\(guard\);/
+    );
+    expect(tvProviderSource).toMatch(
+      /if \(guardEnabled && firstPlayThisEvent\)/
+    );
+  });
+
   it("loopers key TvPlayer by startupEmbedGeneration for ref rebind", () => {
     const tvLooperSource = readFileSync(
       join(frontendRoot, "src/components/tv/tv-looper.tsx"),

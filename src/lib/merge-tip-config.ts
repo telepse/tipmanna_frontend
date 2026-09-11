@@ -47,15 +47,58 @@ function enrichItem(
   };
 }
 
+function mergeEliteStubsIntoBase(
+  baseCharacters: RoomCharacter[],
+  eliteStubs: RoomCharacter[],
+  eliteCharacterIds?: string[]
+): RoomCharacter[] {
+  const eliteIds = new Set(eliteCharacterIds ?? []);
+  if (eliteIds.size === 0) return baseCharacters;
+  const byId = new Map(baseCharacters.map(c => [c.id, c]));
+  for (const stub of eliteStubs) {
+    if (eliteIds.has(stub.id)) byId.set(stub.id, stub);
+  }
+  return [...byId.values()];
+}
+
+function injectEliteIntoDrawerItems(
+  payload: TipConfigPayload,
+  baseById: Map<string, RoomCharacter>
+): TipConfigPayload {
+  const eliteIds = payload.eliteCharacterIds ?? [];
+  if (eliteIds.length === 0) return payload;
+  const drawerItems = [...payload.drawerItems];
+  for (const id of eliteIds) {
+    if (drawerItems.some(it => it.characterId === id)) continue;
+    const base = baseById.get(id);
+    if (!base) continue;
+    drawerItems.push({
+      itemId: `elite-inject-${id}`,
+      kind: "default",
+      characterId: id,
+      priceMinor: Math.round(Number(base.price) * 100),
+      position: drawerItems.length + 1,
+    });
+  }
+  return { ...payload, drawerItems };
+}
+
 /**
  * Apply published tip config ordering/prices to catalog characters for strip + drawer.
  */
 export function buildTipPresentation(
   baseCharacters: RoomCharacter[],
   payload: TipConfigPayload,
-  configVersion: number
+  configVersion: number,
+  eliteStubs: RoomCharacter[] = []
 ): TipPresentation {
-  const baseById = new Map(baseCharacters.map(c => [c.id, c]));
+  const mergedBase = mergeEliteStubsIntoBase(
+    baseCharacters,
+    eliteStubs,
+    payload.eliteCharacterIds
+  );
+  const baseById = new Map(mergedBase.map(c => [c.id, c]));
+  const payloadWithElite = injectEliteIntoDrawerItems(payload, baseById);
   const textId = textCharacterIdFromEnv();
   const textFromCatalog =
     (textId ? baseById.get(textId) : null) ||
@@ -64,6 +107,7 @@ export function buildTipPresentation(
 
   const textUnitPrice = payload.textCharacter.priceMinor / 100;
   const sectionStrip: EnrichedRoomCharacter[] = [];
+  const STRIP_MAX = 20;
 
   if (payload.textCharacter.enabled) {
     if (textFromCatalog) {
@@ -77,50 +121,45 @@ export function buildTipPresentation(
     }
   }
 
-  for (const it of byPosition(payload.sectionItems)) {
+  const sectionItemIds = new Set(
+    payloadWithElite.sectionItems.map(it => it.characterId)
+  );
+  for (const eliteId of payloadWithElite.eliteCharacterIds ?? []) {
+    if (sectionStrip.length >= STRIP_MAX) break;
+    if (sectionItemIds.has(eliteId)) continue;
+    const base = baseById.get(eliteId);
+    if (!base || sectionStrip.some(c => c.id === eliteId)) continue;
+    sectionStrip.push({
+      ...base,
+      tipItemId: `elite-strip-${eliteId}`,
+      tipKind: "default",
+      displayLabel: base.name,
+    });
+  }
+
+  for (const it of byPosition(payloadWithElite.sectionItems)) {
+    if (sectionStrip.length >= STRIP_MAX) break;
     const row = enrichItem(it, baseById);
     if (row) sectionStrip.push(row);
   }
 
   const drawerChars: EnrichedRoomCharacter[] = [];
-  for (const it of byPosition(payload.drawerItems)) {
+  for (const it of byPosition(payloadWithElite.drawerItems)) {
     const row = enrichItem(it, baseById);
     if (row) drawerChars.push(row);
   }
 
-  const eliteIds = new Set(payload.eliteCharacterIds ?? []);
-  const eliteDrawer = drawerChars.filter(c => eliteIds.has(c.id));
-  const restDrawer = drawerChars.filter(c => !eliteIds.has(c.id));
-  const orderedDrawer = [...eliteDrawer, ...restDrawer];
-
   const byId = new Map<string, EnrichedRoomCharacter>();
   for (const c of sectionStrip) byId.set(c.id, c);
-  for (const c of orderedDrawer) byId.set(c.id, c);
+  for (const c of drawerChars) byId.set(c.id, c);
   const allEnriched = [...byId.values()];
-
-  const drawerSets = [
-    ...(eliteDrawer.length
-      ? [
-          {
-            id: "tip-config-elite",
-            name: "Elite",
-            characters: eliteDrawer,
-          },
-        ]
-      : []),
-    {
-      id: "tip-config-drawer",
-      name: "Tips",
-      characters: orderedDrawer,
-    },
-  ];
 
   return {
     sectionStrip,
-    drawerSets,
+    drawerSets: [],
     allEnriched,
-    ctaSectionLabel: payload.ctaSectionLabel,
-    ctaPayLabel: payload.ctaPayLabel,
+    ctaSectionLabel: payloadWithElite.ctaSectionLabel,
+    ctaPayLabel: payloadWithElite.ctaPayLabel,
     textUnitPrice,
     configVersion,
   };

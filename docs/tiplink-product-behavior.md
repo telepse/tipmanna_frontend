@@ -41,7 +41,7 @@ Frontend host mutations use `serverHostAuthHeaders()` in `frontend/src/actions/t
 - Ticker shows `{visits} visits · {tips} tips · {shares} shares · Watch · Engage · Support` (continuous LTR marquee; static fallback on `prefers-reduced-motion`).
 - When the inline player scrolls out of view, the same VideoPlayer instance docks into a 16:9 pip slot on the right of the ticker row (96×54 mobile, 128×72 desktop); tap pip scrolls back to inline. Player uses always-`fixed` measured rects (inline / dock / enlarge) — no iframe remount on iOS.
 - Spotify-style orange-on-black page background; pitch heading uses host first name (`{firstName}'s Pitch`).
-- Store grid first row: **Tipmanna Explore / ENGAGE** opens `/explore?feedTab=trends&channel={channelId}&eventId={eventId}` in a **new tab** (standard Explore reel UI).
+- Store grid first row: **Tipmanna Explore / ENGAGE** opens `/explore?feedTab=trends&channel={channelId}&eventId={eventId}&from=tiplink` in a **new tab** (standard Explore reel UI). Handoff stashes a playable channel snapshot and `stayInExploreReel` so Explore does not bounce to the channel client.
 - Guest **Save** and **Subscribe** open tipper `SignInDialog` (`signupSurface="tiplink"`) and complete save-video / save-host after successful sign-in.
 - Pitch is a composed card (heading, banner/thumbnail, text).
 - YouTube iframe is non-interactive (`pointer-events-none`); play/pause uses app chrome only (no click-through to YouTube).

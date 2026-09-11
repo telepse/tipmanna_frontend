@@ -189,15 +189,8 @@ function TipDrawerContent({
   } | null>(null);
 
   const filteredCharacterSets = useMemo(() => {
-    const filtered = characterSets?.filter(set => set.characters?.length > 0);
-
-    // Sort "General" first, others keep original order
-    filtered.sort((a, b) => {
-      if (a.name === "General") return -1;
-      if (b.name === "General") return 1;
-      return 0;
-    });
-
+    const filtered =
+      characterSets?.filter(set => set.characters?.length > 0) ?? [];
     return filtered.map(set => ({
       ...set,
       characters: buildTipSectionPreviewCharacters(set.characters),

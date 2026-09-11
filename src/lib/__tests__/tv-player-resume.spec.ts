@@ -5,6 +5,7 @@ import {
   isTvPlayerStateUsable,
   resetTvEmbedGenerationForTests,
   shouldAcceptTvPlayerYtCallback,
+  shouldClearEmbedRecoveryInFlight,
   shouldForceEmbedRemount,
   shouldRecoverTvPlayerEmbed,
   shouldRemountTvPlayer,
@@ -159,6 +160,23 @@ describe("shouldRecoverTvPlayerEmbed", () => {
     ).toBe(true);
   });
 
+  it("recovers after first play even when C0 guard env is off (firstPlayReached from provider)", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        firstPlayReached: true,
+        orphanedRef: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        firstPlayReached: false,
+        orphanedRef: true,
+      })
+    ).toBe(false);
+  });
+
   it("does not recover during startup or cooldown", () => {
     expect(
       shouldRecoverTvPlayerEmbed({
@@ -174,6 +192,35 @@ describe("shouldRecoverTvPlayerEmbed", () => {
         iframeLive: false,
         msSinceLastRecovery: 100,
         deadIframeSinceMs: 0,
+      })
+    ).toBe(false);
+  });
+});
+
+describe("shouldClearEmbedRecoveryInFlight", () => {
+  it("clears latch after timeout when embed is still not command-ready", () => {
+    expect(
+      shouldClearEmbedRecoveryInFlight({
+        embedRecoveryInFlight: true,
+        commandReady: false,
+        elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS,
+      })
+    ).toBe(true);
+  });
+
+  it("does not clear while command-ready or before timeout", () => {
+    expect(
+      shouldClearEmbedRecoveryInFlight({
+        embedRecoveryInFlight: true,
+        commandReady: true,
+        elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS,
+      })
+    ).toBe(false);
+    expect(
+      shouldClearEmbedRecoveryInFlight({
+        embedRecoveryInFlight: true,
+        commandReady: false,
+        elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS - 1,
       })
     ).toBe(false);
   });

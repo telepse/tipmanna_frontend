@@ -149,6 +149,39 @@ describe("applyPendingAudioRestore", () => {
     ).toBeNull();
     expect(callOrder).toEqual(["play", "unmute"]);
   });
+
+  it("re-applies mute after CUED when session pref is muted (playlist click path)", () => {
+    writeTvMutePref(true);
+    const player = makePlayer({ isMuted: () => false });
+    const pending = { restoreUnmuted: false, shouldPlay: true };
+
+    expect(applyPendingAudioRestore(player, pending, "loadLocal")).toBeNull();
+    expect(player.play).toHaveBeenCalled();
+    expect(player.mute).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+  });
+
+  it("auto-advance stays muted when session pref is muted", () => {
+    writeTvMutePref(true);
+    const player = makePlayer({ isMuted: () => false });
+    const pending = prepareMutedLoadForAutoplay(player, true);
+
+    expect(pending).toEqual({ restoreUnmuted: false, shouldPlay: true });
+    expect(
+      applyPendingAudioRestore(player, pending, "auto_advance")
+    ).toBeNull();
+    expect(player.mute).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+  });
+
+  it("fallback re-mutes when pending is null and session pref is muted", () => {
+    writeTvMutePref(true);
+    const player = makePlayer({ isMuted: () => false });
+
+    expect(applyPendingAudioRestore(player, null, "test")).toBeNull();
+    expect(player.mute).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+  });
 });
 
 describe("playWithUserGesture / unmuteAndPlay", () => {

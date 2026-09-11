@@ -1,15 +1,32 @@
-import { describe, expect, it } from "vitest";
+/**
+ * @vitest-environment happy-dom
+ */
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   buildExploreHandoffTarget,
   buildExploreVideoHandoffHref,
   buildExploreVideoHref,
+  buildTipLinkExploreHandoff,
+  clearExplorePendingHandoff,
+  exploreHandoffStaysInReel,
   exploreOpenTargetFromUrl,
   exploreVideoHandoffKeyFromUrl,
+  mergeExploreHandoffTargets,
   normalizeExploreHandoffSnapshot,
+  readExploreChannelSnapshot,
+  readExplorePendingHandoff,
+  stashExploreChannelSnapshot,
+  stashExplorePendingHandoff,
 } from "../explore-video-navigation";
 
 describe("explore video navigation", () => {
+  afterEach(() => {
+    clearExplorePendingHandoff();
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
   describe("exploreVideoHandoffKeyFromUrl", () => {
     it("returns channel:eventId when both params are present", () => {
       const sp = new URLSearchParams({
@@ -138,6 +155,131 @@ describe("explore video navigation", () => {
       expect(sp.get("channel")).toBe("vid-1");
       expect(sp.get("eventId")).toBe("evt-1");
       expect(sp.get("tab")).toBeNull();
+      expect(sp.get("from")).toBeNull();
+    });
+
+    it("adds from=tiplink when stayInExploreReel is set", () => {
+      const href = buildExploreVideoHref({
+        videoId: "vid-1",
+        eventId: "evt-1",
+        stayInExploreReel: true,
+      });
+      const sp = new URLSearchParams(href.split("?")[1] ?? "");
+      expect(sp.get("from")).toBe("tiplink");
+    });
+  });
+
+  describe("buildTipLinkExploreHandoff", () => {
+    it("builds a reel-ready snapshot with stayInExploreReel", () => {
+      const target = buildTipLinkExploreHandoff({
+        channelId: "ch-1",
+        eventId: "ev-1",
+        url: "https://youtube.com/watch?v=abc",
+        title: "My video",
+        hostUsername: "hostuser",
+      });
+      expect(target.stayInExploreReel).toBe(true);
+      expect(target.videoId).toBe("ch-1");
+      expect(target.channelSnapshot?.url).toBe(
+        "https://youtube.com/watch?v=abc"
+      );
+      expect(target.channelSnapshot?.liveStatus).toBe("NOT_LIVE");
+      expect(
+        (target.channelSnapshot?.event as { username?: string })?.username
+      ).toBe("hostuser");
+    });
+  });
+
+  describe("exploreOpenTargetFromUrl tiplink flag", () => {
+    it("parses stayInExploreReel from from=tiplink", () => {
+      const sp = new URLSearchParams({
+        channel: "vid-1",
+        eventId: "evt-1",
+        from: "tiplink",
+      });
+      expect(exploreOpenTargetFromUrl(sp)).toEqual({
+        videoId: "vid-1",
+        eventId: "evt-1",
+        stayInExploreReel: true,
+      });
+    });
+
+    it("reads channel snapshot stashed in localStorage (cross-tab)", () => {
+      const snapshot = {
+        id: "vid-1",
+        url: "https://www.youtube.com/watch?v=abc",
+        title: "Clip",
+        liveStatus: "NOT_LIVE",
+        event: { id: "evt-1" },
+      };
+      stashExploreChannelSnapshot("vid-1", snapshot);
+      const sp = new URLSearchParams({
+        channel: "vid-1",
+        eventId: "evt-1",
+        from: "tiplink",
+      });
+      expect(exploreOpenTargetFromUrl(sp)).toEqual({
+        videoId: "vid-1",
+        eventId: "evt-1",
+        channelSnapshot: snapshot,
+        stayInExploreReel: true,
+      });
+      expect(readExploreChannelSnapshot("vid-1")).toEqual(snapshot);
+    });
+  });
+
+  describe("localStorage pending handoff", () => {
+    it("round-trips pending handoff including stayInExploreReel", () => {
+      const target = buildTipLinkExploreHandoff({
+        channelId: "ch-1",
+        eventId: "ev-1",
+        url: "https://youtube.com/watch?v=abc",
+        title: "My video",
+        hostUsername: "hostuser",
+      });
+      stashExplorePendingHandoff(target);
+      expect(readExplorePendingHandoff()).toEqual(target);
+    });
+  });
+
+  describe("mergeExploreHandoffTargets", () => {
+    it("merges pending snapshot and stayInExploreReel onto URL target", () => {
+      const pending = buildTipLinkExploreHandoff({
+        channelId: "ch-1",
+        eventId: "ev-1",
+        url: "https://youtube.com/watch?v=abc",
+        title: "My video",
+        hostUsername: "hostuser",
+      });
+      const urlTarget = {
+        videoId: "ch-1",
+        eventId: "ev-1",
+      };
+      expect(mergeExploreHandoffTargets(urlTarget, pending)).toEqual({
+        videoId: "ch-1",
+        eventId: "ev-1",
+        channelSnapshot: pending.channelSnapshot,
+        stayInExploreReel: true,
+      });
+    });
+
+    it("returns null when both inputs are null", () => {
+      expect(mergeExploreHandoffTargets(null, null)).toBeNull();
+    });
+  });
+
+  describe("exploreHandoffStaysInReel", () => {
+    it("returns true only when stayInExploreReel is set", () => {
+      expect(
+        exploreHandoffStaysInReel({
+          videoId: "v",
+          eventId: "e",
+          stayInExploreReel: true,
+        })
+      ).toBe(true);
+      expect(exploreHandoffStaysInReel({ videoId: "v", eventId: "e" })).toBe(
+        false
+      );
     });
   });
 });

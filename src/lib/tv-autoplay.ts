@@ -112,15 +112,11 @@ export function applyPendingAudioRestore(
       tracePlayVideoResult(`${source}.muted_play`, player.play());
     }
 
-    if (pending.restoreUnmuted) {
-      if (hasSessionAudioUnlocked()) {
-        unmuteOnly(player, `${source}.session_restore`);
-      } else {
-        tvTrace("autoplay", "audio_restore_deferred", {
-          source,
-          reason: "gesture_required",
-        });
-      }
+    if (pending.restoreUnmuted && hasSessionAudioUnlocked()) {
+      unmuteOnly(player, `${source}.session_restore`);
+    } else {
+      player.mute();
+      tvTrace("autoplay", "session_mute_reapplied", { source });
     }
 
     return null;
@@ -128,6 +124,9 @@ export function applyPendingAudioRestore(
 
   if (canRestoreSessionAudio() && player.isMuted()) {
     unmuteOnly(player, `${source}.pref_fallback_restore`);
+  } else if (readTvMutePref()) {
+    player.mute();
+    tvTrace("autoplay", "pref_mute_fallback", { source });
   }
 
   return null;

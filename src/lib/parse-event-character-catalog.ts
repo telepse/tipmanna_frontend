@@ -27,7 +27,7 @@ export function parseEventCharacterCatalog(rawSets: unknown): {
       name: char.name,
       iconUrl: char.iconUrl,
       price: char.price,
-      styleName: char.styleName,
+      styleName: char.styleName?.trim() || "Confetti",
       type: (char as { type?: string | null }).type,
     }))
   );

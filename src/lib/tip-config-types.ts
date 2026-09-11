@@ -26,6 +26,14 @@ export type TipConfigPayload = {
   eliteCharacterIds?: string[];
 };
 
+export type TipConfigEliteCharacter = {
+  id: string;
+  name: string;
+  iconUrl: string;
+  price: number;
+  styleName?: string | null;
+};
+
 export type ActiveTipConfigResponse =
   | { mode: "legacy" }
   | {
@@ -34,4 +42,5 @@ export type ActiveTipConfigResponse =
       etag: string;
       reviewNeeded: boolean;
       config: TipConfigPayload;
+      eliteCharacters?: TipConfigEliteCharacter[];
     };

@@ -32,7 +32,20 @@ import {
 } from "../ui/select";
 import { TipSection } from "@/components/events/tip-section";
 import { buildTipPresentation } from "@/lib/merge-tip-config";
+import {
+  buildFallbackDrawerSetsFromCharacters,
+  resolveTipDrawerSets,
+} from "@/lib/resolve-tip-drawer-sets";
+import {
+  buildTipCharacterMap,
+  libraryItemsToRoomCharacters,
+  resolveCharacterFromMap,
+} from "@/lib/tip-character-map";
+import { getEventCharacterCatalogAction } from "@/actions/events";
+import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
+import type { AnimationLibraryItem } from "@/actions/tip-config";
 import type { RoomCharacter } from "@/types";
+import Image from "next/image";
 
 export default function TipCustomizationClient({
   hostSlug,
@@ -53,8 +66,63 @@ export default function TipCustomizationClient({
   const [publishedConfig, setPublishedConfig] =
     useState<TipConfigPayload | null>(null);
   const [library, setLibrary] = useState<any[]>([]);
-  const [eliteLibrary, setEliteLibrary] = useState<any[]>([]);
+  const [eliteLibrary, setEliteLibrary] = useState<AnimationLibraryItem[]>([]);
+  const [eventCatalogChars, setEventCatalogChars] = useState<RoomCharacter[]>(
+    []
+  );
+  const [eventCatalogSets, setEventCatalogSets] = useState<any[]>([]);
+  const [eliteLibraryError, setEliteLibraryError] = useState<string | null>(
+    null
+  );
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+
+  const characterMap = useMemo(
+    () =>
+      buildTipCharacterMap(
+        libraryItemsToRoomCharacters([...library, ...eliteLibrary]),
+        eventCatalogChars
+      ),
+    [library, eliteLibrary, eventCatalogChars]
+  );
+
+  const buildCatalogFromConfig = useCallback(
+    (config: TipConfigPayload): RoomCharacter[] => {
+      const ids = new Set<string>();
+      const rows: RoomCharacter[] = [];
+      for (const it of [...config.sectionItems, ...config.drawerItems]) {
+        if (ids.has(it.characterId)) continue;
+        const resolved = resolveCharacterFromMap(
+          characterMap,
+          it.characterId,
+          it.priceMinor
+        );
+        if (resolved) {
+          ids.add(it.characterId);
+          rows.push(resolved);
+        }
+      }
+      for (const id of config.eliteCharacterIds ?? []) {
+        if (ids.has(id)) continue;
+        const resolved = resolveCharacterFromMap(characterMap, id);
+        if (resolved) {
+          ids.add(id);
+          rows.push(resolved);
+        }
+      }
+      return rows;
+    },
+    [characterMap]
+  );
+
+  const buildEliteStubs = useCallback(
+    (config: TipConfigPayload): RoomCharacter[] =>
+      libraryItemsToRoomCharacters(
+        eliteLibrary.filter(item =>
+          (config.eliteCharacterIds ?? []).includes(item.id)
+        )
+      ),
+    [eliteLibrary]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,31 +156,50 @@ export default function TipCustomizationClient({
 
   useEffect(() => {
     const run = async () => {
+      setEliteLibraryError(null);
       try {
-        const [premiumRes, eliteRes] = await Promise.all([
-          getHostAnimationLibraryAction({ library: "premium" }),
-          getHostAnimationLibraryAction({ library: "elite" }),
-        ]);
-        if (
-          premiumRes.success &&
-          premiumRes.data &&
-          Array.isArray(premiumRes.data.items)
-        ) {
-          setLibrary(premiumRes.data.items);
-        }
+        const [premiumRes, eliteRes, generalRes, eventCatRes] =
+          await Promise.all([
+            getHostAnimationLibraryAction({ library: "premium", limit: 80 }),
+            getHostAnimationLibraryAction({ library: "elite", limit: 80 }),
+            getHostAnimationLibraryAction({ library: "general", limit: 80 }),
+            getEventCharacterCatalogAction(eventId),
+          ]);
+        const premiumItems =
+          premiumRes.success && Array.isArray(premiumRes.data?.items)
+            ? premiumRes.data.items
+            : [];
+        const generalItems =
+          generalRes.success && Array.isArray(generalRes.data?.items)
+            ? generalRes.data.items
+            : [];
+        setLibrary([...generalItems, ...premiumItems]);
         if (
           eliteRes.success &&
           eliteRes.data &&
           Array.isArray(eliteRes.data.items)
         ) {
           setEliteLibrary(eliteRes.data.items);
+        } else if (!eliteRes.success) {
+          setEliteLibraryError(
+            eliteRes.message ?? "Could not load elite animation library"
+          );
         }
-      } catch {
-        /* ignore */
+        if (eventCatRes.success && eventCatRes.data) {
+          const parsed = parseEventCharacterCatalog(
+            eventCatRes.data.characterSets ?? []
+          );
+          setEventCatalogChars(parsed.tippingCharacters);
+          setEventCatalogSets(parsed.characterSets);
+        }
+      } catch (e) {
+        setEliteLibraryError(
+          e instanceof Error ? e.message : "Could not load animation libraries"
+        );
       }
     };
     if (hostSessionActive) void run();
-  }, [hostSessionActive]);
+  }, [hostSessionActive, eventId]);
 
   const init = async () => {
     setSaving(true);
@@ -244,30 +331,45 @@ export default function TipCustomizationClient({
 
   const previewPresentation = useMemo(() => {
     if (!draft) return null;
-    const baseChars = [...draft.sectionItems, ...draft.drawerItems].map(it => ({
-      id: it.characterId,
-      name: it.characterId.slice(0, 8),
-      iconUrl: "/icons/chicken.png",
-      price: it.priceMinor / 100,
-      styleName: "Confetti",
-    })) as RoomCharacter[];
-    return buildTipPresentation(baseChars, draft, 1);
-  }, [draft, previewRefreshKey]);
+    const baseChars = buildCatalogFromConfig(draft);
+    const eliteStubs = buildEliteStubs(draft);
+    return buildTipPresentation(baseChars, draft, 1, eliteStubs);
+  }, [draft, previewRefreshKey, buildCatalogFromConfig, buildEliteStubs]);
 
   const livePresentation = useMemo(() => {
     if (!publishedConfig) return null;
-    const baseChars = [
-      ...publishedConfig.sectionItems,
-      ...publishedConfig.drawerItems,
-    ].map(it => ({
-      id: it.characterId,
-      name: it.characterId.slice(0, 8),
-      iconUrl: "/icons/chicken.png",
-      price: it.priceMinor / 100,
-      styleName: "Confetti",
-    })) as RoomCharacter[];
-    return buildTipPresentation(baseChars, publishedConfig, 1);
-  }, [publishedConfig]);
+    const baseChars = buildCatalogFromConfig(publishedConfig);
+    const eliteStubs = buildEliteStubs(publishedConfig);
+    return buildTipPresentation(baseChars, publishedConfig, 1, eliteStubs);
+  }, [publishedConfig, buildCatalogFromConfig, buildEliteStubs]);
+
+  const liveDrawerSets = useMemo(() => {
+    if (!livePresentation) return [];
+    const catalogSets =
+      eventCatalogSets.length > 0
+        ? eventCatalogSets
+        : buildFallbackDrawerSetsFromCharacters(livePresentation.allEnriched);
+    return resolveTipDrawerSets(
+      catalogSets,
+      livePresentation.allEnriched,
+      buildFallbackDrawerSetsFromCharacters(livePresentation.allEnriched)
+    );
+  }, [eventCatalogSets, livePresentation]);
+
+  const previewDrawerSets = useMemo(() => {
+    if (!previewPresentation) return [];
+    const catalogSets =
+      eventCatalogSets.length > 0
+        ? eventCatalogSets
+        : buildFallbackDrawerSetsFromCharacters(
+            previewPresentation.allEnriched
+          );
+    return resolveTipDrawerSets(
+      catalogSets,
+      previewPresentation.allEnriched,
+      buildFallbackDrawerSetsFromCharacters(previewPresentation.allEnriched)
+    );
+  }, [eventCatalogSets, previewPresentation]);
 
   const updatePremiumPrice = (itemId: string, priceGbp: number) => {
     if (!draft) return;
@@ -422,8 +524,18 @@ export default function TipCustomizationClient({
                     key={it.itemId}
                     className="flex flex-wrap items-center gap-2 text-sm"
                   >
-                    <span className="text-muted-foreground w-40 truncate">
-                      {it.characterId.slice(0, 8)}…
+                    <span className="text-muted-foreground flex w-40 items-center gap-2 truncate">
+                      {characterMap.get(it.characterId)?.iconUrl ? (
+                        <Image
+                          src={characterMap.get(it.characterId)!.iconUrl}
+                          alt=""
+                          width={24}
+                          height={24}
+                          className="size-6 shrink-0 object-contain"
+                        />
+                      ) : null}
+                      {characterMap.get(it.characterId)?.name ??
+                        `${it.characterId.slice(0, 8)}…`}
                     </span>
                     <Input
                       className="max-w-[120px]"
@@ -452,33 +564,70 @@ export default function TipCustomizationClient({
             )}
           </div>
 
-          {eliteLibrary.length > 0 ? (
-            <div className="space-y-3 rounded-lg border p-4">
-              <h2 className="font-medium">Elite self-list (max 10)</h2>
-              <p className="text-muted-foreground text-xs">
-                Selected elite animations appear in their own drawer tab and are
-                prioritized in the tip strip.
+          <div className="space-y-3 rounded-lg border p-4">
+            <h2 className="font-medium">Elite (Growth)</h2>
+            <p className="text-muted-foreground text-xs">
+              Select up to 10 elite animations. They appear in their own drawer
+              tab and are prioritized in the tip strip.
+            </p>
+            {eliteLibraryError ? (
+              <p className="text-sm text-red-600">{eliteLibraryError}</p>
+            ) : null}
+            {eliteLibrary.length === 0 && !eliteLibraryError ? (
+              <p className="text-muted-foreground text-sm">
+                No elite animations in the marketplace yet. Ask an admin to add
+                characters to the Elite set.
               </p>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {eliteLibrary.map((item: { id: string; name?: string }) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      disabled={frozen}
-                      checked={(draft.eliteCharacterIds ?? []).includes(
-                        item.id
-                      )}
-                      onChange={() => toggleEliteCharacter(item.id)}
-                    />
-                    <span>{item.name ?? item.id.slice(0, 8)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+            ) : (
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full min-w-[480px] text-left text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase">
+                    <tr>
+                      <th className="px-3 py-2">Select</th>
+                      <th className="px-3 py-2">Icon</th>
+                      <th className="px-3 py-2">Name</th>
+                      <th className="px-3 py-2">Price</th>
+                      <th className="px-3 py-2">Style</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eliteLibrary.map(item => (
+                      <tr
+                        key={item.id}
+                        className="border-t"
+                      >
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            disabled={frozen}
+                            checked={(draft.eliteCharacterIds ?? []).includes(
+                              item.id
+                            )}
+                            onChange={() => toggleEliteCharacter(item.id)}
+                            aria-label={`Select ${item.name}`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Image
+                            src={item.iconUrl}
+                            alt=""
+                            width={32}
+                            height={32}
+                            className="size-8 object-contain"
+                          />
+                        </td>
+                        <td className="px-3 py-2 font-medium">{item.name}</td>
+                        <td className="px-3 py-2">£{item.price}</td>
+                        <td className="text-muted-foreground px-3 py-2">
+                          {item.styleName ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           {livePresentation && previewPresentation ? (
             <div className="space-y-3 rounded-lg border p-4">
@@ -493,11 +642,12 @@ export default function TipCustomizationClient({
                     <TipSection
                       eventId={eventId}
                       tippingCharacters={livePresentation.sectionStrip}
-                      characterSets={livePresentation.drawerSets}
+                      characterSets={liveDrawerSets}
                       paymentSurface="event_room"
                       sectionCtaLabel={publishedConfig?.ctaSectionLabel}
                       payLabel={publishedConfig?.ctaPayLabel}
                       previewMode
+                      preserveStripOrder
                       eliteCharacterIds={publishedConfig?.eliteCharacterIds}
                     />
                   </div>
@@ -508,11 +658,12 @@ export default function TipCustomizationClient({
                     <TipSection
                       eventId={eventId}
                       tippingCharacters={previewPresentation.sectionStrip}
-                      characterSets={previewPresentation.drawerSets}
+                      characterSets={previewDrawerSets}
                       paymentSurface="event_room"
                       sectionCtaLabel={draft.ctaSectionLabel}
                       payLabel={draft.ctaPayLabel}
                       previewMode
+                      preserveStripOrder
                       eliteCharacterIds={draft.eliteCharacterIds}
                     />
                   </div>
@@ -543,7 +694,7 @@ export default function TipCustomizationClient({
                   key={`preview-${previewRefreshKey}`}
                   eventId={eventId}
                   tippingCharacters={previewPresentation.sectionStrip}
-                  characterSets={previewPresentation.drawerSets}
+                  characterSets={previewDrawerSets}
                   paymentSurface="event_room"
                   sectionCtaLabel={draft.ctaSectionLabel}
                   payLabel={draft.ctaPayLabel}

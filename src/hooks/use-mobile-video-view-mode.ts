@@ -149,7 +149,6 @@ export function useMobileVideoViewMode({
       videoUrl: videoUrl ?? null,
     });
     const id = extractYoutubeID(videoUrl ?? "") ?? undefined;
-    if (!id) return;
 
     userPinnedFullVariantRef.current = false;
     enterFullGenerationRef.current += 1;
@@ -167,6 +166,11 @@ export function useMobileVideoViewMode({
       });
       setViewMode(nextMode);
     };
+
+    if (!id) {
+      applyMode("landscape");
+      return;
+    }
 
     if (aspectInfo?.videoId === id) {
       applyMode(fullViewClassification(aspectInfo.classification));

@@ -244,8 +244,12 @@ export function TvInteractiveShell({
   );
 
   const resolvedDrawerSets = useMemo(
-    () => resolveTipDrawerSets(tipPres.drawerSets, characterSetsForDrawer),
-    [tipPres.drawerSets, characterSetsForDrawer]
+    () =>
+      resolveTipDrawerSets(
+        characterSetsForDrawer,
+        tipPres.catalog as RoomCharacter[]
+      ),
+    [characterSetsForDrawer, tipPres.catalog]
   );
 
   const handleTipFromFeatureCard = useCallback(
@@ -1085,7 +1089,7 @@ export function TvInteractiveShell({
 
           <TippingElementsProvider
             tippingCharacters={tipPriceCatalog as RoomCharacter[]}
-            enabled
+            enabled={false}
             textTipUnitPrice={tipPres.textUnitPrice}
           >
             {!showPhoneLandscapeImmersive && (
@@ -1103,7 +1107,11 @@ export function TvInteractiveShell({
                   sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
                   payLabel={tipPres.payLabel ?? "Pay"}
                   eliteCharacterIds={tipPres.eliteCharacterIds}
+                  preserveStripOrder={tipPres.hasLiveLayout}
                   stackDrawerAboveImmersive
+                  externalDrawer
+                  onRequestOpenDrawer={() => setIsTipDrawerOpen(true)}
+                  onRequestOpenWallet={() => setIsTipDrawerOpen(true)}
                 />
               </div>
             )}

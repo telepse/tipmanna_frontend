@@ -1362,8 +1362,12 @@ export const ExploreFeedClient = forwardRef<
   );
 
   const resolvedDrawerSets = useMemo(
-    () => resolveTipDrawerSets(tipPres.drawerSets, characterSetsForDrawer),
-    [tipPres.drawerSets, characterSetsForDrawer]
+    () =>
+      resolveTipDrawerSets(
+        characterSetsForDrawer,
+        tipPres.catalog as RoomCharacter[]
+      ),
+    [characterSetsForDrawer, tipPres.catalog]
   );
 
   const tipPriceCatalog = useMemo(
@@ -1955,6 +1959,7 @@ export const ExploreFeedClient = forwardRef<
   const executeOpenInExplore = useCallback(
     async (target: ExploreFeedOpenTarget) => {
       const { videoId, channelSnapshot } = target;
+      const forceStayInReel = target.stayInExploreReel === true;
       const channelReturn = () => ({
         returnTo: target.discoverReturnTo ?? exploreReturnTo,
         label:
@@ -1974,11 +1979,11 @@ export const ExploreFeedClient = forwardRef<
       const snapshotLive = liveRoutingFromSnapshot(
         channelSnapshot as Record<string, unknown> | null | undefined
       );
-      if (shouldOpenExploreHandoffInChannel(snapshotLive)) {
+      if (!forceStayInReel && shouldOpenExploreHandoffInChannel(snapshotLive)) {
         openLiveInChannel();
         return;
       }
-      if (!isLivestreamFamily(snapshotLive)) {
+      if (!forceStayInReel && !isLivestreamFamily(snapshotLive)) {
         const route = await fetchChannelPlaybackRoute(videoId);
         if (route?.route === "channel") {
           openLiveInChannel();
@@ -2027,7 +2032,10 @@ export const ExploreFeedClient = forwardRef<
             if (myGen !== openGenerationRef.current) return;
             if (!enriched) return;
             const enrichedLive = liveRoutingFromRow(enriched);
-            if (shouldOpenExploreHandoffInChannel(enrichedLive)) {
+            if (
+              !forceStayInReel &&
+              shouldOpenExploreHandoffInChannel(enrichedLive)
+            ) {
               openLiveInChannel();
               return;
             }
@@ -2065,7 +2073,10 @@ export const ExploreFeedClient = forwardRef<
           if (myGen !== openGenerationRef.current) return;
           if (!enriched) return;
           const enrichedLive = liveRoutingFromRow(enriched);
-          if (shouldOpenExploreHandoffInChannel(enrichedLive)) {
+          if (
+            !forceStayInReel &&
+            shouldOpenExploreHandoffInChannel(enrichedLive)
+          ) {
             openLiveInChannel();
             return;
           }
@@ -2088,7 +2099,7 @@ export const ExploreFeedClient = forwardRef<
         return;
       }
       const rowLive = liveRoutingFromRow(row);
-      if (shouldOpenExploreHandoffInChannel(rowLive)) {
+      if (!forceStayInReel && shouldOpenExploreHandoffInChannel(rowLive)) {
         openLiveInChannel();
         return;
       }

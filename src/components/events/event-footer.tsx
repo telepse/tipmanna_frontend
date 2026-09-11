@@ -21,6 +21,7 @@ interface Props {
   tipQuoteContext?: TipQuoteContext | null;
   eliteCharacterIds?: string[];
   openTipDrawerNonce?: number;
+  preserveStripOrder?: boolean;
 }
 
 export const EventFooter = ({
@@ -34,6 +35,7 @@ export const EventFooter = ({
   tipQuoteContext,
   eliteCharacterIds,
   openTipDrawerNonce,
+  preserveStripOrder,
 }: Props) => {
   return (
     <div className="mini-wrapper h-[210px] w-full flex-shrink-0 rounded-t-xl border-t bg-white px-4 py-1 shadow-sm">
@@ -49,6 +51,7 @@ export const EventFooter = ({
           tipQuoteContext={tipQuoteContext}
           eliteCharacterIds={eliteCharacterIds}
           openTipDrawerNonce={openTipDrawerNonce}
+          preserveStripOrder={preserveStripOrder}
         />
       </div>
     </div>

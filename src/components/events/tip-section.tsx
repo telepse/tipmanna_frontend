@@ -47,6 +47,7 @@ import { TippingElementsProvider } from "../payments/tipping-elements-provider";
 import { RoomCharacter } from "@/types";
 import { computeTipCartTotal } from "@/lib/tip-cart-total";
 import { shouldLoadTipStripe } from "@/lib/should-load-tip-stripe";
+import { shuffleTipStrip } from "@/lib/shuffle-tip-strip";
 import { CopyLinkButton } from "./copy-link-button";
 
 interface Props {
@@ -76,6 +77,12 @@ interface Props {
   eliteCharacterIds?: string[];
   /** Increment to open the tip drawer without character-strip interaction. */
   openTipDrawerNonce?: number;
+  /** TipLink: parent owns the drawer; strip only requests open. */
+  externalDrawer?: boolean;
+  onRequestOpenDrawer?: () => void;
+  onRequestOpenWallet?: () => void;
+  /** Live published section order — do not randomize host strip. */
+  preserveStripOrder?: boolean;
 }
 
 export const TipSection = ({
@@ -97,7 +104,12 @@ export const TipSection = ({
   shadowStyle,
   tipLink,
   previewMode = false,
+  eliteCharacterIds,
   openTipDrawerNonce = 0,
+  externalDrawer = false,
+  onRequestOpenDrawer,
+  onRequestOpenWallet,
+  preserveStripOrder = false,
 }: Props) => {
   const sectionCta = sectionCtaLabel?.trim() || "Engage";
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -140,24 +152,16 @@ export const TipSection = ({
 
   const { openWalletModalNonce } = useWalletTopupTipResume(
     eventId,
-    setOpenDrawer
+    externalDrawer ? () => onRequestOpenDrawer?.() : setOpenDrawer
   );
 
-  const allTips = useMemo(() => {
-    const ordered = buildTipSectionPreviewCharacters(tippingCharacters);
-    const maxStrip = 20;
-    if (ordered.length <= maxStrip) {
-      if (ordered.length <= 1) return ordered;
-      const [pinnedComment, ...rest] = ordered;
-      const shuffled = [...rest];
-      shuffled.sort(() => Math.random() - 0.5);
-      return [pinnedComment, ...shuffled];
-    }
-    const [pinnedComment, ...rest] = ordered;
-    const shuffled = [...rest];
-    shuffled.sort(() => Math.random() - 0.5);
-    return [pinnedComment, ...shuffled.slice(0, maxStrip - 1)];
-  }, [tippingCharacters]);
+  const allTips = useMemo(
+    () =>
+      shuffleTipStrip(tippingCharacters, eliteCharacterIds, {
+        preserveHostOrder: preserveStripOrder,
+      }),
+    [tippingCharacters, eliteCharacterIds, preserveStripOrder]
+  );
 
   const openTextDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();
@@ -221,8 +225,7 @@ export const TipSection = ({
       setSelectedTips(ensureSingleTextInCart([...tipsForTotals, cartName]))
     );
 
-    if (!character.styleName) {
-      console.error("Missing styleName for character", character);
+    if (!character.styleName?.trim()) {
       return;
     }
 
@@ -282,19 +285,25 @@ export const TipSection = ({
     void prefetch("/success");
   }, [prefetch]);
 
+  const handleEngageOpen = () => {
+    if (performers && performers.length > 0) {
+      setOpenPerformerModal(true);
+      return;
+    }
+    proceedToDrawer();
+  };
+
   const handleOpenDrawer = () => {
     if (totalAmount <= 0) {
       toast.error("Please select at least one tip item");
       return;
     }
 
-    // NEW LOGIC: Check if performers exist. If they do, trigger modal first.
     if (performers && performers.length > 0) {
       setOpenPerformerModal(true);
-      return; // Stop here and let the modal handle the rest
+      return;
     }
 
-    // Proceed as normal if no performers exist
     proceedToDrawer();
 
     // // NEW: Set loading state and wait for Stripe to be ready
@@ -317,6 +326,10 @@ export const TipSection = ({
 
   // Separated this out so both handleOpenDrawer and the modal can use it
   const proceedToDrawer = () => {
+    if (externalDrawer) {
+      onRequestOpenDrawer?.();
+      return;
+    }
     setOpenDrawer(true);
   };
 
@@ -400,7 +413,7 @@ export const TipSection = ({
             
           </Button> */}
           <button
-            onClick={handleOpenDrawer}
+            onClick={handleEngageOpen}
             disabled={paymentCompleted}
             className="open_sans relative col-span-6 mb-2 ml-6 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm lg:col-span-2"
             style={{
@@ -524,6 +537,10 @@ export const TipSection = ({
                 setOpenPerformerModal(true);
                 return;
               }
+              if (externalDrawer) {
+                onRequestOpenWallet?.();
+                return;
+              }
               setWalletDialogOpen(true);
             }}
           >
@@ -536,17 +553,18 @@ export const TipSection = ({
       </div>
 
       {/* Tip drawer — Stripe loads only while a live drawer is open */}
-      {drawerStripeEnabled ? (
-        <TippingElementsProvider
-          tippingCharacters={tippingCharacters as RoomCharacter[]}
-          enabled
-          textTipUnitPrice={textTipUnitPrice}
-        >
-          {tipDrawer}
-        </TippingElementsProvider>
-      ) : (
-        tipDrawer
-      )}
+      {!externalDrawer &&
+        (drawerStripeEnabled ? (
+          <TippingElementsProvider
+            tippingCharacters={tippingCharacters as RoomCharacter[]}
+            enabled
+            textTipUnitPrice={textTipUnitPrice}
+          >
+            {tipDrawer}
+          </TippingElementsProvider>
+        ) : (
+          tipDrawer
+        ))}
 
       {/* 👈 ADDED: Performer Selection Modal */}
       <Dialog

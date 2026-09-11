@@ -19,6 +19,16 @@ export function shouldSuppressPlayerMuteSync(
   return playerMuted && !prefMuted && unlocked;
 }
 
+/**
+ * YouTube loadVideoById may unmute the iframe; re-apply mute when session pref is muted.
+ */
+export function shouldReapplySessionMute(
+  playerMuted: boolean,
+  prefMuted: boolean = readSessionMuted()
+): boolean {
+  return !playerMuted && prefMuted;
+}
+
 export function markPlayerAudioIntentGrace(
   graceUntilRef: { current: number },
   ms: number = PLAYER_AUDIO_INTENT_GRACE_MS

@@ -3,6 +3,53 @@ import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 const SNAPSHOT_KEY_PREFIX = "tipmanna:explore-channel-snapshot:";
 const PENDING_HANDOFF_KEY = "tipmanna:explore-pending-handoff:v1";
 
+/** Cross-tab handoffs (e.g. TipLink `window.open`) require localStorage; same-tab may still read sessionStorage. */
+function readExploreHandoffStorage(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeExploreHandoffStorage(key: string, value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore quota / private mode */
+  }
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function removeExploreHandoffStorage(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** URL param marking a TipLink → Explore reel handoff (must stay in reel). */
+export const EXPLORE_HANDOFF_FROM_TIPLINK = "tiplink";
+
+export function parseStayInExploreReelFromUrl(
+  searchParams: URLSearchParams
+): boolean {
+  return searchParams.get("from")?.trim() === EXPLORE_HANDOFF_FROM_TIPLINK;
+}
+
 export function normalizeExploreHandoffSnapshot(
   content: Record<string, unknown>,
   videoId: string,
@@ -53,14 +100,10 @@ export function stashExploreChannelSnapshot(
   snapshot: Record<string, unknown>
 ): void {
   if (typeof window === "undefined" || !videoId.trim()) return;
-  try {
-    sessionStorage.setItem(
-      `${SNAPSHOT_KEY_PREFIX}${videoId.trim()}`,
-      JSON.stringify(snapshot)
-    );
-  } catch {
-    /* ignore quota / private mode */
-  }
+  writeExploreHandoffStorage(
+    `${SNAPSHOT_KEY_PREFIX}${videoId.trim()}`,
+    JSON.stringify(snapshot)
+  );
 }
 
 export function readExploreChannelSnapshot(
@@ -68,7 +111,7 @@ export function readExploreChannelSnapshot(
 ): Record<string, unknown> | undefined {
   if (typeof window === "undefined" || !videoId.trim()) return undefined;
   try {
-    const raw = sessionStorage.getItem(
+    const raw = readExploreHandoffStorage(
       `${SNAPSHOT_KEY_PREFIX}${videoId.trim()}`
     );
     if (!raw) return undefined;
@@ -95,31 +138,28 @@ export function stashExplorePendingHandoff(
     ? normalizeExploreHandoffSnapshot(target.channelSnapshot, videoId, eventId)
     : {};
 
-  try {
-    sessionStorage.setItem(
-      PENDING_HANDOFF_KEY,
-      JSON.stringify({
-        videoId,
-        eventId,
-        channelSnapshot,
-        ...(target.discoverReturnTo
-          ? { discoverReturnTo: target.discoverReturnTo }
-          : {}),
-        ...(target.discoverReturnLabel
-          ? { discoverReturnLabel: target.discoverReturnLabel }
-          : {}),
-      } satisfies ExploreFeedOpenTarget)
-    );
-    stashExploreChannelSnapshot(videoId, channelSnapshot);
-  } catch {
-    /* ignore quota / private mode */
-  }
+  writeExploreHandoffStorage(
+    PENDING_HANDOFF_KEY,
+    JSON.stringify({
+      videoId,
+      eventId,
+      channelSnapshot,
+      ...(target.discoverReturnTo
+        ? { discoverReturnTo: target.discoverReturnTo }
+        : {}),
+      ...(target.discoverReturnLabel
+        ? { discoverReturnLabel: target.discoverReturnLabel }
+        : {}),
+      ...(target.stayInExploreReel ? { stayInExploreReel: true } : {}),
+    } satisfies ExploreFeedOpenTarget)
+  );
+  stashExploreChannelSnapshot(videoId, channelSnapshot);
 }
 
 export function readExplorePendingHandoff(): ExploreFeedOpenTarget | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(PENDING_HANDOFF_KEY);
+    const raw = readExploreHandoffStorage(PENDING_HANDOFF_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ExploreFeedOpenTarget;
     if (!parsed?.videoId?.trim() || !parsed?.eventId?.trim()) return null;
@@ -129,6 +169,7 @@ export function readExplorePendingHandoff(): ExploreFeedOpenTarget | null {
       channelSnapshot: parsed.channelSnapshot ?? {},
       discoverReturnTo: parsed.discoverReturnTo,
       discoverReturnLabel: parsed.discoverReturnLabel,
+      stayInExploreReel: parsed.stayInExploreReel === true,
     };
   } catch {
     return null;
@@ -136,12 +177,41 @@ export function readExplorePendingHandoff(): ExploreFeedOpenTarget | null {
 }
 
 export function clearExplorePendingHandoff(): void {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.removeItem(PENDING_HANDOFF_KEY);
-  } catch {
-    /* ignore */
+  removeExploreHandoffStorage(PENDING_HANDOFF_KEY);
+}
+
+/** Whether Explore should skip channel-client bounce for this handoff target. */
+export function exploreHandoffStaysInReel(
+  target: ExploreFeedOpenTarget
+): boolean {
+  return target.stayInExploreReel === true;
+}
+
+/** Merge URL + pending handoffs (cross-tab TipLink may split params vs snapshot). */
+export function mergeExploreHandoffTargets(
+  urlTarget: ExploreFeedOpenTarget | null,
+  pending: ExploreFeedOpenTarget | null
+): ExploreFeedOpenTarget | null {
+  if (!urlTarget && !pending) return null;
+  if (!urlTarget) return pending;
+  if (!pending) return urlTarget;
+  if (handoffKeyForTarget(urlTarget) !== handoffKeyForTarget(pending)) {
+    return urlTarget;
   }
+  const urlSnapshot = urlTarget.channelSnapshot;
+  const pendingSnapshot = pending.channelSnapshot;
+  const channelSnapshot =
+    urlSnapshot && Object.keys(urlSnapshot).length > 0
+      ? urlSnapshot
+      : (pendingSnapshot ?? {});
+  return {
+    ...pending,
+    ...urlTarget,
+    channelSnapshot,
+    stayInExploreReel:
+      urlTarget.stayInExploreReel === true ||
+      pending.stayInExploreReel === true,
+  };
 }
 
 /** Stable key for deduping URL-driven reel handoffs (`channel` + `eventId`). */
@@ -178,7 +248,50 @@ export function buildExploreVideoHandoffHref(
   params.delete("tvSource");
   params.set("channel", target.videoId.trim());
   params.set("eventId", target.eventId.trim());
+  if (target.stayInExploreReel) {
+    params.set("from", EXPLORE_HANDOFF_FROM_TIPLINK);
+  } else {
+    params.delete("from");
+  }
   return `/explore?${params.toString()}`;
+}
+
+/** TipLink store → Explore reel handoff with a playable snapshot. */
+export function buildTipLinkExploreHandoff(args: {
+  channelId: string;
+  eventId: string;
+  url: string;
+  title: string;
+  hostUsername: string;
+  numOfTips?: number;
+  amountRaised?: number;
+  amountToRaise?: number;
+}): ExploreFeedOpenTarget {
+  const channelSnapshot = normalizeExploreHandoffSnapshot(
+    {
+      id: args.channelId,
+      url: args.url,
+      title: args.title,
+      liveStatus: "NOT_LIVE",
+      isLive: false,
+      numOfTips: args.numOfTips ?? 0,
+      event: {
+        id: args.eventId,
+        username: args.hostUsername,
+        amountRaised: args.amountRaised,
+        amountToRaise: args.amountToRaise,
+      },
+    },
+    args.channelId,
+    args.eventId
+  );
+
+  return {
+    videoId: args.channelId,
+    eventId: args.eventId,
+    channelSnapshot,
+    stayInExploreReel: true,
+  };
 }
 
 export function exploreOpenTargetFromUrl(
@@ -188,9 +301,11 @@ export function exploreOpenTargetFromUrl(
   const eventId = searchParams.get("eventId")?.trim();
   if (!videoId || !eventId) return null;
   const channelSnapshot = readExploreChannelSnapshot(videoId);
+  const stayInExploreReel = parseStayInExploreReelFromUrl(searchParams);
   return {
     videoId,
     eventId,
     ...(channelSnapshot ? { channelSnapshot } : {}),
+    ...(stayInExploreReel ? { stayInExploreReel: true } : {}),
   };
 }

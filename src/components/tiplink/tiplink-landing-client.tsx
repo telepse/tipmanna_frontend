@@ -11,6 +11,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent,
 } from "react";
 import { usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
@@ -23,15 +24,32 @@ import {
   ChevronUp,
   ExternalLink,
   Info,
+  Maximize2,
   MessageCircleMore,
+  RectangleHorizontal,
+  RectangleVertical,
   Share2,
+  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
 import { toast } from "react-toastify";
 
 import type { TipLinkPublicPayload } from "@/actions/tiplink";
-import { postTipLinkVisitAction } from "@/actions/tiplink";
+import { getEventCharacterCatalogAction } from "@/actions/events";
+import {
+  getPublicTipLinkHydrateAction,
+  getTipLinkPreviewHydrateAction,
+  postTipLinkVisitAction,
+} from "@/actions/tiplink";
+import {
+  mergeCharacterPools,
+  overlayStripPrices,
+  resolveTipDrawerSets,
+} from "@/lib/resolve-tip-drawer-sets";
+import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
+import { fetchPublicTipLinkHydrate } from "@/lib/tiplink-hydrate";
+import { shouldLoadTipStripe } from "@/lib/should-load-tip-stripe";
 import { TipSection } from "@/components/events/tip-section";
 import VideoPlayer, {
   type VideoPlayerRef,
@@ -82,7 +100,10 @@ import { getPrimaryOrigin } from "@/lib/site-config";
 import { resolveTipLinkLocaleDisplay } from "@/lib/tiplink-locale-display";
 import { resolveCreateDialogSignInSuccess } from "@/lib/create-dialog-signin-resume";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
-import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
+import {
+  SURFACE_MOBILE_MAX_PX,
+  SURFACE_PHONE_LANDSCAPE_MEDIA,
+} from "@/lib/surface-breakpoints";
 import {
   buildTipLinkStoreRows,
   TipLinkStoreIcon,
@@ -96,7 +117,11 @@ import {
   tipLinkSocialAriaLabel,
 } from "@/components/tiplink/tiplink-social-icons";
 import { tipLinkGlobalStreamOptions } from "@/lib/tiplink-stream-options";
-import { buildExploreVideoHref } from "@/lib/explore-video-navigation";
+import {
+  buildExploreVideoHref,
+  buildTipLinkExploreHandoff,
+  stashExplorePendingHandoff,
+} from "@/lib/explore-video-navigation";
 import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
 import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-overlay";
 
@@ -207,26 +232,34 @@ export function TipLinkLandingClient({
   const paymentChannelId = channelId;
 
   const [showFeaturedPlaylist, setShowFeaturedPlaylist] = useState(false);
+  const [landscapeLayoutDismissed, setLandscapeLayoutDismissed] =
+    useState(false);
 
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
-  const isMobileLandscape =
-    useMediaQuery({ query: "(orientation: landscape)" }) &&
-    typeof window !== "undefined" &&
-    window.innerWidth <= 768;
+  const isPhoneLandscape = useMediaQuery({
+    query: SURFACE_PHONE_LANDSCAPE_MEDIA,
+  });
+  const isMobileSurface = isMobile || isPhoneLandscape;
+  const showPhoneLandscapeImmersive =
+    isPhoneLandscape && !landscapeLayoutDismissed;
 
   const {
     isFullView,
     fullPresentationFit,
+    fullLayoutToggleShowsPortraitIcon,
     immersiveLayout,
     enterFull,
     exitFull,
+    toggleFullVariant,
   } = useMobileVideoViewMode({
     videoUrl: channel.url,
-    isMobile,
+    isMobile: isMobileSurface,
+    lockFullLandscape: showPhoneLandscapeImmersive,
   });
 
-  const isMobileEnlarge = isMobile && (isFullView || isMobileLandscape);
-  const isDesktopEnlarge = isDesktopImmersive && !isMobile;
+  const isMobileEnlarge =
+    isMobileSurface && (isFullView || showPhoneLandscapeImmersive);
+  const isDesktopEnlarge = isDesktopImmersive && !isMobileSurface;
   const isEnlargeMode = isMobileEnlarge || isDesktopEnlarge;
   const showStickyHeader = !isDesktopEnlarge;
   const hideScrollContent = isEnlargeMode;
@@ -249,23 +282,131 @@ export function TipLinkLandingClient({
       ? (fullPresentationFit ?? "contain")
       : "contain";
 
-  const baseTipChars = Array.isArray(characters) ? characters : [];
-  const baseTipSets = Array.isArray(characterSets) ? characterSets : [];
+  const firstPaintSets = useMemo(
+    () => (Array.isArray(characterSets) ? characterSets : []),
+    [characterSets]
+  );
+  const stripTipChars = useMemo(() => {
+    const parsed = parseEventCharacterCatalog(firstPaintSets);
+    return parsed.tippingCharacters.length > 0
+      ? parsed.tippingCharacters
+      : Array.isArray(characters)
+        ? characters
+        : [];
+  }, [characters, firstPaintSets]);
 
-  const tipPres = useTipPresentation(eventId, baseTipChars as RoomCharacter[], {
-    paymentSurface: "tiplink",
-  });
+  const [drawerCatalogSets, setDrawerCatalogSets] =
+    useState<any[]>(firstPaintSets);
+  const [hydratedMetrics, setHydratedMetrics] = useState(payload.metrics);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyHydrateCatalog = (
+      rawSets: unknown[],
+      metrics?: Partial<NonNullable<typeof payload.metrics>>
+    ) => {
+      const parsed = parseEventCharacterCatalog(rawSets ?? []);
+      if (parsed.characterSets.length > 0) {
+        setDrawerCatalogSets(parsed.characterSets);
+      }
+      if (metrics) {
+        setHydratedMetrics(prev => ({
+          ...prev,
+          ...metrics,
+        }));
+      }
+    };
+
+    const run = async () => {
+      if (preview) {
+        const res = await getTipLinkPreviewHydrateAction(tipLink.id);
+        if (cancelled) return;
+        if (res.success && res.data) {
+          applyHydrateCatalog(res.data.characterSets ?? [], res.data.metrics);
+          return;
+        }
+        const catalog = await getEventCharacterCatalogAction(eventId);
+        if (cancelled) return;
+        if (catalog.success && catalog.data?.characterSets?.length) {
+          applyHydrateCatalog(catalog.data.characterSets);
+        }
+        return;
+      }
+
+      let data = await fetchPublicTipLinkHydrate(tipLink.slug);
+      if (!data) {
+        const res = await getPublicTipLinkHydrateAction(tipLink.slug);
+        if (res.success && res.data) {
+          data = res.data;
+        }
+      }
+      if (cancelled) return;
+      if (data) {
+        applyHydrateCatalog(data.characterSets ?? [], data.metrics);
+        return;
+      }
+
+      const catalog = await getEventCharacterCatalogAction(eventId);
+      if (cancelled) return;
+      if (catalog.success && catalog.data?.characterSets?.length) {
+        applyHydrateCatalog(catalog.data.characterSets);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, preview, tipLink.id, tipLink.slug]);
+
+  const drawerCatalogChars = useMemo(() => {
+    const parsed = parseEventCharacterCatalog(drawerCatalogSets);
+    return parsed.tippingCharacters;
+  }, [drawerCatalogSets]);
+
+  const presentationBaseChars = useMemo(
+    () => mergeCharacterPools(stripTipChars, drawerCatalogChars),
+    [drawerCatalogChars, stripTipChars]
+  );
+
+  const tipPres = useTipPresentation(
+    eventId,
+    presentationBaseChars as RoomCharacter[],
+    {
+      paymentSurface: "tiplink",
+      initialTipConfig: payload.tipConfig ?? null,
+    }
+  );
+
+  const displayStrip = useMemo(
+    () => overlayStripPrices(stripTipChars, tipPres.catalog as RoomCharacter[]),
+    [stripTipChars, tipPres.catalog]
+  );
+
+  const resolvedDrawerSets = useMemo(
+    () =>
+      resolveTipDrawerSets(
+        drawerCatalogSets,
+        tipPres.catalog as RoomCharacter[],
+        firstPaintSets
+      ),
+    [drawerCatalogSets, tipPres.catalog, firstPaintSets]
+  );
+
+  const drawerCatalog =
+    (tipPres.catalog as RoomCharacter[]) ?? presentationBaseChars;
+  const displayMetrics = hydratedMetrics;
 
   useGlobalTipStream(tipLinkGlobalStreamOptions(eventId));
   usePaymentAnimationPlayer({
     eventId,
-    characters: tipPres.strip as RoomCharacter[],
+    characters: displayStrip as RoomCharacter[],
     surface: "tiplink",
   });
   usePayerOriginAnimationRecovery({
     eventId,
     paymentSurface: "tiplink",
-    characters: tipPres.strip as RoomCharacter[],
+    characters: displayStrip as RoomCharacter[],
     surface: "tiplink",
   });
   usePaymentPlaybackRestore({
@@ -276,7 +417,6 @@ export function TipLinkLandingClient({
   });
   useAutoDropTip(eventId, true);
 
-  const [openTipDrawerNonce, setOpenTipDrawerNonce] = useState(0);
   const { showFlashOverlay, handleTipNow, handleDismiss } = useVideoTipReminder(
     {
       surface: "tiplink",
@@ -287,10 +427,7 @@ export function TipLinkLandingClient({
       hostFirstName,
       videoTitle: channel.title,
       deepLinkUrl: `/l/${tipLink.slug}`,
-      onTipNow: () => {
-        setOpenTipDrawerNonce(n => n + 1);
-        setIsTipDrawerOpen(true);
-      },
+      onTipNow: () => setIsTipDrawerOpen(true),
     }
   );
 
@@ -335,6 +472,19 @@ export function TipLinkLandingClient({
       });
     });
   }, [channelId, event.communityId, eventId]);
+
+  useEffect(() => {
+    const onOrientation = () => {
+      const landscape =
+        typeof window !== "undefined" &&
+        window.matchMedia("(orientation: landscape)").matches;
+      if (!landscape) {
+        setLandscapeLayoutDismissed(false);
+      }
+    };
+    window.addEventListener("orientationchange", onOrientation);
+    return () => window.removeEventListener("orientationchange", onOrientation);
+  }, []);
 
   useEffect(() => {
     if (!isEnlargeMode) return;
@@ -424,15 +574,33 @@ export function TipLinkLandingClient({
       return;
     }
 
+    const measureInView = () => {
+      const headerBottom =
+        stickyClusterRef.current?.getBoundingClientRect().bottom ?? 96;
+      const anchorRect = anchor.getBoundingClientRect();
+      setIsPlayerInView(anchorRect.bottom > headerBottom + 8);
+    };
+
     const headerHeight = stickyClusterRef.current?.offsetHeight ?? 96;
+    measureInView();
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsPlayerInView(entry.isIntersecting);
+        if (entry.isIntersecting) {
+          setIsPlayerInView(true);
+        } else {
+          measureInView();
+        }
       },
       { threshold: 0, rootMargin: `-${headerHeight}px 0px 0px 0px` }
     );
     observer.observe(anchor);
-    return () => observer.disconnect();
+    window.addEventListener("scroll", measureInView, { passive: true });
+    window.addEventListener("resize", measureInView);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", measureInView);
+      window.removeEventListener("resize", measureInView);
+    };
   }, [showStickyHeader, isEnlargeMode]);
 
   useLayoutEffect(() => {
@@ -464,7 +632,7 @@ export function TipLinkLandingClient({
       window.removeEventListener("scroll", updateDockRect);
       window.removeEventListener("resize", updateDockRect);
     };
-  }, [isDocked, isMobile]);
+  }, [isDocked]);
 
   const emitEncounter = useCallback(() => {
     if (!eventId || !channelId) return;
@@ -562,21 +730,31 @@ export function TipLinkLandingClient({
 
   const enterImmersive = useCallback(() => {
     preservePlaybackBeforeLayout();
-    if (isMobile) {
+    if (isMobileSurface) {
       enterFull();
       return;
     }
     setIsDesktopImmersive(true);
-  }, [enterFull, isMobile, preservePlaybackBeforeLayout]);
+  }, [enterFull, isMobileSurface, preservePlaybackBeforeLayout]);
 
   const exitImmersive = useCallback(() => {
     preservePlaybackBeforeLayout();
-    if (isMobile) {
-      exitFull();
+    if (isMobileSurface) {
+      if (isFullView) {
+        exitFull();
+      } else if (showPhoneLandscapeImmersive) {
+        setLandscapeLayoutDismissed(true);
+      }
       return;
     }
     setIsDesktopImmersive(false);
-  }, [exitFull, isMobile, preservePlaybackBeforeLayout]);
+  }, [
+    exitFull,
+    isFullView,
+    isMobileSurface,
+    preservePlaybackBeforeLayout,
+    showPhoneLandscapeImmersive,
+  ]);
 
   const openSaveVideoSignIn = useCallback(() => {
     pendingSaveVideoRef.current = true;
@@ -610,6 +788,35 @@ export function TipLinkLandingClient({
     return `${origin}${tipLink.landingUrl}`;
   }, [tipLink.landingUrl]);
 
+  const tipLinkExploreHandoff = useMemo(
+    () =>
+      buildTipLinkExploreHandoff({
+        channelId: channel.id,
+        eventId,
+        url: channel.url,
+        title: channel.title,
+        hostUsername: host.username,
+        numOfTips: channel.numOfTips,
+        amountRaised: event.amountRaised,
+        amountToRaise: event.amountToRaise,
+      }),
+    [
+      channel.id,
+      channel.numOfTips,
+      channel.title,
+      channel.url,
+      event.amountRaised,
+      event.amountToRaise,
+      eventId,
+      host.username,
+    ]
+  );
+
+  const tipLinkExploreHref = useMemo(
+    () => buildExploreVideoHref(tipLinkExploreHandoff),
+    [tipLinkExploreHandoff]
+  );
+
   const storeLinks = useMemo(
     (): TipLinkStoreRow[] =>
       buildTipLinkStoreRows({
@@ -619,12 +826,18 @@ export function TipLinkLandingClient({
         tiktokUrl: tipLink.tiktokUrl,
         customLinkLabel: tipLink.customLinkLabel,
         customLinkUrl: tipLink.customLinkUrl,
-        tipmannaExploreUrl: buildExploreVideoHref({
-          videoId: channel.id,
-          eventId,
-        }),
+        tipmannaExploreUrl: tipLinkExploreHref,
       }),
-    [channel.id, eventId, tipLink]
+    [tipLink, tipLinkExploreHref]
+  );
+
+  const handleOpenTipLinkExplore = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault();
+      stashExplorePendingHandoff(tipLinkExploreHandoff);
+      window.open(tipLinkExploreHref, "_blank", "noopener,noreferrer");
+    },
+    [tipLinkExploreHandoff, tipLinkExploreHref]
   );
 
   const handleShare = useCallback(async () => {
@@ -684,7 +897,12 @@ export function TipLinkLandingClient({
     });
   }, [user]);
 
-  const tipDrawerMounted = isTipDrawerOpen || openWalletModalNonce > 0;
+  const drawerOpen = isTipDrawerOpen || openWalletModalNonce > 0;
+  const drawerStripeEnabled = shouldLoadTipStripe({
+    previewMode: preview,
+    drawerOpen,
+  });
+  const tipDrawerMounted = drawerOpen;
 
   const renderScrubber = (variant: "inline" | "immersive" | "landscape") => (
     <div
@@ -724,13 +942,34 @@ export function TipLinkLandingClient({
           {isMuted ? "Unmute" : "Mute"}
         </button>
         {!isImmersiveRoom && variant === "inline" ? (
-          <button
-            type="button"
-            className="rounded-md bg-white/10 px-3 py-1"
-            onClick={enterImmersive}
-          >
-            Enlarge
-          </button>
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded-md border border-white/20 bg-white/10 p-1"
+              onClick={enterImmersive}
+              aria-label="Enlarge video"
+            >
+              <Maximize2 className="size-4" />
+            </button>
+            {isMobileSurface ? (
+              <button
+                type="button"
+                className="rounded-md border border-white/20 bg-white/10 p-1"
+                onClick={toggleFullVariant}
+                aria-label={
+                  fullLayoutToggleShowsPortraitIcon
+                    ? "Portrait full layout"
+                    : "Landscape full layout"
+                }
+              >
+                {fullLayoutToggleShowsPortraitIcon ? (
+                  <RectangleVertical className="size-4" />
+                ) : (
+                  <RectangleHorizontal className="size-4" />
+                )}
+              </button>
+            ) : null}
+          </span>
         ) : null}
       </div>
       <div
@@ -766,11 +1005,17 @@ export function TipLinkLandingClient({
           <button
             type="button"
             onClick={() => setIsTipDrawerOpen(true)}
-            className="mb-0 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-white shadow"
+            className="mb-0 flex shrink-0 items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
           >
-            <ChevronsUp className="text-primary size-4" />
+            <Sparkles
+              className="text-primary size-3.5"
+              aria-hidden
+            />
             {tipPres.sectionCtaLabel?.trim() || "Engage"}
-            <ChevronsUp className="text-primary size-4" />
+            <ChevronsUp
+              className="text-primary size-4"
+              aria-hidden
+            />
           </button>
         ) : null}
       </div>
@@ -786,7 +1031,7 @@ export function TipLinkLandingClient({
     </div>
   );
 
-  const dockFallback = isMobile
+  const dockFallback = isMobileSurface
     ? { width: DOCK_WIDTH_MOBILE, height: DOCK_HEIGHT_MOBILE }
     : { width: DOCK_WIDTH_DESKTOP, height: DOCK_HEIGHT_DESKTOP };
 
@@ -819,7 +1064,25 @@ export function TipLinkLandingClient({
         height: inlineRect.height,
       };
     }
-    return undefined;
+    const anchor = playerAnchorRef.current;
+    if (anchor) {
+      const rect = anchor.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        return {
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height,
+        };
+      }
+    }
+    return {
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      visibility: "hidden" as const,
+    };
   }, [
     dockFallback.height,
     dockFallback.width,
@@ -834,7 +1097,7 @@ export function TipLinkLandingClient({
   const inlineScrubberVariant = isDocked ? null : "inline";
   const floatingScrubberVariant: "immersive" | "landscape" | null =
     isEnlargeMode
-      ? isMobileLandscape && !isFullView
+      ? showPhoneLandscapeImmersive && !isFullView
         ? "landscape"
         : "immersive"
       : null;
@@ -846,8 +1109,8 @@ export function TipLinkLandingClient({
         isImmersiveRoom
           ? immersivePlayerStageClassName(
               isFullView || isDesktopImmersive,
-              isMobile,
-              isDesktopImmersive && !isMobile
+              isMobileSurface,
+              isDesktopImmersive && !isMobileSurface
                 ? "landscape_video"
                 : immersiveLayout
             )
@@ -855,9 +1118,18 @@ export function TipLinkLandingClient({
               "h-full w-full overflow-hidden",
               !isPlayerFloating && "relative aspect-video w-full"
             ),
-        isMobileLandscape && !isFullView && "h-full min-h-0 flex-1"
+        showPhoneLandscapeImmersive && !isFullView && "h-full min-h-0 flex-1"
       )}
     >
+      {countryDisplay ? (
+        <img
+          src={countryDisplay.flagUrl}
+          alt={countryDisplay.flagCode ?? "Country"}
+          width={24}
+          height={16}
+          className="pointer-events-none absolute top-2 left-2 z-[52] h-4 w-6 rounded-sm object-cover shadow"
+        />
+      ) : null}
       <VideoPlayer
         ref={videoRef}
         videoUrl={channel.url}
@@ -906,18 +1178,19 @@ export function TipLinkLandingClient({
     </TipLinkPlayerShell>
   );
 
-  const useFixedPlayerLayout = isDesktopEnlarge || Boolean(playerPositionStyle);
-
   const renderPlayerBlock = () => (
     <div className="relative w-full">
       <div
         key="tiplink-player"
         className={cn(
-          useFixedPlayerLayout ? "fixed" : "absolute inset-x-0 top-0 z-[1]",
-          isEnlargeMode ? "z-[100]" : "z-[60]",
-          isDesktopEnlarge && "inset-0 flex flex-col bg-black"
+          "fixed",
+          isDesktopEnlarge
+            ? "inset-0 z-[100] flex flex-col bg-black"
+            : isMobileEnlarge
+              ? "z-[105]"
+              : "z-[60]"
         )}
-        style={playerPositionStyle}
+        style={isDesktopEnlarge ? undefined : playerPositionStyle}
       >
         {isDesktopEnlarge ? (
           <ImmersiveMediaTopBar
@@ -931,8 +1204,8 @@ export function TipLinkLandingClient({
               cn(
                 immersiveMainRowClassName(
                   isFullView,
-                  isMobile,
-                  isDesktopImmersive && !isMobile
+                  isMobileSurface,
+                  isDesktopImmersive && !isMobileSurface
                     ? "landscape_video"
                     : immersiveLayout
                 ),
@@ -969,11 +1242,26 @@ export function TipLinkLandingClient({
 
   return (
     <>
-      <div className="tiplink-landing-bg min-h-screen text-white">
+      <div className="tiplink-landing-bg tiplink-galaxy-shell relative min-h-screen overflow-x-hidden text-white">
+        <div
+          className="tiplink-galaxy-bolt pointer-events-none absolute top-[18%] -right-8 z-0 opacity-30"
+          aria-hidden
+        >
+          <Image
+            src="/vectors/bolt_right.webp"
+            alt=""
+            width={72}
+            height={72}
+            className="size-16 sm:size-20"
+          />
+        </div>
         {showStickyHeader ? (
           <div
             ref={stickyClusterRef}
-            className="sticky top-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur-xl"
+            className={cn(
+              "sticky top-0 border-b border-white/10 bg-black/40 backdrop-blur-xl",
+              isMobileEnlarge ? "z-[110]" : "z-50"
+            )}
           >
             <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
               <div className="flex items-center gap-3">
@@ -1024,9 +1312,9 @@ export function TipLinkLandingClient({
                 className="min-w-0 flex-1"
               >
                 <TipLinkMetricsTicker
-                  visits={metrics.pageVisits90d}
+                  visits={displayMetrics.pageVisitCount}
                   tips={liveNumOfTips}
-                  shares={metrics.shares}
+                  shares={displayMetrics.shares}
                   sectionCtaLabel={tipPres.sectionCtaLabel}
                   docked={isDocked}
                   pipReserveMobile={PIP_RESERVE_MOBILE}
@@ -1035,24 +1323,13 @@ export function TipLinkLandingClient({
                 />
               </div>
               <div
+                ref={miniDockTargetRef}
                 className={cn(
-                  "flex shrink-0 items-center justify-end transition-[width,padding] duration-200 ease-out",
-                  isDocked
-                    ? "w-[108px] pr-3 md:w-[140px]"
-                    : "w-0 overflow-hidden p-0"
+                  "pointer-events-none absolute top-1/2 right-3 z-10 h-[54px] w-[96px] -translate-y-1/2 md:h-[72px] md:w-[128px]",
+                  !isDocked && "invisible"
                 )}
                 aria-hidden={!isDocked}
-              >
-                <div
-                  ref={miniDockTargetRef}
-                  className={cn(
-                    "shrink-0",
-                    isDocked
-                      ? "h-[54px] w-[96px] md:h-[72px] md:w-[128px]"
-                      : "hidden"
-                  )}
-                />
-              </div>
+              />
             </div>
           </div>
         ) : null}
@@ -1065,8 +1342,8 @@ export function TipLinkLandingClient({
 
         <main
           className={cn(
-            "mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6",
-            hideScrollContent &&
+            "relative z-[1] mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6",
+            isDesktopEnlarge &&
               "fixed inset-0 z-[100] max-w-none bg-black p-4 text-white"
           )}
         >
@@ -1078,8 +1355,8 @@ export function TipLinkLandingClient({
             >
               <TipSection
                 eventId={eventId}
-                tippingCharacters={tipPres.strip as RoomCharacter[]}
-                characterSets={baseTipSets}
+                tippingCharacters={displayStrip as RoomCharacter[]}
+                characterSets={resolvedDrawerSets}
                 paymentSurface="tiplink"
                 paymentChannelId={paymentChannelId}
                 getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
@@ -1088,10 +1365,15 @@ export function TipLinkLandingClient({
                 sectionCtaLabel={tipPres.sectionCtaLabel}
                 payLabel={tipPres.payLabel}
                 tipQuoteContext={tipPres.quoteCtx}
+                eliteCharacterIds={tipPres.eliteCharacterIds}
                 buttonColor="white"
                 shadowStyle="shadow-[0px_0px_2px_2px_#000]"
                 tipLink={true}
-                openTipDrawerNonce={openTipDrawerNonce}
+                previewMode={preview}
+                preserveStripOrder={tipPres.hasLiveLayout}
+                externalDrawer
+                onRequestOpenDrawer={() => setIsTipDrawerOpen(true)}
+                onRequestOpenWallet={() => setIsTipDrawerOpen(true)}
               />
             </section>
           ) : null}
@@ -1103,18 +1385,7 @@ export function TipLinkLandingClient({
           {!hideScrollContent ? (
             <>
               <section className="space-y-3 text-sm text-white/80">
-                <div className="flex items-center gap-2">
-                  {countryDisplay ? (
-                    <img
-                      src={countryDisplay.flagUrl}
-                      alt={countryDisplay.flagCode ?? "Country"}
-                      width={32}
-                      height={24}
-                      className="block h-6 w-8 object-cover"
-                    />
-                  ) : null}
-                  <h1 className="text-2xl font-bold">{channel.title}</h1>
-                </div>
+                <h1 className="text-2xl font-bold">{channel.title}</h1>
 
                 <div className="grid grid-cols-3 gap-2">
                   <Button
@@ -1125,7 +1396,7 @@ export function TipLinkLandingClient({
                   >
                     <MessageCircleMore className="mr-1 size-8 text-white/80" />{" "}
                     <span className="text-[10px] text-white/80">
-                      {metrics.comments} Comments
+                      {displayMetrics.comments} Comments
                     </span>
                   </Button>
                   <Button
@@ -1136,7 +1407,7 @@ export function TipLinkLandingClient({
                   >
                     <Bookmark className="mr-1 size-8 text-white/80" />{" "}
                     <span className="text-[10px] text-white/80">
-                      {metrics.saves} {saved ? "Saved" : "Save"}
+                      {displayMetrics.saves} {saved ? "Saved" : "Save"}
                     </span>
                   </Button>
 
@@ -1148,7 +1419,7 @@ export function TipLinkLandingClient({
                   >
                     <Share2 className="mr-1 size-8 text-white/80" />{" "}
                     <span className="text-[10px] text-white/80">
-                      {metrics.shares} Share
+                      {displayMetrics.shares} Share
                     </span>
                   </Button>
                 </div>
@@ -1171,6 +1442,7 @@ export function TipLinkLandingClient({
                           href={link.url!}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={handleOpenTipLinkExplore}
                           className="hover:border-primary/50 flex items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/20 px-4 py-3 transition"
                         >
                           <span className="flex min-w-0 items-center gap-2">
@@ -1181,7 +1453,11 @@ export function TipLinkLandingClient({
                               {link.label}
                             </span>
                           </span>
-                          <span className="text-primary shrink-0 text-xs">
+                          <span className="text-primary flex shrink-0 items-center gap-1 text-xs">
+                            <Sparkles
+                              className="size-3.5"
+                              aria-hidden
+                            />
                             {link.verb}
                           </span>
                         </a>
@@ -1217,7 +1493,15 @@ export function TipLinkLandingClient({
                 <section className="bg-primary/20 mt-6 overflow-hidden rounded-2xl border border-white/10 backdrop-blur-sm">
                   <div className="flex items-center justify-between pr-2">
                     <h2 className="flex flex-col border-b border-white/10 px-4 py-3 tracking-wide text-white/80">
-                      <span className="text-lg font-semibold uppercase">
+                      <span className="flex items-center gap-2 text-lg font-semibold uppercase">
+                        <Image
+                          src="/icons/diamond.png"
+                          alt=""
+                          width={18}
+                          height={18}
+                          className="size-[18px] opacity-80"
+                          aria-hidden
+                        />
                         {hostFirstName}&apos;s Pitch
                       </span>{" "}
                       <span className="text-xs text-white/70">
@@ -1227,8 +1511,12 @@ export function TipLinkLandingClient({
 
                     <a
                       href="#tip-section"
-                      className="bg-primary inline-flex h-8 items-center justify-center rounded-md px-1.5 px-5 py-0.5 py-3 text-black has-[>svg]:px-2.5"
+                      className="bg-primary inline-flex h-8 items-center justify-center gap-1 rounded-md px-5 py-3 text-black"
                     >
+                      <Sparkles
+                        className="size-3.5"
+                        aria-hidden
+                      />
                       {tipPres.sectionCtaLabel?.trim() || "Engage"}
                     </a>
                   </div>
@@ -1372,17 +1660,18 @@ export function TipLinkLandingClient({
 
         {tipDrawerMounted ? (
           <TippingElementsProvider
-            enabled={isTipDrawerOpen}
-            tippingCharacters={tipPres.strip as RoomCharacter[]}
+            enabled={drawerStripeEnabled}
+            tippingCharacters={drawerCatalog as RoomCharacter[]}
             textTipUnitPrice={tipPres.textUnitPrice}
           >
             <TipDrawer
               open={isTipDrawerOpen}
               onOpenChange={setIsTipDrawerOpen}
-              stripeCheckout={isTipDrawerOpen}
+              previewMode={preview}
+              stripeCheckout={drawerStripeEnabled}
               eventId={eventId}
-              tippingCharacters={tipPres.strip as RoomCharacter[]}
-              characterSets={baseTipSets}
+              tippingCharacters={drawerCatalog as RoomCharacter[]}
+              characterSets={resolvedDrawerSets}
               paymentSurface="tiplink"
               paymentChannelId={paymentChannelId}
               getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
@@ -1414,7 +1703,7 @@ export function TipLinkLandingClient({
           }
           showViewCount={event.showViewCountOnVideos === true}
           showEncounterCount={event.showEncounterOnVideos === true}
-          tippingCharacters={tipPres.strip as RoomCharacter[]}
+          tippingCharacters={displayStrip as RoomCharacter[]}
           onContinueToTip={() => setIsTipDrawerOpen(true)}
           hostName={host.fullName}
           hostUsername={host.username}
@@ -1455,7 +1744,7 @@ export function TipLinkLandingClient({
                 </div>
 
                 <p className="text-xs text-white/40">
-                  Seen: {metrics.encounters}
+                  Seen: {displayMetrics.encounters}
                 </p>
               </div>
 

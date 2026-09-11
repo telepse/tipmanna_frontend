@@ -124,7 +124,16 @@ export type TipLinkPublicPayload = {
       styleName?: string;
     }>;
   }>;
+  tipConfig?: import("@/lib/tip-config-types").ActiveTipConfigResponse;
   preview?: boolean;
+};
+
+export type TipLinkHydratePayload = {
+  characterSets: NonNullable<TipLinkPublicPayload["characterSets"]>;
+  metrics: Pick<
+    TipLinkPublicPayload["metrics"],
+    "saves" | "shares" | "comments" | "encounters"
+  >;
 };
 
 export type TipLinkCreateEligibility = {
@@ -277,11 +286,41 @@ export async function getPublicTipLinkAction(slug: string) {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      perAttemptTimeoutMs: 8000,
+      perAttemptTimeoutMs: 12000,
     },
     "getPublicTipLinkAction",
     undefined,
-    { maxAttempts: 2, totalDeadlineMs: 12000 }
+    { maxAttempts: 2, totalDeadlineMs: 15000 }
+  );
+}
+
+export async function getPublicTipLinkHydrateAction(slug: string) {
+  return runServerFetch<TipLinkHydratePayload>(
+    `${base()}/tiplinks/${encodeURIComponent(slug)}/hydrate`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      perAttemptTimeoutMs: 15000,
+    },
+    "getPublicTipLinkHydrateAction",
+    undefined,
+    { maxAttempts: 2, totalDeadlineMs: 20000 }
+  );
+}
+
+export async function getTipLinkPreviewHydrateAction(id: string) {
+  return runServerFetch<TipLinkHydratePayload>(
+    `${base()}/host/tiplinks/preview/${encodeURIComponent(id)}/hydrate`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+      perAttemptTimeoutMs: 15000,
+    },
+    "getTipLinkPreviewHydrateAction",
+    undefined,
+    { maxAttempts: 2, totalDeadlineMs: 20000 }
   );
 }
 
@@ -292,8 +331,11 @@ export async function getTipLinkPreviewAction(id: string) {
       method: "GET",
       headers: await serverHostAuthHeaders(),
       cache: "no-store",
+      perAttemptTimeoutMs: 12000,
     },
-    "getTipLinkPreviewAction"
+    "getTipLinkPreviewAction",
+    undefined,
+    { maxAttempts: 2, totalDeadlineMs: 15000 }
   );
 }
 

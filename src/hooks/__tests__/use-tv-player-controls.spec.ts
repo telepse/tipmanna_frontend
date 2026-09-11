@@ -236,7 +236,7 @@ describe("useTvPlayerControls", () => {
     unmount();
   });
 
-  it("reconcile mirrors player mute when session audio is not unlocked", () => {
+  it("reconcile re-applies session mute when pref is muted and player is unmuted", () => {
     vi.mocked(readTvMutePref).mockReturnValue(true);
     vi.mocked(hasSessionAudioUnlocked).mockReturnValue(false);
     const player = makePlayer({
@@ -249,7 +249,8 @@ describe("useTvPlayerControls", () => {
       vi.advanceTimersByTime(500);
     });
 
-    expect(result.current.isMuted).toBe(false);
+    expect(player.mute).toHaveBeenCalled();
+    expect(result.current.isMuted).toBe(true);
     unmount();
   });
 

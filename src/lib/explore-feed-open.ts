@@ -14,6 +14,11 @@ export type ExploreFeedOpenTarget = {
   /** When opened from Discover, channel back chip should restore this URL. */
   discoverReturnTo?: string;
   discoverReturnLabel?: string;
+  /**
+   * TipLink Explore handoff: always open in the Explore reel even when playback-route
+   * would normally redirect to the channel client.
+   */
+  stayInExploreReel?: boolean;
 };
 
 export function getExploreSlideStepPx(scrollRoot: HTMLElement): number {

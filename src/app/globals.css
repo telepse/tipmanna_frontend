@@ -1016,6 +1016,34 @@ video::-webkit-media-controls-picture-in-picture-button {
     linear-gradient(180deg, #1a1008 0%, #0a0a0a 45%, #000 100%);
 }
 
+.tiplink-galaxy-shell {
+  isolation: isolate;
+}
+
+.tiplink-galaxy-bolt {
+  animation: tiplink-galaxy-bolt-drift 18s ease-in-out infinite;
+  filter: drop-shadow(0 0 18px rgba(245, 125, 17, 0.35));
+}
+
+@keyframes tiplink-galaxy-bolt-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-6deg);
+    opacity: 0.22;
+  }
+  50% {
+    transform: translate3d(-12px, 8px, 0) rotate(2deg);
+    opacity: 0.34;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiplink-galaxy-bolt {
+    animation: none;
+    opacity: 0.18;
+  }
+}
+
 .tiplink-metrics-ticker-marquee {
   overflow: hidden;
   white-space: nowrap;

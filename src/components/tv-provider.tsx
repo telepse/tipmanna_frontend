@@ -55,6 +55,7 @@ import {
   type PendingAudioRestore,
 } from "@/lib/tv-autoplay";
 import {
+  shouldClearEmbedRecoveryInFlight,
   shouldRecoverTvPlayerEmbed,
   shouldRemountTvPlayer,
   TV_EMBED_HEALTH_POLL_MS,
@@ -1260,28 +1261,29 @@ export default function GlobalTVProvider({
     const stabilityActive = isTvStartupStabilityGuardActive();
     const guardEnabled = isTvStartupPlaybackGuardEnabled();
 
-    if (guardEnabled) {
-      if (markStartupFirstPlay(guard)) {
-        inFlightOrchestratedVideoIdRef.current = null;
-        tvStartupEvent("first_play_guard_released", {
+    const firstPlayThisEvent = markStartupFirstPlay(guard);
+    if (firstPlayThisEvent) {
+      inFlightOrchestratedVideoIdRef.current = null;
+    }
+    if (guardEnabled && firstPlayThisEvent) {
+      tvStartupEvent("first_play_guard_released", {
+        trigger: "player_playing",
+        data: {
+          pendingLiveOffsetSeconds: guard.pendingLiveOffsetSeconds,
+          pendingLiveScheduleIndex: guard.pendingLiveScheduleIndex,
+          startupRecoveryCount: guard.startupRecoveryCount,
+        },
+      });
+      if (stabilityActive) {
+        markStartupAwaitingStablePlayback(guard);
+        tvStartupEvent("startup_stability_guard_activated", {
           trigger: "player_playing",
           data: {
-            pendingLiveOffsetSeconds: guard.pendingLiveOffsetSeconds,
-            pendingLiveScheduleIndex: guard.pendingLiveScheduleIndex,
-            startupRecoveryCount: guard.startupRecoveryCount,
+            recoveryCount: guard.startupRecoveryCount,
+            recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
+            failedTargetCount: guard.failedVideoIds.size,
           },
         });
-        if (stabilityActive) {
-          markStartupAwaitingStablePlayback(guard);
-          tvStartupEvent("startup_stability_guard_activated", {
-            trigger: "player_playing",
-            data: {
-              recoveryCount: guard.startupRecoveryCount,
-              recoveryCap: MAX_STARTUP_PLAYER_RECOVERIES,
-              failedTargetCount: guard.failedVideoIds.size,
-            },
-          });
-        }
       }
     }
     if (isTvInitialLiveOffsetEmbedEnabled()) {
@@ -2644,6 +2646,17 @@ export default function GlobalTVProvider({
         playerVisibleRef.current &&
         startupPlaybackGuardRef.current.firstPlayReached &&
         !player;
+
+      const recoveryElapsedMs = now - lastEmbedRecoveryAtRef.current;
+      if (
+        shouldClearEmbedRecoveryInFlight({
+          embedRecoveryInFlight: embedRecoveryInFlightRef.current,
+          commandReady,
+          elapsedMs: recoveryElapsedMs,
+        })
+      ) {
+        embedRecoveryInFlightRef.current = false;
+      }
 
       if (
         shouldRecoverTvPlayerEmbed({

@@ -117,6 +117,19 @@ export function shouldRecoverTvPlayerEmbed(opts: TvEmbedHealthProbe): boolean {
   return false;
 }
 
+/** Clear stuck recovery latch when remount did not become command-ready in time. */
+export function shouldClearEmbedRecoveryInFlight(opts: {
+  embedRecoveryInFlight: boolean;
+  commandReady: boolean;
+  elapsedMs: number;
+  timeoutMs?: number;
+}): boolean {
+  if (!opts.embedRecoveryInFlight) return false;
+  if (opts.commandReady) return false;
+  const timeoutMs = opts.timeoutMs ?? TV_EMBED_ONREADY_TIMEOUT_MS;
+  return opts.elapsedMs >= timeoutMs;
+}
+
 /**
  * SPA remount recovery: only when the iframe is dead and playback API is gone.
  * Does not remount merely because onReady is late (command-ready uses playback API).

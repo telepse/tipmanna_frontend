@@ -58,6 +58,7 @@ import {
   readExplorePendingHandoff,
   clearExplorePendingHandoff,
   handoffKeyForTarget,
+  mergeExploreHandoffTargets,
 } from "@/lib/explore-video-navigation";
 import { warmExploreVideoHandoff } from "@/lib/explore-video-handoff-warm";
 import {
@@ -1198,8 +1199,7 @@ export default function ExplorePageClient({
 
     const urlTarget = exploreOpenTargetFromUrl(sp);
     const pending = readExplorePendingHandoff();
-    // Prefer explicit URL handoff over stale sessionStorage pending handoff.
-    const target = urlTarget ?? pending;
+    const target = mergeExploreHandoffTargets(urlTarget, pending);
 
     if (!target) {
       lastHandledVideoHandoffKeyRef.current = null;
