@@ -21,10 +21,13 @@ export function useTipLinkProfileCreate({
   events,
   tipLinks,
   isOwnProfile,
+  onDraftCreated,
 }: {
   events: HostCreatorEvent[];
   tipLinks: TipLinkSummary[];
   isOwnProfile: boolean;
+  /** Called after a draft is created (e.g. switch profile tab to List). */
+  onDraftCreated?: (draft: TipLinkSummary) => void;
 }) {
   const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
   const { handleSubscriptionActionError, SubscriptionPromptModal } =
@@ -65,6 +68,9 @@ export function useTipLinkProfileCreate({
     (video: TipLinkPickerVideo) => {
       requestHostAuth(async () => {
         setCreatingChannelId(video.channelId);
+        toast.info("Creating TipLink draft…", {
+          toastId: "tiplink-draft-create",
+        });
         try {
           const slugRes = await suggestTipLinkSlugAction(video.title);
           const slug =
@@ -79,15 +85,26 @@ export function useTipLinkProfileCreate({
             toast.error(res.message ?? "Could not create TipLink draft");
             return;
           }
+          const draft = res.data.tipLink;
+          setDraftTipLinks(prev => {
+            if (prev.some(t => t.id === draft.id)) return prev;
+            return [draft, ...prev];
+          });
+          onDraftCreated?.(draft);
           toast.success("TipLink draft created");
           setPickerOpen(false);
-          refreshDrafts();
+          void refreshDrafts();
         } finally {
           setCreatingChannelId(null);
         }
       });
     },
-    [handleSubscriptionActionError, refreshDrafts, requestHostAuth]
+    [
+      handleSubscriptionActionError,
+      onDraftCreated,
+      refreshDrafts,
+      requestHostAuth,
+    ]
   );
 
   const openPicker = useCallback(() => setPickerOpen(true), []);

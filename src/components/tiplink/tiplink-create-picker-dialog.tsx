@@ -37,6 +37,13 @@ export function TipLinkCreatePickerDialog({
           <DialogTitle>Create TipLink</DialogTitle>
         </DialogHeader>
 
+        {creatingChannelId ? (
+          <p className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Loader2 className="size-4 animate-spin" />
+            Creating TipLink draft…
+          </p>
+        ) : null}
+
         {videos.length === 0 ? (
           <div className="space-y-3 py-4 text-sm">
             <p className="text-muted-foreground">

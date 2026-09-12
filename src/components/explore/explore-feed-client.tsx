@@ -85,7 +85,7 @@ import { LiveStreamFeedBadge } from "@/components/video/live-stream-feed-badge";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
-import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
+import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
 import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { Button } from "@/components/ui/button";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
@@ -118,6 +118,7 @@ import {
   scrollExploreFeedToIndex,
   getExploreSlideStepPx,
   resolveExploreFeedScrollIndex,
+  prependExploreHandoffItem,
 } from "@/lib/explore-feed-open";
 import { cn } from "@/lib/utils";
 import {
@@ -1363,11 +1364,13 @@ export const ExploreFeedClient = forwardRef<
 
   const resolvedDrawerSets = useMemo(
     () =>
-      resolveTipDrawerSets(
+      resolveTipDrawerPresentation(
         characterSetsForDrawer,
-        tipPres.catalog as RoomCharacter[]
-      ),
-    [characterSetsForDrawer, tipPres.catalog]
+        tipPres.catalog as RoomCharacter[],
+        undefined,
+        tipPres.eliteCharacterIds
+      ).drawerSets,
+    [characterSetsForDrawer, tipPres.catalog, tipPres.eliteCharacterIds]
   );
 
   const tipPriceCatalog = useMemo(
@@ -2015,14 +2018,15 @@ export const ExploreFeedClient = forwardRef<
       const existingIdx = itemsRef.current.findIndex(i => i.id === videoId);
       if (existingIdx >= 0) {
         openingVideoIdRef.current = videoId;
-        setItems(prev => {
-          if (myGen !== openGenerationRef.current) return prev;
-          const idx = prev.findIndex(i => i.id === videoId);
-          if (idx < 0) return prev;
-          const row = prev[idx];
-          return [row, ...prev.filter(i => i.id !== videoId)];
-        });
-        commitPendingOpenScroll();
+        if (forceStayInReel && existingIdx > 0) {
+          setItems(prev =>
+            prependExploreHandoffItem(prev, videoId, prev[existingIdx]!)
+          );
+          setScrollSyncEpoch(e => e + 1);
+          setActiveIndex(0);
+        } else {
+          commitPendingOpenScroll();
+        }
         const existing = itemsRef.current[existingIdx];
         const needsEnrichment =
           !metricsFromFeedItem(existing) ||
@@ -2043,12 +2047,12 @@ export const ExploreFeedClient = forwardRef<
               if (myGen !== openGenerationRef.current) return prev;
               const idx = prev.findIndex(i => i.id === videoId);
               if (idx < 0) return prev;
-              const next = [...prev];
-              next[idx] = { ...prev[idx], ...enriched };
-              if (idx > 0) {
-                const [row] = next.splice(idx, 1);
-                next.unshift(row);
+              const merged = { ...prev[idx], ...enriched };
+              if (forceStayInReel) {
+                return prependExploreHandoffItem(prev, videoId, merged);
               }
+              const next = [...prev];
+              next[idx] = merged;
               return next;
             });
           });
@@ -2061,12 +2065,8 @@ export const ExploreFeedClient = forwardRef<
         setItems(prev => {
           if (myGen !== openGenerationRef.current) return prev;
           if (openingVideoIdRef.current !== videoId) return prev;
-          const existingAt = prev.findIndex(i => i.id === videoId);
-          if (existingAt >= 0) {
-            const row = prev[existingAt];
-            return [row, ...prev.filter(i => i.id !== videoId)];
-          }
-          return [snapshotRow, ...prev.filter(i => i.id !== videoId)];
+          if (prev.some(i => i.id === videoId)) return prev;
+          return prependExploreHandoffItem(prev, videoId, snapshotRow);
         });
         commitPendingOpenScroll();
         void resolveExploreOpenChannelRow(target).then(enriched => {
@@ -2084,8 +2084,12 @@ export const ExploreFeedClient = forwardRef<
             if (myGen !== openGenerationRef.current) return prev;
             const idx = prev.findIndex(i => i.id === videoId);
             if (idx < 0) return prev;
+            const merged = { ...prev[idx], ...enriched };
+            if (forceStayInReel) {
+              return prependExploreHandoffItem(prev, videoId, merged);
+            }
             const next = [...prev];
-            next[idx] = { ...prev[idx], ...enriched };
+            next[idx] = merged;
             return next;
           });
         });

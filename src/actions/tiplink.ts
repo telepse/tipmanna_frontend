@@ -216,9 +216,6 @@ export async function createTipLinkDraftAction(input: {
     },
     "createTipLinkDraftAction"
   );
-  if (res.success) {
-    revalidatePath("/");
-  }
   return res;
 }
 

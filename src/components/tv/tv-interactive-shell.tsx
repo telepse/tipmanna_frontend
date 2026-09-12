@@ -119,7 +119,7 @@ import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
 import { useTV } from "../tv-provider";
-import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
+import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
@@ -243,13 +243,15 @@ export function TvInteractiveShell({
     { paymentSurface: tvAnalyticsSurface }
   );
 
-  const resolvedDrawerSets = useMemo(
+  const { drawerSets: resolvedDrawerSets, stripPool: tipStripPool } = useMemo(
     () =>
-      resolveTipDrawerSets(
+      resolveTipDrawerPresentation(
         characterSetsForDrawer,
-        tipPres.catalog as RoomCharacter[]
+        tipPres.catalog as RoomCharacter[],
+        undefined,
+        tipPres.eliteCharacterIds
       ),
-    [characterSetsForDrawer, tipPres.catalog]
+    [characterSetsForDrawer, tipPres.catalog, tipPres.eliteCharacterIds]
   );
 
   const handleTipFromFeatureCard = useCallback(
@@ -1098,6 +1100,7 @@ export function TvInteractiveShell({
                   key={videoTipKey || tipDrawerEventId}
                   eventId={tipDrawerEventId}
                   tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+                  stripCharacters={tipStripPool as RoomCharacter[]}
                   characterSets={resolvedDrawerSets}
                   paymentSurface={tvAnalyticsSurface}
                   paymentCommunityId={scheduleSourceCommunityId ?? undefined}
@@ -1107,7 +1110,6 @@ export function TvInteractiveShell({
                   sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
                   payLabel={tipPres.payLabel ?? "Pay"}
                   eliteCharacterIds={tipPres.eliteCharacterIds}
-                  preserveStripOrder={tipPres.hasLiveLayout}
                   stackDrawerAboveImmersive
                   externalDrawer
                   onRequestOpenDrawer={() => setIsTipDrawerOpen(true)}

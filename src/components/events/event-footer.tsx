@@ -22,6 +22,7 @@ interface Props {
   eliteCharacterIds?: string[];
   openTipDrawerNonce?: number;
   preserveStripOrder?: boolean;
+  stripCharacters?: Character[];
 }
 
 export const EventFooter = ({
@@ -36,6 +37,7 @@ export const EventFooter = ({
   eliteCharacterIds,
   openTipDrawerNonce,
   preserveStripOrder,
+  stripCharacters,
 }: Props) => {
   return (
     <div className="mini-wrapper h-[210px] w-full flex-shrink-0 rounded-t-xl border-t bg-white px-4 py-1 shadow-sm">
@@ -52,6 +54,7 @@ export const EventFooter = ({
           eliteCharacterIds={eliteCharacterIds}
           openTipDrawerNonce={openTipDrawerNonce}
           preserveStripOrder={preserveStripOrder}
+          stripCharacters={stripCharacters}
         />
       </div>
     </div>

@@ -48,6 +48,7 @@ import { RoomCharacter } from "@/types";
 import { computeTipCartTotal } from "@/lib/tip-cart-total";
 import { shouldLoadTipStripe } from "@/lib/should-load-tip-stripe";
 import { shuffleTipStrip } from "@/lib/shuffle-tip-strip";
+import { PUBLIC_STRIP_POOL_MAX } from "@/lib/resolve-tip-drawer-sets";
 import { CopyLinkButton } from "./copy-link-button";
 
 interface Props {
@@ -83,6 +84,8 @@ interface Props {
   onRequestOpenWallet?: () => void;
   /** Live published section order — do not randomize host strip. */
   preserveStripOrder?: boolean;
+  /** Characters for the visible strip shuffle; defaults to tippingCharacters. */
+  stripCharacters?: any[];
 }
 
 export const TipSection = ({
@@ -110,6 +113,7 @@ export const TipSection = ({
   onRequestOpenDrawer,
   onRequestOpenWallet,
   preserveStripOrder = false,
+  stripCharacters,
 }: Props) => {
   const sectionCta = sectionCtaLabel?.trim() || "Engage";
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -155,12 +159,14 @@ export const TipSection = ({
     externalDrawer ? () => onRequestOpenDrawer?.() : setOpenDrawer
   );
 
+  const stripPool = stripCharacters ?? tippingCharacters;
+
   const allTips = useMemo(
     () =>
-      shuffleTipStrip(tippingCharacters, eliteCharacterIds, {
+      shuffleTipStrip(stripPool, eliteCharacterIds, {
         preserveHostOrder: preserveStripOrder,
       }),
-    [tippingCharacters, eliteCharacterIds, preserveStripOrder]
+    [stripPool, eliteCharacterIds, preserveStripOrder]
   );
 
   const openTextDraftModalOnly = () => {
@@ -398,32 +404,20 @@ export const TipSection = ({
             <TipRewardTurboIcons eligibility={rewardEligibility} />
           </div>
 
-          {/* Engage button */}
-          {/* <Button
-            size="lg"
-            onClick={handleOpenDrawer}
-            disabled={paymentCompleted || stripeLoading || isOpeningDrawer}
-            className="relative col-span-6 mb-2 ml-4 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm lg:col-span-2 open_sans!"
-            style={{
-              color: buttonColor,
-            }}
-          >
-            <ChevronsUp className="text-primary -mr-2" /> {tipLink ? sectionCta.toUpperCase() : sectionCta}{" "}
-            <ChevronsUp className="text-primary -ml-2" />
-            
-          </Button> */}
-          <button
-            onClick={handleEngageOpen}
-            disabled={paymentCompleted}
-            className="open_sans relative col-span-6 mb-2 ml-6 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm lg:col-span-2"
-            style={{
-              color: buttonColor,
-            }}
-          >
-            <ChevronsUp className="text-primary -mr-1" />{" "}
-            {tipLink ? sectionCta.toUpperCase() : sectionCta}{" "}
-            <ChevronsUp className="text-primary -ml-1" />
-          </button>
+          <div className="col-span-6 mb-2 flex justify-center lg:col-span-2">
+            <button
+              onClick={handleEngageOpen}
+              disabled={paymentCompleted}
+              className="open_sans relative flex h-6 w-full max-w-full min-w-[7ch] items-center justify-center gap-0.5 rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm"
+              style={{
+                color: buttonColor,
+              }}
+            >
+              <ChevronsUp className="text-primary shrink-0" />
+              {tipLink ? sectionCta.toUpperCase() : sectionCta}
+              <ChevronsUp className="text-primary shrink-0" />
+            </button>
+          </div>
 
           {/* Reward galaxy */}
           <div className="col-span-3 flex flex-row items-center justify-end gap-1 lg:col-span-5 lg:flex-row lg:gap-2">
@@ -445,7 +439,7 @@ export const TipSection = ({
             className="flex h-20 min-w-max flex-wrap content-start gap-1 overflow-x-auto px-1"
             style={{ rowGap: "1rem" }}
           >
-            {allTips.slice(0, 13).map(character => {
+            {allTips.slice(0, PUBLIC_STRIP_POOL_MAX).map(character => {
               const characterName = tipCartNameForCharacter(character);
               const count = getSelectedCount(characterName);
               const isTextCharacter = isTextTipCharacterRef(character);

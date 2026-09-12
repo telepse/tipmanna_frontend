@@ -163,7 +163,7 @@ import { useFeatureCardTipContext } from "@/components/video-feature/feature-car
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { mergeTipPriceCatalog } from "@/lib/tip-text-selection";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
-import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
+import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
 import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { NotificationBadge } from "../notifications/notification-badge";
 
@@ -217,10 +217,15 @@ export const ChannelClient = ({
     quoteLock: isTipCustomizationEnabled(),
     paymentSurface: "channel_client",
   });
-  const tipStrip = tipPres.strip;
-  const tipSets = useMemo(
-    () => resolveTipDrawerSets(baseTipSets, tipPres.catalog as RoomCharacter[]),
-    [baseTipSets, tipPres.catalog]
+  const { drawerSets: tipSets, stripPool: tipStripPool } = useMemo(
+    () =>
+      resolveTipDrawerPresentation(
+        baseTipSets,
+        tipPres.catalog as RoomCharacter[],
+        undefined,
+        tipPres.eliteCharacterIds
+      ),
+    [baseTipSets, tipPres.catalog, tipPres.eliteCharacterIds]
   );
   const tipPriceCatalog = useMemo(
     () =>
@@ -341,13 +346,13 @@ export const ChannelClient = ({
   useGlobalTipStream({ eventId, surface: "channel_client" });
   usePaymentAnimationPlayer({
     eventId,
-    characters: tipStrip as RoomCharacter[],
+    characters: tipPriceCatalog as RoomCharacter[],
     surface: "channel_client",
   });
   usePayerOriginAnimationRecovery({
     eventId,
     paymentSurface: "channel_client",
-    characters: tipStrip as RoomCharacter[],
+    characters: tipPriceCatalog as RoomCharacter[],
     surface: "channel_client",
   });
   usePaymentPlaybackRestore({
@@ -1526,7 +1531,7 @@ export const ChannelClient = ({
 
             {tipPreviewOpen && !isFullView && !isMobileLandscape && (
               <TippingElementsProvider
-                tippingCharacters={tipStrip as RoomCharacter[]}
+                tippingCharacters={tipStripPool as RoomCharacter[]}
                 enabled={false}
                 textTipUnitPrice={tipPres.textUnitPrice}
               >
@@ -1534,7 +1539,8 @@ export const ChannelClient = ({
                   <div className="relative">
                     <TipSection
                       eventId={eventId}
-                      tippingCharacters={tipStrip as RoomCharacter[]}
+                      tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+                      stripCharacters={tipStripPool as RoomCharacter[]}
                       characterSets={tipSets}
                       paymentSurface="channel_client"
                       paymentChannelId={paymentChannelIdForTip}
@@ -1545,7 +1551,6 @@ export const ChannelClient = ({
                       payLabel={tipPres.payLabel}
                       tipQuoteContext={tipPres.quoteCtx}
                       eliteCharacterIds={tipPres.eliteCharacterIds}
-                      preserveStripOrder={tipPres.hasLiveLayout}
                       externalDrawer
                       onRequestOpenDrawer={() => openPageTipDrawer()}
                       onRequestOpenWallet={() => openPageTipDrawer()}
@@ -1765,14 +1770,14 @@ export const ChannelClient = ({
       {/* Tip drawer section - LAPTOP */}
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
-          tippingCharacters={tipStrip as RoomCharacter[]}
+          tippingCharacters={tipPriceCatalog as RoomCharacter[]}
           textTipUnitPrice={tipPres.textUnitPrice}
         >
           <TipDrawer
             open={isTipDrawerOpen}
             onOpenChange={setIsTipDrawerOpen}
             eventId={eventId}
-            tippingCharacters={tipStrip as RoomCharacter[]}
+            tippingCharacters={tipPriceCatalog as RoomCharacter[]}
             characterSets={tipSets}
             paymentSurface="channel_client"
             paymentChannelId={paymentChannelIdForTip}
@@ -1882,7 +1887,7 @@ export const ChannelClient = ({
 
       {/* Tip section - MOBILE */}
       <TippingElementsProvider
-        tippingCharacters={tipStrip as RoomCharacter[]}
+        tippingCharacters={tipStripPool as RoomCharacter[]}
         enabled={false}
         textTipUnitPrice={tipPres.textUnitPrice}
       >
@@ -1900,7 +1905,8 @@ export const ChannelClient = ({
         >
           <TipSection
             eventId={eventId}
-            tippingCharacters={tipStrip as RoomCharacter[]}
+            tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+            stripCharacters={tipStripPool as RoomCharacter[]}
             characterSets={tipSets}
             paymentSurface="channel_client"
             paymentChannelId={paymentChannelIdForTip}
@@ -1912,7 +1918,6 @@ export const ChannelClient = ({
             payLabel={tipPres.payLabel}
             tipQuoteContext={tipPres.quoteCtx}
             eliteCharacterIds={tipPres.eliteCharacterIds}
-            preserveStripOrder={tipPres.hasLiveLayout}
             externalDrawer
             onRequestOpenDrawer={() => openPageTipDrawer()}
             onRequestOpenWallet={() => openPageTipDrawer()}

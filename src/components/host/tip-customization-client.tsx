@@ -34,7 +34,7 @@ import { TipSection } from "@/components/events/tip-section";
 import { buildTipPresentation } from "@/lib/merge-tip-config";
 import {
   buildFallbackDrawerSetsFromCharacters,
-  resolveTipDrawerSets,
+  resolveTipDrawerPresentation,
 } from "@/lib/resolve-tip-drawer-sets";
 import {
   buildTipCharacterMap,
@@ -349,27 +349,32 @@ export default function TipCustomizationClient({
       eventCatalogSets.length > 0
         ? eventCatalogSets
         : buildFallbackDrawerSetsFromCharacters(livePresentation.allEnriched);
-    return resolveTipDrawerSets(
+    return resolveTipDrawerPresentation(
       catalogSets,
       livePresentation.allEnriched,
-      buildFallbackDrawerSetsFromCharacters(livePresentation.allEnriched)
-    );
-  }, [eventCatalogSets, livePresentation]);
+      buildFallbackDrawerSetsFromCharacters(livePresentation.allEnriched),
+      publishedConfig?.eliteCharacterIds
+    ).drawerSets;
+  }, [eventCatalogSets, livePresentation, publishedConfig?.eliteCharacterIds]);
 
-  const previewDrawerSets = useMemo(() => {
-    if (!previewPresentation) return [];
-    const catalogSets =
-      eventCatalogSets.length > 0
-        ? eventCatalogSets
-        : buildFallbackDrawerSetsFromCharacters(
-            previewPresentation.allEnriched
-          );
-    return resolveTipDrawerSets(
-      catalogSets,
-      previewPresentation.allEnriched,
-      buildFallbackDrawerSetsFromCharacters(previewPresentation.allEnriched)
-    );
-  }, [eventCatalogSets, previewPresentation]);
+  const { drawerSets: previewDrawerSets, stripPool: previewStripPool } =
+    useMemo(() => {
+      if (!previewPresentation) {
+        return { drawerSets: [], stripPool: [] };
+      }
+      const catalogSets =
+        eventCatalogSets.length > 0
+          ? eventCatalogSets
+          : buildFallbackDrawerSetsFromCharacters(
+              previewPresentation.allEnriched
+            );
+      return resolveTipDrawerPresentation(
+        catalogSets,
+        previewPresentation.allEnriched,
+        buildFallbackDrawerSetsFromCharacters(previewPresentation.allEnriched),
+        draft?.eliteCharacterIds
+      );
+    }, [eventCatalogSets, previewPresentation, draft?.eliteCharacterIds]);
 
   const updatePremiumPrice = (itemId: string, priceGbp: number) => {
     if (!draft) return;
@@ -567,8 +572,9 @@ export default function TipCustomizationClient({
           <div className="space-y-3 rounded-lg border p-4">
             <h2 className="font-medium">Elite (Growth)</h2>
             <p className="text-muted-foreground text-xs">
-              Select up to 10 elite animations. They appear in their own drawer
-              tab and are prioritized in the tip strip.
+              Select up to 10 elite animations. They are prioritized in the tip
+              strip. The Elite drawer tab appears only when an Elite character
+              set is assigned to this event.
             </p>
             {eliteLibraryError ? (
               <p className="text-sm text-red-600">{eliteLibraryError}</p>
@@ -693,7 +699,8 @@ export default function TipCustomizationClient({
                 <TipSection
                   key={`preview-${previewRefreshKey}`}
                   eventId={eventId}
-                  tippingCharacters={previewPresentation.sectionStrip}
+                  tippingCharacters={previewPresentation.allEnriched}
+                  stripCharacters={previewStripPool}
                   characterSets={previewDrawerSets}
                   paymentSurface="event_room"
                   sectionCtaLabel={draft.ctaSectionLabel}

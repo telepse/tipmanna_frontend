@@ -238,6 +238,26 @@ export function HostCreatorPageClient({
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
+  const {
+    pickerOpen: tipLinkPickerOpen,
+    setPickerOpen: setTipLinkPickerOpen,
+    eligibleVideos: tipLinkEligibleVideos,
+    creatingChannelId: tipLinkCreatingChannelId,
+    draftTipLinks,
+    openPicker: openTipLinkPicker,
+    createDraftForVideo,
+    createDraftForChannelVideo,
+    HostAuthModal: TipLinkCreateHostAuthModal,
+    SubscriptionPromptModal: TipLinkCreateSubscriptionModal,
+  } = useTipLinkProfileCreate({
+    events,
+    tipLinks,
+    isOwnProfile,
+    onDraftCreated: () => {
+      handleTabChange("playlists");
+    },
+  });
+
   const playVideo = (video: HostCreatorVideo) => {
     if (video.locked) return;
     onVideoPlay?.();
@@ -467,6 +487,16 @@ export function HostCreatorPageClient({
         />
       ) : null}
 
+      <TipLinkCreatePickerDialog
+        open={tipLinkPickerOpen}
+        onOpenChange={setTipLinkPickerOpen}
+        videos={tipLinkEligibleVideos}
+        creatingChannelId={tipLinkCreatingChannelId}
+        onSelect={createDraftForVideo}
+      />
+      {TipLinkCreateHostAuthModal}
+      {TipLinkCreateSubscriptionModal}
+
       <section className="relative z-[1000] flex-1 bg-white">
         <div
           className={cn(
@@ -526,7 +556,8 @@ export function HostCreatorPageClient({
                 onPlay={playVideo}
                 isOwnProfile={isOwnProfile}
                 hostEventSlug={host.eventSlug}
-                tipLinks={tipLinks}
+                openTipLinkPicker={openTipLinkPicker}
+                createDraftForChannelVideo={createDraftForChannelVideo}
               />
             </TabsContent>
 
@@ -563,6 +594,8 @@ export function HostCreatorPageClient({
                 isOwnProfile={isOwnProfile}
                 hostEventSlug={host.eventSlug}
                 events={events}
+                draftTipLinks={draftTipLinks}
+                openTipLinkPicker={openTipLinkPicker}
               />
             </TabsContent>
           </Tabs>
@@ -958,7 +991,8 @@ function AllVideosTabContent({
   onPlay,
   isOwnProfile,
   hostEventSlug,
-  tipLinks,
+  openTipLinkPicker,
+  createDraftForChannelVideo,
 }: {
   events: HostCreatorEvent[];
   coOwnedVideos: HostCreatorVideo[];
@@ -967,20 +1001,13 @@ function AllVideosTabContent({
   onPlay: (video: HostCreatorVideo) => void;
   isOwnProfile: boolean;
   hostEventSlug: string | null;
-  tipLinks: TipLinkSummary[];
+  openTipLinkPicker: () => void;
+  createDraftForChannelVideo: (
+    eventId: string,
+    channelId: string,
+    title: string
+  ) => void;
 }) {
-  const {
-    pickerOpen,
-    setPickerOpen,
-    eligibleVideos,
-    creatingChannelId,
-    openPicker,
-    createDraftForVideo,
-    createDraftForChannelVideo,
-    HostAuthModal,
-    SubscriptionPromptModal,
-  } = useTipLinkProfileCreate({ events, tipLinks, isOwnProfile });
-
   const allVideos = useMemo(
     () => events.flatMap(event => event.videos),
     [events]
@@ -1052,7 +1079,7 @@ function AllVideosTabContent({
         {isOwnProfile && hostEventSlug ? (
           <button
             type="button"
-            onClick={openPicker}
+            onClick={openTipLinkPicker}
             className="border-primary/30 text-primary ml-auto inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold"
           >
             <Plus className="size-3.5" />
@@ -1096,15 +1123,6 @@ function AllVideosTabContent({
           }
         />
       )}
-      <TipLinkCreatePickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        videos={eligibleVideos}
-        creatingChannelId={creatingChannelId}
-        onSelect={createDraftForVideo}
-      />
-      {HostAuthModal}
-      {SubscriptionPromptModal}
     </div>
   );
 }
@@ -2329,26 +2347,19 @@ function PlaylistsTabContent({
   isOwnProfile,
   hostEventSlug,
   events,
+  draftTipLinks,
+  openTipLinkPicker,
 }: {
   playlists: HostPlaylistSummary[];
   tipLinks: TipLinkSummary[];
   isOwnProfile: boolean;
   hostEventSlug: string | null;
   events: HostCreatorEvent[];
+  draftTipLinks: TipLinkSummary[];
+  openTipLinkPicker: () => void;
 }) {
   const router = useRouter();
   const { requestHostAuth } = useHostCapabilityWithAuth();
-  const {
-    pickerOpen,
-    setPickerOpen,
-    eligibleVideos,
-    creatingChannelId,
-    draftTipLinks,
-    openPicker,
-    createDraftForVideo,
-    HostAuthModal,
-    SubscriptionPromptModal,
-  } = useTipLinkProfileCreate({ events, tipLinks, isOwnProfile });
 
   return (
     <div className="space-y-6 px-2 py-4">
@@ -2356,7 +2367,7 @@ function PlaylistsTabContent({
         <div className="flex justify-end px-2">
           <button
             type="button"
-            onClick={openPicker}
+            onClick={openTipLinkPicker}
             className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
           >
             <Plus className="size-3.5" />
@@ -2481,15 +2492,6 @@ function PlaylistsTabContent({
           </ul>
         </div>
       )}
-      <TipLinkCreatePickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        videos={eligibleVideos}
-        creatingChannelId={creatingChannelId}
-        onSelect={createDraftForVideo}
-      />
-      {HostAuthModal}
-      {SubscriptionPromptModal}
     </div>
   );
 }

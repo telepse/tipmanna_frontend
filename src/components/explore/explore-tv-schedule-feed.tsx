@@ -25,7 +25,7 @@ import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { useTvEventTipCatalog } from "@/hooks/use-tv-event-tip-catalog";
-import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
+import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
 import { buildSurfaceTipPriceCatalog } from "@/lib/surface-tip-price-catalog";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
@@ -148,7 +148,7 @@ export function ExploreTvScheduleFeed({
   } = useTvEventTipCatalog(tipEventId ?? "");
 
   const tippingCharactersForDrawer = (
-    tipEventId ? eventTipCharacters : characters
+    tipEventId ? eventTipCharacters : []
   ) as RoomCharacter[];
 
   const tipPres = useTipPresentation(
@@ -161,12 +161,13 @@ export function ExploreTvScheduleFeed({
 
   const resolvedDrawerSets = useMemo(
     () =>
-      resolveTipDrawerSets(
+      resolveTipDrawerPresentation(
         tipEventId ? eventCatalogSets : [],
         tipPres.catalog as RoomCharacter[],
-        tipEventId ? eventCatalogSets : characterSets
-      ),
-    [tipEventId, eventCatalogSets, tipPres.catalog, characterSets]
+        undefined,
+        tipPres.eliteCharacterIds
+      ).drawerSets,
+    [tipEventId, eventCatalogSets, tipPres.catalog, tipPres.eliteCharacterIds]
   );
 
   const tipPriceCatalog = useMemo(
@@ -186,14 +187,14 @@ export function ExploreTvScheduleFeed({
   });
   usePaymentAnimationPlayer({
     eventId: tipEventId ?? "",
-    characters: characters as RoomCharacter[],
+    characters: (tipEventId ? tipPriceCatalog : []) as RoomCharacter[],
     enabled: feedSurfaceActive && Boolean(tipEventId),
     surface: "explore_tv_schedule",
   });
   usePayerOriginAnimationRecovery({
     eventId: tipEventId ?? "",
     paymentSurface: "explore_feed",
-    characters: characters as RoomCharacter[],
+    characters: (tipEventId ? tipPriceCatalog : []) as RoomCharacter[],
     enabled: feedSurfaceActive && Boolean(tipEventId),
     surface: "explore_tv_schedule",
   });

@@ -10,6 +10,8 @@ type Props = {
   shares: number;
   sectionCtaLabel?: string;
   docked?: boolean;
+  dockedHeight?: number;
+  useDesktopPipReserve?: boolean;
   pipReserveMobile?: number;
   pipReserveDesktop?: number;
   onTipsClick?: () => void;
@@ -76,6 +78,8 @@ export function TipLinkMetricsTicker({
   shares,
   sectionCtaLabel,
   docked = false,
+  dockedHeight,
+  useDesktopPipReserve = false,
   pipReserveMobile = 108,
   pipReserveDesktop = 140,
   onTipsClick,
@@ -92,11 +96,15 @@ export function TipLinkMetricsTicker({
 
   return (
     <div
-      className="group relative h-8 overflow-hidden border-b border-white/10"
+      className={cn(
+        "group relative overflow-hidden border-b border-white/10",
+        docked ? "flex min-h-0 items-center" : "h-8"
+      )}
       aria-live="polite"
       style={
         docked
           ? ({
+              minHeight: dockedHeight,
               "--tiplink-pip-pr-mobile": `${pipReserveMobile}px`,
               "--tiplink-pip-pr-desktop": `${pipReserveDesktop}px`,
             } as CSSProperties)
@@ -105,8 +113,11 @@ export function TipLinkMetricsTicker({
     >
       <div
         className={cn(
-          "tiplink-metrics-ticker-marquee flex h-full items-center",
-          docked && "tiplink-metrics-ticker-docked"
+          "tiplink-metrics-ticker-marquee flex h-full min-h-8 w-full items-center",
+          docked &&
+            (useDesktopPipReserve
+              ? "tiplink-metrics-ticker-docked-desktop"
+              : "tiplink-metrics-ticker-docked-mobile")
         )}
       >
         <div className="tiplink-metrics-ticker-track flex items-center gap-2 px-4 text-xs whitespace-nowrap text-white/70">

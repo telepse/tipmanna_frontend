@@ -20,7 +20,7 @@ import type { UserInfo } from "@/types/tracking.types";
 import { usePusherTracking } from "@/hooks/use-pusher-tracking";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
-import { resolveTipDrawerSets } from "@/lib/resolve-tip-drawer-sets";
+import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
 import { EventDialog } from "./event-dialog";
 import { getEventStatus } from "@/lib/utils";
 import { GlobalTipStreamProvider } from "@/providers/global-tip-stream-provider";
@@ -212,9 +212,7 @@ export const EventRoomClient = ({
   const rawCharacterSets = Array.isArray(characterSets) ? characterSets : [];
 
   const {
-    strip: tipStripCharacters,
     catalog: tipPriceCatalog,
-    hasLiveLayout: tipHasLiveLayout,
     quoteCtx: tipQuoteCtx,
     textUnitPrice: tipTextUnitPrice,
     sectionCtaLabel: tipSectionCtaLabel,
@@ -225,13 +223,15 @@ export const EventRoomClient = ({
     paymentSurface: "event_room",
   });
 
-  const footerCharacterSets = useMemo(
+  const { drawerSets: footerCharacterSets, stripPool: tipStripPool } = useMemo(
     () =>
-      resolveTipDrawerSets(
+      resolveTipDrawerPresentation(
         rawCharacterSets,
-        tipPriceCatalog as RoomCharacter[]
+        tipPriceCatalog as RoomCharacter[],
+        undefined,
+        tipEliteCharacterIds
       ),
-    [rawCharacterSets, tipPriceCatalog]
+    [rawCharacterSets, tipPriceCatalog, tipEliteCharacterIds]
   );
 
   const [liveMessages, setLiveMessages] = useState<Message[]>(safeMessages);
@@ -531,7 +531,7 @@ export const EventRoomClient = ({
             hideProgressBarAmount={screenSettings.hideProgressBarAmount}
             showLatestAmount={screenSettings.showLatestAmount}
             latestTipAmount={currentLatestTipAmount}
-            tippingCharacters={tipStripCharacters}
+            tippingCharacters={tipPriceCatalog as RoomCharacter[]}
             tipUsageDisclosure={screenSettings.tipUsageDisclosure}
             liveFullscreen={liveFullscreen}
             setLiveFullscreen={setLiveFullscreen}
@@ -562,7 +562,7 @@ export const EventRoomClient = ({
               hostName={hostName}
               organizationName={organizationName}
               messages={liveMessages}
-              tippingCharacters={tipStripCharacters}
+              tippingCharacters={tipPriceCatalog as RoomCharacter[]}
               iTipped={iTipped}
               channels={channelList}
               frameId={defaultChannel?.id ?? ""}
@@ -591,12 +591,13 @@ export const EventRoomClient = ({
           >
             <StripeProvider
               enabled={enableStripe}
-              tippingCharacters={tipStripCharacters}
+              tippingCharacters={tipPriceCatalog as RoomCharacter[]}
               textTipUnitPrice={tipTextUnitPrice}
             >
               <EventFooter
                 eventId={eventId}
-                tippingCharacters={tipStripCharacters}
+                tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+                stripCharacters={tipStripPool}
                 characterSets={footerCharacterSets}
                 performers={performers}
                 textTipUnitPrice={tipTextUnitPrice}
@@ -605,7 +606,6 @@ export const EventRoomClient = ({
                 tipQuoteContext={tipQuoteCtx}
                 eliteCharacterIds={tipEliteCharacterIds}
                 openTipDrawerNonce={openTipDrawerNonce}
-                preserveStripOrder={tipHasLiveLayout}
               />
             </StripeProvider>
           </div>
