@@ -499,6 +499,7 @@ export function TvInteractiveShell({
                 onEngage={() => setIsTipDrawerOpen(true)}
                 onTipFeatured={handleTipFromFeatureCard}
                 sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
+                pageDrawerOpen={isTipDrawerOpen}
                 commentDrawerVideoTitle={
                   typeof currentPlaying?.channel?.title === "string"
                     ? currentPlaying.channel.title
@@ -821,6 +822,7 @@ export function TvInteractiveShell({
                     onEngage={() => setIsTipDrawerOpen(true)}
                     onTipFeatured={handleTipFromFeatureCard}
                     sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
+                    pageDrawerOpen={isTipDrawerOpen}
                     onFullViewChange={setIsMobileFullView}
                     onRegisterExitFull={registerExitFull}
                     commentDrawerVideoTitle={

@@ -11,6 +11,10 @@ import {
   type PlaybackReturnContext,
 } from "@/lib/playback-return-stack";
 import { stashDiscoverUiRestore } from "@/lib/discover-return.util";
+import {
+  isDedicatedTvFeedReturnTo,
+  stashTvFeedUiRestore,
+} from "@/lib/explore-tv-feed-return.util";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -48,6 +52,12 @@ export function PlaybackReturnBackChip({
     if (ctx.discoverUi) {
       stashDiscoverUiRestore({
         ...ctx.discoverUi,
+        createdAt: Date.now(),
+      });
+    }
+    if (ctx.tvFeed && isDedicatedTvFeedReturnTo(ctx.returnTo)) {
+      stashTvFeedUiRestore({
+        ...ctx.tvFeed,
         createdAt: Date.now(),
       });
     }
@@ -101,6 +111,12 @@ export function usePlaybackReturnLandscapeClose(
       if (ctx.discoverUi) {
         stashDiscoverUiRestore({
           ...ctx.discoverUi,
+          createdAt: Date.now(),
+        });
+      }
+      if (ctx.tvFeed && isDedicatedTvFeedReturnTo(ctx.returnTo)) {
+        stashTvFeedUiRestore({
+          ...ctx.tvFeed,
           createdAt: Date.now(),
         });
       }

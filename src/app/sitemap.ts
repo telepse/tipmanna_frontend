@@ -55,24 +55,18 @@ async function fetchLiveChannelUrls(): Promise<string[]> {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "");
   if (!base) return [];
   try {
-    const res = await fetch(`${base}/contents/live-streams?limit=40`, {
+    const res = await fetch(`${base}/contents/sitemap/live-channels?limit=40`, {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return [];
-    const raw = (await res.json()) as {
-      live?: Array<{ event?: { id?: string } }>;
-      upcoming?: Array<{ event?: { id?: string } }>;
-    };
+    const raw = (await res.json()) as { eventIds?: string[] };
     const origin = TV_ORIGIN;
-    const ids = new Set<string>();
-    for (const bucket of [raw.live, raw.upcoming]) {
-      if (!Array.isArray(bucket)) continue;
-      for (const row of bucket) {
-        const id = row.event?.id?.trim();
-        if (id) ids.add(id);
-      }
-    }
-    return [...ids].map(id => `${origin}/channel/${id}`);
+    const ids = Array.isArray(raw.eventIds)
+      ? raw.eventIds.filter(
+          (id): id is string => typeof id === "string" && id.length > 0
+        )
+      : [];
+    return ids.map(id => `${origin}/channel/${id}`);
   } catch {
     return [];
   }

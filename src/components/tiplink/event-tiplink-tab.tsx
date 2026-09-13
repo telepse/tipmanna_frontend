@@ -32,7 +32,7 @@ import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { subscriptionActionErrorMessage } from "@/lib/host-subscription-errors";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { useImageUpload } from "@/hooks/use-image-upload";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import {
   TIPLINK_STORE_FIELDS,
   TipLinkStoreIcon,
@@ -274,12 +274,16 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       let bannerUrl = form.bannerUrl ?? editing.bannerUrl;
       let bannerSource = form.bannerSource ?? editing.bannerSource;
       if (bannerPreview) {
-        const uploaded = await uploadImage(bannerPreview);
-        if (!uploaded?.secure_url) {
+        const uploaded = await tryUploadImage(bannerPreview);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return false;
+        }
+        if (!uploaded.data?.secure_url) {
           toast.error("Could not upload banner image");
           return false;
         }
-        bannerUrl = uploaded.secure_url;
+        bannerUrl = uploaded.data.secure_url;
         bannerSource = "upload";
       }
 

@@ -35,6 +35,11 @@ export type PlaybackReturnContext = {
     selectedTag: string | null;
     expandedRails: Record<string, boolean>;
   };
+  tvFeed?: {
+    scrollTop: number;
+    channelId?: string;
+    cardIndex?: number;
+  };
   createdAt: number;
 };
 

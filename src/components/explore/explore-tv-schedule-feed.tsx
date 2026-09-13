@@ -44,6 +44,12 @@ import {
   waitExploreTvPrefetch,
 } from "@/lib/explore-tv-prefetch-cache";
 import { TvExploreScheduleCard } from "@/components/explore/tv-explore-schedule-card";
+import {
+  clearTvFeedUiRestore,
+  readTvFeedUiRestore,
+  scheduleTvFeedScrollRestore,
+} from "@/lib/explore-tv-feed-return.util";
+import { writePlaybackReturn } from "@/lib/playback-return-stack";
 import type { RoomCharacter } from "@/types";
 
 type TvPlaylistLike = {
@@ -135,6 +141,12 @@ export function ExploreTvScheduleFeed({
   const [tipEventId, setTipEventId] = useState<string | null>(null);
   const [tipChannelId, setTipChannelId] = useState<string | null>(null);
   const [tipDrawerOpen, setTipDrawerOpen] = useState(false);
+  const [activeCardKey, setActiveCardKey] = useState<string | null>(null);
+  /** Maps card DOM id → logical card key for preplay activation. */
+  const cardDomToKey = useRef<Map<string, string>>(new Map());
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const cardObserverRef = useRef<IntersectionObserver | null>(null);
+  const feedRootRef = useRef<HTMLDivElement>(null);
 
   const { openWalletModalNonce } = useWalletTopupTipResume(
     tipEventId ?? undefined,
@@ -290,6 +302,149 @@ export function ExploreTvScheduleFeed({
     void loadSchedule();
   }, [loadSchedule, tvExploreFilters, tvSource]);
 
+  const pendingUiRestoreRef = useRef(readTvFeedUiRestore());
+  const uiRestoreAppliedRef = useRef(false);
+
+  useEffect(() => {
+    const restore = pendingUiRestoreRef.current;
+    if (!restore || uiRestoreAppliedRef.current) return;
+    if (loading && ongoing.length === 0 && upcoming.length === 0) return;
+
+    let cancelled = false;
+    let attempt = 0;
+    const maxAttempts = 24;
+
+    const getScrollContainer = () => {
+      let node: HTMLElement | null = feedRootRef.current;
+      while (node) {
+        const style = window.getComputedStyle(node);
+        if (
+          (style.overflowY === "auto" || style.overflowY === "scroll") &&
+          node.scrollHeight > node.clientHeight + 2
+        ) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      return feedRootRef.current;
+    };
+
+    const tryRestore = () => {
+      if (cancelled || uiRestoreAppliedRef.current) return;
+      attempt += 1;
+
+      if (restore.channelId && cardDomToKey.current.size > 0) {
+        for (const [domKey, logicalKey] of cardDomToKey.current.entries()) {
+          if (logicalKey.includes(restore.channelId)) {
+            setActiveCardKey(domKey);
+            break;
+          }
+        }
+      }
+
+      const cardsReady =
+        cardDomToKey.current.size > 0 ||
+        (ongoing.length === 0 && upcoming.length === 0);
+      if (!cardsReady && attempt < maxAttempts) {
+        window.setTimeout(tryRestore, 50 * attempt);
+        return;
+      }
+
+      uiRestoreAppliedRef.current = true;
+      pendingUiRestoreRef.current = null;
+      clearTvFeedUiRestore();
+      scheduleTvFeedScrollRestore(getScrollContainer, restore.scrollTop);
+    };
+
+    tryRestore();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, ongoing, upcoming]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    cardObserverRef.current?.disconnect();
+    cardObserverRef.current = new IntersectionObserver(
+      entries => {
+        let best: IntersectionObserverEntry | null = null;
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          if (!best || entry.intersectionRatio > best.intersectionRatio) {
+            best = entry;
+          }
+        }
+        if (!best) return;
+        const domKey = (best.target as HTMLElement).dataset.cardKey;
+        if (domKey) setActiveCardKey(domKey);
+      },
+      { threshold: [0.35, 0.55, 0.75] }
+    );
+    for (const el of cardRefs.current.values()) {
+      cardObserverRef.current.observe(el);
+    }
+    return () => {
+      cardObserverRef.current?.disconnect();
+      cardObserverRef.current = null;
+    };
+  }, [ongoing, upcoming]);
+
+  const registerCardRef = useCallback(
+    (domKey: string, logicalKey: string, node: HTMLDivElement | null) => {
+      const prev = cardRefs.current.get(domKey);
+      if (prev && cardObserverRef.current) {
+        cardObserverRef.current.unobserve(prev);
+      }
+      if (node) {
+        node.dataset.cardKey = domKey;
+        cardRefs.current.set(domKey, node);
+        cardDomToKey.current.set(domKey, logicalKey);
+        cardObserverRef.current?.observe(node);
+      } else {
+        cardRefs.current.delete(domKey);
+        cardDomToKey.current.delete(domKey);
+      }
+    },
+    []
+  );
+
+  const handlePlayInExploreWithReturn = useCallback(
+    (target: ExploreFeedOpenTarget, cardIndex: number) => {
+      if (typeof window !== "undefined") {
+        let scrollTop = 0;
+        let scrollNode: HTMLElement | null = feedRootRef.current;
+        while (scrollNode) {
+          const style = window.getComputedStyle(scrollNode);
+          if (
+            (style.overflowY === "auto" || style.overflowY === "scroll") &&
+            scrollNode.scrollHeight > scrollNode.clientHeight + 2
+          ) {
+            scrollTop = scrollNode.scrollTop;
+            break;
+          }
+          scrollNode = scrollNode.parentElement;
+        }
+        const returnUrl = new URL(
+          `${window.location.pathname}${window.location.search}`,
+          window.location.origin
+        );
+        returnUrl.searchParams.set("feedTab", "tv");
+        const returnTo = `${returnUrl.pathname}${returnUrl.search}`;
+        writePlaybackReturn({
+          returnTo,
+          label: "Back to TV",
+          tvFeed: {
+            scrollTop,
+            channelId: target.videoId,
+            cardIndex,
+          },
+        });
+      }
+      onPlayInExplore(target);
+    },
+    [onPlayInExplore]
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -317,21 +472,53 @@ export function ExploreTvScheduleFeed({
     };
   }, [loadSchedule, tvSource]);
 
-  const renderCard = (item: TvPlaylistLike, i: number) => (
-    <TvExploreScheduleCard
-      key={`${item.channel?.id ?? "slot"}-${i}`}
-      item={item}
-      index={i}
-      broadcastEpoch={broadcastEpoch}
-      onPlayInExplore={onPlayInExplore}
-      onTip={(eventId, channelId) => {
-        setTipEventId(eventId);
-        setTipChannelId(channelId);
-        setTipDrawerOpen(true);
-      }}
-      thumbUrl={thumbUrl}
-    />
+  const prepareTipForCard = useCallback(
+    (eventId: string, channelId: string) => {
+      setTipEventId(eventId);
+      setTipChannelId(channelId);
+    },
+    []
   );
+
+  const openTipDrawerForCard = useCallback(
+    (eventId: string, channelId: string) => {
+      setTipEventId(eventId);
+      setTipChannelId(channelId);
+      setTipDrawerOpen(true);
+    },
+    []
+  );
+
+  const renderCard = (item: TvPlaylistLike, i: number) => {
+    const channelId = item.channel?.id ?? `slot-${i}`;
+    const cardKey = `${channelId}-${i}`;
+    const cardEventId = item.channel?.eventId;
+    return (
+      <TvExploreScheduleCard
+        key={cardKey}
+        item={item}
+        index={i}
+        broadcastEpoch={broadcastEpoch}
+        cardKey={cardKey}
+        isActiveCard={activeCardKey === cardKey}
+        cardRef={node => registerCardRef(cardKey, channelId, node)}
+        onPlayInExplore={target => handlePlayInExploreWithReturn(target, i)}
+        onTip={openTipDrawerForCard}
+        onPrepareTip={prepareTipForCard}
+        tippingCharacters={
+          cardEventId && tipEventId === cardEventId
+            ? (tipPriceCatalog as RoomCharacter[])
+            : []
+        }
+        onContinueToTip={() => {
+          if (cardEventId && channelId) {
+            openTipDrawerForCard(cardEventId, channelId);
+          }
+        }}
+        thumbUrl={thumbUrl}
+      />
+    );
+  };
 
   if (loading && ongoing.length === 0 && upcoming.length === 0) {
     return (
@@ -361,7 +548,11 @@ export function ExploreTvScheduleFeed({
 
   return (
     <>
-      <div className="mx-auto max-w-lg space-y-6 px-3 py-3 pb-24">
+      <div
+        ref={feedRootRef}
+        className="mx-auto max-w-lg space-y-6 px-3 py-3 pb-24"
+        data-explore-tv-feed-root
+      >
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold">TV on Explore</h2>
           <Button

@@ -142,6 +142,7 @@ export const TvLooper = ({
   onEngage,
   onTipFeatured,
   sectionCtaLabel,
+  pageDrawerOpen = false,
   onFullViewChange,
   onRegisterExitFull,
   commentDrawerVideoTitle,
@@ -163,6 +164,7 @@ export const TvLooper = ({
   onEngage?: () => void;
   onTipFeatured?: (cardId: string) => void;
   sectionCtaLabel?: string;
+  pageDrawerOpen?: boolean;
   /** Notifies parent when mobile full-view mode toggles (shell hides chrome). */
   onFullViewChange?: (isFullView: boolean) => void;
   /** Registers mobile exitFull for landscape close button in tv-interactive-shell. */
@@ -1379,6 +1381,8 @@ export const TvLooper = ({
                 surfaceChannelId={String(currentChannelId)}
                 hostSurfaceChannelId={String(currentChannelId)}
                 compact
+                sectionCtaLabel={sectionCtaLabel}
+                pageDrawerOpen={pageDrawerOpen}
                 onTipFeatured={onTipFeatured}
                 onOverlayOpenChange={open => {
                   if (open) pauseForOverlay();

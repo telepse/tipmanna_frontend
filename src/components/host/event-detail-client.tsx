@@ -18,6 +18,7 @@ import {
   PencilLine,
   UsersRound,
   Check,
+  Copy,
   Briefcase,
   Loader2,
   Ellipsis,
@@ -79,6 +80,7 @@ import { formatEventSubmissionKindLabel } from "@/lib/event-submission-kind";
 import { EventTimezoneField } from "@/components/events/event-timezone-field";
 import { useHostSession } from "@/hooks/use-host-session";
 import { VideoTipReminderSlotsEditor } from "@/components/events/video-tip-reminder-slots-editor";
+import { buildContentShareUrl } from "@/lib/public-video-url";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -1776,10 +1778,17 @@ export const EventDetailClient = ({
       ========================================================= */}
                     <div className="mt-4 flex w-full items-center justify-end gap-2">
                       {!content.communityBankEntry ? (
-                        <VideoSurfaceBanMenu
-                          eventId={eventId}
-                          channelId={content.id}
-                        />
+                        <>
+                          <ContentShareLinkButton
+                            eventId={eventId}
+                            channelId={content.id}
+                          />
+                          <VideoSurfaceBanMenu
+                            eventId={eventId}
+                            channelId={content.id}
+                            hasActivePremium={hasActivePremium}
+                          />
+                        </>
                       ) : null}
                       <Button
                         type="button"
@@ -2114,3 +2123,48 @@ export const EventDetailClient = ({
     </Form>
   );
 };
+
+function ContentShareLinkButton({
+  eventId,
+  channelId,
+}: {
+  eventId: string;
+  channelId: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copyShareUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        buildContentShareUrl({ eventId, channelId })
+      );
+      setCopied(true);
+      toast.success("Share link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy link");
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="gap-1"
+      onClick={() => void copyShareUrl()}
+    >
+      {copied ? (
+        <>
+          <Check className="size-3.5" />
+          Copied
+        </>
+      ) : (
+        <>
+          <Copy className="size-3.5" />
+          Copy share link
+        </>
+      )}
+    </Button>
+  );
+}

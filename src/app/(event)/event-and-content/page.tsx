@@ -19,7 +19,7 @@ import type { AppDispatch } from "@/redux/store";
 import type { HostUser } from "@/features/auth-slice";
 import { ApiError } from "@/types";
 import { CircleArrowLeft, CircleArrowRight, Loader2 } from "lucide-react";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import { newCreateEventAction } from "@/actions/events";
 import { EventSignInForm } from "@/components/events/event-sign-in-form";
 import { EventAndContentAmountInfo } from "@/components/events/event-and-content-amount-info";
@@ -298,10 +298,18 @@ export default function EventAndContentPage() {
       let imageUrl = "";
 
       if (values.eventBanner) {
-        // Upload logo to cloudinary
-        const res = await uploadImage(values.eventBanner);
-        imageUrl = res?.secure_url ?? "";
-
+        const res = await tryUploadImage(values.eventBanner);
+        if (!res.ok) {
+          toast.error(res.message);
+          setIsLoading(false);
+          return;
+        }
+        imageUrl = res.data?.secure_url ?? "";
+        if (!imageUrl) {
+          toast.error("Could not upload event banner.");
+          setIsLoading(false);
+          return;
+        }
         toast.success("Event banner uploaded successfully");
       }
 

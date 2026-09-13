@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+
+import { getEventRoomVisitAnalyticsAction } from "@/actions/events";
 import { EventChannelModal } from "./event-channel-modal";
 import { EventRoomDropMessageModal } from "./event-room-drop-message-modal";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
@@ -67,6 +69,34 @@ export const ContentRoomSettings = ({
   const [projectsModalOpen, setProjectsModalOpen] = useState(false);
 
   const canManageChannel = isHost || isCohost;
+  const [visitStats, setVisitStats] = useState<{
+    visits90d: number;
+    visits7d: number;
+    visits24h: number;
+  } | null>(null);
+  const [visitStatsState, setVisitStatsState] = useState<
+    "idle" | "loading" | "loaded" | "error"
+  >("idle");
+
+  useEffect(() => {
+    if (!canManageChannel || !eventId) return;
+    let cancelled = false;
+    setVisitStatsState("loading");
+    setVisitStats(null);
+    void (async () => {
+      const res = await getEventRoomVisitAnalyticsAction(eventId);
+      if (cancelled) return;
+      if (!res.success || !res.data) {
+        setVisitStatsState("error");
+        return;
+      }
+      setVisitStats(res.data);
+      setVisitStatsState("loaded");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageChannel, eventId]);
 
   useEffect(() => {
     if (searchParams.get("openAddVideo") === "1" && canManageChannel) {
@@ -108,6 +138,28 @@ export const ContentRoomSettings = ({
         </DialogHeader>
 
         <section className="flex flex-col gap-4">
+          {canManageChannel ? (
+            <div className="rounded-lg border bg-gray-50 px-3 py-2 text-xs">
+              <p className="text-muted-foreground mb-1 font-medium tracking-wide uppercase">
+                Room visits
+              </p>
+              <p className="text-sm font-semibold tabular-nums">
+                {visitStatsState === "loading" ? (
+                  "Loading…"
+                ) : visitStatsState === "error" ? (
+                  <span className="text-muted-foreground font-normal">
+                    Could not load visit stats
+                  </span>
+                ) : (
+                  <>
+                    {visitStats?.visits90d ?? 0} (90d) ·{" "}
+                    {visitStats?.visits7d ?? 0} (7d) ·{" "}
+                    {visitStats?.visits24h ?? 0} (24h)
+                  </>
+                )}
+              </p>
+            </div>
+          ) : null}
           <div className="w-full max-w-md divide-y divide-gray-200 overflow-hidden bg-white">
             {sections
               .filter(section => section.show !== false)

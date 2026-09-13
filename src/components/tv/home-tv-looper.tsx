@@ -460,9 +460,7 @@ export const HomeTvLooper = ({
     useTvEventTipCatalog(currentEventId);
   const tipPres = useTipPresentation(
     currentEventId && currentEventId !== "notice" ? currentEventId : undefined,
-    (videoTipCharacters.length
-      ? videoTipCharacters
-      : characters) as RoomCharacter[],
+    videoTipCharacters as RoomCharacter[],
     { paymentSurface: analyticsSurface }
   );
   const engageLabel = tipPres.sectionCtaLabel?.trim() || "Engage";
@@ -477,6 +475,10 @@ export const HomeTvLooper = ({
     "Host";
   useVideoTipReminder({
     surface: "home_tv_looper",
+    reminderFlagsOverride:
+      analyticsSurface === "homepage_preview"
+        ? { flash: false, inApp: false }
+        : undefined,
     channelId:
       tipsAndPaymentsEnabled && currentChannelId != null
         ? String(currentChannelId)

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
 
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDispatch, useSelector } from "react-redux";
@@ -350,7 +351,7 @@ export const ProfileDrawer = ({
                       />
                     </FormControl>
                     <FormLabel className="text-sm font-normal">
-                      I agree to the Terms and Privacy Policy
+                      <TermsPrivacyLabel />
                     </FormLabel>
                   </div>
                   <FormMessage />

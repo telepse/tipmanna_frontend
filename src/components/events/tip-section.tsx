@@ -371,10 +371,6 @@ export const TipSection = ({
 
   useEffect(() => {
     if (!openTipDrawerNonce) return;
-    if (performers && performers.length > 0) {
-      setOpenPerformerModal(true);
-      return;
-    }
     proceedToDrawer();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nonce edge only
   }, [openTipDrawerNonce]);

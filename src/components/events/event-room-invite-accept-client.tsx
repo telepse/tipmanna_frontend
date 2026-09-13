@@ -11,6 +11,7 @@ import {
   acceptEventRoomInviteAction,
   validateEventRoomInviteAction,
 } from "@/actions/events";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { persistEventRoomInviteToken } from "@/lib/event-room-invite-cookie";
 
 type Props = {
@@ -23,7 +24,10 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
   const token = searchParams.get("token")?.trim() ?? "";
   const [loading, setLoading] = useState(true);
   const [eventName, setEventName] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<string | null>(null);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [accepting, setAccepting] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -32,7 +36,7 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
       return;
     }
 
-    void validateEventRoomInviteAction(token).then(async res => {
+    void validateEventRoomInviteAction(token).then(res => {
       if (!res.success || !res.data) {
         setInvalid(res.message ?? "Invitation not found.");
         setLoading(false);
@@ -43,7 +47,7 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
         valid?: boolean;
         reason?: string;
         eventName?: string;
-        eventId?: string;
+        email?: string;
       };
 
       if (!data.valid) {
@@ -57,11 +61,17 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
       }
 
       setEventName(data.eventName ?? "Event room");
+      setInviteEmail(data.email?.trim() ?? null);
+      setLoading(false);
+    });
+  }, [token]);
 
+  const completeAccept = async () => {
+    setAccepting(true);
+    try {
       const accept = await acceptEventRoomInviteAction(token);
       if (!accept.success) {
         setInvalid(accept.message ?? "Could not accept invitation.");
-        setLoading(false);
         return;
       }
 
@@ -70,11 +80,12 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
         persistEventRoomInviteToken(eventId, token);
       }
 
-      setLoading(false);
       toast.success("Invitation accepted");
       router.replace(`/room/${encodeURIComponent(eventId)}`);
-    });
-  }, [eventId, router, token]);
+    } finally {
+      setAccepting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -101,8 +112,33 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
     <div className="mx-auto max-w-md space-y-4 py-16 text-center">
       <h1 className="text-xl font-semibold">Welcome to {eventName}</h1>
       <p className="text-muted-foreground text-sm">
-        Redirecting to the event room…
+        Verify your email{inviteEmail ? ` (${inviteEmail})` : ""} to accept this
+        invitation and enter the event room.
       </p>
+      <Button
+        type="button"
+        className="w-full"
+        disabled={accepting}
+        onClick={() => setSignInOpen(true)}
+      >
+        {accepting ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          "Verify email to accept"
+        )}
+      </Button>
+      <TipperEmailOtpSignInDialog
+        open={signInOpen}
+        onOpenChange={setSignInOpen}
+        signInTitle="Verify email to accept invitation"
+        initialEmail={inviteEmail ?? undefined}
+        autoSendCode={Boolean(inviteEmail)}
+        signupSurface="event_room"
+        onVerified={() => {
+          setSignInOpen(false);
+          void completeAccept();
+        }}
+      />
     </div>
   );
 }

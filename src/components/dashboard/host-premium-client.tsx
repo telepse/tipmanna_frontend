@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -47,6 +49,7 @@ function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
 }
 
 export const HostPremiumClient = () => {
+  const hostId = useSelector((s: RootState) => s.auth.user?.id ?? "");
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
   const [tabType, setTabType] = useState<PremiumTab>("video_requests");
@@ -196,7 +199,10 @@ export const HostPremiumClient = () => {
             </Select>
           ) : null}
           {selectedEventId ? (
-            <EventRoomAccessControl eventId={selectedEventId} />
+            <EventRoomAccessControl
+              eventId={selectedEventId}
+              hostId={hostId || undefined}
+            />
           ) : (
             <p className="text-muted-foreground text-sm">
               Create an event to configure invite-only access.

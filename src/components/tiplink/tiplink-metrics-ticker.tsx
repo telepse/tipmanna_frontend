@@ -11,6 +11,8 @@ type Props = {
   sectionCtaLabel?: string;
   docked?: boolean;
   dockedHeight?: number;
+  /** Enlarge: hide Watch · CTA · Support label-only segments. */
+  hideActionLabels?: boolean;
   useDesktopPipReserve?: boolean;
   pipReserveMobile?: number;
   pipReserveDesktop?: number;
@@ -51,8 +53,16 @@ function TickerLine({
   tips,
   shares,
   sectionCtaLabel,
+  hideActionLabels = false,
   onTipsClick,
-}: Omit<Props, "docked" | "pipReserveMobile" | "pipReserveDesktop">) {
+}: Omit<
+  Props,
+  | "docked"
+  | "dockedHeight"
+  | "useDesktopPipReserve"
+  | "pipReserveMobile"
+  | "pipReserveDesktop"
+>) {
   const engageLabel = sectionCtaLabel?.trim() || "Engage";
   return (
     <>
@@ -61,12 +71,16 @@ function TickerLine({
       <TickerSegment onClick={onTipsClick}>{tips} tips</TickerSegment>
       <span className="shrink-0 text-white/30">·</span>
       <TickerSegment>{shares} shares</TickerSegment>
-      <span className="shrink-0 text-white/30">·</span>
-      <TickerLabel>Watch</TickerLabel>
-      <span className="shrink-0 text-white/30">·</span>
-      <TickerLabel>{engageLabel}</TickerLabel>
-      <span className="shrink-0 text-white/30">·</span>
-      <TickerLabel>Support</TickerLabel>
+      {!hideActionLabels ? (
+        <>
+          <span className="shrink-0 text-white/30">·</span>
+          <TickerLabel>Watch</TickerLabel>
+          <span className="shrink-0 text-white/30">·</span>
+          <TickerLabel>{engageLabel}</TickerLabel>
+          <span className="shrink-0 text-white/30">·</span>
+          <TickerLabel>Support</TickerLabel>
+        </>
+      ) : null}
     </>
   );
 }
@@ -79,6 +93,7 @@ export function TipLinkMetricsTicker({
   sectionCtaLabel,
   docked = false,
   dockedHeight,
+  hideActionLabels = false,
   useDesktopPipReserve = false,
   pipReserveMobile = 108,
   pipReserveDesktop = 140,
@@ -90,6 +105,7 @@ export function TipLinkMetricsTicker({
       tips={tips}
       shares={shares}
       sectionCtaLabel={sectionCtaLabel}
+      hideActionLabels={hideActionLabels}
       onTipsClick={onTipsClick}
     />
   );

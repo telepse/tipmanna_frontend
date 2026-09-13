@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
+import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 
 export type FeatureCardPayload = {
   id: string;
@@ -55,6 +56,12 @@ type Props = {
   hostSurfaceChannelId?: string;
   className?: string;
   compact?: boolean;
+  /** Published tip section CTA label for overlay Engage button. */
+  sectionCtaLabel?: string;
+  /** When true, do not clear feature-card tip context on overlay close. */
+  pageDrawerOpen?: boolean;
+  /** When false, hide Engage CTA (Watch-only surfaces without a tip drawer). */
+  showEngageCta?: boolean;
   onTipFeatured?: (cardId: string) => void;
   /** Pause underlying playback while the featured overlay is open. */
   onOverlayOpenChange?: (open: boolean) => void;
@@ -72,10 +79,15 @@ export function VideoFeatureCardBanner({
   hostSurfaceChannelId,
   className,
   compact,
+  sectionCtaLabel,
+  pageDrawerOpen = false,
+  showEngageCta = true,
   onTipFeatured,
   onOverlayOpenChange,
 }: Props) {
   const panelId = useId();
+  const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
+  const engageLabel = sectionCtaLabel?.trim() || "Engage";
   const [targetCard, setTargetCard] = useState<FeatureCardPayload | null>(null);
   const [globalCard, setGlobalCard] = useState<FeatureCardPayload | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -103,6 +115,14 @@ export function VideoFeatureCardBanner({
 
   const analyticsChannel = (): string =>
     hostSurfaceChannelId?.trim() || surfaceChannelId.trim();
+
+  const triggerTipFeatured = useCallback(
+    (cardId: string) => {
+      setActiveVideoFeatureCardId(cardId);
+      onTipFeatured?.(cardId);
+    },
+    [onTipFeatured, setActiveVideoFeatureCardId]
+  );
 
   useEffect(() => {
     openedMaxAtMs.current = null;
@@ -197,6 +217,7 @@ export function VideoFeatureCardBanner({
   const openOverlay = () => {
     if (!primaryCard) return;
     ensureSessionId();
+    setActiveVideoFeatureCardId(primaryCard.id);
     openedMaxAtMs.current = Date.now();
     trackVideoFeatureCardEvent("card_max_expand", {
       cardId: primaryCard.id,
@@ -224,6 +245,9 @@ export function VideoFeatureCardBanner({
     openedMaxAtMs.current = null;
     setOverlayOpen(false);
     onOverlayOpenChange?.(false);
+    if (!pageDrawerOpen) {
+      setActiveVideoFeatureCardId(null);
+    }
   };
 
   if (
@@ -340,14 +364,14 @@ export function VideoFeatureCardBanner({
                 )}
                 Watch here
               </Button>
-              {onTipFeatured ? (
+              {showEngageCta ? (
                 <Button
                   type="button"
                   size="sm"
                   className="h-7 px-2 text-[11px]"
-                  onClick={() => onTipFeatured(primaryCard.id)}
+                  onClick={() => triggerTipFeatured(primaryCard.id)}
                 >
-                  Tip featured
+                  {engageLabel}
                 </Button>
               ) : null}
             </div>
@@ -401,14 +425,14 @@ export function VideoFeatureCardBanner({
                 {primaryCard.adminMessage}
               </p>
             ) : null}
-            {onTipFeatured ? (
+            {showEngageCta ? (
               <Button
                 type="button"
                 size="sm"
                 className="mt-3"
-                onClick={() => onTipFeatured(primaryCard.id)}
+                onClick={() => triggerTipFeatured(primaryCard.id)}
               >
-                Tip featured video
+                {engageLabel}
               </Button>
             ) : null}
           </div>

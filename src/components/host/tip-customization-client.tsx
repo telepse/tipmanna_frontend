@@ -573,8 +573,8 @@ export default function TipCustomizationClient({
             <h2 className="font-medium">Elite (Growth)</h2>
             <p className="text-muted-foreground text-xs">
               Select up to 10 elite animations. They are prioritized in the tip
-              strip. The Elite drawer tab appears only when an Elite character
-              set is assigned to this event.
+              strip and appear on a synthetic Elite drawer tab when no assigned
+              Elite character set exists for this event.
             </p>
             {eliteLibraryError ? (
               <p className="text-sm text-red-600">{eliteLibraryError}</p>

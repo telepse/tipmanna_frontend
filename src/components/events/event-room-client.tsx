@@ -9,7 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+import { postEventRoomVisitAction } from "@/actions/events";
 
 // Local imports
 import { SaveEventId } from "./save-event-id";
@@ -252,6 +254,18 @@ export const EventRoomClient = ({
 
   const [openDrawer, setOpenDrawer] = useState(false);
   const [openTipDrawerNonce, setOpenTipDrawerNonce] = useState(0);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!eventId || typeof window === "undefined") return;
+    const dedupeKey = `event_room_visit:${eventId}`;
+    if (sessionStorage.getItem(dedupeKey)) return;
+    sessionStorage.setItem(dedupeKey, "1");
+    const path =
+      pathname?.trim() ||
+      `${window.location.pathname}${window.location.search}`;
+    void postEventRoomVisitAction(eventId, path);
+  }, [eventId, pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -544,6 +558,7 @@ export const EventRoomClient = ({
             totalAttendees={totalAttendees}
             openDrawer={openDrawer}
             setOpenDrawer={setOpenDrawer}
+            onOpenTipDrawer={() => setOpenTipDrawerNonce(n => n + 1)}
             characterSets={footerCharacterSets}
             performers={screenSettings.performers}
             currentSessionAmountToRaise={currentSessionAmountToRaise}

@@ -37,9 +37,11 @@ Frontend host mutations use `serverHostAuthHeaders()` in `frontend/src/actions/t
 - **Fast load:** public `/l/{slug}` RSC waits on `GET /tiplinks/:slug` which includes landing fields, the published **strip** (comment → elite IDs → section → drawerItems fill, max 20), and `tipConfig` (CTA + layout). Legacy events load comment-only on first paint (no full catalog). No heavy metrics on this request. Stripe.js loads only when the tip drawer opens.
 - Tip strip stays at the top (not player-first).
 - Portrait mobile scroll is unlocked; document overflow locks only in Enlarge (mobile full-view/landscape or web enlarge).
-- Sticky header is a two-row glass stack: nav row (Create Yours, profile, logo) plus metrics ticker row. Ticker stays mounted during **all** Enlarge modes (mobile and web).
-- Ticker shows `{visits} visits · {tips} tips · {shares} shares · Watch · {sectionCtaLabel|Engage} · Support` from published tip layout when available (continuous LTR marquee; static fallback on `prefers-reduced-motion`).
-- When the inline player scrolls out of view, the same VideoPlayer instance docks into a 16:9 pip slot on the right of the ticker row (96×54 mobile, 128×72 desktop); tap pip scrolls back to inline. Player uses always-`fixed` measured rects (inline / dock / enlarge) — no iframe remount on iOS.
+- Sticky header is a compact two-row glass stack: nav row (Create Yours, profile, text wordmark tipmanna + link) plus metrics ticker row. Ticker stays mounted during **all** Enlarge modes (mobile and web). Header wordmark is text (not an image); mobile/phone-landscape uses `text-lg` + matching `link`; true desktop uses `text-2xl` + matching `link` — sizes do not change on Enlarge.
+- Page has a single `h1`: the video title. Brand wordmark is not an `h1`.
+- Ticker shows `{visits} visits · {tips} tips · {shares} shares · Watch · {sectionCtaLabel|Engage} · Support` in normal scroll (continuous LTR marquee; static fallback on `prefers-reduced-motion`). During Enlarge, ticker keeps visits/tips/shares only — **Watch · {sectionCtaLabel|Engage} · Support** labels are hidden.
+- Footer `Watch · {sectionCtaLabel|Engage} · Support` is label-only text; it does not open the tip drawer. Footer is **hidden** during Enlarge (landscape, portrait, desktop).
+- When the inline player scrolls out of view, the same VideoPlayer instance docks into a 16:9 pip slot on the right of the ticker row (96×54 mobile, 128×72 desktop); tap pip scrolls back to inline (dedicated tap target above header on mobile). Player uses always-`fixed` measured rects (inline / dock / enlarge) — no iframe remount on iOS.
 - Spotify-style orange-on-black page background; pitch heading uses host first name (`{firstName}'s Pitch`).
 - Store grid first row: **Tipmanna Explore / ENGAGE** opens `/explore?feedTab=trends&channel={channelId}&eventId={eventId}&from=tiplink` in a **new tab** (standard Explore reel UI). Handoff stashes a playable channel snapshot and `stayInExploreReel` in **localStorage** (sessionStorage mirror for same-tab) so the new tab gets first-paint reel data, does not bounce to the channel client, and swipe-down continues the normal Trends reel from index 1.
 - Guest **Save** and **Subscribe** open tipper `SignInDialog` (`signupSurface="tiplink"`) and complete save-video / save-host after successful sign-in.
@@ -47,9 +49,10 @@ Frontend host mutations use `serverHostAuthHeaders()` in `frontend/src/actions/t
 - YouTube iframe is non-interactive (`pointer-events-none`); play/pause uses app chrome only (no click-through to YouTube).
 - Country flag appears **before the video title** (channel country, then event country).
 - **About this video** (Info icon, top-right of the player) opens a drawer with description, subscribe-to-host, and Close. Visible in inline and Enlarge; hidden when PiP-docked.
+- **Close** enlarged video: X on the player at top-left (opposite Info), not in the header. Portrait mobile Enlarge keeps the normal header (no header Close).
 - Single **Enlarge** control (Maximize) on the inline player — no secondary layout-toggle icon.
-- Mobile landscape auto-Enlarge: full-view landscape with ticker at top, seek + scrubber CTA beside seek, Close in ticker.
-- Web **Enlarge** uses the same ticker-at-top immersive layout as mobile (not a separate full-bleed overlay).
+- Mobile landscape auto-Enlarge: compact ticker at top (metrics only); seek + scrubber CTA overlaid on the video (no title band, no page footer).
+- Web **Enlarge** uses ticker-at-top + on-video overlay scrubber (not a separate full-bleed overlay or bottom band). Desktop scrubber CTA uses larger pill sizing.
 - TipSection **Engage/Gift** CTA is centered in the strip middle column (label length does not shift the button slot).
 
 ## Host video rebind

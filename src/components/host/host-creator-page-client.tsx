@@ -111,6 +111,10 @@ function buildTipLinkManageHref(
 }
 
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import {
+  expressNavigateToExplore,
+  expressNavigateToTv,
+} from "@/lib/express-surface-navigation";
 import { awaitProfileDrawerPrefetch } from "@/lib/drawer-prefetch-cache";
 
 const PLACEHOLDER_AVATAR =
@@ -397,24 +401,26 @@ export function HostCreatorPageClient({
               className="flex items-center gap-4 sm:gap-6"
               aria-label="Creator page navigation"
             >
-              <Link
-                href="/tv"
+              <button
+                type="button"
                 className="hover:text-primary flex flex-row items-center gap-0.5 gap-1.5"
+                onClick={() => expressNavigateToTv()}
               >
                 <Tv className="size-4 sm:size-5" />
                 <span className="text-xs">Watch TV</span>
-              </Link>
-              <Link
-                href="/explore"
+              </button>
+              <button
+                type="button"
                 className="hover:text-primary flex flex-row items-center gap-0.5 gap-1.5"
                 onClick={() => {
                   setIsCreatePopupOpen(false);
                   setIsProfileDrawerOpen(false);
+                  expressNavigateToExplore();
                 }}
               >
                 <Rocket className="size-4 sm:size-5" />
                 <span className="text-xs">Explore</span>
-              </Link>
+              </button>
             </nav>
           ) : !isDrawer ? (
             <div className="flex items-center gap-2">
@@ -605,21 +611,23 @@ export function HostCreatorPageClient({
       {showBottomExpressNav ? (
         <div className="fixed right-0 bottom-0 left-0 z-[1100] border-t border-black/20 bg-white px-4 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
           <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-            <Link
-              href="/tv"
+            <button
+              type="button"
               className="group flex flex-col items-center justify-center gap-1"
+              onClick={() => expressNavigateToTv()}
             >
               <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />
               <span className="text-[8px]">Watch TV</span>
-            </Link>
+            </button>
 
-            <Link
-              href="/explore"
+            <button
+              type="button"
               className="flex cursor-pointer flex-col items-center justify-center gap-1"
               onPointerEnter={prefetchExploreFeedInitial}
               onClick={() => {
                 setIsCreatePopupOpen(false);
                 setIsProfileDrawerOpen(false);
+                expressNavigateToExplore();
               }}
             >
               <Rocket
@@ -627,7 +635,7 @@ export function HostCreatorPageClient({
                 strokeWidth={2}
               />
               <span className="text-[8px]">Explore</span>
-            </Link>
+            </button>
 
             <div className="flex flex-col items-center justify-center">
               <button

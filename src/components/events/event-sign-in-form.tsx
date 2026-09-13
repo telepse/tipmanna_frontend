@@ -22,6 +22,7 @@ import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
 
 // Local imports
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import { Paragraph } from "@/components/shared/paragraph";
 import {
   checkHostUsernameAvailabilityAction,
@@ -567,7 +568,7 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
                       />
                     </FormControl>
                     <FormLabel className="leading-snug font-normal">
-                      I agree to the terms and privacy policy
+                      <TermsPrivacyLabel />
                     </FormLabel>
                   </FormItem>
                 )}

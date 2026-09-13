@@ -55,6 +55,8 @@ import VideoPlayer, {
   VideoPlayerRef,
   loadReelSoundPref,
 } from "../events/video-player";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 
 const communityFeatureOn =
   process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
@@ -210,6 +212,7 @@ function FeaturedCommunityVideoOverlay({
   onClose: () => void;
 }) {
   const videoRef = useRef<VideoPlayerRef>(null);
+  const featureOverlayWasPlayingRef = useRef(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [loadingPlayer, setLoadingPlayer] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -353,6 +356,23 @@ function FeaturedCommunityVideoOverlay({
             ) : null}
             {playerReady && !loadingPlayer ? (
               <div className="relative h-[min(55vh,420px)] w-full">
+                {video.channelId &&
+                process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
+                  <div className="pointer-events-none absolute bottom-16 left-2 z-[62] max-w-[min(280px,calc(100%-1rem))]">
+                    <VideoFeatureCardBanner
+                      surfaceChannelId={video.channelId}
+                      hostSurfaceChannelId={video.channelId}
+                      compact
+                      showEngageCta={false}
+                      onOverlayOpenChange={createFeatureCardOverlayPlaybackHandlers(
+                        videoRef,
+                        featureOverlayWasPlayingRef,
+                        { getWasPlaying: () => isPlaying }
+                      )}
+                      className="pointer-events-auto"
+                    />
+                  </div>
+                ) : null}
                 <VideoPlayer
                   ref={videoRef}
                   key={video.id}
@@ -697,10 +717,6 @@ export function CommunityJoinPanel({
           <CommunitySearchBrowseSection
             compact
             isAuthenticated={isAuthenticated}
-            onJoinSignInRequired={communityIdForSignIn => {
-              setSignInReturnTo(exploreCommunityJoinHref(communityIdForSignIn));
-              setSignInOpen(true);
-            }}
           />
         </div>
 

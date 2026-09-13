@@ -25,8 +25,10 @@ import {
   resolveEventRoomAccessRequestAction,
   type EventAccessMode,
   type EventRoomAccessFormConfig,
+  type EventRoomAccessFormFieldKey,
   type EventRoomAccessRequestRow,
 } from "@/actions/events";
+import { getHostEventMessagesAction } from "@/actions/host";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 
 type InviteRow = {
@@ -49,11 +51,28 @@ const ACCESS_MODE_LABELS: Record<EventAccessMode, string> = {
 
 type Props = {
   eventId: string;
+  hostId?: string;
   initialAccessMode?: EventAccessMode;
 };
 
+type HostMessageRow = {
+  id: string;
+  imageUrls?: string[];
+  createdAt?: string;
+};
+
+function formatAnswersJson(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "";
+  const entries = Object.entries(raw as Record<string, unknown>).filter(
+    ([, v]) => typeof v === "string" && v.trim()
+  );
+  if (entries.length === 0) return "";
+  return entries.map(([k, v]) => `${k}: ${String(v)}`).join(" · ");
+}
+
 export function EventRoomAccessControl({
   eventId,
+  hostId,
   initialAccessMode = "public",
 }: Props) {
   const { handleSubscriptionActionError, SubscriptionPromptModal } =
@@ -74,6 +93,25 @@ export function EventRoomAccessControl({
   const [loadingInvites, setLoadingInvites] = useState(false);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [hostImages, setHostImages] = useState<
+    Array<{ messageId: string; url: string; createdAt?: string }>
+  >([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+
+  const toggleRequiredField = (
+    key: EventRoomAccessFormFieldKey,
+    required: boolean
+  ) => {
+    setFormConfig(prev => {
+      const current = prev.requiredFields ?? [];
+      const next = required
+        ? current.includes(key)
+          ? current
+          : [...current, key]
+        : current.filter(f => f !== key);
+      return { ...prev, requiredFields: next.length ? next : undefined };
+    });
+  };
 
   const loadSettings = useCallback(async () => {
     setLoadingSettings(true);
@@ -110,6 +148,45 @@ export function EventRoomAccessControl({
       setLoadingInvites(false);
     }
   }, [accessMode, eventId]);
+
+  const loadHostImages = useCallback(async () => {
+    if (!hostId?.trim()) {
+      setHostImages([]);
+      return;
+    }
+    setLoadingImages(true);
+    try {
+      const res = await getHostEventMessagesAction(hostId, eventId);
+      if (!res.success || !Array.isArray(res.data)) {
+        setHostImages([]);
+        return;
+      }
+      const rows = res.data as HostMessageRow[];
+      const images: Array<{
+        messageId: string;
+        url: string;
+        createdAt?: string;
+      }> = [];
+      for (const row of rows) {
+        for (const url of row.imageUrls ?? []) {
+          if (typeof url === "string" && url.trim()) {
+            images.push({
+              messageId: row.id,
+              url: url.trim(),
+              createdAt: row.createdAt,
+            });
+          }
+        }
+      }
+      setHostImages(images);
+    } finally {
+      setLoadingImages(false);
+    }
+  }, [eventId, hostId]);
+
+  useEffect(() => {
+    void loadHostImages();
+  }, [loadHostImages]);
 
   const loadRequests = useCallback(async () => {
     if (accessMode !== "email_gate" || !requiresApproval) {
@@ -387,42 +464,45 @@ export function EventRoomAccessControl({
 
           <div className="space-y-3 border-t pt-4">
             <p className="text-sm font-medium">Extra gate fields</p>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={Boolean(formConfig.collectName)}
-                onCheckedChange={v =>
-                  setFormConfig(prev => ({
-                    ...prev,
-                    collectName: Boolean(v),
-                  }))
-                }
-              />
-              Collect name
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={Boolean(formConfig.collectPhone)}
-                onCheckedChange={v =>
-                  setFormConfig(prev => ({
-                    ...prev,
-                    collectPhone: Boolean(v),
-                  }))
-                }
-              />
-              Collect phone
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={Boolean(formConfig.collectTicketId)}
-                onCheckedChange={v =>
-                  setFormConfig(prev => ({
-                    ...prev,
-                    collectTicketId: Boolean(v),
-                  }))
-                }
-              />
-              Collect ticket ID
-            </label>
+            {(
+              [
+                ["collectFirstName", "firstName", "First name"],
+                ["collectLastName", "lastName", "Last name"],
+                ["collectIdNumber", "idNumber", "ID number"],
+                ["collectName", "name", "Full name"],
+                ["collectPhone", "phone", "Phone"],
+                ["collectTicketId", "ticketId", "Ticket ID"],
+              ] as const
+            ).map(([collectKey, requiredKey, label]) => (
+              <div
+                key={collectKey}
+                className="flex flex-wrap items-center justify-between gap-2 text-sm"
+              >
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={Boolean(formConfig[collectKey])}
+                    onCheckedChange={v =>
+                      setFormConfig(prev => ({
+                        ...prev,
+                        [collectKey]: Boolean(v),
+                      }))
+                    }
+                  />
+                  Collect {label.toLowerCase()}
+                </label>
+                {formConfig[collectKey] ? (
+                  <label className="text-muted-foreground flex items-center gap-2 text-xs">
+                    <Checkbox
+                      checked={formConfig.requiredFields?.includes(requiredKey)}
+                      onCheckedChange={v =>
+                        toggleRequiredField(requiredKey, Boolean(v))
+                      }
+                    />
+                    Required
+                  </label>
+                ) : null}
+              </div>
+            ))}
             <div className="space-y-2">
               <Label htmlFor="custom-question">Custom question</Label>
               <Input
@@ -437,6 +517,19 @@ export function EventRoomAccessControl({
                 }
                 className="max-w-md"
               />
+              {formConfig.customQuestion ? (
+                <label className="text-muted-foreground flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={formConfig.requiredFields?.includes(
+                      "customQuestion"
+                    )}
+                    onCheckedChange={v =>
+                      toggleRequiredField("customQuestion", Boolean(v))
+                    }
+                  />
+                  Answer required
+                </label>
+              ) : null}
             </div>
           </div>
 
@@ -476,6 +569,11 @@ export function EventRoomAccessControl({
                 >
                   <div>
                     <p>{req.email}</p>
+                    {formatAnswersJson(req.answersJson) ? (
+                      <p className="text-muted-foreground text-xs">
+                        {formatAnswersJson(req.answersJson)}
+                      </p>
+                    ) : null}
                     <p className="text-muted-foreground text-xs">
                       {new Date(req.createdAt).toLocaleString()}
                     </p>
@@ -568,6 +666,45 @@ export function EventRoomAccessControl({
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      ) : null}
+
+      {hostId ? (
+        <div className="bg-card space-y-4 rounded-lg border p-4">
+          <div className="space-y-1">
+            <p className="font-medium">Host chat images</p>
+            <p className="text-muted-foreground text-sm">
+              Images shared in the event room chat (read-only gallery).
+            </p>
+          </div>
+          {loadingImages ? (
+            <div className="flex items-center gap-2 text-sm">
+              <Loader2 className="size-4 animate-spin" />
+              Loading images…
+            </div>
+          ) : hostImages.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No host chat images yet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+              {hostImages.map(img => (
+                <a
+                  key={`${img.messageId}-${img.url}`}
+                  href={img.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block overflow-hidden rounded-md border"
+                >
+                  <img
+                    src={img.url}
+                    alt=""
+                    className="aspect-video w-full object-cover"
+                  />
+                </a>
+              ))}
+            </div>
           )}
         </div>
       ) : null}

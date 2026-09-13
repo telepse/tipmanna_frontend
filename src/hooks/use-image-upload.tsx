@@ -37,15 +37,19 @@ export const useImageUpload = ({
       const compressedImg = await imageCompression(img, options);
       setImage(compressedImg);
       setError("");
+      const reader = new FileReader();
+      reader.onload = event => {
+        setReadableImage(event.target?.result as string);
+      };
+      reader.readAsDataURL(compressedImg);
     } catch (error) {
       console.error("Error compressing image:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Could not process image. Try another file."
+      );
     }
-
-    const reader = new FileReader();
-    reader.onload = event => {
-      setReadableImage(event.target?.result as string);
-    };
-    reader.readAsDataURL(img);
   };
 
   const handleChangeImage = () => {

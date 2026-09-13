@@ -5,7 +5,7 @@ import { useSelector } from "react-redux";
 import { Ellipsis, ImagePlus, Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { toast } from "react-toastify";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 
 import {
   deleteHostEventMessageAction,
@@ -164,8 +164,12 @@ export function EventRoomDropMessageModal({
       let imageUrls: string[] | undefined;
       if (imagePreview?.startsWith("data:")) {
         setIsUploadingImage(true);
-        const uploaded = await uploadImage(imagePreview);
-        const url = uploaded?.secure_url;
+        const uploaded = await tryUploadImage(imagePreview);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        const url = uploaded.data?.secure_url;
         if (!url) {
           toast.error("Could not upload image.");
           return;

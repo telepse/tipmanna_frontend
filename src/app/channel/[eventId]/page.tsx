@@ -3,9 +3,8 @@ import {
   getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
-import { getEventByIdAction, getEventRoomAccessAction } from "@/actions/events";
+import { getEventByIdAction } from "@/actions/events";
 import { ChannelClient } from "@/components/events/channel-client";
-import { PrivateEventRoomBlocked } from "@/components/events/event-room-access-gate";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import {
   applyVideoDeepLinkQuery,
@@ -16,7 +15,6 @@ import {
 import { getPrimaryOrigin } from "@/lib/site-config";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 import {
   buildOgImageMetadata,
   resolveVideoOgImageUrl,
@@ -24,6 +22,7 @@ import {
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
 import { unwrapContentChannelList } from "@/lib/content-channel-payload";
 import { getCachedContentChannelForPage } from "@/lib/cached-content-channel";
+import { isPrimaryChannelExternalSearchBanned } from "@/lib/external-search-metadata";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
@@ -37,6 +36,7 @@ interface ChannelData {
   description?: string;
   createdAt?: string;
   restricted?: boolean;
+  externalSearchBanned?: boolean;
   isDefault?: boolean;
   event: {
     hostName: string;
@@ -56,20 +56,12 @@ export async function generateMetadata({
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
 
-  const accessRes = await getEventRoomAccessAction(eventId);
-  const access =
-    accessRes.success && accessRes.data
-      ? (accessRes.data as {
-          accessMode?: "public" | "invite_only";
-          allowed?: boolean;
-        })
-      : null;
-  if (isEventRoomAccessDenied(access ?? undefined)) {
-    return { title: "Private event room" };
-  }
-
   const res = await getCachedContentChannelForPage(eventId);
   const list = unwrapContentChannelList(res.data) as ChannelData[];
+  const externalSearchBanned = isPrimaryChannelExternalSearchBanned(
+    list,
+    initialChannelId
+  );
   const defaultChannel = pickInitialChannelContent(list, initialChannelId);
   const hostName =
     list[0]?.event?.hostName ?? defaultChannel?.event?.hostName ?? "";
@@ -90,6 +82,9 @@ export async function generateMetadata({
     metadataBase: new URL(getPrimaryOrigin()),
     title,
     description: `Discover videos, join live conversations, and support ${creatorFirstName} through realtime visible participation on Tipmanna.`,
+    ...(externalSearchBanned
+      ? { robots: { index: false, follow: false } }
+      : {}),
     alternates: {
       canonical: pageUrl,
     },
@@ -113,18 +108,6 @@ export default async function ChannelPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
-
-  const accessRes = await getEventRoomAccessAction(eventId);
-  const access =
-    accessRes.success && accessRes.data
-      ? (accessRes.data as {
-          accessMode?: "public" | "invite_only";
-          allowed?: boolean;
-        })
-      : null;
-  if (isEventRoomAccessDenied(access ?? undefined)) {
-    return <PrivateEventRoomBlocked />;
-  }
 
   const [
     contentsRes,

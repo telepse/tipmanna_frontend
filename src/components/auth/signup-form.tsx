@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 
 // Third-party imports
 import { useForm, useWatch } from "react-hook-form";
@@ -557,7 +558,7 @@ export const SignupForm = () => {
                         />
                       </FormControl>
                       <FormLabel className="text-sm font-normal">
-                        I agree to the Terms and Privacy Policy
+                        <TermsPrivacyLabel />
                       </FormLabel>
                     </div>
                     <FormMessage />
@@ -660,7 +661,7 @@ export const SignupForm = () => {
                         />
                       </FormControl>
                       <FormLabel className="text-sm font-normal">
-                        I agree to the Terms and Privacy Policy
+                        <TermsPrivacyLabel />
                       </FormLabel>
                     </div>
                     <FormMessage />

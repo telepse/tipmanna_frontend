@@ -39,7 +39,7 @@ import { listMyVideosForVideoRequestsAction } from "@/actions/video-requests";
 import { subscriptionActionErrorMessage } from "@/lib/host-subscription-errors";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { useImageUpload } from "@/hooks/use-image-upload";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 
 const MIN_ITEMS = 3;
 const MAX_ITEMS = 10;
@@ -200,12 +200,16 @@ export function HostPlaylistsClient() {
       );
       let bannerUrl: string | null = null;
       if (bannerUploadPreview) {
-        const uploaded = await uploadImage(bannerUploadPreview);
-        if (!uploaded?.secure_url) {
+        const uploaded = await tryUploadImage(bannerUploadPreview);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        if (!uploaded.data?.secure_url) {
           toast.error("Could not upload banner image");
           return;
         }
-        bannerUrl = uploaded.secure_url;
+        bannerUrl = uploaded.data.secure_url;
       } else if (bannerChannelId) {
         const bannerChannel = channels.find(c => c.id === bannerChannelId);
         const bannerVideoId = bannerChannel

@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useImageUpload } from "@/hooks/use-image-upload";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import { COMMUNITY_TYPE_LABELS } from "@/lib/community-type-labels";
 import { cn, formatBankDuration } from "@/lib/utils";
 import type { RootState } from "@/redux/store";
@@ -224,8 +224,12 @@ export function CommunityCustomizationHostClient({
       if (logoMarkedForRemoval) {
         nextLogoUrl = null;
       } else if (readableImage?.startsWith("data:")) {
-        const uploaded = await uploadImage(readableImage);
-        nextLogoUrl = uploaded?.secure_url ?? null;
+        const uploaded = await tryUploadImage(readableImage);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        nextLogoUrl = uploaded.data?.secure_url ?? null;
         if (!nextLogoUrl) {
           toast.error("Could not upload community logo.");
           return;

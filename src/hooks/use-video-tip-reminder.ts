@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { markNotificationReadAction } from "@/actions/notifications";
 import { emitVideoTipReminderAction } from "@/actions/video-tip-reminder";
+import { getDeviceKey } from "@/lib/getAuthToken";
 import {
   videoTipReminderFlagsForSurface,
   type VideoTipReminderSurface,
+  type VideoTipReminderSurfaceFlags,
 } from "@/lib/video-tip-reminder-surfaces";
+import { getVisitorIdForAuthMergeFromClient } from "@/lib/visitor-session";
 import {
   hasVideoTipReminderSessionShown,
   markVideoTipReminderSessionShown,
@@ -28,6 +31,8 @@ export type UseVideoTipReminderParams = {
   authToken?: string | null;
   onTipNow?: () => void;
   notificationIdRef?: React.MutableRefObject<string | null>;
+  /** Overrides surface defaults (e.g. homepage preview disables in-app). */
+  reminderFlagsOverride?: Partial<VideoTipReminderSurfaceFlags>;
 };
 
 export function useVideoTipReminder({
@@ -42,8 +47,13 @@ export function useVideoTipReminder({
   authToken,
   onTipNow,
   notificationIdRef,
+  reminderFlagsOverride,
 }: UseVideoTipReminderParams) {
-  const flags = videoTipReminderFlagsForSurface(surface);
+  const baseFlags = videoTipReminderFlagsForSurface(surface);
+  const flags = {
+    flash: reminderFlagsOverride?.flash ?? baseFlags.flash,
+    inApp: reminderFlagsOverride?.inApp ?? baseFlags.inApp,
+  };
   const [activeOffsetSec, setActiveOffsetSec] = useState<number | null>(null);
   const shownRef = useRef<Set<number>>(new Set());
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,6 +101,8 @@ export function useVideoTipReminder({
           hostFirstName,
           deepLinkUrl,
           token: authToken,
+          visitorId: getVisitorIdForAuthMergeFromClient(),
+          deviceKey: typeof window !== "undefined" ? getDeviceKey() : undefined,
         });
         if (res.success && res.data?.notificationId) {
           lastNotificationIdRef.current = res.data.notificationId;

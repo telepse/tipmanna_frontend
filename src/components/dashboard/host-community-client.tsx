@@ -77,7 +77,7 @@ import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subs
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { buildContentShareUrl } from "@/lib/public-video-url";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { usePushPermission } from "@/hooks/use-push-permission";
 import { getPwaInstallInstructions } from "@/lib/pwa-utils";
@@ -892,8 +892,12 @@ export function HostCommunityClient() {
     try {
       let logoUrl: string | null = null;
       if (activationLogoPreview?.startsWith("data:")) {
-        const uploaded = await uploadImage(activationLogoPreview);
-        logoUrl = uploaded?.secure_url ?? null;
+        const uploaded = await tryUploadImage(activationLogoPreview);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        logoUrl = uploaded.data?.secure_url ?? null;
         if (!logoUrl) {
           toast.error("Could not upload community logo.");
           return;

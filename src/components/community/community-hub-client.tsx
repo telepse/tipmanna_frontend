@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 
@@ -18,7 +17,11 @@ import {
   type CommunityExploreCatalogRow,
 } from "@/actions/communities";
 import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
+import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
+import { exploreCommunityJoinHref } from "@/lib/community-links";
 import SignInDialog, {
   type SignInModalPayload,
 } from "@/components/auth/sign-in-dialog";
@@ -57,10 +60,6 @@ const TIPMANNA_COMMUNITY_ID =
   process.env.NEXT_PUBLIC_TIPMANNA_COMMUNITY_ID?.trim() ?? "";
 
 const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
-
-function exploreCommunityJoinHref(communityId: string) {
-  return `/explore?tab=join&joinCommunity=${encodeURIComponent(communityId)}`;
-}
 
 function manageHostCommunityHref(eventSlug: string) {
   return `/host/${encodeURIComponent(eventSlug)}/host-community`;
@@ -181,20 +180,14 @@ function communityHistoryReason(m: HubMembership): string {
 }
 
 export default function CommunityHubClient() {
-  const router = useRouter();
   const {
     user,
     isAuthenticated,
     token: authToken,
   } = useSelector((s: RootState) => s.auth);
   const userId = user?.id;
-  const {
-    canReadAsHost,
-    canWriteAsHost,
-    capability,
-    requestHostAuth,
-    HostAuthModal,
-  } = useHostCapabilityWithAuth();
+  const { canWriteAsHost, capability, requestHostAuth, HostAuthModal } =
+    useHostCapabilityWithAuth();
 
   const [memberships, setMemberships] = useState<HubMembership[]>([]);
   const [searchQ, setSearchQ] = useState("");
@@ -215,10 +208,6 @@ export default function CommunityHubClient() {
   >([]);
   const [topLoading, setTopLoading] = useState(true);
 
-  const [joinSignInOpen, setJoinSignInOpen] = useState(false);
-  const [joinSignInReturnTo, setJoinSignInReturnTo] = useState<string | null>(
-    null
-  );
   const [hostSignInOpen, setHostSignInOpen] = useState(false);
   const [pendingStartCommunity, setPendingStartCommunity] = useState(false);
 
@@ -342,7 +331,7 @@ export default function CommunityHubClient() {
   }, [searchQ]);
 
   useEffect(() => {
-    if (!canReadAsHost || !authToken) {
+    if (!isAuthenticated || !authToken) {
       setOwned([]);
       setCoCreated([]);
       return;
@@ -362,7 +351,7 @@ export default function CommunityHubClient() {
         setCoCreated([]);
       }
     })();
-  }, [authToken, canReadAsHost]);
+  }, [authToken, isAuthenticated]);
 
   const defaultSystemRows = useMemo(() => {
     const fromApi = memberships.filter(isDefaultSystemCommunity);
@@ -406,9 +395,26 @@ export default function CommunityHubClient() {
   const eventSlug =
     hostSessionActive && hostSessionEventSlug?.trim()
       ? hostSessionEventSlug.trim()
-      : capability.status === "active"
+      : capability.status === "active" || capability.status === "stale"
         ? (capability.eventSlug?.trim() ?? "")
         : "";
+
+  const {
+    joinCommunityId,
+    joinModalOpen,
+    closeJoinModal,
+    openJoin,
+    openCommunity,
+    signInOpen: joinFlowSignInOpen,
+    setSignInOpen: setJoinFlowSignInOpen,
+    signInReturnTo: joinFlowSignInReturnTo,
+    onSignInVerified: onJoinFlowSignInVerified,
+    signInTitle: joinFlowSignInTitle,
+    signupSurface: joinFlowSignupSurface,
+  } = useCommunityJoinFlow({
+    signupSurface: "community_hub",
+    signInTitle: "Sign in to join this community",
+  });
 
   const showStartCommunityForm =
     Boolean(isAuthenticated) &&
@@ -487,11 +493,6 @@ export default function CommunityHubClient() {
     );
   }, [catalog, catalogFilter]);
 
-  const openJoinSignIn = useCallback((communityId: string) => {
-    setJoinSignInReturnTo(exploreCommunityJoinHref(communityId));
-    setJoinSignInOpen(true);
-  }, []);
-
   const openStartCommunityForm = useCallback(() => {
     setStartCommunityModalOpen(true);
   }, []);
@@ -536,15 +537,23 @@ export default function CommunityHubClient() {
   return (
     <div className="bg-background min-h-0 pb-10">
       <TipperEmailOtpSignInDialog
-        open={joinSignInOpen}
-        onOpenChange={open => {
-          setJoinSignInOpen(open);
-          if (!open) setJoinSignInReturnTo(null);
-        }}
-        signInTitle="Sign in required"
-        signupSurface="community_hub"
-        getRedirectPathAfterVerify={() => joinSignInReturnTo ?? undefined}
+        open={joinFlowSignInOpen}
+        onOpenChange={setJoinFlowSignInOpen}
+        signInTitle={joinFlowSignInTitle}
+        signupSurface={joinFlowSignupSurface}
+        getRedirectPathAfterVerify={() => joinFlowSignInReturnTo}
+        onVerified={onJoinFlowSignInVerified}
       />
+      {joinCommunityId ? (
+        <JoinCommunityModal
+          open={joinModalOpen}
+          onOpenChange={open => {
+            if (!open) closeJoinModal();
+          }}
+          communityId={joinCommunityId}
+          signInRedirectPath={exploreCommunityJoinHref(joinCommunityId)}
+        />
+      ) : null}
       <SignInDialog
         open={hostSignInOpen}
         onOpenChange={open => {
@@ -641,17 +650,13 @@ export default function CommunityHubClient() {
                         Member
                       </span>
                     ) : !c.isSystem ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          if (!isAuthenticated) openJoinSignIn(c.id);
-                          else router.push(exploreCommunityJoinHref(c.id));
-                        }}
-                      >
-                        Join
-                      </Button>
+                      <CommunityJoinOpenControls
+                        communityId={c.id}
+                        joined={false}
+                        isAuthenticated={isAuthenticated}
+                        onJoin={openJoin}
+                        onOpen={openCommunity}
+                      />
                     ) : null}
                   </div>
                 </li>
@@ -770,28 +775,15 @@ export default function CommunityHubClient() {
                       </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      {c.viewer?.joined ? (
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Link href={exploreCommunityJoinHref(c.id)}>
-                            Details
-                          </Link>
-                        </Button>
-                      ) : !isTipmannaPublic ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => {
-                            if (!isAuthenticated) openJoinSignIn(c.id);
-                            else router.push(exploreCommunityJoinHref(c.id));
-                          }}
-                        >
-                          Join
-                        </Button>
+                      {!isTipmannaPublic ? (
+                        <CommunityJoinOpenControls
+                          communityId={c.id}
+                          joined={Boolean(c.viewer?.joined)}
+                          isAuthenticated={isAuthenticated}
+                          onJoin={openJoin}
+                          onOpen={openCommunity}
+                          joinLabel={c.viewer?.joined ? "Details" : undefined}
+                        />
                       ) : null}
                     </div>
                   </li>
@@ -901,50 +893,52 @@ export default function CommunityHubClient() {
               className="flex flex-wrap items-center justify-between gap-2"
             >
               <p className="min-w-0 truncate font-medium">{c.name}</p>
-              {canReadAsHost && eventSlug ? (
-                capability.status === "stale" ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    type="button"
-                    onClick={() =>
-                      requestHostAuth(() => {
-                        if (eventSlug) {
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openCommunity(c.id)}
+                >
+                  Open
+                </Button>
+                {eventSlug ? (
+                  canWriteAsHost ? (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="secondary"
+                    >
+                      <a
+                        href={manageHostCommunityHref(eventSlug)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Manage
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      type="button"
+                      onClick={() =>
+                        requestHostAuth(() => {
                           window.open(
                             manageHostCommunityHref(eventSlug),
                             "_blank",
                             "noreferrer"
                           );
-                        }
-                      })
-                    }
-                  >
-                    Sign in to manage
-                  </Button>
-                ) : (
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="secondary"
-                  >
-                    <a
-                      href={manageHostCommunityHref(eventSlug)}
-                      target="_blank"
-                      rel="noreferrer"
+                        })
+                      }
                     >
-                      Manage
-                    </a>
-                  </Button>
-                )
-              ) : (
-                <Button
-                  asChild
-                  size="sm"
-                  variant="secondary"
-                >
-                  <Link href={exploreCommunityJoinHref(c.id)}>Open</Link>
-                </Button>
-              )}
+                      {capability.status === "stale"
+                        ? "Sign in to manage"
+                        : "Manage"}
+                    </Button>
+                  )
+                ) : null}
+              </div>
             </div>
           ))}
 
@@ -960,11 +954,12 @@ export default function CommunityHubClient() {
                 >
                   <p>{c.name}</p>
                   <Button
-                    asChild
+                    type="button"
                     size="sm"
                     variant="outline"
+                    onClick={() => openCommunity(c.id)}
                   >
-                    <Link href={exploreCommunityJoinHref(c.id)}>Open</Link>
+                    Open
                   </Button>
                 </div>
               ))}

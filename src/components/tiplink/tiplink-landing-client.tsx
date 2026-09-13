@@ -48,6 +48,8 @@ import {
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { fetchPublicTipLinkHydrate } from "@/lib/tiplink-hydrate";
 import { shouldLoadTipStripe } from "@/lib/should-load-tip-stripe";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { TipSection } from "@/components/events/tip-section";
 import VideoPlayer, {
   type VideoPlayerRef,
@@ -198,6 +200,7 @@ export function TipLinkLandingClient({
   const userRole = (user as { role?: string } | null)?.role;
   const userId = user?.id;
   const videoRef = useRef<VideoPlayerRef>(null);
+  const featureOverlayWasPlayingRef = useRef(false);
   const playerAnchorRef = useRef<HTMLDivElement>(null);
   const navTickerRef = useRef<HTMLDivElement>(null);
   const stickyClusterRef = useRef<HTMLDivElement>(null);
@@ -740,16 +743,25 @@ export function TipLinkLandingClient({
     else videoRef.current?.play();
   }, [isPlaying]);
 
+  const scrollToInlineVideo = useCallback(() => {
+    const anchor = playerAnchorRef.current;
+    if (!anchor) return;
+    const headerH = stickyClusterRef.current?.offsetHeight ?? 96;
+    const top =
+      anchor.getBoundingClientRect().top + window.scrollY - headerH - 8;
+    window.scrollTo({
+      top: Math.max(0, top),
+      behavior: isMobileSurface ? "auto" : "smooth",
+    });
+  }, [isMobileSurface]);
+
   const handlePlayerSurfaceClick = useCallback(() => {
     if (isDocked) {
-      playerAnchorRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+      scrollToInlineVideo();
       return;
     }
     togglePlayPause();
-  }, [isDocked, togglePlayPause]);
+  }, [isDocked, scrollToInlineVideo, togglePlayPause]);
 
   const preservePlaybackBeforeLayout = useCallback(() => {
     const t = videoRef.current?.getCurrentTime();
@@ -934,23 +946,26 @@ export function TipLinkLandingClient({
   });
   const tipDrawerMounted = drawerOpen;
 
-  const renderScrubber = (variant: "inline" | "immersive" | "landscape") => (
+  const renderScrubber = (
+    variant: "inline" | "immersive" | "landscape",
+    overlay = false
+  ) => (
     <div
       className={cn(
         variant === "inline" && "space-y-2 px-3 pb-2",
         variant === "immersive" &&
-          cn(
-            "flex flex-col gap-2",
-            immersiveMobileScrubberDockClassName(immersiveLayout)
-          ),
-        variant === "landscape" && "fixed bottom-4 left-0 w-full space-y-2 p-4"
+          (overlay
+            ? "absolute inset-x-0 bottom-0 z-[55] flex flex-col gap-2 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-2 pt-4 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]"
+            : cn(
+                "flex flex-col gap-2",
+                immersiveMobileScrubberDockClassName(immersiveLayout)
+              )),
+        variant === "landscape" &&
+          (overlay
+            ? "absolute inset-x-0 bottom-0 z-[55] space-y-2 bg-gradient-to-t from-black/90 via-black/45 to-transparent p-4 pt-8"
+            : "fixed bottom-4 left-0 w-full space-y-2 p-4")
       )}
     >
-      {variant === "landscape" ? (
-        <span className="line-clamp-1 text-sm font-semibold">
-          {channel.title}
-        </span>
-      ) : null}
       <div
         className={cn(
           "flex items-center justify-between text-sm",
@@ -1015,7 +1030,10 @@ export function TipLinkLandingClient({
           <button
             type="button"
             onClick={() => setIsTipDrawerOpen(true)}
-            className="mb-0 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
+            className={cn(
+              "mb-0 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 font-semibold text-black shadow",
+              isDesktopEnlarge ? "px-4 py-2 text-sm" : "px-3 py-1 text-xs"
+            )}
           >
             <ChevronsUp
               className="text-primary size-4"
@@ -1176,6 +1194,19 @@ export function TipLinkLandingClient({
             )
       )}
     >
+      {isEnlargeMode && !isDocked ? (
+        <button
+          type="button"
+          aria-label="Close enlarged video"
+          className="absolute top-2 left-2 z-[56] flex shrink-0 items-center rounded-md bg-white/40 p-1.5 text-black"
+          onClick={e => {
+            e.stopPropagation();
+            exitImmersive();
+          }}
+        >
+          <X className="size-4" />
+        </button>
+      ) : null}
       {!isDocked ? (
         <button
           type="button"
@@ -1188,6 +1219,13 @@ export function TipLinkLandingClient({
         >
           <Info className="size-4" />
         </button>
+      ) : null}
+      {isEnlargeMode && floatingScrubberVariant ? (
+        <div className="pointer-events-none absolute inset-0 z-[54]">
+          <div className="pointer-events-auto">
+            {renderScrubber(floatingScrubberVariant, true)}
+          </div>
+        </div>
       ) : null}
       <VideoPlayer
         ref={videoRef}
@@ -1220,6 +1258,24 @@ export function TipLinkLandingClient({
         id="preview-animation-root"
         className="pointer-events-none absolute inset-0"
       />
+      {paymentChannelId &&
+      process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
+        <div className="pointer-events-none absolute bottom-20 left-2 z-[62] max-w-[min(360px,calc(100%-1rem))]">
+          <VideoFeatureCardBanner
+            surfaceChannelId={paymentChannelId}
+            hostSurfaceChannelId={paymentChannelId}
+            sectionCtaLabel={tipPres.sectionCtaLabel}
+            pageDrawerOpen={isTipDrawerOpen}
+            onTipFeatured={() => setIsTipDrawerOpen(true)}
+            onOverlayOpenChange={createFeatureCardOverlayPlaybackHandlers(
+              videoRef,
+              featureOverlayWasPlayingRef,
+              { getWasPlaying: () => isPlaying }
+            )}
+            className="pointer-events-auto"
+          />
+        </div>
+      ) : null}
       {showFlashOverlay ? (
         <VideoTipReminderOverlay
           hostFirstName={hostFirstName}
@@ -1236,24 +1292,12 @@ export function TipLinkLandingClient({
       key="tiplink-player"
       className={cn(
         "fixed flex flex-col",
-        isEnlargeMode ? "z-[105]" : "z-[60]"
+        isDocked ? "z-[115]" : isEnlargeMode ? "z-[105]" : "z-[60]"
       )}
       style={playerPositionStyle}
     >
       <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-        <div className="flex min-h-0 w-full flex-1 flex-col">
-          <div
-            className={cn(
-              "flex min-h-0 w-full flex-1 flex-col",
-              floatingScrubberVariant === "landscape" && "pb-28"
-            )}
-          >
-            {playerStage}
-          </div>
-          {floatingScrubberVariant
-            ? renderScrubber(floatingScrubberVariant)
-            : null}
-        </div>
+        <div className="flex min-h-0 w-full flex-1 flex-col">{playerStage}</div>
       </div>
     </div>
   );
@@ -1282,18 +1326,8 @@ export function TipLinkLandingClient({
               isEnlargeMode ? "z-[110]" : "z-50"
             )}
           >
-            <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <header className="flex items-center justify-between border-b border-white/10 px-4 py-2">
               <div className="flex items-center gap-3">
-                {isEnlargeMode ? (
-                  <button
-                    type="button"
-                    aria-label="Close enlarged video"
-                    className="rounded-full border border-white/20 p-2"
-                    onClick={exitImmersive}
-                  >
-                    <X className="size-5" />
-                  </button>
-                ) : null}
                 <Button
                   variant="secondary"
                   size="sm"
@@ -1317,12 +1351,24 @@ export function TipLinkLandingClient({
               </div>
               <Link
                 href="/"
-                className="flex items-center gap-2 font-semibold tracking-wide"
+                className="flex items-baseline gap-2 font-semibold tracking-wide"
               >
-                <h1 className="racing_sans_one text-lg sm:text-4xl">
+                <span
+                  className={cn(
+                    "racing_sans_one",
+                    isMobileSurface ? "text-lg" : "text-2xl"
+                  )}
+                >
                   <span className="text-primary">tip</span>manna
-                </h1>
-                <span className="text-sm text-white/70">link</span>
+                </span>
+                <span
+                  className={cn(
+                    "text-white/70",
+                    isMobileSurface ? "text-sm" : "text-base"
+                  )}
+                >
+                  link
+                </span>
               </Link>
             </header>
             <div
@@ -1340,6 +1386,7 @@ export function TipLinkLandingClient({
                   sectionCtaLabel={tipPres.sectionCtaLabel}
                   docked={isDocked}
                   dockedHeight={dockFallback.height}
+                  hideActionLabels={isEnlargeMode}
                   useDesktopPipReserve={!isMobileSurface}
                   pipReserveMobile={PIP_RESERVE_MOBILE}
                   pipReserveDesktop={PIP_RESERVE_DESKTOP}
@@ -1358,6 +1405,18 @@ export function TipLinkLandingClient({
                 }}
                 aria-hidden={!isDocked}
               />
+              {isDocked ? (
+                <button
+                  type="button"
+                  aria-label="Scroll to video"
+                  className="absolute top-1/2 right-3 z-[120] -translate-y-1/2 cursor-pointer rounded-md bg-transparent"
+                  style={{
+                    width: dockFallback.width,
+                    height: dockFallback.height,
+                  }}
+                  onClick={scrollToInlineVideo}
+                />
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -1661,7 +1720,7 @@ export function TipLinkLandingClient({
         </main>
 
         {/* TIPLINK PAGE FOOTER */}
-        {showStickyHeader ? (
+        {showStickyHeader && !isEnlargeMode ? (
           <footer className="bg-primary/20 border-t border-white/10 px-4 py-8 text-center text-white backdrop-blur-xl">
             <p className="mb-4 text-lg font-semibold">
               Watch · {tipPres.sectionCtaLabel?.trim() || "Engage"} · Support

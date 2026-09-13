@@ -11,8 +11,18 @@ import {
   getEventRoomAccessAction,
   submitEventRoomAccessAction,
   type EventRoomAccessFormConfig,
+  type EventRoomAccessFormFieldKey,
 } from "@/actions/events";
-import { setEventReminderAction } from "@/actions/event-reminders";
+import {
+  mergeSubscriberEventRemindersAction,
+  setEventReminderAction,
+} from "@/actions/event-reminders";
+import { EventReminderChoiceDialog } from "@/components/events/event-reminder-choice-dialog";
+import { usePushPermission } from "@/hooks/use-push-permission";
+import { ensurePushForSignedInTipper } from "@/lib/program-push-setup";
+import { deferPushUntilInstalled } from "@/lib/push-opt-in-ios";
+import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
+import { store } from "@/redux/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,13 +132,39 @@ export function PrivateEventRoomBlocked({
 function parseFormConfig(raw: unknown): EventRoomAccessFormConfig {
   if (!raw || typeof raw !== "object") return {};
   const cfg = raw as Record<string, unknown>;
+  const requiredFields = Array.isArray(cfg.requiredFields)
+    ? cfg.requiredFields.filter(
+        (f): f is EventRoomAccessFormFieldKey =>
+          typeof f === "string" &&
+          [
+            "firstName",
+            "lastName",
+            "idNumber",
+            "name",
+            "phone",
+            "ticketId",
+            "customQuestion",
+          ].includes(f)
+      )
+    : undefined;
   return {
     collectName: Boolean(cfg.collectName),
+    collectFirstName: Boolean(cfg.collectFirstName),
+    collectLastName: Boolean(cfg.collectLastName),
+    collectIdNumber: Boolean(cfg.collectIdNumber),
     collectPhone: Boolean(cfg.collectPhone),
     collectTicketId: Boolean(cfg.collectTicketId),
     customQuestion:
       typeof cfg.customQuestion === "string" ? cfg.customQuestion : null,
+    requiredFields,
   };
+}
+
+function isFieldRequired(
+  formConfig: EventRoomAccessFormConfig,
+  key: EventRoomAccessFormFieldKey
+): boolean {
+  return formConfig.requiredFields?.includes(key) ?? false;
 }
 
 function EventRoomAccessForm({
@@ -169,6 +205,9 @@ function EventRoomAccessForm({
   );
   const [answers, setAnswers] = useState({
     name: "",
+    firstName: "",
+    lastName: "",
+    idNumber: "",
     phone: "",
     ticketId: "",
     customAnswer: "",
@@ -177,7 +216,11 @@ function EventRoomAccessForm({
   const [reminderOffset, setReminderOffset] = useState(15);
   const [signInOpen, setSignInOpen] = useState(false);
   const [communityOpen, setCommunityOpen] = useState(false);
+  const [choiceOpen, setChoiceOpen] = useState(false);
+  const [guestEmailUsed, setGuestEmailUsed] = useState("");
+  const [pendingGuestMerge, setPendingGuestMerge] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { subscribe, state: pushState } = usePushPermission();
 
   const formConfig = useMemo(
     () => parseFormConfig(gate?.formConfig),
@@ -230,6 +273,66 @@ function EventRoomAccessForm({
     }
   };
 
+  const validateRequiredFields = (): boolean => {
+    const checks: Array<{
+      enabled?: boolean;
+      key: EventRoomAccessFormFieldKey;
+      value: string;
+      label: string;
+    }> = [
+      {
+        enabled: formConfig.collectFirstName,
+        key: "firstName",
+        value: answers.firstName,
+        label: "First name",
+      },
+      {
+        enabled: formConfig.collectLastName,
+        key: "lastName",
+        value: answers.lastName,
+        label: "Last name",
+      },
+      {
+        enabled: formConfig.collectIdNumber,
+        key: "idNumber",
+        value: answers.idNumber,
+        label: "ID number",
+      },
+      {
+        enabled: formConfig.collectName,
+        key: "name",
+        value: answers.name,
+        label: "Name",
+      },
+      {
+        enabled: formConfig.collectPhone,
+        key: "phone",
+        value: answers.phone,
+        label: "Phone",
+      },
+      {
+        enabled: formConfig.collectTicketId,
+        key: "ticketId",
+        value: answers.ticketId,
+        label: "Ticket ID",
+      },
+      {
+        enabled: Boolean(formConfig.customQuestion),
+        key: "customQuestion",
+        value: answers.customAnswer,
+        label: formConfig.customQuestion ?? "Custom question",
+      },
+    ];
+    for (const field of checks) {
+      if (!field.enabled || !isFieldRequired(formConfig, field.key)) continue;
+      if (!field.value.trim()) {
+        toast.error(`${field.label} is required`);
+        return false;
+      }
+    }
+    return true;
+  };
+
   const submit = async () => {
     if (!email.trim() && gate?.requiresEmail) {
       toast.error("Email is required");
@@ -239,15 +342,28 @@ function EventRoomAccessForm({
       toast.error("Access code is required");
       return;
     }
+    if (!validateRequiredFields()) return;
 
     setBusy(true);
     try {
       const answersJson =
         formConfig.collectName ||
+        formConfig.collectFirstName ||
+        formConfig.collectLastName ||
+        formConfig.collectIdNumber ||
         formConfig.collectPhone ||
         formConfig.collectTicketId ||
         formConfig.customQuestion
           ? {
+              ...(formConfig.collectFirstName && answers.firstName.trim()
+                ? { firstName: answers.firstName.trim() }
+                : {}),
+              ...(formConfig.collectLastName && answers.lastName.trim()
+                ? { lastName: answers.lastName.trim() }
+                : {}),
+              ...(formConfig.collectIdNumber && answers.idNumber.trim()
+                ? { idNumber: answers.idNumber.trim() }
+                : {}),
               ...(formConfig.collectName && answers.name.trim()
                 ? { name: answers.name.trim() }
                 : {}),
@@ -276,6 +392,11 @@ function EventRoomAccessForm({
       if (data.allowed) {
         persistCredentials();
         await maybeSetReminder(email.trim());
+        if (setReminder && !isEventOver) {
+          setGuestEmailUsed(email.trim());
+          setChoiceOpen(true);
+          return;
+        }
         onSuccess();
         return;
       }
@@ -446,9 +567,60 @@ function EventRoomAccessForm({
           </div>
         ) : null}
 
+        {formConfig.collectFirstName ? (
+          <div className="space-y-2">
+            <Label htmlFor="event-access-first-name">
+              First name
+              {isFieldRequired(formConfig, "firstName") ? " *" : ""}
+            </Label>
+            <Input
+              id="event-access-first-name"
+              value={answers.firstName}
+              onChange={e =>
+                setAnswers(prev => ({ ...prev, firstName: e.target.value }))
+              }
+            />
+          </div>
+        ) : null}
+
+        {formConfig.collectLastName ? (
+          <div className="space-y-2">
+            <Label htmlFor="event-access-last-name">
+              Last name
+              {isFieldRequired(formConfig, "lastName") ? " *" : ""}
+            </Label>
+            <Input
+              id="event-access-last-name"
+              value={answers.lastName}
+              onChange={e =>
+                setAnswers(prev => ({ ...prev, lastName: e.target.value }))
+              }
+            />
+          </div>
+        ) : null}
+
+        {formConfig.collectIdNumber ? (
+          <div className="space-y-2">
+            <Label htmlFor="event-access-id-number">
+              ID number
+              {isFieldRequired(formConfig, "idNumber") ? " *" : ""}
+            </Label>
+            <Input
+              id="event-access-id-number"
+              value={answers.idNumber}
+              onChange={e =>
+                setAnswers(prev => ({ ...prev, idNumber: e.target.value }))
+              }
+            />
+          </div>
+        ) : null}
+
         {formConfig.collectName ? (
           <div className="space-y-2">
-            <Label htmlFor="event-access-name">Name</Label>
+            <Label htmlFor="event-access-name">
+              Name
+              {isFieldRequired(formConfig, "name") ? " *" : ""}
+            </Label>
             <Input
               id="event-access-name"
               value={answers.name}
@@ -519,8 +691,11 @@ function EventRoomAccessForm({
                 value={reminderOffset}
                 onChange={e => setReminderOffset(Number(e.target.value))}
               >
+                <option value={5}>5 minutes before</option>
                 <option value={15}>15 minutes before</option>
                 <option value={30}>30 minutes before</option>
+                <option value={60}>1 hour before</option>
+                <option value={1440}>1 day before</option>
               </select>
             ) : null}
           </div>
@@ -542,6 +717,97 @@ function EventRoomAccessForm({
           )}
         </Button>
       </div>
+
+      <EventReminderChoiceDialog
+        open={choiceOpen}
+        onOpenChange={open => {
+          setChoiceOpen(open);
+          if (!open) onSuccess();
+        }}
+        email={guestEmailUsed || email.trim() || signedInEmail}
+        isGuestFlow={
+          Boolean(guestEmailUsed) &&
+          !(isAuthenticated && user?.role !== "VISITOR")
+        }
+        onEnablePush={async () => {
+          const isGuestFlow =
+            Boolean(guestEmailUsed) &&
+            !(isAuthenticated && user?.role !== "VISITOR");
+          if (isGuestFlow) {
+            setPendingGuestMerge(true);
+            setSignInOpen(true);
+            return;
+          }
+          if (deferPushUntilInstalled("event-reminder")) {
+            setChoiceOpen(false);
+            onSuccess();
+            toast.info(
+              "Install Tipmanna first, then we will enable push reminders."
+            );
+            return;
+          }
+          const policy = await fetchPushPromptPolicy();
+          if (!policy.enabled) {
+            setChoiceOpen(false);
+            onSuccess();
+            toast.info("Push notifications are not available right now.");
+            return;
+          }
+          const result = await ensurePushForSignedInTipper({
+            pushState,
+            subscribe,
+            token: authToken,
+          });
+          if (result === "already_subscribed" || result === "push_enabled") {
+            toast.success("Push reminder enabled for this event.");
+          }
+          setChoiceOpen(false);
+          onSuccess();
+        }}
+        onEmailInAppOnly={async () => {
+          const isGuestFlow =
+            Boolean(guestEmailUsed) &&
+            !(isAuthenticated && user?.role !== "VISITOR");
+          if (isGuestFlow) {
+            setPendingGuestMerge(true);
+            setSignInOpen(true);
+            return;
+          }
+          toast.info("Email and in-app reminders are saved for this event.");
+          setChoiceOpen(false);
+          onSuccess();
+        }}
+      />
+
+      <TipperEmailOtpSignInDialog
+        open={signInOpen && pendingGuestMerge}
+        onOpenChange={open => {
+          setSignInOpen(open);
+          if (!open && pendingGuestMerge) {
+            setPendingGuestMerge(false);
+            setChoiceOpen(false);
+            onSuccess();
+          }
+        }}
+        signInTitle="Verify email for in-app reminders"
+        initialEmail={guestEmailUsed || email.trim() || undefined}
+        autoSendCode={Boolean(guestEmailUsed || email.trim())}
+        signupSurface="event_room"
+        onVerified={async () => {
+          const token = store.getState().auth.token ?? authToken;
+          const res = await mergeSubscriberEventRemindersAction(
+            { email: guestEmailUsed },
+            token
+          );
+          setSignInOpen(false);
+          setPendingGuestMerge(false);
+          setChoiceOpen(false);
+          if (res.success) {
+            toast.success("Email and in-app reminders linked to your account.");
+          }
+          onSuccess();
+        }}
+      />
     </div>
   );
 }

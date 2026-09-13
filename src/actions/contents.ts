@@ -157,7 +157,8 @@ export type DiscoveryEventRow = {
   accessMode: string;
   communityId: string | null;
   eventDate: string | null;
-  badge: "unrestricted" | "restricted" | "community";
+  isArchived?: boolean;
+  badge: "unrestricted" | "restricted" | "community" | "archived";
 };
 
 export async function getDiscoveryEventsAction(limit = 5) {
@@ -239,6 +240,16 @@ export type DiscoverySearchResult = {
     totalTips: number;
     verified: boolean;
   }>;
+  events: Array<{
+    id: string;
+    name: string;
+    banner: string | null;
+    accessMode: string;
+    communityId: string | null;
+    eventDate: string | null;
+    isArchived: boolean;
+    badge: "unrestricted" | "restricted" | "community" | "archived";
+  }>;
 };
 
 export async function discoverySearchAction(
@@ -256,6 +267,7 @@ export async function discoverySearchAction(
         programs: [],
         livestreams: [],
         communities: [],
+        events: [],
       } satisfies DiscoverySearchResult,
     };
   }

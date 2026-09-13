@@ -11,6 +11,8 @@ export async function emitVideoTipReminderAction(input: {
   hostFirstName: string;
   deepLinkUrl: string;
   token?: string | null;
+  visitorId?: string | null;
+  deviceKey?: string | null;
 }) {
   return runServerFetch<{ notificationId: string; skipped?: boolean }>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/notifications/video-tip-reminder`,
@@ -27,6 +29,8 @@ export async function emitVideoTipReminderAction(input: {
         videoTitle: input.videoTitle,
         hostFirstName: input.hostFirstName,
         deepLinkUrl: input.deepLinkUrl,
+        visitorId: input.visitorId?.trim() || undefined,
+        deviceKey: input.deviceKey?.trim() || undefined,
       }),
       cache: "no-store",
     },

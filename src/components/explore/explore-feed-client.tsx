@@ -131,6 +131,7 @@ import {
   isDedicatedDiscoverReturnTo,
   peekDiscoverUiRestore,
 } from "@/lib/discover-return.util";
+import { isDedicatedTvFeedReturnTo } from "@/lib/explore-tv-feed-return.util";
 import { writePlaybackReturn } from "@/lib/playback-return-stack";
 import { useOpenChannelWithReturn } from "@/hooks/use-open-channel-with-return";
 import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
@@ -2737,7 +2738,10 @@ export const ExploreFeedClient = forwardRef<
       <div className="pointer-events-none absolute top-3 left-3 z-[80]">
         <PlaybackReturnBackChip
           className="pointer-events-auto"
-          isVisible={ctx => isDedicatedDiscoverReturnTo(ctx.returnTo)}
+          isVisible={ctx =>
+            isDedicatedDiscoverReturnTo(ctx.returnTo) ||
+            isDedicatedTvFeedReturnTo(ctx.returnTo)
+          }
         />
       </div>
       <div
@@ -2892,6 +2896,8 @@ export const ExploreFeedClient = forwardRef<
                               surfaceChannelId={String(activeChannelId)}
                               hostSurfaceChannelId={String(activeChannelId)}
                               compact
+                              sectionCtaLabel={tipPres.sectionCtaLabel}
+                              pageDrawerOpen={isTipDrawerOpen}
                               onTipFeatured={id => {
                                 setActiveVideoFeatureCardId(id);
                                 setIsTipDrawerOpen(true);

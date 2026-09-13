@@ -17,6 +17,7 @@ export const WebTvLooper = ({
   onEngage,
   onTipFeatured,
   sectionCtaLabel,
+  pageDrawerOpen = false,
   onRegisterExitFull,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
@@ -29,6 +30,7 @@ export const WebTvLooper = ({
   onEngage?: () => void;
   onTipFeatured?: (cardId: string) => void;
   sectionCtaLabel?: string;
+  pageDrawerOpen?: boolean;
   onRegisterExitFull?: (exitFull: (() => void) | null) => void;
   onContinueCommentToTip?: () => void;
   commentDrawerVideoTitle?: string;
@@ -43,6 +45,7 @@ export const WebTvLooper = ({
     onEngage={onEngage}
     onTipFeatured={onTipFeatured}
     sectionCtaLabel={sectionCtaLabel}
+    pageDrawerOpen={pageDrawerOpen}
     onRegisterExitFull={onRegisterExitFull}
     commentDrawerVideoTitle={commentDrawerVideoTitle}
     commentDrawerVideoDescription={commentDrawerVideoDescription}

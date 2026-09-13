@@ -103,6 +103,8 @@ import {
   exploreStateAheadOfUrl,
 } from "@/lib/explore-url-sync-policy";
 import { commitExploreHistory } from "@/lib/explore-url-history";
+import { readJoinCommunityIdFromLocation } from "@/lib/explore-community-navigation";
+import { ExploreCommunityNavigationProvider } from "@/contexts/explore-community-navigation-context";
 import {
   E2E_DISCOVER_CONTENTS,
   E2E_FEED_BOOT,
@@ -374,14 +376,15 @@ export default function ExplorePageClient({
 
   useEffect(() => {
     if (tab !== "join") return;
-    if (!joinCommunityId) {
-      setTab("my-communities");
-      commitExploreHistory({
-        href: EXPLORE_COMMUNITY_HUB_HREF,
-        mode: "replace",
-        source: "join-tab-guard",
-      });
-    }
+    if (joinCommunityId) return;
+    const liveJoinId = readJoinCommunityIdFromLocation();
+    if (liveJoinId) return;
+    setTab("my-communities");
+    commitExploreHistory({
+      href: EXPLORE_COMMUNITY_HUB_HREF,
+      mode: "replace",
+      source: "join-tab-guard",
+    });
   }, [tab, joinCommunityId]);
 
   useLayoutEffect(() => {
@@ -845,6 +848,31 @@ export default function ExplorePageClient({
     [commitExploreUrl, setMainTab]
   );
 
+  const openCommunityPageInExplore = useCallback(
+    (communityId: string) => {
+      const id = communityId.trim();
+      if (!id) return;
+      joinCommunityIdRef.current = id;
+      localTabNavRef.current = true;
+      commitExploreUrl(
+        "main-tab-click",
+        { tab: "join", joinCommunityId: id },
+        feedUrlStateRef.current
+      );
+      setMainTab("join");
+      setHistorySyncGen(g => g + 1);
+    },
+    [commitExploreUrl, setMainTab]
+  );
+
+  const exploreCommunityNavValue = useMemo(
+    () => ({
+      isOnExploreShell: true,
+      openCommunityPageInExplore,
+    }),
+    [openCommunityPageInExplore]
+  );
+
   /** Clear local navigation guard once the browser URL matches React state. */
   useEffect(() => {
     if (!localTabNavRef.current) return;
@@ -933,6 +961,13 @@ export default function ExplorePageClient({
   /** Passive URL normalization only — explicit user navigation owns push commits. */
   useEffect(() => {
     if (localTabNavRef.current) return;
+    if (
+      tab === "join" &&
+      !joinCommunityId &&
+      readJoinCommunityIdFromLocation()
+    ) {
+      return;
+    }
 
     const liveKey = exploreLiveSearchParamsKey(searchParamsKeyRef.current);
     const nextHref = buildExploreFeedHref(
@@ -1770,61 +1805,62 @@ export default function ExplorePageClient({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   return (
-    <div
-      className="flex h-[100dvh] flex-col overflow-hidden"
-      data-explore-e2e-fixtures={e2eFixtures ? "1" : "0"}
-      data-explore-e2e-fixtures-build={
-        isExploreE2eFixturesEnvEnabled() ? "1" : "0"
-      }
-      data-explore-deploy-commit={
-        process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "local"
-      }
-    >
-      <header
-        className={cn(
-          "flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2"
-          // headerTint ? "" : "bg-white"
-        )}
-        onTouchStart={e => {
-          headerPullRef.current = { startY: e.touches[0]?.clientY ?? 0 };
-        }}
-        onTouchMove={e => {
-          if (!headerPullRef.current) return;
-          const delta =
-            (e.touches[0]?.clientY ?? 0) - headerPullRef.current.startY;
-          if (delta > 40) {
-            headerPullRef.current = null;
-            openDiscoverSheet();
-          }
-        }}
-        onTouchEnd={() => {
-          headerPullRef.current = null;
-        }}
+    <ExploreCommunityNavigationProvider value={exploreCommunityNavValue}>
+      <div
+        className="flex h-[100dvh] flex-col overflow-hidden"
+        data-explore-e2e-fixtures={e2eFixtures ? "1" : "0"}
+        data-explore-e2e-fixtures-build={
+          isExploreE2eFixturesEnvEnabled() ? "1" : "0"
+        }
+        data-explore-deploy-commit={
+          process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "local"
+        }
       >
-        <h1 className="sr-only">
-          Tipmanna TV — Explore and discover community media
-        </h1>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Link
-            href="/explore"
-            className="racing_sans_one text-sm sm:text-2xl"
-          >
-            <span className={"text-primary"}>tip</span>
-            manna
-          </Link>
+        <header
+          className={cn(
+            "flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2"
+            // headerTint ? "" : "bg-white"
+          )}
+          onTouchStart={e => {
+            headerPullRef.current = { startY: e.touches[0]?.clientY ?? 0 };
+          }}
+          onTouchMove={e => {
+            if (!headerPullRef.current) return;
+            const delta =
+              (e.touches[0]?.clientY ?? 0) - headerPullRef.current.startY;
+            if (delta > 40) {
+              headerPullRef.current = null;
+              openDiscoverSheet();
+            }
+          }}
+          onTouchEnd={() => {
+            headerPullRef.current = null;
+          }}
+        >
+          <h1 className="sr-only">
+            Tipmanna TV — Explore and discover community media
+          </h1>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Link
+              href="/explore"
+              className="racing_sans_one text-sm sm:text-2xl"
+            >
+              <span className={"text-primary"}>tip</span>
+              manna
+            </Link>
 
-          <button
-            type="button"
-            data-testid="explore-open-discover-panel"
-            aria-label="Open Discover panel"
-            className="cursor-pointer rounded border border-black p-0.25 sm:p-0.5"
-            onClick={openDiscoverSheet}
-          >
-            <Bars3BottomLeftIcon className="size-4 sm:size-5" />
-          </button>
+            <button
+              type="button"
+              data-testid="explore-open-discover-panel"
+              aria-label="Open Discover panel"
+              className="cursor-pointer rounded border border-black p-0.25 sm:p-0.5"
+              onClick={openDiscoverSheet}
+            >
+              <Bars3BottomLeftIcon className="size-4 sm:size-5" />
+            </button>
 
-          <div className="flex items-center gap-1 rounded-full p-1 text-sm">
-            {/* <button
+            <div className="flex items-center gap-1 rounded-full p-1 text-sm">
+              {/* <button
               type="button"
               className={cn(
                 "rounded-full px-3 py-1 transition",
@@ -1835,17 +1871,17 @@ export default function ExplorePageClient({
             >
               Feed 
             </button> */}
-            {sideChickLocked ? (
-              <button
-                type="button"
-                onClick={() => setDedicatedModalOpen(true)}
-                className="size-3 shrink-0 animate-pulse rounded-full bg-amber-400 ring-2 ring-amber-200 sm:hidden"
-                title="Dedicated community mode"
-                aria-label="Dedicated community mode — tap for details"
-              />
-            ) : null}
+              {sideChickLocked ? (
+                <button
+                  type="button"
+                  onClick={() => setDedicatedModalOpen(true)}
+                  className="size-3 shrink-0 animate-pulse rounded-full bg-amber-400 ring-2 ring-amber-200 sm:hidden"
+                  title="Dedicated community mode"
+                  aria-label="Dedicated community mode — tap for details"
+                />
+              ) : null}
 
-            {/* <button
+              {/* <button
               type="button"
               className={cn(
                 "hidden rounded-full px-3 py-1 transition sm:inline-block",
@@ -1861,7 +1897,7 @@ export default function ExplorePageClient({
             >
               Commmunity
             </button> */}
-            {/* <button
+              {/* <button
               type="button"
               className={cn(
                 "hidden rounded-full px-3 py-1 transition sm:inline-block",
@@ -1871,74 +1907,45 @@ export default function ExplorePageClient({
             >
               Discover
             </button> */}
-            {communityFeatureEnabled ? (
-              <>
-                {/* <Link
+              {communityFeatureEnabled ? (
+                <>
+                  {/* <Link
                   href={EXPLORE_COMMUNITY_HUB_HREF}
                   className="hidden rounded-full px-3 py-1 transition sm:inline-block"
                   onPointerEnter={prefetchExploreFeedInitial}
                 >
                   Join communities
                 </Link> */}
-                <div className="hidden sm:block">
-                  <SideChickCommunityMenu
-                    rows={sideChickMenuRows}
-                    highlight={false}
-                    activeDedicatedCommunityId={
-                      sideChickLocked ? dedicatedCommunityId : null
-                    }
-                  />
-                </div>
-              </>
+                  <div className="hidden sm:block">
+                    <SideChickCommunityMenu
+                      rows={sideChickMenuRows}
+                      highlight={false}
+                      activeDedicatedCommunityId={
+                        sideChickLocked ? dedicatedCommunityId : null
+                      }
+                    />
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex min-w-0 items-center gap-2">
+            {/* {(isHomePage || isTipperPage) && <Logo />} */}
+            {communityFeatureEnabled && sideChickLocked ? (
+              <button
+                type="button"
+                onClick={() => setDedicatedModalOpen(true)}
+                className="hidden size-3 shrink-0 animate-pulse rounded-full bg-amber-400 ring-2 ring-amber-200 sm:inline-block"
+                title="Dedicated community mode"
+                aria-label="Dedicated community mode — tap for details"
+              />
             ) : null}
           </div>
-        </div>
 
-        <div className="flex min-w-0 items-center gap-2">
-          {/* {(isHomePage || isTipperPage) && <Logo />} */}
-          {communityFeatureEnabled && sideChickLocked ? (
-            <button
-              type="button"
-              onClick={() => setDedicatedModalOpen(true)}
-              className="hidden size-3 shrink-0 animate-pulse rounded-full bg-amber-400 ring-2 ring-amber-200 sm:inline-block"
-              title="Dedicated community mode"
-              aria-label="Dedicated community mode — tap for details"
-            />
-          ) : null}
-        </div>
-
-        <div className="-mr-10 flex items-center gap-1">
-          <div
-            className="relative hidden p-1 sm:block"
-            onClick={openDiscoverSheetWithSearch}
-            role="button"
-            tabIndex={0}
-            onKeyDown={e => {
-              if (e.key === "Enter" || e.key === " ") {
-                openDiscoverSheetWithSearch();
-              }
-            }}
-            aria-label="Open discover search"
-          >
-            <Input
-              type="text"
-              placeholder="Search videos..."
-              className="h-4 w-52 p-2 text-xs"
-              value={headerSearch}
-              onChange={e => setHeaderSearch(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  e.stopPropagation();
-                }
-              }}
-              onClick={e => e.stopPropagation()}
-            />
-            <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
-          </div>
-
-          <div className="flex items-center gap-1">
+          <div className="-mr-10 flex items-center gap-1">
             <div
-              className="relative p-1 sm:hidden"
+              className="relative hidden p-1 sm:block"
               onClick={openDiscoverSheetWithSearch}
               role="button"
               tabIndex={0}
@@ -1952,7 +1959,7 @@ export default function ExplorePageClient({
               <Input
                 type="text"
                 placeholder="Search videos..."
-                className="h-4 w-32 text-xs"
+                className="h-4 w-52 p-2 text-xs"
                 value={headerSearch}
                 onChange={e => setHeaderSearch(e.target.value)}
                 onKeyDown={e => {
@@ -1964,87 +1971,116 @@ export default function ExplorePageClient({
               />
               <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
             </div>
-            <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
-            <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
-              {exploreLiveViewers.length} watching live
-            </span>
+
+            <div className="flex items-center gap-1">
+              <div
+                className="relative p-1 sm:hidden"
+                onClick={openDiscoverSheetWithSearch}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    openDiscoverSheetWithSearch();
+                  }
+                }}
+                aria-label="Open discover search"
+              >
+                <Input
+                  type="text"
+                  placeholder="Search videos..."
+                  className="h-4 w-32 text-xs"
+                  value={headerSearch}
+                  onChange={e => setHeaderSearch(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.stopPropagation();
+                    }
+                  }}
+                  onClick={e => e.stopPropagation()}
+                />
+                <Search className="absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
+              </div>
+              <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
+              <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
+                {exploreLiveViewers.length} watching live
+              </span>
+            </div>
           </div>
-        </div>
 
-        <span className="w-8 shrink-0" />
-      </header>
+          <span className="w-8 shrink-0" />
+        </header>
 
-      {/* NEW BLOCK */}
-      <div
-        className="flex items-center justify-between py-0.5"
-        style={
-          headerTint && headerContrast
-            ? {
-                backgroundColor: headerTint,
-                color: headerContrast.foreground,
-              }
-            : undefined
-        }
-      >
-        <div className="grid w-full grid-cols-12 gap-1 border-b bg-black">
-          <div className="col-span-2 flex flex-col items-center justify-center pb-1">
+        {/* NEW BLOCK */}
+        <div
+          className="flex items-center justify-between py-0.5"
+          style={
+            headerTint && headerContrast
+              ? {
+                  backgroundColor: headerTint,
+                  color: headerContrast.foreground,
+                }
+              : undefined
+          }
+        >
+          <div className="grid w-full grid-cols-12 gap-1 border-b bg-black">
+            <div className="col-span-2 flex flex-col items-center justify-center pb-1">
+              <button
+                type="button"
+                className={cn(
+                  "flex shrink-0 items-center justify-center gap-1 px-2.5 py-1 text-xs transition sm:px-3",
+                  findCommunitiesChromeTabActive &&
+                    (sideChickLocked ? sideChickPillActive : "")
+                )}
+                onClick={() => setCreateDialogOpen(true)}
+              >
+                <Plus
+                  className="size-5 text-white"
+                  strokeWidth={3}
+                />
+              </button>
+              <span className="text-[8px] text-white">Create</span>
+            </div>
+
+            <CreateDialog
+              openPopup={createDialogOpen}
+              setOpenPopup={setCreateDialogOpen}
+              onExploreLayer
+            />
+
+            {/* <div className="flex items-center gap-1 flex-1 justify-center"> */}
             <button
               type="button"
               className={cn(
-                "flex shrink-0 items-center justify-center gap-1 px-2.5 py-1 text-xs transition sm:px-3",
-                findCommunitiesChromeTabActive &&
-                  (sideChickLocked ? sideChickPillActive : "")
+                "bg-secondary col-span-4 flex-1 px-2.5 py-1 text-xs text-black transition sm:px-3",
+                feedChromeTabActive &&
+                  (sideChickLocked
+                    ? sideChickPillActive
+                    : "border border-black bg-white/80 text-black")
               )}
-              onClick={() => setCreateDialogOpen(true)}
+              data-testid="explore-chrome-feed"
+              onPointerEnter={prefetchExploreFeedInitial}
+              onClick={() => navigateMainTab("feed")}
             >
-              <Plus
-                className="size-5 text-white"
-                strokeWidth={3}
-              />
+              Feed
             </button>
-            <span className="text-[8px] text-white">Create</span>
-          </div>
 
-          <CreateDialog
-            openPopup={createDialogOpen}
-            setOpenPopup={setCreateDialogOpen}
-            onExploreLayer
-          />
+            <button
+              type="button"
+              className={cn(
+                "bg-secondary col-span-4 -ml-3.5 px-1 py-1 text-xs text-black transition sm:px-3",
+                findCommunitiesChromeTabActive &&
+                  (sideChickLocked
+                    ? sideChickPillActive
+                    : "border border-black bg-white text-black")
+              )}
+              data-testid="explore-chrome-start-community"
+              onClick={() => navigateMainTab("my-communities")}
+            >
+              Start Community
+            </button>
+            {/* </div */}
 
-          {/* <div className="flex items-center gap-1 flex-1 justify-center"> */}
-          <button
-            type="button"
-            className={cn(
-              "bg-secondary col-span-4 flex-1 px-2.5 py-1 text-xs text-black transition sm:px-3",
-              feedChromeTabActive &&
-                (sideChickLocked
-                  ? sideChickPillActive
-                  : "border border-black bg-white/80 text-black")
-            )}
-            data-testid="explore-chrome-feed"
-            onPointerEnter={prefetchExploreFeedInitial}
-            onClick={() => navigateMainTab("feed")}
-          >
-            Feed
-          </button>
-
-          <button
-            type="button"
-            className={cn(
-              "bg-secondary col-span-4 -ml-3.5 px-1 py-1 text-xs text-black transition sm:px-3",
-              findCommunitiesChromeTabActive &&
-                (sideChickLocked
-                  ? sideChickPillActive
-                  : "border border-black bg-white text-black")
-            )}
-            data-testid="explore-chrome-start-community"
-            onClick={() => navigateMainTab("my-communities")}
-          >
-            Start Community
-          </button>
-          {/* </div */}
-
-          {/* <button
+            {/* <button
               type="button"
               className={cn(
                 "rounded-full px-2.5 py-1 text-xs transition sm:px-3",
@@ -2061,109 +2097,96 @@ export default function ExplorePageClient({
               Watch TV
             </button> */}
 
-          <button
-            type="button"
-            className={cn(
-              "relative col-span-2 flex shrink-0 flex-col items-center justify-center gap-0.5 px-1 py-0.5 text-[9px] leading-tight transition sm:px-3",
-              findCommunitiesChromeTabActive &&
-                (sideChickLocked ? sideChickPillActive : "")
-            )}
-            onClick={() => setIsProfileDrawerOpen(true)}
-          >
-            <span className="relative">
-              <UserRound
-                className="size-5 text-white"
-                strokeWidth={3}
-              />
-              <NotificationBadge
-                variant="dot"
-                className="-top-1 -right-1"
-              />
-            </span>
-            <span className="max-w-[4.5rem] truncate text-[8px] text-white/90">
-              {isSignedInExplore
-                ? "Signed in"
-                : exploreUserRole === "VISITOR"
-                  ? "Guest"
-                  : "Not signed in"}
-            </span>
-          </button>
-
-          {/* <ProfileDrawer /> */}
-        </div>
-      </div>
-
-      <Dialog
-        open={dedicatedModalOpen}
-        onOpenChange={setDedicatedModalOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Explore feed and TV are limited to your dedicated community
-            </DialogTitle>
-            <DialogDescription>
-              You are focused on{" "}
-              <span className="text-foreground font-medium">
-                {sideChick.activation?.community.name ?? "your community"}
+            <button
+              type="button"
+              className={cn(
+                "relative col-span-2 flex shrink-0 flex-col items-center justify-center gap-0.5 px-1 py-0.5 text-[9px] leading-tight transition sm:px-3",
+                findCommunitiesChromeTabActive &&
+                  (sideChickLocked ? sideChickPillActive : "")
+              )}
+              onClick={() => setIsProfileDrawerOpen(true)}
+            >
+              <span className="relative">
+                <UserRound
+                  className="size-5 text-white"
+                  strokeWidth={3}
+                />
+                <NotificationBadge
+                  variant="dot"
+                  className="-top-1 -right-1"
+                />
               </span>
-              . Trends, Saves, and Live TV on Explore are limited to that
-              community until you reactivate Tipmanna Public and your other feed
-              settings.
-            </DialogDescription>
-          </DialogHeader>
-          <Button
-            type="button"
-            disabled={exitBusy}
-            onClick={() => {
-              setExitBusy(true);
-              void sideChick
-                .exitDedicatedMode()
-                .then(ok => {
-                  if (ok) setDedicatedModalOpen(false);
-                })
-                .finally(() => setExitBusy(false));
-            }}
-          >
-            Reactivate Tipmanna Public (exit dedicated mode)
-          </Button>
-        </DialogContent>
-      </Dialog>
+              <span className="max-w-[4.5rem] truncate text-[8px] text-white/90">
+                {isSignedInExplore
+                  ? "Signed in"
+                  : exploreUserRole === "VISITOR"
+                    ? "Guest"
+                    : "Not signed in"}
+              </span>
+            </button>
 
-      {tab === "my-communities" ? (
-        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <CommunityHubClient />
+            {/* <ProfileDrawer /> */}
+          </div>
         </div>
-      ) : null}
 
-      {tab === "join" && joinCommunityId ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <CommunityJoinPanel
-            key={joinCommunityId}
-            communityId={joinCommunityId}
-            signInRedirectPath={exploreJoinHref(joinCommunityId)}
-          />
-        </div>
-      ) : null}
+        <Dialog
+          open={dedicatedModalOpen}
+          onOpenChange={setDedicatedModalOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Explore feed and TV are limited to your dedicated community
+              </DialogTitle>
+              <DialogDescription>
+                You are focused on{" "}
+                <span className="text-foreground font-medium">
+                  {sideChick.activation?.community.name ?? "your community"}
+                </span>
+                . Trends, Saves, and Live TV on Explore are limited to that
+                community until you reactivate Tipmanna Public and your other
+                feed settings.
+              </DialogDescription>
+            </DialogHeader>
+            <Button
+              type="button"
+              disabled={exitBusy}
+              onClick={() => {
+                setExitBusy(true);
+                void sideChick
+                  .exitDedicatedMode()
+                  .then(ok => {
+                    if (ok) setDedicatedModalOpen(false);
+                  })
+                  .finally(() => setExitBusy(false));
+              }}
+            >
+              Reactivate Tipmanna Public (exit dedicated mode)
+            </Button>
+          </DialogContent>
+        </Dialog>
 
-      <div
-        className={cn(
-          "flex h-full min-h-0 flex-1 flex-col overflow-hidden",
-          tab !== "feed" && "hidden"
-        )}
-        style={
-          headerTint && headerContrast
-            ? {
-                backgroundColor: headerTint,
-                color: headerContrast.foreground,
-              }
-            : headerTint
-              ? { backgroundColor: headerTint }
-              : undefined
-        }
-      >
+        {tab === "my-communities" ? (
+          <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+            <CommunityHubClient />
+          </div>
+        ) : null}
+
+        {tab === "join" && joinCommunityId ? (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <CommunityJoinPanel
+              key={joinCommunityId}
+              communityId={joinCommunityId}
+              signInRedirectPath={exploreJoinHref(joinCommunityId)}
+            />
+          </div>
+        ) : null}
+
         <div
-          className="bg-background shrink-0 border-b"
+          className={cn(
+            "flex h-full min-h-0 flex-1 flex-col overflow-hidden",
+            tab !== "feed" && "hidden"
+          )}
           style={
             headerTint && headerContrast
               ? {
@@ -2175,426 +2198,443 @@ export default function ExplorePageClient({
                 : undefined
           }
         >
-          <div className="flex h-6 items-center justify-between gap-0.5 bg-black text-xs sm:h-8">
-            <div className="flex min-h-4 min-w-0 flex-1 items-center gap-1 rounded-full px-2 text-white">
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  className={cn(
-                    "shrink-0 rounded-full px-2.5 transition sm:px-3",
-                    feedSubTab === "trends" &&
-                      "bg-white/40 text-white shadow-lg"
-                  )}
-                  data-testid="explore-subtab-trends"
-                  onPointerEnter={prefetchExploreFeedInitial}
-                  onClick={() => navigateFeedSubTab("trends")}
-                >
-                  Trends
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "shrink-0 rounded-full px-2.5 transition sm:px-3",
-                    feedSubTab === "saves" && "bg-white/40 text-white shadow-sm"
-                  )}
-                  data-testid="explore-subtab-saves"
-                  onPointerEnter={() => {
-                    prefetchExploreFeedInitial();
-                    prefetchExploreSavesFeed();
-                  }}
-                  onClick={() => navigateFeedSubTab("saves")}
-                >
-                  Saves
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "shrink-0 rounded-full px-2.5 transition sm:px-3",
-                    feedSubTab === "tv" && "bg-white/40 text-white shadow-sm"
-                  )}
-                  data-testid="explore-subtab-tv"
-                  onPointerEnter={prefetchTvSchedule}
-                  onClick={() => navigateFeedSubTab("tv")}
-                >
-                  TV
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "hidden shrink-0 rounded-full px-2.5 transition sm:inline-block sm:px-3",
-                    feedSubTab === "community" &&
-                      "bg-white/40 text-white shadow-sm"
-                  )}
-                  data-testid="explore-subtab-community"
-                  onPointerEnter={() => {
-                    if (eligibleCommunityIdsForPrefetch.length) {
-                      prefetchExploreCommunityFeed(
-                        eligibleCommunityIdsForPrefetch
-                      );
-                    }
-                  }}
-                  onClick={() => navigateFeedSubTab("community")}
-                >
-                  Community
-                </button>
+          <div
+            className="bg-background shrink-0 border-b"
+            style={
+              headerTint && headerContrast
+                ? {
+                    backgroundColor: headerTint,
+                    color: headerContrast.foreground,
+                  }
+                : headerTint
+                  ? { backgroundColor: headerTint }
+                  : undefined
+            }
+          >
+            <div className="flex h-6 items-center justify-between gap-0.5 bg-black text-xs sm:h-8">
+              <div className="flex min-h-4 min-w-0 flex-1 items-center gap-1 rounded-full px-2 text-white">
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded-full px-2.5 transition sm:px-3",
+                      feedSubTab === "trends" &&
+                        "bg-white/40 text-white shadow-lg"
+                    )}
+                    data-testid="explore-subtab-trends"
+                    onPointerEnter={prefetchExploreFeedInitial}
+                    onClick={() => navigateFeedSubTab("trends")}
+                  >
+                    Trends
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded-full px-2.5 transition sm:px-3",
+                      feedSubTab === "saves" &&
+                        "bg-white/40 text-white shadow-sm"
+                    )}
+                    data-testid="explore-subtab-saves"
+                    onPointerEnter={() => {
+                      prefetchExploreFeedInitial();
+                      prefetchExploreSavesFeed();
+                    }}
+                    onClick={() => navigateFeedSubTab("saves")}
+                  >
+                    Saves
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded-full px-2.5 transition sm:px-3",
+                      feedSubTab === "tv" && "bg-white/40 text-white shadow-sm"
+                    )}
+                    data-testid="explore-subtab-tv"
+                    onPointerEnter={prefetchTvSchedule}
+                    onClick={() => navigateFeedSubTab("tv")}
+                  >
+                    TV
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "hidden shrink-0 rounded-full px-2.5 transition sm:inline-block sm:px-3",
+                      feedSubTab === "community" &&
+                        "bg-white/40 text-white shadow-sm"
+                    )}
+                    data-testid="explore-subtab-community"
+                    onPointerEnter={() => {
+                      if (eligibleCommunityIdsForPrefetch.length) {
+                        prefetchExploreCommunityFeed(
+                          eligibleCommunityIdsForPrefetch
+                        );
+                      }
+                    }}
+                    onClick={() => navigateFeedSubTab("community")}
+                  >
+                    Community
+                  </button>
+                </div>
+
+                <div className="flex min-h-5 min-w-0 items-center gap-2">
+                  {sideChickLocked ? (
+                    <span
+                      className="border-border text-foreground bg-muted/40 inline-flex max-w-[min(100%,8rem)] min-w-0 shrink items-center gap-1 rounded-md border px-2 py-1 sm:max-w-[min(100%,11rem)]"
+                      title={dedicatedCommunityName}
+                    >
+                      <Lock className="text-muted-foreground size-3 shrink-0" />
+                      <span className="truncate text-[10px] font-medium sm:text-[11px]">
+                        {dedicatedCommunityName}
+                      </span>
+                    </span>
+                  ) : null}
+                  <DropdownMenu
+                    onOpenChange={open => {
+                      if (open) void loadCommunityCatalogForPicker();
+                    }}
+                  >
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 max-w-full justify-between border-none bg-transparent px-2 text-xs font-normal shadow-none outline-none sm:max-w-md"
+                        onPointerEnter={() => {
+                          void loadCommunityCatalogForPicker();
+                          if (eligibleCommunityIdsForPrefetch.length) {
+                            prefetchExploreCommunityFeed(
+                              eligibleCommunityIdsForPrefetch
+                            );
+                          }
+                        }}
+                      >
+                        <span>
+                          {eligibleCommunityPickerRows.length === 0
+                            ? "My Communities"
+                            : visibleCommunityFeedSelIds.length === 0
+                              ? "My Communities"
+                              : `${visibleCommunityFeedSelIds.length} communit${visibleCommunityFeedSelIds.length === 1 ? "y" : "ies"} selected`}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <ExploreCommunityPickerMenu
+                      eligibleCommunityPickerRows={eligibleCommunityPickerRows}
+                      communityFeedSelIds={communityFeedSelIds}
+                      onCommunityFeedPick={onCommunityFeedPick}
+                      communityPickerMultiRef={communityPickerMultiRef}
+                      topCommunities={topCommunities}
+                      catalogAlphabetical={exploreCatalogAlphabetical}
+                      topCommunitiesLoading={topCommunitiesLoading}
+                      catalogLoading={communityPickerCatalogLoading}
+                      onBrowseAllAz={() => {
+                        void loadCommunityCatalogForPicker();
+                      }}
+                    />
+                  </DropdownMenu>
+                </div>
               </div>
 
-              <div className="flex min-h-5 min-w-0 items-center gap-2">
-                {sideChickLocked ? (
-                  <span
-                    className="border-border text-foreground bg-muted/40 inline-flex max-w-[min(100%,8rem)] min-w-0 shrink items-center gap-1 rounded-md border px-2 py-1 sm:max-w-[min(100%,11rem)]"
-                    title={dedicatedCommunityName}
-                  >
-                    <Lock className="text-muted-foreground size-3 shrink-0" />
-                    <span className="truncate text-[10px] font-medium sm:text-[11px]">
-                      {dedicatedCommunityName}
-                    </span>
-                  </span>
-                ) : null}
-                <DropdownMenu
-                  onOpenChange={open => {
-                    if (open) void loadCommunityCatalogForPicker();
-                  }}
-                >
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 max-w-full justify-between border-none bg-transparent px-2 text-xs font-normal shadow-none outline-none sm:max-w-md"
-                      onPointerEnter={() => {
-                        void loadCommunityCatalogForPicker();
-                        if (eligibleCommunityIdsForPrefetch.length) {
-                          prefetchExploreCommunityFeed(
-                            eligibleCommunityIdsForPrefetch
-                          );
-                        }
-                      }}
-                    >
-                      <span>
-                        {eligibleCommunityPickerRows.length === 0
-                          ? "My Communities"
-                          : visibleCommunityFeedSelIds.length === 0
-                            ? "My Communities"
-                            : `${visibleCommunityFeedSelIds.length} communit${visibleCommunityFeedSelIds.length === 1 ? "y" : "ies"} selected`}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <ExploreCommunityPickerMenu
-                    eligibleCommunityPickerRows={eligibleCommunityPickerRows}
-                    communityFeedSelIds={communityFeedSelIds}
-                    onCommunityFeedPick={onCommunityFeedPick}
-                    communityPickerMultiRef={communityPickerMultiRef}
-                    topCommunities={topCommunities}
-                    catalogAlphabetical={exploreCatalogAlphabetical}
-                    topCommunitiesLoading={topCommunitiesLoading}
-                    catalogLoading={communityPickerCatalogLoading}
-                    onBrowseAllAz={() => {
-                      void loadCommunityCatalogForPicker();
-                    }}
-                  />
-                </DropdownMenu>
-              </div>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted/80 inline-flex rounded-full p-1.5"
+                aria-expanded={showFilterOptions}
+                aria-label={
+                  showFilterOptions ? "Close filters" : "Open filters"
+                }
+                onClick={() => setShowFilterOptions(v => !v)}
+              >
+                <ListFilterPlus className="size-4 text-white" />
+              </button>
             </div>
 
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground hover:bg-muted/80 inline-flex rounded-full p-1.5"
-              aria-expanded={showFilterOptions}
-              aria-label={showFilterOptions ? "Close filters" : "Open filters"}
-              onClick={() => setShowFilterOptions(v => !v)}
-            >
-              <ListFilterPlus className="size-4 text-white" />
-            </button>
+            {sideChickLocked ? (
+              <p className="text-muted-foreground mt-2 px-0.5 text-[10px] leading-snug">
+                Dedicated mode is active for {dedicatedCommunityName}. Change
+                community or TV source to leave — you will be asked to confirm.
+              </p>
+            ) : activateDedicatedCandidate ? (
+              <div className="mt-2 px-0.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[11px]"
+                  disabled={activateDedicatedBusy}
+                  onClick={() => void handleActivateDedicatedMode()}
+                >
+                  {activateDedicatedBusy
+                    ? "Activating…"
+                    : `Activate dedicated mode (${activateDedicatedCandidate.community?.name ?? "community"})`}
+                </Button>
+              </div>
+            ) : null}
+
+            {feedSubTab === "community" ? (
+              <div className="mt-2 space-y-2 px-0.5 pb-1">
+                <p className="text-muted-foreground text-[10px] leading-snug">
+                  Clips come from each community&apos;s approved bank. Turn feed
+                  inclusion on or off under{" "}
+                  <Link
+                    href={EXPLORE_COMMUNITY_HUB_HREF}
+                    className="text-primary underline"
+                  >
+                    Communities
+                  </Link>
+                  .
+                </p>
+              </div>
+            ) : null}
           </div>
 
-          {sideChickLocked ? (
-            <p className="text-muted-foreground mt-2 px-0.5 text-[10px] leading-snug">
-              Dedicated mode is active for {dedicatedCommunityName}. Change
-              community or TV source to leave — you will be asked to confirm.
-            </p>
-          ) : activateDedicatedCandidate ? (
-            <div className="mt-2 px-0.5">
+          <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+            {sessionShellEnabled || tab === "feed" ? (
+              // Long-lived Explore session: the reel stays mounted across tab
+              // changes (Discover/Community/TV) so playback, feed position, preload
+              // queues, caches and realtime subscriptions persist. The parent
+              // wrapper is `hidden` and `feedSurfaceActive` pauses playback while
+              // another surface is shown.
+              <div
+                className={cn(
+                  "flex h-full min-h-0 flex-1 flex-col",
+                  feedSubTab === "tv" && "hidden"
+                )}
+                data-testid="explore-feed-shell"
+              >
+                <ExploreFeedClient
+                  key={reelsKey}
+                  ref={exploreFeedRef}
+                  characters={characters}
+                  characterSets={characterSets}
+                  feedSurfaceActive={tab === "feed" && feedSubTab !== "tv"}
+                  feedMode={
+                    feedSubTab === "community"
+                      ? "community"
+                      : feedSubTab === "saves"
+                        ? "saves"
+                        : "trends"
+                  }
+                  communityIds={
+                    feedSubTab === "community"
+                      ? scopedExploreCommunityIds
+                      : undefined
+                  }
+                  tvExploreSource={tvExploreSource}
+                  trendsFilters={trendsFilters}
+                  ssrBoot={ssrBoot}
+                />
+              </div>
+            ) : null}
+            {feedSubTab === "tv" ? (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <ExploreTvScheduleFeed
+                  characters={characters}
+                  characterSets={characterSets}
+                  onPlayInExplore={handlePlayInExplore}
+                  tvExploreFilters={tvExploreFilters}
+                  feedSurfaceActive={tab === "feed" && feedSubTab === "tv"}
+                  tvSource={tvExploreSource}
+                  tvCommunityOptions={tvCommunitySelectOptions}
+                  onTvSourceChange={onTvExploreSourceChange}
+                  tvSourceLocked={false}
+                  dedicatedCommunityId={dedicatedCommunityId}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+        {tab === "discover" ? (
+          <div
+            ref={discoverTabScrollRef}
+            className="min-h-0 flex-1 overflow-y-auto p-4"
+          >
+            <div className="bg-muted/40 mb-4 flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground text-xs">
+                Discover is also available as a quick panel while you watch the
+                feed.
+              </p>
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                className="h-7 text-[11px]"
-                disabled={activateDedicatedBusy}
-                onClick={() => void handleActivateDedicatedMode()}
+                variant="secondary"
+                onClick={() => {
+                  // Reveal the feed underneath, then overlay the quick panel
+                  // (avoids panel-over-full-Discover and duplicate panel mounts).
+                  applyDiscoverNavIntent(
+                    openPanelFromExpandedIntent(unifiedDiscoverNav)
+                  );
+                }}
               >
-                {activateDedicatedBusy
-                  ? "Activating…"
-                  : `Activate dedicated mode (${activateDedicatedCandidate.community?.name ?? "community"})`}
+                Open discover panel
               </Button>
             </div>
-          ) : null}
-
-          {feedSubTab === "community" ? (
-            <div className="mt-2 space-y-2 px-0.5 pb-1">
-              <p className="text-muted-foreground text-[10px] leading-snug">
-                Clips come from each community&apos;s approved bank. Turn feed
-                inclusion on or off under{" "}
-                <Link
-                  href={EXPLORE_COMMUNITY_HUB_HREF}
-                  className="text-primary underline"
-                >
-                  Communities
-                </Link>
-                .
-              </p>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-          {sessionShellEnabled || tab === "feed" ? (
-            // Long-lived Explore session: the reel stays mounted across tab
-            // changes (Discover/Community/TV) so playback, feed position, preload
-            // queues, caches and realtime subscriptions persist. The parent
-            // wrapper is `hidden` and `feedSurfaceActive` pauses playback while
-            // another surface is shown.
-            <div
-              className={cn(
-                "flex h-full min-h-0 flex-1 flex-col",
-                feedSubTab === "tv" && "hidden"
-              )}
-              data-testid="explore-feed-shell"
-            >
-              <ExploreFeedClient
-                key={reelsKey}
-                ref={exploreFeedRef}
-                characters={characters}
-                characterSets={characterSets}
-                feedSurfaceActive={tab === "feed" && feedSubTab !== "tv"}
-                feedMode={
-                  feedSubTab === "community"
-                    ? "community"
-                    : feedSubTab === "saves"
-                      ? "saves"
-                      : "trends"
-                }
-                communityIds={
-                  feedSubTab === "community"
-                    ? scopedExploreCommunityIds
-                    : undefined
-                }
-                tvExploreSource={tvExploreSource}
-                trendsFilters={trendsFilters}
-                ssrBoot={ssrBoot}
-              />
-            </div>
-          ) : null}
-          {feedSubTab === "tv" ? (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <ExploreTvScheduleFeed
-                characters={characters}
-                characterSets={characterSets}
-                onPlayInExplore={handlePlayInExplore}
-                tvExploreFilters={tvExploreFilters}
-                feedSurfaceActive={tab === "feed" && feedSubTab === "tv"}
-                tvSource={tvExploreSource}
-                tvCommunityOptions={tvCommunitySelectOptions}
-                onTvSourceChange={onTvExploreSourceChange}
-                tvSourceLocked={false}
-                dedicatedCommunityId={dedicatedCommunityId}
-              />
-            </div>
-          ) : null}
-        </div>
-      </div>
-      {tab === "discover" ? (
-        <div
-          ref={discoverTabScrollRef}
-          className="min-h-0 flex-1 overflow-y-auto p-4"
-        >
-          <div className="bg-muted/40 mb-4 flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground text-xs">
-              Discover is also available as a quick panel while you watch the
-              feed.
-            </p>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                // Reveal the feed underneath, then overlay the quick panel
-                // (avoids panel-over-full-Discover and duplicate panel mounts).
-                applyDiscoverNavIntent(
-                  openPanelFromExpandedIntent(unifiedDiscoverNav)
-                );
+            <DiscoverPanel
+              contents={contents}
+              tippers={tippers}
+              latestContents={latestContents}
+              spotlightContents={spotlightContents}
+              recommendedContents={recommendedContents}
+              mostTippedContents={mostTippedContents}
+              programs={programs}
+              playlists={playlists}
+              liveStreams={liveStreams}
+              topCommunities={topCommunities}
+              discoverEvents={discoverEvents}
+              catalogLoading={catalogLoading}
+              catalogRefreshing={catalogRefreshing}
+              onRefreshCatalog={() =>
+                void loadExploreCatalog({ background: true })
+              }
+              initialSearchTerm={discoverSearchTerm}
+              onOpenBookmarks={() => {
+                setProfileDrawerTab("saved");
+                setIsProfileDrawerOpen(true);
               }}
+              onPlayInExplore={handlePlayInExplore}
+              suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
+              surface="exploreTab"
+              scrollContainerRef={discoverTabScrollRef}
+            />
+          </div>
+        ) : null}
+
+        <DiscoverSheet
+          open={discoverSheetOpen}
+          onClose={closeDiscoverSheet}
+          onExpandToDiscover={expandDiscoverFromPanel}
+          contents={contents}
+          tippers={tippers}
+          latestContents={latestContents}
+          spotlightContents={spotlightContents}
+          recommendedContents={recommendedContents}
+          mostTippedContents={mostTippedContents}
+          programs={programs}
+          playlists={playlists}
+          liveStreams={liveStreams}
+          topCommunities={topCommunities}
+          discoverEvents={discoverEvents}
+          catalogLoading={catalogLoading}
+          catalogRefreshing={catalogRefreshing}
+          onRefreshCatalog={() => void loadExploreCatalog({ background: true })}
+          initialSearchTerm={discoverSearchTerm}
+          onOpenBookmarks={() => {
+            setProfileDrawerTab("saved");
+            setIsProfileDrawerOpen(true);
+          }}
+          onPlayInExplore={handlePlayInExplore}
+          suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
+        />
+
+        {showFilterOptions && tab === "feed" && feedSubTab !== "community" ? (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-[12500] cursor-default bg-black/25"
+              aria-label="Close filters"
+              onClick={() => setShowFilterOptions(false)}
+            />
+            <div
+              className="border-border fixed top-[6.75rem] right-3 left-3 z-[12501] max-h-[min(70dvh,calc(100dvh-8rem))] overflow-y-auto rounded-xl border bg-white/30 p-3 text-white shadow-xl sm:left-auto sm:w-full sm:max-w-md"
+              role="dialog"
+              aria-label="Explore filters"
+              onClick={e => e.stopPropagation()}
             >
-              Open discover panel
-            </Button>
-          </div>
-          <DiscoverPanel
-            contents={contents}
-            tippers={tippers}
-            latestContents={latestContents}
-            spotlightContents={spotlightContents}
-            recommendedContents={recommendedContents}
-            mostTippedContents={mostTippedContents}
-            programs={programs}
-            playlists={playlists}
-            liveStreams={liveStreams}
-            topCommunities={topCommunities}
-            discoverEvents={discoverEvents}
-            catalogLoading={catalogLoading}
-            catalogRefreshing={catalogRefreshing}
-            onRefreshCatalog={() =>
-              void loadExploreCatalog({ background: true })
-            }
-            initialSearchTerm={discoverSearchTerm}
-            onOpenBookmarks={() => {
-              setProfileDrawerTab("saved");
-              setIsProfileDrawerOpen(true);
-            }}
-            onPlayInExplore={handlePlayInExplore}
-            suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
-            surface="exploreTab"
-            scrollContainerRef={discoverTabScrollRef}
-          />
-        </div>
-      ) : null}
-
-      <DiscoverSheet
-        open={discoverSheetOpen}
-        onClose={closeDiscoverSheet}
-        onExpandToDiscover={expandDiscoverFromPanel}
-        contents={contents}
-        tippers={tippers}
-        latestContents={latestContents}
-        spotlightContents={spotlightContents}
-        recommendedContents={recommendedContents}
-        mostTippedContents={mostTippedContents}
-        programs={programs}
-        playlists={playlists}
-        liveStreams={liveStreams}
-        topCommunities={topCommunities}
-        discoverEvents={discoverEvents}
-        catalogLoading={catalogLoading}
-        catalogRefreshing={catalogRefreshing}
-        onRefreshCatalog={() => void loadExploreCatalog({ background: true })}
-        initialSearchTerm={discoverSearchTerm}
-        onOpenBookmarks={() => {
-          setProfileDrawerTab("saved");
-          setIsProfileDrawerOpen(true);
-        }}
-        onPlayInExplore={handlePlayInExplore}
-        suppressInlinePlaybackContentId={suppressDiscoverInlineContentId}
-      />
-
-      {showFilterOptions && tab === "feed" && feedSubTab !== "community" ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[12500] cursor-default bg-black/25"
-            aria-label="Close filters"
-            onClick={() => setShowFilterOptions(false)}
-          />
-          <div
-            className="border-border fixed top-[6.75rem] right-3 left-3 z-[12501] max-h-[min(70dvh,calc(100dvh-8rem))] overflow-y-auto rounded-xl border bg-white/30 p-3 text-white shadow-xl sm:left-auto sm:w-full sm:max-w-md"
-            role="dialog"
-            aria-label="Explore filters"
-            onClick={e => e.stopPropagation()}
-          >
-            <p className="text-[10px] leading-snug text-white">
-              Filters apply to Trends, Saves, and TV.
-            </p>
-            <div className="mt-2 space-y-2">
-              <Label className="text-[11px] text-white/80">
-                Video themes (eventVideoType)
-              </Label>
-              <div className="flex flex-wrap gap-1.5">
-                {EXPLORE_EVENT_TYPE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    data-testid="explore-filter-type"
-                    data-filter-value={opt.value}
-                    onClick={() => toggleTrendEventType(opt.value)}
-                    className={cn(
-                      "rounded-full border px-2 py-0.5 text-[11px] transition",
-                      trendEventTypes.includes(opt.value)
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:bg-muted/50"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="explore-lang-overlay"
-                    className="text-[11px]"
-                  >
-                    Language code
-                  </Label>
-                  <Input
-                    id="explore-lang-overlay"
-                    value={trendLanguage}
-                    onChange={e => setTrendLanguageWithUrl(e.target.value)}
-                    placeholder="e.g. en-GB"
-                    className="h-8 text-xs"
-                  />
+              <p className="text-[10px] leading-snug text-white">
+                Filters apply to Trends, Saves, and TV.
+              </p>
+              <div className="mt-2 space-y-2">
+                <Label className="text-[11px] text-white/80">
+                  Video themes (eventVideoType)
+                </Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {EXPLORE_EVENT_TYPE_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      data-testid="explore-filter-type"
+                      data-filter-value={opt.value}
+                      onClick={() => toggleTrendEventType(opt.value)}
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[11px] transition",
+                        trendEventTypes.includes(opt.value)
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:bg-muted/50"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="explore-country-overlay"
-                    className="text-[11px]"
-                  >
-                    Country code
-                  </Label>
-                  <Input
-                    id="explore-country-overlay"
-                    value={trendCountry}
-                    onChange={e => setTrendCountryWithUrl(e.target.value)}
-                    placeholder="e.g. GB (use all for worldwide)"
-                    className="h-8 text-xs"
-                  />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="explore-lang-overlay"
+                      className="text-[11px]"
+                    >
+                      Language code
+                    </Label>
+                    <Input
+                      id="explore-lang-overlay"
+                      value={trendLanguage}
+                      onChange={e => setTrendLanguageWithUrl(e.target.value)}
+                      placeholder="e.g. en-GB"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="explore-country-overlay"
+                      className="text-[11px]"
+                    >
+                      Country code
+                    </Label>
+                    <Input
+                      id="explore-country-overlay"
+                      value={trendCountry}
+                      onChange={e => setTrendCountryWithUrl(e.target.value)}
+                      placeholder="e.g. GB (use all for worldwide)"
+                      className="h-8 text-xs"
+                    />
+                  </div>
                 </div>
+                <label className="flex cursor-pointer items-center gap-2 text-[11px] text-white/90">
+                  <input
+                    type="checkbox"
+                    checked={includeEndedLive}
+                    onChange={e => toggleIncludeEndedLive(e.target.checked)}
+                    className="size-3.5 rounded border-white/40"
+                    data-testid="explore-filter-ended-live"
+                  />
+                  Include ended live videos
+                </label>
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-[11px] text-white/90">
-                <input
-                  type="checkbox"
-                  checked={includeEndedLive}
-                  onChange={e => toggleIncludeEndedLive(e.target.checked)}
-                  className="size-3.5 rounded border-white/40"
-                  data-testid="explore-filter-ended-live"
-                />
-                Include ended live videos
-              </label>
             </div>
-          </div>
-        </>
-      ) : null}
+          </>
+        ) : null}
 
-      <ProfileDrawer
-        isProfileDrawerOpen={isProfileDrawerOpen}
-        setIsProfileDrawerOpen={setIsProfileDrawerOpen}
-        initialTab={profileDrawerTab}
-        initialAccountTab={notificationAccountTab}
-        tipperEvents={tipperEvents}
-        iTipped={iTipped}
-        causes={causes}
-      />
-      <ExploreInstallPrompt />
-      <DedicatedExitConfirmDialog
-        open={dedicatedExit.confirmOpen}
-        onOpenChange={open => {
-          if (!open) dedicatedExit.cancelExit();
-        }}
-        communityName={dedicatedCommunityName}
-        busy={dedicatedExit.busy}
-        onConfirm={() => void dedicatedExit.confirmExit()}
-      />
-      <InstallPromptSheet
-        open={activateInstallOpen}
-        onOpenChange={setActivateInstallOpen}
-      />
-    </div>
+        <ProfileDrawer
+          isProfileDrawerOpen={isProfileDrawerOpen}
+          setIsProfileDrawerOpen={setIsProfileDrawerOpen}
+          initialTab={profileDrawerTab}
+          initialAccountTab={notificationAccountTab}
+          tipperEvents={tipperEvents}
+          iTipped={iTipped}
+          causes={causes}
+        />
+        <ExploreInstallPrompt />
+        <DedicatedExitConfirmDialog
+          open={dedicatedExit.confirmOpen}
+          onOpenChange={open => {
+            if (!open) dedicatedExit.cancelExit();
+          }}
+          communityName={dedicatedCommunityName}
+          busy={dedicatedExit.busy}
+          onConfirm={() => void dedicatedExit.confirmExit()}
+        />
+        <InstallPromptSheet
+          open={activateInstallOpen}
+          onOpenChange={setActivateInstallOpen}
+        />
+      </div>
+    </ExploreCommunityNavigationProvider>
   );
 }

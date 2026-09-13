@@ -40,7 +40,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import { dispatchCreatorUsernameChanged } from "@/lib/creator-username-alias";
 import { migrateCreatorProfileCacheUsername } from "@/lib/drawer-prefetch-cache";
 import {
@@ -301,8 +301,12 @@ export function EditCreatorProfileDialog({
       if (photoMarkedForRemoval) {
         profileImageUrl = null;
       } else if (readableImage?.startsWith("data:")) {
-        const uploaded = await uploadImage(readableImage);
-        profileImageUrl = uploaded?.secure_url ?? null;
+        const uploaded = await tryUploadImage(readableImage);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        profileImageUrl = uploaded.data?.secure_url ?? null;
         if (!profileImageUrl) {
           toast.error("Could not upload profile picture. Try again.");
           return;

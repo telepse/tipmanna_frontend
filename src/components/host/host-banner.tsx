@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/form";
 
 import { useImageUpload } from "@/hooks/use-image-upload";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import { cn } from "@/lib/utils";
 import { dispatchCreatorUsernameChanged } from "@/lib/creator-username-alias";
 import { migrateCreatorProfileCacheUsername } from "@/lib/drawer-prefetch-cache";
@@ -244,10 +244,12 @@ export const HostBanner = () => {
         pendingProfileImageUrl ?? bannerAvatarUrl ?? null;
 
       if (readableImage?.startsWith("data:")) {
-        const uploaded = await uploadImage(readableImage);
-
-        profileImageUrl = uploaded?.secure_url ?? null;
-
+        const uploaded = await tryUploadImage(readableImage);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        profileImageUrl = uploaded.data?.secure_url ?? null;
         if (!profileImageUrl) {
           toast.error("Could not upload profile picture. Try again.");
           return;

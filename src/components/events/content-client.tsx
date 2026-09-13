@@ -110,6 +110,10 @@ import {
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import {
+  expressNavigateToExplore,
+  expressNavigateToTv,
+} from "@/lib/express-surface-navigation";
+import {
   awaitCommentDrawerPrefetch,
   awaitProfileDrawerPrefetch,
   getCachedProfileDrawerData,
@@ -1133,6 +1137,8 @@ export const ContentClient = ({
                 <VideoFeatureCardBanner
                   surfaceChannelId={paymentChannelIdForTip}
                   hostSurfaceChannelId={paymentChannelIdForTip}
+                  sectionCtaLabel={tipPres.sectionCtaLabel}
+                  pageDrawerOpen={isTipDrawerOpen}
                   onTipFeatured={id => {
                     setActiveVideoFeatureCardId(id);
                     openPageTipDrawer();
@@ -1795,27 +1801,29 @@ export const ContentClient = ({
             )}
 
             <div className="flex items-center gap-4">
-              <Link
-                href="/tv"
+              <button
+                type="button"
                 className="group"
+                onClick={() => expressNavigateToTv()}
               >
                 <Tv className="group-hover:text-primary group-hover:stroke-3" />
-              </Link>
+              </button>
 
-              <Link
-                href="/explore"
+              <button
+                type="button"
                 className="cursor-pointer"
                 onPointerEnter={prefetchExploreFeedInitial}
                 onClick={() => {
                   setIsCreatePopupOpen(false);
                   setIsProfileDrawerOpen(false);
+                  expressNavigateToExplore();
                 }}
               >
                 <Rocket
                   className="size-5 sm:size-7"
                   strokeWidth={2}
                 />
-              </Link>
+              </button>
 
               <button
                 type="button"
@@ -1921,21 +1929,23 @@ export const ContentClient = ({
         )}
       >
         <div className="flex items-center justify-between gap-4">
-          <Link
-            href="/tv"
+          <button
+            type="button"
             className="group flex flex-col items-center justify-center gap-1"
+            onClick={() => expressNavigateToTv()}
           >
             <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />{" "}
             <span className="text-[8px]">Watch TV</span>
-          </Link>
+          </button>
 
-          <Link
-            href="/explore"
+          <button
+            type="button"
             className="flex cursor-pointer flex-col items-center justify-center gap-1"
             onPointerEnter={prefetchExploreFeedInitial}
             onClick={() => {
               setIsCreatePopupOpen(false);
               setIsProfileDrawerOpen(false);
+              expressNavigateToExplore();
             }}
           >
             <Rocket
@@ -1943,7 +1953,7 @@ export const ContentClient = ({
               strokeWidth={2}
             />{" "}
             <span className="text-[8px]">Explore</span>
-          </Link>
+          </button>
 
           <div className="flex flex-col items-center justify-center">
             <button

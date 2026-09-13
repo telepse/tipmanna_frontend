@@ -1,5 +1,7 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import { EventFormData, NewCreateEventPayload } from "@/schemas";
 import { runServerFetch, actionFail, actionOk } from "@/lib/action-fetch";
 import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
@@ -936,11 +938,24 @@ export type EventAccessMode =
   | "email_gate"
   | "community_members";
 
+export type EventRoomAccessFormFieldKey =
+  | "firstName"
+  | "lastName"
+  | "idNumber"
+  | "name"
+  | "phone"
+  | "ticketId"
+  | "customQuestion";
+
 export type EventRoomAccessFormConfig = {
   collectName?: boolean;
+  collectFirstName?: boolean;
+  collectLastName?: boolean;
+  collectIdNumber?: boolean;
   collectPhone?: boolean;
   collectTicketId?: boolean;
   customQuestion?: string | null;
+  requiredFields?: EventRoomAccessFormFieldKey[];
 };
 
 export type EventAccessModeSettings = {
@@ -1038,11 +1053,17 @@ export async function validateEventRoomInviteAction(token: string) {
 }
 
 export async function acceptEventRoomInviteAction(token: string) {
+  const { getToken } = await import("@/lib/getToken");
+  const authToken = await getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/room-invites/accept`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ token }),
       cache: "no-store",
     },
@@ -1138,5 +1159,43 @@ export async function submitEventRoomAccessAction(
       cache: "no-store",
     },
     "submitEventRoomAccessAction"
+  );
+}
+
+export async function postEventRoomVisitAction(eventId: string, path: string) {
+  const incoming = await headers();
+  const visitHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const cfCountry = incoming.get("cf-ipcountry");
+  const vercelCountry = incoming.get("x-vercel-ip-country");
+  if (cfCountry) visitHeaders["cf-ipcountry"] = cfCountry;
+  if (vercelCountry) visitHeaders["x-vercel-ip-country"] = vercelCountry;
+
+  return runServerFetch<{ ok: boolean }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${encodeURIComponent(eventId)}/visit`,
+    {
+      method: "POST",
+      headers: visitHeaders,
+      body: JSON.stringify({ path }),
+      cache: "no-store",
+    },
+    "postEventRoomVisitAction"
+  );
+}
+
+export async function getEventRoomVisitAnalyticsAction(eventId: string) {
+  return runServerFetch<{
+    visits90d: number;
+    visits7d: number;
+    visits24h: number;
+  }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${encodeURIComponent(eventId)}/visit-analytics`,
+    {
+      method: "GET",
+      headers: await serverEventActorAuthHeaders(),
+      cache: "no-store",
+    },
+    "getEventRoomVisitAnalyticsAction"
   );
 }

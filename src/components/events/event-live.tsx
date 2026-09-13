@@ -140,6 +140,7 @@ export const EventLive = ({
   eventId,
   fullName,
   status,
+  openDrawer,
   setOpenDrawer,
   onOpenTipDrawer,
   characterSets,
@@ -536,7 +537,6 @@ export const EventLive = ({
       sectionCta,
       onTipNow: () => {
         onOpenTipDrawer?.();
-        setOpenDrawer(true);
       },
     }
   );
@@ -736,6 +736,8 @@ export const EventLive = ({
                   surfaceChannelId={String(currentChannel.id)}
                   hostSurfaceChannelId={String(currentChannel.id)}
                   compact
+                  sectionCtaLabel={tipPres.sectionCtaLabel}
+                  pageDrawerOpen={openDrawer}
                   onTipFeatured={id => {
                     setActiveVideoFeatureCardId(id);
                     setOpenDrawer(true);
