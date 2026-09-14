@@ -1,5 +1,7 @@
 "use client";
 
+/** Host playlist preview drawer — feature-card banner intentionally omitted (not a live tip surface). */
+
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -40,6 +42,10 @@ type CommentDrawerTarget = {
   videoTitle: string;
   videoDescription: string;
   numOfTips: number;
+  amountRaised: number | null;
+  amountToRaise: number | null;
+  showViewCount: boolean;
+  showEncounterCount: boolean;
   hostName?: string;
   hostUsername?: string;
 };
@@ -52,6 +58,11 @@ function resolveCommentDrawerTarget(item: {
     title?: string;
     description?: string | null;
     numOfTips?: number;
+    amountRaised?: number;
+    amountToRaise?: number;
+    showAmountRaisedOnVideos?: boolean;
+    showViewCountOnVideos?: boolean;
+    showEncounterOnVideos?: boolean;
     hostName?: string;
     username?: string;
   };
@@ -61,6 +72,16 @@ function resolveCommentDrawerTarget(item: {
     defaultChannelEventId: item.defaultChannelEventId,
   });
   if (!eventId || eventId === "notice") return null;
+
+  const showRaisedAmount = item.channel?.showAmountRaisedOnVideos !== false;
+  const raised =
+    typeof item.channel?.amountRaised === "number"
+      ? item.channel.amountRaised
+      : 0;
+  const target =
+    typeof item.channel?.amountToRaise === "number"
+      ? item.channel.amountToRaise
+      : null;
 
   return {
     eventId,
@@ -73,6 +94,10 @@ function resolveCommentDrawerTarget(item: {
         : "",
     numOfTips:
       typeof item.channel?.numOfTips === "number" ? item.channel.numOfTips : 0,
+    amountRaised: showRaisedAmount ? raised : null,
+    amountToRaise: showRaisedAmount ? target : null,
+    showViewCount: item.channel?.showViewCountOnVideos === true,
+    showEncounterCount: item.channel?.showEncounterOnVideos === true,
     hostName:
       typeof item.channel?.hostName === "string"
         ? item.channel.hostName
@@ -415,6 +440,10 @@ export function TvPlaylistPreview({
           videoTitle={commentDrawerTarget.videoTitle}
           videoDescription={commentDrawerTarget.videoDescription}
           numOfTips={commentDrawerTarget.numOfTips}
+          amountRaised={commentDrawerTarget.amountRaised}
+          amountToRaise={commentDrawerTarget.amountToRaise}
+          showViewCount={commentDrawerTarget.showViewCount}
+          showEncounterCount={commentDrawerTarget.showEncounterCount}
           tippingCharacters={tippingCharacters}
           onContinueToTip={onContinueCommentToTip}
           hostName={commentDrawerTarget.hostName}

@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -278,7 +279,7 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
                               />
                             </FormControl>
                             <FormLabel className="text-sm font-normal">
-                              I agree to the Terms and Privacy Policy
+                              <TermsPrivacyLabel />
                             </FormLabel>
                           </div>
                           <FormMessage />

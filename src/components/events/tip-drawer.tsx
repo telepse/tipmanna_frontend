@@ -21,12 +21,14 @@ import { dispatchAuthChanged } from "@/lib/auth-events";
 import { touchVisitorTimestamp } from "@/lib/visitor-session";
 import { useMediaQuery } from "react-responsive";
 import { BeatLoader } from "react-spinners";
+import { toast } from "react-toastify";
 import {
   ExpressCheckoutElement,
   PaymentElement,
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
+import type { Stripe, StripeElements } from "@stripe/stripe-js";
 
 // Local imports
 import { markPaymentCompleted, setSelectedTips } from "@/features/tip-slice";
@@ -103,29 +105,7 @@ interface Character {
   styleName?: string;
 }
 
-export const TipDrawer = ({
-  open,
-  onOpenChange,
-  eventId,
-  tippingCharacters = [],
-  characterSets = [],
-  performerId = null,
-  paymentSurface = "unknown",
-  paymentCommunityId,
-  paymentChannelId,
-  getPlaybackOffsetSec,
-  getWatchDurationBeforePayMs,
-  getPaymentRestoreSnapshot,
-  stackAboveImmersive,
-  walletDialogOpen: walletDialogOpenControlled,
-  onWalletDialogOpenChange,
-  openWalletModalNonce = 0,
-  onSnapshotPaymentRedirect,
-  videoFeatureCardId,
-  textTipUnitPrice,
-  payLabel,
-  tipQuoteContext,
-}: {
+export type TipDrawerProps = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   eventId?: string;
@@ -154,7 +134,43 @@ export const TipDrawer = ({
   textTipUnitPrice?: number;
   payLabel?: string;
   tipQuoteContext?: TipQuoteContext | null;
-}) => {
+  /** Host customization preview — browse layout without checkout. */
+  previewMode?: boolean;
+  /** When false, Stripe hooks are skipped (drawer closed or preview). Defaults to `open`. */
+  stripeCheckout?: boolean;
+};
+
+type TipDrawerContentProps = TipDrawerProps & {
+  stripe: Stripe | null;
+  elements: StripeElements | null;
+};
+
+function TipDrawerContent({
+  open,
+  onOpenChange,
+  eventId,
+  tippingCharacters = [],
+  characterSets = [],
+  performerId = null,
+  paymentSurface = "unknown",
+  paymentCommunityId,
+  paymentChannelId,
+  getPlaybackOffsetSec,
+  getWatchDurationBeforePayMs,
+  getPaymentRestoreSnapshot,
+  stackAboveImmersive,
+  walletDialogOpen: walletDialogOpenControlled,
+  onWalletDialogOpenChange,
+  openWalletModalNonce = 0,
+  onSnapshotPaymentRedirect,
+  videoFeatureCardId,
+  textTipUnitPrice,
+  payLabel,
+  tipQuoteContext,
+  previewMode = false,
+  stripe,
+  elements,
+}: TipDrawerContentProps) {
   const textUnit = textTipUnitPrice ?? 5;
   const payCta = payLabel?.trim() || "Pay";
   const [textTipActive, setTextTipActive] = useState(false);
@@ -163,7 +179,8 @@ export const TipDrawer = ({
   const cancelTextPreviewRef = useRef<(() => void) | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [cardModalOpen, setCardModalOpen] = useState(false);
-  const [isLoadingPaymentOptions, setIsLoadingPaymentOptions] = useState(true);
+  const [isLoadingPaymentOptions, setIsLoadingPaymentOptions] =
+    useState(!previewMode);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const [walletDebitSnapshot, setWalletDebitSnapshot] = useState<{
@@ -172,15 +189,8 @@ export const TipDrawer = ({
   } | null>(null);
 
   const filteredCharacterSets = useMemo(() => {
-    const filtered = characterSets?.filter(set => set.characters?.length > 0);
-
-    // Sort "General" first, others keep original order
-    filtered.sort((a, b) => {
-      if (a.name === "General") return -1;
-      if (b.name === "General") return 1;
-      return 0;
-    });
-
+    const filtered =
+      characterSets?.filter(set => set.characters?.length > 0) ?? [];
     return filtered.map(set => ({
       ...set,
       characters: buildTipSectionPreviewCharacters(set.characters),
@@ -601,10 +611,6 @@ export const TipDrawer = ({
     }
   }, [tipsForTotals, draftSyncEpoch]);
 
-  // Stripe payments
-  const stripe = useStripe();
-  const elements = useElements();
-
   const ensureVisitorAccount = useCallback(
     async (transactionId?: string) => {
       if (userId) return;
@@ -663,6 +669,10 @@ export const TipDrawer = ({
   };
 
   const onConfirm = async () => {
+    if (previewMode) {
+      toast.info("Preview only — publish your layout to accept tips");
+      return;
+    }
     if (!stripe || !elements) {
       // Stripe.js hasn't loaded yet.
       return;
@@ -934,7 +944,7 @@ export const TipDrawer = ({
 
   const isMobile = useMediaQuery({ maxWidth: 768 });
 
-  const canPay = walletPayTotal > 0 && !paymentCompleted;
+  const canPay = !previewMode && walletPayTotal > 0 && !paymentCompleted;
 
   // Express checkout stays mounted for Stripe token flow but is never shown in the drawer UI.
   useEffect(() => {
@@ -1178,6 +1188,11 @@ export const TipDrawer = ({
             </div>
 
             <div className="space-y-3">
+              {previewMode && walletPayTotal > 0 ? (
+                <p className="text-muted-foreground text-center text-sm">
+                  Preview only — publish your layout to accept tips.
+                </p>
+              ) : null}
               {/* Loading State - Show when Stripe elements are loading */}
               {isLoadingPaymentOptions && canPay && (
                 <div className="flex items-center justify-center py-4">
@@ -1336,4 +1351,30 @@ export const TipDrawer = ({
       />
     </>
   );
-};
+}
+
+function TipDrawerWithStripe(props: TipDrawerProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  return (
+    <TipDrawerContent
+      {...props}
+      stripe={stripe}
+      elements={elements}
+    />
+  );
+}
+
+export function TipDrawer(props: TipDrawerProps) {
+  const stripeCheckout = props.stripeCheckout ?? props.open;
+  if (props.previewMode || !stripeCheckout) {
+    return (
+      <TipDrawerContent
+        {...props}
+        stripe={null}
+        elements={null}
+      />
+    );
+  }
+  return <TipDrawerWithStripe {...props} />;
+}

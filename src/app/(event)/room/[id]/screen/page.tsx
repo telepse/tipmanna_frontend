@@ -15,6 +15,7 @@ import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
 import { buildRoomShareUrl } from "@/lib/public-video-url";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
+import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -40,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return { title: "Private event room" };
   }
 
@@ -70,7 +71,7 @@ export default async function EventRoomScreenPage({ params }: Props) {
         })
       : null;
 
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return <PrivateEventRoomBlocked />;
   }
 

@@ -19,6 +19,10 @@ interface Props {
   sectionCtaLabel?: string;
   payLabel?: string;
   tipQuoteContext?: TipQuoteContext | null;
+  eliteCharacterIds?: string[];
+  openTipDrawerNonce?: number;
+  preserveStripOrder?: boolean;
+  stripCharacters?: Character[];
 }
 
 export const EventFooter = ({
@@ -30,6 +34,10 @@ export const EventFooter = ({
   sectionCtaLabel,
   payLabel,
   tipQuoteContext,
+  eliteCharacterIds,
+  openTipDrawerNonce,
+  preserveStripOrder,
+  stripCharacters,
 }: Props) => {
   return (
     <div className="mini-wrapper h-[210px] w-full flex-shrink-0 rounded-t-xl border-t bg-white px-4 py-1 shadow-sm">
@@ -43,6 +51,10 @@ export const EventFooter = ({
           sectionCtaLabel={sectionCtaLabel}
           payLabel={payLabel}
           tipQuoteContext={tipQuoteContext}
+          eliteCharacterIds={eliteCharacterIds}
+          openTipDrawerNonce={openTipDrawerNonce}
+          preserveStripOrder={preserveStripOrder}
+          stripCharacters={stripCharacters}
         />
       </div>
     </div>

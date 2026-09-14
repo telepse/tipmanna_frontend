@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { Ellipsis, Loader2 } from "lucide-react";
+import { Ellipsis, ImagePlus, Loader2, X } from "lucide-react";
+import Image from "next/image";
 import { toast } from "react-toastify";
+import { tryUploadImage } from "@/lib/cloudinary";
 
 import {
   deleteHostEventMessageAction,
@@ -34,6 +36,7 @@ interface HostMessage {
   text: string;
   senderType: "HOST";
   createdAt: string;
+  imageUrls?: string[];
 }
 
 interface Props {
@@ -65,6 +68,9 @@ export function EventRoomDropMessageModal({
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(
     null
   );
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open || !eventHostId || !canManage) return;
@@ -142,8 +148,8 @@ export function EventRoomDropMessageModal({
   const handlePostMessage = async () => {
     const text = messageText.trim();
 
-    if (!text) {
-      toast.error("Please enter a message.");
+    if (!text && !imagePreview) {
+      toast.error("Please enter a message or attach an image.");
       return;
     }
 
@@ -155,10 +161,28 @@ export function EventRoomDropMessageModal({
     setIsPostingMessage(true);
 
     try {
+      let imageUrls: string[] | undefined;
+      if (imagePreview?.startsWith("data:")) {
+        setIsUploadingImage(true);
+        const uploaded = await tryUploadImage(imagePreview);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        const url = uploaded.data?.secure_url;
+        if (!url) {
+          toast.error("Could not upload image.");
+          return;
+        }
+        imageUrls = [url];
+      } else if (imagePreview) {
+        imageUrls = [imagePreview];
+      }
+
       const createdMessage = await postHostEventMessageAction({
         hostId: eventHostId,
         eventId,
-        payload: { text },
+        payload: { text, ...(imageUrls ? { imageUrls } : {}) },
       });
 
       if (!createdMessage.success) {
@@ -179,14 +203,29 @@ export function EventRoomDropMessageModal({
       }
 
       setMessageText("");
+      setImagePreview(null);
       toast.success("Message sent to event room.");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to send message."
       );
     } finally {
+      setIsUploadingImage(false);
       setIsPostingMessage(false);
     }
+  };
+
+  const handleImagePick = (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDeleteMessage = async (messageId: string) => {
@@ -248,11 +287,55 @@ export function EventRoomDropMessageModal({
               disabled={!canManage}
             />
 
-            <div className="flex justify-end">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => handleImagePick(e.target.files?.[0] ?? null)}
+            />
+
+            {imagePreview ? (
+              <div className="relative inline-block max-w-full">
+                <Image
+                  src={imagePreview}
+                  alt="Attachment preview"
+                  width={240}
+                  height={160}
+                  unoptimized
+                  className="max-h-40 rounded-md object-cover"
+                />
+                <button
+                  type="button"
+                  className="absolute top-1 right-1 rounded-full bg-black/70 p-1 text-white"
+                  onClick={() => setImagePreview(null)}
+                  aria-label="Remove image"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            ) : null}
+
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!canManage || isPostingMessage}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImagePlus className="mr-1 size-4" />
+                Add image
+              </Button>
               <Button
                 type="button"
                 onClick={handlePostMessage}
-                disabled={isPostingMessage || !messageText.trim() || !canManage}
+                disabled={
+                  isPostingMessage ||
+                  isUploadingImage ||
+                  (!messageText.trim() && !imagePreview) ||
+                  !canManage
+                }
               >
                 {isPostingMessage ? (
                   <>
@@ -275,7 +358,27 @@ export function EventRoomDropMessageModal({
                     key={message.id}
                     className="bg-secondary/30 flex items-center justify-between rounded-md p-4"
                   >
-                    <p className="pr-4">{message.text}</p>
+                    <div className="space-y-2 pr-4">
+                      {message.imageUrls?.[0] ? (
+                        <button
+                          type="button"
+                          className="block"
+                          onClick={() =>
+                            window.open(message.imageUrls![0], "_blank")
+                          }
+                        >
+                          <Image
+                            src={message.imageUrls[0]}
+                            alt="Host message attachment"
+                            width={200}
+                            height={140}
+                            unoptimized
+                            className="max-h-36 rounded-md object-cover"
+                          />
+                        </button>
+                      ) : null}
+                      <p>{message.text}</p>
+                    </div>
 
                     {canManage ? (
                       <DropdownMenu>

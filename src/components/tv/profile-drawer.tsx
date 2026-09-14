@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
 
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDispatch, useSelector } from "react-redux";
@@ -66,6 +67,7 @@ interface Props {
   savedContents?: any[];
   tippedVideos?: any[];
   initialTab?: ProfileDrawerTab;
+  initialAccountTab?: "tipper" | "host";
 }
 
 type ProfileStep = "signIn" | "verifyCode" | "tipperProfile";
@@ -81,6 +83,7 @@ export const ProfileDrawer = ({
   savedContents: savedContentsProp,
   tippedVideos: tippedVideosProp,
   initialTab = "notifications",
+  initialAccountTab = "tipper",
 }: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileDrawerTab>(initialTab);
@@ -348,7 +351,7 @@ export const ProfileDrawer = ({
                       />
                     </FormControl>
                     <FormLabel className="text-sm font-normal">
-                      I agree to the Terms and Privacy Policy
+                      <TermsPrivacyLabel />
                     </FormLabel>
                   </div>
                   <FormMessage />
@@ -446,7 +449,10 @@ export const ProfileDrawer = ({
               className={TAB_PANEL_CLASS}
             >
               <PushPermissionPrompt />
-              <NotificationsTab variant="drawer" />
+              <NotificationsTab
+                variant="drawer"
+                initialAccountTab={initialAccountTab}
+              />
             </TabsContent>
 
             <TabsContent

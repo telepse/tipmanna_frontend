@@ -112,6 +112,7 @@ export default async function DiscoverCategoryPage({ params }: PageProps) {
         initialPrograms={catalog.programs as never[]}
         initialLiveStreams={catalog.liveStreams as never}
         initialTippers={catalog.tippers as never[]}
+        initialDiscoverEvents={catalog.discoverEvents as never[]}
       />
       {categoryItems.length > 0 ? (
         <nav

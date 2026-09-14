@@ -239,8 +239,8 @@ export default function CookiePolicy() {
           </ul>
 
           <Paragraph size="sm">
-            Depending on Tipmanna&apos;s Stripe configuration, technologies used by
-            Stripe may include:
+            Depending on Tipmanna&apos;s Stripe configuration, technologies used
+            by Stripe may include:
           </Paragraph>
 
           <h4 className="text-2xl font-bold"> __stripe_mid</h4>
@@ -389,7 +389,8 @@ export default function CookiePolicy() {
           <Title size="md">9. COOKIE CONTROLS</Title>
 
           <Paragraph size="sm">
-            Where applicable, Tipmanna&apos;s cookie interface should allow users to:
+            Where applicable, Tipmanna&apos;s cookie interface should allow
+            users to:
           </Paragraph>
 
           <ul className="list-inside list-disc text-sm sm:text-base">

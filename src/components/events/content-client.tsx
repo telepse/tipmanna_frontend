@@ -81,6 +81,8 @@ import {
   toggleChannelSaveForUser,
 } from "@/lib/save-video-client";
 import { TipSection } from "./tip-section";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
+import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-overlay";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { ChannelProgressBar } from "./channel-progress-bar";
 import { SaveEventId } from "./save-event-id";
@@ -107,6 +109,10 @@ import {
 } from "@/lib/public-video-url";
 import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
+import {
+  expressNavigateToExplore,
+  expressNavigateToTv,
+} from "@/lib/express-surface-navigation";
 import {
   awaitCommentDrawerPrefetch,
   awaitProfileDrawerPrefetch,
@@ -162,6 +168,8 @@ import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { mergeTipPriceCatalog } from "@/lib/tip-text-selection";
 import { unwrapContentChannelRows } from "@/lib/content-channel-rows";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
+import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { NotificationBadge } from "../notifications/notification-badge";
 
 interface Props {
@@ -239,8 +247,16 @@ export const ContentClient = ({
     quoteLock: isTipCustomizationEnabled(),
     paymentSurface: "content_client",
   });
-  const tipStrip = tipPres.strip;
-  const tipSets = baseTipSets;
+  const { drawerSets: tipSets, stripPool: tipStripPool } = useMemo(
+    () =>
+      resolveTipDrawerPresentation(
+        baseTipSets,
+        tipPres.catalog as RoomCharacter[],
+        undefined,
+        tipPres.eliteCharacterIds
+      ),
+    [baseTipSets, tipPres.catalog, tipPres.eliteCharacterIds]
+  );
   const tipPriceCatalog = useMemo(
     () =>
       mergeTipPriceCatalog(
@@ -252,6 +268,7 @@ export const ContentClient = ({
     [tipPres.catalog, baseTipSets]
   );
   const videoRef = useRef<VideoPlayerRef>(null);
+  const featureOverlayWasPlayingRef = useRef(false);
   const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
   const [playlist, setPlaylist] = useState(playableInitial);
   const [currentContent, setCurrentContent] = useState(() =>
@@ -300,13 +317,13 @@ export const ContentClient = ({
   useGlobalTipStream({ eventId, surface: "content_client" });
   usePaymentAnimationPlayer({
     eventId,
-    characters: tipStrip as RoomCharacter[],
+    characters: tipPriceCatalog as RoomCharacter[],
     surface: "content_client",
   });
   usePayerOriginAnimationRecovery({
     eventId,
     paymentSurface: "content_client",
-    characters: tipStrip as RoomCharacter[],
+    characters: tipPriceCatalog as RoomCharacter[],
     surface: "content_client",
   });
   usePaymentPlaybackRestore({
@@ -362,10 +379,14 @@ export const ContentClient = ({
   }, [trackActivity]);
 
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
-  const { openWalletModalNonce } = useWalletTopupTipResume(
-    eventId,
-    setIsTipDrawerOpen
-  );
+  const [tipPreviewOpen, setTipPreviewOpen] = useState(false);
+  const openPageTipDrawer = useCallback(() => {
+    setTipPreviewOpen(false);
+    setIsTipDrawerOpen(true);
+  }, []);
+  const { openWalletModalNonce } = useWalletTopupTipResume(eventId, open => {
+    if (open) openPageTipDrawer();
+  });
 
   const [isCreatePopupOpen, setIsCreatePopupOpen] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
@@ -469,6 +490,25 @@ export const ContentClient = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+
+  const contentHostFirstName =
+    currentContent?.event?.hostName?.trim().split(/\s+/)[0] ??
+    currentContent?.event?.hostName ??
+    "Host";
+  const { showFlashOverlay, handleTipNow, handleDismiss } = useVideoTipReminder(
+    {
+      surface: "content_client",
+      channelId: currentContent?.id ? String(currentContent.id) : null,
+      eventId,
+      reminders: (currentContent as { reminders?: number[] })?.reminders,
+      currentTimeSec: currentTime,
+      hostFirstName: contentHostFirstName,
+      videoTitle: currentContent?.title ?? "this video",
+      deepLinkUrl:
+        typeof window !== "undefined" ? window.location.pathname : "",
+      onTipNow: openPageTipDrawer,
+    }
+  );
 
   const currentContentIndex = playlist.findIndex(
     c => c.id === currentContent?.id
@@ -741,7 +781,6 @@ export const ContentClient = ({
     currentIndex < playlist.length - 1 ? playlist[currentIndex + 1] : null;
   const prevContent = currentIndex > 0 ? playlist[currentIndex - 1] : null;
 
-  const [tipPreviewOpen, setTipPreviewOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -1098,13 +1137,28 @@ export const ContentClient = ({
                 <VideoFeatureCardBanner
                   surfaceChannelId={paymentChannelIdForTip}
                   hostSurfaceChannelId={paymentChannelIdForTip}
+                  sectionCtaLabel={tipPres.sectionCtaLabel}
+                  pageDrawerOpen={isTipDrawerOpen}
                   onTipFeatured={id => {
                     setActiveVideoFeatureCardId(id);
-                    setIsTipDrawerOpen(true);
+                    openPageTipDrawer();
                   }}
+                  onOverlayOpenChange={createFeatureCardOverlayPlaybackHandlers(
+                    videoRef,
+                    featureOverlayWasPlayingRef,
+                    { getWasPlaying: () => isPlayingRef.current }
+                  )}
                   className="pointer-events-auto"
                 />
               </div>
+            ) : null}
+            {showFlashOverlay ? (
+              <VideoTipReminderOverlay
+                hostFirstName={contentHostFirstName}
+                sectionCta={tipPres.sectionCtaLabel?.trim() || "Engage"}
+                onTipNow={handleTipNow}
+                onDismiss={handleDismiss}
+              />
             ) : null}
             <VideoPlayer
               ref={videoRef}
@@ -1593,10 +1647,17 @@ export const ContentClient = ({
               }
               numOfTips={liveNumOfTips}
               amountRaised={showRaisedAmount ? Number(liveAmountRaised) : null}
+              amountToRaise={
+                showRaisedAmount
+                  ? (currentContent?.event?.amountToRaise ??
+                    playlist[0]?.event?.amountToRaise ??
+                    null)
+                  : null
+              }
               showViewCount={showViewCount}
               showEncounterCount={showEncounterCount}
               tippingCharacters={tipPriceCatalog}
-              onContinueToTip={() => setIsTipDrawerOpen(true)}
+              onContinueToTip={() => openPageTipDrawer()}
               hostName={currentContent?.event?.hostName}
               hostUsername={currentContent?.event?.username}
             />
@@ -1695,20 +1756,23 @@ export const ContentClient = ({
               className="relative -mt-2 flex cursor-pointer rounded-full bg-gray-200 p-1 text-sm text-black"
             >
               <ChevronsUp className="text-primary" />
-              Engage <ChevronsUp className="text-primary" />{" "}
+              {tipPres.sectionCtaLabel?.trim() || "Engage"}{" "}
+              <ChevronsUp className="text-primary" />{" "}
               <span className="absolute -bottom-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-gray-500"></span>
             </button>
 
-            {tipPreviewOpen && (
+            {tipPreviewOpen && !isFullView && !isMobileLandscape && (
               <TippingElementsProvider
-                tippingCharacters={tipStrip as RoomCharacter[]}
+                tippingCharacters={tipStripPool as RoomCharacter[]}
+                enabled={false}
                 textTipUnitPrice={tipPres.textUnitPrice}
               >
                 <div className="absolute -bottom-6 left-1/2 mx-auto h-[240px] w-[40%] -translate-x-1/2 rounded-t-xl bg-white/80 px-4 py-2 lg:w-[45%]">
                   <div className="relative">
                     <TipSection
                       eventId={eventId}
-                      tippingCharacters={tipStrip as RoomCharacter[]}
+                      tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+                      stripCharacters={tipStripPool as RoomCharacter[]}
                       characterSets={tipSets}
                       paymentSurface="content_client"
                       paymentChannelId={paymentChannelIdForTip}
@@ -1718,6 +1782,10 @@ export const ContentClient = ({
                       sectionCtaLabel={tipPres.sectionCtaLabel}
                       payLabel={tipPres.payLabel}
                       tipQuoteContext={tipPres.quoteCtx}
+                      eliteCharacterIds={tipPres.eliteCharacterIds}
+                      externalDrawer
+                      onRequestOpenDrawer={() => openPageTipDrawer()}
+                      onRequestOpenWallet={() => openPageTipDrawer()}
                     />
 
                     <button
@@ -1733,27 +1801,29 @@ export const ContentClient = ({
             )}
 
             <div className="flex items-center gap-4">
-              <Link
-                href="/tv"
+              <button
+                type="button"
                 className="group"
+                onClick={() => expressNavigateToTv()}
               >
                 <Tv className="group-hover:text-primary group-hover:stroke-3" />
-              </Link>
+              </button>
 
-              <Link
-                href="/explore"
+              <button
+                type="button"
                 className="cursor-pointer"
                 onPointerEnter={prefetchExploreFeedInitial}
                 onClick={() => {
                   setIsCreatePopupOpen(false);
                   setIsProfileDrawerOpen(false);
+                  expressNavigateToExplore();
                 }}
               >
                 <Rocket
                   className="size-5 sm:size-7"
                   strokeWidth={2}
                 />
-              </Link>
+              </button>
 
               <button
                 type="button"
@@ -1839,11 +1909,12 @@ export const ContentClient = ({
 
               <button
                 type="button"
-                onClick={() => setIsTipDrawerOpen(true)}
+                onClick={() => openPageTipDrawer()}
                 className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
               >
                 <ChevronsUp className="text-primary size-4" />
-                Engage <ChevronsUp className="text-primary size-4" />
+                {tipPres.sectionCtaLabel?.trim() || "Engage"}{" "}
+                <ChevronsUp className="text-primary size-4" />
               </button>
             </div>
           </div>
@@ -1858,21 +1929,23 @@ export const ContentClient = ({
         )}
       >
         <div className="flex items-center justify-between gap-4">
-          <Link
-            href="/tv"
+          <button
+            type="button"
             className="group flex flex-col items-center justify-center gap-1"
+            onClick={() => expressNavigateToTv()}
           >
             <Tv className="group-hover:text-primary size-5 group-hover:stroke-2" />{" "}
             <span className="text-[8px]">Watch TV</span>
-          </Link>
+          </button>
 
-          <Link
-            href="/explore"
+          <button
+            type="button"
             className="flex cursor-pointer flex-col items-center justify-center gap-1"
             onPointerEnter={prefetchExploreFeedInitial}
             onClick={() => {
               setIsCreatePopupOpen(false);
               setIsProfileDrawerOpen(false);
+              expressNavigateToExplore();
             }}
           >
             <Rocket
@@ -1880,7 +1953,7 @@ export const ContentClient = ({
               strokeWidth={2}
             />{" "}
             <span className="text-[8px]">Explore</span>
-          </Link>
+          </button>
 
           <div className="flex flex-col items-center justify-center">
             <button
@@ -1933,14 +2006,14 @@ export const ContentClient = ({
       {/* Tip drawer section - LAPTOP */}
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider
-          tippingCharacters={tipStrip as RoomCharacter[]}
+          tippingCharacters={tipPriceCatalog as RoomCharacter[]}
           textTipUnitPrice={tipPres.textUnitPrice}
         >
           <TipDrawer
             open={isTipDrawerOpen}
             onOpenChange={setIsTipDrawerOpen}
             eventId={eventId}
-            tippingCharacters={tipStrip as RoomCharacter[]}
+            tippingCharacters={tipPriceCatalog as RoomCharacter[]}
             characterSets={tipSets}
             paymentSurface="content_client"
             paymentChannelId={paymentChannelIdForTip}
@@ -2024,11 +2097,12 @@ export const ContentClient = ({
           {isFullView && isMobile ? (
             <button
               type="button"
-              onClick={() => setIsTipDrawerOpen(true)}
+              onClick={() => openPageTipDrawer()}
               className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
             >
               <ChevronsUp className="text-primary size-4" />
-              Engage <ChevronsUp className="text-primary size-4" />
+              {tipPres.sectionCtaLabel?.trim() || "Engage"}{" "}
+              <ChevronsUp className="text-primary size-4" />
             </button>
           ) : null}
         </div>
@@ -2045,7 +2119,8 @@ export const ContentClient = ({
 
       {/* Tip section - MOBILE */}
       <TippingElementsProvider
-        tippingCharacters={tipStrip as RoomCharacter[]}
+        tippingCharacters={tipStripPool as RoomCharacter[]}
+        enabled={false}
         textTipUnitPrice={tipPres.textUnitPrice}
       >
         <div
@@ -2062,7 +2137,8 @@ export const ContentClient = ({
         >
           <TipSection
             eventId={eventId}
-            tippingCharacters={tipStrip as RoomCharacter[]}
+            tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+            stripCharacters={tipStripPool as RoomCharacter[]}
             characterSets={tipSets}
             paymentSurface="content_client"
             paymentChannelId={paymentChannelIdForTip}
@@ -2073,6 +2149,10 @@ export const ContentClient = ({
             sectionCtaLabel={tipPres.sectionCtaLabel}
             payLabel={tipPres.payLabel}
             tipQuoteContext={tipPres.quoteCtx}
+            eliteCharacterIds={tipPres.eliteCharacterIds}
+            externalDrawer
+            onRequestOpenDrawer={() => openPageTipDrawer()}
+            onRequestOpenWallet={() => openPageTipDrawer()}
           />
         </div>
       </TippingElementsProvider>

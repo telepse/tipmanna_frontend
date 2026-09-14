@@ -13,6 +13,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         numOfTips: 0,
         contentCountry: "Nigeria",
         contentLanguage: "en-GB",
+        reminders: [],
       },
       event: {
         id: "ev-1",
@@ -23,6 +24,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         showViewCountOnVideos: true,
         showEncounterOnVideos: true,
         amountRaised: 0,
+        amountToRaise: 1000,
         numOfTips: 0,
         contentCountry: "England",
         contentLanguage: "en-GB",
@@ -42,6 +44,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         numOfTips: 0,
         contentCountry: "all",
         contentLanguage: "en-GB",
+        reminders: [],
       },
       event: {
         id: "ev-1",
@@ -52,6 +55,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         showViewCountOnVideos: true,
         showEncounterOnVideos: true,
         amountRaised: 0,
+        amountToRaise: 1000,
         numOfTips: 0,
         contentCountry: "England",
         contentLanguage: "en-GB",
@@ -70,6 +74,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         numOfTips: 0,
         contentCountry: "all",
         contentLanguage: "en-GB",
+        reminders: [],
       },
       event: {
         id: "ev-1",
@@ -80,6 +85,7 @@ describe("resolveTipLinkLocaleDisplay", () => {
         showViewCountOnVideos: true,
         showEncounterOnVideos: true,
         amountRaised: 0,
+        amountToRaise: 1000,
         numOfTips: 0,
         contentCountry: "all",
         contentLanguage: "en-GB",

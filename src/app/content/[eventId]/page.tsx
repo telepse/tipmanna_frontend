@@ -18,6 +18,7 @@ import {
   pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { notFound, redirect } from "next/navigation";
+import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 import { Metadata } from "next";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
 import {
@@ -27,6 +28,7 @@ import {
 import { getPrimaryOrigin } from "@/lib/site-config";
 import { unwrapContentChannelList } from "@/lib/content-channel-payload";
 import { getCachedContentChannelForPage } from "@/lib/cached-content-channel";
+import { isPrimaryChannelExternalSearchBanned } from "@/lib/external-search-metadata";
 
 export interface Props {
   params: Promise<{ eventId: string }>;
@@ -40,6 +42,7 @@ interface ContentData {
   description?: string;
   createdAt?: string;
   restricted?: boolean;
+  externalSearchBanned?: boolean;
   isDefault?: boolean;
   coOwnerNames?: string[];
   event: {
@@ -77,12 +80,16 @@ export async function generateMetadata({
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return { title: "Private event room" };
   }
 
   const res = await getCachedContentChannelForPage(eventId);
   const list = unwrapContentChannelList(res.data) as ContentData[];
+  const externalSearchBanned = isPrimaryChannelExternalSearchBanned(
+    list,
+    initialChannelId
+  );
   const videoRes = pickContentForPage(list, initialChannelId);
 
   const videoHasCoOwner =
@@ -107,6 +114,9 @@ export async function generateMetadata({
     metadataBase: new URL(getPrimaryOrigin()),
     title,
     description,
+    ...(externalSearchBanned
+      ? { robots: { index: false, follow: false } }
+      : {}),
     alternates: {
       canonical: pageUrl,
     },
@@ -139,7 +149,7 @@ export default async function ContentPage({ params, searchParams }: Props) {
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return <PrivateEventRoomBlocked />;
   }
 

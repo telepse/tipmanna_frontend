@@ -5,10 +5,13 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+import { postEventRoomVisitAction } from "@/actions/events";
 
 // Local imports
 import { SaveEventId } from "./save-event-id";
@@ -19,6 +22,7 @@ import type { UserInfo } from "@/types/tracking.types";
 import { usePusherTracking } from "@/hooks/use-pusher-tracking";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
+import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
 import { EventDialog } from "./event-dialog";
 import { getEventStatus } from "@/lib/utils";
 import { GlobalTipStreamProvider } from "@/providers/global-tip-stream-provider";
@@ -210,17 +214,27 @@ export const EventRoomClient = ({
   const rawCharacterSets = Array.isArray(characterSets) ? characterSets : [];
 
   const {
-    strip: tipStripCharacters,
+    catalog: tipPriceCatalog,
     quoteCtx: tipQuoteCtx,
     textUnitPrice: tipTextUnitPrice,
     sectionCtaLabel: tipSectionCtaLabel,
     payLabel: tipPayLabel,
+    eliteCharacterIds: tipEliteCharacterIds,
   } = useTipPresentation(eventId, safeTippingCharacters as RoomCharacter[], {
     quoteLock: isTipCustomizationEnabled(),
     paymentSurface: "event_room",
   });
 
-  const footerCharacterSets = rawCharacterSets;
+  const { drawerSets: footerCharacterSets, stripPool: tipStripPool } = useMemo(
+    () =>
+      resolveTipDrawerPresentation(
+        rawCharacterSets,
+        tipPriceCatalog as RoomCharacter[],
+        undefined,
+        tipEliteCharacterIds
+      ),
+    [rawCharacterSets, tipPriceCatalog, tipEliteCharacterIds]
+  );
 
   const [liveMessages, setLiveMessages] = useState<Message[]>(safeMessages);
 
@@ -239,6 +253,19 @@ export const EventRoomClient = ({
   });
 
   const [openDrawer, setOpenDrawer] = useState(false);
+  const [openTipDrawerNonce, setOpenTipDrawerNonce] = useState(0);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!eventId || typeof window === "undefined") return;
+    const dedupeKey = `event_room_visit:${eventId}`;
+    if (sessionStorage.getItem(dedupeKey)) return;
+    sessionStorage.setItem(dedupeKey, "1");
+    const path =
+      pathname?.trim() ||
+      `${window.location.pathname}${window.location.search}`;
+    void postEventRoomVisitAction(eventId, path);
+  }, [eventId, pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -518,7 +545,7 @@ export const EventRoomClient = ({
             hideProgressBarAmount={screenSettings.hideProgressBarAmount}
             showLatestAmount={screenSettings.showLatestAmount}
             latestTipAmount={currentLatestTipAmount}
-            tippingCharacters={tipStripCharacters}
+            tippingCharacters={tipPriceCatalog as RoomCharacter[]}
             tipUsageDisclosure={screenSettings.tipUsageDisclosure}
             liveFullscreen={liveFullscreen}
             setLiveFullscreen={setLiveFullscreen}
@@ -531,6 +558,7 @@ export const EventRoomClient = ({
             totalAttendees={totalAttendees}
             openDrawer={openDrawer}
             setOpenDrawer={setOpenDrawer}
+            onOpenTipDrawer={() => setOpenTipDrawerNonce(n => n + 1)}
             characterSets={footerCharacterSets}
             performers={screenSettings.performers}
             currentSessionAmountToRaise={currentSessionAmountToRaise}
@@ -549,7 +577,7 @@ export const EventRoomClient = ({
               hostName={hostName}
               organizationName={organizationName}
               messages={liveMessages}
-              tippingCharacters={tipStripCharacters}
+              tippingCharacters={tipPriceCatalog as RoomCharacter[]}
               iTipped={iTipped}
               channels={channelList}
               frameId={defaultChannel?.id ?? ""}
@@ -578,18 +606,21 @@ export const EventRoomClient = ({
           >
             <StripeProvider
               enabled={enableStripe}
-              tippingCharacters={tipStripCharacters}
+              tippingCharacters={tipPriceCatalog as RoomCharacter[]}
               textTipUnitPrice={tipTextUnitPrice}
             >
               <EventFooter
                 eventId={eventId}
-                tippingCharacters={tipStripCharacters}
+                tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+                stripCharacters={tipStripPool}
                 characterSets={footerCharacterSets}
                 performers={performers}
                 textTipUnitPrice={tipTextUnitPrice}
                 sectionCtaLabel={tipSectionCtaLabel}
                 payLabel={tipPayLabel}
                 tipQuoteContext={tipQuoteCtx}
+                eliteCharacterIds={tipEliteCharacterIds}
+                openTipDrawerNonce={openTipDrawerNonce}
               />
             </StripeProvider>
           </div>

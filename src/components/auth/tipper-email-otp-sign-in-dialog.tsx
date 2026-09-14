@@ -12,6 +12,7 @@ import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
 import type { AppDispatch } from "@/redux/store";
 
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import {
   Dialog,
   DialogContent,
@@ -292,7 +293,7 @@ export function TipperEmailOtpSignInDialog({
                             />
                           </FormControl>
                           <FormLabel className="text-sm font-normal">
-                            I agree to the Terms and Privacy Policy
+                            <TermsPrivacyLabel />
                           </FormLabel>
                         </div>
                         <FormMessage />

@@ -9,7 +9,6 @@ import { ChevronsUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { useStripe, useElements } from "@stripe/react-stripe-js";
 
 // Local imports
 import { TipDrawer } from "@/components/events/tip-drawer";
@@ -47,6 +46,10 @@ import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
 import { TippingElementsProvider } from "../payments/tipping-elements-provider";
 import { RoomCharacter } from "@/types";
 import { computeTipCartTotal } from "@/lib/tip-cart-total";
+import { shouldLoadTipStripe } from "@/lib/should-load-tip-stripe";
+import { shuffleTipStrip } from "@/lib/shuffle-tip-strip";
+import { PUBLIC_STRIP_POOL_MAX } from "@/lib/resolve-tip-drawer-sets";
+import { CopyLinkButton } from "./copy-link-button";
 
 interface Props {
   eventId: string;
@@ -66,6 +69,23 @@ interface Props {
   sectionCtaLabel?: string;
   payLabel?: string;
   tipQuoteContext?: TipQuoteContext | null;
+  buttonColor?: "black" | "white";
+  shadowStyle?: string;
+  tipLink?: boolean;
+  /** Host customization preview — no Stripe or wallet checkout. */
+  previewMode?: boolean;
+  /** Elite animations prioritized in strip shuffle when host layout is live. */
+  eliteCharacterIds?: string[];
+  /** Increment to open the tip drawer without character-strip interaction. */
+  openTipDrawerNonce?: number;
+  /** TipLink: parent owns the drawer; strip only requests open. */
+  externalDrawer?: boolean;
+  onRequestOpenDrawer?: () => void;
+  onRequestOpenWallet?: () => void;
+  /** Live published section order — do not randomize host strip. */
+  preserveStripOrder?: boolean;
+  /** Characters for the visible strip shuffle; defaults to tippingCharacters. */
+  stripCharacters?: any[];
 }
 
 export const TipSection = ({
@@ -83,8 +103,19 @@ export const TipSection = ({
   sectionCtaLabel,
   payLabel,
   tipQuoteContext,
+  buttonColor = "black",
+  shadowStyle,
+  tipLink,
+  previewMode = false,
+  eliteCharacterIds,
+  openTipDrawerNonce = 0,
+  externalDrawer = false,
+  onRequestOpenDrawer,
+  onRequestOpenWallet,
+  preserveStripOrder = false,
+  stripCharacters,
 }: Props) => {
-  const sectionCta = "Engage";
+  const sectionCta = sectionCtaLabel?.trim() || "Engage";
   const [openDrawer, setOpenDrawer] = useState(false);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [openWalletAfterPerformer, setOpenWalletAfterPerformer] =
@@ -125,22 +156,18 @@ export const TipSection = ({
 
   const { openWalletModalNonce } = useWalletTopupTipResume(
     eventId,
-    setOpenDrawer
+    externalDrawer ? () => onRequestOpenDrawer?.() : setOpenDrawer
   );
 
-  const allTips = useMemo(() => {
-    const ordered = buildTipSectionPreviewCharacters(tippingCharacters);
-    if (ordered.length <= 1) return ordered;
+  const stripPool = stripCharacters ?? tippingCharacters;
 
-    const [pinnedComment, ...rest] = ordered;
-    const shuffled = [...rest];
-    // for (let i = shuffled.length - 1; i > 0; i--) {
-    //   const j = Math.floor(Math.random() * (i + 1));
-    //   [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    // }
-    shuffled.sort(() => Math.random() - 0.5);
-    return [pinnedComment, ...shuffled];
-  }, [tippingCharacters]);
+  const allTips = useMemo(
+    () =>
+      shuffleTipStrip(stripPool, eliteCharacterIds, {
+        preserveHostOrder: preserveStripOrder,
+      }),
+    [stripPool, eliteCharacterIds, preserveStripOrder]
+  );
 
   const openTextDraftModalOnly = () => {
     cancelTextPreviewRef.current?.();
@@ -204,8 +231,7 @@ export const TipSection = ({
       setSelectedTips(ensureSingleTextInCart([...tipsForTotals, cartName]))
     );
 
-    if (!character.styleName) {
-      console.error("Missing styleName for character", character);
+    if (!character.styleName?.trim()) {
       return;
     }
 
@@ -265,40 +291,25 @@ export const TipSection = ({
     void prefetch("/success");
   }, [prefetch]);
 
-  const stripe = useStripe();
-  const elements = useElements();
-  const [stripeLoading, setStripeLoading] = useState(true);
-  const [isOpeningDrawer, setIsOpeningDrawer] = useState(false);
-
-  useEffect(() => {
-    // Wait one tick so the UI renders before checking stripe
-    const t = setTimeout(() => {
-      if (stripe && elements) {
-        setStripeLoading(false);
-      }
-    }, 0);
-
-    return () => clearTimeout(t);
-  }, [stripe, elements]);
-
-  const handleOpenDrawer = () => {
-    if (stripeLoading) {
-      toast.error("Payment system is still loading...");
+  const handleEngageOpen = () => {
+    if (performers && performers.length > 0) {
+      setOpenPerformerModal(true);
       return;
     }
+    proceedToDrawer();
+  };
 
+  const handleOpenDrawer = () => {
     if (totalAmount <= 0) {
       toast.error("Please select at least one tip item");
       return;
     }
 
-    // NEW LOGIC: Check if performers exist. If they do, trigger modal first.
     if (performers && performers.length > 0) {
       setOpenPerformerModal(true);
-      return; // Stop here and let the modal handle the rest
+      return;
     }
 
-    // Proceed as normal if no performers exist
     proceedToDrawer();
 
     // // NEW: Set loading state and wait for Stripe to be ready
@@ -321,17 +332,48 @@ export const TipSection = ({
 
   // Separated this out so both handleOpenDrawer and the modal can use it
   const proceedToDrawer = () => {
-    setIsOpeningDrawer(true);
-    try {
-      if (!stripe || !elements) {
-        toast.error("Payment system not ready yet");
-        return;
-      }
-      setOpenDrawer(true);
-    } finally {
-      setIsOpeningDrawer(false);
+    if (externalDrawer) {
+      onRequestOpenDrawer?.();
+      return;
     }
+    setOpenDrawer(true);
   };
+
+  const drawerStripeEnabled = shouldLoadTipStripe({
+    previewMode,
+    drawerOpen: openDrawer,
+  });
+
+  const tipDrawer = (
+    <TipDrawer
+      open={openDrawer}
+      onOpenChange={setOpenDrawer}
+      eventId={eventId}
+      tippingCharacters={tippingCharacters}
+      characterSets={characterSets}
+      performerId={selectedPerformerId}
+      paymentSurface={paymentSurface}
+      paymentChannelId={paymentChannelId}
+      paymentCommunityId={paymentCommunityId}
+      getPlaybackOffsetSec={getPlaybackOffsetSec}
+      getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
+      stackAboveImmersive={stackDrawerAboveImmersive}
+      walletDialogOpen={walletDialogOpen}
+      onWalletDialogOpenChange={setWalletDialogOpen}
+      openWalletModalNonce={openWalletModalNonce}
+      textTipUnitPrice={textTipUnitPrice}
+      payLabel={payLabel}
+      tipQuoteContext={tipQuoteContext}
+      previewMode={previewMode}
+      stripeCheckout={drawerStripeEnabled}
+    />
+  );
+
+  useEffect(() => {
+    if (!openTipDrawerNonce) return;
+    proceedToDrawer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nonce edge only
+  }, [openTipDrawerNonce]);
 
   const { distinctStyleCount, totalGbp } = rewardEligibility;
   const turboDisplayCount = displayTurboStyleCount(distinctStyleCount);
@@ -340,12 +382,16 @@ export const TipSection = ({
   return (
     <div className="space-y-2">
       {/* Payment options */}
-      <div className="relative z-20 grid items-center justify-between gap-2 rounded-tl-2xl rounded-tr-2xl border p-1">
+      <div
+        className={`relative z-20 grid items-center justify-between gap-2 rounded-tl-2xl rounded-tr-2xl p-1 ${shadowStyle}`}
+      >
         <div className="grid grid-cols-12 items-center justify-center gap-4">
           {/* Turbo Reward */}
           <div className="col-span-3 flex flex-row items-center lg:col-span-5 lg:flex-row lg:gap-2">
             <div className="flex justify-between text-[10px] sm:text-[11px]">
-              <span className="whitespace-nowrap">
+              <span
+                className={`whitespace-nowrap ${tipLink ? "text-white/40" : ""}`}
+              >
                 Turbo ({turboDisplayCount}/{TURBO_MIN_DISTINCT_STYLES}{" "}
                 <span className="hidden lg:inline-block">styles</span>)
               </span>
@@ -354,38 +400,29 @@ export const TipSection = ({
             <TipRewardTurboIcons eligibility={rewardEligibility} />
           </div>
 
-          {/* Engage button */}
-          <Button
-            size="lg"
-            onClick={handleOpenDrawer}
-            disabled={paymentCompleted || stripeLoading || isOpeningDrawer}
-            className="relative col-span-6 mb-2 ml-4 flex h-6 w-fit items-center justify-center rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm text-black lg:col-span-2"
-          >
-            <ChevronsUp className="text-primary -mr-2" /> {sectionCta}{" "}
-            <ChevronsUp className="text-primary -ml-2" />
-            {/* <span
-              style={{
-                transform: "scaleX(1)",
-              }}
-              className="absolute  -bottom-0.5 left-24 h-0.5 origin-left rounded-full"
-            ></span> */}
-          </Button>
-          {/* {!paymentCompleted && showEditMessageLink && (
+          <div className="col-span-6 mb-2 flex justify-center lg:col-span-2">
             <button
-              type="button"
-              className="text-primary -mt-1 mb-2 text-xs font-medium underline underline-offset-2 hover:text-black"
-              onClick={() => openTextDraftModal()}
+              onClick={handleEngageOpen}
+              disabled={paymentCompleted}
+              className="open_sans relative flex h-6 w-full max-w-full min-w-[7ch] items-center justify-center gap-0.5 rounded-tl-2xl rounded-tr-2xl bg-transparent text-sm"
+              style={{
+                color: buttonColor,
+              }}
             >
-              Edit message
+              <ChevronsUp className="text-primary shrink-0" />
+              {tipLink ? sectionCta.toUpperCase() : sectionCta}
+              <ChevronsUp className="text-primary shrink-0" />
             </button>
-          )} */}
+          </div>
 
           {/* Reward galaxy */}
           <div className="col-span-3 flex flex-row items-center justify-end gap-1 lg:col-span-5 lg:flex-row lg:gap-2">
             <TipRewardGalaxyIcons eligibility={rewardEligibility} />
 
             <div className="flex justify-between text-[10px] sm:text-[11px]">
-              <span className="whitespace-nowrap">
+              <span
+                className={`whitespace-nowrap ${tipLink ? "text-white/40" : ""}`}
+              >
                 Galaxy (£{galaxyDisplayAmount.toFixed(0)}/£
                 {GALAXY_MIN_AMOUNT_GBP})
               </span>
@@ -398,7 +435,7 @@ export const TipSection = ({
             className="flex h-20 min-w-max flex-wrap content-start gap-1 overflow-x-auto px-1"
             style={{ rowGap: "1rem" }}
           >
-            {allTips.slice(0, 13).map(character => {
+            {allTips.slice(0, PUBLIC_STRIP_POOL_MAX).map(character => {
               const characterName = tipCartNameForCharacter(character);
               const count = getSelectedCount(characterName);
               const isTextCharacter = isTextTipCharacterRef(character);
@@ -425,7 +462,7 @@ export const TipSection = ({
                     count > 0
                       ? "border-orange-500 bg-orange-50"
                       : "border-gray-200"
-                  } ${paymentCompleted ? "opacity-50" : ""}`}
+                  } ${paymentCompleted ? "opacity-50" : ""} ${tipLink ? "border-white/40 bg-black/20" : "border-gray-200"}`}
                 >
                   {isPremium ? <TipPremiumIndicator /> : null}
                   {count > 0 && (
@@ -442,10 +479,14 @@ export const TipSection = ({
                     className="size-12 object-contain"
                   />
 
-                  <h5 className="mt-0.5 text-center text-[8px] font-medium whitespace-nowrap sm:text-xs">
+                  <h5
+                    className={`mt-0.5 text-center text-[8px] font-medium whitespace-nowrap sm:text-xs ${tipLink ? "text-white" : ""}`}
+                  >
                     {label.substring(0, 7)}
                   </h5>
-                  <p className="text-muted-foreground absolute -bottom-4 left-1/2 -translate-x-1/2 overflow-visible rounded-full bg-white text-[10px] sm:text-xs">
+                  <p
+                    className={`text-muted-foreground absolute -bottom-4 left-1/2 -translate-x-1/2 overflow-visible bg-white text-[10px] sm:text-xs ${tipLink ? "px-1" : "rounded-full"}`}
+                  >
                     <span className="relative inline-block">
                       £{character.price}
                       <span
@@ -464,26 +505,17 @@ export const TipSection = ({
       <div className="flex items-center gap-1">
         <div className="relative w-full flex-1">
           <Button
-            disabled={
-              paymentCompleted ||
-              stripeLoading ||
-              totalAmount <= 0 ||
-              isOpeningDrawer // NEW: Add isOpeningDrawer to disabled conditions
-            }
-            className={`h-6 w-full bg-black pr-10 text-white ${totalAmount > 0 ? "" : "opacity-50"}`}
+            disabled={paymentCompleted || totalAmount <= 0}
+            className={`h-6 w-full bg-black pr-10 text-white ${totalAmount > 0 ? "" : "opacity-50"} ${tipLink ? "bg-white text-black" : ""}`}
             onClick={handleOpenDrawer}
           >
-            {isOpeningDrawer
-              ? "Loading..."
-              : stripeLoading
-                ? "Loading..."
-                : `£${totalAmount}`}{" "}
+            {`£${totalAmount}`}{" "}
           </Button>
           <button
             type="button"
-            className="absolute top-1/2 right-1.5 z-10 -translate-y-1/2 rounded-full bg-white/95 p-1.5 shadow-sm ring-1 ring-black/10 transition hover:bg-white"
+            className="absolute top-1/2 right-1.5 z-10 -translate-y-1/2 rounded-full bg-white/40 p-1.5 shadow-sm ring-1 ring-black/10 transition hover:bg-white/50"
             aria-label="Pay with Tipper Wallet"
-            disabled={paymentCompleted || totalAmount <= 0 || isOpeningDrawer}
+            disabled={paymentCompleted || totalAmount <= 0}
             onClick={e => {
               e.stopPropagation();
               if (totalAmount <= 0) {
@@ -493,6 +525,10 @@ export const TipSection = ({
               if (performers && performers.length > 0) {
                 setOpenWalletAfterPerformer(true);
                 setOpenPerformerModal(true);
+                return;
+              }
+              if (externalDrawer) {
+                onRequestOpenWallet?.();
                 return;
               }
               setWalletDialogOpen(true);
@@ -506,33 +542,19 @@ export const TipSection = ({
         </div>
       </div>
 
-      {/* Tip drawer */}
-      <TippingElementsProvider
-        tippingCharacters={tippingCharacters as RoomCharacter[]}
-        enabled
-        textTipUnitPrice={textTipUnitPrice}
-      >
-        <TipDrawer
-          open={openDrawer}
-          onOpenChange={setOpenDrawer}
-          eventId={eventId}
-          tippingCharacters={tippingCharacters}
-          characterSets={characterSets}
-          performerId={selectedPerformerId}
-          paymentSurface={paymentSurface}
-          paymentChannelId={paymentChannelId}
-          paymentCommunityId={paymentCommunityId}
-          getPlaybackOffsetSec={getPlaybackOffsetSec}
-          getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
-          stackAboveImmersive={stackDrawerAboveImmersive}
-          walletDialogOpen={walletDialogOpen}
-          onWalletDialogOpenChange={setWalletDialogOpen}
-          openWalletModalNonce={openWalletModalNonce}
-          textTipUnitPrice={textTipUnitPrice}
-          payLabel={payLabel}
-          tipQuoteContext={tipQuoteContext}
-        />
-      </TippingElementsProvider>
+      {/* Tip drawer — Stripe loads only while a live drawer is open */}
+      {!externalDrawer &&
+        (drawerStripeEnabled ? (
+          <TippingElementsProvider
+            tippingCharacters={tippingCharacters as RoomCharacter[]}
+            enabled
+            textTipUnitPrice={textTipUnitPrice}
+          >
+            {tipDrawer}
+          </TippingElementsProvider>
+        ) : (
+          tipDrawer
+        ))}
 
       {/* 👈 ADDED: Performer Selection Modal */}
       <Dialog

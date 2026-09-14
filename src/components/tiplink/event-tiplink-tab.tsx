@@ -32,18 +32,23 @@ import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { subscriptionActionErrorMessage } from "@/lib/host-subscription-errors";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { useImageUpload } from "@/hooks/use-image-upload";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import {
   TIPLINK_STORE_FIELDS,
   TipLinkStoreIcon,
 } from "@/components/tiplink/tiplink-store-icons";
 import { TIPLINK_SOCIAL_PLATFORMS } from "@/components/tiplink/tiplink-social-icons";
 import { cn } from "@/lib/utils";
+import { isTipLinkEligibleChannel } from "@/lib/tiplink-channel-eligibility";
 
 type Content = {
   id: string;
   title: string;
   url: string;
+  communityBankEntry?: {
+    status?: string | null;
+    visibility?: string | null;
+  } | null;
 };
 
 type Props = {
@@ -68,6 +73,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     useHostSubscriptionPrompt({ focusTier: "premium" });
 
   const [form, setForm] = useState({
+    eventChannelId: "",
     slug: "",
     pitch: "",
     title: "",
@@ -85,6 +91,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     socialUrl2: "",
     bannerSource: null as "thumbnail" | "upload" | null,
     bannerUrl: null as string | null,
+    bannerAspect: "landscape" as "landscape" | "square",
   });
 
   const {
@@ -132,8 +139,27 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
 
   const channelsWithoutTipLink = useMemo(() => {
     const used = new Set(tipLinks.map(t => t.eventChannelId));
-    return contents.filter(c => !used.has(c.id));
+    return contents.filter(c => !used.has(c.id) && isTipLinkEligibleChannel(c));
   }, [contents, tipLinks]);
+
+  const selectableVideos = useMemo(() => {
+    if (!editing) return [];
+    const usedByOther = new Set(
+      tipLinks.filter(t => t.id !== editing.id).map(t => t.eventChannelId)
+    );
+    return contents.filter(
+      c =>
+        (c.id === editing.eventChannelId || !usedByOther.has(c.id)) &&
+        (c.id === editing.eventChannelId || isTipLinkEligibleChannel(c))
+    );
+  }, [contents, editing, tipLinks]);
+
+  const activeVideoUrl = useMemo(() => {
+    if (!editing) return "";
+    const selectedId = form.eventChannelId || editing.eventChannelId;
+    const selected = contents.find(c => c.id === selectedId);
+    return selected?.url ?? editing.videoUrl;
+  }, [contents, editing, form.eventChannelId]);
 
   const thumbFor = (url: string) => {
     const id = extractYoutubeID(url);
@@ -175,28 +201,11 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     [eligibility?.canCreate, handleSubscriptionActionError, load]
   );
 
-  useEffect(() => {
-    if (
-      loading ||
-      editing ||
-      !autoCreateChannelId ||
-      autoCreateAttemptedRef.current
-    ) {
-      return;
-    }
-    const channel = contents.find(c => c.id === autoCreateChannelId);
-    const alreadyHasTipLink = tipLinks.some(
-      t => t.eventChannelId === autoCreateChannelId
-    );
-    if (!channel || alreadyHasTipLink) return;
-    autoCreateAttemptedRef.current = true;
-    void startCreate(channel.id, channel.title);
-  }, [autoCreateChannelId, contents, editing, loading, startCreate, tipLinks]);
-
   const openEdit = (row: TipLinkSummary) => {
     setEditing(row);
     handleRemoveBanner();
     setForm({
+      eventChannelId: row.eventChannelId,
       slug: row.slug,
       pitch: row.pitch ?? "",
       title: row.title,
@@ -214,8 +223,33 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       socialUrl2: row.socials[1]?.url ?? "",
       bannerSource: row.bannerSource,
       bannerUrl: row.bannerUrl,
+      bannerAspect: row.bannerAspect ?? "landscape",
     });
   };
+
+  useEffect(() => {
+    if (
+      loading ||
+      editing ||
+      !autoCreateChannelId ||
+      autoCreateAttemptedRef.current
+    ) {
+      return;
+    }
+    autoCreateAttemptedRef.current = true;
+    const existing = tipLinks.find(
+      t => t.eventChannelId === autoCreateChannelId
+    );
+    if (existing) {
+      openEdit(existing);
+      return;
+    }
+    const channel = contents.find(c => c.id === autoCreateChannelId);
+    if (!channel || !isTipLinkEligibleChannel(channel)) {
+      return;
+    }
+    void startCreate(channel.id, channel.title);
+  }, [autoCreateChannelId, contents, editing, loading, startCreate, tipLinks]);
 
   const buildSocials = () => {
     const socials = [];
@@ -240,20 +274,36 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       let bannerUrl = form.bannerUrl ?? editing.bannerUrl;
       let bannerSource = form.bannerSource ?? editing.bannerSource;
       if (bannerPreview) {
-        const uploaded = await uploadImage(bannerPreview);
-        if (!uploaded?.secure_url) {
+        const uploaded = await tryUploadImage(bannerPreview);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return false;
+        }
+        if (!uploaded.data?.secure_url) {
           toast.error("Could not upload banner image");
           return false;
         }
-        bannerUrl = uploaded.secure_url;
+        bannerUrl = uploaded.data.secure_url;
         bannerSource = "upload";
       }
 
+      const isRebinding =
+        Boolean(form.eventChannelId) &&
+        form.eventChannelId !== editing.eventChannelId;
+      const usesThumbnailBanner =
+        bannerSource === "thumbnail" ||
+        (bannerSource == null && editing.bannerSource === "thumbnail");
+
       const res = await updateTipLinkAction(editing.id, {
+        ...(isRebinding ? { eventChannelId: form.eventChannelId } : {}),
         slug: form.slug,
         pitch: form.pitch || null,
-        titleOverride: form.title || null,
-        descriptionOverride: form.description || null,
+        ...(!isRebinding
+          ? {
+              titleOverride: form.title || null,
+              descriptionOverride: form.description || null,
+            }
+          : {}),
         appleMusicUrl: form.appleMusicUrl || null,
         spotifyUrl: form.spotifyUrl || null,
         audiomackUrl: form.audiomackUrl || null,
@@ -262,8 +312,13 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         customLinkUrl: form.customLinkUrl.trim() || null,
         featuredPlaylistId: form.featuredPlaylistId || null,
         socials: buildSocials(),
-        bannerUrl,
-        bannerSource,
+        ...(!(isRebinding && usesThumbnailBanner)
+          ? {
+              bannerUrl,
+              bannerSource,
+              bannerAspect: form.bannerAspect,
+            }
+          : {}),
       });
       if (!res.success || !res.data) {
         toast.error(res.message ?? "Save failed");
@@ -481,6 +536,39 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                 onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
               />
             </div>
+            {selectableVideos.length > 1 ? (
+              <div className="space-y-2">
+                <Label>Video</Label>
+                <Select
+                  value={form.eventChannelId || editing.eventChannelId}
+                  onValueChange={channelId => {
+                    const next = contents.find(c => c.id === channelId);
+                    const youtubeThumb = next ? thumbFor(next.url) : null;
+                    setForm(f => ({
+                      ...f,
+                      eventChannelId: channelId,
+                      ...(f.bannerSource === "thumbnail" && youtubeThumb
+                        ? { bannerUrl: youtubeThumb }
+                        : {}),
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select video" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectableVideos.map(video => (
+                      <SelectItem
+                        key={video.id}
+                        value={video.id}
+                      >
+                        {video.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label>Title</Label>
               <Input
@@ -509,7 +597,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
               <Label>Banner</Label>
               {editing
                 ? (() => {
-                    const youtubeThumb = thumbFor(editing.videoUrl);
+                    const youtubeThumb = thumbFor(activeVideoUrl);
                     const activeBanner =
                       bannerPreview ??
                       (form.bannerSource === "thumbnail" && youtubeThumb
@@ -605,6 +693,32 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                     );
                   })()
                 : null}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    form.bannerAspect === "landscape" ? "default" : "outline"
+                  }
+                  onClick={() =>
+                    setForm(f => ({ ...f, bannerAspect: "landscape" }))
+                  }
+                >
+                  Landscape
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    form.bannerAspect === "square" ? "default" : "outline"
+                  }
+                  onClick={() =>
+                    setForm(f => ({ ...f, bannerAspect: "square" }))
+                  }
+                >
+                  Square
+                </Button>
+              </div>
             </div>
             {TIPLINK_STORE_FIELDS.map(field => (
               <div

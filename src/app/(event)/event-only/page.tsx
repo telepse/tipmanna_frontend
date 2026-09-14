@@ -25,7 +25,7 @@ import { NewStepIndicator } from "@/components/events/new-step-indicator";
 import { EventAmountInfo } from "@/components/events/event-amount-info";
 import { HostEventInfo } from "@/components/events/host-event-info";
 import { OrganiserEventRoomInfo } from "@/components/events/organiser-event-room-info";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import { newCreateEventAction } from "@/actions/events";
 import { EventSignInForm } from "@/components/events/event-sign-in-form";
 import { validateVideoLink } from "@/lib/validateVideoLink";
@@ -295,10 +295,18 @@ export default function EventOnlyPage() {
       let imageUrl = "";
 
       if (values.eventBanner) {
-        // Upload logo to cloudinary
-        const res = await uploadImage(values.eventBanner);
-        imageUrl = res?.secure_url ?? "";
-
+        const res = await tryUploadImage(values.eventBanner);
+        if (!res.ok) {
+          toast.error(res.message);
+          setIsLoading(false);
+          return;
+        }
+        imageUrl = res.data?.secure_url ?? "";
+        if (!imageUrl) {
+          toast.error("Could not upload event banner.");
+          setIsLoading(false);
+          return;
+        }
         toast.success("Event banner uploaded successfully");
       }
 
@@ -451,6 +459,7 @@ export default function EventOnlyPage() {
               {step === 2 && (
                 <HostEventInfo
                   control={form.control as unknown as Control<NewEventFormData>}
+                  hasActivePremium={hasActivePremium}
                 />
               )}
 

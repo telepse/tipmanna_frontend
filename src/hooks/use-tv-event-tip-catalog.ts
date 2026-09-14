@@ -9,29 +9,41 @@ import {
 } from "@/lib/tv-event-catalog-cache";
 import type { RoomCharacter } from "@/types";
 
-export function useTvEventTipCatalog(
-  eventId: string,
-  fallbackCharacters: RoomCharacter[]
-): {
+/**
+ * Per-event tip catalog for TV/explore playback surfaces.
+ * Never falls back to the platform-wide character pool — wrong pool caused
+ * tip strips to show characters outside the video's assigned drawer.
+ */
+export function useTvEventTipCatalog(eventId: string): {
   catalog: TvEventCatalog | null;
   tippingCharacters: RoomCharacter[];
   characterSets: TvEventCatalog["characterSets"];
+  catalogLoading: boolean;
 } {
   const [catalog, setCatalog] = useState<TvEventCatalog | null>(() =>
     eventId ? getCachedTvEventCatalog(eventId) : null
   );
+  const [catalogLoading, setCatalogLoading] = useState(
+    () => Boolean(eventId?.trim()) && !getCachedTvEventCatalog(eventId)
+  );
 
   useEffect(() => {
-    if (!eventId) {
+    if (!eventId?.trim()) {
       setCatalog(null);
+      setCatalogLoading(false);
       return;
     }
 
-    setCatalog(getCachedTvEventCatalog(eventId));
+    const cached = getCachedTvEventCatalog(eventId);
+    setCatalog(cached);
+    setCatalogLoading(!cached);
 
     let cancelled = false;
     void loadTvEventCatalog(eventId).then(next => {
-      if (!cancelled) setCatalog(next);
+      if (!cancelled) {
+        setCatalog(next);
+        setCatalogLoading(false);
+      }
     });
 
     return () => {
@@ -40,11 +52,8 @@ export function useTvEventTipCatalog(
   }, [eventId]);
 
   const tippingCharacters = useMemo(
-    () =>
-      (catalog?.characters?.length
-        ? catalog.characters
-        : fallbackCharacters) as RoomCharacter[],
-    [catalog?.characters, fallbackCharacters]
+    () => (catalog?.characters ?? []) as RoomCharacter[],
+    [catalog?.characters]
   );
 
   const characterSets = useMemo(
@@ -55,5 +64,5 @@ export function useTvEventTipCatalog(
     [catalog?.characterSets]
   );
 
-  return { catalog, tippingCharacters, characterSets };
+  return { catalog, tippingCharacters, characterSets, catalogLoading };
 }

@@ -36,12 +36,14 @@ export function isYoutubePlayerIframeLive(
   }
 }
 
-/** True when imperative play/pause/load may be issued (onReady + playback API). */
+/**
+ * True when imperative play/pause/load may be issued.
+ * Matches Explore: playback API on the live YT.Player instance — not YouTube onReady.
+ */
 export function isYoutubePlayerCommandReady(
-  readyFlag: boolean,
   player: YtPlayerLike | null | undefined
 ): boolean {
-  return readyFlag && hasYoutubePlaybackApi(player);
+  return hasYoutubePlaybackApi(player);
 }
 
 /** @deprecated Prefer isYoutubePlayerCommandReady for play orchestration. */

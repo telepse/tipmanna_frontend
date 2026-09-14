@@ -18,6 +18,7 @@ import {
   PencilLine,
   UsersRound,
   Check,
+  Copy,
   Briefcase,
   Loader2,
   Ellipsis,
@@ -52,6 +53,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventTipLinkTab } from "@/components/tiplink/event-tiplink-tab";
+import { VideoSurfaceBanMenu } from "@/components/host/video-surface-ban-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -71,10 +73,14 @@ import {
   sendHostEventReportAction,
   updateHostEventDetailsAction,
 } from "@/actions/host";
+import { postEventArchiveRequestAction } from "@/actions/events";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { formatEventSubmissionKindLabel } from "@/lib/event-submission-kind";
 import { EventTimezoneField } from "@/components/events/event-timezone-field";
 import { useHostSession } from "@/hooks/use-host-session";
+import { VideoTipReminderSlotsEditor } from "@/components/events/video-tip-reminder-slots-editor";
+import { buildContentShareUrl } from "@/lib/public-video-url";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -105,6 +111,11 @@ interface Content {
   description: string;
   url: string;
   eventVideoType: string;
+  reminders?: number[];
+  communityBankEntry?: {
+    status?: string | null;
+    visibility?: string | null;
+  } | null;
 }
 
 interface ReportRecipient {
@@ -129,6 +140,7 @@ interface Props {
   projects: Project[];
   amountToRaise: number;
   thankYouMessage?: string | null;
+  eventBanner?: string | null;
   venueLocation: string;
   venueName: string;
   activities: string[];
@@ -156,6 +168,7 @@ interface EventFormValues {
   projects: Project[];
   amountToRaise: number;
   thankYouMessage?: string | null;
+  eventBanner?: string | null;
   venueLocation: string;
   venueName: string;
   activities: string[];
@@ -276,6 +289,7 @@ export const EventDetailClient = ({
   projects,
   amountToRaise,
   thankYouMessage,
+  eventBanner,
   venueLocation,
   venueName,
   activities,
@@ -286,6 +300,9 @@ export const EventDetailClient = ({
   initialHostMessages,
   submissionKind,
 }: Props) => {
+  const hasEventMetadataKind =
+    submissionKind === "event_only" || submissionKind === "event_and_content";
+
   const [tabType, setTabType] = useState<
     "event_info" | "contents" | "tiplink" | "post_to_event" | "generate_report"
   >("event_info");
@@ -304,6 +321,38 @@ export const EventDetailClient = ({
     : "ORGANIZATION";
 
   const { eventSlug, isActive: hostSessionActive } = useHostSession();
+  const {
+    capabilities,
+    info: hostPlanInfo,
+    hasActivePremium,
+  } = useHostPlanCapabilities();
+  const canArchive =
+    hasActivePremium ||
+    hostPlanInfo?.hasPremiumFeatures ||
+    capabilities.usePremiumDashboardActions;
+  const [archiveNotes, setArchiveNotes] = useState("");
+  const [archiveBusy, setArchiveBusy] = useState(false);
+
+  const handleArchiveRequest = async () => {
+    setArchiveBusy(true);
+    try {
+      const values = form.getValues();
+      const res = await postEventArchiveRequestAction(eventId, {
+        eventName: values.eventName,
+        eventDescription: values.eventDescription,
+        thankYouMessage: values.thankYouMessage,
+        archiveNotes: archiveNotes.trim() || null,
+      });
+      if (!res.success) {
+        toast.error(res.message ?? "Archive request failed.");
+        return;
+      }
+      toast.success("Event snapshot archived.");
+      setArchiveNotes("");
+    } finally {
+      setArchiveBusy(false);
+    }
+  };
 
   let displayText;
   if (userType === "INDIVIDUAL") {
@@ -329,6 +378,7 @@ export const EventDetailClient = ({
       projects,
       amountToRaise,
       thankYouMessage: thankYouMessage ?? "",
+      eventBanner: eventBanner ?? "",
       venueLocation,
       venueName,
       activities,
@@ -450,11 +500,16 @@ export const EventDetailClient = ({
         payload: {
           eventName: values.eventName,
           eventDescription: values.eventDescription,
+          organizationName: values.organizationName,
           eventType: values.eventType,
           eventDate: values.eventDate,
           startTime: values.startTime,
           endTime: values.endTime,
           timeZone: values.timeZone,
+          venueName: values.venueName,
+          venueLocation: values.venueLocation,
+          eventBanner: values.eventBanner?.trim() || null,
+          activities: values.activities,
 
           cohosts: values.cohosts.map(cohost => ({
             id: cohost.id,
@@ -479,6 +534,7 @@ export const EventDetailClient = ({
             description: content.description,
             url: content.url,
             eventVideoType: content.eventVideoType,
+            reminders: content.reminders ?? [],
           })),
 
           thankYouMessage: values.thankYouMessage?.trim() || null,
@@ -1353,9 +1409,74 @@ export const EventDetailClient = ({
                     )}
                   />
                 </div>
+
+                {canArchive ? (
+                  <div className="bg-card space-y-4 rounded-md border p-6">
+                    <h5 className="text-xl font-bold">Archive event</h5>
+                    <p className="text-muted-foreground text-sm">
+                      Save a snapshot of this event and apply any metadata
+                      updates from the form above. Growth plan required.
+                    </p>
+                    <Textarea
+                      value={archiveNotes}
+                      onChange={e => setArchiveNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Optional archive notes for your records"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={archiveBusy}
+                      onClick={() => void handleArchiveRequest()}
+                    >
+                      {archiveBusy ? "Archiving…" : "Request archive snapshot"}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
               <div className="col-span-full space-y-6 lg:col-span-5">
+                {hasEventMetadataKind ? (
+                  <div className="bg-card space-y-4 rounded-md border p-6">
+                    <h5 className="text-xl font-bold">Event banner</h5>
+                    <FormField
+                      control={form.control}
+                      name="eventBanner"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-semibold">
+                            Banner URL
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              className="bg-gray-100"
+                              disabled={!isEditable("basicEventInfo")}
+                              placeholder="Upload or use system default"
+                              {...field}
+                              value={field.value ?? ""}
+                            />
+                          </FormControl>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={!isEditable("basicEventInfo")}
+                            onClick={() =>
+                              form.setValue(
+                                "eventBanner",
+                                "https://res.cloudinary.com/tipmanna/image/upload/v1786171632/event_banner_hcqybl.webp"
+                              )
+                            }
+                          >
+                            Use system default banner
+                          </Button>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                ) : null}
+
                 <div className="bg-card space-y-4 rounded-md border p-6">
                   <h5 className="flex items-center gap-2 text-xl font-bold">
                     <MapPin /> Venue
@@ -1372,7 +1493,10 @@ export const EventDetailClient = ({
                         <FormControl>
                           <Input
                             className="bg-gray-100"
-                            disabled
+                            disabled={
+                              !hasEventMetadataKind ||
+                              !isEditable("basicEventInfo")
+                            }
                             {...field}
                           />
                         </FormControl>
@@ -1392,7 +1516,10 @@ export const EventDetailClient = ({
                         <FormControl>
                           <Input
                             className="bg-gray-100"
-                            disabled
+                            disabled={
+                              !hasEventMetadataKind ||
+                              !isEditable("basicEventInfo")
+                            }
                             {...field}
                           />
                         </FormControl>
@@ -1621,12 +1748,48 @@ export const EventDetailClient = ({
                           </FormItem>
                         )}
                       />
+
+                      {isEditable(`content-${content.id}`) ? (
+                        <FormField
+                          control={form.control}
+                          name={`contents.${contentIndex}.reminders`}
+                          render={({ field }) => (
+                            <FormItem className="w-full">
+                              <VideoTipReminderSlotsEditor
+                                value={
+                                  Array.isArray(field.value) ? field.value : []
+                                }
+                                onChange={field.onChange}
+                                hasActivePremium={hasActivePremium}
+                              />
+                            </FormItem>
+                          )}
+                        />
+                      ) : (content.reminders?.length ?? 0) > 0 ? (
+                        <p className="text-muted-foreground text-sm">
+                          Fundraise reminders at {content.reminders?.join(", ")}{" "}
+                          min
+                        </p>
+                      ) : null}
                     </div>
 
                     {/* =========================================================
           EDIT / SAVE BUTTON
       ========================================================= */}
-                    <div className="mt-4 flex w-full justify-end">
+                    <div className="mt-4 flex w-full items-center justify-end gap-2">
+                      {!content.communityBankEntry ? (
+                        <>
+                          <ContentShareLinkButton
+                            eventId={eventId}
+                            channelId={content.id}
+                          />
+                          <VideoSurfaceBanMenu
+                            eventId={eventId}
+                            channelId={content.id}
+                            hasActivePremium={hasActivePremium}
+                          />
+                        </>
+                      ) : null}
                       <Button
                         type="button"
                         onClick={() =>
@@ -1960,3 +2123,48 @@ export const EventDetailClient = ({
     </Form>
   );
 };
+
+function ContentShareLinkButton({
+  eventId,
+  channelId,
+}: {
+  eventId: string;
+  channelId: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copyShareUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        buildContentShareUrl({ eventId, channelId })
+      );
+      setCopied(true);
+      toast.success("Share link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy link");
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="gap-1"
+      onClick={() => void copyShareUrl()}
+    >
+      {copied ? (
+        <>
+          <Check className="size-3.5" />
+          Copied
+        </>
+      ) : (
+        <>
+          <Copy className="size-3.5" />
+          Copy share link
+        </>
+      )}
+    </Button>
+  );
+}

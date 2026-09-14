@@ -14,6 +14,11 @@ export type ExploreFeedOpenTarget = {
   /** When opened from Discover, channel back chip should restore this URL. */
   discoverReturnTo?: string;
   discoverReturnLabel?: string;
+  /**
+   * TipLink Explore handoff: always open in the Explore reel even when playback-route
+   * would normally redirect to the channel client.
+   */
+  stayInExploreReel?: boolean;
 };
 
 export function getExploreSlideStepPx(scrollRoot: HTMLElement): number {
@@ -68,4 +73,35 @@ export function scrollExploreFeedToIndex(
   const h = getExploreSlideStepPx(scrollRoot);
   if (h <= 0) return;
   scrollRoot.scrollTo({ top: Math.max(0, index) * h, behavior });
+}
+
+/** Move a handoff row to index 0 (TipLink / Discover open-in-reel). */
+export function prependExploreHandoffItem<T extends { id?: string }>(
+  items: T[],
+  videoId: string,
+  row: T
+): T[] {
+  const normalizedId = videoId.trim();
+  const existingAt = items.findIndex(
+    i => String(i.id ?? "").trim() === normalizedId
+  );
+  if (existingAt >= 0) {
+    const existing = items[existingAt];
+    return [existing, ...items.filter((_, idx) => idx !== existingAt)];
+  }
+  return [
+    row,
+    ...items.filter(i => String(i.id ?? "").trim() !== normalizedId),
+  ];
+}
+
+/** Index of the next reel item after swiping down from a handoff at index 0. */
+export function exploreHandoffSwipeNextIndex(
+  items: { id?: string }[],
+  handoffVideoId: string
+): number | null {
+  if (items.length < 2) return null;
+  const firstId = String(items[0]?.id ?? "").trim();
+  if (firstId !== handoffVideoId.trim()) return null;
+  return 1;
 }

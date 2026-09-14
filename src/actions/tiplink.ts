@@ -11,6 +11,7 @@ const base = () =>
 
 export type TipLinkStatus = "draft" | "published";
 export type TipLinkBannerSource = "thumbnail" | "upload";
+export type TipLinkBannerAspect = "landscape" | "square";
 
 export type TipLinkSocial = {
   platform: string;
@@ -36,6 +37,7 @@ export type TipLinkSummary = {
   pitch: string | null;
   bannerUrl: string | null;
   bannerSource: TipLinkBannerSource | null;
+  bannerAspect: TipLinkBannerAspect | null;
   appleMusicUrl: string | null;
   spotifyUrl: string | null;
   audiomackUrl: string | null;
@@ -74,6 +76,7 @@ export type TipLinkPublicPayload = {
     numOfTips: number;
     contentCountry: string;
     contentLanguage: string;
+    reminders: number[];
   };
   event: {
     id: string;
@@ -84,6 +87,7 @@ export type TipLinkPublicPayload = {
     showViewCountOnVideos: boolean | null;
     showEncounterOnVideos: boolean | null;
     amountRaised: number;
+    amountToRaise: number;
     numOfTips: number;
     contentCountry: string;
     contentLanguage: string;
@@ -109,7 +113,27 @@ export type TipLinkPublicPayload = {
     description: string | null;
     bannerUrl: string | null;
   } | null;
+  characterSets?: Array<{
+    id: string;
+    name: string;
+    characters: Array<{
+      id: string;
+      name: string;
+      iconUrl: string;
+      price: number;
+      styleName?: string;
+    }>;
+  }>;
+  tipConfig?: import("@/lib/tip-config-types").ActiveTipConfigResponse;
   preview?: boolean;
+};
+
+export type TipLinkHydratePayload = {
+  characterSets: NonNullable<TipLinkPublicPayload["characterSets"]>;
+  metrics: Pick<
+    TipLinkPublicPayload["metrics"],
+    "saves" | "shares" | "comments" | "encounters"
+  >;
 };
 
 export type TipLinkCreateEligibility = {
@@ -192,13 +216,11 @@ export async function createTipLinkDraftAction(input: {
     },
     "createTipLinkDraftAction"
   );
-  if (res.success) {
-    revalidatePath("/");
-  }
   return res;
 }
 
 export type UpdateTipLinkInput = {
+  eventChannelId?: string;
   slug?: string;
   status?: TipLinkStatus;
   titleOverride?: string | null;
@@ -206,6 +228,7 @@ export type UpdateTipLinkInput = {
   pitch?: string | null;
   bannerUrl?: string | null;
   bannerSource?: TipLinkBannerSource | null;
+  bannerAspect?: TipLinkBannerAspect | null;
   appleMusicUrl?: string | null;
   spotifyUrl?: string | null;
   audiomackUrl?: string | null;
@@ -260,8 +283,41 @@ export async function getPublicTipLinkAction(slug: string) {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
+      perAttemptTimeoutMs: 12000,
     },
-    "getPublicTipLinkAction"
+    "getPublicTipLinkAction",
+    undefined,
+    { maxAttempts: 2, totalDeadlineMs: 15000 }
+  );
+}
+
+export async function getPublicTipLinkHydrateAction(slug: string) {
+  return runServerFetch<TipLinkHydratePayload>(
+    `${base()}/tiplinks/${encodeURIComponent(slug)}/hydrate`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      perAttemptTimeoutMs: 15000,
+    },
+    "getPublicTipLinkHydrateAction",
+    undefined,
+    { maxAttempts: 2, totalDeadlineMs: 20000 }
+  );
+}
+
+export async function getTipLinkPreviewHydrateAction(id: string) {
+  return runServerFetch<TipLinkHydratePayload>(
+    `${base()}/host/tiplinks/preview/${encodeURIComponent(id)}/hydrate`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+      perAttemptTimeoutMs: 15000,
+    },
+    "getTipLinkPreviewHydrateAction",
+    undefined,
+    { maxAttempts: 2, totalDeadlineMs: 20000 }
   );
 }
 
@@ -272,8 +328,11 @@ export async function getTipLinkPreviewAction(id: string) {
       method: "GET",
       headers: await serverHostAuthHeaders(),
       cache: "no-store",
+      perAttemptTimeoutMs: 12000,
     },
-    "getTipLinkPreviewAction"
+    "getTipLinkPreviewAction",
+    undefined,
+    { maxAttempts: 2, totalDeadlineMs: 15000 }
   );
 }
 

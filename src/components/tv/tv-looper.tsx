@@ -15,6 +15,7 @@ import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player"
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { useEventRoomRealtime } from "@/hooks/use-event-room-realtime";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
 import type { RoomCharacter } from "@/types";
 
 const CommentDrawer = dynamic(
@@ -51,6 +52,7 @@ import {
 
 import TvPlayer from "./tv-player";
 import { EnforcementPreNoticeOverlay } from "./enforcement-pre-notice-overlay";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { writeTvPlaybackSnapshot } from "@/lib/tv-playback-session";
 import {
@@ -138,6 +140,9 @@ export const TvLooper = ({
   analyticsSurface = "tv_looper",
   onContinueCommentToTip,
   onEngage,
+  onTipFeatured,
+  sectionCtaLabel,
+  pageDrawerOpen = false,
   onFullViewChange,
   onRegisterExitFull,
   commentDrawerVideoTitle,
@@ -157,6 +162,9 @@ export const TvLooper = ({
   onContinueCommentToTip?: () => void;
   /** Opens tip/engage drawer from full-view mobile scrubber dock. */
   onEngage?: () => void;
+  onTipFeatured?: (cardId: string) => void;
+  sectionCtaLabel?: string;
+  pageDrawerOpen?: boolean;
   /** Notifies parent when mobile full-view mode toggles (shell hides chrome). */
   onFullViewChange?: (isFullView: boolean) => void;
   /** Registers mobile exitFull for landscape close button in tv-interactive-shell. */
@@ -173,6 +181,8 @@ export const TvLooper = ({
     goLive,
     enterLocalMode,
     onPlayerPause,
+    pauseForOverlay,
+    resumeAfterOverlay,
     onPlayerSeek,
     onVideoEnd,
     setPlayerPlayingState,
@@ -210,6 +220,10 @@ export const TvLooper = ({
   }, [layout, scheduleSourceCommunityId, startupEmbedGeneration]);
 
   const openEngageDrawer = onEngage ?? onContinueCommentToTip;
+  const engageLabel = sectionCtaLabel?.trim() || "Engage";
+  const showFeatureCardBanner =
+    analyticsSurface === "tv_looper" ||
+    analyticsSurface === "community_tv_looper";
 
   const sideChick = useSideChick();
   const sideTvLogo = useMemo(() => {
@@ -467,6 +481,26 @@ export const TvLooper = ({
     Boolean(currentEventId) && currentEventId !== "notice" && !isNotice;
   const currentChannelId = current?.channel?.id;
   const scheduleEvent = current?.channel?.event;
+
+  const tvHostFirstName =
+    scheduleEvent?.hostName?.trim().split(/\s+/)[0] ??
+    scheduleEvent?.hostName ??
+    "Host";
+  useVideoTipReminder({
+    surface: "tv_looper",
+    channelId:
+      tipsAndPaymentsEnabled && currentChannelId != null
+        ? String(currentChannelId)
+        : null,
+    eventId: tipsAndPaymentsEnabled ? currentEventId : "",
+    reminders: (current?.channel as { reminders?: number[] } | undefined)
+      ?.reminders,
+    currentTimeSec: currentTime,
+    hostFirstName: tvHostFirstName,
+    videoTitle: current?.channel?.title ?? "this video",
+    deepLinkUrl:
+      typeof window !== "undefined" ? window.location.pathname : "/tv",
+  });
   const channelFinancial = current?.channel as {
     amountRaised?: number;
     amountToRaise?: number;
@@ -500,6 +534,7 @@ export const TvLooper = ({
     numOfTips?: number;
     showAmountRaisedOnVideos?: boolean;
     showViewCountOnVideos?: boolean;
+    showEncounterOnVideos?: boolean;
   };
 
   const [displayEventMeta, setDisplayEventMeta] =
@@ -527,6 +562,7 @@ export const TvLooper = ({
         numOfTips: typeof ev.numOfTips === "number" ? ev.numOfTips : 0,
         showAmountRaisedOnVideos: ev.showAmountRaisedOnVideos,
         showViewCountOnVideos: ev.showViewCountOnVideos,
+        showEncounterOnVideos: ev.showEncounterOnVideos,
       });
     })();
     return () => {
@@ -540,8 +576,12 @@ export const TvLooper = ({
   const showViewCountOnVideos =
     displayEventMeta?.showViewCountOnVideos ??
     (scheduleEvent as DisplayEventMeta | undefined)?.showViewCountOnVideos;
+  const showEncounterOnVideos =
+    displayEventMeta?.showEncounterOnVideos ??
+    (scheduleEvent as DisplayEventMeta | undefined)?.showEncounterOnVideos;
   const showRaisedAmount = showAmountRaisedOnVideos !== false;
   const showViewCount = showViewCountOnVideos === true;
+  const showEncounterCount = showEncounterOnVideos === true;
 
   useEffect(() => {
     if (!showViewCount) {
@@ -1252,6 +1292,14 @@ export const TvLooper = ({
                     : "")
                 }
                 numOfTips={liveNumOfTips}
+                amountRaised={
+                  showRaisedAmount ? Number(liveAmountRaised) : null
+                }
+                amountToRaise={
+                  showRaisedAmount ? (progressAmountToRaise ?? null) : null
+                }
+                showViewCount={showViewCount}
+                showEncounterCount={showEncounterCount}
                 tippingCharacters={characters}
                 onContinueToTip={onContinueCommentToTip}
                 hostName={
@@ -1321,6 +1369,25 @@ export const TvLooper = ({
                 src={sideTvLogo}
                 alt=""
                 className="max-h-11 w-auto max-w-full object-contain drop-shadow-md"
+              />
+            </div>
+          ) : null}
+
+          {showFeatureCardBanner &&
+          currentChannelId &&
+          process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
+            <div className="pointer-events-none absolute top-14 left-3 z-40 max-w-[min(92vw,18rem)] sm:top-3">
+              <VideoFeatureCardBanner
+                surfaceChannelId={String(currentChannelId)}
+                hostSurfaceChannelId={String(currentChannelId)}
+                compact
+                sectionCtaLabel={sectionCtaLabel}
+                pageDrawerOpen={pageDrawerOpen}
+                onTipFeatured={onTipFeatured}
+                onOverlayOpenChange={open => {
+                  if (open) pauseForOverlay();
+                  else resumeAfterOverlay();
+                }}
               />
             </div>
           ) : null}
@@ -1417,6 +1484,7 @@ export const TvLooper = ({
               });
               return (
                 <TvPlayer
+                  key={`tv-yt-${startupEmbedGeneration}`}
                   ref={
                     playerRef as React.Ref<import("./tv-player").TvPlayerRef>
                   }
@@ -1637,7 +1705,7 @@ export const TvLooper = ({
                 className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
               >
                 <ChevronsUp className="text-primary size-4" />
-                Engage <ChevronsUp className="text-primary size-4" />
+                {engageLabel} <ChevronsUp className="text-primary size-4" />
               </button>
             ) : null}
           </div>

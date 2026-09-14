@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { EyeIcon, Heart, Wallet, X } from "lucide-react";
+import { Heart, Wallet, X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
 import type { RootState } from "@/redux/store";
@@ -71,6 +71,7 @@ interface Props {
   videoDescription?: string;
   numOfTips?: number;
   amountRaised?: number | null;
+  amountToRaise?: number | null;
   showViewCount?: boolean;
   showEncounterCount?: boolean;
   /** Characters from the room (used to run comment preview when adding a draft). */
@@ -95,6 +96,7 @@ export const CommentDrawer = ({
   videoDescription,
   numOfTips,
   amountRaised,
+  amountToRaise,
   showViewCount = false,
   showEncounterCount = false,
   tippingCharacters,
@@ -446,13 +448,25 @@ export const CommentDrawer = ({
     ? `Send comment £${commentPreviewTotal}`
     : "Add a comment to send";
 
-  const amountRaisedLabel =
-    typeof amountRaised === "number" && Number.isFinite(amountRaised)
-      ? amountRaised.toLocaleString(undefined, {
-          style: "currency",
-          currency: "GBP",
-        })
-      : null;
+  const formatGbp = (value: number) =>
+    value.toLocaleString(undefined, {
+      style: "currency",
+      currency: "GBP",
+    });
+
+  const amountRaisedLabel = useMemo(() => {
+    if (typeof amountRaised !== "number" || !Number.isFinite(amountRaised)) {
+      return null;
+    }
+    const target =
+      typeof amountToRaise === "number" && amountToRaise > 0
+        ? amountToRaise
+        : null;
+    if (target != null) {
+      return `${formatGbp(amountRaised)} / ${formatGbp(target)} raised`;
+    }
+    return `${formatGbp(amountRaised)} raised`;
+  }, [amountRaised, amountToRaise]);
 
   const resolvedTitle = videoTitle?.trim() || channelMeta?.title?.trim() || "";
   const resolvedDescription =
@@ -678,6 +692,7 @@ export const CommentDrawer = ({
                       Video tips: {metrics?.videoTipCount ?? 0}
                     </span>
 
+                    {/* HOST GROWTH TOGGLE VALUES */}
                     {(showViewCount ||
                       showEncounterCount ||
                       amountRaisedLabel) && (
@@ -703,13 +718,7 @@ export const CommentDrawer = ({
                         ) : null}
 
                         {amountRaisedLabel ? (
-                          <span>£{amountRaisedLabel} raised</span>
-                        ) : null}
-                        {resolvedEncounterCount > 0 ? (
-                          <span className="flex items-center gap-1">
-                            <EyeIcon className="size-3" />{" "}
-                            {resolvedEncounterCount} seen
-                          </span>
+                          <span>{amountRaisedLabel}</span>
                         ) : null}
                       </div>
                     )}

@@ -23,7 +23,10 @@ import {
   Tv,
   UserRound,
   UsersRound,
+  CalendarDays,
 } from "lucide-react";
+import type { DiscoveryEventRow } from "@/actions/contents";
+import { Badge } from "@/components/ui/badge";
 import { cn, formatProgramScheduleDisplay, trimTitle } from "@/lib/utils";
 import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 
@@ -40,7 +43,13 @@ import {
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { ContentCardSkeleton } from "./tv-loading-skeletons";
 import { VirtualRail } from "./virtual-rail";
+import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 import { isOptimizableImageSrc } from "@/lib/image-src";
 import {
@@ -124,7 +133,8 @@ type SearchResultItem =
   | {
       kind: "community";
       community: DiscoverySearchResult["communities"][number];
-    };
+    }
+  | { kind: "event"; event: DiscoverySearchResult["events"][number] };
 
 interface Content {
   event: any;
@@ -157,6 +167,7 @@ export interface DiscoverPanelProps {
     recentlyEnded: any[];
   };
   topCommunities?: CommunityExploreCatalogRow[];
+  discoverEvents?: DiscoveryEventRow[];
   playlists?: Array<{
     id: string;
     name: string;
@@ -242,6 +253,7 @@ export function DiscoverPanel({
   programs = [],
   liveStreams = { upcoming: [], live: [], recentlyEnded: [] },
   topCommunities = [],
+  discoverEvents = [],
   playlists = [],
   catalogLoading = false,
   initialSearchTerm = "",
@@ -475,6 +487,23 @@ export function DiscoverPanel({
   }, [selectedTag]);
 
   const { push, prefetch } = useAppRouter();
+  const { isAuthenticated } = useSelector((s: RootState) => s.auth);
+  const {
+    joinCommunityId,
+    joinModalOpen,
+    closeJoinModal,
+    openJoin,
+    openCommunity,
+    signInOpen,
+    setSignInOpen,
+    signInReturnTo,
+    onSignInVerified,
+    signInTitle,
+    signupSurface,
+  } = useCommunityJoinFlow({
+    signupSurface: "explore",
+    signInTitle: "Sign in to join this community",
+  });
 
   const openLiveStreamInChannel = useCallback(
     (content: Pick<Content, "id" | "event"> & Partial<Content>) => {
@@ -559,7 +588,8 @@ export function DiscoverPanel({
       discoveryResults.videos.length > 0 ||
       discoveryResults.programs.length > 0 ||
       discoveryResults.livestreams.length > 0 ||
-      discoveryResults.communities.length > 0
+      discoveryResults.communities.length > 0 ||
+      discoveryResults.events.length > 0
     );
   }, [discoveryResults]);
 
@@ -588,6 +618,9 @@ export function DiscoverPanel({
         continue;
       }
       items.push({ kind: "community", community });
+    }
+    for (const event of discoveryResults.events) {
+      items.push({ kind: "event", event });
     }
     return items;
   }, [discoveryResults]);
@@ -625,11 +658,13 @@ export function DiscoverPanel({
         } as Content);
         return;
       }
-      const href = exploreCommunityJoinHref(item.community.id);
-      prefetch(href);
-      push(href);
+      if (item.kind === "event") {
+        window.open(`/room/${item.event.id}`, "_blank", "noopener,noreferrer");
+        return;
+      }
+      openCommunity(item.community.id);
     },
-    [resolveContentClick, prefetch, push, openLiveStreamInChannel]
+    [resolveContentClick, openCommunity, openLiveStreamInChannel]
   );
 
   const selectedTagLabel = useMemo(
@@ -809,6 +844,14 @@ export function DiscoverPanel({
   );
 
   const topCommunitiesRef = useRef<HTMLDivElement>(null);
+  const discoverEventsRef = useRef<HTMLDivElement>(null);
+
+  const discoverEventBadgeLabel = (badge: DiscoveryEventRow["badge"]) => {
+    if (badge === "archived") return "ARCHIVED EVENT";
+    if (badge === "community") return "Community";
+    if (badge === "restricted") return "Restricted";
+    return "Public";
+  };
 
   const tipperSkeleton = (
     <div className="mt-4 mb-8 flex flex-wrap items-center gap-2">
@@ -828,113 +871,150 @@ export function DiscoverPanel({
   };
 
   return (
-    <div className={cn("space-y-2", className)}>
-      {showHeading ? (
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold lg:text-2xl">
-            Discover contents
-          </h2>
-          {onRefreshCatalog ? (
-            <button
-              type="button"
-              aria-label="Refresh discover catalogue"
-              disabled={catalogRefreshing}
-              onClick={onRefreshCatalog}
-              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50"
-            >
-              {catalogRefreshing ? (
-                <Loader2
-                  className="size-4 animate-spin"
-                  aria-hidden
-                />
-              ) : (
-                <RefreshCw
-                  className="size-4"
-                  aria-hidden
-                />
-              )}
-              Refresh
-            </button>
-          ) : null}
-        </div>
+    <>
+      <TipperEmailOtpSignInDialog
+        open={signInOpen}
+        onOpenChange={setSignInOpen}
+        signInTitle={signInTitle}
+        signupSurface={signupSurface}
+        getRedirectPathAfterVerify={() => signInReturnTo}
+        onVerified={onSignInVerified}
+      />
+      {joinCommunityId ? (
+        <JoinCommunityModal
+          open={joinModalOpen}
+          onOpenChange={open => {
+            if (!open) closeJoinModal();
+          }}
+          communityId={joinCommunityId}
+          signInRedirectPath={exploreCommunityJoinHref(joinCommunityId)}
+        />
       ) : null}
+      <div className={cn("space-y-2", className)}>
+        {showHeading ? (
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold lg:text-2xl">
+              Discover contents
+            </h2>
+            {onRefreshCatalog ? (
+              <button
+                type="button"
+                aria-label="Refresh discover catalogue"
+                disabled={catalogRefreshing}
+                onClick={onRefreshCatalog}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50"
+              >
+                {catalogRefreshing ? (
+                  <Loader2
+                    className="size-4 animate-spin"
+                    aria-hidden
+                  />
+                ) : (
+                  <RefreshCw
+                    className="size-4"
+                    aria-hidden
+                  />
+                )}
+                Refresh
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
-      {/* CONTENT SEARCH */}
-      <Form {...form}>
-        <form onSubmit={() => {}}>
-          <FormField
-            control={form.control}
-            name="searchTerm"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <FormControl className="relative flex-1">
-                    <div className="relative">
-                      <Input
-                        placeholder="Search..."
-                        autoComplete="off"
-                        aria-label="Search discovery catalogue"
-                        onKeyDown={e => {
-                          if (e.key === "Escape") {
-                            form.setValue("searchTerm", "");
-                            setDiscoveryResults(null);
-                            setActiveSearchIndex(-1);
-                            return;
-                          }
-                          if (!flatSearchResults.length) return;
-                          if (e.key === "ArrowDown") {
-                            e.preventDefault();
-                            setActiveSearchIndex(i =>
-                              Math.min(i + 1, flatSearchResults.length - 1)
-                            );
-                            return;
-                          }
-                          if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            setActiveSearchIndex(i => Math.max(i - 1, 0));
-                            return;
-                          }
-                          if (e.key === "Enter" && activeSearchIndex >= 0) {
-                            e.preventDefault();
-                            const item = flatSearchResults[activeSearchIndex];
-                            if (item) activateSearchResult(item);
-                          }
-                        }}
-                        {...field}
-                      />
-                      <Search className="absolute top-1/2 right-2 -translate-y-1/2" />
-                    </div>
-                  </FormControl>
+        {/* CONTENT SEARCH */}
+        <Form {...form}>
+          <form onSubmit={() => {}}>
+            <FormField
+              control={form.control}
+              name="searchTerm"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FormControl className="relative flex-1">
+                      <div className="relative">
+                        <Input
+                          placeholder="Search..."
+                          autoComplete="off"
+                          aria-label="Search discovery catalogue"
+                          onKeyDown={e => {
+                            if (e.key === "Escape") {
+                              form.setValue("searchTerm", "");
+                              setDiscoveryResults(null);
+                              setActiveSearchIndex(-1);
+                              return;
+                            }
+                            if (!flatSearchResults.length) return;
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              setActiveSearchIndex(i =>
+                                Math.min(i + 1, flatSearchResults.length - 1)
+                              );
+                              return;
+                            }
+                            if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setActiveSearchIndex(i => Math.max(i - 1, 0));
+                              return;
+                            }
+                            if (e.key === "Enter" && activeSearchIndex >= 0) {
+                              e.preventDefault();
+                              const item = flatSearchResults[activeSearchIndex];
+                              if (item) activateSearchResult(item);
+                            }
+                          }}
+                          {...field}
+                        />
+                        <Search className="absolute top-1/2 right-2 -translate-y-1/2" />
+                      </div>
+                    </FormControl>
 
-                  {onOpenBookmarks ? (
-                    <button
-                      type="button"
-                      onClick={onOpenBookmarks}
-                      aria-label="Open bookmarks"
+                    {onOpenBookmarks ? (
+                      <button
+                        type="button"
+                        onClick={onOpenBookmarks}
+                        aria-label="Open bookmarks"
+                      >
+                        <Bookmark />
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Looking for an event?{" "}
+                    <Link
+                      href="/join"
+                      className="text-muted-foreground underline-offset-2 hover:underline"
                     >
-                      <Bookmark />
-                    </button>
-                  ) : null}
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  Looking for an event?{" "}
-                  <Link
-                    href="/join"
-                    className="text-muted-foreground underline-offset-2 hover:underline"
-                  >
-                    Find Event here
-                  </Link>
-                </p>
+                      Find Event here
+                    </Link>
+                  </p>
 
-                {!searchTerm.trim() && !hasDiscoveryResults ? (
-                  <div className="space-y-4">
-                    {recentSearches.length > 0 ? (
+                  {!searchTerm.trim() && !hasDiscoveryResults ? (
+                    <div className="space-y-4">
+                      {recentSearches.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-muted-foreground text-xs font-medium">
+                            Recent
+                          </span>
+
+                          {recentSearches.map(term => (
+                            <button
+                              key={term}
+                              type="button"
+                              className="cursor-pointer rounded-md bg-gray-200 px-2 py-0.5 text-xs hover:bg-black hover:text-white"
+                              onClick={() => form.setValue("searchTerm", term)}
+                            >
+                              {term}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-muted-foreground text-xs font-medium">
-                          Recent
+                          Trending
                         </span>
 
-                        {recentSearches.map(term => (
+                        {DISCOVERY_TRENDING_SEARCHES.map(term => (
                           <button
                             key={term}
                             type="button"
@@ -945,319 +1025,974 @@ export function DiscoverPanel({
                           </button>
                         ))}
                       </div>
-                    ) : null}
-
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-muted-foreground text-xs font-medium">
-                        Trending
-                      </span>
-
-                      {DISCOVERY_TRENDING_SEARCHES.map(term => (
-                        <button
-                          key={term}
-                          type="button"
-                          className="cursor-pointer rounded-md bg-gray-200 px-2 py-0.5 text-xs hover:bg-black hover:text-white"
-                          onClick={() => form.setValue("searchTerm", term)}
-                        >
-                          {term}
-                        </button>
-                      ))}
                     </div>
-                  </div>
-                ) : null}
-              </FormItem>
-            )}
-          />
-        </form>
-      </Form>
+                  ) : null}
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
 
-      {/* CONTENT TAGS */}
-      <div className="hide__scrollbar flex gap-1.5 overflow-x-auto">
-        {EXPLORE_EVENT_TYPE_OPTIONS.map(opt => {
-          const isSelected = selectedTag === opt.value;
-          const tagClassName = cn(
-            "rounded-md px-2 py-1 text-xs shrink-0 cursor-pointer hover:bg-black hover:text-white",
-            isSelected ? "bg-black text-white" : "bg-gray-200"
-          );
-          const onTagClick = () => {
-            setSelectedTag(prev => (prev === opt.value ? null : opt.value));
-            if (!isSelected) form.setValue("searchTerm", "");
-          };
-          if (surface === "discovery") {
+        {/* CONTENT TAGS */}
+        <div className="hide__scrollbar flex gap-1.5 overflow-x-auto">
+          {EXPLORE_EVENT_TYPE_OPTIONS.map(opt => {
+            const isSelected = selectedTag === opt.value;
+            const tagClassName = cn(
+              "rounded-md px-2 py-1 text-xs shrink-0 cursor-pointer hover:bg-black hover:text-white",
+              isSelected ? "bg-black text-white" : "bg-gray-200"
+            );
+            const onTagClick = () => {
+              setSelectedTag(prev => (prev === opt.value ? null : opt.value));
+              if (!isSelected) form.setValue("searchTerm", "");
+            };
+            if (surface === "discovery") {
+              return (
+                <Link
+                  key={opt.value}
+                  href={`/discover/${opt.slug}`}
+                  className={tagClassName}
+                  onClick={e => {
+                    if (isSelected) {
+                      e.preventDefault();
+                      onTagClick();
+                    }
+                  }}
+                >
+                  {opt.label}
+                </Link>
+              );
+            }
             return (
-              <Link
+              <button
                 key={opt.value}
-                href={`/discover/${opt.slug}`}
+                type="button"
+                onClick={onTagClick}
                 className={tagClassName}
-                onClick={e => {
-                  if (isSelected) {
-                    e.preventDefault();
-                    onTagClick();
-                  }
-                }}
               >
                 {opt.label}
-              </Link>
+              </button>
             );
-          }
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={onTagClick}
-              className={tagClassName}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
+          })}
+        </div>
 
-      <div className="space-y-6 overflow-y-auto pb-8">
-        {searchTerm && (
-          <div className="space-y-4">
-            <h5 className="font-semibold">
-              Search results for &apos;{searchTerm}&apos;
-            </h5>
+        <div className="space-y-6 overflow-y-auto pb-8">
+          {searchTerm && (
+            <div className="space-y-4">
+              <h5 className="font-semibold">
+                Search results for &apos;{searchTerm}&apos;
+              </h5>
 
-            {searchLoading ? (
-              carouselSkeleton
-            ) : !hasDiscoveryResults ? (
-              <p className="text-muted-foreground text-sm">No results found.</p>
-            ) : (
-              <div
-                ref={searchResultsRef}
-                className="space-y-4"
-              >
-                {(() => {
-                  let searchIdx = 0;
-                  return (
-                    <>
-                      {discoveryResults!.videos.length > 0 ? (
-                        <div className="space-y-2">
-                          <h6 className="text-sm font-medium">Videos</h6>
-                          <VirtualRail
-                            items={discoveryResults!.videos}
-                            getItemKey={video => video.id}
-                            itemMinClassName={CONTENT_CARD_MIN}
-                            renderItem={video => {
-                              const idx = searchIdx++;
-                              const content: Content = {
-                                id: video.id,
-                                title: video.title,
-                                url: video.url,
-                                event: { id: video.eventId },
-                              };
-                              return (
-                                <div
-                                  data-search-index={idx}
-                                  className={cn(
-                                    idx === activeSearchIndex &&
-                                      "ring-primary rounded-md ring-2"
-                                  )}
-                                >
-                                  {renderContentCard(content)}
-                                </div>
-                              );
-                            }}
-                          />
-                        </div>
-                      ) : null}
+              {searchLoading ? (
+                carouselSkeleton
+              ) : !hasDiscoveryResults ? (
+                <p className="text-muted-foreground text-sm">
+                  No results found.
+                </p>
+              ) : (
+                <div
+                  ref={searchResultsRef}
+                  className="space-y-4"
+                >
+                  {(() => {
+                    let searchIdx = 0;
+                    return (
+                      <>
+                        {discoveryResults!.videos.length > 0 ? (
+                          <div className="space-y-2">
+                            <h6 className="text-sm font-medium">Videos</h6>
+                            <VirtualRail
+                              items={discoveryResults!.videos}
+                              getItemKey={video => video.id}
+                              itemMinClassName={CONTENT_CARD_MIN}
+                              renderItem={video => {
+                                const idx = searchIdx++;
+                                const content: Content = {
+                                  id: video.id,
+                                  title: video.title,
+                                  url: video.url,
+                                  event: { id: video.eventId },
+                                };
+                                return (
+                                  <div
+                                    data-search-index={idx}
+                                    className={cn(
+                                      idx === activeSearchIndex &&
+                                        "ring-primary rounded-md ring-2"
+                                    )}
+                                  >
+                                    {renderContentCard(content)}
+                                  </div>
+                                );
+                              }}
+                            />
+                          </div>
+                        ) : null}
 
-                      {discoveryResults!.programs.length > 0 ? (
-                        <div className="space-y-2">
-                          <h6 className="text-sm font-medium">Programs</h6>
-                          <VirtualRail
-                            items={discoveryResults!.programs}
-                            getItemKey={program => program.id}
-                            itemMinClassName={PROGRAM_CARD_MIN}
-                            renderItem={program => {
-                              const idx = searchIdx++;
-                              return (
-                                <Link
-                                  href={
-                                    program.landingUrl ??
-                                    `/program/${program.id}`
-                                  }
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  data-search-index={idx}
-                                  className={cn(
-                                    "rounded-md border bg-black/10 p-2",
-                                    PROGRAM_CARD_MIN,
-                                    idx === activeSearchIndex &&
-                                      "ring-primary ring-2"
-                                  )}
-                                >
-                                  {program.imageUrl ? (
-                                    <RailCoverImage
-                                      src={program.imageUrl}
-                                      alt={program.title}
-                                      aspectClassName="aspect-video"
-                                    />
-                                  ) : (
-                                    <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
-                                      <Tv className="size-8 text-neutral-500" />
-                                    </div>
-                                  )}
-                                  <p className="mt-2 text-sm font-medium">
-                                    {program.title}
-                                  </p>
-                                </Link>
-                              );
-                            }}
-                          />
-                        </div>
-                      ) : null}
-
-                      {discoveryResults!.livestreams.length > 0 ? (
-                        <div className="space-y-2">
-                          <h5 className="text-sm font-semibold">
-                            Live streams
-                          </h5>
-
-                          <VirtualRail
-                            items={discoveryResults!.livestreams}
-                            getItemKey={stream => stream.id}
-                            itemMinClassName={CONTENT_CARD_MIN}
-                            renderItem={stream => {
-                              const idx = searchIdx++;
-                              return (
-                                <button
-                                  type="button"
-                                  data-testid="discover-live-stream-card"
-                                  data-search-index={idx}
-                                  onClick={() =>
-                                    void resolveContentClick({
-                                      id: stream.id,
-                                      title: stream.title,
-                                      event: { id: stream.eventId },
-                                      liveStatus: stream.liveStatus,
-                                    } as Content)
-                                  }
-                                  className={cn(
-                                    "relative block text-left",
-                                    CONTENT_CARD_MIN,
-                                    idx === activeSearchIndex &&
-                                      "ring-primary rounded-md ring-2"
-                                  )}
-                                >
-                                  <div className="bg-black/10">
-                                    {stream.thumbnailUrl ? (
+                        {discoveryResults!.programs.length > 0 ? (
+                          <div className="space-y-2">
+                            <h6 className="text-sm font-medium">Programs</h6>
+                            <VirtualRail
+                              items={discoveryResults!.programs}
+                              getItemKey={program => program.id}
+                              itemMinClassName={PROGRAM_CARD_MIN}
+                              renderItem={program => {
+                                const idx = searchIdx++;
+                                return (
+                                  <Link
+                                    href={
+                                      program.landingUrl ??
+                                      `/program/${program.id}`
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    data-search-index={idx}
+                                    className={cn(
+                                      "rounded-md border bg-black/10 p-2",
+                                      PROGRAM_CARD_MIN,
+                                      idx === activeSearchIndex &&
+                                        "ring-primary ring-2"
+                                    )}
+                                  >
+                                    {program.imageUrl ? (
                                       <RailCoverImage
-                                        src={stream.thumbnailUrl}
-                                        alt={stream.title}
+                                        src={program.imageUrl}
+                                        alt={program.title}
                                         aspectClassName="aspect-video"
                                       />
                                     ) : (
                                       <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
-                                        <Radio className="size-8 text-neutral-500" />
+                                        <Tv className="size-8 text-neutral-500" />
                                       </div>
                                     )}
+                                    <p className="mt-2 text-sm font-medium">
+                                      {program.title}
+                                    </p>
+                                  </Link>
+                                );
+                              }}
+                            />
+                          </div>
+                        ) : null}
 
-                                    <div className="p-1">
-                                      <h5 className="text-sm">
-                                        {stream.title}
-                                      </h5>
-                                      <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-[10px]">
-                                        <Radio
-                                          className="size-3"
-                                          aria-hidden
+                        {discoveryResults!.livestreams.length > 0 ? (
+                          <div className="space-y-2">
+                            <h5 className="text-sm font-semibold">
+                              Live streams
+                            </h5>
+
+                            <VirtualRail
+                              items={discoveryResults!.livestreams}
+                              getItemKey={stream => stream.id}
+                              itemMinClassName={CONTENT_CARD_MIN}
+                              renderItem={stream => {
+                                const idx = searchIdx++;
+                                return (
+                                  <button
+                                    type="button"
+                                    data-testid="discover-live-stream-card"
+                                    data-search-index={idx}
+                                    onClick={() =>
+                                      void resolveContentClick({
+                                        id: stream.id,
+                                        title: stream.title,
+                                        event: { id: stream.eventId },
+                                        liveStatus: stream.liveStatus,
+                                      } as Content)
+                                    }
+                                    className={cn(
+                                      "relative block text-left",
+                                      CONTENT_CARD_MIN,
+                                      idx === activeSearchIndex &&
+                                        "ring-primary rounded-md ring-2"
+                                    )}
+                                  >
+                                    <div className="bg-black/10">
+                                      {stream.thumbnailUrl ? (
+                                        <RailCoverImage
+                                          src={stream.thumbnailUrl}
+                                          alt={stream.title}
+                                          aspectClassName="aspect-video"
                                         />
-                                        {stream.liveStatus}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </button>
-                              );
-                            }}
-                          />
-                        </div>
-                      ) : null}
+                                      ) : (
+                                        <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                                          <Radio className="size-8 text-neutral-500" />
+                                        </div>
+                                      )}
 
-                      {discoveryResults!.communities.length > 0 ? (
-                        <div className="space-y-2">
-                          <h6 className="text-sm font-medium">Communities</h6>
-                          <VirtualRail
-                            items={discoveryResults!.communities}
-                            getItemKey={community => community.id}
-                            itemMinClassName={PROGRAM_CARD_MIN}
-                            renderItem={community => {
-                              const idx = searchIdx++;
-                              return (
-                                <Link
-                                  href={exploreCommunityJoinHref(community.id)}
-                                  data-search-index={idx}
-                                  className={cn(
-                                    "rounded-md border bg-black/10 p-2",
-                                    PROGRAM_CARD_MIN,
-                                    idx === activeSearchIndex &&
-                                      "ring-primary ring-2"
-                                  )}
-                                >
-                                  {community.logoUrl ? (
-                                    <div className="relative size-12 overflow-hidden rounded-md">
-                                      <Image
-                                        src={community.logoUrl}
-                                        alt={community.name}
-                                        fill
-                                        className="object-cover"
-                                        sizes="48px"
-                                        unoptimized={
-                                          !isOptimizableImageSrc(
-                                            community.logoUrl
-                                          )
-                                        }
+                                      <div className="p-1">
+                                        <h5 className="text-sm">
+                                          {stream.title}
+                                        </h5>
+                                        <span className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-[10px]">
+                                          <Radio
+                                            className="size-3"
+                                            aria-hidden
+                                          />
+                                          {stream.liveStatus}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              }}
+                            />
+                          </div>
+                        ) : null}
+
+                        {discoveryResults!.events.length > 0 ? (
+                          <div className="space-y-2">
+                            <h6 className="text-sm font-medium">Events</h6>
+                            <VirtualRail
+                              items={discoveryResults!.events}
+                              getItemKey={event => event.id}
+                              itemMinClassName={PROGRAM_CARD_MIN}
+                              renderItem={event => {
+                                const idx = searchIdx++;
+                                return (
+                                  <Link
+                                    href={`/room/${event.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    data-search-index={idx}
+                                    className={cn(
+                                      "rounded-md border bg-black/10 p-2",
+                                      PROGRAM_CARD_MIN,
+                                      idx === activeSearchIndex &&
+                                        "ring-primary ring-2"
+                                    )}
+                                  >
+                                    {event.banner ? (
+                                      <RailCoverImage
+                                        src={event.banner}
+                                        alt={event.name}
+                                        aspectClassName="aspect-video"
                                       />
+                                    ) : (
+                                      <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                                        <CalendarDays className="size-8 text-neutral-500" />
+                                      </div>
+                                    )}
+                                    <div className="space-y-1 p-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <p className="line-clamp-2 text-sm font-medium">
+                                          {trimTitle(event.name, 40)}
+                                        </p>
+                                        <Badge
+                                          variant="secondary"
+                                          className="shrink-0 text-[10px]"
+                                        >
+                                          {discoverEventBadgeLabel(event.badge)}
+                                        </Badge>
+                                      </div>
+                                      {event.eventDate ? (
+                                        <p className="text-muted-foreground text-xs">
+                                          {formatProgramScheduleDisplay(
+                                            event.eventDate
+                                          )}
+                                        </p>
+                                      ) : null}
                                     </div>
-                                  ) : (
-                                    <div className="bg-muted flex size-12 items-center justify-center rounded-md">
-                                      <UsersRound className="size-6 text-neutral-500" />
-                                    </div>
-                                  )}
-                                  <p className="mt-2 text-sm font-medium underline underline-offset-2">
-                                    {community.name}
-                                  </p>
-                                  <p className="text-muted-foreground text-xs">
-                                    {community.memberCount} members ·{" "}
-                                    {community.totalTips} tips
-                                  </p>
-                                </Link>
-                              );
-                            }}
-                          />
+                                  </Link>
+                                );
+                              }}
+                            />
+                          </div>
+                        ) : null}
+
+                        {discoveryResults!.communities.length > 0 ? (
+                          <div className="space-y-2">
+                            <h6 className="text-sm font-medium">Communities</h6>
+                            <VirtualRail
+                              items={discoveryResults!.communities}
+                              getItemKey={community => community.id}
+                              itemMinClassName={PROGRAM_CARD_MIN}
+                              renderItem={community => {
+                                const idx = searchIdx++;
+                                return (
+                                  <div
+                                    data-search-index={idx}
+                                    className={cn(
+                                      "flex flex-col rounded-md border bg-black/10 p-2",
+                                      PROGRAM_CARD_MIN,
+                                      idx === activeSearchIndex &&
+                                        "ring-primary ring-2"
+                                    )}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="min-w-0 flex-1 text-left"
+                                      onClick={() =>
+                                        openCommunity(community.id)
+                                      }
+                                    >
+                                      {community.logoUrl ? (
+                                        <div className="relative size-12 overflow-hidden rounded-md">
+                                          <Image
+                                            src={community.logoUrl}
+                                            alt={community.name}
+                                            fill
+                                            className="object-cover"
+                                            sizes="48px"
+                                            unoptimized={
+                                              !isOptimizableImageSrc(
+                                                community.logoUrl
+                                              )
+                                            }
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="bg-muted flex size-12 items-center justify-center rounded-md">
+                                          <UsersRound className="size-6 text-neutral-500" />
+                                        </div>
+                                      )}
+                                      <p className="mt-2 text-sm font-medium underline underline-offset-2">
+                                        {community.name}
+                                      </p>
+                                      <p className="text-muted-foreground text-xs">
+                                        {community.memberCount} members ·{" "}
+                                        {community.totalTips} tips
+                                      </p>
+                                    </button>
+                                    <CommunityJoinOpenControls
+                                      communityId={community.id}
+                                      joined={false}
+                                      isAuthenticated={isAuthenticated}
+                                      onJoin={openJoin}
+                                      onOpen={openCommunity}
+                                      className="mt-2 justify-center"
+                                    />
+                                  </div>
+                                );
+                              }}
+                            />
+                          </div>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {selectedTag && (
+            <div className="space-y-4">
+              <h5 className="font-semibold">
+                Results for &apos;{selectedTagLabel}&apos;
+              </h5>
+
+              {tagLoading ? (
+                <p className="text-muted-foreground text-sm">Loading…</p>
+              ) : tagResults.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No results found.
+                </p>
+              ) : (
+                <div className="scrollbar-none overflow-x-auto">
+                  <div className="flex gap-4">
+                    {tagResults.map(content => (
+                      <div
+                        key={content.id}
+                        data-testid="discover-handoff-card"
+                        data-event-id={content.event?.id ?? undefined}
+                        onPointerEnter={() => warmContentForExplore(content)}
+                        onClick={() => void resolveContentClick(content)}
+                        className={cn(
+                          "cursor-pointer bg-black/10",
+                          CONTENT_CARD_MIN
+                        )}
+                      >
+                        <ThumbnailPlayer
+                          videoUrl={content.url}
+                          contentId={content.id}
+                          suppressInlinePlaybackContentId={
+                            suppressInlinePlaybackContentId
+                          }
+                          disableInlinePlayback={
+                            disableInlinePlaybackForHandoff
+                          }
+                          className="aspect-video w-full rounded-md"
+                        />
+
+                        <div className="p-1">
+                          <h5 className="text-sm">{content.title}</h5>
+                          {renderLiveRoomCue(content)}
+
+                          <div className="text-muted-foreground flex items-center gap-4 text-sm">
+                            <span className="flex items-center gap-1">
+                              {content.event.numOfTips} Tips
+                            </span>
+                            <span>
+                              &pound; {content.event.amountRaised} raised
+                            </span>
+                          </div>
                         </div>
-                      ) : null}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-        {selectedTag && (
+          {/* TOP CONTENTS */}
           <div className="space-y-4">
-            <h5 className="font-semibold">
-              Results for &apos;{selectedTagLabel}&apos;
-            </h5>
+            <DiscoverRailHeading
+              title="Top contents"
+              railKey="top"
+            />
 
-            {tagLoading ? (
-              <p className="text-muted-foreground text-sm">Loading…</p>
-            ) : tagResults.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No results found.</p>
-            ) : (
-              <div className="scrollbar-none overflow-x-auto">
+            <div className="relative">
+              {catalogLoading && contents.length === 0 ? (
+                carouselSkeleton
+              ) : (
+                <VirtualRail
+                  containerRef={topContentsRef}
+                  items={visibleContents as Content[]}
+                  getItemKey={content => content.id}
+                  itemMinClassName={CONTENT_CARD_MIN}
+                  gapClassName="gap-6"
+                  renderItem={content => renderContentCard(content)}
+                />
+              )}
+
+              {renderRailSeeMore(
+                "top",
+                contents.length,
+                expandedRails.top ?? false
+              )}
+
+              <button
+                type="button"
+                onClick={() => scrollNext(topContentsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+          </div>
+
+          {/* LATEST CONTENTS */}
+          <div className="space-y-4">
+            <DiscoverRailHeading
+              title="Latest contents"
+              railKey="latest"
+            />
+
+            <div className="relative">
+              <div
+                ref={latestContentsRef}
+                className="scrollbar-none hide__scrollbar overflow-x-auto"
+              >
                 <div className="flex gap-4">
-                  {tagResults.map(content => (
+                  {catalogLoading && latestContents.length === 0
+                    ? carouselSkeleton
+                    : visibleLatest.map((content: Content) =>
+                        renderContentCard(content)
+                      )}
+                </div>
+              </div>
+              {renderRailSeeMore(
+                "latest",
+                latestContents.length,
+                expandedRails.latest ?? false
+              )}
+
+              <button
+                type="button"
+                onClick={() => scrollNext(latestContentsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+          </div>
+
+          {/* SPOTLIGHT  */}
+          <div className="space-y-4">
+            <DiscoverRailHeading
+              title="Spotlight"
+              railKey="spotlight"
+            />
+
+            <div className="relative">
+              <div
+                ref={spotlightContentsRef}
+                className="scrollbar-none hide__scrollbar overflow-x-auto"
+              >
+                <div className="flex gap-4">
+                  {catalogLoading && resolvedSpotlight.length === 0
+                    ? carouselSkeleton
+                    : visibleSpotlight.map((content: Content) =>
+                        renderContentCard(content)
+                      )}
+                </div>
+              </div>
+              {renderRailSeeMore(
+                "spotlight",
+                resolvedSpotlight.length,
+                expandedRails.spotlight ?? false
+              )}
+
+              <button
+                type="button"
+                onClick={() => scrollNext(spotlightContentsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+          </div>
+
+          {/* RECOMMENDED FOR YOU */}
+          <div className="space-y-4">
+            <DiscoverRailHeading
+              title="Recommended for you"
+              railKey="recommended"
+            />
+
+            <div className="relative">
+              <div
+                ref={recommendedContentsRef}
+                className="scrollbar-none hide__scrollbar overflow-x-auto"
+              >
+                <div className="flex gap-4">
+                  {catalogLoading && resolvedRecommended.length === 0
+                    ? carouselSkeleton
+                    : visibleRecommended.map((content: Content) =>
+                        renderContentCard(content)
+                      )}
+                </div>
+              </div>
+              {renderRailSeeMore(
+                "recommended",
+                resolvedRecommended.length,
+                expandedRails.recommended ?? false
+              )}
+
+              <button
+                type="button"
+                onClick={() => scrollNext(recommendedContentsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+          </div>
+
+          {/* TOP COMMUNITIES */}
+          {featuredTopCommunities.length > 0 ? (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h5 className="text-xl font-semibold">Top communities</h5>
+                <p className="text-muted-foreground text-xs">
+                  Ranked by total tips across approved bank videos.
+                </p>
+              </div>
+
+              <div className="relative">
+                <VirtualRail
+                  containerRef={topCommunitiesRef}
+                  items={featuredTopCommunities}
+                  getItemKey={community => community.id}
+                  itemMinClassName={PROGRAM_CARD_MIN}
+                  renderItem={community => (
                     <div
-                      key={content.id}
-                      data-testid="discover-handoff-card"
-                      data-event-id={content.event?.id ?? undefined}
+                      className={cn(
+                        "border-moonstone-blue flex flex-col items-center justify-center gap-2 rounded-md border-2 bg-gray-100 p-4",
+                        PROGRAM_CARD_MIN
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full flex-col items-center gap-2"
+                        onClick={() => openCommunity(community.id)}
+                      >
+                        {community.logoUrl ? (
+                          <div className="relative size-12 overflow-hidden rounded-md">
+                            <Image
+                              src={community.logoUrl}
+                              alt={community.name}
+                              fill
+                              className="object-cover"
+                              sizes="48px"
+                              unoptimized={
+                                !isOptimizableImageSrc(community.logoUrl)
+                              }
+                            />
+                          </div>
+                        ) : (
+                          <div className="border-moonstone-blue flex size-12 items-center justify-center rounded-md border-2 bg-white">
+                            <UserRound className="size-6" />
+                          </div>
+                        )}
+
+                        <h5 className="text-sm font-semibold underline underline-offset-2">
+                          {trimTitle(community.name, 20)}
+                        </h5>
+
+                        <p
+                          className={`text-muted-foreground line-clamp-1 text-xs ${community.description ? "" : "italic"}`}
+                        >
+                          {community.description
+                            ? trimTitle(community.description, 20)
+                            : "No description added yet"}
+                        </p>
+
+                        <p className="text-muted-foreground text-xs">
+                          {community.totalTips} tips &middot;{" "}
+                          {community.memberCount} member
+                          {community.memberCount > 1 ? "s" : ""}
+                          &middot;&nbsp;
+                          {community.numVideos} video
+                          {community.numVideos && community.numVideos > 1
+                            ? "s"
+                            : ""}
+                        </p>
+                      </button>
+                      <CommunityJoinOpenControls
+                        communityId={community.id}
+                        joined={Boolean(community.viewer?.joined)}
+                        isAuthenticated={isAuthenticated}
+                        onJoin={openJoin}
+                        onOpen={openCommunity}
+                      />
+                    </div>
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => scrollNext(topCommunitiesRef)}
+                  className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* EVENTS */}
+          {discoverEvents.length > 0 || catalogLoading ? (
+            <div className="space-y-4">
+              <DiscoverRailHeading
+                title="Events"
+                railKey="events"
+              />
+              <div className="relative">
+                <div
+                  ref={discoverEventsRef}
+                  className="scrollbar-none hide__scrollbar overflow-x-auto"
+                >
+                  <div className="flex gap-4">
+                    {catalogLoading && discoverEvents.length === 0
+                      ? carouselSkeleton
+                      : discoverEvents.map(event => (
+                          <Link
+                            key={event.id}
+                            href={`/room/${event.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              "rounded-md border bg-gray-200 p-2",
+                              CONTENT_CARD_MIN
+                            )}
+                          >
+                            {event.banner ? (
+                              <RailCoverImage
+                                src={event.banner}
+                                alt={event.name}
+                                aspectClassName="aspect-video"
+                              />
+                            ) : (
+                              <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                                <CalendarDays className="size-8 text-neutral-500" />
+                              </div>
+                            )}
+                            <div className="space-y-1 p-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <h5 className="line-clamp-2 text-sm font-medium">
+                                  {trimTitle(event.name, 40)}
+                                </h5>
+                                <Badge
+                                  variant="secondary"
+                                  className="shrink-0 text-[10px]"
+                                >
+                                  {discoverEventBadgeLabel(event.badge)}
+                                </Badge>
+                              </div>
+                              {event.eventDate ? (
+                                <p className="text-muted-foreground text-xs">
+                                  {formatProgramScheduleDisplay(
+                                    event.eventDate
+                                  )}
+                                </p>
+                              ) : null}
+                            </div>
+                          </Link>
+                        ))}
+                  </div>
+                </div>
+                {discoverEvents.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => scrollNext(discoverEventsRef)}
+                    className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {/* PROGRAMS */}
+          <div className="space-y-4">
+            <DiscoverRailHeading
+              title="Programs"
+              railKey="programs"
+            />
+            <div className="relative">
+              <div
+                ref={programsRef}
+                className="scrollbar-none hide__scrollbar overflow-x-auto"
+              >
+                <div className="flex gap-4">
+                  {catalogLoading && recentPrograms.length === 0 ? (
+                    carouselSkeleton
+                  ) : recentPrograms.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No active programs right now.
+                    </p>
+                  ) : (
+                    recentPrograms.map(program => (
+                      <Link
+                        key={program.id}
+                        href={program.landingUrl ?? `/program/${program.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "rounded-md border bg-gray-200 p-2",
+                          PROGRAM_CARD_MIN
+                        )}
+                      >
+                        {program.imageUrl ? (
+                          <RailCoverImage
+                            src={program.imageUrl}
+                            alt={program.title}
+                            aspectClassName="aspect-video"
+                          />
+                        ) : (
+                          <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                            <Tv className="size-8 text-neutral-500" />
+                          </div>
+                        )}
+
+                        <div className="sapce-y-1 p-2">
+                          <h5 className="line-clamp-1 text-sm font-medium">
+                            {trimTitle(program.title, 30)}
+                          </h5>
+
+                          <p className="text-muted-foreground text-xs capitalize">
+                            Scheduled:{" "}
+                            {formatProgramScheduleDisplay(program.scheduledAt)}
+                          </p>
+                        </div>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+              {recentPrograms.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => scrollNext(programsRef)}
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* PLAYLISTS */}
+          <div className="space-y-4">
+            <DiscoverRailHeading
+              title="Playlists"
+              railKey="playlists"
+            />
+            <div className="relative">
+              <div
+                ref={playlistsRef}
+                className="scrollbar-none hide__scrollbar overflow-x-auto"
+              >
+                <div className="flex gap-4">
+                  {catalogLoading && playlists.length === 0 ? (
+                    carouselSkeleton
+                  ) : playlists.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No playlists yet.
+                    </p>
+                  ) : (
+                    playlists.map(playlist => (
+                      <Link
+                        key={playlist.id}
+                        href={playlist.landingUrl ?? `/playlist/${playlist.id}`}
+                        className={cn(
+                          "rounded-md border bg-gray-200 p-2",
+                          PROGRAM_CARD_MIN
+                        )}
+                      >
+                        {playlist.imageUrl ? (
+                          <RailCoverImage
+                            src={playlist.imageUrl}
+                            alt={playlist.name}
+                            aspectClassName="aspect-video"
+                          />
+                        ) : (
+                          <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
+                            <Bookmark className="size-8 text-neutral-500" />
+                          </div>
+                        )}
+                        <div className="space-y-1 p-2">
+                          <h5 className="line-clamp-1 text-sm font-medium">
+                            {trimTitle(playlist.name, 30)}
+                          </h5>
+                          <p className="text-muted-foreground text-xs">
+                            {playlist.videoCount ?? 0} videos
+                            {playlist.host?.username
+                              ? ` · @${playlist.host.username}`
+                              : ""}
+                          </p>
+                        </div>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+              {playlists.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => scrollNext(playlistsRef)}
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* LIVE STREAMS */}
+          <div className="space-y-4">
+            <DiscoverRailHeading
+              title="Live streams"
+              railKey="live"
+            />
+            <div className="relative">
+              <div
+                ref={liveStreamsRef}
+                className="scrollbar-none hide__scrollbar overflow-x-auto"
+              >
+                <div className="flex gap-4">
+                  {catalogLoading && liveStreamItems.length === 0 ? (
+                    carouselSkeleton
+                  ) : liveStreamItems.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No live streams detected right now.
+                    </p>
+                  ) : (
+                    visibleLiveItems.map(
+                      (content: Content & { liveLabel?: string }) => (
+                        <div
+                          key={content.id}
+                          data-testid="discover-live-stream-card"
+                          className={cn("relative", CONTENT_CARD_MIN)}
+                          onPointerEnter={() => warmContentForExplore(content)}
+                          onClick={() => void resolveContentClick(content)}
+                        >
+                          {content.liveLabel ? (
+                            <span className="bg-destructive absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold text-white uppercase">
+                              <Radio className="size-4" />
+                              {content.liveLabel}
+                            </span>
+                          ) : null}
+
+                          <div className="cursor-pointer rounded-md bg-gray-200">
+                            <ThumbnailPlayer
+                              videoUrl={content.url}
+                              contentId={content.id}
+                              suppressInlinePlaybackContentId={
+                                suppressInlinePlaybackContentId
+                              }
+                              disableInlinePlayback={
+                                disableInlinePlaybackForHandoff
+                              }
+                              className="aspect-video w-64 rounded-md sm:w-80"
+                            />
+
+                            <div className="space-y-1 p-2">
+                              <h5 className="line-clamp-1 text-sm">
+                                {trimTitle(content.title, 30)}
+                              </h5>
+
+                              {renderLiveRoomCue(content)}
+
+                              <div className="text-muted-foreground flex items-center gap-4 text-xs">
+                                <span className="flex items-center gap-1">
+                                  <UsersRound className="size-4" />
+                                  {content.event?.numOfTips ?? 0} Tips
+                                </span>
+                                <span className="flex items-center gap-2">
+                                  <Sparkles className="size-4" /> &pound;
+                                  {content.event?.amountRaised ?? 0} raised
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )
+                  )}
+                </div>
+              </div>
+              {renderRailSeeMore(
+                "live",
+                liveStreamItems.length,
+                expandedRails.live ?? false
+              )}
+              {liveStreamItems.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => scrollNext(liveStreamsRef)}
+                  className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* MOST TIPPED CONTENTS */}
+          <div className="space-y-4">
+            <DiscoverRailHeading
+              title="Most tipped contents"
+              railKey="mostTipped"
+            />
+
+            <div className="relative">
+              {catalogLoading && mostTippedContents.length === 0 ? (
+                carouselSkeleton
+              ) : (
+                <VirtualRail
+                  containerRef={mostTippedContentsRef}
+                  items={visibleMostTipped as Content[]}
+                  getItemKey={content => content.id}
+                  itemMinClassName={CONTENT_CARD_MIN}
+                  renderItem={content => (
+                    <div
                       onPointerEnter={() => warmContentForExplore(content)}
                       onClick={() => void resolveContentClick(content)}
                       className={cn(
-                        "cursor-pointer bg-black/10",
+                        "cursor-pointer rounded-md bg-gray-200",
                         CONTENT_CARD_MIN
                       )}
                     >
@@ -1268,583 +2003,78 @@ export function DiscoverPanel({
                           suppressInlinePlaybackContentId
                         }
                         disableInlinePlayback={disableInlinePlaybackForHandoff}
-                        className="aspect-video w-full rounded-md"
+                        className="aspect-video w-64 rounded-md sm:w-80"
                       />
 
-                      <div className="p-1">
-                        <h5 className="text-sm">{content.title}</h5>
+                      <div className="space-y-1 p-2">
+                        <h5 className="line-clamp-1 text-sm">
+                          {trimTitle(content.title, 30)}
+                        </h5>
+
                         {renderLiveRoomCue(content)}
 
-                        <div className="text-muted-foreground flex items-center gap-4 text-sm">
+                        <div className="text-muted-foreground flex items-center gap-4 text-xs">
                           <span className="flex items-center gap-1">
+                            <UsersRound className="size-4" />
                             {content.event.numOfTips} Tips
-                          </span>
-                          <span>
-                            &pound; {content.event.amountRaised} raised
+                          </span>{" "}
+                          <span className="flex items-center gap-2">
+                            <Sparkles className="size-4" /> &pound;
+                            {content.event.amountRaised} raised
                           </span>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+                  )}
+                />
+              )}
 
-        {/* TOP CONTENTS */}
-        <div className="space-y-4">
-          <DiscoverRailHeading
-            title="Top contents"
-            railKey="top"
-          />
+              {renderRailSeeMore(
+                "mostTipped",
+                mostTippedContents.length,
+                expandedRails.mostTipped ?? false
+              )}
 
-          <div className="relative">
-            {catalogLoading && contents.length === 0 ? (
-              carouselSkeleton
-            ) : (
-              <VirtualRail
-                containerRef={topContentsRef}
-                items={visibleContents as Content[]}
-                getItemKey={content => content.id}
-                itemMinClassName={CONTENT_CARD_MIN}
-                gapClassName="gap-6"
-                renderItem={content => renderContentCard(content)}
-              />
-            )}
-
-            {renderRailSeeMore(
-              "top",
-              contents.length,
-              expandedRails.top ?? false
-            )}
-
-            <button
-              type="button"
-              onClick={() => scrollNext(topContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
-            >
-              <ChevronRight size={24} />
-            </button>
-          </div>
-        </div>
-
-        {/* LATEST CONTENTS */}
-        <div className="space-y-4">
-          <DiscoverRailHeading
-            title="Latest contents"
-            railKey="latest"
-          />
-
-          <div className="relative">
-            <div
-              ref={latestContentsRef}
-              className="scrollbar-none hide__scrollbar overflow-x-auto"
-            >
-              <div className="flex gap-4">
-                {catalogLoading && latestContents.length === 0
-                  ? carouselSkeleton
-                  : visibleLatest.map((content: Content) =>
-                      renderContentCard(content)
-                    )}
-              </div>
+              <button
+                type="button"
+                onClick={() => scrollNext(mostTippedContentsRef)}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
+              >
+                <ChevronRight size={24} />
+              </button>
             </div>
-            {renderRailSeeMore(
-              "latest",
-              latestContents.length,
-              expandedRails.latest ?? false
-            )}
-
-            <button
-              type="button"
-              onClick={() => scrollNext(latestContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
-            >
-              <ChevronRight size={24} />
-            </button>
           </div>
-        </div>
 
-        {/* SPOTLIGHT  */}
-        <div className="space-y-4">
-          <DiscoverRailHeading
-            title="Spotlight"
-            railKey="spotlight"
-          />
-
-          <div className="relative">
-            <div
-              ref={spotlightContentsRef}
-              className="scrollbar-none hide__scrollbar overflow-x-auto"
-            >
-              <div className="flex gap-4">
-                {catalogLoading && resolvedSpotlight.length === 0
-                  ? carouselSkeleton
-                  : visibleSpotlight.map((content: Content) =>
-                      renderContentCard(content)
-                    )}
-              </div>
-            </div>
-            {renderRailSeeMore(
-              "spotlight",
-              resolvedSpotlight.length,
-              expandedRails.spotlight ?? false
-            )}
-
-            <button
-              type="button"
-              onClick={() => scrollNext(spotlightContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
-            >
-              <ChevronRight size={24} />
-            </button>
-          </div>
-        </div>
-
-        {/* RECOMMENDED FOR YOU */}
-        <div className="space-y-4">
-          <DiscoverRailHeading
-            title="Recommended for you"
-            railKey="recommended"
-          />
-
-          <div className="relative">
-            <div
-              ref={recommendedContentsRef}
-              className="scrollbar-none hide__scrollbar overflow-x-auto"
-            >
-              <div className="flex gap-4">
-                {catalogLoading && resolvedRecommended.length === 0
-                  ? carouselSkeleton
-                  : visibleRecommended.map((content: Content) =>
-                      renderContentCard(content)
-                    )}
-              </div>
-            </div>
-            {renderRailSeeMore(
-              "recommended",
-              resolvedRecommended.length,
-              expandedRails.recommended ?? false
-            )}
-
-            <button
-              type="button"
-              onClick={() => scrollNext(recommendedContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
-            >
-              <ChevronRight size={24} />
-            </button>
-          </div>
-        </div>
-
-        {/* TOP COMMUNITIES */}
-        {featuredTopCommunities.length > 0 ? (
           <div className="space-y-4">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Top communities</h5>
-              <p className="text-muted-foreground text-xs">
-                Ranked by total tips across approved bank videos.
-              </p>
-            </div>
+            <h5 className="font-semibold">Top tippers</h5>
 
-            <div className="relative">
-              <VirtualRail
-                containerRef={topCommunitiesRef}
-                items={featuredTopCommunities}
-                getItemKey={community => community.id}
-                itemMinClassName={PROGRAM_CARD_MIN}
-                renderItem={community => (
-                  <Link
-                    href={exploreCommunityJoinHref(community.id)}
-                    className={cn(
-                      "border-moonstone-blue flex flex-col items-center justify-center gap-2 rounded-md border-2 bg-gray-100 p-4",
-                      PROGRAM_CARD_MIN
-                    )}
-                  >
-                    {community.logoUrl ? (
-                      <div className="relative size-12 overflow-hidden rounded-md">
-                        <Image
-                          src={community.logoUrl}
-                          alt={community.name}
-                          fill
-                          className="object-cover"
-                          sizes="48px"
-                          unoptimized={
-                            !isOptimizableImageSrc(community.logoUrl)
-                          }
-                        />
-                      </div>
-                    ) : (
-                      <div className="border-moonstone-blue flex size-12 items-center justify-center rounded-md border-2 bg-white">
-                        <UserRound className="size-6" />
-                      </div>
-                    )}
-
-                    <h5 className="text-sm font-semibold underline underline-offset-2">
-                      {trimTitle(community.name, 20)}
-                    </h5>
-
-                    <p
-                      className={`text-muted-foreground line-clamp-1 text-xs ${community.description ? "" : "italic"}`}
-                    >
-                      {community.description
-                        ? trimTitle(community.description, 20)
-                        : "No description added yet"}
-                    </p>
-
-                    <p className="text-muted-foreground text-xs">
-                      {community.totalTips} tips &middot;{" "}
-                      {community.memberCount} member
-                      {community.memberCount > 1 ? "s" : ""}
-                      &middot;&nbsp;
-                      {community.numVideos} video
-                      {community.numVideos && community.numVideos > 1
-                        ? "s"
-                        : ""}
-                    </p>
-                  </Link>
-                )}
-              />
-              <button
-                type="button"
-                onClick={() => scrollNext(topCommunitiesRef)}
-                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
-              >
-                <ChevronRight size={24} />
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {/* PROGRAMS */}
-        <div className="space-y-4">
-          <DiscoverRailHeading
-            title="Programs"
-            railKey="programs"
-          />
-          <div className="relative">
-            <div
-              ref={programsRef}
-              className="scrollbar-none hide__scrollbar overflow-x-auto"
-            >
-              <div className="flex gap-4">
-                {catalogLoading && recentPrograms.length === 0 ? (
-                  carouselSkeleton
-                ) : recentPrograms.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    No active programs right now.
-                  </p>
-                ) : (
-                  recentPrograms.map(program => (
-                    <Link
-                      key={program.id}
-                      href={program.landingUrl ?? `/program/${program.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        "rounded-md border bg-gray-200 p-2",
-                        PROGRAM_CARD_MIN
-                      )}
-                    >
-                      {program.imageUrl ? (
-                        <RailCoverImage
-                          src={program.imageUrl}
-                          alt={program.title}
-                          aspectClassName="aspect-video"
-                        />
-                      ) : (
-                        <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
-                          <Tv className="size-8 text-neutral-500" />
-                        </div>
-                      )}
-
-                      <div className="sapce-y-1 p-2">
-                        <h5 className="line-clamp-1 text-sm font-medium">
-                          {trimTitle(program.title, 30)}
-                        </h5>
-
-                        <p className="text-muted-foreground text-xs capitalize">
-                          Scheduled:{" "}
-                          {formatProgramScheduleDisplay(program.scheduledAt)}
-                        </p>
-                      </div>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </div>
-            {recentPrograms.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => scrollNext(programsRef)}
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
-              >
-                <ChevronRight size={24} />
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        {/* PLAYLISTS */}
-        <div className="space-y-4">
-          <DiscoverRailHeading
-            title="Playlists"
-            railKey="playlists"
-          />
-          <div className="relative">
-            <div
-              ref={playlistsRef}
-              className="scrollbar-none hide__scrollbar overflow-x-auto"
-            >
-              <div className="flex gap-4">
-                {catalogLoading && playlists.length === 0 ? (
-                  carouselSkeleton
-                ) : playlists.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    No playlists yet.
-                  </p>
-                ) : (
-                  playlists.map(playlist => (
-                    <Link
-                      key={playlist.id}
-                      href={playlist.landingUrl ?? `/playlist/${playlist.id}`}
-                      className={cn(
-                        "rounded-md border bg-gray-200 p-2",
-                        PROGRAM_CARD_MIN
-                      )}
-                    >
-                      {playlist.imageUrl ? (
-                        <RailCoverImage
-                          src={playlist.imageUrl}
-                          alt={playlist.name}
-                          aspectClassName="aspect-video"
-                        />
-                      ) : (
-                        <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
-                          <Bookmark className="size-8 text-neutral-500" />
-                        </div>
-                      )}
-                      <div className="space-y-1 p-2">
-                        <h5 className="line-clamp-1 text-sm font-medium">
-                          {trimTitle(playlist.name, 30)}
-                        </h5>
-                        <p className="text-muted-foreground text-xs">
-                          {playlist.videoCount ?? 0} videos
-                          {playlist.host?.username
-                            ? ` · @${playlist.host.username}`
-                            : ""}
-                        </p>
-                      </div>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </div>
-            {playlists.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => scrollNext(playlistsRef)}
-                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
-              >
-                <ChevronRight size={24} />
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        {/* LIVE STREAMS */}
-        <div className="space-y-4">
-          <DiscoverRailHeading
-            title="Live streams"
-            railKey="live"
-          />
-          <div className="relative">
-            <div
-              ref={liveStreamsRef}
-              className="scrollbar-none hide__scrollbar overflow-x-auto"
-            >
-              <div className="flex gap-4">
-                {catalogLoading && liveStreamItems.length === 0 ? (
-                  carouselSkeleton
-                ) : liveStreamItems.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    No live streams detected right now.
-                  </p>
-                ) : (
-                  visibleLiveItems.map(
-                    (content: Content & { liveLabel?: string }) => (
-                      <div
-                        key={content.id}
-                        data-testid="discover-live-stream-card"
-                        className={cn("relative", CONTENT_CARD_MIN)}
-                        onPointerEnter={() => warmContentForExplore(content)}
-                        onClick={() => void resolveContentClick(content)}
-                      >
-                        {content.liveLabel ? (
-                          <span className="bg-destructive absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold text-white uppercase">
-                            <Radio className="size-4" />
-                            {content.liveLabel}
-                          </span>
-                        ) : null}
-
-                        <div className="cursor-pointer rounded-md bg-gray-200">
-                          <ThumbnailPlayer
-                            videoUrl={content.url}
-                            contentId={content.id}
-                            suppressInlinePlaybackContentId={
-                              suppressInlinePlaybackContentId
-                            }
-                            disableInlinePlayback={
-                              disableInlinePlaybackForHandoff
-                            }
-                            className="aspect-video w-64 rounded-md sm:w-80"
-                          />
-
-                          <div className="space-y-1 p-2">
-                            <h5 className="line-clamp-1 text-sm">
-                              {trimTitle(content.title, 30)}
-                            </h5>
-
-                            {renderLiveRoomCue(content)}
-
-                            <div className="text-muted-foreground flex items-center gap-4 text-xs">
-                              <span className="flex items-center gap-1">
-                                <UsersRound className="size-4" />
-                                {content.event?.numOfTips ?? 0} Tips
-                              </span>
-                              <span className="flex items-center gap-2">
-                                <Sparkles className="size-4" /> &pound;
-                                {content.event?.amountRaised ?? 0} raised
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  )
-                )}
-              </div>
-            </div>
-            {renderRailSeeMore(
-              "live",
-              liveStreamItems.length,
-              expandedRails.live ?? false
-            )}
-            {liveStreamItems.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => scrollNext(liveStreamsRef)}
-                className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black p-2 text-white hover:bg-black/70"
-              >
-                <ChevronRight size={24} />
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        {/* MOST TIPPED CONTENTS */}
-        <div className="space-y-4">
-          <DiscoverRailHeading
-            title="Most tipped contents"
-            railKey="mostTipped"
-          />
-
-          <div className="relative">
-            {catalogLoading && mostTippedContents.length === 0 ? (
-              carouselSkeleton
+            {catalogLoading && tippers.length === 0 ? (
+              tipperSkeleton
             ) : (
-              <VirtualRail
-                containerRef={mostTippedContentsRef}
-                items={visibleMostTipped as Content[]}
-                getItemKey={content => content.id}
-                itemMinClassName={CONTENT_CARD_MIN}
-                renderItem={content => (
+              <div className="mt-4 mb-8 flex flex-wrap items-center gap-2">
+                {tippers.slice(0, 5).map((tipper, index) => (
                   <div
-                    onPointerEnter={() => warmContentForExplore(content)}
-                    onClick={() => void resolveContentClick(content)}
-                    className={cn(
-                      "cursor-pointer rounded-md bg-gray-200",
-                      CONTENT_CARD_MIN
-                    )}
+                    key={tipper.id}
+                    className="inline-flex items-center gap-2 rounded-md bg-black/10 px-4 py-2 text-[13px]"
                   >
-                    <ThumbnailPlayer
-                      videoUrl={content.url}
-                      contentId={content.id}
-                      suppressInlinePlaybackContentId={
-                        suppressInlinePlaybackContentId
-                      }
-                      disableInlinePlayback={disableInlinePlaybackForHandoff}
-                      className="aspect-video w-64 rounded-md sm:w-80"
-                    />
+                    <span className="flex size-5 items-center justify-center rounded-full bg-black text-white">
+                      {index + 1}
+                    </span>
 
-                    <div className="space-y-1 p-2">
-                      <h5 className="line-clamp-1 text-sm">
-                        {trimTitle(content.title, 30)}
-                      </h5>
+                    <span className="text-muted-foreground text-xs">
+                      {tipper.username}
+                    </span>
 
-                      {renderLiveRoomCue(content)}
-
-                      <div className="text-muted-foreground flex items-center gap-4 text-xs">
-                        <span className="flex items-center gap-1">
-                          <UsersRound className="size-4" />
-                          {content.event.numOfTips} Tips
-                        </span>{" "}
-                        <span className="flex items-center gap-2">
-                          <Sparkles className="size-4" /> &pound;
-                          {content.event.amountRaised} raised
-                        </span>
-                      </div>
-                    </div>
+                    <span className="text-xs font-medium">
+                      &pound;{tipper.totalTipped}
+                    </span>
                   </div>
-                )}
-              />
+                ))}
+              </div>
             )}
-
-            {renderRailSeeMore(
-              "mostTipped",
-              mostTippedContents.length,
-              expandedRails.mostTipped ?? false
-            )}
-
-            <button
-              type="button"
-              onClick={() => scrollNext(mostTippedContentsRef)}
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black p-2 text-white hover:bg-black/70"
-            >
-              <ChevronRight size={24} />
-            </button>
           </div>
-        </div>
-
-        <div className="space-y-4">
-          <h5 className="font-semibold">Top tippers</h5>
-
-          {catalogLoading && tippers.length === 0 ? (
-            tipperSkeleton
-          ) : (
-            <div className="mt-4 mb-8 flex flex-wrap items-center gap-2">
-              {tippers.slice(0, 5).map((tipper, index) => (
-                <div
-                  key={tipper.id}
-                  className="inline-flex items-center gap-2 rounded-md bg-black/10 px-4 py-2 text-[13px]"
-                >
-                  <span className="flex size-5 items-center justify-center rounded-full bg-black text-white">
-                    {index + 1}
-                  </span>
-
-                  <span className="text-muted-foreground text-xs">
-                    {tipper.username}
-                  </span>
-
-                  <span className="text-xs font-medium">
-                    &pound;{tipper.totalTipped}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
-    </div>
+    </>
   );
 }

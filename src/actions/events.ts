@@ -1,5 +1,7 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import { EventFormData, NewCreateEventPayload } from "@/schemas";
 import { runServerFetch, actionFail, actionOk } from "@/lib/action-fetch";
 import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
@@ -736,6 +738,38 @@ export async function changeEventScreenSettings(
   );
 }
 
+export async function incrementEventTargetAmountAction(
+  eventId: string,
+  increment: number
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/target-amount`,
+    {
+      method: "PATCH",
+      headers: await serverEventActorAuthHeaders(),
+      body: JSON.stringify({ increment }),
+      cache: "no-store",
+    },
+    "incrementEventTargetAmountAction"
+  );
+}
+
+export async function postEventArchiveRequestAction(
+  eventId: string,
+  payload: Record<string, unknown>
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/archive-request`,
+    {
+      method: "POST",
+      headers: await serverAuthHeaders(),
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+    "postEventArchiveRequestAction"
+  );
+}
+
 // -------- Change event video display settings (premium hosts) -------- //
 export async function changeEventVideoDisplaySettingsAction(
   values: {
@@ -896,16 +930,83 @@ export async function addEventProjectsAction(
   );
 }
 
+export type EventAccessMode =
+  | "public"
+  | "invite_only"
+  | "host_code"
+  | "custom_code"
+  | "email_gate"
+  | "community_members";
+
+export type EventRoomAccessFormFieldKey =
+  | "firstName"
+  | "lastName"
+  | "idNumber"
+  | "name"
+  | "phone"
+  | "ticketId"
+  | "customQuestion";
+
+export type EventRoomAccessFormConfig = {
+  collectName?: boolean;
+  collectFirstName?: boolean;
+  collectLastName?: boolean;
+  collectIdNumber?: boolean;
+  collectPhone?: boolean;
+  collectTicketId?: boolean;
+  customQuestion?: string | null;
+  requiredFields?: EventRoomAccessFormFieldKey[];
+};
+
+export type EventAccessModeSettings = {
+  accessMode: EventAccessMode;
+  accessHostCode?: string | null;
+  accessCustomCode?: string | null;
+  accessEmailAutoApprove?: boolean;
+  accessRequiresApproval?: boolean;
+  accessFormConfigJson?: EventRoomAccessFormConfig | null;
+  communityId?: string | null;
+  submissionKind?: string | null;
+};
+
+export type EventRoomAccessRequestRow = {
+  id: string;
+  email: string;
+  tipperId?: string | null;
+  answersJson?: unknown;
+  status: string;
+  createdAt: string;
+};
+
+export async function getEventAccessModeSettingsAction(eventId: string) {
+  return runServerFetch<EventAccessModeSettings>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/access-mode`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getEventAccessModeSettingsAction"
+  );
+}
+
 export async function patchEventAccessModeAction(
   eventId: string,
-  accessMode: "public" | "invite_only"
+  payload: {
+    accessMode: EventAccessMode;
+    accessHostCode?: string | null;
+    accessCustomCode?: string | null;
+    accessEmailAutoApprove?: boolean;
+    accessRequiresApproval?: boolean;
+    accessFormConfigJson?: EventRoomAccessFormConfig | null;
+  }
 ) {
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/access-mode`,
     {
       method: "PATCH",
       headers: await serverHostAuthHeaders(),
-      body: JSON.stringify({ accessMode }),
+      body: JSON.stringify(payload),
       cache: "no-store",
     },
     "patchEventAccessModeAction"
@@ -952,11 +1053,17 @@ export async function validateEventRoomInviteAction(token: string) {
 }
 
 export async function acceptEventRoomInviteAction(token: string) {
+  const { getToken } = await import("@/lib/getToken");
+  const authToken = await getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/room-invites/accept`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ token }),
       cache: "no-store",
     },
@@ -966,7 +1073,8 @@ export async function acceptEventRoomInviteAction(token: string) {
 
 export async function getEventRoomAccessAction(
   eventId: string,
-  inviteToken?: string | null
+  inviteToken?: string | null,
+  opts?: { accessCode?: string | null; email?: string | null }
 ) {
   const { getToken } = await import("@/lib/getToken");
   const { getEventRoomInviteToken } = await import(
@@ -978,6 +1086,12 @@ export async function getEventRoomAccessAction(
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (resolvedInvite) headers["x-event-room-invite-token"] = resolvedInvite;
+  if (opts?.accessCode?.trim()) {
+    headers["x-event-room-access-code"] = opts.accessCode.trim();
+  }
+  if (opts?.email?.trim()) {
+    headers["x-event-room-access-email"] = opts.email.trim();
+  }
 
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access`,
@@ -987,5 +1101,101 @@ export async function getEventRoomAccessAction(
       cache: "no-store",
     },
     "getEventRoomAccessAction"
+  );
+}
+
+export async function listEventRoomAccessRequestsAction(eventId: string) {
+  return runServerFetch<{ requests: EventRoomAccessRequestRow[] }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access/requests`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "listEventRoomAccessRequestsAction"
+  );
+}
+
+export async function resolveEventRoomAccessRequestAction(
+  eventId: string,
+  requestId: string,
+  action: "approve" | "reject"
+) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access/requests/${encodeURIComponent(requestId)}/resolve`,
+    {
+      method: "POST",
+      headers: await serverHostAuthHeaders(),
+      body: JSON.stringify({ action }),
+      cache: "no-store",
+    },
+    "resolveEventRoomAccessRequestAction"
+  );
+}
+
+export async function submitEventRoomAccessAction(
+  eventId: string,
+  body: { accessCode?: string; email?: string; answersJson?: unknown }
+) {
+  const { getToken } = await import("@/lib/getToken");
+  const token = await getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body.accessCode?.trim()) {
+    headers["x-event-room-access-code"] = body.accessCode.trim();
+  }
+  if (body.email?.trim()) {
+    headers["x-event-room-access-email"] = body.email.trim();
+  }
+
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access/submit`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      cache: "no-store",
+    },
+    "submitEventRoomAccessAction"
+  );
+}
+
+export async function postEventRoomVisitAction(eventId: string, path: string) {
+  const incoming = await headers();
+  const visitHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const cfCountry = incoming.get("cf-ipcountry");
+  const vercelCountry = incoming.get("x-vercel-ip-country");
+  if (cfCountry) visitHeaders["cf-ipcountry"] = cfCountry;
+  if (vercelCountry) visitHeaders["x-vercel-ip-country"] = vercelCountry;
+
+  return runServerFetch<{ ok: boolean }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${encodeURIComponent(eventId)}/visit`,
+    {
+      method: "POST",
+      headers: visitHeaders,
+      body: JSON.stringify({ path }),
+      cache: "no-store",
+    },
+    "postEventRoomVisitAction"
+  );
+}
+
+export async function getEventRoomVisitAnalyticsAction(eventId: string) {
+  return runServerFetch<{
+    visits90d: number;
+    visits7d: number;
+    visits24h: number;
+  }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${encodeURIComponent(eventId)}/visit-analytics`,
+    {
+      method: "GET",
+      headers: await serverEventActorAuthHeaders(),
+      cache: "no-store",
+    },
+    "getEventRoomVisitAnalyticsAction"
   );
 }

@@ -18,7 +18,7 @@ describe("tv-playback-session", () => {
     clearTvPlaybackSnapshotForTests();
   });
 
-  it("command generation is monotonic and rejects stale callbacks", () => {
+  it("command generation helper remains monotonic (not used by live TvPlayer)", () => {
     const g1 = bumpTvCommandGeneration();
     expect(g1).toBe(1);
     expect(isStaleTvCommandGeneration(1)).toBe(false);

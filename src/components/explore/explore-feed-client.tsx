@@ -85,6 +85,8 @@ import { LiveStreamFeedBadge } from "@/components/video/live-stream-feed-badge";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
+import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { Button } from "@/components/ui/button";
 import { useAutoDropTip } from "@/hooks/use-auto-drop-tip";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
@@ -95,6 +97,8 @@ import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
 import { usePaymentPlaybackRestore } from "@/hooks/use-payment-playback-restore";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
+import { buildExploreVideoHref } from "@/lib/explore-video-navigation";
 import type { RoomCharacter } from "@/types";
 import {
   flushTvAnalytics,
@@ -114,6 +118,7 @@ import {
   scrollExploreFeedToIndex,
   getExploreSlideStepPx,
   resolveExploreFeedScrollIndex,
+  prependExploreHandoffItem,
 } from "@/lib/explore-feed-open";
 import { cn } from "@/lib/utils";
 import {
@@ -126,6 +131,7 @@ import {
   isDedicatedDiscoverReturnTo,
   peekDiscoverUiRestore,
 } from "@/lib/discover-return.util";
+import { isDedicatedTvFeedReturnTo } from "@/lib/explore-tv-feed-return.util";
 import { writePlaybackReturn } from "@/lib/playback-return-stack";
 import { useOpenChannelWithReturn } from "@/hooks/use-open-channel-with-return";
 import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
@@ -1016,6 +1022,14 @@ export const ExploreFeedClient = forwardRef<
   const pendingSaveAfterSignInRef = useRef(false);
   const [savesRefreshEpoch, setSavesRefreshEpoch] = useState(0);
   const videoRef = useRef<VideoPlayerRef>(null);
+  const featureOverlayWasPlayingRef = useRef(false);
+  const handleFeatureOverlayPlayback = useCallback(
+    createFeatureCardOverlayPlaybackHandlers(
+      videoRef,
+      featureOverlayWasPlayingRef
+    ),
+    []
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useSelector((s: RootState) => s.auth);
   const hasExploreSession = hasExploreSessionAuth(isAuthenticated);
@@ -1251,6 +1265,39 @@ export const ExploreFeedClient = forwardRef<
   const active = items[activeIndex];
   const activeEventId = active?.event?.id ?? "";
   const activeChannelId = active?.id;
+  const [reelPlaybackSec, setReelPlaybackSec] = useState(0);
+
+  useEffect(() => {
+    if (!feedSurfaceActive) return undefined;
+    const id = window.setInterval(() => {
+      const t = videoRef.current?.getCurrentTime();
+      if (typeof t === "number" && Number.isFinite(t)) setReelPlaybackSec(t);
+    }, 300);
+    return () => window.clearInterval(id);
+  }, [feedSurfaceActive, activeChannelId]);
+
+  const exploreHostFirstName =
+    active?.event?.hostName?.trim().split(/\s+/)[0] ??
+    active?.event?.hostName ??
+    "Host";
+
+  useVideoTipReminder({
+    surface: "explore",
+    channelId: activeChannelId != null ? String(activeChannelId) : null,
+    eventId: activeEventId,
+    reminders: (active as { reminders?: number[] } | undefined)?.reminders,
+    currentTimeSec: reelPlaybackSec,
+    hostFirstName: exploreHostFirstName,
+    videoTitle: typeof active?.title === "string" ? active.title : "this video",
+    deepLinkUrl:
+      activeChannelId != null && activeEventId
+        ? buildExploreVideoHref({
+            videoId: String(activeChannelId),
+            eventId: activeEventId,
+          })
+        : "/explore",
+    onTipNow: () => setIsTipDrawerOpen(true),
+  });
 
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
 
@@ -1304,9 +1351,8 @@ export const ExploreFeedClient = forwardRef<
     set => Array.isArray(set.characters) && set.characters.length > 0
   );
 
-  const tippingCharactersForDrawer = videoTipCatalog?.characters?.length
-    ? (videoTipCatalog.characters as RoomCharacter[])
-    : (characters as RoomCharacter[]);
+  const tippingCharactersForDrawer = (videoTipCatalog?.characters ??
+    []) as RoomCharacter[];
 
   const tipPres = useTipPresentation(
     activeEventId || undefined,
@@ -1317,20 +1363,25 @@ export const ExploreFeedClient = forwardRef<
     }
   );
 
+  const resolvedDrawerSets = useMemo(
+    () =>
+      resolveTipDrawerPresentation(
+        characterSetsForDrawer,
+        tipPres.catalog as RoomCharacter[],
+        undefined,
+        tipPres.eliteCharacterIds
+      ).drawerSets,
+    [characterSetsForDrawer, tipPres.catalog, tipPres.eliteCharacterIds]
+  );
+
   const tipPriceCatalog = useMemo(
     () =>
       buildSurfaceTipPriceCatalog({
         enrichedCatalog: tipPres.catalog as RoomCharacter[],
         videoCatalog: tippingCharactersForDrawer,
-        fallbackCatalog: characters as RoomCharacter[],
-        characterSets: characterSetsForDrawer,
+        characterSets: resolvedDrawerSets,
       }),
-    [
-      tipPres.catalog,
-      tippingCharactersForDrawer,
-      characters,
-      characterSetsForDrawer,
-    ]
+    [tipPres.catalog, tippingCharactersForDrawer, resolvedDrawerSets]
   );
 
   const dispatch = useDispatch();
@@ -1912,6 +1963,7 @@ export const ExploreFeedClient = forwardRef<
   const executeOpenInExplore = useCallback(
     async (target: ExploreFeedOpenTarget) => {
       const { videoId, channelSnapshot } = target;
+      const forceStayInReel = target.stayInExploreReel === true;
       const channelReturn = () => ({
         returnTo: target.discoverReturnTo ?? exploreReturnTo,
         label:
@@ -1931,11 +1983,11 @@ export const ExploreFeedClient = forwardRef<
       const snapshotLive = liveRoutingFromSnapshot(
         channelSnapshot as Record<string, unknown> | null | undefined
       );
-      if (shouldOpenExploreHandoffInChannel(snapshotLive)) {
+      if (!forceStayInReel && shouldOpenExploreHandoffInChannel(snapshotLive)) {
         openLiveInChannel();
         return;
       }
-      if (!isLivestreamFamily(snapshotLive)) {
+      if (!forceStayInReel && !isLivestreamFamily(snapshotLive)) {
         const route = await fetchChannelPlaybackRoute(videoId);
         if (route?.route === "channel") {
           openLiveInChannel();
@@ -1967,14 +2019,15 @@ export const ExploreFeedClient = forwardRef<
       const existingIdx = itemsRef.current.findIndex(i => i.id === videoId);
       if (existingIdx >= 0) {
         openingVideoIdRef.current = videoId;
-        setItems(prev => {
-          if (myGen !== openGenerationRef.current) return prev;
-          const idx = prev.findIndex(i => i.id === videoId);
-          if (idx < 0) return prev;
-          const row = prev[idx];
-          return [row, ...prev.filter(i => i.id !== videoId)];
-        });
-        commitPendingOpenScroll();
+        if (forceStayInReel && existingIdx > 0) {
+          setItems(prev =>
+            prependExploreHandoffItem(prev, videoId, prev[existingIdx]!)
+          );
+          setScrollSyncEpoch(e => e + 1);
+          setActiveIndex(0);
+        } else {
+          commitPendingOpenScroll();
+        }
         const existing = itemsRef.current[existingIdx];
         const needsEnrichment =
           !metricsFromFeedItem(existing) ||
@@ -1984,7 +2037,10 @@ export const ExploreFeedClient = forwardRef<
             if (myGen !== openGenerationRef.current) return;
             if (!enriched) return;
             const enrichedLive = liveRoutingFromRow(enriched);
-            if (shouldOpenExploreHandoffInChannel(enrichedLive)) {
+            if (
+              !forceStayInReel &&
+              shouldOpenExploreHandoffInChannel(enrichedLive)
+            ) {
               openLiveInChannel();
               return;
             }
@@ -1992,12 +2048,12 @@ export const ExploreFeedClient = forwardRef<
               if (myGen !== openGenerationRef.current) return prev;
               const idx = prev.findIndex(i => i.id === videoId);
               if (idx < 0) return prev;
-              const next = [...prev];
-              next[idx] = { ...prev[idx], ...enriched };
-              if (idx > 0) {
-                const [row] = next.splice(idx, 1);
-                next.unshift(row);
+              const merged = { ...prev[idx], ...enriched };
+              if (forceStayInReel) {
+                return prependExploreHandoffItem(prev, videoId, merged);
               }
+              const next = [...prev];
+              next[idx] = merged;
               return next;
             });
           });
@@ -2010,19 +2066,18 @@ export const ExploreFeedClient = forwardRef<
         setItems(prev => {
           if (myGen !== openGenerationRef.current) return prev;
           if (openingVideoIdRef.current !== videoId) return prev;
-          const existingAt = prev.findIndex(i => i.id === videoId);
-          if (existingAt >= 0) {
-            const row = prev[existingAt];
-            return [row, ...prev.filter(i => i.id !== videoId)];
-          }
-          return [snapshotRow, ...prev.filter(i => i.id !== videoId)];
+          if (prev.some(i => i.id === videoId)) return prev;
+          return prependExploreHandoffItem(prev, videoId, snapshotRow);
         });
         commitPendingOpenScroll();
         void resolveExploreOpenChannelRow(target).then(enriched => {
           if (myGen !== openGenerationRef.current) return;
           if (!enriched) return;
           const enrichedLive = liveRoutingFromRow(enriched);
-          if (shouldOpenExploreHandoffInChannel(enrichedLive)) {
+          if (
+            !forceStayInReel &&
+            shouldOpenExploreHandoffInChannel(enrichedLive)
+          ) {
             openLiveInChannel();
             return;
           }
@@ -2030,8 +2085,12 @@ export const ExploreFeedClient = forwardRef<
             if (myGen !== openGenerationRef.current) return prev;
             const idx = prev.findIndex(i => i.id === videoId);
             if (idx < 0) return prev;
+            const merged = { ...prev[idx], ...enriched };
+            if (forceStayInReel) {
+              return prependExploreHandoffItem(prev, videoId, merged);
+            }
             const next = [...prev];
-            next[idx] = { ...prev[idx], ...enriched };
+            next[idx] = merged;
             return next;
           });
         });
@@ -2045,7 +2104,7 @@ export const ExploreFeedClient = forwardRef<
         return;
       }
       const rowLive = liveRoutingFromRow(row);
-      if (shouldOpenExploreHandoffInChannel(rowLive)) {
+      if (!forceStayInReel && shouldOpenExploreHandoffInChannel(rowLive)) {
         openLiveInChannel();
         return;
       }
@@ -2679,7 +2738,10 @@ export const ExploreFeedClient = forwardRef<
       <div className="pointer-events-none absolute top-3 left-3 z-[80]">
         <PlaybackReturnBackChip
           className="pointer-events-auto"
-          isVisible={ctx => isDedicatedDiscoverReturnTo(ctx.returnTo)}
+          isVisible={ctx =>
+            isDedicatedDiscoverReturnTo(ctx.returnTo) ||
+            isDedicatedTvFeedReturnTo(ctx.returnTo)
+          }
         />
       </div>
       <div
@@ -2834,10 +2896,13 @@ export const ExploreFeedClient = forwardRef<
                               surfaceChannelId={String(activeChannelId)}
                               hostSurfaceChannelId={String(activeChannelId)}
                               compact
+                              sectionCtaLabel={tipPres.sectionCtaLabel}
+                              pageDrawerOpen={isTipDrawerOpen}
                               onTipFeatured={id => {
                                 setActiveVideoFeatureCardId(id);
                                 setIsTipDrawerOpen(true);
                               }}
+                              onOverlayOpenChange={handleFeatureOverlayPlayback}
                             />
                           </div>
                         ) : null}
@@ -3061,7 +3126,7 @@ export const ExploreFeedClient = forwardRef<
                               )}
                               onClick={() => setIsTipDrawerOpen(true)}
                             >
-                              Engage
+                              {tipPres.sectionCtaLabel?.trim() || "Engage"}
                             </Button>
                           </div>
                           <Button
@@ -3118,7 +3183,7 @@ export const ExploreFeedClient = forwardRef<
             onOpenChange={setIsTipDrawerOpen}
             eventId={activeEventId}
             tippingCharacters={tipPriceCatalog}
-            characterSets={characterSetsForDrawer}
+            characterSets={resolvedDrawerSets}
             paymentSurface={
               feedMode === "community" ? "community_feed" : "explore_feed"
             }
@@ -3166,6 +3231,18 @@ export const ExploreFeedClient = forwardRef<
               : ""
           }
           numOfTips={liveNumOfTips}
+          amountRaised={
+            active?.event?.showAmountRaisedOnVideos !== false
+              ? Number(active?.event?.amountRaised ?? liveAmountRaised)
+              : null
+          }
+          amountToRaise={
+            active?.event?.showAmountRaisedOnVideos !== false
+              ? (active?.event?.amountToRaise ?? null)
+              : null
+          }
+          showViewCount={active?.event?.showViewCountOnVideos === true}
+          showEncounterCount={active?.event?.showEncounterOnVideos === true}
           tippingCharacters={tipPriceCatalog as RoomCharacter[]}
           onContinueToTip={() => setIsTipDrawerOpen(true)}
           hostName={active?.event?.hostName ?? undefined}

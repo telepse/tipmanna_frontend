@@ -37,6 +37,7 @@ type Props = {
   initialTippers: any[];
   initialTopCommunities?: any[];
   initialPlaylists?: any[];
+  initialDiscoverEvents?: any[];
 };
 
 export function DiscoverPageClient({
@@ -50,6 +51,7 @@ export function DiscoverPageClient({
   initialTippers,
   initialTopCommunities = [],
   initialPlaylists = [],
+  initialDiscoverEvents = [],
 }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -69,6 +71,7 @@ export function DiscoverPageClient({
   const [tippers, setTippers] = useState(initialTippers);
   const [topCommunities, setTopCommunities] = useState(initialTopCommunities);
   const [playlists, setPlaylists] = useState(initialPlaylists);
+  const [discoverEvents, setDiscoverEvents] = useState(initialDiscoverEvents);
   const [catalogRefreshing, setCatalogRefreshing] = useState(false);
 
   const applyCatalogSnapshot = useCallback(
@@ -83,6 +86,7 @@ export function DiscoverPageClient({
       setLiveStreams(snapshot.liveStreams as LiveStreams);
       setTippers(snapshot.tippers as any[]);
       setTopCommunities(snapshot.topCommunities as any[]);
+      setDiscoverEvents(snapshot.discoverEvents as any[]);
       notifyDiscoverCatalogReady();
     },
     []
@@ -124,6 +128,7 @@ export function DiscoverPageClient({
       liveStreams: initialLiveStreams,
       tippers: initialTippers,
       topCommunities: initialTopCommunities,
+      discoverEvents: initialDiscoverEvents,
     });
   }, [
     applyCatalogSnapshot,
@@ -133,6 +138,7 @@ export function DiscoverPageClient({
     initialPlaylists,
     initialPrograms,
     initialRecommended,
+    initialDiscoverEvents,
     initialSpotlight,
     initialLiveStreams,
     initialTippers,
@@ -210,6 +216,7 @@ export function DiscoverPageClient({
           liveStreams={liveStreams}
           tippers={tippers}
           topCommunities={topCommunities}
+          discoverEvents={discoverEvents}
           playlists={playlists}
           initialSearchTerm={initialSearchTerm}
           catalogLoading={false}

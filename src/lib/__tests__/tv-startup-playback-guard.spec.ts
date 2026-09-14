@@ -189,12 +189,12 @@ describe("shouldSuppressDuplicatePrePlayLoad", () => {
     ).toBe(false);
   });
 
-  it("does not suppress explicit error recovery", () => {
+  it("does not suppress tab snapshot restore", () => {
     expect(
       shouldSuppressDuplicatePrePlayLoad({
         guardEnabled: true,
         firstPlayReached: false,
-        req: { ...req, reason: "startup_error_recovery" },
+        req: { ...req, reason: "tab_snapshot_restore" },
         orchestrated: { videoId: "vid1", startSeconds: 120 },
         playerState: "BUFFERING",
         inFlightVideoId: "vid1",

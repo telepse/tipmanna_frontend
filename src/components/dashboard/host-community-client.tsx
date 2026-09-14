@@ -77,7 +77,10 @@ import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subs
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { buildContentShareUrl } from "@/lib/public-video-url";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { usePushPermission } from "@/hooks/use-push-permission";
+import { getPwaInstallInstructions } from "@/lib/pwa-utils";
 
 function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
   return (
@@ -530,6 +533,18 @@ export function HostCommunityClient() {
   } = useHostPlanCapabilities();
   const { handleSubscriptionActionError, SubscriptionPromptModal } =
     useHostSubscriptionPrompt({ focusTier: "community" });
+  const {
+    installed: pwaInstalled,
+    promptInstall,
+    canInstall,
+  } = useInstallPrompt();
+  const {
+    state: pushState,
+    subscribe: subscribePush,
+    loading: pushLoading,
+    error: pushError,
+  } = usePushPermission();
+  const pwaInstall = getPwaInstallInstructions({ forPush: true });
   const communityActive =
     planInfo?.tier === "HOST_COMMUNITY" && planStatus === "active";
   const [memberships, setMemberships] = useState<Membership[]>([]);
@@ -557,6 +572,7 @@ export function HostCommunityClient() {
   const [inviteLoading, setInviteLoading] = useState(false);
 
   const [activationOpen, setActivationOpen] = useState(false);
+  const [activationGateOpen, setActivationGateOpen] = useState(false);
   const [activationKind, setActivationKind] = useState<"community" | "tv">(
     "community"
   );
@@ -853,6 +869,13 @@ export function HostCommunityClient() {
       toast.error("Pick an event");
       return;
     }
+    if (activationKind === "community") {
+      const pushReady = pushState === "subscribed";
+      if (!pwaInstalled || !pushReady) {
+        setActivationGateOpen(true);
+        return;
+      }
+    }
     const communityName = activationCommunityName.trim();
     const description = activationDescription.trim();
     const contactEmail = normalizeEmail(activationContactEmail.trim());
@@ -869,8 +892,12 @@ export function HostCommunityClient() {
     try {
       let logoUrl: string | null = null;
       if (activationLogoPreview?.startsWith("data:")) {
-        const uploaded = await uploadImage(activationLogoPreview);
-        logoUrl = uploaded?.secure_url ?? null;
+        const uploaded = await tryUploadImage(activationLogoPreview);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        logoUrl = uploaded.data?.secure_url ?? null;
         if (!logoUrl) {
           toast.error("Could not upload community logo.");
           return;
@@ -911,6 +938,8 @@ export function HostCommunityClient() {
     activationLogoPreview,
     loadActivationRequests,
     handleSubscriptionActionError,
+    pwaInstalled,
+    pushState,
   ]);
 
   const canRequestTV = bank?.approved?.length && bank.approved.length >= 5;
@@ -2265,6 +2294,76 @@ export function HostCommunityClient() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={activationGateOpen}
+        onOpenChange={setActivationGateOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Install app & enable push</DialogTitle>
+            <DialogDescription>
+              Community activation requires the Tipmanna PWA installed and push
+              notifications enabled on this device.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            {!pwaInstalled ? (
+              <div className="space-y-2">
+                <p className="font-medium">{pwaInstall.title}</p>
+                <ol className="text-muted-foreground list-decimal space-y-1 pl-5">
+                  {pwaInstall.steps.map(step => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+                {canInstall ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void promptInstall()}
+                  >
+                    Install app
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-primary font-medium">PWA installed</p>
+            )}
+            {pushState !== "subscribed" ? (
+              <div className="space-y-2">
+                <p className="font-medium">Turn on push notifications</p>
+                <Button
+                  type="button"
+                  disabled={pushLoading}
+                  onClick={() => void subscribePush()}
+                >
+                  {pushLoading ? "Enabling…" : "Enable notifications"}
+                </Button>
+                {pushError ? (
+                  <p className="text-destructive text-xs">{pushError}</p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-primary font-medium">Push notifications on</p>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              disabled={
+                !pwaInstalled || pushState !== "subscribed" || pushLoading
+              }
+              onClick={() => {
+                setActivationGateOpen(false);
+                void submitActivationRequest();
+              }}
+            >
+              Continue submission
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {memberships.length > 0 && selected ? (
         <>
           <AddCommunityBankVideoDialog

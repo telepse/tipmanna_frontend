@@ -4,23 +4,52 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+} from "react";
 import { usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import { useMediaQuery } from "react-responsive";
 import {
   Bookmark,
   ChevronDown,
+  ChevronRight,
   ChevronsUp,
+  ChevronUp,
   ExternalLink,
+  Info,
+  Maximize2,
   MessageCircleMore,
   Share2,
   UserRound,
+  X,
 } from "lucide-react";
 import { toast } from "react-toastify";
 
 import type { TipLinkPublicPayload } from "@/actions/tiplink";
-import { postTipLinkVisitAction } from "@/actions/tiplink";
+import { getEventCharacterCatalogAction } from "@/actions/events";
+import {
+  getPublicTipLinkHydrateAction,
+  getTipLinkPreviewHydrateAction,
+  postTipLinkVisitAction,
+} from "@/actions/tiplink";
+import {
+  mergeCharacterPools,
+  overlayStripPrices,
+  resolveTipDrawerPresentation,
+} from "@/lib/resolve-tip-drawer-sets";
+import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
+import { fetchPublicTipLinkHydrate } from "@/lib/tiplink-hydrate";
+import { shouldLoadTipStripe } from "@/lib/should-load-tip-stripe";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { TipSection } from "@/components/events/tip-section";
 import VideoPlayer, {
   type VideoPlayerRef,
@@ -30,13 +59,7 @@ import { Button } from "@/components/ui/button";
 import SignInDialog from "@/components/auth/sign-in-dialog";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { NotificationBadge } from "@/components/notifications/notification-badge";
-import {
-  ImmersiveMediaTopBar,
-  immersiveFullViewViewportClassName,
-  immersiveMainRowClassName,
-  immersiveMobileScrubberDockClassName,
-  immersivePlayerStageClassName,
-} from "@/components/media/immersive-media-shell";
+import { immersiveMobileScrubberDockClassName } from "@/components/media/immersive-media-shell";
 import { useGlobalTipStream } from "@/hooks/use-global-tip-stream";
 import { usePaymentAnimationPlayer } from "@/hooks/use-payment-animation-player";
 import { usePayerOriginAnimationRecovery } from "@/hooks/use-payer-origin-animation-recovery";
@@ -49,7 +72,11 @@ import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
+import {
+  DRAWER_OVERLAY_Z_INDEX,
+  DRAWER_Z_INDEX,
+  TV_RAIL_Z_INDEX,
+} from "@/lib/drawer-z-index";
 import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
 import { startContentOnlyCreateJourney } from "@/lib/start-content-only-create-journey";
 import {
@@ -71,7 +98,10 @@ import { getPrimaryOrigin } from "@/lib/site-config";
 import { resolveTipLinkLocaleDisplay } from "@/lib/tiplink-locale-display";
 import { resolveCreateDialogSignInSuccess } from "@/lib/create-dialog-signin-resume";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
-import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
+import {
+  SURFACE_MOBILE_MAX_PX,
+  SURFACE_PHONE_LANDSCAPE_MEDIA,
+} from "@/lib/surface-breakpoints";
 import {
   buildTipLinkStoreRows,
   TipLinkStoreIcon,
@@ -79,10 +109,28 @@ import {
   type TipLinkStoreRow,
 } from "@/components/tiplink/tiplink-store-icons";
 import { TipLinkPlayerShell } from "@/components/tiplink/tiplink-player-shell";
+import { TipLinkMetricsTicker } from "@/components/tiplink/tiplink-metrics-ticker";
 import {
   TipLinkSocialIcon,
   tipLinkSocialAriaLabel,
 } from "@/components/tiplink/tiplink-social-icons";
+import { tipLinkGlobalStreamOptions } from "@/lib/tiplink-stream-options";
+import {
+  buildExploreVideoHref,
+  buildTipLinkExploreHandoff,
+  stashExplorePendingHandoff,
+} from "@/lib/explore-video-navigation";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
+import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-overlay";
+
+type TipLinkSignInPurpose = "create" | "saveVideo" | "saveHost";
+
+const DOCK_WIDTH_MOBILE = 96;
+const DOCK_HEIGHT_MOBILE = 54;
+const DOCK_WIDTH_DESKTOP = 128;
+const DOCK_HEIGHT_DESKTOP = 72;
+const PIP_RESERVE_MOBILE = DOCK_WIDTH_MOBILE + 12;
+const PIP_RESERVE_DESKTOP = DOCK_WIDTH_DESKTOP + 12;
 
 const formatTime = (seconds: number) => {
   if (!seconds || Number.isNaN(seconds)) return "00:00";
@@ -91,8 +139,25 @@ const formatTime = (seconds: number) => {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
 
-export function tipLinkGlobalStreamOptions(eventId: string) {
-  return { eventId, surface: "tiplink" as const };
+type PlayerLayoutMode = "inline" | "dock" | "enlarge";
+
+function normalizePlayerPosition(
+  raw: CSSProperties,
+  mode: PlayerLayoutMode
+): CSSProperties {
+  const style: CSSProperties = {
+    top: raw.top,
+    width: raw.width,
+    height: raw.height,
+  };
+  if (mode === "dock" && raw.right != null) {
+    style.right = raw.right;
+    style.left = "auto";
+  } else {
+    style.left = raw.left ?? 0;
+    style.right = "auto";
+  }
+  return style;
 }
 
 const TipDrawer = dynamic(
@@ -135,6 +200,18 @@ export function TipLinkLandingClient({
   const userRole = (user as { role?: string } | null)?.role;
   const userId = user?.id;
   const videoRef = useRef<VideoPlayerRef>(null);
+  const featureOverlayWasPlayingRef = useRef(false);
+  const playerAnchorRef = useRef<HTMLDivElement>(null);
+  const navTickerRef = useRef<HTMLDivElement>(null);
+  const stickyClusterRef = useRef<HTMLDivElement>(null);
+  const miniDockTargetRef = useRef<HTMLDivElement>(null);
+  const [isPlayerInView, setIsPlayerInView] = useState(true);
+  const [dockRect, setDockRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
@@ -144,9 +221,30 @@ export function TipLinkLandingClient({
   const [showDescription, setShowDescription] = useState(false);
   const [saved, setSaved] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
+  const [signInPurpose, setSignInPurpose] =
+    useState<TipLinkSignInPurpose>("create");
+  const [saveHostSignInToken, setSaveHostSignInToken] = useState(0);
   const [pendingCreateHref, setPendingCreateHref] = useState<string | null>(
     null
   );
+  const pendingSaveVideoRef = useRef(false);
+  const pendingSaveHostRef = useRef(false);
+  const playbackTimeBeforeLayoutRef = useRef<number | null>(null);
+  const lastKnownByModeRef = useRef<
+    Partial<Record<PlayerLayoutMode, CSSProperties>>
+  >({});
+  const [inlineRect, setInlineRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [enlargeRect, setEnlargeRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
@@ -156,11 +254,17 @@ export function TipLinkLandingClient({
   const channelId = channel.id;
   const paymentChannelId = channelId;
 
+  const [showFeaturedPlaylist, setShowFeaturedPlaylist] = useState(false);
+  const [landscapeLayoutDismissed, setLandscapeLayoutDismissed] =
+    useState(false);
+
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
-  const isMobileLandscape =
-    useMediaQuery({ query: "(orientation: landscape)" }) &&
-    typeof window !== "undefined" &&
-    window.innerWidth <= 768;
+  const isPhoneLandscape = useMediaQuery({
+    query: SURFACE_PHONE_LANDSCAPE_MEDIA,
+  });
+  const isMobileSurface = isMobile || isPhoneLandscape;
+  const showPhoneLandscapeImmersive =
+    isPhoneLandscape && !landscapeLayoutDismissed;
 
   const {
     isFullView,
@@ -170,35 +274,172 @@ export function TipLinkLandingClient({
     exitFull,
   } = useMobileVideoViewMode({
     videoUrl: channel.url,
-    isMobile,
+    isMobile: isMobileSurface,
+    lockFullLandscape: showPhoneLandscapeImmersive,
   });
 
-  const hidePageChrome = isMobileLandscape || (isFullView && isMobile);
-  const isImmersiveRoom = hidePageChrome || (isDesktopImmersive && !isMobile);
+  const isMobileEnlarge =
+    isMobileSurface && (isFullView || showPhoneLandscapeImmersive);
+  const isDesktopEnlarge = isDesktopImmersive && !isMobileSurface;
+  const isEnlargeMode = isMobileEnlarge || isDesktopEnlarge;
+  const showStickyHeader = true;
+  const hideScrollContent = isEnlargeMode;
+  const isImmersiveRoom = isEnlargeMode;
+  const isDocked = !isPlayerInView && !isEnlargeMode;
+  const isPlayerFloating = isEnlargeMode || isDocked;
+  const hostFirstName =
+    host.fullName.trim().split(/\s+/)[0] ||
+    host.fullName.trim() ||
+    host.username;
+  const playerShellVariant = isImmersiveRoom
+    ? "immersive"
+    : isDocked
+      ? "docked"
+      : "inline";
   const stackImmersive = isImmersiveRoom;
-  const desktopPresentationFit =
-    isDesktopImmersive && !isMobile ? "cover" : null;
-  const playerPresentationFit = hidePageChrome
-    ? fullPresentationFit
-    : desktopPresentationFit;
+  const playerPresentationFit = isEnlargeMode
+    ? isMobileEnlarge
+      ? (fullPresentationFit ?? "contain")
+      : "contain"
+    : "contain";
 
-  const baseTipChars = Array.isArray(characters) ? characters : [];
-  const baseTipSets = Array.isArray(characterSets) ? characterSets : [];
+  const playerLayoutMode: PlayerLayoutMode = isEnlargeMode
+    ? "enlarge"
+    : isDocked
+      ? "dock"
+      : "inline";
 
-  const tipPres = useTipPresentation(eventId, baseTipChars as RoomCharacter[], {
-    paymentSurface: "tiplink",
-  });
+  const firstPaintSets = useMemo(
+    () => (Array.isArray(characterSets) ? characterSets : []),
+    [characterSets]
+  );
+  const stripTipChars = useMemo(() => {
+    const parsed = parseEventCharacterCatalog(firstPaintSets);
+    return parsed.tippingCharacters.length > 0
+      ? parsed.tippingCharacters
+      : Array.isArray(characters)
+        ? characters
+        : [];
+  }, [characters, firstPaintSets]);
+
+  const [drawerCatalogSets, setDrawerCatalogSets] =
+    useState<any[]>(firstPaintSets);
+  const [hydratedMetrics, setHydratedMetrics] = useState(payload.metrics);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyHydrateCatalog = (
+      rawSets: unknown[],
+      metrics?: Partial<NonNullable<typeof payload.metrics>>
+    ) => {
+      const parsed = parseEventCharacterCatalog(rawSets ?? []);
+      if (parsed.characterSets.length > 0) {
+        setDrawerCatalogSets(parsed.characterSets);
+      }
+      if (metrics) {
+        setHydratedMetrics(prev => ({
+          ...prev,
+          ...metrics,
+        }));
+      }
+    };
+
+    const run = async () => {
+      if (preview) {
+        const res = await getTipLinkPreviewHydrateAction(tipLink.id);
+        if (cancelled) return;
+        if (res.success && res.data) {
+          applyHydrateCatalog(res.data.characterSets ?? [], res.data.metrics);
+          return;
+        }
+        const catalog = await getEventCharacterCatalogAction(eventId);
+        if (cancelled) return;
+        if (catalog.success && catalog.data?.characterSets?.length) {
+          applyHydrateCatalog(catalog.data.characterSets);
+        }
+        return;
+      }
+
+      let data = await fetchPublicTipLinkHydrate(tipLink.slug);
+      if (!data) {
+        const res = await getPublicTipLinkHydrateAction(tipLink.slug);
+        if (res.success && res.data) {
+          data = res.data;
+        }
+      }
+      if (cancelled) return;
+      if (data) {
+        applyHydrateCatalog(data.characterSets ?? [], data.metrics);
+        return;
+      }
+
+      const catalog = await getEventCharacterCatalogAction(eventId);
+      if (cancelled) return;
+      if (catalog.success && catalog.data?.characterSets?.length) {
+        applyHydrateCatalog(catalog.data.characterSets);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, preview, tipLink.id, tipLink.slug]);
+
+  const drawerCatalogChars = useMemo(() => {
+    const parsed = parseEventCharacterCatalog(drawerCatalogSets);
+    return parsed.tippingCharacters;
+  }, [drawerCatalogSets]);
+
+  const presentationBaseChars = useMemo(
+    () => mergeCharacterPools(stripTipChars, drawerCatalogChars),
+    [drawerCatalogChars, stripTipChars]
+  );
+
+  const tipPres = useTipPresentation(
+    eventId,
+    presentationBaseChars as RoomCharacter[],
+    {
+      paymentSurface: "tiplink",
+      initialTipConfig: payload.tipConfig ?? null,
+    }
+  );
+
+  const displayStrip = useMemo(
+    () => overlayStripPrices(stripTipChars, tipPres.catalog as RoomCharacter[]),
+    [stripTipChars, tipPres.catalog]
+  );
+
+  const { drawerSets: resolvedDrawerSets } = useMemo(
+    () =>
+      resolveTipDrawerPresentation(
+        drawerCatalogSets,
+        tipPres.catalog as RoomCharacter[],
+        firstPaintSets,
+        tipPres.eliteCharacterIds
+      ),
+    [
+      drawerCatalogSets,
+      tipPres.catalog,
+      firstPaintSets,
+      tipPres.eliteCharacterIds,
+    ]
+  );
+
+  const drawerCatalog =
+    (tipPres.catalog as RoomCharacter[]) ?? presentationBaseChars;
+  const displayMetrics = hydratedMetrics;
 
   useGlobalTipStream(tipLinkGlobalStreamOptions(eventId));
   usePaymentAnimationPlayer({
     eventId,
-    characters: tipPres.strip as RoomCharacter[],
+    characters: displayStrip as RoomCharacter[],
     surface: "tiplink",
   });
   usePayerOriginAnimationRecovery({
     eventId,
     paymentSurface: "tiplink",
-    characters: tipPres.strip as RoomCharacter[],
+    characters: displayStrip as RoomCharacter[],
     surface: "tiplink",
   });
   usePaymentPlaybackRestore({
@@ -208,6 +449,20 @@ export function TipLinkLandingClient({
     onMuteChange: setIsMuted,
   });
   useAutoDropTip(eventId, true);
+
+  const { showFlashOverlay, handleTipNow, handleDismiss } = useVideoTipReminder(
+    {
+      surface: "tiplink",
+      channelId,
+      eventId,
+      reminders: channel.reminders,
+      currentTimeSec: currentTime,
+      hostFirstName,
+      videoTitle: channel.title,
+      deepLinkUrl: `/l/${tipLink.slug}`,
+      onTipNow: () => setIsTipDrawerOpen(true),
+    }
+  );
 
   const { openWalletModalNonce } = useWalletTopupTipResume(
     eventId,
@@ -252,7 +507,20 @@ export function TipLinkLandingClient({
   }, [channelId, event.communityId, eventId]);
 
   useEffect(() => {
-    if (!isFullView && !isMobileLandscape && !isDesktopImmersive) return;
+    const onOrientation = () => {
+      const landscape =
+        typeof window !== "undefined" &&
+        window.matchMedia("(orientation: landscape)").matches;
+      if (!landscape) {
+        setLandscapeLayoutDismissed(false);
+      }
+    };
+    window.addEventListener("orientationchange", onOrientation);
+    return () => window.removeEventListener("orientationchange", onOrientation);
+  }, []);
+
+  useEffect(() => {
+    if (!isEnlargeMode) return;
     const previousBodyOverflow = document.body.style.overflow;
     const previousHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
@@ -261,7 +529,143 @@ export function TipLinkLandingClient({
       document.body.style.overflow = previousBodyOverflow;
       document.documentElement.style.overflow = previousHtmlOverflow;
     };
-  }, [isDesktopImmersive, isFullView, isMobileLandscape]);
+  }, [isEnlargeMode]);
+
+  useLayoutEffect(() => {
+    if (!isEnlargeMode) {
+      setEnlargeRect(null);
+      return;
+    }
+    const updateEnlargeRect = () => {
+      const tickerH = stickyClusterRef.current?.offsetHeight ?? 120;
+      setEnlargeRect({
+        top: tickerH,
+        left: 0,
+        width: window.innerWidth,
+        height: Math.max(0, window.innerHeight - tickerH),
+      });
+    };
+    updateEnlargeRect();
+    const observer = new ResizeObserver(updateEnlargeRect);
+    if (stickyClusterRef.current) {
+      observer.observe(stickyClusterRef.current);
+    }
+    window.addEventListener("resize", updateEnlargeRect);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateEnlargeRect);
+    };
+  }, [isEnlargeMode]);
+
+  useLayoutEffect(() => {
+    if (isEnlargeMode || isDocked) {
+      setInlineRect(null);
+      return;
+    }
+    const anchor = playerAnchorRef.current;
+    if (!anchor) return;
+
+    const updateInlineRect = () => {
+      const rect = anchor.getBoundingClientRect();
+      setInlineRect({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    updateInlineRect();
+    const observer = new ResizeObserver(updateInlineRect);
+    observer.observe(anchor);
+    window.addEventListener("scroll", updateInlineRect, { passive: true });
+    window.addEventListener("resize", updateInlineRect);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", updateInlineRect);
+      window.removeEventListener("resize", updateInlineRect);
+    };
+  }, [isEnlargeMode, isDocked]);
+
+  useLayoutEffect(() => {
+    const saved = playbackTimeBeforeLayoutRef.current;
+    if (saved == null) return;
+    const player = videoRef.current;
+    if (!player?.isReady()) return;
+    const current = player.getCurrentTime();
+    if (current < 1 && saved > 1) {
+      player.seekTo(saved);
+      if (isPlaying) player.play();
+    }
+    playbackTimeBeforeLayoutRef.current = null;
+  }, [isEnlargeMode, isDocked, inlineRect, dockRect, isPlaying]);
+
+  useEffect(() => {
+    const anchor = playerAnchorRef.current;
+    if (!anchor || !showStickyHeader || isEnlargeMode) {
+      setIsPlayerInView(true);
+      return;
+    }
+
+    const measureInView = () => {
+      const headerBottom =
+        stickyClusterRef.current?.getBoundingClientRect().bottom ?? 96;
+      const anchorRect = anchor.getBoundingClientRect();
+      setIsPlayerInView(anchorRect.bottom > headerBottom + 8);
+    };
+
+    const headerHeight = stickyClusterRef.current?.offsetHeight ?? 96;
+    measureInView();
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsPlayerInView(true);
+        } else {
+          measureInView();
+        }
+      },
+      { threshold: 0, rootMargin: `-${headerHeight}px 0px 0px 0px` }
+    );
+    observer.observe(anchor);
+    window.addEventListener("scroll", measureInView, { passive: true });
+    window.addEventListener("resize", measureInView);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", measureInView);
+      window.removeEventListener("resize", measureInView);
+    };
+  }, [showStickyHeader, isEnlargeMode]);
+
+  useLayoutEffect(() => {
+    if (!isDocked) {
+      setDockRect(null);
+      return;
+    }
+
+    const target = miniDockTargetRef.current;
+    if (!target) return;
+
+    const updateDockRect = () => {
+      const rect = target.getBoundingClientRect();
+      setDockRect({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    updateDockRect();
+    const observer = new ResizeObserver(updateDockRect);
+    observer.observe(target);
+    window.addEventListener("scroll", updateDockRect, { passive: true });
+    window.addEventListener("resize", updateDockRect);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", updateDockRect);
+      window.removeEventListener("resize", updateDockRect);
+    };
+  }, [isDocked]);
 
   const emitEncounter = useCallback(() => {
     if (!eventId || !channelId) return;
@@ -339,21 +743,72 @@ export function TipLinkLandingClient({
     else videoRef.current?.play();
   }, [isPlaying]);
 
+  const scrollToInlineVideo = useCallback(() => {
+    const anchor = playerAnchorRef.current;
+    if (!anchor) return;
+    const headerH = stickyClusterRef.current?.offsetHeight ?? 96;
+    const top =
+      anchor.getBoundingClientRect().top + window.scrollY - headerH - 8;
+    window.scrollTo({
+      top: Math.max(0, top),
+      behavior: isMobileSurface ? "auto" : "smooth",
+    });
+  }, [isMobileSurface]);
+
+  const handlePlayerSurfaceClick = useCallback(() => {
+    if (isDocked) {
+      scrollToInlineVideo();
+      return;
+    }
+    togglePlayPause();
+  }, [isDocked, scrollToInlineVideo, togglePlayPause]);
+
+  const preservePlaybackBeforeLayout = useCallback(() => {
+    const t = videoRef.current?.getCurrentTime();
+    if (typeof t === "number" && !Number.isNaN(t) && t > 0) {
+      playbackTimeBeforeLayoutRef.current = t;
+    }
+  }, []);
+
   const enterImmersive = useCallback(() => {
-    if (isMobile) {
+    preservePlaybackBeforeLayout();
+    if (isMobileSurface) {
       enterFull();
       return;
     }
     setIsDesktopImmersive(true);
-  }, [enterFull, isMobile]);
+  }, [enterFull, isMobileSurface, preservePlaybackBeforeLayout]);
 
   const exitImmersive = useCallback(() => {
-    if (isMobile) {
-      exitFull();
+    preservePlaybackBeforeLayout();
+    if (isMobileSurface) {
+      if (showPhoneLandscapeImmersive) {
+        setLandscapeLayoutDismissed(true);
+      } else if (isFullView) {
+        exitFull();
+      }
       return;
     }
     setIsDesktopImmersive(false);
-  }, [exitFull, isMobile]);
+  }, [
+    exitFull,
+    isFullView,
+    isMobileSurface,
+    preservePlaybackBeforeLayout,
+    showPhoneLandscapeImmersive,
+  ]);
+
+  const openSaveVideoSignIn = useCallback(() => {
+    pendingSaveVideoRef.current = true;
+    setSignInPurpose("saveVideo");
+    setSignInOpen(true);
+  }, []);
+
+  const openSaveHostSignIn = useCallback(() => {
+    pendingSaveHostRef.current = true;
+    setSignInPurpose("saveHost");
+    setSignInOpen(true);
+  }, []);
 
   const countryDisplay = useMemo(() => {
     const resolved = resolveTipLinkLocaleDisplay({ channel, event });
@@ -375,6 +830,35 @@ export function TipLinkLandingClient({
     return `${origin}${tipLink.landingUrl}`;
   }, [tipLink.landingUrl]);
 
+  const tipLinkExploreHandoff = useMemo(
+    () =>
+      buildTipLinkExploreHandoff({
+        channelId: channel.id,
+        eventId,
+        url: channel.url,
+        title: channel.title,
+        hostUsername: host.username,
+        numOfTips: channel.numOfTips,
+        amountRaised: event.amountRaised,
+        amountToRaise: event.amountToRaise,
+      }),
+    [
+      channel.id,
+      channel.numOfTips,
+      channel.title,
+      channel.url,
+      event.amountRaised,
+      event.amountToRaise,
+      eventId,
+      host.username,
+    ]
+  );
+
+  const tipLinkExploreHref = useMemo(
+    () => buildExploreVideoHref(tipLinkExploreHandoff),
+    [tipLinkExploreHandoff]
+  );
+
   const storeLinks = useMemo(
     (): TipLinkStoreRow[] =>
       buildTipLinkStoreRows({
@@ -384,9 +868,18 @@ export function TipLinkLandingClient({
         tiktokUrl: tipLink.tiktokUrl,
         customLinkLabel: tipLink.customLinkLabel,
         customLinkUrl: tipLink.customLinkUrl,
-        tipmannaProfileUrl: buildCreatorProfileSharePath(host.username),
+        tipmannaExploreUrl: tipLinkExploreHref,
       }),
-    [host.username, tipLink]
+    [tipLink, tipLinkExploreHref]
+  );
+
+  const handleOpenTipLinkExplore = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault();
+      stashExplorePendingHandoff(tipLinkExploreHandoff);
+      window.open(tipLinkExploreHref, "_blank", "noopener,noreferrer");
+    },
+    [tipLinkExploreHandoff, tipLinkExploreHref]
   );
 
   const handleShare = useCallback(async () => {
@@ -403,6 +896,10 @@ export function TipLinkLandingClient({
   }, [channel.title, shareUrl]);
 
   const handleSave = useCallback(async () => {
+    if (!userId || userRole === "VISITOR") {
+      openSaveVideoSignIn();
+      return;
+    }
     try {
       const res = await toggleChannelSaveForUser({
         channelId,
@@ -422,12 +919,13 @@ export function TipLinkLandingClient({
     } catch (err) {
       toast.error(formatSaveVideoError(err));
     }
-  }, [channelId, userId, userRole]);
+  }, [channelId, openSaveVideoSignIn, userId, userRole]);
 
   const handleCreateYours = useCallback(() => {
     startContentOnlyCreateJourney({
       needsHostAuth: needsCreateHostAuth(user),
       openSignIn: (_intent, href) => {
+        setSignInPurpose("create");
         setPendingCreateHref(href);
         setSignInOpen(true);
       },
@@ -441,33 +939,33 @@ export function TipLinkLandingClient({
     });
   }, [user]);
 
-  const metricsLine = [
-    `${metrics.saves} saves`,
-    `${metrics.shares} shares`,
-    `${metrics.comments} comments`,
-    `${metrics.encounters} seen`,
-    `${metrics.pageVisits90d} visits (90d)`,
-  ].join(" · ");
+  const drawerOpen = isTipDrawerOpen || openWalletModalNonce > 0;
+  const drawerStripeEnabled = shouldLoadTipStripe({
+    previewMode: preview,
+    drawerOpen,
+  });
+  const tipDrawerMounted = drawerOpen;
 
-  const tipDrawerMounted = isTipDrawerOpen || openWalletModalNonce > 0;
-
-  const renderScrubber = (variant: "inline" | "immersive" | "landscape") => (
+  const renderScrubber = (
+    variant: "inline" | "immersive" | "landscape",
+    overlay = false
+  ) => (
     <div
       className={cn(
         variant === "inline" && "space-y-2 px-3 pb-2",
         variant === "immersive" &&
-          cn(
-            "flex flex-col gap-2",
-            immersiveMobileScrubberDockClassName(immersiveLayout)
-          ),
-        variant === "landscape" && "fixed bottom-4 left-0 w-full space-y-2 p-4"
+          (overlay
+            ? "absolute inset-x-0 bottom-0 z-[55] flex flex-col gap-2 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-2 pt-4 pb-[max(0.35rem,env(safe-area-inset-bottom,0px))]"
+            : cn(
+                "flex flex-col gap-2",
+                immersiveMobileScrubberDockClassName(immersiveLayout)
+              )),
+        variant === "landscape" &&
+          (overlay
+            ? "absolute inset-x-0 bottom-0 z-[55] space-y-2 bg-gradient-to-t from-black/90 via-black/45 to-transparent p-4 pt-8"
+            : "fixed bottom-4 left-0 w-full space-y-2 p-4")
       )}
     >
-      {variant === "landscape" ? (
-        <span className="line-clamp-1 text-sm font-semibold">
-          {channel.title}
-        </span>
-      ) : null}
       <div
         className={cn(
           "flex items-center justify-between text-sm",
@@ -491,10 +989,11 @@ export function TipLinkLandingClient({
         {!isImmersiveRoom && variant === "inline" ? (
           <button
             type="button"
-            className="rounded-md bg-white/10 px-3 py-1"
+            className="rounded-md border border-white/20 bg-white/10 p-1"
             onClick={enterImmersive}
+            aria-label="Enlarge video"
           >
-            Enlarge
+            <Maximize2 className="size-4" />
           </button>
         ) : null}
       </div>
@@ -531,11 +1030,20 @@ export function TipLinkLandingClient({
           <button
             type="button"
             onClick={() => setIsTipDrawerOpen(true)}
-            className="mb-0 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
+            className={cn(
+              "mb-0 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 font-semibold text-black shadow",
+              isDesktopEnlarge ? "px-4 py-2 text-sm" : "px-3 py-1 text-xs"
+            )}
           >
-            <ChevronsUp className="text-primary size-4" />
-            Engage
-            <ChevronsUp className="text-primary size-4" />
+            <ChevronsUp
+              className="text-primary size-4"
+              aria-hidden
+            />
+            {tipPres.sectionCtaLabel?.trim() || "Engage"}
+            <ChevronsUp
+              className="text-primary size-4"
+              aria-hidden
+            />
           </button>
         ) : null}
       </div>
@@ -551,22 +1059,174 @@ export function TipLinkLandingClient({
     </div>
   );
 
+  const dockFallback = isMobileSurface
+    ? { width: DOCK_WIDTH_MOBILE, height: DOCK_HEIGHT_MOBILE }
+    : { width: DOCK_WIDTH_DESKTOP, height: DOCK_HEIGHT_DESKTOP };
+
+  const playerPositionStyle = useMemo((): CSSProperties => {
+    let next: CSSProperties | null = null;
+
+    if (playerLayoutMode === "enlarge") {
+      if (enlargeRect) {
+        next = enlargeRect;
+      } else {
+        const tickerH = stickyClusterRef.current?.offsetHeight ?? 120;
+        next = {
+          top: tickerH,
+          left: 0,
+          width: window.innerWidth,
+          height: Math.max(0, window.innerHeight - tickerH),
+        };
+      }
+    } else if (playerLayoutMode === "dock") {
+      if (dockRect) {
+        next = {
+          top: dockRect.top,
+          left: dockRect.left,
+          width: dockRect.width,
+          height: dockRect.height,
+        };
+      } else {
+        next = {
+          top: (stickyClusterRef.current?.offsetHeight ?? 96) + 4,
+          right: 12,
+          width: dockFallback.width,
+          height: dockFallback.height,
+        };
+      }
+    } else if (inlineRect) {
+      next = {
+        top: inlineRect.top,
+        left: inlineRect.left,
+        width: inlineRect.width,
+        height: inlineRect.height,
+      };
+    } else {
+      const anchor = playerAnchorRef.current;
+      if (anchor) {
+        const rect = anchor.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          next = {
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+          };
+        }
+      }
+    }
+
+    if (next?.width && next?.height) {
+      const normalized = normalizePlayerPosition(next, playerLayoutMode);
+      lastKnownByModeRef.current[playerLayoutMode] = normalized;
+      return normalized;
+    }
+
+    const cached = lastKnownByModeRef.current[playerLayoutMode];
+    if (cached) {
+      return cached;
+    }
+
+    const anchor = playerAnchorRef.current;
+    if (anchor && playerLayoutMode === "inline") {
+      const width = anchor.offsetWidth || dockFallback.width;
+      const height = anchor.offsetHeight || (width * 9) / 16;
+      const rect = anchor.getBoundingClientRect();
+      return normalizePlayerPosition(
+        {
+          top: rect.top,
+          left: rect.left,
+          width,
+          height,
+        },
+        "inline"
+      );
+    }
+
+    if (playerLayoutMode === "enlarge") {
+      const tickerH = stickyClusterRef.current?.offsetHeight ?? 120;
+      return normalizePlayerPosition(
+        {
+          top: tickerH,
+          left: 0,
+          width: window.innerWidth,
+          height: Math.max(0, window.innerHeight - tickerH),
+        },
+        "enlarge"
+      );
+    }
+
+    return normalizePlayerPosition(
+      {
+        top: (stickyClusterRef.current?.offsetHeight ?? 96) + 16,
+        left: 16,
+        width: Math.max(0, window.innerWidth - 32),
+        height: Math.max(0, ((window.innerWidth - 32) * 9) / 16),
+      },
+      "inline"
+    );
+  }, [
+    dockFallback.height,
+    dockFallback.width,
+    dockRect,
+    enlargeRect,
+    inlineRect,
+    playerLayoutMode,
+  ]);
+
+  const inlineScrubberVariant = isDocked ? null : "inline";
+  const floatingScrubberVariant: "immersive" | "landscape" | null =
+    showPhoneLandscapeImmersive || isDesktopEnlarge
+      ? "landscape"
+      : isEnlargeMode
+        ? "immersive"
+        : null;
+
   const playerStage = (
     <TipLinkPlayerShell
-      variant={isImmersiveRoom ? "immersive" : "inline"}
+      variant={playerShellVariant}
       className={cn(
         isImmersiveRoom
-          ? immersivePlayerStageClassName(
-              isFullView || isDesktopImmersive,
-              isMobile,
-              isDesktopImmersive && !isMobile
-                ? "landscape_video"
-                : immersiveLayout
+          ? "h-full min-h-0 w-full flex-1 overflow-hidden"
+          : cn(
+              "h-full w-full overflow-hidden",
+              !isPlayerFloating && "relative aspect-video w-full"
             )
-          : "relative aspect-video w-full",
-        isMobileLandscape && !isFullView && "h-full min-h-0 flex-1"
       )}
     >
+      {isEnlargeMode && !isDocked ? (
+        <button
+          type="button"
+          aria-label="Close enlarged video"
+          className="absolute top-2 left-2 z-[56] flex shrink-0 items-center rounded-md bg-white/40 p-1.5 text-black"
+          onClick={e => {
+            e.stopPropagation();
+            exitImmersive();
+          }}
+        >
+          <X className="size-4" />
+        </button>
+      ) : null}
+      {!isDocked ? (
+        <button
+          type="button"
+          aria-label="About this video"
+          className="absolute top-2 right-2 z-[56] flex shrink-0 items-center gap-0.5 rounded-md bg-white/40 px-2 py-1 text-xs whitespace-nowrap text-black sm:text-sm"
+          onClick={e => {
+            e.stopPropagation();
+            setShowDescription(true);
+          }}
+        >
+          <Info className="size-4" />
+        </button>
+      ) : null}
+      {isEnlargeMode && floatingScrubberVariant ? (
+        <div className="pointer-events-none absolute inset-0 z-[54]">
+          <div className="pointer-events-auto">
+            {renderScrubber(floatingScrubberVariant, true)}
+          </div>
+        </div>
+      ) : null}
       <VideoPlayer
         ref={videoRef}
         videoUrl={channel.url}
@@ -580,25 +1240,16 @@ export function TipLinkLandingClient({
       />
       <button
         type="button"
-        aria-label={isPlaying ? "Pause video" : "Play video"}
+        aria-label={
+          isDocked
+            ? "Scroll to video"
+            : isPlaying
+              ? "Pause video"
+              : "Play video"
+        }
         className="absolute inset-0 z-[50] cursor-pointer bg-transparent"
-        onClick={togglePlayPause}
+        onClick={handlePlayerSurfaceClick}
       />
-      {countryDisplay ? (
-        <div
-          className="pointer-events-none absolute top-3 right-3 z-[54] overflow-hidden rounded-sm border border-white/25 bg-black/55 shadow-md"
-          title={countryDisplay.flagCode?.toUpperCase()}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={countryDisplay.flagUrl}
-            alt={countryDisplay.flagCode ?? "Country"}
-            width={32}
-            height={24}
-            className="block h-6 w-8 object-cover"
-          />
-        </div>
-      ) : null}
       <div
         id="global-animation-layer"
         className={cn("pointer-events-none absolute inset-0", TV_RAIL_Z_INDEX)}
@@ -607,319 +1258,476 @@ export function TipLinkLandingClient({
         id="preview-animation-root"
         className="pointer-events-none absolute inset-0"
       />
+      {paymentChannelId &&
+      process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
+        <div className="pointer-events-none absolute bottom-20 left-2 z-[62] max-w-[min(360px,calc(100%-1rem))]">
+          <VideoFeatureCardBanner
+            surfaceChannelId={paymentChannelId}
+            hostSurfaceChannelId={paymentChannelId}
+            sectionCtaLabel={tipPres.sectionCtaLabel}
+            pageDrawerOpen={isTipDrawerOpen}
+            onTipFeatured={() => setIsTipDrawerOpen(true)}
+            onOverlayOpenChange={createFeatureCardOverlayPlaybackHandlers(
+              videoRef,
+              featureOverlayWasPlayingRef,
+              { getWasPlaying: () => isPlaying }
+            )}
+            className="pointer-events-auto"
+          />
+        </div>
+      ) : null}
+      {showFlashOverlay ? (
+        <VideoTipReminderOverlay
+          hostFirstName={hostFirstName}
+          sectionCta={tipPres.sectionCtaLabel?.trim() || "Engage"}
+          onTipNow={handleTipNow}
+          onDismiss={handleDismiss}
+        />
+      ) : null}
     </TipLinkPlayerShell>
+  );
+
+  const renderFloatingPlayer = () => (
+    <div
+      key="tiplink-player"
+      className={cn(
+        "fixed flex flex-col",
+        isDocked ? "z-[115]" : isEnlargeMode ? "z-[105]" : "z-[60]"
+      )}
+      style={playerPositionStyle}
+    >
+      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+        <div className="flex min-h-0 w-full flex-1 flex-col">{playerStage}</div>
+      </div>
+    </div>
+  );
+
+  const renderPlayerAnchor = () => (
+    <div className="relative w-full">
+      <div
+        ref={playerAnchorRef}
+        className="aspect-video w-full scroll-mt-[120px] rounded-2xl bg-black/25"
+        aria-hidden={isPlayerFloating}
+      />
+      {!isPlayerFloating && inlineScrubberVariant
+        ? renderScrubber(inlineScrubberVariant)
+        : null}
+    </div>
   );
 
   return (
     <>
-      <div
-        className={cn(
-          "min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-white",
-          isMobileLandscape &&
-            "fixed inset-0 flex h-full max-h-[100dvh] w-full flex-col bg-black p-4 text-white",
-          isFullView &&
-            isMobile &&
-            immersiveFullViewViewportClassName("channel")
-        )}
-      >
-        {isFullView && isMobile ? (
-          <ImmersiveMediaTopBar
-            onClose={exitImmersive}
-            title={channel.title}
-          />
-        ) : null}
-
-        {!hidePageChrome && !isDesktopImmersive ? (
-          <header className="sticky top-0 z-50 flex items-center justify-between border-b border-white/10 bg-black/70 px-4 py-3 backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="rounded-full"
-                onClick={handleCreateYours}
+      <div className="tiplink-landing-bg tiplink-galaxy-shell relative min-h-screen text-white">
+        {showStickyHeader ? (
+          <div
+            ref={stickyClusterRef}
+            className={cn(
+              "sticky top-0 border-b border-white/10 bg-black/40 backdrop-blur-xl",
+              isEnlargeMode ? "z-[110]" : "z-50"
+            )}
+          >
+            <header className="flex items-center justify-between border-b border-white/10 px-4 py-2">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={handleCreateYours}
+                >
+                  Create Yours
+                </Button>
+                <button
+                  type="button"
+                  aria-label="Profile"
+                  className="relative rounded-full border border-white/20 p-2"
+                  onClick={() => setIsProfileDrawerOpen(true)}
+                >
+                  <UserRound className="size-5" />
+                  <NotificationBadge
+                    variant="dot"
+                    className="-top-0.5 -right-0.5"
+                  />
+                </button>
+              </div>
+              <Link
+                href="/"
+                className="flex items-baseline gap-2 font-semibold tracking-wide"
               >
-                Create Yours
-              </Button>
-              <button
-                type="button"
-                aria-label="Profile"
-                className="relative rounded-full border border-white/20 p-2"
-                onClick={() => setIsProfileDrawerOpen(true)}
-              >
-                <UserRound className="size-5" />
-                <NotificationBadge
-                  variant="dot"
-                  className="-top-0.5 -right-0.5"
-                />
-              </button>
-            </div>
-            <Link
-              href="/"
-              className="flex items-center gap-2 font-semibold tracking-wide"
+                <span
+                  className={cn(
+                    "racing_sans_one",
+                    isMobileSurface ? "text-lg" : "text-2xl"
+                  )}
+                >
+                  <span className="text-primary">tip</span>manna
+                </span>
+                <span
+                  className={cn(
+                    "text-white/70",
+                    isMobileSurface ? "text-sm" : "text-base"
+                  )}
+                >
+                  link
+                </span>
+              </Link>
+            </header>
+            <div
+              className="relative flex items-stretch"
+              style={isDocked ? { minHeight: dockFallback.height } : undefined}
             >
-              <span className="text-primary">Tipmanna</span>
-              <span className="text-sm text-white/70">link</span>
-            </Link>
-          </header>
+              <div
+                ref={navTickerRef}
+                className="min-w-0 flex-1"
+              >
+                <TipLinkMetricsTicker
+                  visits={displayMetrics.pageVisitCount}
+                  tips={liveNumOfTips}
+                  shares={displayMetrics.shares}
+                  sectionCtaLabel={tipPres.sectionCtaLabel}
+                  docked={isDocked}
+                  dockedHeight={dockFallback.height}
+                  hideActionLabels={isEnlargeMode}
+                  useDesktopPipReserve={!isMobileSurface}
+                  pipReserveMobile={PIP_RESERVE_MOBILE}
+                  pipReserveDesktop={PIP_RESERVE_DESKTOP}
+                  onTipsClick={() => setShowTipsDrawer(true)}
+                />
+              </div>
+              <div
+                ref={miniDockTargetRef}
+                className={cn(
+                  "pointer-events-none absolute top-1/2 right-3 z-10 -translate-y-1/2",
+                  !isDocked && "invisible"
+                )}
+                style={{
+                  width: dockFallback.width,
+                  height: dockFallback.height,
+                }}
+                aria-hidden={!isDocked}
+              />
+              {isDocked ? (
+                <button
+                  type="button"
+                  aria-label="Scroll to video"
+                  className="absolute top-1/2 right-3 z-[120] -translate-y-1/2 cursor-pointer rounded-md bg-transparent"
+                  style={{
+                    width: dockFallback.width,
+                    height: dockFallback.height,
+                  }}
+                  onClick={scrollToInlineVideo}
+                />
+              ) : null}
+            </div>
+          </div>
         ) : null}
 
-        {!hidePageChrome && !isDesktopImmersive && preview ? (
+        {showStickyHeader && preview ? (
           <div className="bg-amber-500/20 px-4 py-2 text-center text-sm text-amber-100">
             Preview mode — not indexed publicly
           </div>
         ) : null}
 
-        {hidePageChrome ? (
-          <div
-            className={immersiveMainRowClassName(
-              isFullView,
-              isMobile,
-              immersiveLayout
-            )}
-          >
-            {playerStage}
-            {isFullView && isMobile
-              ? renderScrubber("immersive")
-              : isMobileLandscape
-                ? renderScrubber("landscape")
-                : null}
-          </div>
-        ) : (
-          <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
-            <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <TippingElementsProvider
-                tippingCharacters={tipPres.strip as RoomCharacter[]}
+        {renderFloatingPlayer()}
+
+        <main className="mx-auto flex max-w-3xl flex-col gap-6 overflow-x-hidden px-4 py-6">
+          {!hideScrollContent ? (
+            <section
+              className="rounded-2xl border border-white/10 bg-black/25 p-4"
+              id="tip-section"
+              style={{ scrollMarginTop: "120px" }}
+            >
+              <TipSection
+                eventId={eventId}
+                tippingCharacters={displayStrip as RoomCharacter[]}
+                characterSets={resolvedDrawerSets}
+                paymentSurface="tiplink"
+                paymentChannelId={paymentChannelId}
+                getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
+                getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
                 textTipUnitPrice={tipPres.textUnitPrice}
-              >
-                <TipSection
-                  eventId={eventId}
-                  tippingCharacters={tipPres.strip as RoomCharacter[]}
-                  characterSets={baseTipSets}
-                  paymentSurface="tiplink"
-                  paymentChannelId={paymentChannelId}
-                  getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
-                  getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
-                  textTipUnitPrice={tipPres.textUnitPrice}
-                  sectionCtaLabel={tipPres.sectionCtaLabel}
-                  payLabel={tipPres.payLabel}
-                  tipQuoteContext={tipPres.quoteCtx}
-                />
-              </TippingElementsProvider>
+                sectionCtaLabel={tipPres.sectionCtaLabel}
+                payLabel={tipPres.payLabel}
+                tipQuoteContext={tipPres.quoteCtx}
+                eliteCharacterIds={tipPres.eliteCharacterIds}
+                buttonColor="white"
+                shadowStyle="shadow-[0px_0px_2px_2px_#000]"
+                tipLink={true}
+                previewMode={preview}
+                preserveStripOrder
+                externalDrawer
+                onRequestOpenDrawer={() => setIsTipDrawerOpen(true)}
+                onRequestOpenWallet={() => setIsTipDrawerOpen(true)}
+              />
             </section>
+          ) : null}
 
-            <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
-              {!(isDesktopImmersive && !isMobile) ? (
-                <>
-                  {playerStage}
-                  {renderScrubber("inline")}
-                </>
-              ) : (
-                <div className="relative aspect-video w-full rounded-2xl bg-black/40" />
-              )}
-            </section>
+          <section className="rounded-2xl border border-white/10 bg-black/25 p-1">
+            {renderPlayerAnchor()}
+          </section>
 
-            <section>
-            <h1 className="text-2xl font-bold">{channel.title}</h1>
-            </section>
-
-            <section className="space-y-3 text-sm text-white/80">
-              <p>{metricsLine}</p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowCommentDrawer(true)}
-                >
-                  <MessageCircleMore className="mr-1 size-4" /> Comments
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSave}
-                >
-                  <Bookmark className="mr-1 size-4" />{" "}
-                  {saved ? "Saved" : "Save"}
-                </Button>
-                <SaveHostToggleButton
-                  hostId={host.id}
-                  className="inline-flex items-center gap-1 rounded-md border border-white/20 px-3 py-1.5 text-sm"
-                  onRequireSignIn={() => setSignInOpen(true)}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleShare}
-                >
-                  <Share2 className="mr-1 size-4" /> Share
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowTipsDrawer(true)}
-                >
-                  Tips ({liveChannelNumOfTips ?? channel.numOfTips})
-                </Button>
-              </div>
-            </section>
-
-            <section className="space-y-2">
-              
-              {channel.description ? (
-                <button
-                  type="button"
-                  className="flex items-center gap-1 text-sm text-white/70"
-                  onClick={() => setShowDescription(true)}
-                >
-                  About this video <ChevronDown className="size-4" />
-                </button>
-              ) : null}
-              {event.showAmountRaisedOnVideos !== false ? (
-                <p className="text-primary text-sm">
-                  £{liveAmountRaised.toFixed(2)} raised · {liveNumOfTips} tips
-                </p>
-              ) : null}
-            </section>
-
-            {storeLinks.length > 0 ? (
-              <section className="grid gap-2 sm:grid-cols-2">
-                {storeLinks.map(link =>
-                  link.key === "tipmanna" ? (
-                    <Link
-                      key={`${link.key}-${link.url}`}
-                      href={link.url!}
-                      className="hover:border-primary/50 flex items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-3 transition"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <TipLinkStoreIcon
-                          storeKey={link.key as TipLinkStoreKey}
-                        />
-                        <span className="truncate">{link.label}</span>
-                      </span>
-                      <span className="text-primary shrink-0 text-xs">
-                        {link.verb}
-                      </span>
-                    </Link>
-                  ) : (
-                    <a
-                      key={`${link.key}-${link.url}`}
-                      href={link.url!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:border-primary/50 flex items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-3 transition"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        {link.key !== "custom" ? (
-                          <TipLinkStoreIcon
-                            storeKey={link.key as TipLinkStoreKey}
-                          />
-                        ) : null}
-                        <span className="truncate">{link.label}</span>
-                      </span>
-                      <span className="text-primary shrink-0 text-xs">
-                        {link.verb}
-                      </span>
-                    </a>
-                  )
-                )}
-              </section>
-            ) : null}
-
-            {tipLink.pitch ? (
-              <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
-                <h2 className="border-b border-white/10 px-4 py-3 text-sm font-semibold tracking-wide text-white/80 uppercase">
-                  Pitch
-                </h2>
-                <div className="relative h-40 w-full">
-                  <Image
-                    src={bannerSrc}
-                    alt=""
-                    fill
-                    priority
-                    sizes="(max-width: 768px) 100vw, 768px"
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <p className="px-4 py-4 text-lg leading-relaxed font-medium text-white/95">
-                  {tipLink.pitch}
-                </p>
-              </section>
-            ) : null}
-
-            {payload.featuredPlaylist ? (
-              <section className="rounded-2xl border border-white/10 p-4">
-                <p className="mb-2 text-sm text-white/60">Featured playlist</p>
-                <Link
-                  href={`/playlist/${payload.featuredPlaylist.id}`}
-                  target="_blank"
-                  className="flex items-center gap-3 rounded-lg bg-white/5 p-3 hover:bg-white/10"
-                >
-                  {payload.featuredPlaylist.bannerUrl ? (
-                    <Image
-                      src={payload.featuredPlaylist.bannerUrl}
-                      alt=""
-                      width={64}
-                      height={64}
-                      className="rounded-md object-cover"
-                      unoptimized
+          {!hideScrollContent ? (
+            <>
+              <section className="space-y-3 text-sm text-white/80">
+                <div className="flex items-center gap-2">
+                  {countryDisplay ? (
+                    <img
+                      src={countryDisplay.flagUrl}
+                      alt={countryDisplay.flagCode ?? "Country"}
+                      width={32}
+                      height={24}
+                      className="block h-6 w-8 shrink-0 object-cover"
                     />
                   ) : null}
-                  <div>
-                    <p className="font-semibold">
-                      {payload.featuredPlaylist.name}
-                    </p>
-                    {payload.featuredPlaylist.description ? (
-                      <p className="line-clamp-2 text-sm text-white/60">
-                        {payload.featuredPlaylist.description}
-                      </p>
+                  <h1 className="text-2xl font-bold">{channel.title}</h1>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hover:bg-gray flex h-auto flex-col items-center justify-center gap-1 border-t-2 border-white/20 bg-black/40! py-1.5 text-sm text-white/80! shadow-[0px_2px_0px_0px_#fff]"
+                    onClick={() => setShowCommentDrawer(true)}
+                  >
+                    <MessageCircleMore className="mr-1 size-8 text-white/80" />{" "}
+                    <span className="text-[10px] text-white/80">
+                      {displayMetrics.comments} Comments
+                    </span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hover:bg-gray flex h-auto flex-col items-center justify-center gap-1 border-t-2 border-white/20 bg-black/40! py-1.5 text-xs text-white/80! shadow-[0px_2px_0px_0px_#fff] sm:text-sm"
+                    onClick={handleSave}
+                  >
+                    <Bookmark className="mr-1 size-8 text-white/80" />{" "}
+                    <span className="text-[10px] text-white/80">
+                      {displayMetrics.saves} {saved ? "Saved" : "Save"}
+                    </span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex h-auto flex-col items-center justify-center gap-1 border-t-2 border-white/20 bg-black/40! py-1.5 text-xs text-white/80! shadow-[0px_2px_0px_0px_#fff] hover:bg-black/80 sm:text-sm"
+                    onClick={handleShare}
+                  >
+                    <Share2 className="mr-1 size-8 text-white/80" />{" "}
+                    <span className="text-[10px] text-white/80">
+                      {displayMetrics.shares} Share
+                    </span>
+                  </Button>
+                </div>
+              </section>
+
+              <p className="text-xs text-white/70">
+                Created by: {hostFirstName}{" "}
+                <span className="text-white/40">@{host.username}</span>
+              </p>
+
+              {storeLinks.length > 0 ? (
+                <section className="space-y-4">
+                  <h5 className="text-primary text-sm">Also available on</h5>
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {storeLinks.map(link =>
+                      link.key === "tipmanna" ? (
+                        <a
+                          key={`${link.key}-${link.url}`}
+                          href={link.url!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={handleOpenTipLinkExplore}
+                          className="hover:border-primary/50 flex items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/20 px-4 py-3 transition"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <TipLinkStoreIcon
+                              storeKey={link.key as TipLinkStoreKey}
+                            />
+                            <span className="truncate text-white/80">
+                              {link.label}
+                            </span>
+                          </span>
+                          <span className="text-primary shrink-0 text-xs">
+                            {link.verb}
+                          </span>
+                        </a>
+                      ) : (
+                        <a
+                          key={`${link.key}-${link.url}`}
+                          href={link.url!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:border-primary/50 flex items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/20 px-4 py-3 transition"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            {link.key !== "custom" ? (
+                              <TipLinkStoreIcon
+                                storeKey={link.key as TipLinkStoreKey}
+                              />
+                            ) : null}
+                            <span className="truncate text-white/80">
+                              {link.label}
+                            </span>
+                          </span>
+                          <span className="text-primary shrink-0 text-xs">
+                            {link.verb}
+                          </span>
+                        </a>
+                      )
+                    )}
+                  </div>
+                </section>
+              ) : null}
+
+              {tipLink.pitch ? (
+                <section className="bg-primary/20 mt-6 overflow-hidden rounded-2xl border border-white/10 backdrop-blur-sm">
+                  <div className="flex items-center justify-between pr-2">
+                    <h2 className="flex flex-col border-b border-white/10 px-4 py-3 tracking-wide text-white/80">
+                      <span className="text-lg font-semibold uppercase">
+                        {hostFirstName}&apos;s Pitch
+                      </span>{" "}
+                      <span className="text-xs text-white/70">
+                        @{host.username}
+                      </span>
+                    </h2>
+
+                    <a
+                      href="#tip-section"
+                      className="bg-primary inline-flex h-8 items-center justify-center rounded-md px-5 py-3 text-black"
+                    >
+                      {tipPres.sectionCtaLabel?.trim() || "Engage"}
+                    </a>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "relative w-full",
+                      tipLink.bannerAspect === "square"
+                        ? "aspect-square max-h-80"
+                        : "aspect-video"
+                    )}
+                  >
+                    <Image
+                      src={bannerSrc}
+                      alt=""
+                      fill
+                      priority
+                      sizes="(max-width: 768px) 100vw, 768px"
+                      className="object-cover"
+                      unoptimized
+                    />
+                    <div className="to-primary/15 absolute inset-0 bg-gradient-to-t from-black/85 via-black/25" />
+
+                    {event.showAmountRaisedOnVideos !== false ? (
+                      <div className="text-primary absolute right-2 bottom-0 text-sm">
+                        {event.amountToRaise > 0
+                          ? `£${liveAmountRaised.toFixed(2)} / £${event.amountToRaise.toFixed(2)} raised`
+                          : `£${liveAmountRaised.toFixed(2)} raised`}{" "}
+                        · {liveNumOfTips} tips{" "}
+                      </div>
                     ) : null}
                   </div>
-                  <ExternalLink className="ml-auto size-4 text-white/50" />
-                </Link>
-              </section>
-            ) : null}
+                  <p className="px-4 py-4 text-sm leading-relaxed font-medium text-white/95">
+                    {tipLink.pitch}
+                  </p>
+                </section>
+              ) : null}
 
-            <section className="rounded-2xl border border-white/10 p-4">
-              <p className="mb-3 text-sm text-white/60">Connect with me</p>
-              <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  href={buildCreatorProfileSharePath(host.username)}
-                  className="bg-primary/20 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
-                >
-                  <Image
-                    src="/logos/tipmanna-t.svg"
-                    alt=""
-                    width={20}
-                    height={20}
-                    className="size-5 shrink-0 rounded"
-                  />
-                  Tipmanna
-                </Link>
-                {tipLink.socials.slice(0, 2).map(social => (
-                  <a
-                    key={social.url}
-                    href={social.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={tipLinkSocialAriaLabel(social.platform)}
-                    className="inline-flex size-10 items-center justify-center rounded-full border border-white/20"
+              <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                <p className="mb-3 text-sm text-white/60">Connect with me</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href={buildCreatorProfileSharePath(host.username)}
+                    className="bg-primary/20 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
                   >
-                    <TipLinkSocialIcon platform={social.platform} />
-                  </a>
-                ))}
-              </div>
-            </section>
-          </main>
-        )}
+                    <Image
+                      src="/logos/tipmanna-t.svg"
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="size-5 shrink-0 rounded"
+                    />
+                    Tipmanna
+                  </Link>
+                  {tipLink.socials.slice(0, 2).map(social => (
+                    <a
+                      key={social.url}
+                      href={social.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={tipLinkSocialAriaLabel(social.platform)}
+                      className="inline-flex size-10 items-center justify-center rounded-full border border-white/20"
+                    >
+                      <TipLinkSocialIcon platform={social.platform} />
+                    </a>
+                  ))}
+                </div>
+              </section>
 
-        {!hidePageChrome && !isDesktopImmersive ? (
-          <footer className="border-t border-white/10 px-4 py-8 text-center">
+              {payload.featuredPlaylist ? (
+                <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="mb-2 text-sm text-white/60">
+                      Featured playlist ({payload?.featuredPlaylist ? 1 : 0})
+                    </p>
+
+                    <button
+                      onClick={() =>
+                        setShowFeaturedPlaylist(!showFeaturedPlaylist)
+                      }
+                    >
+                      {showFeaturedPlaylist ? (
+                        <ChevronUp className="size-4 text-white" />
+                      ) : (
+                        <ChevronDown className="size-4 text-white" />
+                      )}
+                    </button>
+                  </div>
+
+                  {showFeaturedPlaylist && (
+                    <Link
+                      href={`/playlist/${payload.featuredPlaylist.id}`}
+                      target="_blank"
+                      className="flex items-center gap-3 rounded-lg bg-white/5 p-3 hover:bg-white/10"
+                    >
+                      {payload.featuredPlaylist.bannerUrl ? (
+                        <Image
+                          src={payload.featuredPlaylist.bannerUrl}
+                          alt=""
+                          width={64}
+                          height={64}
+                          className="rounded-md object-cover"
+                          unoptimized
+                        />
+                      ) : null}
+                      <div>
+                        <p className="font-semibold">
+                          {payload.featuredPlaylist.name}
+                        </p>
+                        {payload.featuredPlaylist.description ? (
+                          <p className="line-clamp-2 text-sm text-white/60">
+                            {payload.featuredPlaylist.description}
+                          </p>
+                        ) : null}
+                      </div>
+                      <ExternalLink className="ml-auto size-4 text-white/50" />
+                    </Link>
+                  )}
+                </section>
+              ) : null}
+            </>
+          ) : null}
+        </main>
+
+        {/* TIPLINK PAGE FOOTER */}
+        {showStickyHeader && !isEnlargeMode ? (
+          <footer className="bg-primary/20 border-t border-white/10 px-4 py-8 text-center text-white backdrop-blur-xl">
             <p className="mb-4 text-lg font-semibold">
-              Watch · Engage · Support
+              Watch · {tipPres.sectionCtaLabel?.trim() || "Engage"} · Support
             </p>
             <Button
               variant="secondary"
-              className="mb-6 rounded-full"
+              className="mb-6 rounded-full bg-black text-white"
               onClick={handleCreateYours}
             >
               Create Yours
@@ -930,15 +1738,18 @@ export function TipLinkLandingClient({
 
         {tipDrawerMounted ? (
           <TippingElementsProvider
-            tippingCharacters={tipPres.strip as RoomCharacter[]}
+            enabled={drawerStripeEnabled}
+            tippingCharacters={drawerCatalog as RoomCharacter[]}
             textTipUnitPrice={tipPres.textUnitPrice}
           >
             <TipDrawer
               open={isTipDrawerOpen}
               onOpenChange={setIsTipDrawerOpen}
+              previewMode={preview}
+              stripeCheckout={drawerStripeEnabled}
               eventId={eventId}
-              tippingCharacters={tipPres.strip as RoomCharacter[]}
-              characterSets={baseTipSets}
+              tippingCharacters={drawerCatalog as RoomCharacter[]}
+              characterSets={resolvedDrawerSets}
               paymentSurface="tiplink"
               paymentChannelId={paymentChannelId}
               getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
@@ -963,7 +1774,14 @@ export function TipLinkLandingClient({
           amountRaised={
             event.showAmountRaisedOnVideos !== false ? liveAmountRaised : null
           }
-          tippingCharacters={tipPres.strip as RoomCharacter[]}
+          amountToRaise={
+            event.showAmountRaisedOnVideos !== false
+              ? event.amountToRaise
+              : null
+          }
+          showViewCount={event.showViewCountOnVideos === true}
+          showEncounterCount={event.showEncounterOnVideos === true}
+          tippingCharacters={displayStrip as RoomCharacter[]}
           onContinueToTip={() => setIsTipDrawerOpen(true)}
           hostName={host.fullName}
           hostUsername={host.username}
@@ -984,13 +1802,42 @@ export function TipLinkLandingClient({
           setIsProfileDrawerOpen={setIsProfileDrawerOpen}
         />
 
-        {showDescription && channel.description ? (
-          <div className="fixed inset-0 z-[300] flex items-end bg-black/60 sm:items-center sm:justify-center">
-            <div className="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 sm:max-w-lg sm:rounded-2xl">
-              <h2 className="mb-3 text-lg font-semibold">{channel.title}</h2>
-              <p className="text-sm whitespace-pre-wrap text-white/80">
-                {channel.description}
-              </p>
+        {showDescription ? (
+          <div
+            className={cn(
+              "fixed inset-0 flex items-end bg-black/60 sm:items-center sm:justify-center",
+              DRAWER_OVERLAY_Z_INDEX
+            )}
+          >
+            <div
+              className={cn(
+                "max-h-[80vh] w-full space-y-2 overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 sm:max-w-lg sm:rounded-2xl",
+                DRAWER_Z_INDEX
+              )}
+            >
+              <h2 className="text-lg font-semibold">{channel.title}</h2>
+              {channel.description ? (
+                <p className="text-sm whitespace-pre-wrap text-white/80">
+                  {channel.description}
+                </p>
+              ) : null}
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Subscribe to this creator</span>{" "}
+                  <SaveHostToggleButton
+                    hostId={host.id}
+                    className="rounded-md border border-white/20 px-3 py-1.5 text-xs sm:text-sm"
+                    onRequireSignIn={openSaveHostSignIn}
+                    signInCompletedToken={saveHostSignInToken}
+                  />
+                </div>
+
+                <p className="text-xs text-white/40">
+                  Seen: {displayMetrics.encounters}
+                </p>
+              </div>
+
               <Button
                 className="mt-4 w-full"
                 onClick={() => setShowDescription(false)}
@@ -1003,16 +1850,40 @@ export function TipLinkLandingClient({
 
         <SignInDialog
           open={signInOpen}
-          onOpenChange={setSignInOpen}
-          title="Sign in to continue"
-          defaultUserType="host"
+          onOpenChange={open => {
+            setSignInOpen(open);
+            if (!open) {
+              pendingSaveVideoRef.current = false;
+              pendingSaveHostRef.current = false;
+            }
+          }}
+          title={
+            signInPurpose === "saveVideo"
+              ? "Sign in to save videos"
+              : signInPurpose === "saveHost"
+                ? "Sign in to save hosts"
+                : "Sign in to continue"
+          }
+          defaultUserType={signInPurpose === "create" ? "host" : "tipper"}
           allowInlineSignUp
           closeOnSuccess={false}
           showSignedInNotice={false}
           returnTo={pendingCreateHref ?? "/content-only"}
-          signupSurface="create_dialog"
+          signupSurface={
+            signInPurpose === "create" ? "create_dialog" : "tiplink"
+          }
           onSuccess={() => {
             setSignInOpen(false);
+            if (pendingSaveVideoRef.current) {
+              pendingSaveVideoRef.current = false;
+              void handleSave();
+              return;
+            }
+            if (pendingSaveHostRef.current) {
+              pendingSaveHostRef.current = false;
+              setSaveHostSignInToken(token => token + 1);
+              return;
+            }
             const resume = resolveCreateDialogSignInSuccess({
               intent: "type-picker-proceed",
               href: pendingCreateHref ?? "/content-only",
@@ -1025,24 +1896,6 @@ export function TipLinkLandingClient({
           }}
         />
       </div>
-
-      {isDesktopImmersive && !isMobile ? (
-        <div className={immersiveFullViewViewportClassName("channel")}>
-          <ImmersiveMediaTopBar
-            onClose={exitImmersive}
-            title={channel.title}
-          />
-          <div
-            className={cn(
-              immersiveMainRowClassName(false, false, "landscape_video"),
-              "min-h-0 flex-1"
-            )}
-          >
-            {playerStage}
-            {renderScrubber("immersive")}
-          </div>
-        </div>
-      ) : null}
     </>
   );
 }

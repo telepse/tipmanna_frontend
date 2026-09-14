@@ -9,10 +9,7 @@ import {
 } from "@/actions/events";
 import { getMessagesByEventAction } from "@/actions/messages";
 import { EventRoomClient } from "@/components/events/event-room-client";
-import {
-  EventRoomAccessGate,
-  PrivateEventRoomBlocked,
-} from "@/components/events/event-room-access-gate";
+import { EventRoomAccessGate } from "@/components/events/event-room-access-gate";
 import { getEventRoomAccessAction } from "@/actions/events";
 import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { getToken } from "@/lib/getToken";
@@ -22,6 +19,7 @@ import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { resolveRoomOgImage } from "@/lib/room-og-image";
 import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
+import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -55,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           allowed?: boolean;
         })
       : null;
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
+  if (isEventRoomAccessDenied(access ?? undefined)) {
     return { title: "Private event room" };
   }
 
@@ -137,8 +135,8 @@ export default async function EventRoomPage({ params }: Props) {
         })
       : null;
 
-  if (access?.accessMode === "invite_only" && access.allowed === false) {
-    return <PrivateEventRoomBlocked />;
+  if (isEventRoomAccessDenied(access ?? undefined)) {
+    return <EventRoomAccessGate eventId={trimmedId} />;
   }
 
   const token = await getToken();
@@ -273,7 +271,16 @@ export default async function EventRoomPage({ params }: Props) {
         />
       ) : null}
       <ClientErrorBoundary>
-        <EventRoomAccessGate eventId={eventId}>
+        <EventRoomAccessGate
+          eventId={eventId}
+          eventName={eventName}
+          isEventOver={
+            eventDate
+              ? new Date(`${eventDate}T${endTime ?? "23:59"}`).getTime() <
+                Date.now()
+              : false
+          }
+        >
           <EventRoomClient
             eventId={eventId}
             eventName={eventName}

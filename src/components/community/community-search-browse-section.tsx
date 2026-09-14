@@ -1,9 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 
 import {
   getCommunityExploreCatalogAction,
@@ -22,9 +21,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 import { cn } from "@/lib/utils";
+import type { RootState } from "@/redux/store";
 import { useMediaQuery } from "react-responsive";
 
 type SearchRow = {
@@ -52,7 +56,6 @@ function formatCommunityDate(iso?: string | null): string {
 
 type Props = {
   isAuthenticated: boolean;
-  onJoinSignInRequired: (communityId: string) => void;
   className?: string;
   /** Hide the intro line under the search label (compact join panel). */
   compact?: boolean;
@@ -60,11 +63,28 @@ type Props = {
 
 export function CommunitySearchBrowseSection({
   isAuthenticated,
-  onJoinSignInRequired,
   className,
   compact = false,
 }: Props) {
-  const router = useRouter();
+  const authFromStore = useSelector((s: RootState) => s.auth.isAuthenticated);
+  const signedIn = isAuthenticated || authFromStore;
+
+  const {
+    joinCommunityId,
+    joinModalOpen,
+    closeJoinModal,
+    openJoin,
+    openCommunity,
+    signInOpen,
+    setSignInOpen,
+    signInReturnTo,
+    onSignInVerified,
+    signInTitle,
+    signupSurface,
+  } = useCommunityJoinFlow({
+    signupSurface: "community_join",
+    signInTitle: "Sign in to join this community",
+  });
   const [searchQ, setSearchQ] = useState("");
   const [searchResults, setSearchResults] = useState<SearchRow[]>([]);
   const [searchBusy, setSearchBusy] = useState(false);
@@ -170,21 +190,28 @@ export function CommunitySearchBrowseSection({
     ? "…"
     : String(catalog?.total ?? 0);
 
-  const handleJoinClick = useCallback(
-    (communityId: string) => {
-      if (!isAuthenticated) {
-        onJoinSignInRequired(communityId);
-        return;
-      }
-      router.push(exploreCommunityJoinHref(communityId));
-    },
-    [isAuthenticated, onJoinSignInRequired, router]
-  );
-
   const isMobile = useMediaQuery({ query: "(max-width: 768px)" });
 
   return (
     <>
+      <TipperEmailOtpSignInDialog
+        open={signInOpen}
+        onOpenChange={setSignInOpen}
+        signInTitle={signInTitle}
+        signupSurface={signupSurface}
+        getRedirectPathAfterVerify={() => signInReturnTo}
+        onVerified={onSignInVerified}
+      />
+      {joinCommunityId ? (
+        <JoinCommunityModal
+          open={joinModalOpen}
+          onOpenChange={open => {
+            if (!open) closeJoinModal();
+          }}
+          communityId={joinCommunityId}
+          signInRedirectPath={exploreCommunityJoinHref(joinCommunityId)}
+        />
+      ) : null}
       <section className={cn("space-y-3", className)}>
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-semibold">Communities</h1>
@@ -310,25 +337,17 @@ export function CommunitySearchBrowseSection({
                         </p>
 
                         <div className="flex shrink-0 gap-2">
-                          {c.viewer?.joined ? (
-                            <Button
-                              asChild
-                              size="sm"
-                              variant="outline"
-                            >
-                              <Link href={exploreCommunityJoinHref(c.id)}>
-                                Details
-                              </Link>
-                            </Button>
-                          ) : !isTipmannaPublic ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => handleJoinClick(c.id)}
-                            >
-                              Join
-                            </Button>
+                          {!isTipmannaPublic ? (
+                            <CommunityJoinOpenControls
+                              communityId={c.id}
+                              joined={Boolean(c.viewer?.joined)}
+                              isAuthenticated={signedIn}
+                              onJoin={openJoin}
+                              onOpen={openCommunity}
+                              joinLabel={
+                                c.viewer?.joined ? "Details" : undefined
+                              }
+                            />
                           ) : null}
                         </div>
                       </div>
@@ -388,17 +407,19 @@ export function CommunitySearchBrowseSection({
                         Member
                       </span>
                     ) : !isTipmannaSystemCommunity(c.id, c.name, c.isSystem) ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
+                      <CommunityJoinOpenControls
+                        communityId={c.id}
+                        joined={false}
+                        isAuthenticated={signedIn}
+                        onJoin={id => {
                           setCatalogOpen(false);
-                          handleJoinClick(c.id);
+                          openJoin(id);
                         }}
-                      >
-                        Join
-                      </Button>
+                        onOpen={id => {
+                          setCatalogOpen(false);
+                          openCommunity(id);
+                        }}
+                      />
                     ) : null}
                   </div>
                 </li>

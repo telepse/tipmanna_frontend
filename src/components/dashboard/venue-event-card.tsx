@@ -300,6 +300,7 @@ export function VenueEventCard({
         sessions={sessions}
         activeSession={activeSession}
         refetchSessions={fetchSessions}
+        initialAmountToRaise={amountToRaise}
       />
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import OTPInput from "react-otp-input";
 import { useMediaQuery } from "react-responsive";
 
@@ -1192,7 +1193,7 @@ export const SigninForm = ({
                           />
                         </FormControl>
                         <FormLabel className="leading-snug font-normal">
-                          I agree to the terms and privacy policy
+                          <TermsPrivacyLabel />
                         </FormLabel>
                       </FormItem>
                     )}
@@ -1496,7 +1497,7 @@ export const SigninForm = ({
                       size="sm"
                       className="text-sm font-normal"
                     >
-                      I agree to the Terms and Privacy Policy
+                      <TermsPrivacyLabel />
                     </Paragraph>
                   </div>
                 ) : null}

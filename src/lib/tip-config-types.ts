@@ -23,6 +23,15 @@ export type TipConfigPayload = {
   textCharacter: TipConfigTextBlock;
   sectionItems: TipConfigItem[];
   drawerItems: TipConfigItem[];
+  eliteCharacterIds?: string[];
+};
+
+export type TipConfigEliteCharacter = {
+  id: string;
+  name: string;
+  iconUrl: string;
+  price: number;
+  styleName?: string | null;
 };
 
 export type ActiveTipConfigResponse =
@@ -33,4 +42,5 @@ export type ActiveTipConfigResponse =
       etag: string;
       reviewNeeded: boolean;
       config: TipConfigPayload;
+      eliteCharacters?: TipConfigEliteCharacter[];
     };

@@ -202,10 +202,7 @@ export default function TVPageClientWrapper({
   const {
     tippingCharacters: tippingCharactersForDrawer,
     characterSets: characterSetsForDrawer,
-  } = useTvEventTipCatalog(
-    playingVideoKey ? tipDrawerEventId : "",
-    characters as unknown as RoomCharacter[]
-  );
+  } = useTvEventTipCatalog(playingVideoKey ? tipDrawerEventId : "");
 
   useEffect(() => {
     if (!items.length || !tipDrawerEventId) return;

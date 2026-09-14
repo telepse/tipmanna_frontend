@@ -62,9 +62,10 @@ import {
   isYoutubeIframeApiReady,
 } from "@/lib/youtube-iframe-api-loader";
 import {
-  bumpTvCommandGeneration,
-  isStaleTvCommandGeneration,
-} from "@/lib/tv-playback-session";
+  shouldAcceptTvPlayerYtCallback,
+  shouldReplaceTvYtPlayer,
+  shouldReuseExistingTvYtPlayer,
+} from "@/lib/tv-player-resume";
 
 const PROGRAMMATIC_SUPPRESS_MS = 450;
 
@@ -204,6 +205,11 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const playerIdRef = useRef(
       `tv-yt-${startupGeneration}-${Math.random().toString(36).slice(2, 9)}`
     );
+    const callbackEpochRef = useRef(0);
+    const onReadyNotifiedEpochRef = useRef(-1);
+    const constructedKeyRef = useRef<string | null>(null);
+    const startupGenerationRef = useRef(startupGeneration);
+    startupGenerationRef.current = startupGeneration;
 
     const [youtubeChildReleased, setYoutubeChildReleased] = useState(() => {
       if (!isTvEarlyYoutubeApiWarmupEnabled()) return true;
@@ -215,10 +221,6 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     const containFillRef = useRef(containFill);
     containFillRef.current = containFill;
     const fillStage = cover || containFill || miniPlayerActive;
-
-    useEffect(() => {
-      playerIdRef.current = `tv-yt-${startupGeneration}-${Math.random().toString(36).slice(2, 9)}`;
-    }, [startupGeneration]);
 
     useEffect(() => {
       if (!isTvEarlyYoutubeApiWarmupEnabled()) return;
@@ -316,7 +318,7 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     }, []);
 
     const getReady = useCallback(
-      () => isYoutubePlayerCommandReady(readyRef.current, playerRef.current),
+      () => isYoutubePlayerCommandReady(playerRef.current),
       []
     );
 
@@ -395,7 +397,12 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
       []
     );
 
+    const allocatePlayerId = useCallback((generation: number) => {
+      playerIdRef.current = `tv-yt-${generation}-${Math.random().toString(36).slice(2, 9)}`;
+    }, []);
+
     const teardownImperativeMount = useCallback(() => {
+      callbackEpochRef.current += 1;
       readyRef.current = false;
       const p = playerRef.current;
       playerRef.current = null;
@@ -430,7 +437,27 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
     useEffect(() => {
       if (!youtubeChildReleased || !youtubeVideoId) return;
 
-      const constructGen = bumpTvCommandGeneration();
+      const constructKey = `${startupGeneration}:${youtubeVideoId}`;
+      const reuse = shouldReuseExistingTvYtPlayer({
+        hasPlayer: !!playerRef.current,
+        constructKey,
+        constructedKey: constructedKeyRef.current,
+      });
+
+      if (
+        !reuse &&
+        shouldReplaceTvYtPlayer({
+          hasPlayer: !!playerRef.current,
+          constructKey,
+          constructedKey: constructedKeyRef.current,
+        })
+      ) {
+        teardownImperativeMount();
+        allocatePlayerId(startupGeneration);
+      }
+
+      constructedKeyRef.current = constructKey;
+
       let alive = true;
       let raf = 0;
       let offReady: (() => void) | undefined;
@@ -440,6 +467,14 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         if (!alive || !w?.YT?.Player) return;
         if (playerRef.current) return;
         if (!ensureImperativeMount()) return;
+
+        const constructEpoch = callbackEpochRef.current;
+
+        const notifyProviderReadyOnce = () => {
+          if (onReadyNotifiedEpochRef.current === constructEpoch) return;
+          onReadyNotifiedEpochRef.current = constructEpoch;
+          onReadyRef.current?.();
+        };
 
         const playerVars = getYoutubePlayerVarsChromeless({
           autoplay: autoplayRef.current,
@@ -458,11 +493,16 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
             playerVars,
             events: {
               onReady: (event: { target: YtPlayerLike }) => {
-                if (isStaleTvCommandGeneration(constructGen)) return;
+                if (
+                  !shouldAcceptTvPlayerYtCallback(
+                    constructEpoch,
+                    callbackEpochRef.current
+                  )
+                ) {
+                  return;
+                }
                 const target = event.target;
                 playerRef.current = target;
-                readyRef.current = true;
-                applyIframePresentationToTarget(target);
 
                 if (pendingLoadRef.current) {
                   const { videoId: vid, start } = pendingLoadRef.current;
@@ -500,8 +540,9 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                   playerReady: true,
                   playerState: "READY",
                 });
+                const gen = startupGenerationRef.current;
                 ensureApiObjectDetectedAtReady({
-                  startupGeneration,
+                  startupGeneration: gen,
                   traceId: getTvStartupTraceId(),
                 });
                 tvStartupEvent("player_ready", {
@@ -516,17 +557,28 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                   enableLiveOffsetEmbedRef.current &&
                   onInitialEmbedConfirmedRef.current
                 ) {
-                  onInitialEmbedConfirmedRef.current({ startupGeneration });
+                  onInitialEmbedConfirmedRef.current({
+                    startupGeneration: gen,
+                  });
                 }
 
+                notifyProviderReadyOnce();
+                readyRef.current = true;
+                applyIframePresentationToTarget(target);
                 syncMuteFromPlayer(target);
-                onReadyRef.current?.();
               },
               onStateChange: (event: {
                 data: number;
                 target: YtPlayerLike;
               }) => {
-                if (isStaleTvCommandGeneration(constructGen)) return;
+                if (
+                  !shouldAcceptTvPlayerYtCallback(
+                    constructEpoch,
+                    callbackEpochRef.current
+                  )
+                ) {
+                  return;
+                }
                 const target = event.target;
                 const state = event.data;
 
@@ -585,10 +637,30 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
                 if (state === 0) onEndRef.current?.();
               },
               onError: (event: { data: number }) => {
-                if (isStaleTvCommandGeneration(constructGen)) return;
+                if (
+                  !shouldAcceptTvPlayerYtCallback(
+                    constructEpoch,
+                    callbackEpochRef.current
+                  )
+                ) {
+                  return;
+                }
                 onPlayerErrorRef.current?.(event.data);
               },
             },
+          });
+          queueMicrotask(() => {
+            if (
+              !shouldAcceptTvPlayerYtCallback(
+                constructEpoch,
+                callbackEpochRef.current
+              )
+            ) {
+              return;
+            }
+            const p = playerRef.current;
+            if (!isYoutubePlayerCommandReady(p)) return;
+            notifyProviderReadyOnce();
           });
         } catch (err) {
           tvTrace("playback", "yt_player_construct_failed", {
@@ -602,7 +674,9 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         raf = requestAnimationFrame(createPlayer);
       };
 
-      if (getYtWindow()?.YT?.Player) {
+      if (reuse) {
+        /* keep existing YT.Player across construct-effect re-runs */
+      } else if (getYtWindow()?.YT?.Player) {
         init();
       } else {
         offReady = onYoutubeIframeApiReady(init);
@@ -612,18 +686,24 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
         alive = false;
         cancelAnimationFrame(raf);
         offReady?.();
-        teardownImperativeMount();
       };
     }, [
       youtubeChildReleased,
       youtubeVideoId,
       startupGeneration,
+      allocatePlayerId,
       ensureImperativeMount,
       teardownImperativeMount,
       applyIframePresentationToTarget,
       syncMuteFromPlayer,
       maybeNotifyVideoAspectOnce,
     ]);
+
+    useEffect(() => {
+      return () => {
+        teardownImperativeMount();
+      };
+    }, [teardownImperativeMount]);
 
     useEffect(() => {
       tvStartupEvent("player_component_mounted", {
@@ -817,9 +897,15 @@ const TvPlayer = forwardRef<TvPlayerRef, Props>(
 
     useLayoutEffect(() => {
       const p = playerRef.current;
-      if (!p || !readyRef.current) return;
+      if (!p || !getReady()) return;
       applyIframePresentationToTarget(p);
-    }, [cover, containFill, youtubeVideoId, applyIframePresentationToTarget]);
+    }, [
+      cover,
+      containFill,
+      youtubeVideoId,
+      applyIframePresentationToTarget,
+      getReady,
+    ]);
 
     return (
       <div

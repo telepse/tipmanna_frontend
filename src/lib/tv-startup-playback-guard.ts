@@ -334,6 +334,7 @@ const DUPLICATE_LOAD_EXEMPT_REASONS = new Set([
   "error_reload",
   "enforcement",
   "loadLocal",
+  "tab_snapshot_restore",
 ]);
 
 export function shouldSuppressDuplicatePrePlayLoad(

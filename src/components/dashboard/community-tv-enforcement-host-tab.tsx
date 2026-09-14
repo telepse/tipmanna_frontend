@@ -66,8 +66,22 @@ export function CommunityTvEnforcementHostTab({
       faultReason?: string | null;
       tvPlayable?: boolean;
       globallyBanned?: boolean;
+      bannedSurfaces?: string[];
+      superadminLocked?: boolean;
     }[]
   >([]);
+
+  const surfaceLabelByValue = useMemo(
+    () =>
+      new Map<string, string>([
+        ["tv", "TV"],
+        ["explore", "Explore"],
+        ["discover", "Discover"],
+        ["internal_search", "Internal search"],
+        ["external_search", "External search"],
+      ]),
+    []
+  );
   const [busy, setBusy] = useState(false);
   const [bannerDrafts, setBannerDrafts] = useState<Record<string, string>>({});
   const [bannerSavingId, setBannerSavingId] = useState<string | null>(null);
@@ -271,6 +285,15 @@ export function CommunityTvEnforcementHostTab({
                 <span>
                   {c.title}
                   {c.eventName ? ` — ${c.eventName}` : ""}
+                  {c.bannedSurfaces?.length ? (
+                    <span className="ml-1 text-xs text-amber-600">
+                      [banned:{" "}
+                      {c.bannedSurfaces
+                        .map(s => surfaceLabelByValue.get(s) ?? s)
+                        .join(", ")}
+                      {c.superadminLocked ? " · locked" : ""}]
+                    </span>
+                  ) : null}
                   {c.tvPlayable === false || c.globallyBanned ? (
                     <span className="ml-1 text-xs text-amber-600">
                       [{c.tvPlayable === false ? "not playable" : null}

@@ -1,14 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
-import { Button } from "@/components/ui/button";
+import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -18,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import type { RootState } from "@/redux/store";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
@@ -63,34 +63,26 @@ export function ExploreCommunityPickerMenu({
   catalogLoading,
   onBrowseAllAz,
 }: Props) {
-  const router = useRouter();
   const { isAuthenticated } = useSelector((s: RootState) => s.auth);
-  const [signInOpen, setSignInOpen] = useState(false);
-  const [signInReturnTo, setSignInReturnTo] = useState(
-    "/explore?tab=my-communities"
-  );
   const [browseAzOpen, setBrowseAzOpen] = useState(false);
   const [catalogFilter, setCatalogFilter] = useState("");
 
-  const openJoinSignIn = useCallback((communityId: string) => {
-    setSignInReturnTo(exploreCommunityJoinHref(communityId));
-    setSignInOpen(true);
-  }, []);
-
-  const handleJoinCommunity = useCallback(
-    (community: CommunityExploreCatalogRow) => {
-      if (community.viewer?.joined) {
-        router.push(exploreCommunityJoinHref(community.id));
-        return;
-      }
-      if (!isAuthenticated) {
-        openJoinSignIn(community.id);
-        return;
-      }
-      router.push(exploreCommunityJoinHref(community.id));
-    },
-    [isAuthenticated, openJoinSignIn, router]
-  );
+  const {
+    joinCommunityId,
+    joinModalOpen,
+    closeJoinModal,
+    openJoin,
+    openCommunity,
+    signInOpen,
+    setSignInOpen,
+    signInReturnTo,
+    onSignInVerified,
+    signInTitle,
+    signupSurface,
+  } = useCommunityJoinFlow({
+    signupSurface: "community_picker",
+    signInTitle: "Sign in to join this community",
+  });
 
   const filteredAlphabetical = useMemo(() => {
     const q = catalogFilter.trim().toLowerCase();
@@ -110,16 +102,49 @@ export function ExploreCommunityPickerMenu({
     c => !isTipmannaSystemCommunity(c.id, c.name, c.isSystem)
   );
 
+  const renderCommunityRow = useCallback(
+    (c: CommunityExploreCatalogRow) => (
+      <div className="flex items-center justify-between gap-2 rounded-md border bg-white px-2 py-1.5">
+        <button
+          type="button"
+          className="hover:bg-accent min-w-0 flex-1 rounded-md px-1 py-0.5 text-left transition-colors"
+          onClick={() => openCommunity(c.id)}
+        >
+          <p className="truncate text-xs font-medium">{c.name}</p>
+          <CommunityStatsLine community={c} />
+        </button>
+        <CommunityJoinOpenControls
+          communityId={c.id}
+          joined={Boolean(c.viewer?.joined)}
+          isAuthenticated={isAuthenticated}
+          onJoin={openJoin}
+          onOpen={openCommunity}
+        />
+      </div>
+    ),
+    [isAuthenticated, openCommunity, openJoin]
+  );
+
   return (
     <>
       <TipperEmailOtpSignInDialog
         open={signInOpen}
         onOpenChange={setSignInOpen}
-        signInTitle="Sign in to join this community"
-        signupSurface="community_picker"
+        signInTitle={signInTitle}
+        signupSurface={signupSurface}
         getRedirectPathAfterVerify={() => signInReturnTo}
-        onVerified={() => router.push(signInReturnTo)}
+        onVerified={onSignInVerified}
       />
+      {joinCommunityId ? (
+        <JoinCommunityModal
+          open={joinModalOpen}
+          onOpenChange={open => {
+            if (!open) closeJoinModal();
+          }}
+          communityId={joinCommunityId}
+          signInRedirectPath={exploreCommunityJoinHref(joinCommunityId)}
+        />
+      ) : null}
 
       <DropdownMenuContent
         className="z-[12550] mr-4 max-h-[min(72dvh,28rem)] w-[min(100vw-4rem,28rem)] overflow-y-auto p-0"
@@ -187,45 +212,16 @@ export function ExploreCommunityPickerMenu({
             ) : null}
 
             {featuredCommunities.length > 0 ? (
-              <>
-                <ul className="space-y-2">
-                  {featuredCommunities.map(c => (
-                    <li key={c.id}>
-                      <div className="flex items-center justify-between gap-2 rounded-md border bg-white px-2 py-1.5">
-                        <Link
-                          href={exploreCommunityJoinHref(c.id)}
-                          className="hover:bg-accent min-w-0 flex-1 rounded-md px-1 py-0.5 transition-colors"
-                        >
-                          <p className="truncate text-xs font-medium">
-                            {c.name}
-                          </p>
-                          <CommunityStatsLine community={c} />
-                        </Link>
-
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={c.viewer?.joined ? "outline" : "secondary"}
-                          className="h-7 shrink-0 px-2 text-[11px]"
-                          onClick={e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleJoinCommunity(c);
-                          }}
-                        >
-                          {c.viewer?.joined ? "Open" : "Join"}
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
+              <ul className="space-y-2">
+                {featuredCommunities.map(c => (
+                  <li key={c.id}>{renderCommunityRow(c)}</li>
+                ))}
+              </ul>
             ) : null}
           </div>
         </div>
 
         <div className="space-y-2 py-2">
-          {" "}
           <div className="bg-secondary flex items-center justify-between gap-2 px-4 py-2">
             <h5 className="text-xs font-bold">
               Explore new communities (
@@ -269,51 +265,7 @@ export function ExploreCommunityPickerMenu({
                           key={c.id}
                           className="px-3 py-2"
                         >
-                          <Link
-                            href={exploreCommunityJoinHref(c.id)}
-                            className="block flex min-w-0 items-center justify-between"
-                          >
-                            <div className="flex min-w-0 items-start gap-2">
-                              {c.logoUrl ? (
-                                <div className="relative size-8 shrink-0 overflow-hidden rounded-md">
-                                  <Image
-                                    src={c.logoUrl}
-                                    alt=""
-                                    fill
-                                    className="object-cover"
-                                    sizes="32px"
-                                  />
-                                </div>
-                              ) : null}
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-medium">
-                                  {c.name}
-                                </p>
-                                {c.description ? (
-                                  <p className="text-muted-foreground line-clamp-2 text-[10px]">
-                                    {c.description}
-                                  </p>
-                                ) : null}
-                                <CommunityStatsLine community={c} />
-                              </div>
-                            </div>
-
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={
-                                c.viewer?.joined ? "outline" : "secondary"
-                              }
-                              className="h-7 shrink-0 px-2 text-[11px]"
-                              onClick={e => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleJoinCommunity(c);
-                              }}
-                            >
-                              {c.viewer?.joined ? "Open" : "Join"}
-                            </Button>
-                          </Link>
+                          {renderCommunityRow(c)}
                         </li>
                       ))}
                     </ul>
@@ -324,7 +276,7 @@ export function ExploreCommunityPickerMenu({
               <p className="text-muted-foreground mt-2 text-[10px] leading-snug">
                 Open Browse A–Z to scroll the full community directory.
               </p>
-            )}{" "}
+            )}
           </div>
         </div>
       </DropdownMenuContent>

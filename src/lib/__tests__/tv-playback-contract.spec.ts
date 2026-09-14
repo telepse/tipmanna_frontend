@@ -104,3 +104,83 @@ describe("TV playback contract — requestPlayback must not gesture-play after l
     expect(tvProviderSource).not.toContain("requestPlayback.skip_reload_play");
   });
 });
+
+describe("TV playback contract — leave/return player lifecycle", () => {
+  const tvPlayerSource = readFileSync(
+    join(frontendRoot, "src/components/tv/tv-player.tsx"),
+    "utf8"
+  );
+
+  it("does not reject onReady with module-level commandGeneration", () => {
+    expect(tvPlayerSource).not.toContain("bumpTvCommandGeneration");
+    expect(tvPlayerSource).not.toContain("isStaleTvCommandGeneration");
+  });
+
+  it("destroys the YT player on unmount, not in construct-effect cleanup", () => {
+    expect(tvPlayerSource).toContain("shouldAcceptTvPlayerYtCallback");
+    expect(tvPlayerSource).toContain("callbackEpochRef");
+    expect(tvPlayerSource).toContain("shouldReuseExistingTvYtPlayer");
+    const constructCleanup = tvPlayerSource.match(
+      /return \(\) => \{\s*alive = false;[\s\S]*?\};\s*\}, \[\s*youtubeChildReleased/
+    );
+    expect(constructCleanup).toBeTruthy();
+    expect(constructCleanup![0]).not.toContain("teardownImperativeMount");
+    expect(constructCleanup![0]).not.toContain("clearWatchdog");
+    expect(tvPlayerSource).toMatch(
+      /useEffect\(\(\) => \{\s*return \(\) => \{\s*teardownImperativeMount\(\);/
+    );
+    expect(tvPlayerSource).not.toContain("destroyedRef");
+  });
+
+  it("isReady uses playback API only (isYoutubePlayerCommandReady)", () => {
+    expect(tvPlayerSource).toContain(
+      "isYoutubePlayerCommandReady(playerRef.current)"
+    );
+  });
+
+  it("remount bumps embed generation without nulling playerRef while mounted", () => {
+    expect(tvProviderSource).toMatch(
+      /const remountPlayerForResume = useCallback\(\(reason: string\) => \{[\s\S]*?setStartupEmbedGeneration\(startupGenerationRef\.current\);[\s\S]*?\}, \[\]\);/
+    );
+    const remountBody = tvProviderSource.match(
+      /const remountPlayerForResume = useCallback\([\s\S]*?\}, \[\]\);/
+    )?.[0];
+    expect(remountBody).toBeTruthy();
+    expect(remountBody!).not.toContain("playerRef.current = null");
+  });
+
+  it("applyPendingAudioRestore re-applies mute when session pref is muted", () => {
+    const autoplaySource = readFileSync(
+      join(frontendRoot, "src/lib/tv-autoplay.ts"),
+      "utf8"
+    );
+    expect(autoplaySource).toContain("session_mute_reapplied");
+    expect(autoplaySource).toMatch(
+      /if \(pending\.restoreUnmuted && hasSessionAudioUnlocked\(\)\)/
+    );
+  });
+
+  it("firstPlayReached is marked on PLAYING without C0 env gate", () => {
+    expect(tvProviderSource).toMatch(
+      /const firstPlayThisEvent = markStartupFirstPlay\(guard\);/
+    );
+    expect(tvProviderSource).toMatch(
+      /if \(guardEnabled && firstPlayThisEvent\)/
+    );
+  });
+
+  it("loopers key TvPlayer by startupEmbedGeneration for ref rebind", () => {
+    const tvLooperSource = readFileSync(
+      join(frontendRoot, "src/components/tv/tv-looper.tsx"),
+      "utf8"
+    );
+    const homeLooperSource = readFileSync(
+      join(frontendRoot, "src/components/tv/home-tv-looper.tsx"),
+      "utf8"
+    );
+    expect(tvLooperSource).toContain("key={`tv-yt-${startupEmbedGeneration}`}");
+    expect(homeLooperSource).toContain(
+      "key={`tv-yt-${startupEmbedGeneration}`}"
+    );
+  });
+});

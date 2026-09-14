@@ -23,14 +23,24 @@ export function shouldApplyTipConfigFetch(
   return requestId === latestRequestId;
 }
 
-export function useTipConfig(eventId: string | undefined): TipConfigHookState {
-  const [state, setState] = useState<TipConfigHookState>(() =>
-    !eventId || !isTipCustomizationEnabled()
-      ? { status: "disabled" }
-      : { status: "loading" }
+export function useTipConfig(
+  eventId: string | undefined,
+  opts?: { initial?: ActiveTipConfigResponse | null }
+): TipConfigHookState {
+  const [state, setState] = useState<TipConfigHookState>(() => {
+    if (!eventId || !isTipCustomizationEnabled()) {
+      return { status: "disabled" };
+    }
+    if (opts?.initial) {
+      return { status: "ready", ...opts.initial };
+    }
+    return { status: "loading" };
+  });
+  const etagRef = useRef<string | null>(
+    opts?.initial && opts.initial.mode === "live" ? opts.initial.etag : null
   );
-  const etagRef = useRef<string | null>(null);
   const fetchGenerationRef = useRef(0);
+  const hasInitialRef = useRef(Boolean(opts?.initial));
 
   const fetchConfig = useCallback(
     async (requestId: number) => {
@@ -69,6 +79,10 @@ export function useTipConfig(eventId: string | undefined): TipConfigHookState {
   useEffect(() => {
     if (!eventId || !isTipCustomizationEnabled()) {
       setState({ status: "disabled" });
+      return;
+    }
+    if (hasInitialRef.current) {
+      hasInitialRef.current = false;
       return;
     }
     const requestId = ++fetchGenerationRef.current;

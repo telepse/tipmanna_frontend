@@ -999,3 +999,175 @@ video::-webkit-media-controls-fullscreen-button,
 video::-webkit-media-controls-picture-in-picture-button {
   display: none !important;
 }
+
+/* TipLink landing: orange-on-black with subtle galaxy field */
+.tiplink-landing-bg {
+  background:
+    radial-gradient(
+      circle at 8% 22%,
+      rgba(245, 125, 17, 0.18) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      circle at 92% 68%,
+      rgba(120, 80, 200, 0.14) 0%,
+      transparent 44%
+    ),
+    radial-gradient(
+      circle at 62% 38%,
+      rgba(180, 120, 255, 0.06) 0%,
+      transparent 36%
+    ),
+    radial-gradient(
+      ellipse 90% 55% at 50% -8%,
+      rgba(245, 125, 17, 0.2),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 70% 45% at 100% 100%,
+      rgba(245, 125, 17, 0.12),
+      transparent 52%
+    ),
+    radial-gradient(
+      ellipse 50% 35% at 0% 85%,
+      rgba(90, 60, 160, 0.1),
+      transparent 48%
+    ),
+    linear-gradient(180deg, #1a1008 0%, #0a0a0a 42%, #000 100%);
+}
+
+.tiplink-galaxy-shell {
+  isolation: isolate;
+}
+
+.tiplink-galaxy-shell::before,
+.tiplink-galaxy-shell::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+.tiplink-galaxy-shell::before {
+  background-image:
+    radial-gradient(1px 1px at 6% 14%, rgba(255, 255, 255, 0.42), transparent),
+    radial-gradient(1px 1px at 14% 38%, rgba(255, 255, 255, 0.28), transparent),
+    radial-gradient(1px 1px at 22% 72%, rgba(255, 255, 255, 0.32), transparent),
+    radial-gradient(1px 1px at 34% 24%, rgba(255, 255, 255, 0.24), transparent),
+    radial-gradient(1px 1px at 41% 58%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 52% 11%, rgba(255, 255, 255, 0.26), transparent),
+    radial-gradient(1px 1px at 58% 82%, rgba(255, 255, 255, 0.22), transparent),
+    radial-gradient(1px 1px at 66% 44%, rgba(255, 255, 255, 0.34), transparent),
+    radial-gradient(1px 1px at 74% 19%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 81% 63%, rgba(255, 255, 255, 0.28), transparent),
+    radial-gradient(1px 1px at 88% 36%, rgba(255, 255, 255, 0.24), transparent),
+    radial-gradient(1px 1px at 93% 86%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(
+      1.5px 1.5px at 18% 52%,
+      rgba(245, 125, 17, 0.5),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 48% 28%,
+      rgba(245, 125, 17, 0.4),
+      transparent
+    ),
+    radial-gradient(
+      1.5px 1.5px at 76% 74%,
+      rgba(245, 125, 17, 0.38),
+      transparent
+    ),
+    radial-gradient(2px 2px at 36% 8%, rgba(200, 160, 255, 0.35), transparent),
+    radial-gradient(2px 2px at 62% 92%, rgba(245, 125, 17, 0.32), transparent);
+  background-size: 100% 100%;
+  opacity: 0.72;
+}
+
+.tiplink-galaxy-shell::after {
+  background:
+    radial-gradient(
+      ellipse 95% 65% at 50% 108%,
+      rgba(245, 125, 17, 0.1),
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 55% 40% at 18% 8%,
+      rgba(140, 100, 220, 0.08),
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 45% 35% at 82% 22%,
+      rgba(245, 125, 17, 0.07),
+      transparent 58%
+    );
+  opacity: 0.95;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiplink-galaxy-shell::before {
+    opacity: 0.35;
+  }
+}
+
+.tiplink-metrics-ticker-marquee {
+  overflow: hidden;
+  white-space: nowrap;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 12%,
+    black 88%,
+    transparent
+  );
+}
+
+.tiplink-metrics-ticker-track {
+  display: inline-flex;
+  width: max-content;
+  white-space: nowrap;
+  animation: tiplink-metrics-scroll 28s linear infinite;
+}
+
+.tiplink-metrics-ticker-marquee:hover .tiplink-metrics-ticker-track {
+  animation-play-state: paused;
+}
+
+.tiplink-metrics-ticker-docked-mobile {
+  padding-right: var(--tiplink-pip-pr-mobile, 108px);
+}
+
+.tiplink-metrics-ticker-docked-desktop {
+  padding-right: var(--tiplink-pip-pr-desktop, 140px);
+}
+
+@keyframes tiplink-metrics-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiplink-metrics-ticker-marquee {
+    display: none !important;
+  }
+
+  .tiplink-metrics-ticker-static {
+    display: flex !important;
+    pointer-events: auto !important;
+  }
+
+  .tiplink-metrics-ticker-track {
+    animation: none;
+  }
+}

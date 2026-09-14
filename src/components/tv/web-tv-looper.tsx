@@ -15,6 +15,9 @@ export const WebTvLooper = ({
   analyticsSurface = "tv_looper",
   onContinueCommentToTip,
   onEngage,
+  onTipFeatured,
+  sectionCtaLabel,
+  pageDrawerOpen = false,
   onRegisterExitFull,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
@@ -25,6 +28,9 @@ export const WebTvLooper = ({
   /** Defaults to tv_looper */
   analyticsSurface?: PaymentSurface;
   onEngage?: () => void;
+  onTipFeatured?: (cardId: string) => void;
+  sectionCtaLabel?: string;
+  pageDrawerOpen?: boolean;
   onRegisterExitFull?: (exitFull: (() => void) | null) => void;
   onContinueCommentToTip?: () => void;
   commentDrawerVideoTitle?: string;
@@ -37,6 +43,9 @@ export const WebTvLooper = ({
     analyticsSurface={analyticsSurface}
     onContinueCommentToTip={onContinueCommentToTip}
     onEngage={onEngage}
+    onTipFeatured={onTipFeatured}
+    sectionCtaLabel={sectionCtaLabel}
+    pageDrawerOpen={pageDrawerOpen}
     onRegisterExitFull={onRegisterExitFull}
     commentDrawerVideoTitle={commentDrawerVideoTitle}
     commentDrawerVideoDescription={commentDrawerVideoDescription}

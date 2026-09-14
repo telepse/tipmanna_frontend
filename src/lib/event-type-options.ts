@@ -26,6 +26,7 @@ export const DISCOVER_RAIL_SUBTITLES: Record<string, string> = {
   live: "Opens in the creator's event room",
   mostTipped: "Highest tip counts",
   playlists: "Curated video lists from creators",
+  events: "Approved events — opens in event room",
 };
 
 /** Extended “how this updates” copy for mobile rail help tooltips. */
@@ -40,6 +41,8 @@ export const DISCOVER_RAIL_UPDATE_HINTS: Record<string, string> = {
   live: "Updates when live status changes (live, upcoming, or recently ended).",
   mostTipped: "Real-time — sorted by highest tip counts.",
   playlists: "Updates when hosts publish new curated playlists.",
+  events:
+    "Updates when new events are approved; badges show public, restricted, or community access.",
 };
 
 export type DiscoverRailKey = keyof typeof DISCOVER_RAIL_SUBTITLES;

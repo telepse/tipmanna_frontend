@@ -23,6 +23,8 @@ export function parseHostEventsPickList(raw: unknown): HostEventPick[] {
   return [];
 }
 
+const COMMUNITY_ACTIVATION_KINDS = new Set(["event_only", "event_and_content"]);
+
 /** Events the host can still attach a new community to (no communityId yet). */
 export function parseHostEventsEligibleForCommunity(
   raw: unknown
@@ -31,6 +33,7 @@ export function parseHostEventsEligibleForCommunity(
     id: string;
     eventName: string;
     communityId?: string | null;
+    submissionKind?: string | null;
   }[] = [];
   if (Array.isArray(raw)) {
     for (const item of raw) {
@@ -38,9 +41,12 @@ export function parseHostEventsEligibleForCommunity(
         id?: string;
         eventName?: string;
         communityId?: string | null;
+        submissionKind?: string | null;
       };
       const id = String(e?.id ?? "").trim();
       if (!id || e.communityId) continue;
+      const kind = e.submissionKind?.trim() ?? "";
+      if (!COMMUNITY_ACTIVATION_KINDS.has(kind)) continue;
       rows.push({
         id,
         eventName:

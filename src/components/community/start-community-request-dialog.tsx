@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { useImageUpload } from "@/hooks/use-image-upload";
-import { uploadImage } from "@/lib/cloudinary";
+import { tryUploadImage } from "@/lib/cloudinary";
 import { COMMUNITY_TYPE_LABELS } from "@/lib/community-type-labels";
 import { getHostUserFromCookies } from "@/lib/host-session-client";
 import { normalizeEmail } from "@/lib/normalize-email";
@@ -47,14 +47,20 @@ export function StartCommunityRequestDialog({
   const userId = user?.id;
   const { canWriteAsHost, capability } = useHostCapabilityWithAuth();
 
-  const eventSlug = useMemo(() => {
-    const hostSessionSlug = getHostUserFromCookies()?.eventSlug?.trim() ?? "";
-    if (hostSessionSlug) return hostSessionSlug;
+  const hostCommunitySlug = useMemo(() => {
+    const hostSession = getHostUserFromCookies();
+    const fromCookie =
+      hostSession?.eventSlug?.trim() || hostSession?.username?.trim() || "";
+    if (fromCookie) return fromCookie;
     if (capability.status === "active") {
-      return capability.eventSlug?.trim() ?? "";
+      return capability.eventSlug?.trim() || capability.username?.trim() || "";
     }
     return "";
   }, [capability]);
+
+  const hostCommunityPath = hostCommunitySlug
+    ? manageHostCommunityHref(hostCommunitySlug)
+    : "/dashboard/host-community";
 
   const [interestName, setInterestName] = useState("");
   const [interestDesc, setInterestDesc] = useState("");
@@ -68,7 +74,7 @@ export function StartCommunityRequestDialog({
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
     null
   );
-  const redirectSlugRef = useRef("");
+  const redirectPathRef = useRef("");
 
   const {
     readableImage: interestLogoPreview,
@@ -91,12 +97,12 @@ export function StartCommunityRequestDialog({
   useEffect(() => {
     if (redirectCountdown === null) return;
     if (redirectCountdown <= 0) {
-      const slug = redirectSlugRef.current;
-      if (slug) {
-        window.open(manageHostCommunityHref(slug), "_blank", "noreferrer");
+      const path = redirectPathRef.current;
+      if (path) {
+        window.location.assign(path);
       }
       setRedirectCountdown(null);
-      redirectSlugRef.current = "";
+      redirectPathRef.current = "";
       onOpenChange(false);
       setInterestName("");
       setInterestDesc("");
@@ -118,7 +124,7 @@ export function StartCommunityRequestDialog({
     setInterestStart("");
     setInterestPhone("");
     setRedirectCountdown(null);
-    redirectSlugRef.current = "";
+    redirectPathRef.current = "";
     handleRemoveInterestLogo();
   };
 
@@ -146,8 +152,12 @@ export function StartCommunityRequestDialog({
     try {
       let logoUrl: string | null = null;
       if (interestLogoPreview?.startsWith("data:")) {
-        const uploaded = await uploadImage(interestLogoPreview);
-        logoUrl = uploaded?.secure_url ?? null;
+        const uploaded = await tryUploadImage(interestLogoPreview);
+        if (!uploaded.ok) {
+          toast.error(uploaded.message);
+          return;
+        }
+        logoUrl = uploaded.data?.secure_url ?? null;
         if (!logoUrl) {
           toast.error("Could not upload community logo. Try again.");
           return;
@@ -166,13 +176,11 @@ export function StartCommunityRequestDialog({
 
       if (r.success) {
         toast.success("Interest sent — admins have been notified.");
-        if (eventSlug) {
-          redirectSlugRef.current = eventSlug;
-          onSubmittedSuccess?.(eventSlug);
-          setRedirectCountdown(5);
-        } else {
-          handleClose(false);
+        redirectPathRef.current = hostCommunityPath;
+        if (hostCommunitySlug) {
+          onSubmittedSuccess?.(hostCommunitySlug);
         }
+        setRedirectCountdown(5);
       } else {
         toast.error(r.message ?? "Could not send request");
       }
@@ -192,16 +200,45 @@ export function StartCommunityRequestDialog({
             <DialogHeader className="shrink-0 space-y-2 pr-6 pb-2">
               <DialogTitle>Request sent</DialogTitle>
               <DialogDescription>
-                Opening your host community setup in a new tab…
+                Our team has your interest. Review Community plan options or
+                book a demo while we follow up.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col items-center justify-center gap-3 py-10">
-              <p className="text-muted-foreground text-sm">Redirecting in</p>
-              <p
-                className="text-primary text-6xl font-bold tabular-nums"
-                aria-live="polite"
-              >
-                {redirectCountdown}
+            <div className="flex flex-col items-center gap-4 px-2 py-6">
+              <div className="flex w-full flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  className="flex-1"
+                  onClick={() => {
+                    window.location.assign(hostCommunityPath);
+                  }}
+                >
+                  Community plan
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    window.open(
+                      "https://calendly.com/partner-telepse/tipmanna-session",
+                      "_blank",
+                      "noreferrer"
+                    );
+                  }}
+                >
+                  Book a demo
+                </Button>
+              </div>
+              <p className="text-muted-foreground text-center text-sm">
+                Opening Community plan in{" "}
+                <span
+                  className="text-primary font-semibold tabular-nums"
+                  aria-live="polite"
+                >
+                  {redirectCountdown}
+                </span>
+                …
               </p>
             </div>
           </>

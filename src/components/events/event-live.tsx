@@ -70,7 +70,14 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
 import { toast } from "react-toastify";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
+import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import type { RoomCharacter } from "@/types";
+import { useTipPresentation } from "@/hooks/use-tip-presentation";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
+import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
+import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-overlay";
 
 interface Props {
   liveVideoLink: string;
@@ -106,6 +113,7 @@ interface Props {
   iTipped: number;
   openDrawer: boolean;
   setOpenDrawer: (v: boolean) => void;
+  onOpenTipDrawer?: () => void;
   characterSets: any[];
   channels: any[];
   isEventOwner: string;
@@ -132,7 +140,9 @@ export const EventLive = ({
   eventId,
   fullName,
   status,
+  openDrawer,
   setOpenDrawer,
+  onOpenTipDrawer,
   characterSets,
   tippingCharacters,
   amountToRaise,
@@ -160,6 +170,16 @@ export const EventLive = ({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [tipsListOpen, setTipsListOpen] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+  const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
+  const featureOverlayWasPlayingRef = useRef(false);
+  const tipPres = useTipPresentation(
+    eventId,
+    tippingCharacters as RoomCharacter[],
+    {
+      paymentSurface: "event_room",
+    }
+  );
+  const sectionCta = tipPres.sectionCtaLabel?.trim() || "Engage";
 
   const searchParams = useSearchParams();
 
@@ -252,9 +272,6 @@ export const EventLive = ({
   const watchSegStartRef = useRef(0);
   const encounterSentForStreamActivationRef = useRef(false);
   const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
-
-  const [shownReminders, setShownReminders] = useState<Set<number>>(new Set());
-  const [activeReminder, setActiveReminder] = useState<number | null>(null);
 
   const toggleMute = () => {
     if (!videoRef.current) return;
@@ -503,43 +520,26 @@ export const EventLive = ({
     };
   }, []);
 
-  useEffect(() => {
-    setShownReminders(new Set());
-    setActiveReminder(null);
-  }, [currentChannelIndex]);
-
-  useEffect(() => {
-    if (!currentChannel?.reminders?.length) return;
-
-    const remindersInSeconds = currentChannel.reminders.map(
-      (min: number) => min * 60
-    );
-
-    for (let i = 0; i < remindersInSeconds.length; i++) {
-      const reminderTime = remindersInSeconds[i];
-      const minuteValue = currentChannel.reminders[i];
-
-      if (currentTime >= reminderTime && !shownReminders.has(reminderTime)) {
-        // Mark as shown
-        setShownReminders(prev => {
-          const updated = new Set(prev);
-          updated.add(reminderTime);
-          return updated;
-        });
-
-        // Pause player
-        if (videoRef.current?.isReady()) {
-          videoRef.current.pause();
-          setIsPlaying(false);
-        }
-
-        // Show popup
-        setActiveReminder(minuteValue);
-
-        break; // 🚀 VERY IMPORTANT — stop after first match
-      }
+  const hostFirstName = fullName.trim().split(/\s+/)[0] || fullName;
+  const { showFlashOverlay, handleTipNow, handleDismiss } = useVideoTipReminder(
+    {
+      surface: "event_room",
+      channelId: currentChannel?.id ? String(currentChannel.id) : null,
+      eventId,
+      reminders: currentChannel?.reminders,
+      currentTimeSec: currentTime,
+      hostFirstName,
+      videoTitle: currentChannel?.title ?? "this video",
+      deepLinkUrl:
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : `/room/${eventId}`,
+      sectionCta,
+      onTipNow: () => {
+        onOpenTipDrawer?.();
+      },
     }
-  }, [currentTime, currentChannel, shownReminders]);
+  );
 
   const [, setOpenPlaylist] = useState(false);
   const [, setViewPlaylist] = useState(false);
@@ -729,6 +729,27 @@ export const EventLive = ({
               {...pickVideoSurfaceBadgeProps(currentChannel, eventId)}
               position="top-right"
             />
+            {currentChannel?.id &&
+            process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
+              <div className="pointer-events-none absolute top-3 left-3 z-30 max-w-[min(92vw,18rem)]">
+                <VideoFeatureCardBanner
+                  surfaceChannelId={String(currentChannel.id)}
+                  hostSurfaceChannelId={String(currentChannel.id)}
+                  compact
+                  sectionCtaLabel={tipPres.sectionCtaLabel}
+                  pageDrawerOpen={openDrawer}
+                  onTipFeatured={id => {
+                    setActiveVideoFeatureCardId(id);
+                    setOpenDrawer(true);
+                  }}
+                  onOverlayOpenChange={createFeatureCardOverlayPlaybackHandlers(
+                    videoRef,
+                    featureOverlayWasPlayingRef,
+                    { getWasPlaying: () => isPlayingRef.current }
+                  )}
+                />
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -738,74 +759,14 @@ export const EventLive = ({
         />
       </div>
 
-      {activeReminder !== null && (
-        <div className="absolute inset-0 z-[9999] flex items-center justify-center bg-black/60">
-          <div className="w-[300px] space-y-4 rounded-xl bg-white p-6 text-center shadow-xl">
-            <h3 className="mb-2 flex items-center justify-center gap-1 text-base font-semibold">
-              Reminder from host{" "}
-            </h3>
-            <p className="-mt-2 text-center">
-              <span className="text-muted-foreground flex items-center justify-center gap-1 text-xs">
-                {fullName}{" "}
-                <BadgeCheck className="fill-primary size-5 text-black" />
-              </span>
-            </p>
-            <Button
-              variant="default"
-              className="mb-4 flex w-full items-center justify-center gap-1 rounded-2xl bg-gray-200 text-sm text-black"
-              onClick={() => {
-                setOpenDrawer(true);
-                setActiveReminder(null);
-              }}
-            >
-              <Image
-                src="/icons/love.png"
-                alt="Love"
-                width={10}
-                height={10}
-                className="size-5"
-              />
-              <Image
-                src="/icons/star.png"
-                alt="Star"
-                width={10}
-                height={10}
-                className="size-5"
-              />{" "}
-              Engage{" "}
-              <div className="flex items-center gap-1">
-                <Image
-                  src="/icons/burger.png"
-                  alt="Burger"
-                  width={10}
-                  height={10}
-                  className="size-5"
-                />
-                <Image
-                  src="/icons/chicken.png"
-                  alt="Chicken"
-                  width={10}
-                  height={10}
-                  className="size-5"
-                />
-              </div>
-            </Button>
-
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="default"
-                className="w-full rounded-2xl bg-gray-200 text-black outline-none"
-                onClick={() => {
-                  setActiveReminder(null);
-                  resumePlayback();
-                }}
-              >
-                Later
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showFlashOverlay ? (
+        <VideoTipReminderOverlay
+          hostFirstName={hostFirstName}
+          sectionCta={sectionCta}
+          onTipNow={handleTipNow}
+          onDismiss={handleDismiss}
+        />
+      ) : null}
     </div>
   );
 

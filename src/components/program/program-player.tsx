@@ -8,6 +8,8 @@ import VideoPlayer, {
   VideoPlayerRef,
   loadReelSoundPref,
 } from "@/components/events/video-player";
+import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
+import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import type { ProgramBootstrapItem } from "@/lib/program-types";
 import { Button } from "@/components/ui/button";
 
@@ -23,7 +25,9 @@ export function ProgramPlayer({
   const playable = items.filter(i => i.contentUrl);
   const [index, setIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(() => !loadReelSoundPref());
+  const [isPlaying, setIsPlaying] = useState(false);
   const playerRef = useRef<VideoPlayerRef>(null);
+  const featureOverlayWasPlayingRef = useRef(false);
 
   const current = playable[index];
 
@@ -84,19 +88,38 @@ export function ProgramPlayer({
 
       <div className="relative flex flex-1 items-center justify-center">
         {current?.contentUrl ? (
-          <VideoPlayer
-            key={current.id}
-            ref={playerRef}
-            videoUrl={current.contentUrl}
-            className="h-full max-h-full w-full max-w-full"
-            embedMode="chromeless"
-            initialMuted={!loadReelSoundPref()}
-            disableGlobalAudioUnlock
-            onMuteStateChange={setIsMuted}
-            onPlaybackEnded={() => {
-              if (index + 1 < playable.length) goNext();
-            }}
-          />
+          <>
+            {current.channelId &&
+            process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
+              <div className="pointer-events-none absolute bottom-24 left-3 z-[62] max-w-[min(360px,calc(100%-1rem))]">
+                <VideoFeatureCardBanner
+                  surfaceChannelId={current.channelId}
+                  hostSurfaceChannelId={current.channelId}
+                  showEngageCta={false}
+                  onOverlayOpenChange={createFeatureCardOverlayPlaybackHandlers(
+                    playerRef,
+                    featureOverlayWasPlayingRef,
+                    { getWasPlaying: () => isPlaying }
+                  )}
+                  className="pointer-events-auto"
+                />
+              </div>
+            ) : null}
+            <VideoPlayer
+              key={current.id}
+              ref={playerRef}
+              videoUrl={current.contentUrl}
+              className="h-full max-h-full w-full max-w-full"
+              embedMode="chromeless"
+              initialMuted={!loadReelSoundPref()}
+              disableGlobalAudioUnlock
+              onMuteStateChange={setIsMuted}
+              onPlayStateChange={setIsPlaying}
+              onPlaybackEnded={() => {
+                if (index + 1 < playable.length) goNext();
+              }}
+            />
+          </>
         ) : null}
       </div>
 

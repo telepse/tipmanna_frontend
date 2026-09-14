@@ -38,6 +38,7 @@ export const EventActivityEnum = z.enum([
   "DRAWING",
   "DANCING",
   "STAGE_SHOW",
+  "OTHER",
 ]);
 
 export const ResourceRequestEnum = z.enum([

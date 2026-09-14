@@ -12,6 +12,7 @@ import { readTvMutePref, unmuteOnly, writeTvMutePref } from "@/lib/tv-autoplay";
 import {
   isInsidePlayerAudioIntentGrace,
   markPlayerAudioIntentGrace,
+  shouldReapplySessionMute,
   shouldSuppressPlayerMuteSync,
 } from "@/lib/player-audio-intent";
 import { safeYoutubeCall } from "@/lib/tv/youtube-player-safe";
@@ -77,6 +78,11 @@ export function useTvPlayerControls(opts: {
         setIsPlaying(state === "PLAYING" || state === "BUFFERING");
         const playerMuted = player.isMuted();
         const prefMuted = readTvMutePref();
+        if (shouldReapplySessionMute(playerMuted, prefMuted)) {
+          player.mute();
+          setIsMuted(true);
+          return;
+        }
         if (shouldSuppressPlayerMuteSync(playerMuted, prefMuted)) {
           return;
         }
@@ -94,7 +100,10 @@ export function useTvPlayerControls(opts: {
       player.syncMuteFromPlayer?.();
       const playerMuted = player.isMuted();
       const prefMuted = readTvMutePref();
-      if (!shouldSuppressPlayerMuteSync(playerMuted, prefMuted)) {
+      if (shouldReapplySessionMute(playerMuted, prefMuted)) {
+        player.mute();
+        setIsMuted(true);
+      } else if (!shouldSuppressPlayerMuteSync(playerMuted, prefMuted)) {
         setIsMuted(playerMuted);
       }
       const state = player.getPlayerState();
