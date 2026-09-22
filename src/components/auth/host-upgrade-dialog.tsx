@@ -15,10 +15,22 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   email: string;
+  /** Safe internal path to return to after host sign-up (redirect query). */
+  returnTo?: string | null;
 };
 
+function safeInternalPath(next: string | null | undefined): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 /** Explains dual tipper/host roles and routes to host account creation. */
-export function HostUpgradeDialog({ open, onOpenChange, email }: Props) {
+export function HostUpgradeDialog({
+  open,
+  onOpenChange,
+  email,
+  returnTo,
+}: Props) {
   const { push } = useAppRouter();
 
   return (
@@ -47,7 +59,11 @@ export function HostUpgradeDialog({ open, onOpenChange, email }: Props) {
             type="button"
             onClick={() => {
               onOpenChange(false);
-              push(`/sign-up?email=${encodeURIComponent(email)}`);
+              const params = new URLSearchParams();
+              params.set("email", email);
+              const next = safeInternalPath(returnTo ?? null);
+              if (next) params.set("redirect", next);
+              push(`/sign-up?${params.toString()}`);
             }}
           >
             Create host account

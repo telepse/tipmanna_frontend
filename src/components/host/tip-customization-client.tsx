@@ -74,6 +74,14 @@ export default function TipCustomizationClient({
   const [eliteLibraryError, setEliteLibraryError] = useState<string | null>(
     null
   );
+  const [premiumNextCursor, setPremiumNextCursor] = useState<string | null>(
+    null
+  );
+  const [eliteNextCursor, setEliteNextCursor] = useState<string | null>(null);
+  const [generalNextCursor, setGeneralNextCursor] = useState<string | null>(
+    null
+  );
+  const [libraryLoadingMore, setLibraryLoadingMore] = useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
   const characterMap = useMemo(
@@ -154,52 +162,91 @@ export default function TipCustomizationClient({
     void load();
   }, [load, hostSessionActive]);
 
-  useEffect(() => {
-    const run = async () => {
-      setEliteLibraryError(null);
-      try {
-        const [premiumRes, eliteRes, generalRes, eventCatRes] =
-          await Promise.all([
-            getHostAnimationLibraryAction({ library: "premium", limit: 80 }),
-            getHostAnimationLibraryAction({ library: "elite", limit: 80 }),
-            getHostAnimationLibraryAction({ library: "general", limit: 80 }),
-            getEventCharacterCatalogAction(eventId),
-          ]);
-        const premiumItems =
-          premiumRes.success && Array.isArray(premiumRes.data?.items)
-            ? premiumRes.data.items
-            : [];
-        const generalItems =
-          generalRes.success && Array.isArray(generalRes.data?.items)
-            ? generalRes.data.items
-            : [];
-        setLibrary([...generalItems, ...premiumItems]);
-        if (
-          eliteRes.success &&
-          eliteRes.data &&
-          Array.isArray(eliteRes.data.items)
-        ) {
-          setEliteLibrary(eliteRes.data.items);
-        } else if (!eliteRes.success) {
-          setEliteLibraryError(
-            eliteRes.message ?? "Could not load elite animation library"
-          );
-        }
-        if (eventCatRes.success && eventCatRes.data) {
-          const parsed = parseEventCharacterCatalog(
-            eventCatRes.data.characterSets ?? []
-          );
-          setEventCatalogChars(parsed.tippingCharacters);
-          setEventCatalogSets(parsed.characterSets);
-        }
-      } catch (e) {
+  const loadAnimationLibraries = useCallback(async () => {
+    setEliteLibraryError(null);
+    try {
+      const [premiumRes, eliteRes, generalRes, eventCatRes] = await Promise.all(
+        [
+          getHostAnimationLibraryAction({ library: "premium", limit: 40 }),
+          getHostAnimationLibraryAction({ library: "elite", limit: 40 }),
+          getHostAnimationLibraryAction({ library: "general", limit: 40 }),
+          getEventCharacterCatalogAction(eventId),
+        ]
+      );
+      const premiumItems =
+        premiumRes.success && Array.isArray(premiumRes.data?.items)
+          ? premiumRes.data.items
+          : [];
+      const generalItems =
+        generalRes.success && Array.isArray(generalRes.data?.items)
+          ? generalRes.data.items
+          : [];
+      setLibrary([...generalItems, ...premiumItems]);
+      setPremiumNextCursor(premiumRes.data?.nextCursor ?? null);
+      setGeneralNextCursor(generalRes.data?.nextCursor ?? null);
+      if (
+        eliteRes.success &&
+        eliteRes.data &&
+        Array.isArray(eliteRes.data.items)
+      ) {
+        setEliteLibrary(eliteRes.data.items);
+        setEliteNextCursor(eliteRes.data.nextCursor ?? null);
+      } else if (!eliteRes.success) {
         setEliteLibraryError(
-          e instanceof Error ? e.message : "Could not load animation libraries"
+          eliteRes.message ?? "Could not load elite animation library"
         );
       }
-    };
-    if (hostSessionActive) void run();
-  }, [hostSessionActive, eventId]);
+      if (eventCatRes.success && eventCatRes.data) {
+        const parsed = parseEventCharacterCatalog(
+          eventCatRes.data.characterSets ?? []
+        );
+        setEventCatalogChars(parsed.tippingCharacters);
+        setEventCatalogSets(parsed.characterSets);
+      }
+    } catch (e) {
+      setEliteLibraryError(
+        e instanceof Error ? e.message : "Could not load animation libraries"
+      );
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    if (hostSessionActive) void loadAnimationLibraries();
+  }, [hostSessionActive, loadAnimationLibraries]);
+
+  const loadMoreLibrary = async (
+    libraryKind: "general" | "premium" | "elite"
+  ) => {
+    const cursor =
+      libraryKind === "general"
+        ? generalNextCursor
+        : libraryKind === "premium"
+          ? premiumNextCursor
+          : eliteNextCursor;
+    if (!cursor) return;
+    setLibraryLoadingMore(true);
+    try {
+      const res = await getHostAnimationLibraryAction({
+        library: libraryKind,
+        limit: 40,
+        cursor,
+      });
+      if (!res.success || !res.data?.items?.length) return;
+      if (libraryKind === "elite") {
+        setEliteLibrary(prev => [...prev, ...res.data!.items]);
+        setEliteNextCursor(res.data.nextCursor ?? null);
+      } else {
+        setLibrary(prev => [...prev, ...res.data!.items]);
+        if (libraryKind === "premium") {
+          setPremiumNextCursor(res.data.nextCursor ?? null);
+        } else {
+          setGeneralNextCursor(res.data.nextCursor ?? null);
+        }
+      }
+    } finally {
+      setLibraryLoadingMore(false);
+    }
+  };
 
   const init = async () => {
     setSaving(true);
@@ -585,55 +632,83 @@ export default function TipCustomizationClient({
                 characters to the Elite set.
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-md border">
-                <table className="w-full min-w-[480px] text-left text-sm">
-                  <thead className="bg-muted/40 text-xs uppercase">
-                    <tr>
-                      <th className="px-3 py-2">Select</th>
-                      <th className="px-3 py-2">Icon</th>
-                      <th className="px-3 py-2">Name</th>
-                      <th className="px-3 py-2">Price</th>
-                      <th className="px-3 py-2">Style</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {eliteLibrary.map(item => (
-                      <tr
-                        key={item.id}
-                        className="border-t"
-                      >
-                        <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            disabled={frozen}
-                            checked={(draft.eliteCharacterIds ?? []).includes(
-                              item.id
-                            )}
-                            onChange={() => toggleEliteCharacter(item.id)}
-                            aria-label={`Select ${item.name}`}
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <Image
-                            src={item.iconUrl}
-                            alt=""
-                            width={32}
-                            height={32}
-                            className="size-8 object-contain"
-                          />
-                        </td>
-                        <td className="px-3 py-2 font-medium">{item.name}</td>
-                        <td className="px-3 py-2">£{item.price}</td>
-                        <td className="text-muted-foreground px-3 py-2">
-                          {item.styleName ?? "—"}
-                        </td>
+              <div className="space-y-3">
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="w-full min-w-[480px] text-left text-sm">
+                    <thead className="bg-muted/40 text-xs uppercase">
+                      <tr>
+                        <th className="px-3 py-2">Select</th>
+                        <th className="px-3 py-2">Icon</th>
+                        <th className="px-3 py-2">Name</th>
+                        <th className="px-3 py-2">Price</th>
+                        <th className="px-3 py-2">Style</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {eliteLibrary.map(item => (
+                        <tr
+                          key={item.id}
+                          className="border-t"
+                        >
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              disabled={frozen}
+                              checked={(draft.eliteCharacterIds ?? []).includes(
+                                item.id
+                              )}
+                              onChange={() => toggleEliteCharacter(item.id)}
+                              aria-label={`Select ${item.name}`}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Image
+                              src={item.iconUrl}
+                              alt=""
+                              width={32}
+                              height={32}
+                              className="size-8 object-contain"
+                            />
+                          </td>
+                          <td className="px-3 py-2 font-medium">{item.name}</td>
+                          <td className="px-3 py-2">£{item.price}</td>
+                          <td className="text-muted-foreground px-3 py-2">
+                            {item.styleName ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {eliteNextCursor ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={libraryLoadingMore}
+                    onClick={() => void loadMoreLibrary("elite")}
+                  >
+                    {libraryLoadingMore ? "Loading…" : "Load more elite"}
+                  </Button>
+                ) : null}
               </div>
             )}
           </div>
+
+          {premiumNextCursor || generalNextCursor ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={libraryLoadingMore}
+              onClick={() => {
+                if (premiumNextCursor) void loadMoreLibrary("premium");
+                else if (generalNextCursor) void loadMoreLibrary("general");
+              }}
+            >
+              {libraryLoadingMore ? "Loading…" : "Load more marketplace"}
+            </Button>
+          ) : null}
 
           {livePresentation && previewPresentation ? (
             <div className="space-y-3 rounded-lg border p-4">

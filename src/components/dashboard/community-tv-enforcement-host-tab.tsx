@@ -131,6 +131,18 @@ export function CommunityTvEnforcementHostTab({
     );
   };
 
+  const moveSelectedChannel = (id: string, direction: "up" | "down") => {
+    setSelectedIds(prev => {
+      const idx = prev.indexOf(id);
+      if (idx < 0) return prev;
+      const next = [...prev];
+      const swapWith = direction === "up" ? idx - 1 : idx + 1;
+      if (swapWith < 0 || swapWith >= next.length) return prev;
+      [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
+      return next;
+    });
+  };
+
   const saveDraft = async () => {
     if (!title.trim() || !scheduledAt || selectedIds.length === 0) {
       toast.error("Title, scheduled time, and channels required");
@@ -316,6 +328,49 @@ export function CommunityTvEnforcementHostTab({
             </li>
           ))}
         </ul>
+        {selectedIds.length > 0 ? (
+          <div className="space-y-2 rounded-md border p-3">
+            <p className="text-xs font-medium">Lineup order (before save)</p>
+            <ul className="space-y-1 text-sm">
+              {selectedIds.map((id, idx) => {
+                const title =
+                  searchHits.find(c => c.id === id)?.title ?? "Selected video";
+                return (
+                  <li
+                    key={id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="min-w-0 truncate">
+                      {idx + 1}. {title}
+                    </span>
+                    <span className="flex shrink-0 gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2"
+                        disabled={idx === 0}
+                        onClick={() => moveSelectedChannel(id, "up")}
+                      >
+                        Up
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2"
+                        disabled={idx === selectedIds.length - 1}
+                        onClick={() => moveSelectedChannel(id, "down")}
+                      >
+                        Down
+                      </Button>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
         <Button
           type="button"
           disabled={busy}

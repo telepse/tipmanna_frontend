@@ -138,6 +138,14 @@ export const VenueDisplayClient = () => {
                 tipUsageDisclosure={event.tipUsageDisclosure}
                 latestTipAmount={event.latestTipAmount}
                 moneyFor={event.moneyFor}
+                showPinnedOnScreen={
+                  (event as { showPinnedOnScreen?: boolean })
+                    .showPinnedOnScreen ?? true
+                }
+                funnelPosition={
+                  (event as { funnelPosition?: string }).funnelPosition ??
+                  "bottom_left"
+                }
               />
             ))}
       </div>

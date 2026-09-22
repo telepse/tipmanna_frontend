@@ -57,11 +57,7 @@ export function VideoLinkContentCountryCombobox({
       : undefined;
 
   const triggerLabel =
-    value === "all"
-      ? "Worldwide (all)"
-      : value && flagMeta
-        ? value
-        : value || null;
+    value === "all" ? "" : value && flagMeta ? value : value || null;
 
   return (
     <Popover
@@ -122,28 +118,6 @@ export function VideoLinkContentCountryCombobox({
         >
           <CommandInput placeholder="Search a country..." />
           <CommandEmpty>No country found.</CommandEmpty>
-          <CommandGroup
-            heading="Regions"
-            className={
-              appearance === "onDark"
-                ? CREATE_FORM_COMMAND_GROUP_CLASS
-                : undefined
-            }
-          >
-            <CommandItem
-              value="__worldwide_all__"
-              onSelect={() => {
-                onChange("all");
-                setOpen(false);
-              }}
-              className={cn(
-                "flex items-center gap-2",
-                appearance === "onDark" && CREATE_FORM_COMMAND_ITEM_CLASS
-              )}
-            >
-              Worldwide (all)
-            </CommandItem>
-          </CommandGroup>
           <CommandGroup
             heading="Countries"
             className={

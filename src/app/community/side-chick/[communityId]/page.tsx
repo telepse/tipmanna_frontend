@@ -1,7 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
@@ -16,6 +15,8 @@ import { InstallPromptSheet } from "@/components/pwa/install-prompt-sheet";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { setPendingDedicatedEnter } from "@/lib/pending-dedicated-enter";
 import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
+import { useDedicatedExitGate } from "@/hooks/use-dedicated-exit-gate";
+import { DedicatedExitConfirmDialog } from "@/components/community/dedicated-exit-confirm-dialog";
 
 const apiBase = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
@@ -50,7 +51,7 @@ export default function SideChickMagicPage() {
     (s: RootState) => s.auth
   );
   const sideChick = useSideChick();
-  const { installed } = useInstallPrompt();
+  const { installed, detectionSettled } = useInstallPrompt();
 
   const [data, setData] = useState<LandingPayload | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -60,6 +61,16 @@ export default function SideChickMagicPage() {
   const [joinOpen, setJoinOpen] = useState(false);
 
   const authToken = useSelector((s: RootState) => s.auth.token);
+
+  const dedicatedExit = useDedicatedExitGate({
+    sideChickLocked: Boolean(
+      sideChick.active && sideChick.activation?.communityId
+    ),
+    dedicatedCommunityName:
+      sideChick.activation?.community.name ?? "this community",
+    exitDedicatedMode: sideChick.exitDedicatedMode,
+    reloadAfterExit: false,
+  });
 
   const loadLanding = useCallback(async () => {
     if (!communityId) return;
@@ -91,8 +102,9 @@ export default function SideChickMagicPage() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [loadLanding]);
 
-  const enterDedicated = async () => {
+  const enterDedicated = useCallback(async () => {
     if (!authToken) return;
+    if (!detectionSettled) return;
     if (!installed) {
       setPendingDedicatedEnter(communityId);
       setInstallOpen(true);
@@ -117,7 +129,7 @@ export default function SideChickMagicPage() {
     } finally {
       setEnterBusy(false);
     }
-  };
+  }, [authToken, communityId, detectionSettled, installed, router, sideChick]);
 
   if (!communityId) {
     return <p className="p-6 text-sm">Invalid link.</p>;
@@ -157,11 +169,23 @@ export default function SideChickMagicPage() {
       >
         <div className="mx-auto max-w-lg space-y-6 p-6">
           <div>
-            <h1 className="text-xl font-semibold">{landing.community.name}</h1>
+            <h1 className="flex items-center gap-2 text-xl font-semibold">
+              {landing.community.name}{" "}
+              <img
+                src={landing.community.logoUrl ?? ""}
+                alt={landing.community.name}
+                className="size-6 rounded-full"
+              />{" "}
+            </h1>
             <p className="text-muted-foreground mt-1 text-sm">
               Dedicated community mode on Tipmanna — your Explore feed and TV
-              focus on this community only (Tipmanna Public and other
-              communities are hidden from the feed until you exit).
+              will focus on <strong>{landing.community.name}</strong> community
+              only (
+              <span className="text-xs">
+                Tipmanna Public and other communities are hidden from the feed
+                until you exit
+              </span>
+              ).
             </p>
           </div>
 
@@ -228,9 +252,7 @@ export default function SideChickMagicPage() {
                 signInRedirectPath={`/community/side-chick/${encodeURIComponent(communityId)}`}
                 title={`Join ${landing.community.name}`}
                 onJoined={() => {
-                  void loadLanding().then(() => {
-                    void enterDedicated();
-                  });
+                  void loadLanding();
                 }}
               />
             </div>
@@ -245,6 +267,60 @@ export default function SideChickMagicPage() {
               >
                 <Link href="/community">Community hub</Link>
               </Button>
+            </div>
+          ) : sideChick.active &&
+            sideChick.activation?.communityId === communityId ? (
+            <div className="space-y-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-medium text-emerald-950">
+                You are already in dedicated mode for {landing.community.name}.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/explore")}
+                >
+                  Go to Explore
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={sideChick.loading}
+                  onClick={() => void sideChick.exitDedicatedMode()}
+                >
+                  Exit dedicated mode
+                </Button>
+              </div>
+            </div>
+          ) : sideChick.active &&
+            sideChick.activation?.communityId &&
+            sideChick.activation.communityId !== communityId ? (
+            <div className="space-y-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-medium text-amber-950">
+                You are in dedicated mode for{" "}
+                {sideChick.activation.community.name}. Leave that mode to enter{" "}
+                {landing.community.name}.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={sideChick.loading || enterBusy}
+                  onClick={() =>
+                    dedicatedExit.requestExitThen(() => {
+                      void enterDedicated();
+                    })
+                  }
+                >
+                  Switch to {landing.community.name}
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                >
+                  <Link href="/explore">Cancel</Link>
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4 rounded-lg border p-4">
@@ -268,9 +344,11 @@ export default function SideChickMagicPage() {
                   disabled={enterBusy}
                   onClick={() => void enterDedicated()}
                 >
-                  {installed
-                    ? "Enter dedicated mode"
-                    : "Install app to enter dedicated mode"}
+                  {!detectionSettled
+                    ? "Checking install…"
+                    : installed
+                      ? "Enter dedicated mode"
+                      : "Install app to enter dedicated mode"}
                 </Button>
                 <Button
                   asChild
@@ -289,6 +367,17 @@ export default function SideChickMagicPage() {
   return (
     <ExploreGlobalChrome activeSurface="side-chick">
       {sideInner}
+      <DedicatedExitConfirmDialog
+        open={dedicatedExit.confirmOpen}
+        onOpenChange={open => {
+          if (!open) dedicatedExit.cancelExit();
+        }}
+        communityName={dedicatedExit.dedicatedCommunityName}
+        communityLogoUrl={sideChick.activation?.community.logoUrl ?? undefined}
+        busy={dedicatedExit.busy}
+        actionLabel={`Leave and enter ${data?.community.name ?? "this community"}`}
+        onConfirm={() => void dedicatedExit.confirmExit()}
+      />
       <InstallPromptSheet
         open={installOpen}
         onOpenChange={setInstallOpen}

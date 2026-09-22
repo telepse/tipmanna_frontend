@@ -33,10 +33,15 @@ import { RoomMessages } from "./room-messages";
 import { EventFooter } from "./event-footer";
 import { StripeProvider } from "./stripe-provider";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import {
+  applyPinnedAmountSnapshot,
+  pinnedForScreenDisplay,
+} from "@/lib/event-pin-roster";
 import { mergeEventRoomChannel } from "@/lib/content-channel-payload";
 import { useEventChannelCreatedRealtime } from "@/hooks/use-event-channel-created-realtime";
 import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
 import { appendUniqueChatMessage } from "@/lib/append-unique-chat-message";
+import { normalizeScreenFunnelPosition } from "@/lib/screen-funnel-position";
 
 interface Props {
   eventId: string;
@@ -80,6 +85,8 @@ interface Props {
   EventSession: any[];
   eventEventType?: string;
   forceScreenOpen?: boolean;
+  showPinnedOnScreen?: boolean;
+  funnelPosition?: string;
 }
 
 const HYDRATE_USER_PLACEHOLDER: UserInfo = {
@@ -161,6 +168,8 @@ export const EventRoomClient = ({
   forceScreenOpen = false,
   activities,
   eventDescription,
+  showPinnedOnScreen: initialShowPinnedOnScreen = true,
+  funnelPosition: initialFunnelPosition,
 }: Props) => {
   void eventBanner;
 
@@ -244,12 +253,23 @@ export const EventRoomClient = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
+  const [livePerformers, setLivePerformers] = useState(performers);
+  const [liveProjects, setLiveProjects] = useState(projects);
+
+  useEffect(() => {
+    setLivePerformers(performers);
+    setLiveProjects(projects);
+  }, [eventId, performers, projects]);
+
   const [screenSettings, setScreenSettings] = useState({
     eventBackground,
     hideProgressBarAmount,
     showLatestAmount,
     tipUsageDisclosure,
     performers,
+    projects,
+    showPinnedOnScreen: initialShowPinnedOnScreen,
+    funnelPosition: normalizeScreenFunnelPosition(initialFunnelPosition),
   });
 
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -385,11 +405,34 @@ export const EventRoomClient = ({
     useState(safeEventSession[0]?.amountToRaise);
 
   const handleAmountUpdated = useCallback(
-    (data: { amountRaised?: number; numOfTips?: number }) => {
+    (data: {
+      amountRaised?: number;
+      numOfTips?: number;
+      pinnedPerformers?: Array<{
+        id: string;
+        name: string;
+        amountReceived: number;
+      }>;
+      pinnedProjects?: Array<{
+        id: string;
+        name: string;
+        amountReceived: number;
+      }>;
+    }) => {
       if (typeof data.amountRaised === "number")
         setCurrentAmountRaised(data.amountRaised);
       if (typeof data.numOfTips === "number")
         setCurrentNumOfTips(data.numOfTips);
+      if (Array.isArray(data.pinnedPerformers)) {
+        setLivePerformers(prev =>
+          applyPinnedAmountSnapshot(prev, data.pinnedPerformers!)
+        );
+      }
+      if (Array.isArray(data.pinnedProjects)) {
+        setLiveProjects(prev =>
+          applyPinnedAmountSnapshot(prev, data.pinnedProjects!)
+        );
+      }
     },
     []
   );
@@ -409,14 +452,31 @@ export const EventRoomClient = ({
       showLatestAmount: boolean;
       tipUsageDisclosure: unknown[];
       performers: unknown[];
+      projects?: unknown[];
+      showPinnedOnScreen?: boolean;
+      funnelPosition?: string;
     }) => {
-      setScreenSettings({
+      setScreenSettings(prev => ({
+        ...prev,
         eventBackground: data.eventBackground,
         hideProgressBarAmount: data.hideProgressBarAmount,
         showLatestAmount: data.showLatestAmount,
         tipUsageDisclosure: data.tipUsageDisclosure as any[],
         performers: data.performers as any[],
-      });
+        projects: (data.projects ?? prev.projects) as any[],
+        ...(typeof data.showPinnedOnScreen === "boolean"
+          ? { showPinnedOnScreen: data.showPinnedOnScreen }
+          : {}),
+        ...(data.funnelPosition
+          ? {
+              funnelPosition: normalizeScreenFunnelPosition(
+                data.funnelPosition
+              ),
+            }
+          : {}),
+      }));
+      setLivePerformers(data.performers as typeof performers);
+      setLiveProjects((data.projects ?? []) as typeof projects);
     },
     []
   );
@@ -560,7 +620,9 @@ export const EventRoomClient = ({
             setOpenDrawer={setOpenDrawer}
             onOpenTipDrawer={() => setOpenTipDrawerNonce(n => n + 1)}
             characterSets={footerCharacterSets}
-            performers={screenSettings.performers}
+            performers={pinnedForScreenDisplay(livePerformers)}
+            projects={pinnedForScreenDisplay(liveProjects)}
+            contributionType={contributionType}
             currentSessionAmountToRaise={currentSessionAmountToRaise}
             forceScreenOpen={forceScreenOpen}
             isEventOwner={isEventOwner}
@@ -568,6 +630,8 @@ export const EventRoomClient = ({
             venueName={venueName ?? ""}
             activities={activities ?? []}
             eventDescription={eventDescription ?? ""}
+            showPinnedOnScreen={screenSettings.showPinnedOnScreen}
+            funnelPosition={screenSettings.funnelPosition}
           />
 
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -584,8 +648,8 @@ export const EventRoomClient = ({
               isEventOwner={isEventOwner}
               liveVideoLink={liveVideoLink}
               onChannelCreated={handleChannelCreated}
-              performers={screenSettings.performers}
-              projects={projects}
+              performers={livePerformers}
+              projects={liveProjects}
               contributionType={contributionType}
               eventEventType={eventEventType}
               eventDate={eventDate}
@@ -597,6 +661,8 @@ export const EventRoomClient = ({
               venueLocation={venueLocation}
               activities={activities}
               eventDescription={eventDescription}
+              onPerformersUpdated={setLivePerformers}
+              onProjectsUpdated={setLiveProjects}
             />
           </div>
 
@@ -614,7 +680,9 @@ export const EventRoomClient = ({
                 tippingCharacters={tipPriceCatalog as RoomCharacter[]}
                 stripCharacters={tipStripPool}
                 characterSets={footerCharacterSets}
-                performers={performers}
+                performers={livePerformers}
+                projects={liveProjects}
+                contributionType={contributionType}
                 textTipUnitPrice={tipTextUnitPrice}
                 sectionCtaLabel={tipSectionCtaLabel}
                 payLabel={tipPayLabel}

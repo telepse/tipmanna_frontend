@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Heart, Wallet, X } from "lucide-react";
+import { ChevronDown, Heart, Wallet, X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedTips } from "@/features/tip-slice";
 import type { RootState } from "@/redux/store";
@@ -491,6 +491,8 @@ export const CommentDrawer = ({
     setSignInOpen(true);
   }, []);
 
+  const [showAboutThisVideo, setShowAboutThisVideo] = useState(false);
+
   useEffect(() => {
     if (!reportOpen) return;
     reportSectionRef.current?.scrollIntoView({
@@ -571,160 +573,176 @@ export const CommentDrawer = ({
               {" "}
             </h5>
 
-            <div className="space-y-2 bg-gray-100 p-4">
-              {isCommunityBankVideo ? (
-                <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                  <span className="text-primary">Community</span>
-                  {communityJoinHref ? (
-                    <Link
-                      href={communityJoinHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline"
-                    >
-                      {channelMeta?.communityName}
-                    </Link>
-                  ) : (
-                    <span>{channelMeta?.communityName}</span>
-                  )}
-                  {channelMeta?.communityId && communityJoinHref ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded bg-black/50 px-1.5 py-0.5 text-xs font-semibold text-white"
-                      aria-label={`Join ${channelMeta.communityName ?? "community"}`}
-                      onClick={() => setCommunityJoinOpen(true)}
-                    >
-                      J
-                    </button>
-                  ) : null}
-                </h4>
-              ) : (
-                <h4 className="flex items-center gap-1 text-sm font-semibold">
-                  <span className="text-primary">Creator</span>
-                  <span>
-                    {hostMeta?.firstName ?? hostName?.split(" ")[0]}{" "}
-                    <span className="text-muted-foreground text-[10px]">
-                      {resolvedHostUsername
-                        ? `@${resolvedHostUsername}`
-                        : null}{" "}
-                    </span>
-                  </span>
-                  <SaveHostToggleButton
-                    channelId={channelId != null ? String(channelId) : null}
-                    className="rounded bg-black/50 p-1 text-white"
-                    iconClassName="size-4 text-white"
-                    onRequireSignIn={openSaveHostSignIn}
-                    signInCompletedToken={saveHostSignInToken}
-                  />
-                </h4>
-              )}
-              {coOwnerNames.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                    Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
-                    {coOwnerNames.join(", ")}
-                  </span>
-                </div>
-              ) : null}
-              {(resolvedTitle || loading) && (
-                <p className="text-sm font-medium">
-                  {resolvedTitle || (loading ? "Loading…" : "")}
-                </p>
-              )}
-              {resolvedDescription ? (
-                <div className="border p-4">
-                  <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
-                    {resolvedDescription}
-                  </p>
-                  {resolvedDescription.length > 120 ? (
-                    <button
-                      type="button"
-                      className="text-primary mt-1 text-xs font-medium"
-                      onClick={() => setDescOpen(true)}
-                    >
-                      See more
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
+            {/* ABOUT THIS VIDEO */}
+            <div className="space-y-2 bg-gray-100 px-4 py-2">
+              <button
+                type="button"
+                onClick={() => setShowAboutThisVideo(prev => !prev)}
+                className="flex items-center gap-2 text-xs"
+              >
+                About this video <ChevronDown className="size-4" />
+              </button>
 
-              {channelMeta ? (
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1">
-                    <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[10px]">
-                      {channelMeta.eventVideoType}
-                    </p>
-                    <p className="text-muted-foreground text-[11px]">
-                      · {channelMeta.contentLanguage} ·{" "}
-                      {channelMeta.contentCountry}
-                    </p>{" "}
-                    &middot;
-                    <p className="text-muted-foreground text-[11px]">
-                      Created:{" "}
-                      {new Date(channelMeta.createdAt).toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric", year: "numeric" }
+              {showAboutThisVideo ? (
+                <>
+                  {isCommunityBankVideo ? (
+                    <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                      <span className="text-primary">Community</span>
+                      {communityJoinHref ? (
+                        <Link
+                          href={communityJoinHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {channelMeta?.communityName}
+                        </Link>
+                      ) : (
+                        <span>{channelMeta?.communityName}</span>
                       )}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs text-black">
-                {showMetricsSkeleton ? (
-                  <span className="flex flex-wrap gap-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <span
-                        key={i}
-                        className="inline-block h-3 w-16 animate-pulse rounded bg-gray-100"
+                      {channelMeta?.communityId && communityJoinHref ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center rounded bg-black/50 px-1.5 py-0.5 text-xs font-semibold text-white"
+                          aria-label={`Join ${channelMeta.communityName ?? "community"}`}
+                          onClick={() => setCommunityJoinOpen(true)}
+                        >
+                          J
+                        </button>
+                      ) : null}
+                    </h4>
+                  ) : (
+                    <h4 className="flex items-center gap-1 text-sm font-semibold">
+                      <span className="text-primary">Creator</span>
+                      <span>
+                        {hostMeta?.firstName ?? hostName?.split(" ")[0]}{" "}
+                        <span className="text-muted-foreground text-[10px]">
+                          {resolvedHostUsername
+                            ? `@${resolvedHostUsername}`
+                            : null}{" "}
+                        </span>
+                      </span>
+                      <SaveHostToggleButton
+                        channelId={channelId != null ? String(channelId) : null}
+                        className="rounded bg-black/50 p-1 text-white"
+                        iconClassName="size-4 text-white"
+                        onRequireSignIn={openSaveHostSignIn}
+                        signInCompletedToken={saveHostSignInToken}
                       />
-                    ))}
-                  </span>
-                ) : (
-                  <div className="-mt-2 flex items-center gap-2">
-                    <span className="text-[11px]">
-                      Event tips
-                      {isCommunityBankVideo ? " (community)" : ""}:{" "}
-                      {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
-                    </span>
-                    <span>·</span>
-                    <span className="text-[11px]">
-                      Video tips: {metrics?.videoTipCount ?? 0}
-                    </span>
+                    </h4>
+                  )}
+                  {coOwnerNames.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                        Co-owner{coOwnerNames.length > 1 ? "s" : ""}:{" "}
+                        {coOwnerNames.join(", ")}
+                      </span>
+                    </div>
+                  ) : null}
+                  {(resolvedTitle || loading) && (
+                    <p className="text-sm font-medium">
+                      {resolvedTitle || (loading ? "Loading…" : "")}
+                    </p>
+                  )}
+                  {resolvedDescription ? (
+                    <div className="border p-4">
+                      <p className="text-muted-foreground line-clamp-2 text-xs whitespace-pre-wrap">
+                        {resolvedDescription}
+                      </p>
+                      {resolvedDescription.length > 120 ? (
+                        <button
+                          type="button"
+                          className="text-primary mt-1 text-xs font-medium"
+                          onClick={() => setDescOpen(true)}
+                        >
+                          See more
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
 
-                    {/* HOST GROWTH TOGGLE VALUES */}
-                    {(showViewCount ||
-                      showEncounterCount ||
-                      amountRaisedLabel) && (
-                      <div className="flex w-fit flex-wrap items-center gap-2 rounded-sm border p-2 text-xs text-black">
-                        {showViewCount ? (
-                          <>
-                            <span>
-                              Views {resolvedViewCount.toLocaleString()} (10s+)
-                            </span>
-                            {(showEncounterCount || amountRaisedLabel) && (
-                              <span>&middot;</span>
-                            )}
-                          </>
-                        ) : null}
-                        {showEncounterCount ? (
-                          <>
-                            <span>
-                              Encounters{" "}
-                              {resolvedEncounterCount.toLocaleString()}
-                            </span>
-                            {amountRaisedLabel ? <span>&middot;</span> : null}
-                          </>
-                        ) : null}
+                  {channelMeta ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1">
+                        <p className="w-fit rounded-md bg-gray-200 px-1 py-0.5 text-[10px]">
+                          {channelMeta.eventVideoType}
+                        </p>
+                        <p className="text-muted-foreground text-[11px]">
+                          · {channelMeta.contentLanguage} ·{" "}
+                          {channelMeta.contentCountry}
+                        </p>{" "}
+                        &middot;
+                        <p className="text-muted-foreground text-[11px]">
+                          Created:{" "}
+                          {new Date(channelMeta.createdAt).toLocaleDateString(
+                            "en-US",
+                            { month: "short", day: "numeric", year: "numeric" }
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
 
-                        {amountRaisedLabel ? (
-                          <span>{amountRaisedLabel}</span>
-                        ) : null}
+                  <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs text-black">
+                    {showMetricsSkeleton ? (
+                      <span className="flex flex-wrap gap-2">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <span
+                            key={i}
+                            className="inline-block h-3 w-16 animate-pulse rounded bg-gray-100"
+                          />
+                        ))}
+                      </span>
+                    ) : (
+                      <div className="-mt-2 flex items-center gap-2">
+                        <span className="text-[11px]">
+                          Event tips
+                          {isCommunityBankVideo ? " (community)" : ""}:{" "}
+                          {metrics?.eventRoomTipCount ?? numOfTips ?? 0}
+                        </span>
+                        <span>·</span>
+                        <span className="text-[11px]">
+                          Video tips: {metrics?.videoTipCount ?? 0}
+                        </span>
+
+                        {/* HOST GROWTH TOGGLE VALUES */}
+                        {(showViewCount ||
+                          showEncounterCount ||
+                          amountRaisedLabel) && (
+                          <div className="flex w-fit flex-wrap items-center gap-2 rounded-sm border p-2 text-xs text-black">
+                            {showViewCount ? (
+                              <>
+                                <span>
+                                  Views {resolvedViewCount.toLocaleString()}{" "}
+                                  (10s+)
+                                </span>
+                                {(showEncounterCount || amountRaisedLabel) && (
+                                  <span>&middot;</span>
+                                )}
+                              </>
+                            ) : null}
+                            {showEncounterCount ? (
+                              <>
+                                <span>
+                                  Encounters{" "}
+                                  {resolvedEncounterCount.toLocaleString()}
+                                </span>
+                                {amountRaisedLabel ? (
+                                  <span>&middot;</span>
+                                ) : null}
+                              </>
+                            ) : null}
+
+                            {amountRaisedLabel ? (
+                              <span>{amountRaisedLabel}</span>
+                            ) : null}
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
-              </p>
+                  </p>
+                </>
+              ) : null}
             </div>
 
             {reportOpen ? (

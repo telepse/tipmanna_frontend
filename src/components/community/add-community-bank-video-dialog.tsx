@@ -11,6 +11,7 @@ import {
   type AddVideoFormValues,
 } from "@/components/events/add-video-form";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,8 @@ export function AddCommunityBankVideoDialog({
 }: Props) {
   const { handleAuthRequiredError, HostAuthModal } =
     useHostCapabilityWithAuth();
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "community" });
   const [addLoading, setAddLoading] = useState(false);
   const [addVideoForm, setAddVideoForm] =
     useState<UseFormReturn<AddVideoFormValues> | null>(null);
@@ -70,6 +73,14 @@ export function AddCommunityBankVideoDialog({
         if (
           handleAuthRequiredError(res, () => {
             void onAddVideo(values);
+          })
+        ) {
+          return;
+        }
+        if (
+          handleSubscriptionActionError(res, {
+            focusTier: "community",
+            toastFallback: false,
           })
         ) {
           return;
@@ -104,6 +115,7 @@ export function AddCommunityBankVideoDialog({
   return (
     <>
       {HostAuthModal}
+      {SubscriptionPromptModal}
       <Dialog
         open={open}
         onOpenChange={onOpenChange}

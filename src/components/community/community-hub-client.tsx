@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 
 import {
@@ -19,9 +20,21 @@ import {
 import { ExploreTopCommunitiesGrid } from "@/components/explore/explore-top-communities-grid";
 import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
-import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
+import {
+  buildStartCommunityHubReturnTo,
+  shouldOpenStartCommunityFromSearch,
+  START_COMMUNITY_RESUME_QUERY,
+} from "@/lib/start-community-resume";
+import { resolveStartCommunityAfterGuestModal } from "@/lib/start-community-guest-resume";
+import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
+import {
+  clearCommunityExploreCatalogCache,
+  isCommunityExploreCatalogStale,
+  readCommunityExploreCatalogCache,
+  writeCommunityExploreCatalogCache,
+} from "@/lib/community-explore-catalog-cache";
 import SignInDialog, {
   type SignInModalPayload,
 } from "@/components/auth/sign-in-dialog";
@@ -52,9 +65,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
-import { cn } from "@/lib/utils";
+import { cn, trimTitle } from "@/lib/utils";
 import type { RootState } from "@/redux/store";
 import { toast } from "react-toastify";
+import { ExternalLink } from "lucide-react";
 
 const TIPMANNA_COMMUNITY_ID =
   process.env.NEXT_PUBLIC_TIPMANNA_COMMUNITY_ID?.trim() ?? "";
@@ -180,14 +194,31 @@ function communityHistoryReason(m: HubMembership): string {
 }
 
 export default function CommunityHubClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     user,
     isAuthenticated,
     token: authToken,
   } = useSelector((s: RootState) => s.auth);
   const userId = user?.id;
-  const { canWriteAsHost, capability, requestHostAuth, HostAuthModal } =
-    useHostCapabilityWithAuth();
+  const startCommunityUpgradeReturnTo = useMemo(
+    () => buildStartCommunityHubReturnTo(EXPLORE_COMMUNITY_HUB_HREF),
+    []
+  );
+  const {
+    canWriteAsHost,
+    capability,
+    sessionLoading,
+    requestHostAuth,
+    HostAuthModal,
+  } = useHostCapabilityWithAuth({
+    requireHostAccount: true,
+    hostUpgradeReturnToOverride: startCommunityUpgradeReturnTo,
+  });
+
+  const hostCapabilityLoading =
+    capability.status === "loading" || sessionLoading;
 
   const [memberships, setMemberships] = useState<HubMembership[]>([]);
   const [searchQ, setSearchQ] = useState("");
@@ -215,6 +246,7 @@ export default function CommunityHubClient() {
   const [coCreated, setCoCreated] = useState<CommunityBrief[]>([]);
 
   const [startCommunityModalOpen, setStartCommunityModalOpen] = useState(false);
+  const startCommunityResumeHandledRef = useRef(false);
   const [leaveConfirmTarget, setLeaveConfirmTarget] = useState<{
     communityId: string;
     name: string;
@@ -235,23 +267,44 @@ export default function CommunityHubClient() {
     }
   }, []);
 
-  const loadCatalog = useCallback(async () => {
-    setCatalogLoading(true);
-    setCatalogError(null);
-    try {
-      const r = await getCommunityExploreCatalogAction();
-      if (r.success && r.data) {
-        setCatalog({
-          total: r.data.total,
-          alphabetical: r.data.alphabetical,
-        });
-      } else {
-        setCatalog(null);
-        setCatalogError(r.message ?? "Could not load communities");
+  const loadCatalog = useCallback(
+    async (options?: { background?: boolean }) => {
+      const background = options?.background ?? false;
+      if (!background) {
+        setCatalogLoading(true);
       }
-    } finally {
-      setCatalogLoading(false);
-    }
+      setCatalogError(null);
+      try {
+        const r = await getCommunityExploreCatalogAction();
+        if (r.success && r.data) {
+          setCatalog({
+            total: r.data.total,
+            alphabetical: r.data.alphabetical,
+          });
+          writeCommunityExploreCatalogCache({
+            total: r.data.total,
+            alphabetical: r.data.alphabetical,
+            topByTips: r.data.topByTips ?? [],
+          });
+        } else {
+          setCatalog(null);
+          setCatalogError(r.message ?? "Could not load communities");
+        }
+      } finally {
+        if (!background) {
+          setCatalogLoading(false);
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const onAuthChanged = () => {
+      clearCommunityExploreCatalogCache();
+    };
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
   }, []);
 
   useEffect(() => {
@@ -259,6 +312,18 @@ export default function CommunityHubClient() {
   }, [loadTopCommunities]);
 
   useEffect(() => {
+    const cached = readCommunityExploreCatalogCache();
+    if (cached) {
+      setCatalog({
+        total: cached.total,
+        alphabetical: cached.alphabetical,
+      });
+      setCatalogLoading(false);
+      if (isCommunityExploreCatalogStale(cached)) {
+        void loadCatalog({ background: true });
+      }
+      return;
+    }
     void loadCatalog();
   }, [loadCatalog]);
 
@@ -405,12 +470,6 @@ export default function CommunityHubClient() {
     closeJoinModal,
     openJoin,
     openCommunity,
-    signInOpen: joinFlowSignInOpen,
-    setSignInOpen: setJoinFlowSignInOpen,
-    signInReturnTo: joinFlowSignInReturnTo,
-    onSignInVerified: onJoinFlowSignInVerified,
-    signInTitle: joinFlowSignInTitle,
-    signupSurface: joinFlowSignupSurface,
   } = useCommunityJoinFlow({
     signupSurface: "community_hub",
     signInTitle: "Sign in to join this community",
@@ -497,7 +556,21 @@ export default function CommunityHubClient() {
     setStartCommunityModalOpen(true);
   }, []);
 
+  const resumeStartCommunityAfterAuth = useCallback(() => {
+    if (canWriteAsHost) {
+      openStartCommunityForm();
+      return;
+    }
+    const outcome = requestHostAuth(openStartCommunityForm);
+    if (outcome === "noop") {
+      toast.error(
+        "A host account is required. Add an email to your tipper profile or create a host account."
+      );
+    }
+  }, [canWriteAsHost, openStartCommunityForm, requestHostAuth]);
+
   const openStartCommunityFlow = useCallback(() => {
+    if (hostCapabilityLoading) return;
     if (!isAuthenticated || !userId || !authToken) {
       setPendingStartCommunity(true);
       setHostSignInOpen(true);
@@ -507,10 +580,16 @@ export default function CommunityHubClient() {
       openStartCommunityForm();
       return;
     }
-    requestHostAuth(openStartCommunityForm);
+    const outcome = requestHostAuth(openStartCommunityForm);
+    if (outcome === "noop") {
+      toast.error(
+        "A host account is required. Add an email to your tipper profile or create a host account."
+      );
+    }
   }, [
     authToken,
     canWriteAsHost,
+    hostCapabilityLoading,
     isAuthenticated,
     openStartCommunityForm,
     requestHostAuth,
@@ -518,15 +597,62 @@ export default function CommunityHubClient() {
   ]);
 
   const handleHostSignInSuccess = useCallback(
-    (_payload: SignInModalPayload) => {
+    (payload: SignInModalPayload) => {
       setHostSignInOpen(false);
       if (pendingStartCommunity) {
         setPendingStartCommunity(false);
-        openStartCommunityForm();
+        if (resolveStartCommunityAfterGuestModal(payload.role) === "openForm") {
+          openStartCommunityForm();
+        } else {
+          resumeStartCommunityAfterAuth();
+        }
       }
     },
-    [openStartCommunityForm, pendingStartCommunity]
+    [
+      openStartCommunityForm,
+      pendingStartCommunity,
+      resumeStartCommunityAfterAuth,
+    ]
   );
+
+  useEffect(() => {
+    if (
+      !shouldOpenStartCommunityFromSearch(
+        searchParams.get(START_COMMUNITY_RESUME_QUERY)
+      )
+    ) {
+      startCommunityResumeHandledRef.current = false;
+      return;
+    }
+    if (hostCapabilityLoading) return;
+    if (startCommunityResumeHandledRef.current) return;
+    startCommunityResumeHandledRef.current = true;
+
+    const cleanParams = new URLSearchParams(searchParams.toString());
+    cleanParams.delete(START_COMMUNITY_RESUME_QUERY);
+    const cleanQ = cleanParams.toString();
+    router.replace(
+      cleanQ ? `/explore?${cleanQ}` : "/explore?tab=my-communities",
+      {
+        scroll: false,
+      }
+    );
+
+    if (canWriteAsHost) {
+      openStartCommunityForm();
+    } else if (isAuthenticated && userId) {
+      resumeStartCommunityAfterAuth();
+    }
+  }, [
+    canWriteAsHost,
+    hostCapabilityLoading,
+    isAuthenticated,
+    openStartCommunityForm,
+    resumeStartCommunityAfterAuth,
+    router,
+    searchParams,
+    userId,
+  ]);
 
   const catalogTotalDisplay = catalogLoading
     ? "…"
@@ -536,14 +662,6 @@ export default function CommunityHubClient() {
 
   return (
     <div className="bg-background min-h-0 pb-10">
-      <TipperEmailOtpSignInDialog
-        open={joinFlowSignInOpen}
-        onOpenChange={setJoinFlowSignInOpen}
-        signInTitle={joinFlowSignInTitle}
-        signupSurface={joinFlowSignupSurface}
-        getRedirectPathAfterVerify={() => joinFlowSignInReturnTo}
-        onVerified={onJoinFlowSignInVerified}
-      />
       {joinCommunityId ? (
         <JoinCommunityModal
           open={joinModalOpen}
@@ -633,29 +751,40 @@ export default function CommunityHubClient() {
                   className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0 space-y-1">
-                    <p className="truncate text-sm font-medium">{c.name}</p>
+                    <p className="truncate text-sm font-medium">
+                      {trimTitle(c.name, 25)}
+                    </p>
                     {c.description ? (
                       <p className="text-muted-foreground line-clamp-2 text-xs">
                         {c.description}
                       </p>
                     ) : null}
                     <p className="text-muted-foreground text-[11px]">
-                      {c.totalTips} tips · {c.memberCount} members · Created{" "}
+                      {c.totalTips} tips · {c.memberCount} members ·{" "}
+                      {c.numVideos} videos · Created{" "}
                       {formatCommunityDate(c.createdAt)}
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    {c.viewer?.joined ? (
-                      <span className="text-muted-foreground self-center text-xs">
-                        Member
-                      </span>
-                    ) : !c.isSystem ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 px-0"
+                      aria-label="Open community"
+                      title="Open community"
+                      onClick={() => openCommunity(c.id)}
+                    >
+                      <ExternalLink className="size-3.5" />
+                    </Button>
+                    {!c.isSystem ? (
                       <CommunityJoinOpenControls
                         communityId={c.id}
-                        joined={false}
+                        joined={Boolean(c.viewer?.joined)}
                         isAuthenticated={isAuthenticated}
                         onJoin={openJoin}
                         onOpen={openCommunity}
+                        joinLabel={c.viewer?.joined ? "Open" : undefined}
                       />
                     ) : null}
                   </div>
@@ -738,7 +867,9 @@ export default function CommunityHubClient() {
                         </div>
                       ) : null}
                       <div className="min-w-0 space-y-1">
-                        <p className="truncate text-sm font-medium">{c.name}</p>
+                        <div className="flex items-center gap-2 truncate text-sm font-medium">
+                          {trimTitle(c.name, 15)}{" "}
+                        </div>
                         {c.description ? (
                           <p className="text-muted-foreground line-clamp-2 text-xs">
                             {c.description}
@@ -832,8 +963,12 @@ export default function CommunityHubClient() {
                   variant="secondary"
                   size="sm"
                   onClick={openStartCommunityFlow}
+                  disabled={hostCapabilityLoading}
+                  aria-busy={hostCapabilityLoading}
                 >
-                  Start community
+                  {hostCapabilityLoading
+                    ? "Checking host account…"
+                    : "Start community"}
                 </Button>
               )}
               {/* {user?.role === "HOST" && eventSlug ? (
@@ -869,8 +1004,12 @@ export default function CommunityHubClient() {
                 size="sm"
                 className="w-full sm:w-auto"
                 onClick={openStartCommunityFlow}
+                disabled={hostCapabilityLoading}
+                aria-busy={hostCapabilityLoading}
               >
-                Start community
+                {hostCapabilityLoading
+                  ? "Checking host account…"
+                  : "Start community"}
               </Button>
             </div>
           ) : null}
@@ -1013,6 +1152,7 @@ export default function CommunityHubClient() {
                       m={m}
                       onFeedActive={setFeedActive}
                       onLeave={requestLeaveCommunity}
+                      onOpenCommunity={openCommunity}
                     />
                   ))}
                 </ul>
@@ -1042,6 +1182,7 @@ export default function CommunityHubClient() {
                         m={m}
                         onFeedActive={setFeedActive}
                         onLeave={requestLeaveCommunity}
+                        onOpenCommunity={openCommunity}
                       />
                     ))}
                   </ul>
@@ -1059,6 +1200,7 @@ export default function CommunityHubClient() {
                         m={m}
                         onFeedActive={setFeedActive}
                         onLeave={requestLeaveCommunity}
+                        onOpenCommunity={openCommunity}
                       />
                     ))}
                   </ul>
@@ -1133,13 +1275,12 @@ export default function CommunityHubClient() {
                           </p>
                         </div>
                         <Button
-                          asChild
+                          type="button"
                           variant="outline"
                           size="sm"
+                          onClick={() => openCommunity(m.communityId)}
                         >
-                          <Link href={exploreCommunityJoinHref(m.communityId)}>
-                            Open community
-                          </Link>
+                          Open community
                         </Button>
                       </li>
                     ))}
@@ -1164,13 +1305,6 @@ function SyntheticTipmannaRow({ m }: { m: HubMembership }) {
           Public hub — everyone can explore Tipmanna content.
         </p>
       </div>
-      {/* <Button
-        asChild
-        variant="outline"
-        size="sm"
-      >
-        <Link href={exploreCommunityJoinHref(m.communityId)}>Details</Link>
-      </Button> */}
       <Link href="/partner">
         <Button
           asChild
@@ -1188,10 +1322,12 @@ function MembershipRow({
   m,
   onFeedActive,
   onLeave,
+  onOpenCommunity,
 }: {
   m: HubMembership;
   onFeedActive: (communityId: string, feedActive: boolean) => void;
   onLeave: (communityId: string, name: string) => void;
+  onOpenCommunity: (communityId: string) => void;
 }) {
   const name = m.community?.name ?? m.communityId;
   const logoUrl = m.community?.logoUrl;
@@ -1245,11 +1381,12 @@ function MembershipRow({
 
         {!defaultSystem && (
           <Button
-            asChild
+            type="button"
             variant="outline"
             size="sm"
+            onClick={() => onOpenCommunity(m.communityId)}
           >
-            <Link href={exploreCommunityJoinHref(m.communityId)}>Details</Link>
+            Details
           </Button>
         )}
 

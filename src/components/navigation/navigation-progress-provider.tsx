@@ -11,6 +11,8 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { isScreenOverlayPath } from "@/lib/pwa-install-trigger";
+
 export type AppRouterContextValue = {
   push: (href: string) => void;
   replace: (href: string) => void;
@@ -62,6 +64,7 @@ export function NavigationProgressProvider({
   );
 
   const isNavigating = isPending || clickPending;
+  const showProgressBar = isNavigating && !isScreenOverlayPath(pathname ?? "");
 
   const value: AppRouterContextValue = {
     push,
@@ -72,7 +75,7 @@ export function NavigationProgressProvider({
 
   return (
     <AppRouterContext.Provider value={value}>
-      {isNavigating ? (
+      {showProgressBar ? (
         <div
           className="pointer-events-none fixed top-0 right-0 left-0 z-[99998] h-1 overflow-hidden bg-neutral-200/90"
           role="progressbar"

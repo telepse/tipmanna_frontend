@@ -46,7 +46,6 @@ import {
   approveCommunityBankEntryAction,
   getCommunityContentBankAction,
   getCommunitySendsAction,
-  getMyCommunitiesAction,
   inviteCoCreatorAction,
   listCoCreatorsAction,
   rejectCommunityBankEntryAction,
@@ -71,6 +70,7 @@ import {
 import { normalizeEmail } from "@/lib/normalize-email";
 import { parseHostEventsEligibleForCommunity } from "@/lib/parse-host-events";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useMyCommunitiesMemberships } from "@/hooks/use-my-communities-memberships";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
 import { HostSubscriptionUpgradeTrigger } from "@/components/dashboard/host-subscription-modal";
@@ -81,6 +81,11 @@ import { tryUploadImage } from "@/lib/cloudinary";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { usePushPermission } from "@/hooks/use-push-permission";
 import { getPwaInstallInstructions } from "@/lib/pwa-utils";
+import {
+  isHostCommunityOwnerTab,
+  parseHostCommunityTab,
+  type HostCommunityMainTab,
+} from "@/lib/host-dashboard-shortcuts";
 
 function ReadOnlyOverlay({ children }: { children: React.ReactNode }) {
   return (
@@ -547,10 +552,14 @@ export function HostCommunityClient() {
   const pwaInstall = getPwaInstallInstructions({ forPush: true });
   const communityActive =
     planInfo?.tier === "HOST_COMMUNITY" && planStatus === "active";
-  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const {
+    memberships,
+    isLoadingInitial: membershipsLoadingInitial,
+    error: membershipsFetchError,
+    refreshMemberships,
+  } = useMyCommunitiesMemberships(authUserId, authToken);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState("bank");
-  const [loadingMeta, setLoadingMeta] = useState(true);
   const [bank, setBank] = useState<{
     approved: BankItem[];
     pending: BankItem[];
@@ -626,8 +635,8 @@ export function HostCommunityClient() {
     }>;
   } | null>(null);
 
-  const membershipsLoadedRef = useRef(false);
   const mainTabInitializedForRef = useRef<string | null>(null);
+  const urlMainTabRef = useRef<HostCommunityMainTab | null>(null);
   const appliedSearchParamsRef = useRef("");
   const bankLoadedForRef = useRef<string | null>(null);
   const sendsLoadedForRef = useRef<string | null>(null);
@@ -710,80 +719,34 @@ export function HostCommunityClient() {
 
   const selectedRole = selected?.role ?? null;
 
-  const loadMemberships = useCallback(
-    async (options?: { background?: boolean }) => {
-      if (!authUserId || !authToken) {
-        setLoadingMeta(false);
-        return;
-      }
-      if (!options?.background) {
-        setLoadingMeta(true);
-      }
-      setCommunityApiError(null);
-      const res = await getMyCommunitiesAction(authToken);
-      if (!res.success || !res.data) {
-        if (isCommunityApiUnavailable(res.message)) {
-          setCommunityApiError(
-            "Community API is unavailable. Ensure the backend has COMMUNITY_FEATURE_ENABLED=true and is running."
-          );
-        } else {
-          toast.error(res.message ?? "Could not load communities");
-        }
-        setLoadingMeta(false);
-        return;
-      }
-      const raw = res.data as {
-        owned: CommunityBrief[];
-        coCreator: CommunityBrief[];
-      };
-      const byId = new Map<string, Membership>();
-      for (const c of raw.owned ?? []) {
-        byId.set(c.id, {
-          id: c.id,
-          name: c.name,
-          role: "owner",
-          eventType: c.event?.eventType,
-          eventId: c.event?.id ?? null,
-          tvActivatedAt: c.tvActivatedAt ?? null,
-          tvHostPaused: Boolean(c.tvHostPaused),
-        });
-      }
-      for (const c of raw.coCreator ?? []) {
-        if (!byId.has(c.id)) {
-          byId.set(c.id, {
-            id: c.id,
-            name: c.name,
-            role: "coCreator",
-            eventType: c.event?.eventType,
-            eventId: c.event?.id ?? null,
-            tvActivatedAt: c.tvActivatedAt ?? null,
-            tvHostPaused: Boolean(c.tvHostPaused),
-          });
-        }
-      }
-      const list = Array.from(byId.values());
-      setMemberships(list);
-      setSelectedId(prev => prev ?? list[0]?.id ?? null);
-      membershipsLoadedRef.current = true;
-      setLoadingMeta(false);
-    },
-    [authUserId, authToken]
-  );
+  useEffect(() => {
+    if (!membershipsFetchError) return;
+    if (isCommunityApiUnavailable(membershipsFetchError)) {
+      setCommunityApiError(
+        "Community API is unavailable. Ensure the backend has COMMUNITY_FEATURE_ENABLED=true and is running."
+      );
+    } else {
+      toast.error(membershipsFetchError);
+    }
+  }, [membershipsFetchError]);
 
   useEffect(() => {
-    if (!communityFeatureOn) return;
-    void loadMemberships({
-      background: membershipsLoadedRef.current,
-    });
-  }, [loadMemberships]);
+    if (memberships.length === 0) return;
+    setSelectedId(prev => prev ?? memberships[0]?.id ?? null);
+  }, [memberships]);
 
   useEffect(() => {
     const communityId = searchParams.get("communityId");
     const draftId = searchParams.get("modalDraftId");
     const addVideo = searchParams.get("addVideo");
-    const nextKey = `${communityId ?? ""}|${draftId ?? ""}|${addVideo ?? ""}`;
+    const tabParam = parseHostCommunityTab(searchParams.get("tab"));
+    const nextKey = `${communityId ?? ""}|${draftId ?? ""}|${addVideo ?? ""}|${tabParam ?? ""}`;
     if (appliedSearchParamsRef.current === nextKey) return;
     appliedSearchParamsRef.current = nextKey;
+
+    if (tabParam) {
+      urlMainTabRef.current = tabParam;
+    }
 
     if (communityId) {
       setSelectedId(communityId);
@@ -1000,8 +963,8 @@ export function HostCommunityClient() {
       return;
     }
     toast.success("Community TV resumed");
-    await loadMemberships({ background: true });
-  }, [authToken, selected?.id, loadMemberships, handleSubscriptionActionError]);
+    void refreshMemberships();
+  }, [selected?.id, refreshMemberships, handleSubscriptionActionError]);
 
   const loadBank = useCallback(
     async (options?: { background?: boolean }) => {
@@ -1126,6 +1089,12 @@ export function HostCommunityClient() {
     if (!selectedId || !selectedRole) return;
     if (mainTabInitializedForRef.current === selectedId) return;
     mainTabInitializedForRef.current = selectedId;
+    const urlTab = urlMainTabRef.current;
+    urlMainTabRef.current = null;
+    if (urlTab && selectedRole === "owner" && isHostCommunityOwnerTab(urlTab)) {
+      setMainTab(urlTab);
+      return;
+    }
     setMainTab(selectedRole === "owner" ? "bank" : "sends");
   }, [selectedId, selectedRole]);
 
@@ -1332,7 +1301,7 @@ export function HostCommunityClient() {
     );
   }
 
-  if (loadingMeta && !membershipsLoadedRef.current) {
+  if (communityFeatureOn && membershipsLoadingInitial) {
     return <p className="text-muted-foreground text-sm">Loading…</p>;
   }
 

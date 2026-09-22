@@ -1,15 +1,13 @@
-import { useState } from "react";
-
 // Third-party imports
 import { Button } from "@/components/ui/button";
-import { CreateDialog } from "../home/create-dialog";
+import { useCreateDialogHost } from "@/components/home/create-dialog-host";
 import { Plus } from "lucide-react";
 import { CiInstagram, CiLinkedin } from "react-icons/ci";
 import { SocialIcon } from "../shared/social-icon";
 import { FaXTwitter } from "react-icons/fa6";
 
 export const TVFooter = () => {
-  const [openPopup, setOpenPopup] = useState(false);
+  const { openCreate } = useCreateDialogHost();
 
   return (
     <div className="bg-primary fixed bottom-0 z-[5000000000] hidden w-full flex-col items-center justify-center px-4 py-2 lg:flex">
@@ -44,16 +42,11 @@ export const TVFooter = () => {
 
         <Button
           className="bg-black hover:bg-black/80"
-          onClick={() => setOpenPopup(true)}
+          onClick={() => openCreate()}
         >
           <Plus className="size-4" /> Create
         </Button>
       </div>
-
-      <CreateDialog
-        openPopup={openPopup}
-        setOpenPopup={setOpenPopup}
-      />
     </div>
   );
 };

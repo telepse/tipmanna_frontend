@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Loader2, Pin, PinOff } from "lucide-react";
+import { toast } from "react-toastify";
 
-import { addEventPerformersAction } from "@/actions/events";
+import {
+  addEventPerformersAction,
+  getEventPinRosterAction,
+  togglePerformerPinAction,
+} from "@/actions/events";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,12 +18,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
-import { toast } from "react-toastify";
-import { X, Plus } from "lucide-react";
+import {
+  MAX_PINNED_ROSTER_ITEMS,
+  pinnedRosterItems,
+  type EventPinRoster,
+  type PinRosterItem,
+} from "@/lib/event-pin-roster";
 
-interface Project {
+interface Performer {
+  id?: string;
   name: string;
-  amountReceived?: string;
+  isPinned?: boolean;
+  amountReceived?: number | string;
 }
 
 interface Props {
@@ -25,8 +37,8 @@ interface Props {
   onClose: () => void;
   isHost: boolean;
   eventId: string;
-  performers: Project[];
-  setPerformers: React.Dispatch<React.SetStateAction<Project[]>>;
+  performers: Performer[];
+  setPerformers: React.Dispatch<React.SetStateAction<Performer[]>>;
 }
 
 export const AddPerformersModal = ({
@@ -39,70 +51,106 @@ export const AddPerformersModal = ({
   const { handleAuthRequiredError, HostAuthModal } = useHostCapabilityWithAuth({
     cohostEventId: eventId,
   });
-  const [localProjects, setLocalProjects] = useState(performers);
+  const [roster, setRoster] = useState<PinRosterItem[]>([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [loadingPinId, setLoadingPinId] = useState<string | null>(null);
+
+  const applyRoster = useCallback(
+    (items: PinRosterItem[]) => {
+      setRoster(items);
+      setPerformers(items);
+    },
+    [setPerformers]
+  );
+
+  const loadRoster = useCallback(async () => {
+    setLoadingRoster(true);
+    try {
+      const res = await getEventPinRosterAction(eventId);
+      if (!res.success || !res.data) {
+        toast.error(res.error ?? "Could not load performers");
+        return;
+      }
+      applyRoster(res.data.items);
+    } finally {
+      setLoadingRoster(false);
+    }
+  }, [applyRoster, eventId]);
 
   useEffect(() => {
-    if (open) {
-      setLocalProjects(
-        performers.length > 0 ? performers : [{ name: "", amountReceived: "" }]
-      );
+    if (!open) return;
+    setNewName("");
+    void loadRoster();
+  }, [open, loadRoster]);
+
+  useEffect(() => {
+    if (!open && performers.length > 0) {
+      setRoster(performers as PinRosterItem[]);
     }
   }, [open, performers]);
 
-  const addProject = () => {
-    setLocalProjects(prev => [...prev, { name: "", amountReceived: "" }]);
-  };
+  const handleAdd = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      toast.error("Enter a performer name");
+      return;
+    }
 
-  const removeProject = (index: number) => {
-    setLocalProjects(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const updateProject = (
-    index: number,
-    field: "name" | "amountReceived",
-    value: string
-  ) => {
-    setLocalProjects(prev => {
-      const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        [field]: value,
-      };
-      return updated;
-    });
-  };
-
-  const submitPerformers = async (cleaned: Project[]) => {
-    const res = await addEventPerformersAction(eventId, cleaned);
-    if (!res.success) {
-      if (handleAuthRequiredError(res, () => void submitPerformers(cleaned))) {
+    setAdding(true);
+    try {
+      const res = await addEventPerformersAction(eventId, trimmed);
+      if (!res.success || !res.data) {
+        if (
+          handleAuthRequiredError(res, () => {
+            void handleAdd();
+          })
+        ) {
+          return;
+        }
+        toast.error(res.error ?? "Failed to add performer");
         return;
       }
-      toast.error(res.error ?? "Failed to add performers");
-      return;
-    }
-    toast.success("Performers added successfully!");
-    if (res.data) setPerformers(res.data as Project[]);
-    onClose();
-  };
-
-  const onSubmit = async () => {
-    const cleaned = localProjects.filter(p => p.name.trim() !== "");
-    if (cleaned.length === 0) {
-      toast.error("Add at least one performer");
-      return;
-    }
-    try {
-      await submitPerformers(cleaned);
+      applyRoster((res.data as EventPinRoster).items);
+      setNewName("");
+      toast.success("Performer added");
     } catch (err) {
       console.error(err);
-      toast.error("Error adding performers");
+      toast.error("Error adding performer");
+    } finally {
+      setAdding(false);
     }
   };
 
-  useEffect(() => {
-    setLocalProjects(performers);
-  }, [performers]);
+  const handleTogglePin = async (performerId: string) => {
+    setLoadingPinId(performerId);
+    try {
+      const res = await togglePerformerPinAction(performerId);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? res.error ?? "Failed to toggle pin");
+      }
+      const data = res.data as { isPinned?: boolean };
+      setRoster(prev => {
+        const next = prev.map(item =>
+          item.id === performerId
+            ? { ...item, isPinned: Boolean(data.isPinned) }
+            : item
+        );
+        setPerformers(next);
+        return next;
+      });
+      toast.success(data.isPinned ? "Performer pinned" : "Performer unpinned");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Something went wrong";
+      toast.error(message);
+    } finally {
+      setLoadingPinId(null);
+    }
+  };
+
+  const pinnedCount = roster.filter(item => item.isPinned).length;
 
   return (
     <>
@@ -113,54 +161,85 @@ export const AddPerformersModal = ({
       >
         <DialogContent className="max-h-[70vh] w-full overflow-y-scroll rounded-md sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Add performers to pin to screen display</DialogTitle>
+            <DialogTitle>Add or pin performers for screen display</DialogTitle>
           </DialogHeader>
 
-          <button
-            type="button"
-            onClick={addProject}
-            className="flex w-fit items-center gap-2 rounded-md bg-black p-2 text-sm text-white"
-          >
-            <Plus /> Add performer
-          </button>
-
-          {localProjects.map((project, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-1 rounded-md"
-            >
-              <Input
-                placeholder="Title"
-                value={project.name}
-                onChange={e => updateProject(index, "name", e.target.value)}
-              />
-
-              <Input
-                placeholder="0"
-                value={project.amountReceived}
-                onChange={e =>
-                  updateProject(index, "amountReceived", e.target.value)
-                }
-                disabled={true}
-              />
-
-              {localProjects.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeProject(index)}
-                  className="text-destructive"
-                >
-                  <X />
-                </button>
-              )}
+          {loadingRoster ? (
+            <div className="text-muted-foreground flex items-center justify-center gap-2 py-6 text-sm">
+              <Loader2 className="size-4 animate-spin" />
+              Loading roster…
             </div>
-          ))}
+          ) : roster.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No performers yet. Add a name below (up to{" "}
+              {MAX_PINNED_ROSTER_ITEMS} can be pinned).
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {roster.map(item => (
+                <div
+                  key={item.id}
+                  className="bg-muted/20 flex items-center justify-between rounded-md border p-3"
+                >
+                  <div>
+                    <div className="text-sm font-medium">{item.name}</div>
+                    <div className="text-muted-foreground text-xs">
+                      £{item.amountReceived ?? 0} received
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={loadingPinId === item.id}
+                    onClick={() => void handleTogglePin(item.id)}
+                    className={`ml-2 transition-colors disabled:opacity-50 ${
+                      item.isPinned
+                        ? "text-primary hover:text-primary/80"
+                        : "text-muted-foreground hover:text-black"
+                    }`}
+                    title={item.isPinned ? "Unpin performer" : "Pin performer"}
+                  >
+                    {loadingPinId === item.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : item.isPinned ? (
+                      <PinOff className="size-4" />
+                    ) : (
+                      <Pin className="size-4 fill-current" />
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-muted-foreground text-xs">
+            {pinnedCount}/{MAX_PINNED_ROSTER_ITEMS} pinned. Unpin one to swap.
+          </p>
+
+          <div className="flex gap-2">
+            <Input
+              placeholder="Performer name"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") void handleAdd();
+              }}
+            />
+            <Button
+              type="button"
+              disabled={adding}
+              onClick={() => void handleAdd()}
+            >
+              {adding ? <Loader2 className="size-4 animate-spin" /> : "Add"}
+            </Button>
+          </div>
 
           <Button
             type="button"
-            onClick={() => void onSubmit()}
+            variant="outline"
+            className="w-full"
+            onClick={onClose}
           >
-            Submit
+            Done
           </Button>
         </DialogContent>
       </Dialog>

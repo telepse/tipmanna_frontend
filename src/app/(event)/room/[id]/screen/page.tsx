@@ -149,6 +149,16 @@ export default async function EventRoomScreenPage({ params }: Props) {
   const eventUrl = buildRoomShareUrl(eventId);
   const isEventOwner = hostId;
 
+  const eventRecord = event as Record<string, unknown>;
+  const showPinnedOnScreen =
+    typeof eventRecord.showPinnedOnScreen === "boolean"
+      ? eventRecord.showPinnedOnScreen
+      : true;
+  const funnelPosition =
+    typeof eventRecord.funnelPosition === "string"
+      ? eventRecord.funnelPosition
+      : "bottom_left";
+
   return (
     <>
       <ClientErrorBoundary>
@@ -195,6 +205,8 @@ export default async function EventRoomScreenPage({ params }: Props) {
           eventEventType={eventType}
           forceScreenOpen
           activities={activities}
+          showPinnedOnScreen={showPinnedOnScreen}
+          funnelPosition={funnelPosition}
         />
       </ClientErrorBoundary>
 

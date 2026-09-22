@@ -293,7 +293,7 @@ export const newEventSchema = z.object({
   thankYouMessage: z
     .string()
     .min(10, "Thank-you message is required")
-    .max(2000, "Thank-you message is too long"),
+    .max(100, "Thank-you message must be 100 characters or fewer"),
 
   // 💡 Tip usage disclosure
   tipUsageDisclosure: z
@@ -422,6 +422,7 @@ export const organisationProfileFormSchema = z
       .min(2, "Account name must match your registered company name"),
     accountNumber: z.string().min(2, "Account number is required"),
     sortCode: z.string().min(2, "Sort code is required"),
+    organizationName: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (isUkCountry(data.country)) {

@@ -1,7 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
-import dynamic from "next/dynamic";
+import { Fragment } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,13 +17,10 @@ import { Title } from "@/components/shared/title";
 import { Badge } from "@/components/shared/badge";
 import { WHAT_YOU_CREATE } from "@/constants";
 
-const CreateDialog = dynamic(
-  () => import("./create-dialog").then(m => m.CreateDialog),
-  { ssr: false }
-);
+import { useCreateDialogHost } from "@/components/home/create-dialog-host";
 
 export default function Features() {
-  const [openPopup, setOpenPopup] = useState(false);
+  const { openCreate } = useCreateDialogHost();
 
   return (
     <section className="wrapper section items-center py-6 lg:py-12">
@@ -111,17 +107,10 @@ export default function Features() {
       <Button
         size="lg"
         className="bg-primary mt-8 w-fit text-white shadow-[4px_4px_0px_black] hover:bg-black/80 hover:text-white"
-        onClick={() => setOpenPopup(true)}
+        onClick={() => openCreate()}
       >
         Create your channel
       </Button>
-
-      {openPopup ? (
-        <CreateDialog
-          openPopup={openPopup}
-          setOpenPopup={setOpenPopup}
-        />
-      ) : null}
     </section>
   );
 }

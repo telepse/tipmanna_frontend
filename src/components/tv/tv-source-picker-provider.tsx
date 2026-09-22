@@ -75,7 +75,7 @@ export function TvSourcePickerProvider({
 
   const [tvPickerOpen, setTvPickerOpen] = useState(false);
   const [tvPickerOptions, setTvPickerOptions] = useState<
-    { id: string; name: string }[]
+    { id: string; name: string; logoUrl?: string }[]
   >([]);
 
   const sideChick = useSideChick();
@@ -85,6 +85,8 @@ export function TvSourcePickerProvider({
     communityFeatureOn;
   const dedicatedCommunityName =
     sideChick.activation?.community.name ?? "Community";
+  const dedicatedCommunityLogoUrl =
+    sideChick.activation?.community.logoUrl ?? "";
   const dedicatedExit = useDedicatedExitGate({
     sideChickLocked: tvSideChickLocked,
     dedicatedCommunityName,
@@ -281,6 +283,7 @@ export function TvSourcePickerProvider({
           if (!open) dedicatedExit.cancelExit();
         }}
         communityName={dedicatedCommunityName}
+        communityLogoUrl={dedicatedCommunityLogoUrl}
         busy={dedicatedExit.busy}
         actionLabel="Leave and switch TV source"
         onConfirm={() => void dedicatedExit.confirmExit()}

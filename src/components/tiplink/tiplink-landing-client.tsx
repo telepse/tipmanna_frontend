@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  JSX,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -26,6 +27,7 @@ import {
   ExternalLink,
   Info,
   Maximize2,
+  CircleStar,
   MessageCircleMore,
   Share2,
   UserRound,
@@ -70,6 +72,8 @@ import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { useWalletTopupTipResume } from "@/hooks/use-wallet-topup-tip-resume";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
+import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
@@ -115,6 +119,11 @@ import {
   tipLinkSocialAriaLabel,
 } from "@/components/tiplink/tiplink-social-icons";
 import { tipLinkGlobalStreamOptions } from "@/lib/tiplink-stream-options";
+import { formatTipLinkAttribution } from "@/lib/tiplink-attribution";
+import {
+  resolveTipLinkTickerMode,
+  tipLinkTickerExtras,
+} from "@/lib/tiplink-ticker-mode";
 import {
   buildExploreVideoHref,
   buildTipLinkExploreHandoff,
@@ -138,6 +147,51 @@ const formatTime = (seconds: number) => {
   const secs = Math.floor(seconds % 60);
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
+
+export const TIPLINK_MONEY_FOR_MAX = 80;
+
+export function formatTipLinkRaisedLine({
+  moneyFor,
+  amountRaised,
+  amountToRaise,
+  tips,
+  showAmounts = true,
+  onAmountClick,
+}: {
+  moneyFor?: string | null;
+  amountRaised: number;
+  amountToRaise: number;
+  tips: number;
+  showAmounts?: boolean;
+  onAmountClick?: () => void;
+}): JSX.Element | null {
+  if (showAmounts === false) return null;
+
+  const raised = `£${amountRaised.toFixed(2)}`;
+  const amounts =
+    amountToRaise > 0
+      ? `${raised} / £${amountToRaise.toFixed(2)} raised`
+      : `${raised} raised`;
+
+  const purpose = moneyFor?.trim();
+  const prefix = purpose ? `towards ${purpose} ` : "";
+
+  return (
+    <div className="flex flex-col gap-1 py-2">
+      <button
+        type="button"
+        onClick={onAmountClick}
+        className="hover:border-primary/50 inline-flex h-8 w-fit items-center justify-center rounded-md border border-white/15 bg-white/20 px-1 py-3 text-white"
+      >
+        {amounts}
+      </button>
+
+      <span className="text-xs text-white/70">
+        {tips} tips received {prefix}
+      </span>
+    </div>
+  );
+}
 
 type PlayerLayoutMode = "inline" | "dock" | "enlarge";
 
@@ -251,10 +305,14 @@ export function TipLinkLandingClient({
   const [isDesktopImmersive, setIsDesktopImmersive] = useState(false);
 
   const { eventId, channel, event, host, metrics, tipLink } = payload;
+  const community = payload.community ?? null;
+  const coOwnerName = payload.coOwnerName ?? null;
+  const isCommunityTipLink = Boolean(community?.id);
   const channelId = channel.id;
   const paymentChannelId = channelId;
 
   const [showFeaturedPlaylist, setShowFeaturedPlaylist] = useState(false);
+  const [joinCommunityOpen, setJoinCommunityOpen] = useState(false);
   const [landscapeLayoutDismissed, setLandscapeLayoutDismissed] =
     useState(false);
 
@@ -282,7 +340,13 @@ export function TipLinkLandingClient({
     isMobileSurface && (isFullView || showPhoneLandscapeImmersive);
   const isDesktopEnlarge = isDesktopImmersive && !isMobileSurface;
   const isEnlargeMode = isMobileEnlarge || isDesktopEnlarge;
-  const showStickyHeader = true;
+  const isLandscapeEnlarge = showPhoneLandscapeImmersive;
+  const tickerMode = resolveTipLinkTickerMode({
+    isLandscapeEnlarge,
+    isEnlargeMode,
+  });
+  const tickerExtras = tipLinkTickerExtras(tickerMode);
+  const showStickyHeader = !isLandscapeEnlarge;
   const hideScrollContent = isEnlargeMode;
   const isImmersiveRoom = isEnlargeMode;
   const isDocked = !isPlayerInView && !isEnlargeMode;
@@ -291,6 +355,17 @@ export function TipLinkLandingClient({
     host.fullName.trim().split(/\s+/)[0] ||
     host.fullName.trim() ||
     host.username;
+  const attributionLabel = formatTipLinkAttribution({
+    hostFirstName,
+    communityName: isCommunityTipLink ? community?.name : null,
+    coOwnerName,
+  });
+  const pitchVerified = isCommunityTipLink
+    ? Boolean(community?.ownerVerified)
+    : Boolean(host.creatorPayoutVerified);
+  const pitchHeadingName = isCommunityTipLink
+    ? community?.name?.trim() || hostFirstName.trim()
+    : hostFirstName.trim();
   const playerShellVariant = isImmersiveRoom
     ? "immersive"
     : isDocked
@@ -537,6 +612,16 @@ export function TipLinkLandingClient({
       return;
     }
     const updateEnlargeRect = () => {
+      if (isLandscapeEnlarge) {
+        const viewport = window.visualViewport;
+        setEnlargeRect({
+          top: 0,
+          left: 0,
+          width: Math.round(viewport?.width ?? window.innerWidth),
+          height: Math.round(viewport?.height ?? window.innerHeight),
+        });
+        return;
+      }
       const tickerH = stickyClusterRef.current?.offsetHeight ?? 120;
       setEnlargeRect({
         top: tickerH,
@@ -551,11 +636,13 @@ export function TipLinkLandingClient({
       observer.observe(stickyClusterRef.current);
     }
     window.addEventListener("resize", updateEnlargeRect);
+    window.visualViewport?.addEventListener("resize", updateEnlargeRect);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", updateEnlargeRect);
+      window.visualViewport?.removeEventListener("resize", updateEnlargeRect);
     };
-  }, [isEnlargeMode]);
+  }, [isEnlargeMode, isLandscapeEnlarge]);
 
   useLayoutEffect(() => {
     if (isEnlargeMode || isDocked) {
@@ -1069,6 +1156,14 @@ export function TipLinkLandingClient({
     if (playerLayoutMode === "enlarge") {
       if (enlargeRect) {
         next = enlargeRect;
+      } else if (isLandscapeEnlarge) {
+        const viewport = window.visualViewport;
+        next = {
+          top: 0,
+          left: 0,
+          width: Math.round(viewport?.width ?? window.innerWidth),
+          height: Math.round(viewport?.height ?? window.innerHeight),
+        };
       } else {
         const tickerH = stickyClusterRef.current?.offsetHeight ?? 120;
         next = {
@@ -1144,6 +1239,18 @@ export function TipLinkLandingClient({
     }
 
     if (playerLayoutMode === "enlarge") {
+      if (isLandscapeEnlarge) {
+        const viewport = window.visualViewport;
+        return normalizePlayerPosition(
+          {
+            top: 0,
+            left: 0,
+            width: Math.round(viewport?.width ?? window.innerWidth),
+            height: Math.round(viewport?.height ?? window.innerHeight),
+          },
+          "enlarge"
+        );
+      }
       const tickerH = stickyClusterRef.current?.offsetHeight ?? 120;
       return normalizePlayerPosition(
         {
@@ -1171,6 +1278,7 @@ export function TipLinkLandingClient({
     dockRect,
     enlargeRect,
     inlineRect,
+    isLandscapeEnlarge,
     playerLayoutMode,
   ]);
 
@@ -1181,6 +1289,48 @@ export function TipLinkLandingClient({
       : isEnlargeMode
         ? "immersive"
         : null;
+
+  const tickerNavActions = tickerExtras.showNavActions ? (
+    <>
+      <Link
+        href="/"
+        className="text-primary shrink-0 font-semibold tracking-wide"
+        onClick={e => e.stopPropagation()}
+      >
+        <span className="racing_sans_one">
+          <span className="text-primary">tip</span>
+          <span className="text-white">manna</span>
+        </span>
+      </Link>
+      <span className="shrink-0 text-white/30">·</span>
+      <button
+        type="button"
+        className="text-primary shrink-0 rounded-full border border-white/20 p-1 text-white"
+        onClick={e => {
+          e.stopPropagation();
+          handleCreateYours();
+        }}
+      >
+        Create Yours
+      </button>
+      <span className="shrink-0 text-white/30">·</span>
+      <button
+        type="button"
+        aria-label="Profile"
+        className="relative shrink-0 rounded-full border border-white/20 p-1"
+        onClick={e => {
+          e.stopPropagation();
+          setIsProfileDrawerOpen(true);
+        }}
+      >
+        <UserRound className="size-3.5" />
+        <NotificationBadge
+          variant="dot"
+          className="-top-0.5 -right-0.5"
+        />
+      </button>
+    </>
+  ) : null;
 
   const playerStage = (
     <TipLinkPlayerShell
@@ -1206,6 +1356,24 @@ export function TipLinkLandingClient({
         >
           <X className="size-4" />
         </button>
+      ) : null}
+      {isLandscapeEnlarge ? (
+        <div
+          className="pointer-events-none absolute top-[max(0.5rem,env(safe-area-inset-top,0px))] right-12 left-12 z-[57]"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="pointer-events-auto overflow-hidden rounded-full border border-white/15 bg-black/45 backdrop-blur-md">
+            <TipLinkMetricsTicker
+              visits={displayMetrics.pageVisitCount}
+              tips={liveNumOfTips}
+              shares={displayMetrics.shares}
+              sectionCtaLabel={tipPres.sectionCtaLabel}
+              hideActionLabels
+              onTipsClick={() => setShowTipsDrawer(true)}
+              navActions={tickerNavActions}
+            />
+          </div>
+        </div>
       ) : null}
       {!isDocked ? (
         <button
@@ -1386,7 +1554,7 @@ export function TipLinkLandingClient({
                   sectionCtaLabel={tipPres.sectionCtaLabel}
                   docked={isDocked}
                   dockedHeight={dockFallback.height}
-                  hideActionLabels={isEnlargeMode}
+                  hideActionLabels={tickerExtras.hideActionLabels}
                   useDesktopPipReserve={!isMobileSurface}
                   pipReserveMobile={PIP_RESERVE_MOBILE}
                   pipReserveDesktop={PIP_RESERVE_DESKTOP}
@@ -1468,18 +1636,18 @@ export function TipLinkLandingClient({
           {!hideScrollContent ? (
             <>
               <section className="space-y-3 text-sm text-white/80">
-                <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">
                   {countryDisplay ? (
                     <img
                       src={countryDisplay.flagUrl}
                       alt={countryDisplay.flagCode ?? "Country"}
                       width={32}
                       height={24}
-                      className="block h-6 w-8 shrink-0 object-cover"
+                      className="float-left mt-0.5 mr-2 h-6 w-8 shrink-0 object-contain"
                     />
                   ) : null}
-                  <h1 className="text-2xl font-bold">{channel.title}</h1>
-                </div>
+                  <span>{channel.title}</span>
+                </h1>
 
                 <div className="grid grid-cols-3 gap-2">
                   <Button
@@ -1520,8 +1688,16 @@ export function TipLinkLandingClient({
               </section>
 
               <p className="text-xs text-white/70">
-                Created by: {hostFirstName}{" "}
-                <span className="text-white/40">@{host.username}</span>
+                {attributionLabel}
+                {isCommunityTipLink && community?.communityType ? (
+                  <span className="text-white/40">
+                    {" "}
+                    · {community.communityType.replace(/_/g, " ")}
+                  </span>
+                ) : null}
+                {!isCommunityTipLink ? (
+                  <span className="text-white/40"> @{host.username}</span>
+                ) : null}
               </p>
 
               {storeLinks.length > 0 ? (
@@ -1583,12 +1759,60 @@ export function TipLinkLandingClient({
                 <section className="bg-primary/20 mt-6 overflow-hidden rounded-2xl border border-white/10 backdrop-blur-sm">
                   <div className="flex items-center justify-between pr-2">
                     <h2 className="flex flex-col border-b border-white/10 px-4 py-3 tracking-wide text-white/80">
-                      <span className="text-lg font-semibold uppercase">
-                        {hostFirstName}&apos;s Pitch
-                      </span>{" "}
-                      <span className="text-xs text-white/70">
-                        @{host.username}
-                      </span>
+                      {isCommunityTipLink ? (
+                        <>
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="text-lg font-semibold uppercase">
+                              {pitchHeadingName}&apos;s Pitch
+                            </span>
+                          </span>
+                          <span className="flex flex-wrap items-center gap-2">
+                            {community?.communityType ? (
+                              <span className="text-xs text-white/70">
+                                {" "}
+                                {community.communityType
+                                  .replace(/_/g, " ")
+                                  .toLowerCase()}{" "}
+                                - community
+                              </span>
+                            ) : null}
+
+                            {pitchVerified ? (
+                              <span
+                                className="bg-moonstone-blue inline-flex items-center gap-1 rounded-md px-2 py-0.5"
+                                title="Verified creator"
+                              >
+                                <CircleStar className="size-3.5 text-black" />
+                                <span className="text-[10px] font-medium text-black sm:text-xs">
+                                  Verified
+                                </span>
+                              </span>
+                            ) : null}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-lg font-semibold uppercase">
+                            {pitchHeadingName}&apos;s Pitch
+                          </span>
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-white/70">
+                              @{host.username}
+                            </span>
+                            {pitchVerified ? (
+                              <span
+                                className="bg-moonstone-blue inline-flex items-center gap-1 rounded-md px-2 py-0.5"
+                                title="Verified creator"
+                              >
+                                <CircleStar className="size-3.5 text-black" />
+                                <span className="text-[10px] font-medium text-black sm:text-xs">
+                                  Verified
+                                </span>
+                              </span>
+                            ) : null}
+                          </span>
+                        </>
+                      )}
                     </h2>
 
                     <a
@@ -1617,27 +1841,39 @@ export function TipLinkLandingClient({
                       unoptimized
                     />
                     <div className="to-primary/15 absolute inset-0 bg-gradient-to-t from-black/85 via-black/25" />
-
-                    {event.showAmountRaisedOnVideos !== false ? (
-                      <div className="text-primary absolute right-2 bottom-0 text-sm">
-                        {event.amountToRaise > 0
-                          ? `£${liveAmountRaised.toFixed(2)} / £${event.amountToRaise.toFixed(2)} raised`
-                          : `£${liveAmountRaised.toFixed(2)} raised`}{" "}
-                        · {liveNumOfTips} tips{" "}
-                      </div>
-                    ) : null}
                   </div>
-                  <p className="px-4 py-4 text-sm leading-relaxed font-medium text-white/95">
+                  <div className="px-4 pb-1 text-sm leading-relaxed font-medium whitespace-pre-line text-white/95">
+                    {(() => {
+                      const raisedLine = formatTipLinkRaisedLine({
+                        moneyFor: tipLink.moneyFor,
+                        amountRaised: liveAmountRaised,
+                        amountToRaise: event.amountToRaise,
+                        tips: liveNumOfTips,
+                        showAmounts: event.showAmountRaisedOnVideos !== false,
+                        onAmountClick: () => setShowTipsDrawer(true),
+                      });
+                      return raisedLine ? (
+                        <div className="text-primary text-sm">{raisedLine}</div>
+                      ) : null;
+                    })()}
+                  </div>
+                  <p className="px-4 pb-2 text-sm leading-relaxed font-medium break-words whitespace-pre-wrap text-white/95">
                     {tipLink.pitch}
                   </p>
                 </section>
               ) : null}
 
               <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                <p className="mb-3 text-sm text-white/60">Connect with me</p>
-                <div className="flex flex-wrap items-center gap-3">
+                <p className="mb-3 text-center text-sm text-white/60">
+                  {isCommunityTipLink ? "Connect with us" : "Connect with me"}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
                   <Link
-                    href={buildCreatorProfileSharePath(host.username)}
+                    href={
+                      isCommunityTipLink && community
+                        ? exploreCommunityJoinHref(community.id)
+                        : buildCreatorProfileSharePath(host.username)
+                    }
                     className="bg-primary/20 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
                   >
                     <Image
@@ -1664,7 +1900,7 @@ export function TipLinkLandingClient({
                 </div>
               </section>
 
-              {payload.featuredPlaylist ? (
+              {!isCommunityTipLink && payload.featuredPlaylist ? (
                 <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
                   <div className="flex items-center justify-between">
                     <p className="mb-2 text-sm text-white/60">
@@ -1824,13 +2060,29 @@ export function TipLinkLandingClient({
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">Subscribe to this creator</span>{" "}
-                  <SaveHostToggleButton
-                    hostId={host.id}
-                    className="rounded-md border border-white/20 px-3 py-1.5 text-xs sm:text-sm"
-                    onRequireSignIn={openSaveHostSignIn}
-                    signInCompletedToken={saveHostSignInToken}
-                  />
+                  {isCommunityTipLink && community ? (
+                    <>
+                      <span className="text-sm">Join this community</span>
+                      <button
+                        type="button"
+                        className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold sm:text-sm"
+                        aria-label="Join this community"
+                        onClick={() => setJoinCommunityOpen(true)}
+                      >
+                        J
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm">Subscribe to this creator</span>{" "}
+                      <SaveHostToggleButton
+                        hostId={host.id}
+                        className="rounded-md border border-white/20 px-3 py-1.5 text-xs sm:text-sm"
+                        onRequireSignIn={openSaveHostSignIn}
+                        signInCompletedToken={saveHostSignInToken}
+                      />
+                    </>
+                  )}
                 </div>
 
                 <p className="text-xs text-white/40">
@@ -1895,6 +2147,16 @@ export function TipLinkLandingClient({
             setPendingCreateHref(null);
           }}
         />
+
+        {isCommunityTipLink && community ? (
+          <JoinCommunityModal
+            open={joinCommunityOpen}
+            onOpenChange={setJoinCommunityOpen}
+            communityId={community.id}
+            signInRedirectPath={exploreCommunityJoinHref(community.id)}
+            title="Join this community"
+          />
+        ) : null}
       </div>
     </>
   );

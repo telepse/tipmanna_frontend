@@ -109,6 +109,7 @@ import {
   E2E_DISCOVER_CONTENTS,
   E2E_FEED_BOOT,
   E2E_JOINED_MEMBERSHIP,
+  E2E_TOP_COMMUNITY,
   E2E_TV_HANDOFF,
 } from "@/lib/e2e-explore-fixtures";
 import {
@@ -124,6 +125,11 @@ import {
   DISCOVER_DYNAMIC_RAIL_STALE_MS,
   type DiscoverCatalogSnapshot,
 } from "@/lib/discover-catalog-cache";
+import {
+  clearCommunityExploreCatalogCache,
+  readCommunityExploreCatalogCache,
+  writeCommunityExploreCatalogCache,
+} from "@/lib/community-explore-catalog-cache";
 import { stripDiscoverPanelParam } from "@/lib/discover-return.util";
 import {
   getAllCharacterSets,
@@ -157,7 +163,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { ListFilterPlus, Lock, Plus, Search, UserRound } from "lucide-react";
+import {
+  CircleX,
+  ListFilterPlus,
+  Lock,
+  Plus,
+  Search,
+  UserRound,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import { Bars3BottomLeftIcon } from "@heroicons/react/24/outline";
 
@@ -316,7 +329,7 @@ export default function ExplorePageClient({
   const dedicatedCommunityId = sideChick.activation?.communityId ?? null;
   const dedicatedCommunityName =
     sideChick.activation?.community.name ?? "Community";
-  const { installed } = useInstallPrompt();
+  const { installed, detectionSettled } = useInstallPrompt();
   const [activateInstallOpen, setActivateInstallOpen] = useState(false);
   const [activateDedicatedBusy, setActivateDedicatedBusy] = useState(false);
 
@@ -373,19 +386,6 @@ export default function ExplorePageClient({
   joinCommunityIdRef.current = joinCommunityId;
   const tabRef = useRef(tab);
   tabRef.current = tab;
-
-  useEffect(() => {
-    if (tab !== "join") return;
-    if (joinCommunityId) return;
-    const liveJoinId = readJoinCommunityIdFromLocation();
-    if (liveJoinId) return;
-    setTab("my-communities");
-    commitExploreHistory({
-      href: EXPLORE_COMMUNITY_HUB_HREF,
-      mode: "replace",
-      source: "join-tab-guard",
-    });
-  }, [tab, joinCommunityId]);
 
   useLayoutEffect(() => {
     if (ssrBoot?.items?.length) {
@@ -621,6 +621,8 @@ export default function ExplorePageClient({
     setContents(E2E_DISCOVER_CONTENTS);
     setLatestContents(E2E_DISCOVER_CONTENTS);
     setSpotlightContents(E2E_DISCOVER_CONTENTS);
+    setTopCommunities([E2E_TOP_COMMUNITY]);
+    topCommunitiesStatusRef.current = "loaded";
     catalogLoadedRef.current = true;
     if (e2eTvSeed) {
       seedExploreTvPrefetch({
@@ -683,6 +685,7 @@ export default function ExplorePageClient({
 
   useEffect(() => {
     const onAuthChanged = () => {
+      clearCommunityExploreCatalogCache();
       prefetchExploreSavesFeed();
       if (eligibleCommunityIdsForPrefetch.length) {
         prefetchExploreCommunityFeed(eligibleCommunityIdsForPrefetch);
@@ -785,28 +788,60 @@ export default function ExplorePageClient({
         feedState,
         liveSearchKey
       );
-      commitExploreHistory({ href: nextHref, mode, source });
+      const committed = commitExploreHistory({ href: nextHref, mode, source });
+      if (committed) {
+        setHistorySyncGen(g => g + 1);
+      }
     },
     [pathBase]
   );
 
-  const stripDiscoverPanelFromUrl = useCallback(() => {
-    const liveKey = exploreLiveSearchParamsKey(searchParamsKeyRef.current);
-    const stripped = stripDiscoverPanelParam(liveKey);
-    if (stripped === liveKey) return;
-    const nextHref = buildExploreFeedHref(
+  useEffect(() => {
+    if (tab !== "join") return;
+    if (joinCommunityId) return;
+    const liveJoinId = readJoinCommunityIdFromLocation();
+    if (liveJoinId) return;
+    setTab("my-communities");
+    const hubHref = buildExploreFeedHref(
       pathBase,
-      { tab, joinCommunityId: joinCommunityIdRef.current },
+      { tab: "my-communities" },
       feedUrlStateRef.current,
-      stripped
+      exploreLiveSearchParamsKey(searchParamsKeyRef.current)
     );
-    commitExploreHistory({
-      href: nextHref,
+    const committed = commitExploreHistory({
+      href: hubHref,
       mode: "replace",
-      source: "passive-sync",
+      source: "join-tab-guard",
     });
-    setHistorySyncGen(g => g + 1);
-  }, [pathBase, tab]);
+    if (committed) {
+      setHistorySyncGen(g => g + 1);
+    }
+  }, [tab, joinCommunityId, pathBase]);
+
+  const stripDiscoverPanelFromUrl = useCallback(
+    (tabCtx?: { tab: ExploreMainTab; joinCommunityId?: string }) => {
+      const liveKey = exploreLiveSearchParamsKey(searchParamsKeyRef.current);
+      const stripped = stripDiscoverPanelParam(liveKey);
+      if (stripped === liveKey) return;
+      const ctx = tabCtx ?? {
+        tab,
+        joinCommunityId: joinCommunityIdRef.current,
+      };
+      const nextHref = buildExploreFeedHref(
+        pathBase,
+        ctx,
+        feedUrlStateRef.current,
+        stripped
+      );
+      commitExploreHistory({
+        href: nextHref,
+        mode: "replace",
+        source: "passive-sync",
+      });
+      setHistorySyncGen(g => g + 1);
+    },
+    [pathBase, tab]
+  );
 
   const closeDiscoverSheet = useCallback(() => {
     setDiscoverSheetOpen(false);
@@ -852,6 +887,7 @@ export default function ExplorePageClient({
     (communityId: string) => {
       const id = communityId.trim();
       if (!id) return;
+      setDiscoverSheetOpen(false);
       joinCommunityIdRef.current = id;
       localTabNavRef.current = true;
       commitExploreUrl(
@@ -860,9 +896,9 @@ export default function ExplorePageClient({
         feedUrlStateRef.current
       );
       setMainTab("join");
-      setHistorySyncGen(g => g + 1);
+      stripDiscoverPanelFromUrl({ tab: "join", joinCommunityId: id });
     },
-    [commitExploreUrl, setMainTab]
+    [commitExploreUrl, setMainTab, stripDiscoverPanelFromUrl]
   );
 
   const exploreCommunityNavValue = useMemo(
@@ -1322,16 +1358,30 @@ export default function ExplorePageClient({
     ) {
       return;
     }
+
+    const cached = readCommunityExploreCatalogCache();
+    if (cached?.alphabetical?.length) {
+      setExploreCatalogAlphabetical(cached.alphabetical);
+      communityCatalogStatusRef.current = "loaded";
+      communityCatalogLoadedRef.current = true;
+      setCommunityPickerCatalogLoading(false);
+      return;
+    }
+
     communityCatalogStatusRef.current = "loading";
     setCommunityPickerCatalogLoading(true);
     try {
       const commRes = await getCommunityExploreCatalogAction();
       if (commRes.success && commRes.data) {
-        setExploreCatalogAlphabetical(
-          Array.isArray(commRes.data.alphabetical)
-            ? commRes.data.alphabetical
-            : []
-        );
+        const alphabetical = Array.isArray(commRes.data.alphabetical)
+          ? commRes.data.alphabetical
+          : [];
+        setExploreCatalogAlphabetical(alphabetical);
+        writeCommunityExploreCatalogCache({
+          total: commRes.data.total,
+          alphabetical,
+          topByTips: commRes.data.topByTips ?? [],
+        });
         communityCatalogStatusRef.current = "loaded";
         communityCatalogLoadedRef.current = true;
       } else {
@@ -1735,6 +1785,7 @@ export default function ExplorePageClient({
   const handleActivateDedicatedMode = useCallback(async () => {
     const candidate = activateDedicatedCandidate;
     if (!candidate || !exploreAuthToken) return;
+    if (!detectionSettled) return;
     if (!installed) {
       setPendingDedicatedEnter(candidate.communityId);
       setActivateInstallOpen(true);
@@ -1751,7 +1802,13 @@ export default function ExplorePageClient({
     } finally {
       setActivateDedicatedBusy(false);
     }
-  }, [activateDedicatedCandidate, exploreAuthToken, installed, sideChick]);
+  }, [
+    activateDedicatedCandidate,
+    detectionSettled,
+    exploreAuthToken,
+    installed,
+    sideChick,
+  ]);
 
   useEffect(() => {
     if (sideChickLocked) return;
@@ -1818,9 +1875,19 @@ export default function ExplorePageClient({
       >
         <header
           className={cn(
-            "flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2"
-            // headerTint ? "" : "bg-white"
+            "flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2",
+            headerTint ? "" : "bg-white"
           )}
+          style={
+            headerTint && headerContrast
+              ? {
+                  backgroundColor: headerTint,
+                  color: headerContrast.foreground,
+                }
+              : headerTint
+                ? { backgroundColor: headerTint }
+                : undefined
+          }
           onTouchStart={e => {
             headerPullRef.current = { startY: e.touches[0]?.clientY ?? 0 };
           }}
@@ -1844,8 +1911,13 @@ export default function ExplorePageClient({
             <Link
               href="/explore"
               className="racing_sans_one text-sm sm:text-2xl"
+              style={
+                headerContrast
+                  ? { color: headerContrast.foreground }
+                  : undefined
+              }
             >
-              <span className={"text-primary"}>tip</span>
+              <span className={headerContrast ? "" : "text-primary"}>tip</span>
               manna
             </Link>
 
@@ -1853,7 +1925,7 @@ export default function ExplorePageClient({
               type="button"
               data-testid="explore-open-discover-panel"
               aria-label="Open Discover panel"
-              className="cursor-pointer rounded border border-black p-0.25 sm:p-0.5"
+              className="flex cursor-pointer items-center gap-1 rounded border border-black p-0.25 sm:p-0.5"
               onClick={openDiscoverSheet}
             >
               <Bars3BottomLeftIcon className="size-4 sm:size-5" />
@@ -1875,10 +1947,17 @@ export default function ExplorePageClient({
                 <button
                   type="button"
                   onClick={() => setDedicatedModalOpen(true)}
-                  className="size-3 shrink-0 animate-pulse rounded-full bg-amber-400 ring-2 ring-amber-200 sm:hidden"
+                  className="shrink-0"
                   title="Dedicated community mode"
                   aria-label="Dedicated community mode — tap for details"
-                />
+                >
+                  <CircleX
+                    className={`size-4 animate-pulse fill-${headerTint}`}
+                    style={{
+                      fill: headerTint ? `${headerTint}` : undefined,
+                    }}
+                  />
+                </button>
               ) : null}
 
               {/* <button
@@ -1916,31 +1995,20 @@ export default function ExplorePageClient({
                 >
                   Join communities
                 </Link> */}
-                  <div className="hidden sm:block">
+                  <div className="mt-0.25 ml-0 block">
                     <SideChickCommunityMenu
                       rows={sideChickMenuRows}
                       highlight={false}
                       activeDedicatedCommunityId={
                         sideChickLocked ? dedicatedCommunityId : null
                       }
+                      headerTint={headerTint}
+                      headerContrast={headerContrast?.foreground ?? null}
                     />
                   </div>
                 </>
               ) : null}
             </div>
-          </div>
-
-          <div className="flex min-w-0 items-center gap-2">
-            {/* {(isHomePage || isTipperPage) && <Logo />} */}
-            {communityFeatureEnabled && sideChickLocked ? (
-              <button
-                type="button"
-                onClick={() => setDedicatedModalOpen(true)}
-                className="hidden size-3 shrink-0 animate-pulse rounded-full bg-amber-400 ring-2 ring-amber-200 sm:inline-block"
-                title="Dedicated community mode"
-                aria-label="Dedicated community mode — tap for details"
-              />
-            ) : null}
           </div>
 
           <div className="-mr-10 flex items-center gap-1">
@@ -1959,12 +2027,14 @@ export default function ExplorePageClient({
               <Input
                 type="text"
                 placeholder="Search videos..."
-                className="h-4 w-52 p-2 text-xs"
+                className="h-4 w-32 p-2 text-xs"
                 value={headerSearch}
                 onChange={e => setHeaderSearch(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === "Enter") {
+                    e.preventDefault();
                     e.stopPropagation();
+                    openDiscoverSheetWithTerm(headerSearch);
                   }
                 }}
                 onClick={e => e.stopPropagation()}
@@ -1987,13 +2057,15 @@ export default function ExplorePageClient({
               >
                 <Input
                   type="text"
-                  placeholder="Search videos..."
-                  className="h-4 w-32 text-xs"
+                  placeholder="Search ..."
+                  className="h-4 w-20 text-xs"
                   value={headerSearch}
                   onChange={e => setHeaderSearch(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === "Enter") {
+                      e.preventDefault();
                       e.stopPropagation();
+                      openDiscoverSheetWithTerm(headerSearch);
                     }
                   }}
                   onClick={e => e.stopPropagation()}
@@ -2133,7 +2205,7 @@ export default function ExplorePageClient({
           open={dedicatedModalOpen}
           onOpenChange={setDedicatedModalOpen}
         >
-          <DialogContent>
+          <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>
                 Explore feed and TV are limited to your dedicated community
@@ -2160,8 +2232,9 @@ export default function ExplorePageClient({
                   })
                   .finally(() => setExitBusy(false));
               }}
+              className="h-13! flex-1 shrink-0"
             >
-              Reactivate Tipmanna Public (exit dedicated mode)
+              Exit dedicated mode <br /> (Reactivate Tipmanna Public)
             </Button>
           </DialogContent>
         </Dialog>
@@ -2187,30 +2260,8 @@ export default function ExplorePageClient({
             "flex h-full min-h-0 flex-1 flex-col overflow-hidden",
             tab !== "feed" && "hidden"
           )}
-          style={
-            headerTint && headerContrast
-              ? {
-                  backgroundColor: headerTint,
-                  color: headerContrast.foreground,
-                }
-              : headerTint
-                ? { backgroundColor: headerTint }
-                : undefined
-          }
         >
-          <div
-            className="bg-background shrink-0 border-b"
-            style={
-              headerTint && headerContrast
-                ? {
-                    backgroundColor: headerTint,
-                    color: headerContrast.foreground,
-                  }
-                : headerTint
-                  ? { backgroundColor: headerTint }
-                  : undefined
-            }
-          >
+          <div className="bg-background shrink-0 border-b">
             <div className="flex h-6 items-center justify-between gap-0.5 bg-black text-xs sm:h-8">
               <div className="flex min-h-4 min-w-0 flex-1 items-center gap-1 rounded-full px-2 text-white">
                 <div className="flex shrink-0 items-center gap-1">
@@ -2348,10 +2399,24 @@ export default function ExplorePageClient({
             </div>
 
             {sideChickLocked ? (
-              <p className="text-muted-foreground mt-2 px-0.5 text-[10px] leading-snug">
-                Dedicated mode is active for {dedicatedCommunityName}. Change
-                community or TV source to leave — you will be asked to confirm.
-              </p>
+              <div className="text-muted-foreground mt-2 flex items-center gap-2 px-0.5 text-[10px] leading-snug">
+                Dedicated mode is active for {dedicatedCommunityName}. Click
+                <button
+                  type="button"
+                  onClick={() => setDedicatedModalOpen(true)}
+                  className="shrink-0"
+                  title="Dedicated community mode"
+                  aria-label="Dedicated community mode — tap for details"
+                >
+                  <CircleX
+                    className={`size-4 animate-pulse fill-${headerTint}`}
+                    style={{
+                      fill: headerTint ? `${headerTint}` : undefined,
+                    }}
+                  />
+                </button>
+                to leave.
+              </div>
             ) : activateDedicatedCandidate ? (
               <div className="mt-2 px-0.5">
                 <Button
@@ -2421,6 +2486,7 @@ export default function ExplorePageClient({
                   tvExploreSource={tvExploreSource}
                   trendsFilters={trendsFilters}
                   ssrBoot={ssrBoot}
+                  onOpenCreateDialog={() => setCreateDialogOpen(true)}
                 />
               </div>
             ) : null}
@@ -2610,6 +2676,8 @@ export default function ExplorePageClient({
             </div>
           </>
         ) : null}
+
+        <div id="preview-animation-root" />
 
         <ProfileDrawer
           isProfileDrawerOpen={isProfileDrawerOpen}

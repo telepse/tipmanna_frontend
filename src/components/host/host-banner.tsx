@@ -245,11 +245,14 @@ export const HostBanner = () => {
 
       if (readableImage?.startsWith("data:")) {
         const uploaded = await tryUploadImage(readableImage);
+
         if (!uploaded.ok) {
           toast.error(uploaded.message);
           return;
         }
+
         profileImageUrl = uploaded.data?.secure_url ?? null;
+
         if (!profileImageUrl) {
           toast.error("Could not upload profile picture. Try again.");
           return;
@@ -287,6 +290,7 @@ export const HostBanner = () => {
 
       if (updated.username !== previousUsername) {
         setLoadedHostUsername(updated.username);
+
         migrateCreatorProfileCacheUsername(previousUsername, updated.username);
 
         dispatchCreatorUsernameChanged({
@@ -351,7 +355,7 @@ export const HostBanner = () => {
         <Link
           href={
             eventSlugFromSession
-              ? `/host/${eventSlugFromSession}/settings`
+              ? `/host/${eventSlugFromSession}/profile?tab=account_settings`
               : "/host"
           }
           className="flex w-full items-center justify-center gap-2 rounded border border-white/50 px-4 py-2 text-sm text-white"
@@ -389,7 +393,7 @@ export const HostBanner = () => {
               <Link
                 href={
                   eventSlugFromSession
-                    ? `/host/${eventSlugFromSession}/settings`
+                    ? `/host/${eventSlugFromSession}/profile?tab=account_settings`
                     : "/host"
                 }
                 className="flex w-fit items-center gap-2 rounded border border-white/50 px-4 py-2 text-white"
@@ -562,68 +566,6 @@ export const HostBanner = () => {
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={creatorForm.control}
-                    name="pageDescription"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Page description</FormLabel>
-
-                        <FormControl>
-                          <Textarea
-                            {...field}
-                            rows={4}
-                            placeholder="Tell followers what your page is about"
-                          />
-                        </FormControl>
-
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-3 rounded-md border p-3">
-                    <p className="text-sm font-medium">External link</p>
-
-                    <FormField
-                      control={creatorForm.control}
-                      name="externalLinkLabel"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Link label</FormLabel>
-
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="My website"
-                            />
-                          </FormControl>
-
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={creatorForm.control}
-                      name="externalLinkUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Link URL</FormLabel>
-
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="https://example.com"
-                            />
-                          </FormControl>
-
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
 
                   <Button
                     type="submit"

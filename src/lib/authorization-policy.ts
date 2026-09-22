@@ -18,6 +18,8 @@ export type AuthCapability =
   | "events.performers.write"
   | "events.projects.write"
   | "events.performer.togglePin"
+  | "events.project.togglePin"
+  | "events.pinRoster.read"
   | "community.contentBank.addVideo"
   | "community.contentBank.manage"
   | "community.contentBank.read"
@@ -45,6 +47,8 @@ export const CAPABILITY_TIERS: Record<AuthCapability, AuthTier> = {
   "events.performers.write": "C",
   "events.projects.write": "C",
   "events.performer.togglePin": "C",
+  "events.project.togglePin": "C",
+  "events.pinRoster.read": "C",
   "community.contentBank.addVideo": "B",
   "community.contentBank.manage": "B",
   "community.contentBank.read": "A",

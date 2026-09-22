@@ -58,16 +58,18 @@ export function JoinCommunityModal({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <CommunityHowToJoinSection
-          communityId={communityId}
-          signInRedirectPath={signInRedirectPath}
-          showCancelLink={false}
-          showMemberInfo
-          joinDisabled={joinDisabled}
-          onJoined={onJoined}
-          signInOverlayClassName={signInOverlayClassName}
-          signInContentClassName={signInContentClassName}
-        />
+        {open ? (
+          <CommunityHowToJoinSection
+            communityId={communityId}
+            signInRedirectPath={signInRedirectPath}
+            showCancelLink={false}
+            showMemberInfo
+            joinDisabled={joinDisabled}
+            onJoined={onJoined}
+            signInOverlayClassName={signInOverlayClassName}
+            signInContentClassName={signInContentClassName}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

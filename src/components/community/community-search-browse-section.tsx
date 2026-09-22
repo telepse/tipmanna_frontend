@@ -23,13 +23,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
-import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
+import {
+  clearCommunityExploreCatalogCache,
+  isCommunityExploreCatalogStale,
+  readCommunityExploreCatalogCache,
+  writeCommunityExploreCatalogCache,
+} from "@/lib/community-explore-catalog-cache";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 import { cn } from "@/lib/utils";
 import type { RootState } from "@/redux/store";
 import { useMediaQuery } from "react-responsive";
+import { ExternalLink } from "lucide-react";
 
 type SearchRow = {
   id: string;
@@ -59,12 +66,15 @@ type Props = {
   className?: string;
   /** Hide the intro line under the search label (compact join panel). */
   compact?: boolean;
+  /** Defer initial catalog fetch (e.g. embedded in join panel). */
+  deferCatalogLoad?: boolean;
 };
 
 export function CommunitySearchBrowseSection({
   isAuthenticated,
   className,
   compact = false,
+  deferCatalogLoad = false,
 }: Props) {
   const authFromStore = useSelector((s: RootState) => s.auth.isAuthenticated);
   const signedIn = isAuthenticated || authFromStore;
@@ -75,12 +85,6 @@ export function CommunitySearchBrowseSection({
     closeJoinModal,
     openJoin,
     openCommunity,
-    signInOpen,
-    setSignInOpen,
-    signInReturnTo,
-    onSignInVerified,
-    signInTitle,
-    signupSurface,
   } = useCommunityJoinFlow({
     signupSurface: "community_join",
     signInTitle: "Sign in to join this community",
@@ -97,28 +101,77 @@ export function CommunitySearchBrowseSection({
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
-  const loadCatalog = useCallback(async () => {
-    setCatalogLoading(true);
-    setCatalogError(null);
-    try {
-      const r = await getCommunityExploreCatalogAction();
-      if (r.success && r.data) {
-        setCatalog({
-          total: r.data.total,
-          alphabetical: r.data.alphabetical,
-        });
-      } else {
-        setCatalog(null);
-        setCatalogError(r.message ?? "Could not load communities");
+  const loadCatalog = useCallback(
+    async (options?: { background?: boolean }) => {
+      const background = options?.background ?? false;
+      if (!background) {
+        setCatalogLoading(true);
       }
-    } finally {
-      setCatalogLoading(false);
-    }
+      setCatalogError(null);
+      try {
+        const r = await getCommunityExploreCatalogAction();
+        if (r.success && r.data) {
+          setCatalog({
+            total: r.data.total,
+            alphabetical: r.data.alphabetical,
+          });
+          writeCommunityExploreCatalogCache({
+            total: r.data.total,
+            alphabetical: r.data.alphabetical,
+            topByTips: r.data.topByTips ?? [],
+          });
+        } else {
+          setCatalog(null);
+          setCatalogError(r.message ?? "Could not load communities");
+        }
+      } finally {
+        if (!background) {
+          setCatalogLoading(false);
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const onAuthChanged = () => {
+      clearCommunityExploreCatalogCache();
+    };
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
   }, []);
 
   useEffect(() => {
-    void loadCatalog();
-  }, [loadCatalog]);
+    const cached = readCommunityExploreCatalogCache();
+    if (cached) {
+      setCatalog({
+        total: cached.total,
+        alphabetical: cached.alphabetical,
+      });
+      setCatalogLoading(false);
+      if (isCommunityExploreCatalogStale(cached)) {
+        void loadCatalog({ background: true });
+      }
+      return;
+    }
+
+    const runLoad = () => void loadCatalog();
+
+    if (deferCatalogLoad) {
+      const schedule =
+        typeof window.requestIdleCallback === "function"
+          ? window.requestIdleCallback
+          : (cb: () => void) => window.setTimeout(cb, 800);
+      const cancel =
+        typeof window.cancelIdleCallback === "function"
+          ? window.cancelIdleCallback
+          : window.clearTimeout;
+      const handle = schedule(runLoad);
+      return () => cancel(handle as number);
+    }
+
+    runLoad();
+  }, [deferCatalogLoad, loadCatalog]);
 
   useEffect(() => {
     const q = searchQ.trim();
@@ -194,14 +247,6 @@ export function CommunitySearchBrowseSection({
 
   return (
     <>
-      <TipperEmailOtpSignInDialog
-        open={signInOpen}
-        onOpenChange={setSignInOpen}
-        signInTitle={signInTitle}
-        signupSurface={signupSurface}
-        getRedirectPathAfterVerify={() => signInReturnTo}
-        onVerified={onSignInVerified}
-      />
       {joinCommunityId ? (
         <JoinCommunityModal
           open={joinModalOpen}
@@ -337,6 +382,18 @@ export function CommunitySearchBrowseSection({
                         </p>
 
                         <div className="flex shrink-0 gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 px-0"
+                            aria-label="Open community"
+                            title="Open community"
+                            onClick={() => openCommunity(c.id)}
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </Button>
+
                           {!isTipmannaPublic ? (
                             <CommunityJoinOpenControls
                               communityId={c.id}
@@ -397,7 +454,8 @@ export function CommunitySearchBrowseSection({
                       </p>
                     ) : null}
                     <p className="text-muted-foreground text-[11px]">
-                      {c.totalTips} tips · {c.memberCount} members · Created{" "}
+                      {c.totalTips} tips · {c.memberCount} members ·{" "}
+                      {c.numVideos} videos · Created{" "}
                       {formatCommunityDate(c.createdAt)}
                     </p>
                   </div>
@@ -407,19 +465,33 @@ export function CommunitySearchBrowseSection({
                         Member
                       </span>
                     ) : !isTipmannaSystemCommunity(c.id, c.name, c.isSystem) ? (
-                      <CommunityJoinOpenControls
-                        communityId={c.id}
-                        joined={false}
-                        isAuthenticated={signedIn}
-                        onJoin={id => {
-                          setCatalogOpen(false);
-                          openJoin(id);
-                        }}
-                        onOpen={id => {
-                          setCatalogOpen(false);
-                          openCommunity(id);
-                        }}
-                      />
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 px-0"
+                          aria-label="Open community"
+                          title="Open community"
+                          onClick={() => openCommunity(c.id)}
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </Button>
+
+                        <CommunityJoinOpenControls
+                          communityId={c.id}
+                          joined={false}
+                          isAuthenticated={signedIn}
+                          onJoin={id => {
+                            setCatalogOpen(false);
+                            openJoin(id);
+                          }}
+                          onOpen={id => {
+                            setCatalogOpen(false);
+                            openCommunity(id);
+                          }}
+                        />
+                      </>
                     ) : null}
                   </div>
                 </li>

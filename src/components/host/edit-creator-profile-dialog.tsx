@@ -40,6 +40,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { tryUploadImage } from "@/lib/cloudinary";
 import { dispatchCreatorUsernameChanged } from "@/lib/creator-username-alias";
 import { migrateCreatorProfileCacheUsername } from "@/lib/drawer-prefetch-cache";
@@ -62,6 +63,10 @@ import {
 } from "@/schemas/creator.schema";
 import { useHostSession } from "@/hooks/use-host-session";
 import { performAuthLogout } from "@/lib/auth-logout";
+import {
+  setHostSubscriptionResume,
+  type HostSubscriptionResumeKind,
+} from "@/lib/host-subscription-resume";
 
 export type CreatorProfileSavedPayload = {
   username: string;
@@ -77,28 +82,10 @@ type Props = {
   initialAvatarUrl?: string | null;
   onSaved?: (payload: CreatorProfileSavedPayload) => void;
   onClose: () => void;
+  subscriptionResume?: HostSubscriptionResumeKind | null;
+  onSubscriptionResumeHandled?: () => void;
+  creatorProfileReturnPath?: string;
 };
-
-function GrowthPlanNotice({
-  href,
-  message = "Growth plan (premium plan) required.",
-}: {
-  href: string;
-  message?: string;
-}) {
-  return (
-    <div className="text-muted-foreground flex items-center gap-1 text-xs leading-relaxed">
-      <Crown className="text-primary size-4" />
-      {message}{" "}
-      <Link
-        href={href}
-        className="text-primary font-medium underline underline-offset-2"
-      >
-        See more
-      </Link>
-    </div>
-  );
-}
 
 export function EditCreatorProfileDialog({
   open,
@@ -106,10 +93,23 @@ export function EditCreatorProfileDialog({
   initialAvatarUrl = null,
   onSaved,
   onClose,
+  subscriptionResume = null,
+  onSubscriptionResumeHandled,
+  creatorProfileReturnPath = "",
 }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((state: RootState) => state.auth.user);
-  const { hasActivePremium } = useHostPlanCapabilities();
+  const { hasActivePremium, hostSubscriptionTier, status } =
+    useHostPlanCapabilities();
+  const { openForRequired, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "premium" });
+
+  const currentPlanLabel =
+    status === "active" && hostSubscriptionTier === "HOST_COMMUNITY"
+      ? "Host Community"
+      : status === "active" && hostSubscriptionTier === "HOST_PREMIUM"
+        ? "Growth (Premium)"
+        : "Free";
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -125,9 +125,8 @@ export function EditCreatorProfileDialog({
   const [savedProfilePhotoUrl, setSavedProfilePhotoUrl] = useState<
     string | null
   >(null);
-  const [photoGrowthNoticeOpen, setPhotoGrowthNoticeOpen] = useState(false);
-  const [externalLinkGrowthNoticeOpen, setExternalLinkGrowthNoticeOpen] =
-    useState(false);
+  const changePhotoFocusRef = useRef<HTMLButtonElement>(null);
+  const externalLinkUrlFocusRef = useRef<HTMLInputElement>(null);
   const [
     profilePhotoChangeRequiresPremium,
     setProfilePhotoChangeRequiresPremium,
@@ -148,7 +147,6 @@ export function EditCreatorProfileDialog({
     null
   );
 
-  const premiumHref = hostSlug ? `/host/${hostSlug}/host-premium` : "/host";
   const hostDashboardHref = hostSlug ? `/host/${hostSlug}/profile` : "/host";
   const manageEventDashboardHref = hostSlug
     ? `/host/${hostSlug}/manage-event`
@@ -262,8 +260,6 @@ export function EditCreatorProfileDialog({
   useEffect(() => {
     if (!open) {
       profileLoadedForOpenRef.current = false;
-      setPhotoGrowthNoticeOpen(false);
-      setExternalLinkGrowthNoticeOpen(false);
       return;
     }
 
@@ -285,13 +281,44 @@ export function EditCreatorProfileDialog({
     setPhotoMarkedForRemoval(true);
   };
 
+  const openSubscribeForPremium = (kind: "change-photo" | "external-link") => {
+    const returnPath =
+      creatorProfileReturnPath ||
+      (typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "");
+    if (returnPath) {
+      setHostSubscriptionResume({ kind, returnPath });
+    }
+    openForRequired("premium");
+  };
+
   const handlePhotoChangeClick = () => {
     if (photoChangeLocked) {
-      setPhotoGrowthNoticeOpen(open => !open);
+      openSubscribeForPremium("change-photo");
       return;
     }
     handleChangeImage();
   };
+
+  useEffect(() => {
+    if (!open || !subscriptionResume || loadingProfile) return;
+    if (!hasActivePremium) return;
+    if (subscriptionResume === "change-photo") {
+      changePhotoFocusRef.current?.focus();
+      onSubscriptionResumeHandled?.();
+    }
+    if (subscriptionResume === "external-link") {
+      externalLinkUrlFocusRef.current?.focus();
+      onSubscriptionResumeHandled?.();
+    }
+  }, [
+    hasActivePremium,
+    loadingProfile,
+    onSubscriptionResumeHandled,
+    open,
+    subscriptionResume,
+  ]);
 
   const onSubmitCreator = async (values: CreatorFormData) => {
     setSaving(true);
@@ -397,7 +424,11 @@ export function EditCreatorProfileDialog({
       >
         <DialogHeader>
           <DialogTitle>Edit Creator Page Profile</DialogTitle>
+          <p className="text-muted-foreground text-sm">
+            Current plan: {currentPlanLabel}
+          </p>
         </DialogHeader>
+        {SubscriptionPromptModal}
 
         {loadingProfile ? (
           <p className="text-muted-foreground text-sm">Loading profile…</p>
@@ -453,11 +484,19 @@ export function EditCreatorProfileDialog({
 
               <div className="flex flex-col gap-1">
                 {creatorPayoutVerified ? (
-                  <div className="flex w-fit items-center gap-2 rounded-md bg-emerald-100 px-2 py-1">
-                    <CircleStar className="size-4 text-emerald-700" />
-                    <span className="text-xs text-emerald-800">
-                      Verified creator
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-moonstone-blue flex w-fit items-center gap-2 rounded-md px-2 py-1">
+                      <CircleStar className="size-4 text-black" />
+                      <span className="text-xs text-black">
+                        Verified creator
+                      </span>
+                    </div>
+                    <Link
+                      href={hostDashboardHref}
+                      className="text-muted-foreground text-xs underline"
+                    >
+                      View your dashboard here
+                    </Link>
                   </div>
                 ) : (
                   <div className="flex w-fit items-center gap-2 rounded-md bg-gray-200 px-2 py-1 opacity-50">
@@ -468,7 +507,7 @@ export function EditCreatorProfileDialog({
                         href={hostDashboardHref}
                         className="underline"
                       >
-                        View your earnings here
+                        View your dashboard here
                       </Link>
                       .
                     </span>
@@ -477,6 +516,7 @@ export function EditCreatorProfileDialog({
 
                 <div className="flex gap-1">
                   <Button
+                    ref={changePhotoFocusRef}
                     type="button"
                     variant="outline"
                     size="sm"
@@ -503,12 +543,6 @@ export function EditCreatorProfileDialog({
                     <p className="text-destructive text-xs">{imageError}</p>
                   ) : null}
                 </div>
-                {photoGrowthNoticeOpen && photoChangeLocked ? (
-                  <GrowthPlanNotice
-                    href={premiumHref}
-                    message="Growth plan required to change photo."
-                  />
-                ) : null}
               </div>
             </div>
           </div>
@@ -587,23 +621,62 @@ export function EditCreatorProfileDialog({
                         Choose one tag that best describes your page.
                       </FormDescription>
 
+                      <Select
+                        value={field.value ?? "content_creator"}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CREATOR_PROFILE_CATEGORIES.map(category => (
+                            <SelectItem
+                              key={category}
+                              value={category}
+                            >
+                              {CREATOR_PROFILE_CATEGORY_LABELS[category]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={creatorForm.control}
+                  name="creatorDefaultTab"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Default profile tab</FormLabel>
+                      <FormDescription className="text-muted-foreground text-xs">
+                        Visitors land on this tab when opening your creator
+                        page.
+                      </FormDescription>
                       <div className="flex items-center gap-4">
                         <Select
-                          value={field.value ?? "content_creator"}
-                          onValueChange={field.onChange}
+                          value={field.value ?? creatorDefaultTab}
+                          onValueChange={val => {
+                            field.onChange(val);
+                            setCreatorDefaultTab(val as HostCreatorDefaultTab);
+                          }}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a category" />
+                              <SelectValue placeholder="Select default tab" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {CREATOR_PROFILE_CATEGORIES.map(category => (
+                            {HOST_CREATOR_DEFAULT_TABS.map(tab => (
                               <SelectItem
-                                key={category}
-                                value={category}
+                                key={tab}
+                                value={tab}
                               >
-                                {CREATOR_PROFILE_CATEGORY_LABELS[category]}
+                                {HOST_CREATOR_DEFAULT_TAB_LABELS[tab]}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -621,44 +694,6 @@ export function EditCreatorProfileDialog({
                   )}
                 />
 
-                <FormField
-                  control={creatorForm.control}
-                  name="creatorDefaultTab"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Default profile tab</FormLabel>
-                      <FormDescription className="text-muted-foreground text-xs">
-                        Visitors land on this tab when opening your creator
-                        page.
-                      </FormDescription>
-                      <Select
-                        value={field.value ?? creatorDefaultTab}
-                        onValueChange={val => {
-                          field.onChange(val);
-                          setCreatorDefaultTab(val as HostCreatorDefaultTab);
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select default tab" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {HOST_CREATOR_DEFAULT_TABS.map(tab => (
-                            <SelectItem
-                              key={tab}
-                              value={tab}
-                            >
-                              {HOST_CREATOR_DEFAULT_TAB_LABELS[tab]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <div className="space-y-4 rounded-md border p-4">
                   <div className="flex items-start justify-between gap-4">
                     <p className="text-sm font-medium">External link</p>
@@ -666,21 +701,11 @@ export function EditCreatorProfileDialog({
                       <button
                         type="button"
                         className="text-muted-foreground inline-flex cursor-pointer items-center gap-1 text-xs"
-                        onClick={() =>
-                          setExternalLinkGrowthNoticeOpen(open => !open)
-                        }
+                        onClick={() => openSubscribeForPremium("external-link")}
                       >
                         <Crown className="text-primary size-4" />
                         Growth plan
                       </button>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {externalLinkGrowthNoticeOpen && externalLinkLocked ? (
-                      <GrowthPlanNotice
-                        href={premiumHref}
-                        message={`Growth plan required to add external link. ${premiumHref ? `See more ${premiumHref}` : ""}`}
-                      />
                     ) : null}
                   </div>
                   <FormField
@@ -709,6 +734,10 @@ export function EditCreatorProfileDialog({
                         <FormControl>
                           <Input
                             {...field}
+                            ref={el => {
+                              field.ref(el);
+                              externalLinkUrlFocusRef.current = el;
+                            }}
                             placeholder="https://example.com"
                             disabled={externalLinkLocked}
                           />
@@ -718,17 +747,18 @@ export function EditCreatorProfileDialog({
                     )}
                   />
                   {externalLinkLocked ? (
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       <Crown className="text-primary size-4" />
                       <span className="text-muted-foreground text-xs">
                         Growth plan required to add an external link.
                       </span>
-                      <Link
-                        href={premiumHref}
+                      <button
+                        type="button"
                         className="text-primary text-xs font-medium underline underline-offset-2"
+                        onClick={() => openSubscribeForPremium("external-link")}
                       >
-                        See more
-                      </Link>
+                        Subscribe
+                      </button>
                     </div>
                   ) : null}
                 </div>

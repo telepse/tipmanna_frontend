@@ -28,6 +28,7 @@ export type PaymentAnimationTraceStage =
   | "screen_display_closed"
   | "screen_display_reopen_started"
   | "screen_display_reopen_ready"
+  | "screen_overlay_ready"
   | "character_resolution_started"
   | "resolved_tips_path_selected"
   | "resolved_tips_rejected_unknown_style"

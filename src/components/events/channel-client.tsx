@@ -125,7 +125,7 @@ import {
   prefetchChannelDrawers,
   prefetchProfileDrawerData,
 } from "@/lib/drawer-prefetch-cache";
-import { runPortraitAlignedMobileLandscapeClose } from "@/lib/mobile-landscape-close";
+import { usePhoneLandscapeImmersiveDismiss } from "@/hooks/use-phone-landscape-immersive-dismiss";
 import { useMobileVideoViewMode } from "@/hooks/use-mobile-video-view-mode";
 import {
   ImmersiveMediaTopBar,
@@ -698,6 +698,12 @@ export const ChannelClient = ({
   const [openPlaylist, setOpenPlaylist] = useState(false);
   const isMobile = useMediaQuery({ maxWidth: SURFACE_MOBILE_MAX_PX });
   const {
+    isPhoneLandscape,
+    showPhoneLandscapeImmersive,
+    handleLandscapeClose,
+  } = usePhoneLandscapeImmersiveDismiss();
+  const isMobileSurface = isMobile || isPhoneLandscape;
+  const {
     isFullView,
     fullPresentationFit,
     fullLayoutToggleShowsPortraitIcon,
@@ -707,7 +713,8 @@ export const ChannelClient = ({
     toggleFullVariant,
   } = useMobileVideoViewMode({
     videoUrl: currentContent?.url,
-    isMobile,
+    isMobile: isMobileSurface,
+    lockFullLandscape: showPhoneLandscapeImmersive,
   });
 
   useEffect(() => {
@@ -863,10 +870,6 @@ export const ChannelClient = ({
 
   const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
 
-  const isMobileLandscape =
-    useMediaQuery({ query: "(orientation: landscape)" }) &&
-    window.innerWidth <= 768;
-
   const userRole = useSelector((s: RootState) => s.auth.user?.role);
   const authToken = useSelector((s: RootState) => s.auth.token);
   const isSignedIn =
@@ -882,7 +885,7 @@ export const ChannelClient = ({
             ? "fixed inset-0 h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-white px-2"
             : "relative h-[85%] w-[95%] bg-white sm:h-[80%]",
 
-        isMobileLandscape &&
+        showPhoneLandscapeImmersive &&
           "fixed top-0 right-0 bottom-0 left-0 h-[100%] w-[100%] bg-black p-4 text-white"
       )}
     >
@@ -893,7 +896,7 @@ export const ChannelClient = ({
       <div className="pointer-events-none absolute top-3 left-3 z-[100020]">
         <PlaybackReturnBackChip />
       </div>
-      {isFullView && (
+      {isFullView && !showPhoneLandscapeImmersive && (
         <ImmersiveMediaTopBar
           onClose={exitFull}
           title={currentContent?.title}
@@ -908,7 +911,7 @@ export const ChannelClient = ({
         />
       )}
 
-      {!isMobileLandscape ? (
+      {!isPhoneLandscape ? (
         <>
           {!isFullView && (
             <div
@@ -971,12 +974,7 @@ export const ChannelClient = ({
         </>
       ) : (
         <MobileLandscapeCloseButton
-          onClose={() =>
-            runPortraitAlignedMobileLandscapeClose(router, {
-              isFullView,
-              exitFull,
-            })
-          }
+          onClose={() => handleLandscapeClose({ isFullView, exitFull })}
         />
       )}
 
@@ -1475,7 +1473,7 @@ export const ChannelClient = ({
       </div>
 
       {/* Bottom section - LAPTOP */}
-      {!isMobileLandscape ? (
+      {!isPhoneLandscape ? (
         <div className="fixed bottom-0 mx-auto hidden w-[95%] flex-col gap-1 py-1 sm:flex sm:py-2">
           {/* Scrubber - DESKTOP */}
           <div className="absolute bottom-10 mx-auto w-full">
@@ -1535,7 +1533,7 @@ export const ChannelClient = ({
               <span className="absolute -bottom-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-gray-500"></span>
             </button>
 
-            {tipPreviewOpen && !isFullView && !isMobileLandscape && (
+            {tipPreviewOpen && !isFullView && !isPhoneLandscape && (
               <TippingElementsProvider
                 tippingCharacters={tipStripPool as RoomCharacter[]}
                 enabled={false}
@@ -1959,6 +1957,8 @@ export const ChannelClient = ({
         causes={causes}
         savedContents={savedContents || []}
       />
+
+      <div id="preview-animation-root" />
     </div>
   );
 };

@@ -10,7 +10,12 @@ export type HostSignInFormData = z.infer<typeof hostSignInSchema>;
 
 export const hostSignUpSchema = z
   .object({
-    fullName: z.string().min(2, "Full name is required"),
+    fullName: z
+      .string()
+      .min(2, "Full name is required")
+      .refine(val => val.trim().split(/\s+/).filter(Boolean).length >= 2, {
+        message: "Please enter both your first and last name",
+      }),
     email: z.email("Invalid email address").transform(v => normalizeEmail(v)),
     username: z
       .string()

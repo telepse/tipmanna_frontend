@@ -24,6 +24,10 @@ import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  parseCommunityTvTab,
+  type CommunityTvTab,
+} from "@/lib/host-dashboard-shortcuts";
 
 type ScheduleRow = {
   id: string;
@@ -35,8 +39,12 @@ type ScheduleRow = {
 export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
   const searchParams = useSearchParams();
   const communityId = searchParams.get("communityId")?.trim() ?? "";
+  const tabFromUrl = parseCommunityTvTab(searchParams.get("tab"));
+  const [activeTab, setActiveTab] = useState<CommunityTvTab>(tabFromUrl);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => tabFromUrl !== "reminders" && tabFromUrl !== "themes"
+  );
   const [error, setError] = useState<string | null>(null);
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   const [revision, setRevision] = useState<number>(0);
@@ -169,9 +177,25 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
   }, [communityId]);
 
   useEffect(() => {
+    setActiveTab(parseCommunityTvTab(searchParams.get("tab")));
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!communityId) return;
+    if (activeTab === "reminders" || activeTab === "themes") {
+      setLoading(false);
+      setError(null);
+      return;
+    }
     void load();
-    void loadBlocks();
-  }, [load, loadBlocks]);
+  }, [activeTab, communityId, load]);
+
+  useEffect(() => {
+    if (!communityId) return;
+    if (activeTab === "schedule" || activeTab === "control") {
+      void loadBlocks();
+    }
+  }, [activeTab, communityId, loadBlocks]);
 
   const searchChannels = useCallback(async () => {
     const q = channelSearch.trim();
@@ -312,7 +336,8 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
       </div>
 
       <Tabs
-        defaultValue="schedule"
+        value={activeTab}
+        onValueChange={v => setActiveTab(parseCommunityTvTab(v))}
         className="mt-4"
       >
         <TabsList>

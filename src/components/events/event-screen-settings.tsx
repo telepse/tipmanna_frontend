@@ -18,6 +18,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X } from "lucide-react";
+import {
+  SCREEN_FUNNEL_POSITIONS,
+  normalizeScreenFunnelPosition,
+  type ScreenFunnelPosition,
+} from "@/lib/screen-funnel-position";
 
 // Local imports
 import { SCREEN_BACKGROUNDS } from "@/lib/backgrounds";
@@ -54,6 +59,8 @@ interface EventScreenSettingsValues {
   }>;
   performers: { id?: string; name: string; amountReceived?: string }[];
   projects: { id?: string; name: string; amountReceived?: string }[];
+  showPinnedOnScreen: boolean;
+  funnelPosition: ScreenFunnelPosition;
 }
 
 type Session = {
@@ -81,6 +88,8 @@ interface Props {
   refetchSessions: () => void;
   initialAmountToRaise?: number;
   onTargetAmountUpdated?: (amount: number) => void;
+  initialShowPinnedOnScreen?: boolean;
+  initialFunnelPosition?: ScreenFunnelPosition;
 }
 
 // Default labels for each enum value
@@ -111,6 +120,8 @@ export const EventScreenSettings = ({
   refetchSessions,
   initialAmountToRaise = 0,
   onTargetAmountUpdated,
+  initialShowPinnedOnScreen = true,
+  initialFunnelPosition = "bottom_left",
 }: Props) => {
   const [background, setBackground] = useState(initialBackground || "");
   const [moneyFor, setMoneyFor] = useState(initialMoneyFor);
@@ -119,6 +130,12 @@ export const EventScreenSettings = ({
   const [showLatest, setShowLatest] = useState(initialShowLatest);
   const [hideProgressAmount, setHideProgressAmount] = useState(
     initialHideProgressAmount
+  );
+  const [showPinnedOnScreen, setShowPinnedOnScreen] = useState(
+    initialShowPinnedOnScreen
+  );
+  const [funnelPosition, setFunnelPosition] = useState<ScreenFunnelPosition>(
+    normalizeScreenFunnelPosition(initialFunnelPosition)
   );
   const [tipDisclosures, setTipDisclosures] = useState<TipUsageDisclosure[]>(
     []
@@ -213,6 +230,8 @@ export const EventScreenSettings = ({
     setMoneyFor(initialMoneyFor);
     setShowLatest(initialShowLatest);
     setHideProgressAmount(initialHideProgressAmount);
+    setShowPinnedOnScreen(initialShowPinnedOnScreen);
+    setFunnelPosition(normalizeScreenFunnelPosition(initialFunnelPosition));
 
     if (initialTipDisclosures && initialTipDisclosures.length > 0) {
       // Map backend disclosures to our internal format
@@ -269,6 +288,8 @@ export const EventScreenSettings = ({
     initialShowLatest,
     initialHideProgressAmount,
     initialTipDisclosures,
+    initialShowPinnedOnScreen,
+    initialFunnelPosition,
   ]);
 
   const handleLabelChange = (index: number, value: string) => {
@@ -420,6 +441,8 @@ export const EventScreenSettings = ({
         name: project.name || "",
         amountReceived: project.amountReceived || "",
       })),
+      showPinnedOnScreen,
+      funnelPosition,
     });
 
     console.log("performers", performers);
@@ -433,10 +456,13 @@ export const EventScreenSettings = ({
   );
 
   const copyOverlay = async () => {
+    const url = `${window.location.origin}/room/${eventId}/overlay`;
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(url);
+      toast.success("Transparent overlay link copied.");
     } catch (err) {
       console.error("Failed to copy:", err);
+      toast.error("Could not copy overlay link.");
     }
   };
 
@@ -610,6 +636,36 @@ export const EventScreenSettings = ({
             checked={hideProgressAmount}
             onCheckedChange={setHideProgressAmount}
           />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label htmlFor="showPinnedOnScreen">
+            Show pinned roster on screen and overlay
+          </Label>
+          <Switch
+            id="showPinnedOnScreen"
+            checked={showPinnedOnScreen}
+            onCheckedChange={setShowPinnedOnScreen}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Funnel position (screen &amp; overlay)</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {SCREEN_FUNNEL_POSITIONS.map(option => (
+              <Button
+                key={option.value}
+                type="button"
+                variant={
+                  funnelPosition === option.value ? "default" : "outline"
+                }
+                size="sm"
+                onClick={() => setFunnelPosition(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-3">

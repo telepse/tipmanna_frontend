@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Menu, Search, UserRound } from "lucide-react";
 
 // Local imports
-import { useEffect, useState } from "react";
-import { CreateDialog } from "../home/create-dialog";
+import { useEffect, useMemo, useState } from "react";
+import { useCreateDialogHost } from "@/components/home/create-dialog-host";
 import { useTvSourcePicker } from "./tv-source-picker-provider";
 import { TvSourceDropdown } from "./tv-source-dropdown";
+import { useSideChick } from "@/components/community/side-chick-provider";
+import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
 import { useRouter } from "next/navigation";
 import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
 import { NotificationBadge } from "../notifications/notification-badge";
@@ -34,7 +36,17 @@ function TvNavbarSourceDropdown() {
     tvPickerOptions,
     scheduleSourceCommunityId,
     onTvSourceChange,
+    tvSideChickLocked,
   } = useTvSourcePicker();
+  const sideChick = useSideChick();
+  const headerTint =
+    tvSideChickLocked && sideChick.activation?.customization?.headerColor
+      ? sideChick.activation.customization.headerColor
+      : null;
+  const headerForeground = useMemo(
+    () => (headerTint ? pickContrastFgForHex(headerTint).foreground : null),
+    [headerTint]
+  );
 
   if (!showSourceDropdown) return null;
 
@@ -43,12 +55,14 @@ function TvNavbarSourceDropdown() {
       communityId={scheduleSourceCommunityId}
       options={tvPickerOptions}
       onChange={onTvSourceChange}
+      headerTint={headerTint}
+      headerForeground={headerForeground}
     />
   );
 }
 
 export const TVNavbar = ({ active_users }: Props) => {
-  const [openPopup, setOpenPopup] = useState(false);
+  const { openCreate, closeCreate } = useCreateDialogHost();
   const router = useRouter();
 
   const handleExplore = () => {
@@ -144,7 +158,7 @@ export const TVNavbar = ({ active_users }: Props) => {
           </Link>
           <span
             className="cursor-pointer text-sm"
-            onClick={() => setOpenPopup(true)}
+            onClick={() => openCreate()}
           >
             Create
           </span>
@@ -154,7 +168,7 @@ export const TVNavbar = ({ active_users }: Props) => {
             type="button"
             className="relative flex flex-col items-center justify-center"
             onClick={() => {
-              setOpenPopup(false);
+              closeCreate();
               setIsProfileDrawerOpen(true);
             }}
           >
@@ -186,11 +200,6 @@ export const TVNavbar = ({ active_users }: Props) => {
             {active_users || 0} online
           </span>
         </div>
-
-        <CreateDialog
-          openPopup={openPopup}
-          setOpenPopup={setOpenPopup}
-        />
 
         <ProfileDrawer
           isProfileDrawerOpen={isProfileDrawerOpen}

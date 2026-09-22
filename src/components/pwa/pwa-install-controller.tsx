@@ -10,6 +10,7 @@ import {
   hasPromptAFiredThisSession,
   hasPromptBFiredThisSession,
   isDashboardPath,
+  isScreenOverlayPath,
   isPwaAutoPromptSuppressed,
   markPromptAFiredThisSession,
   markPromptBFiredThisSession,
@@ -65,7 +66,7 @@ export function PwaInstallController() {
     async (trigger: PwaInstallTrigger, slot: "A" | "B") => {
       const pol = policyRef.current ?? (await loadPolicy());
       if (!pol.enabled || !pol.publishedAt) return;
-      if (isDashboardPath(pathname)) return;
+      if (isDashboardPath(pathname) || isScreenOverlayPath(pathname)) return;
 
       const pref = prefRef.current ?? (await refreshPreference());
       if (isPwaAutoPromptSuppressed(pref, installedRef.current)) return;
@@ -118,7 +119,13 @@ export function PwaInstallController() {
   }, [tryOpenPrompt]);
 
   useEffect(() => {
-    if (!detectionSettled || installed || isDashboardPath(pathname)) return;
+    if (
+      !detectionSettled ||
+      installed ||
+      isDashboardPath(pathname) ||
+      isScreenOverlayPath(pathname)
+    )
+      return;
     let cancelled = false;
     let timer: number | undefined;
 
@@ -143,7 +150,8 @@ export function PwaInstallController() {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (installed || isDashboardPath(pathname)) return;
+    if (installed || isDashboardPath(pathname) || isScreenOverlayPath(pathname))
+      return;
 
     let elapsed = readDwellElapsedMs();
     let lastTick = document.visibilityState === "visible" ? Date.now() : null;

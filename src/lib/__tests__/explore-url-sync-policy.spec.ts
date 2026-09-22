@@ -71,6 +71,31 @@ describe("explore-url-sync-policy", () => {
     ).toBe(false);
   });
 
+  it("join-tab-guard hub href preserves feedTab from live URL", () => {
+    const feedState = {
+      trendEventTypes: [] as string[],
+      trendLanguage: "",
+      trendCountry: "",
+      feedSubTab: "saves" as const,
+      tvExploreSource: "tipmanna",
+      communityFeedSelIds: [] as string[],
+      includeEndedLive: false,
+    };
+    const liveKey = "feedTab=saves";
+    const hubHref = buildExploreFeedHref(
+      "/explore",
+      { tab: "my-communities" },
+      feedState,
+      liveKey
+    );
+    expect(hubHref).toContain("tab=my-communities");
+    expect(hubHref).toContain("feedTab=saves");
+    expect(
+      exploreHrefsEqual(hubHref, "/explore?tab=my-communities&feedTab=saves")
+    ).toBe(true);
+    expect(hubHref).not.toBe("/explore?tab=my-communities");
+  });
+
   it("buildExploreFeedHref preserves feedTab on my-communities and join", () => {
     const feedState = {
       trendEventTypes: [] as string[],
@@ -149,6 +174,34 @@ describe("explore-url-sync-policy", () => {
         "feedTypes=COMEDY&feedTab=trends"
       )
     ).toBe(false);
+  });
+
+  it("buildExploreFeedHref preserves creatorDrawer and communityDrawer params", () => {
+    const feedState = {
+      trendEventTypes: [] as string[],
+      trendLanguage: "",
+      trendCountry: "",
+      feedSubTab: "trends" as const,
+      tvExploreSource: "tipmanna",
+      communityFeedSelIds: [] as string[],
+      includeEndedLive: false,
+    };
+    const creatorHref = buildExploreFeedHref(
+      "/explore",
+      { tab: "feed" },
+      feedState,
+      "creatorDrawer=alice&feedTab=trends"
+    );
+    expect(creatorHref).toContain("creatorDrawer=alice");
+    expect(creatorHref).toContain("feedTab=trends");
+
+    const communityHref = buildExploreFeedHref(
+      "/explore",
+      { tab: "feed" },
+      feedState,
+      "communityDrawer=comm-1&feedTab=trends"
+    );
+    expect(communityHref).toContain("communityDrawer=comm-1");
   });
 
   it("buildExploreFeedHref clears tab when returning to feed", () => {

@@ -3,7 +3,6 @@
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { store, persistor } from "@/redux/store";
-import { ClientErrorBoundary } from "@/components/client-error-boundary";
 import { NavigationProgressProvider } from "@/components/navigation/navigation-progress-provider";
 import { TvAnalyticsAuthBridge } from "@/components/tv-analytics-auth-bridge";
 import { SideChickProvider } from "@/components/community/side-chick-provider";
@@ -18,6 +17,7 @@ import { VisitorAutoLogoutWrapper } from "@/components/VistorAutoLogoutWrapper";
 import { SessionActivityPinger } from "@/components/auth/session-activity-pinger";
 import { EmailVerificationRequiredListener } from "@/components/auth/email-verification-required-listener";
 import { AuthIdentityBootstrap } from "@/components/auth/auth-identity-bootstrap";
+import { CreateDialogHost } from "@/components/home/create-dialog-host";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -40,7 +40,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                 <PushPromptController />
                 <NotificationPresencePinger />
                 <DedicatedEnterResumeController />
-                <ClientErrorBoundary>{children}</ClientErrorBoundary>
+                <CreateDialogHost>{children}</CreateDialogHost>
               </FeatureCardTipProvider>
             </SideChickProvider>
           </VisitorAutoLogoutWrapper>

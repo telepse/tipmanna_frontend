@@ -103,13 +103,18 @@ export async function getHostAnimationLibraryAction(opts?: {
   library?: string;
   q?: string;
   limit?: number;
+  cursor?: string | null;
 }) {
   const params = new URLSearchParams();
   if (opts?.library) params.set("library", opts.library);
   if (opts?.q) params.set("q", opts.q);
   if (opts?.limit != null) params.set("limit", String(opts.limit));
+  if (opts?.cursor) params.set("cursor", opts.cursor);
   const q = params.toString();
-  return runServerFetch<{ items: AnimationLibraryItem[] }>(
+  return runServerFetch<{
+    items: AnimationLibraryItem[];
+    nextCursor?: string | null;
+  }>(
     `${base()}/host/animation-library${q ? `?${q}` : ""}`,
     {
       method: "GET",

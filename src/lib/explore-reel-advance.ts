@@ -32,3 +32,15 @@ export function shouldHandleExploreReelEnded(input: {
 }): boolean {
   return input.feedSurfaceActive && input.slideIndex === input.activeIndex;
 }
+
+/** Snap scroll after ENDED so the next slide becomes active and plays immediately. */
+export function exploreEndedAdvanceScrollBehavior(): ScrollBehavior {
+  return "auto";
+}
+
+/** Whether scrollToIndex should commit activeIndex in the same turn (not deferred to scroll). */
+export function shouldCommitExploreActiveIndexOnScroll(
+  behavior: ScrollBehavior
+): boolean {
+  return behavior !== "smooth";
+}

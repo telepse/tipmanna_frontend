@@ -54,6 +54,8 @@ export type Event = {
   showLatestAmount: boolean;
   hideProgressBarAmount: boolean;
   tipUsageDisclosure: TipUsageDisclosure[];
+  accessMode: string;
+  eventReminders: string;
 };
 
 export type Message = {

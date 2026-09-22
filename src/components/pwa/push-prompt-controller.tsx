@@ -10,7 +10,12 @@ import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-s
 import { usePushPermission } from "@/hooks/use-push-permission";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { ensurePushForSignedInTipper } from "@/lib/program-push-setup";
-import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
+import { usePathname } from "next/navigation";
+
+import {
+  fetchPushPromptPolicy,
+  isScreenOverlayPath,
+} from "@/lib/pwa-install-trigger";
 import type { RootState } from "@/redux/store";
 
 const DISMISS_SESSION_KEY = "tipmanna_push_prompt_dismissed_session";
@@ -27,6 +32,7 @@ function markDismissedThisSession(): void {
 
 /** Session push opt-in prompt for installed PWA users without push subscription. */
 export function PushPromptController() {
+  const pathname = usePathname() ?? "";
   const { installed } = useInstallPrompt();
   const { state, detecting, loading, subscribe } = usePushPermission();
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
@@ -39,6 +45,10 @@ export function PushPromptController() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (isScreenOverlayPath(pathname)) {
+      setVisible(false);
+      return;
+    }
     if (detecting || dismissedThisSession()) {
       setVisible(false);
       return;
@@ -63,7 +73,7 @@ export function PushPromptController() {
     return () => {
       cancelled = true;
     };
-  }, [detecting, installed, state]);
+  }, [detecting, installed, pathname, state]);
 
   if (!visible) return null;
 

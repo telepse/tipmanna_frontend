@@ -201,3 +201,22 @@ export function isUnverifiedHostMessage(
     m.includes("email not verified")
   );
 }
+
+export function isUnclaimedHostClaimMessage(
+  message: string | null | undefined
+): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return (
+    m.includes("pending creator invite") ||
+    m.includes("sign up to claim your host account")
+  );
+}
+
+export function isClaimedHostExistsMessage(
+  message: string | null | undefined
+): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return m.includes("email already exists as a host");
+}

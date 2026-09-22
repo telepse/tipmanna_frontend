@@ -164,7 +164,7 @@ export function ProgramLanding({
               src={heroThumb}
               alt=""
               fill
-              className="size-20 object-cover"
+              className="object-cover"
               unoptimized
             />
           </div>

@@ -10,6 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { HostSubscriptionPricingPanel } from "@/components/dashboard/host-subscription-pricing-panel";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
+import {
+  HOST_SUBSCRIPTION_MODAL_OVERLAY_Z_INDEX,
+  HOST_SUBSCRIPTION_MODAL_Z_INDEX,
+} from "@/lib/drawer-z-index";
 
 type Props = {
   open: boolean;
@@ -33,7 +38,13 @@ export function HostSubscriptionModal({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        overlayClassName={HOST_SUBSCRIPTION_MODAL_OVERLAY_Z_INDEX}
+        className={cn(
+          HOST_SUBSCRIPTION_MODAL_Z_INDEX,
+          "max-h-[90dvh] overflow-y-auto sm:max-w-2xl"
+        )}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

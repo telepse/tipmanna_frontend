@@ -38,8 +38,7 @@ export function CommunityJoinOpenControls({
   }
 
   const resolvedJoinLabel =
-    joinLabel ??
-    (joined ? "Open" : isAuthenticated ? "Join" : "Sign in to join");
+    joinLabel ?? (joined ? "Open" : isAuthenticated ? "Join" : "Join");
 
   return (
     <div className={cn("flex shrink-0 items-center gap-1", className)}>
@@ -47,7 +46,10 @@ export function CommunityJoinOpenControls({
         type="button"
         size={size}
         variant={joined ? "outline" : "secondary"}
-        className={cn(size === "sm" && "h-7 px-2 text-[11px]")}
+        className={cn(
+          size === "sm" && "h-7 px-2 text-[11px]",
+          !joined && !isAuthenticated && ""
+        )}
         onClick={e => {
           e.preventDefault();
           e.stopPropagation();
@@ -55,22 +57,11 @@ export function CommunityJoinOpenControls({
           else onJoin(communityId);
         }}
       >
-        {resolvedJoinLabel}
-      </Button>
-      <Button
-        type="button"
-        size={size}
-        variant="ghost"
-        className={cn(size === "sm" && "h-7 w-7 px-0")}
-        aria-label={openLabel}
-        title={openLabel}
-        onClick={e => {
-          e.preventDefault();
-          e.stopPropagation();
-          onOpen(communityId);
-        }}
-      >
-        <ExternalLink className="size-3.5" />
+        <span
+          className={`${!joined && !isAuthenticated ? "underline underline-offset-2" : ""}`}
+        >
+          {resolvedJoinLabel}
+        </span>
       </Button>
     </div>
   );

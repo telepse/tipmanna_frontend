@@ -1,0 +1,8 @@
+html[data-screen-overlay-root="true"],
+html[data-screen-overlay-root="true"] body {
+  background: transparent !important;
+}
+
+html[data-screen-overlay-root="true"] body {
+  overflow: hidden;
+}

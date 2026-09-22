@@ -38,6 +38,12 @@ describe("P0 gate — React mount integration (component source)", () => {
     expect(src).not.toContain("usePayerOriginAnimationRecovery");
     expect(src).toContain('playbackKeyPrefix: "screen-"');
   });
+
+  it("does not mount recovery on transparent overlay", () => {
+    const src = readSrc("components/events/screen-overlay-client.tsx");
+    expect(src).not.toContain("usePayerOriginAnimationRecovery");
+    expect(src).toContain('playbackKeyPrefix: "overlay-"');
+  });
 });
 
 describe("P0 gate — lease timer lifecycle (hook source contract)", () => {

@@ -4,14 +4,14 @@ import Image from "next/image";
 import { useSelector } from "react-redux";
 
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
-import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import type { RootState } from "@/redux/store";
 import { cn } from "@/lib/utils";
-import { UserRound } from "lucide-react";
+import { ExternalLink, UserRound } from "lucide-react";
+import { Button } from "../ui/button";
 
 function formatCommunityDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -45,12 +45,6 @@ export function ExploreTopCommunitiesGrid({
     closeJoinModal,
     openJoin,
     openCommunity,
-    signInOpen,
-    setSignInOpen,
-    signInReturnTo,
-    onSignInVerified,
-    signInTitle,
-    signupSurface,
   } = useCommunityJoinFlow({
     signupSurface: "community_picker",
     signInTitle: "Sign in to join this community",
@@ -128,7 +122,22 @@ export function ExploreTopCommunitiesGrid({
           </div>
         </button>
 
-        <div className="mt-3 flex justify-center">
+        <div className="mt-3 flex justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 px-0"
+            aria-label="Open community"
+            title="Open community"
+            onClick={e => {
+              e.stopPropagation();
+              if (!locked) openCommunity(c.id);
+            }}
+          >
+            <ExternalLink className="size-3.5" />
+          </Button>
+
           {locked ? (
             <p className="text-muted-foreground text-xs">Awaiting approval</p>
           ) : (
@@ -148,14 +157,6 @@ export function ExploreTopCommunitiesGrid({
 
   return (
     <>
-      <TipperEmailOtpSignInDialog
-        open={signInOpen}
-        onOpenChange={setSignInOpen}
-        signInTitle={signInTitle}
-        signupSurface={signupSurface}
-        getRedirectPathAfterVerify={() => signInReturnTo}
-        onVerified={onSignInVerified}
-      />
       {joinCommunityId ? (
         <JoinCommunityModal
           open={joinModalOpen}

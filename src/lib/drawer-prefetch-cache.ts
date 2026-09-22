@@ -19,6 +19,7 @@ import {
   getHostCreatorPublicProfileAction,
   type HostCreatorPublicProfile,
 } from "@/actions/host-creator";
+import { getCommunityAccessStateAction } from "@/actions/communities";
 import { fetchSavedHostsMe } from "@/lib/save-host-client";
 import { getAuthToken, getAuthUserFromCookies } from "@/lib/getAuthToken";
 import { normalizeSavedVideosList } from "@/lib/save-video-client";
@@ -48,6 +49,8 @@ const creatorProfileInflight: Map<
   string,
   Promise<HostCreatorPublicProfile | null>
 > = new Map();
+const communityAccessCache = new Map<string, unknown>();
+const communityAccessInflight: Map<string, Promise<unknown | null>> = new Map();
 
 export function normalizeCreatorUsername(
   username: string | null | undefined
@@ -174,6 +177,79 @@ export function prefetchCreatorProfile(username: string | null | undefined) {
   if (!handle) return;
   scheduleIdle(() => {
     void fetchCreatorProfileCached(handle);
+  });
+}
+
+export function communityAccessKey(communityId: string) {
+  return `community-access:${communityId.trim()}`;
+}
+
+export function getCachedCommunityAccessState(
+  communityId: string
+): unknown | null {
+  const id = communityId.trim();
+  if (!id) return null;
+  const key = communityAccessKey(id);
+  return communityAccessCache.get(key) ?? readSession<unknown>(key);
+}
+
+export function invalidateCommunityAccessState(communityId: string) {
+  const id = communityId.trim();
+  if (!id) return;
+  const key = communityAccessKey(id);
+  communityAccessCache.delete(key);
+  communityAccessInflight.delete(key);
+  try {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(`${SESSION_PREFIX}${key}`);
+    }
+  } catch {
+    /* noop */
+  }
+}
+
+export async function fetchCommunityAccessStateCached(
+  communityId: string,
+  opts?: { force?: boolean }
+): Promise<unknown | null> {
+  const id = communityId.trim();
+  if (!id) return null;
+  const key = communityAccessKey(id);
+  if (opts?.force) {
+    invalidateCommunityAccessState(id);
+  } else {
+    const hit = getCachedCommunityAccessState(id);
+    if (hit) return hit;
+  }
+  let inflight = communityAccessInflight.get(key);
+  if (!inflight) {
+    inflight = getCommunityAccessStateAction(id).then(res => {
+      if (res.success && res.data) {
+        communityAccessCache.set(key, res.data);
+        writeSession(key, res.data);
+        return res.data;
+      }
+      return null;
+    });
+    communityAccessInflight.set(key, inflight);
+    void inflight.finally(() => communityAccessInflight.delete(key));
+  }
+  return inflight;
+}
+
+export function prefetchCommunityAccessState(communityId: string) {
+  const id = communityId.trim();
+  if (!id) return;
+  scheduleIdle(() => {
+    void fetchCommunityAccessStateCached(id);
+  });
+}
+
+/** Warm drawer UI chunks without opening a drawer. */
+export function prefetchDrawerUiChunks() {
+  scheduleIdle(() => {
+    void import("@/components/host/host-creator-page-client");
+    void import("@/components/community/community-join-panel");
   });
 }
 
