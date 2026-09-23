@@ -15,7 +15,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { AddEventBanner } from "@/components/banners/add-event-banner";
 import { newEventSchema, NewEventFormData } from "@/schemas";
 import { defaultEventTimeZone } from "@/lib/event-timezones";
-import { buildDefaultThankYouForHost } from "@/lib/thank-you-message";
+import { DEFAULT_THANK_YOU_PREFIX } from "@/lib/thank-you-message";
 import { RootState } from "@/redux/store";
 import type { AppDispatch } from "@/redux/store";
 import type { HostUser } from "@/features/auth-slice";
@@ -71,6 +71,7 @@ export default function EventOnlyPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const submitInFlightRef = useRef(false);
+  const uploadedBannerUrlRef = useRef<string | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [pendingCoOwnerInviteIds, setPendingCoOwnerInviteIds] = useState<
     string[]
@@ -92,7 +93,8 @@ export default function EventOnlyPage() {
 
   const tag = useSelector((state: RootState) => state.auth.tag);
   const isExistingHost = tag === "EXISTING_HOST";
-  const { canWriteAsHost } = useHostCapabilityWithAuth();
+  const { canWriteAsHost, HostAuthModal, handleAuthRequiredError } =
+    useHostCapabilityWithAuth();
   const { hasActivePremium } = useHostPlanCapabilities();
   const { username: hostUsername } = useHostSession();
 
@@ -127,13 +129,6 @@ export default function EventOnlyPage() {
       // Validate each video link
       const videoValidationResults = await Promise.all(
         videoLinks.map(async (link, i) => {
-          // Skip validation if the video is default and empty
-          if (link.isDefault && !link.url) {
-            form.clearErrors(`videoLinks.${i}.url`);
-            return { valid: true };
-          }
-
-          // Flag non-default empty video links
           if (!link.url) {
             form.setError(`videoLinks.${i}.url`, {
               type: "manual",
@@ -184,10 +179,7 @@ export default function EventOnlyPage() {
     resolver: zodResolver(newEventSchema) as Resolver<NewEventFormData>,
     defaultValues: {
       amountToRaise: 0,
-      thankYouMessage: buildDefaultThankYouForHost({
-        fullName: user?.fullName,
-        username: user?.username,
-      }),
+      thankYouMessage: DEFAULT_THANK_YOU_PREFIX,
 
       hasPhysicalLocation: "",
       customerType: "",
@@ -292,9 +284,9 @@ export default function EventOnlyPage() {
 
       setIsLoading(true);
 
-      let imageUrl = "";
+      let imageUrl = uploadedBannerUrlRef.current ?? "";
 
-      if (values.eventBanner) {
+      if (!imageUrl && values.eventBanner) {
         const res = await tryUploadImage(values.eventBanner);
         if (!res.ok) {
           toast.error(res.message);
@@ -307,6 +299,7 @@ export default function EventOnlyPage() {
           setIsLoading(false);
           return;
         }
+        uploadedBannerUrlRef.current = imageUrl;
         toast.success("Event banner uploaded successfully");
       }
 
@@ -318,9 +311,30 @@ export default function EventOnlyPage() {
       });
 
       if (!result.success) {
+        if (handleAuthRequiredError(result, () => void onSubmit(values))) {
+          return;
+        }
         applyServerFormErrors(
           form,
           result.validationBody ?? { message: result.message }
+        );
+        return;
+      }
+
+      syncHostAuthFromCreateEventResponse(dispatch, user, token, result.data);
+
+      if (draftId) {
+        void deleteFormDraftAction(draftId);
+      }
+
+      const dest = resolveWizardPostSubmitDestination({
+        hostSessionUsername: hostUsername,
+        createEventResponse: result.data,
+      });
+
+      if (dest === "/explore") {
+        toast.error(
+          "Could not open your creator profile. Try My account from the menu."
         );
         return;
       }
@@ -338,31 +352,7 @@ export default function EventOnlyPage() {
         );
       }
 
-      if (canWriteAsHost) {
-        syncHostAuthFromCreateEventResponse(dispatch, user, token, result.data);
-      }
-
-      if (draftId) {
-        void deleteFormDraftAction(draftId);
-      }
-
-      if (!canWriteAsHost) {
-        toast.error("Host session required to create events");
-        return;
-      }
-
-      const dest = resolveWizardPostSubmitDestination({
-        hostSessionUsername: hostUsername,
-        createEventResponse: result.data,
-      });
-
-      if (dest === "/explore") {
-        toast.error(
-          "Could not open your creator profile. Try My account from the menu."
-        );
-        return;
-      }
-
+      uploadedBannerUrlRef.current = null;
       push(dest);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -454,6 +444,9 @@ export default function EventOnlyPage() {
               {step === 1 && (
                 <EventAmountInfo
                   control={form.control as unknown as Control<NewEventFormData>}
+                  remainderContext={{
+                    hostFirstName: user?.fullName?.trim().split(/\s+/)[0],
+                  }}
                 />
               )}
               {step === 2 && (
@@ -548,6 +541,7 @@ export default function EventOnlyPage() {
           </div>
         </WizardDraftAutosaveProvider>
       </CoOwnerDraftLifecycleProvider>
+      {HostAuthModal}
     </div>
   );
 }

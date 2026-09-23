@@ -24,6 +24,10 @@ import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  parseCommunityTvTab,
+  type CommunityTvTab,
+} from "@/lib/host-dashboard-shortcuts";
 
 type ScheduleRow = {
   id: string;
@@ -32,11 +36,18 @@ type ScheduleRow = {
   blockTitle?: string;
 };
 
+const CHANNEL_BANK_SEARCH_EMPTY =
+  "No TV-ready approved bank videos found. Approve bank clips for TV, or search by title or event name (2+ characters).";
+
 export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
   const searchParams = useSearchParams();
   const communityId = searchParams.get("communityId")?.trim() ?? "";
+  const tabFromUrl = parseCommunityTvTab(searchParams.get("tab"));
+  const [activeTab, setActiveTab] = useState<CommunityTvTab>(tabFromUrl);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => tabFromUrl !== "reminders" && tabFromUrl !== "themes"
+  );
   const [error, setError] = useState<string | null>(null);
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   const [revision, setRevision] = useState<number>(0);
@@ -57,6 +68,12 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
     }[]
   >([]);
   const [channelSearchLoading, setChannelSearchLoading] = useState(false);
+  const [channelSearchEmptyMessage, setChannelSearchEmptyMessage] = useState<
+    string | null
+  >(null);
+  const [channelSearchError, setChannelSearchError] = useState<string | null>(
+    null
+  );
   const [communityExclusions, setCommunityExclusions] = useState<
     {
       id: string;
@@ -169,27 +186,42 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
   }, [communityId]);
 
   useEffect(() => {
-    void load();
-    void loadBlocks();
-  }, [load, loadBlocks]);
+    setActiveTab(parseCommunityTvTab(searchParams.get("tab")));
+  }, [searchParams]);
 
-  const searchChannels = useCallback(async () => {
-    const q = channelSearch.trim();
-    if (!communityId || q.length < 2) {
-      setChannelHits([]);
+  useEffect(() => {
+    if (!communityId) return;
+    if (activeTab === "reminders" || activeTab === "themes") {
+      setLoading(false);
+      setError(null);
       return;
     }
-    setChannelSearchLoading(true);
-    setError(null);
-    try {
-      const res = await searchCommunityTvChannelsAction(communityId, q);
-      if (!res.success || !res.data) {
-        setError(res.message ?? res.error ?? "Channel search failed.");
-        setChannelHits([]);
-        return;
-      }
-      setChannelHits(
-        (res.data.items ?? []) as {
+    void load();
+  }, [activeTab, communityId, load]);
+
+  useEffect(() => {
+    if (!communityId) return;
+    if (activeTab === "schedule" || activeTab === "control") {
+      void loadBlocks();
+    }
+  }, [activeTab, communityId, loadBlocks]);
+
+  const fetchChannelSearch = useCallback(
+    async (q: string) => {
+      if (!communityId) return;
+      setChannelSearchLoading(true);
+      setChannelSearchError(null);
+      setChannelSearchEmptyMessage(null);
+      try {
+        const res = await searchCommunityTvChannelsAction(communityId, q);
+        if (!res.success || !res.data) {
+          setChannelSearchError(
+            res.message ?? res.error ?? "Channel search failed."
+          );
+          setChannelHits([]);
+          return;
+        }
+        const items = (res.data.items ?? []) as {
           id: string;
           title: string;
           eventName?: string;
@@ -198,14 +230,29 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
           faultReason?: string | null;
           tvPlayable?: boolean;
           globallyBanned?: boolean;
-        }[]
-      );
-    } catch {
-      setChannelHits([]);
-    } finally {
-      setChannelSearchLoading(false);
-    }
-  }, [channelSearch, communityId]);
+        }[];
+        setChannelHits(items);
+        if (items.length === 0) {
+          setChannelSearchEmptyMessage(CHANNEL_BANK_SEARCH_EMPTY);
+        }
+      } catch {
+        setChannelHits([]);
+        setChannelSearchError("Channel search failed.");
+      } finally {
+        setChannelSearchLoading(false);
+      }
+    },
+    [communityId]
+  );
+
+  const searchChannels = useCallback(() => {
+    void fetchChannelSearch(channelSearch.trim());
+  }, [channelSearch, fetchChannelSearch]);
+
+  useEffect(() => {
+    if (!communityId) return;
+    void fetchChannelSearch("");
+  }, [communityId, fetchChannelSearch]);
 
   const move = useCallback((idx: number, dir: -1 | 1) => {
     setOrderedIds(prev => {
@@ -312,7 +359,8 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
       </div>
 
       <Tabs
-        defaultValue="schedule"
+        value={activeTab}
+        onValueChange={v => setActiveTab(parseCommunityTvTab(v))}
         className="mt-4"
       >
         <TabsList>
@@ -440,7 +488,7 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
               <Input
                 value={channelSearch}
                 onChange={e => setChannelSearch(e.target.value)}
-                placeholder="Title or event name (min 2 chars)"
+                placeholder="Filter by title or event name (optional)"
                 className="text-sm"
               />
               <Button
@@ -448,11 +496,19 @@ export function CommunityTvHostClient({ hostSlug }: { hostSlug: string }) {
                 variant="secondary"
                 size="sm"
                 disabled={channelSearchLoading}
-                onClick={() => void searchChannels()}
+                onClick={() => searchChannels()}
               >
                 Search
               </Button>
             </div>
+            {channelSearchEmptyMessage ? (
+              <p className="text-muted-foreground text-xs">
+                {channelSearchEmptyMessage}
+              </p>
+            ) : null}
+            {channelSearchError ? (
+              <p className="text-destructive text-xs">{channelSearchError}</p>
+            ) : null}
             {channelHits.length > 0 ? (
               <ul className="text-muted-foreground max-h-40 overflow-auto rounded-md border text-xs">
                 {channelHits.map(h => (

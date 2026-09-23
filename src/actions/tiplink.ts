@@ -35,6 +35,7 @@ export type TipLinkSummary = {
   description: string | null;
   videoUrl: string;
   pitch: string | null;
+  moneyFor: string | null;
   bannerUrl: string | null;
   bannerSource: TipLinkBannerSource | null;
   bannerAspect: TipLinkBannerAspect | null;
@@ -96,6 +97,7 @@ export type TipLinkPublicPayload = {
     id: string;
     username: string;
     fullName: string;
+    creatorPayoutVerified?: boolean;
     profileImageUrl: string | null;
     externalLink: { url: string; label: string } | null;
   };
@@ -113,6 +115,13 @@ export type TipLinkPublicPayload = {
     description: string | null;
     bannerUrl: string | null;
   } | null;
+  community?: {
+    id: string;
+    name: string;
+    communityType: string | null;
+    ownerVerified?: boolean;
+  } | null;
+  coOwnerName?: string | null;
   characterSets?: Array<{
     id: string;
     name: string;
@@ -187,6 +196,29 @@ export async function getTipLinkCreateEligibilityAction() {
   );
 }
 
+export async function suggestTipLinkStoreLinksAction(input: {
+  title: string;
+  youtubeUrl?: string | null;
+}) {
+  return runServerFetch<{
+    appleMusicUrl: string | null;
+    spotifyUrl: string | null;
+    audiomackUrl: string | null;
+  }>(
+    `${base()}/host/tiplinks/suggest-store-links`,
+    {
+      method: "POST",
+      headers: {
+        ...(await serverHostAuthHeaders()),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    },
+    "suggestTipLinkStoreLinksAction"
+  );
+}
+
 export async function suggestTipLinkSlugAction(title: string) {
   const q = new URLSearchParams({ title });
   return runServerFetch<{ slug: string }>(
@@ -226,6 +258,7 @@ export type UpdateTipLinkInput = {
   titleOverride?: string | null;
   descriptionOverride?: string | null;
   pitch?: string | null;
+  moneyFor?: string | null;
   bannerUrl?: string | null;
   bannerSource?: TipLinkBannerSource | null;
   bannerAspect?: TipLinkBannerAspect | null;

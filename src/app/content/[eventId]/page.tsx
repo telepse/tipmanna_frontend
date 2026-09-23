@@ -3,9 +3,8 @@ import {
   getAllCharacterSets,
   getCharactersForTipping,
 } from "@/actions/characters";
-import { getEventByIdAction, getEventRoomAccessAction } from "@/actions/events";
+import { getEventByIdAction } from "@/actions/events";
 import { ContentClient } from "@/components/events/content-client";
-import { PrivateEventRoomBlocked } from "@/components/events/event-room-access-gate";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { resolveProgramWatchAllPlaylist } from "@/actions/program-actions";
 import { resolveHostPlaylistWatchAll } from "@/actions/host-playlist";
@@ -18,7 +17,6 @@ import {
   pickInitialChannelContent,
 } from "@/lib/public-video-url";
 import { notFound, redirect } from "next/navigation";
-import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 import { Metadata } from "next";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
 import {
@@ -71,18 +69,6 @@ export async function generateMetadata({
   const { eventId } = await params;
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
-
-  const accessRes = await getEventRoomAccessAction(eventId);
-  const access =
-    accessRes.success && accessRes.data
-      ? (accessRes.data as {
-          accessMode?: "public" | "invite_only";
-          allowed?: boolean;
-        })
-      : null;
-  if (isEventRoomAccessDenied(access ?? undefined)) {
-    return { title: "Private event room" };
-  }
 
   const res = await getCachedContentChannelForPage(eventId);
   const list = unwrapContentChannelList(res.data) as ContentData[];
@@ -140,18 +126,6 @@ export default async function ContentPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const sp = await searchParams;
   const initialChannelId = parseChannelSearchParam(sp);
-
-  const accessRes = await getEventRoomAccessAction(eventId);
-  const access =
-    accessRes.success && accessRes.data
-      ? (accessRes.data as {
-          accessMode?: "public" | "invite_only";
-          allowed?: boolean;
-        })
-      : null;
-  if (isEventRoomAccessDenied(access ?? undefined)) {
-    return <PrivateEventRoomBlocked />;
-  }
 
   const programWatch =
     typeof sp.programWatch === "string" && sp.programWatch === "all";

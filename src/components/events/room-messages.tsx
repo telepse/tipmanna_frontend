@@ -46,6 +46,8 @@ interface Props {
   venueLocation?: string;
   activities: any[];
   eventDescription?: string;
+  onPerformersUpdated?: (performers: any[]) => void;
+  onProjectsUpdated?: (projects: any[]) => void;
 }
 
 export const RoomMessages = ({
@@ -75,6 +77,8 @@ export const RoomMessages = ({
   venueLocation,
   activities,
   eventDescription,
+  onPerformersUpdated,
+  onProjectsUpdated,
 }: Props & { paymentSurface?: string }) => {
   const safeTippingCharacters = useMemo(
     () => (Array.isArray(tippingCharacters) ? tippingCharacters : []),
@@ -216,9 +220,13 @@ export const RoomMessages = ({
           venueLocation={venueLocation ?? ""}
           activities={activities}
           eventDescription={eventDescription ?? ""}
+          onPerformersUpdated={onPerformersUpdated}
+          onProjectsUpdated={onProjectsUpdated}
         />
 
-        {safePerformers.length > 0 && (
+        {(contributionType === "PROJECT"
+          ? safeProjects.length > 0
+          : safePerformers.length > 0) && (
           <div className="-mt-6 flex items-center justify-between bg-white/20 px-4 py-1">
             <div />
 
@@ -228,8 +236,8 @@ export const RoomMessages = ({
                 className="rounded-md focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
                 aria-label={
                   showPinnedPerformers
-                    ? "Hide pinned performers summary"
-                    : "Show pinned performers summary"
+                    ? "Hide pinned summary"
+                    : "Show pinned summary"
                 }
                 onClick={() => setShowPinnedPerformers(prev => !prev)}
               >
@@ -237,14 +245,22 @@ export const RoomMessages = ({
               </button>
 
               {showPinnedPerformers && (
-                <div className="absolute top-6 right-0 z-50 flex h-[50px] w-[120px] items-center justify-center gap-4 bg-black/70">
-                  {safePerformers.map((performer: Performer) => (
+                <div className="absolute top-6 right-0 z-50 flex min-h-[50px] max-w-[240px] min-w-[160px] flex-col justify-center gap-1 bg-black/70 px-3 py-2">
+                  {(contributionType === "PROJECT"
+                    ? safeProjects
+                    : safePerformers
+                  ).map(item => (
                     <div
-                      key={performer.id}
+                      key={item.id}
                       className="text-xs text-white"
                     >
-                      <span className="text-white/80">{performer.name}</span> £
-                      {performer.amountReceived ?? 0}
+                      <span className="text-white/70">
+                        {contributionType === "PROJECT"
+                          ? "project:"
+                          : "performer:"}
+                      </span>{" "}
+                      <span className="text-white/90">{item.name}</span> £
+                      {item.amountReceived ?? 0}
                     </div>
                   ))}
                 </div>

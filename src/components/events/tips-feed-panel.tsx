@@ -13,6 +13,7 @@ export type TipFeedRow = {
   purchasedAt: string;
   username: string;
   amount: number;
+  directedTo?: string | null;
 };
 
 type Props = {
@@ -164,6 +165,12 @@ export function TipsFeedPanel({
                 )}{" "}
                 <span className="font-semibold">{row.username}</span> just sent{" "}
                 {row.characterName}
+                {row.directedTo ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    for {row.directedTo}
+                  </span>
+                ) : null}
               </p>
             </div>
 

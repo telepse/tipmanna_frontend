@@ -6,6 +6,7 @@ import {
   buildModalVerifyStatusPolicy,
   modalVerifyStateFromPolicy,
 } from "@/lib/form-draft-utils";
+import { DEFAULT_THANK_YOU_PREFIX } from "@/lib/thank-you-message";
 
 describe("mergeDraftPayload coOwnerDraftKey", () => {
   it("restores a saved key without minting a replacement", () => {
@@ -135,5 +136,22 @@ describe("modal YouTube verify draft policy", () => {
         "verified"
       )
     ).toBeUndefined();
+  });
+});
+
+describe("mergeDraftPayload thankYouMessage", () => {
+  it("restores legacy full default template as prefix only", () => {
+    const legacy =
+      "Thank you for your engagement and support from Emediong http://localhost:3000/@tipper {amount} {character} {tippedAt}";
+    const merged = mergeDraftPayload({ thankYouMessage: legacy }, {});
+    expect(merged.thankYouMessage).toBe(DEFAULT_THANK_YOU_PREFIX);
+  });
+
+  it("leaves prefix-only draft unchanged", () => {
+    const merged = mergeDraftPayload(
+      { thankYouMessage: DEFAULT_THANK_YOU_PREFIX },
+      {}
+    );
+    expect(merged.thankYouMessage).toBe(DEFAULT_THANK_YOU_PREFIX);
   });
 });

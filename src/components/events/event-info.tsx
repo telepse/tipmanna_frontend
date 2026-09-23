@@ -26,6 +26,7 @@ import {
 // Local imports
 import { truncateText } from "@/lib/utils";
 import { ScreenDisplay } from "./screen-display";
+import type { ScreenFunnelPosition } from "@/lib/screen-funnel-position";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { Dialog, DialogContent } from "../ui/dialog";
 import Image from "next/image";
@@ -47,6 +48,8 @@ interface Props {
   tippingCharacters: any[];
   tipUsageDisclosure: any[];
   performers: any[];
+  projects?: any[];
+  contributionType?: string;
   defaultScreenOpen?: boolean;
   venueName: string;
   venueLocation: string;
@@ -56,6 +59,8 @@ interface Props {
   startTime: string;
   endTime: string;
   eventBanner: string;
+  showPinnedOnScreen?: boolean;
+  funnelPosition?: ScreenFunnelPosition;
 }
 
 export const EventInfo = ({
@@ -74,6 +79,8 @@ export const EventInfo = ({
   tippingCharacters,
   tipUsageDisclosure,
   performers,
+  projects = [],
+  contributionType = "PERFORMER",
   defaultScreenOpen = false,
   venueName,
   venueLocation,
@@ -83,6 +90,8 @@ export const EventInfo = ({
   startTime,
   endTime,
   eventBanner,
+  showPinnedOnScreen = true,
+  funnelPosition = "bottom_left",
 }: Props) => {
   const [showInfo, setShowInfo] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -144,7 +153,11 @@ export const EventInfo = ({
           tippingCharacters={tippingCharacters}
           tipUsageDisclosure={tipUsageDisclosure}
           performers={performers}
+          projects={projects}
+          contributionType={contributionType}
           defaultOpen={defaultScreenOpen}
+          showPinnedOnScreen={showPinnedOnScreen}
+          funnelPosition={funnelPosition}
         >
           <TvMinimalPlay className="size-4 sm:size-7" />
         </ScreenDisplay>{" "}

@@ -30,7 +30,7 @@ import { SetReminderButton } from "@/components/program/set-reminder-button";
 import type { ProgramBootstrap } from "@/lib/program-types";
 import { buildContentSharePath } from "@/lib/public-video-url";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
-import { extractYoutubeID, getYoutubeThumbnail } from "@/lib/extractYoutubeID";
+import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
 import { formatProgramScheduleWithTimezone, trimTitle } from "@/lib/utils";
 
 function formatDuration(totalSec: number) {
@@ -84,12 +84,11 @@ export function ProgramLanding({
     }
   };
 
+  const firstContentUrl = program.items.find(i => i.contentUrl?.trim())
+    ?.contentUrl;
   const heroThumb =
-    program.landingBannerUrl ??
-    program.items.find(i => i.thumbnailUrl)?.thumbnailUrl ??
-    (program.items.find(i => i.contentUrl)?.contentUrl
-      ? getYoutubeThumbnail(program.items.find(i => i.contentUrl)!.contentUrl!)
-      : null);
+    program.landingBannerUrl?.trim() ||
+    (firstContentUrl ? getYoutubeThumbnail(firstContentUrl) : null);
 
   const isMobile = useMediaQuery({ query: "(max-width: 500px)" });
 
@@ -164,7 +163,7 @@ export function ProgramLanding({
               src={heroThumb}
               alt=""
               fill
-              className="size-20 object-cover"
+              className="object-cover"
               unoptimized
             />
           </div>
@@ -255,9 +254,9 @@ export function ProgramLanding({
 
         <div className="space-y-4">
           {program.items.map((item, idx) => {
-            const thumb =
-              item.thumbnailUrl ??
-              (item.contentUrl ? getYoutubeThumbnail(item.contentUrl) : null);
+            const ytThumb = item.contentUrl
+              ? getYoutubeThumbnail(item.contentUrl)
+              : null;
             const itemHref =
               item.eventId && item.channelId ? contentItemHref(item) : null;
 
@@ -267,9 +266,9 @@ export function ProgramLanding({
                 className="relative flex flex-col gap-2 rounded-md border border-black px-2 py-4 sm:px-4"
               >
                 <div className="relative">
-                  {thumb ? (
+                  {ytThumb ? (
                     <Image
-                      src={`https://img.youtube.com/vi/${extractYoutubeID(item.contentUrl!)}/hqdefault.jpg`}
+                      src={ytThumb}
                       alt=""
                       width={80}
                       height={50}

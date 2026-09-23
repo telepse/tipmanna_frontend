@@ -11,7 +11,7 @@ import { Suspense } from "react";
 
 // Third-party imports
 import Providers from "@/app/providers";
-import { ToastContainer } from "react-toastify";
+import { AppToastContainer } from "@/components/layout/app-toast-container";
 
 // Local imports
 import { WebVitalsReporter } from "@/components/analytics/web-vitals-reporter";
@@ -165,20 +165,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           strategy="lazyOnload"
         />
 
-        <ToastContainer
-          position="bottom-right"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="light"
-          aria-label="Notification messages"
-          style={{ zIndex: 2147483647, position: "fixed" }}
-        />
+        <AppToastContainer />
 
         <Providers>
           <VideoNativeMobileGuard />

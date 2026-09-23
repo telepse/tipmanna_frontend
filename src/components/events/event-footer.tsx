@@ -15,6 +15,8 @@ interface Props {
 
   characterSets: any;
   performers: any[];
+  projects?: any[];
+  contributionType?: string;
   textTipUnitPrice?: number;
   sectionCtaLabel?: string;
   payLabel?: string;
@@ -30,6 +32,8 @@ export const EventFooter = ({
   tippingCharacters,
   characterSets,
   performers,
+  projects,
+  contributionType,
   textTipUnitPrice,
   sectionCtaLabel,
   payLabel,
@@ -47,6 +51,8 @@ export const EventFooter = ({
           tippingCharacters={tippingCharacters}
           characterSets={characterSets}
           performers={performers}
+          projects={projects}
+          contributionType={contributionType}
           textTipUnitPrice={textTipUnitPrice}
           sectionCtaLabel={sectionCtaLabel}
           payLabel={payLabel}

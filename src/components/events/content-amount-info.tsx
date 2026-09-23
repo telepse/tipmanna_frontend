@@ -11,13 +11,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { PoundSterling } from "lucide-react";
 import { ThankYouMessageField } from "@/components/events/thank-you-message-field";
+import type { ThankYouRemainderContext } from "@/lib/thank-you-message";
 import { NewEventFormData } from "@/schemas";
 
 interface Props {
   control: Control<NewEventFormData>;
+  remainderContext?: ThankYouRemainderContext;
 }
 
-export function ContentAmountInfo({ control }: Props) {
+export function ContentAmountInfo({ control, remainderContext }: Props) {
   return (
     <>
       <div className="w-full space-y-6 rounded-lg border-2 border-white bg-black/50 p-6 shadow sm:w-96">
@@ -57,7 +59,10 @@ export function ContentAmountInfo({ control }: Props) {
             </FormItem>
           )}
         />
-        <ThankYouMessageField control={control} />
+        <ThankYouMessageField
+          control={control}
+          remainderContext={remainderContext}
+        />
       </div>
     </>
   );

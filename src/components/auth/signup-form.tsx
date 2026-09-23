@@ -39,7 +39,11 @@ import {
 } from "@/actions/auth";
 import { ApiError } from "@/types/api-error.types";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
-import { parseAuthResponse } from "@/lib/auth-response";
+import {
+  isClaimedHostExistsMessage,
+  parseAuthResponse,
+} from "@/lib/auth-response";
+import { HostAuthHandoffBanner } from "@/components/auth/host-auth-handoff-banner";
 import { buildVerifyEmailPath } from "@/lib/verify-email-path";
 import { baseUsernameFromEmail } from "@/lib/base-username-from-email";
 import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
@@ -65,7 +69,10 @@ export const SignupForm = () => {
   const [isHostLoading, setIsHostLoading] = useState(false);
   const [isTipperLoading, setIsTipperLoading] = useState(false);
   const [checkingCoOwnerEmail, setCheckingCoOwnerEmail] = useState(false);
-  const [coOwnerEligible, setCoOwnerEligible] = useState<boolean | null>(null);
+  const [hostEmailStatus, setHostEmailStatus] = useState<{
+    host: "none" | "unclaimed" | "claimed";
+    inviteEligible: boolean;
+  } | null>(null);
 
   const { push } = useAppRouter();
   const authUser = useSelector((s: RootState) => s.auth.user);
@@ -104,6 +111,7 @@ export const SignupForm = () => {
 
   const hostForm = useForm<HostSignUpFormData>({
     resolver: zodResolver(hostSignUpSchema),
+    mode: "onChange",
     defaultValues: {
       fullName: nameParam?.trim() || "",
       email: emailParam || "",
@@ -189,7 +197,7 @@ export const SignupForm = () => {
   useEffect(() => {
     const email = hostEmail?.trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setCoOwnerEligible(null);
+      setHostEmailStatus(null);
       return;
     }
 
@@ -197,9 +205,17 @@ export const SignupForm = () => {
       try {
         setCheckingCoOwnerEmail(true);
         const res = await checkCoOwnerSignupEligibilityAction(email);
-        setCoOwnerEligible(res.success && res.data?.eligible === true);
+        if (res.success && res.data) {
+          setHostEmailStatus({
+            host: res.data.host ?? "none",
+            inviteEligible:
+              res.data.inviteEligible ?? res.data.eligible === true,
+          });
+        } else {
+          setHostEmailStatus(null);
+        }
       } catch {
-        setCoOwnerEligible(null);
+        setHostEmailStatus(null);
       } finally {
         setCheckingCoOwnerEmail(false);
       }
@@ -207,6 +223,11 @@ export const SignupForm = () => {
 
     return () => clearTimeout(timeout);
   }, [hostEmail]);
+
+  const signupEmailIsClaimedHost = hostEmailStatus?.host === "claimed";
+  const signInHrefForClaimedEmail = hostEmail?.trim()
+    ? `/sign-in?email=${encodeURIComponent(hostEmail.trim())}`
+    : "/sign-in";
 
   const tipperForm = useForm<TipperSignUpFormData>({
     resolver: zodResolver(tipperSignUpSchema),
@@ -227,6 +248,14 @@ export const SignupForm = () => {
         ...buildSignupAttributionPayload("sign_up_page"),
       });
       if (!res.success) {
+        if (isClaimedHostExistsMessage(res.message)) {
+          setHostEmailStatus(prev =>
+            prev
+              ? { ...prev, host: "claimed" }
+              : { host: "claimed", inviteEligible: false }
+          );
+          return;
+        }
         toast.error(res.message);
         return;
       }
@@ -307,16 +336,16 @@ export const SignupForm = () => {
         onValueChange={val => setUserType(val as "host" | "tipper")}
         className="section lg:py-12"
       >
-        <TabsList className="bg-secondary/20 flex h-14! w-full">
+        <TabsList className="bg-secondary/20 flex h-10! w-full sm:h-14!">
           <TabsTrigger
             value="host"
-            className="h-13! font-semibold"
+            className="h-9! font-semibold sm:h-13!"
           >
             Host creator
           </TabsTrigger>
           <TabsTrigger
             value="tipper"
-            className="h-13! font-semibold"
+            className="h-9! font-semibold sm:h-13!"
           >
             Tipper
           </TabsTrigger>
@@ -417,7 +446,18 @@ export const SignupForm = () => {
                     ) : null}
                     {!checkingCoOwnerEmail &&
                     hostEmail?.trim() &&
-                    coOwnerEligible === true ? (
+                    signupEmailIsClaimedHost ? (
+                      <HostAuthHandoffBanner
+                        variant="claimed-sign-up"
+                        mode="page"
+                        signInHref={signInHrefForClaimedEmail}
+                      />
+                    ) : null}
+                    {!checkingCoOwnerEmail &&
+                    hostEmail?.trim() &&
+                    !signupEmailIsClaimedHost &&
+                    (hostEmailStatus?.inviteEligible === true ||
+                      hostEmailStatus?.host === "unclaimed") ? (
                       <p className="text-success text-sm">
                         Email linked to a co-owner invite ✓
                       </p>
@@ -557,7 +597,7 @@ export const SignupForm = () => {
                           onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormLabel className="text-sm font-normal">
+                      <FormLabel className="text-muted-foreground text-xs font-normal sm:text-sm">
                         <TermsPrivacyLabel />
                       </FormLabel>
                     </div>
@@ -573,7 +613,8 @@ export const SignupForm = () => {
                 disabled={
                   isHostLoading ||
                   checkingUsername ||
-                  usernameAvailable === false
+                  usernameAvailable === false ||
+                  signupEmailIsClaimedHost
                 }
               >
                 {isHostLoading ? (

@@ -65,6 +65,11 @@ export function isDashboardPath(pathname: string): boolean {
   );
 }
 
+/** OBS transparent browser source — never auto-prompt PWA install. */
+export function isScreenOverlayPath(pathname: string): boolean {
+  return /\/room\/[^/]+\/overlay\/?$/.test(pathname);
+}
+
 export function isPwaAutoPromptSuppressed(
   pref: PwaPreferenceSnapshot | null | undefined,
   installed: boolean

@@ -47,10 +47,10 @@ describe("express-surface-navigation", () => {
     expect(assign).toHaveBeenCalledWith("/explore?feedTab=trends");
   });
 
-  it("expressNavigateToExplore uses in-place feed switch when already on Explore", () => {
+  it("expressNavigateToExplore no-ops when already on Explore shell", () => {
     window.location.pathname = "/explore";
     window.location.search = "?tab=join&joinCommunity=abc";
     expressNavigateToExplore();
-    expect(assign).toHaveBeenCalledWith("/explore?feedTab=trends");
+    expect(assign).not.toHaveBeenCalled();
   });
 });

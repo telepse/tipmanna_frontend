@@ -5,6 +5,7 @@ import { Copy, ExternalLink } from "lucide-react";
 import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
+import { linkifyText } from "@/lib/linkify-text";
 
 export type ReminderProgramCardPost = {
   id: string;
@@ -68,10 +69,20 @@ export function ReminderProgramCard({
           />
         ) : null}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{post.title}</p>
+          {post.landingUrl ? (
+            <button
+              type="button"
+              className="text-left text-sm font-medium underline-offset-2 hover:underline"
+              onClick={() => window.open(post.landingUrl!, "_blank")}
+            >
+              {post.title}
+            </button>
+          ) : (
+            <p className="text-sm font-medium">{post.title}</p>
+          )}
           {post.body ? (
             <p className="text-muted-foreground mt-1 text-xs whitespace-pre-wrap">
-              {post.body}
+              {linkifyText(post.body)}
             </p>
           ) : null}
           <p className="text-muted-foreground mt-2 text-[11px]">
@@ -114,7 +125,10 @@ export function ReminderProgramCard({
                 variant="outline"
                 size="sm"
                 className="h-7 text-xs"
-                onClick={() => onSetReminder(min)}
+                onClick={e => {
+                  e.stopPropagation();
+                  onSetReminder(min);
+                }}
               >
                 {offsetLabels[min] ?? `${min}m`}
               </Button>

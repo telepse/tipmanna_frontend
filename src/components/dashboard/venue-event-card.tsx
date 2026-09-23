@@ -18,6 +18,7 @@ import { getEventSessionsAction } from "@/actions/community-host-dashboard";
 import { useHostSession } from "@/hooks/use-host-session";
 import { useRouter } from "next/navigation";
 import { TipUsageDisclosure } from "@/types/tipusagedisclosure.types";
+import { normalizeScreenFunnelPosition } from "@/lib/screen-funnel-position";
 
 interface Performer {
   name: string;
@@ -57,6 +58,8 @@ interface Props {
   tipUsageDisclosure: TipUsageDisclosure[];
   latestTipAmount: number;
   moneyFor: string;
+  showPinnedOnScreen?: boolean;
+  funnelPosition?: string;
 }
 
 export function VenueEventCard({
@@ -77,6 +80,8 @@ export function VenueEventCard({
   tipUsageDisclosure,
   latestTipAmount,
   moneyFor,
+  showPinnedOnScreen = true,
+  funnelPosition = "bottom_left",
 }: Props) {
   const hostSession = useHostSession();
 
@@ -138,6 +143,8 @@ export function VenueEventCard({
     }>;
     performers: { id?: string; name: string; description?: string }[];
     projects: { id?: string; name: string; description?: string }[];
+    showPinnedOnScreen: boolean;
+    funnelPosition: string;
   }) => {
     try {
       setLoading(true);
@@ -151,6 +158,8 @@ export function VenueEventCard({
           tipUsageDisclosure: values.tipUsageDisclosure,
           performers: values.performers,
           projects: values.projects,
+          showPinnedOnScreen: values.showPinnedOnScreen,
+          funnelPosition: values.funnelPosition,
         },
         id
       );
@@ -196,6 +205,14 @@ export function VenueEventCard({
             hideProgressBarAmount={hideProgressBarAmount}
             latestTipAmount={latestTipAmount}
             tipUsageDisclosure={tipUsageDisclosure}
+            showPinnedOnScreen={showPinnedOnScreen}
+            funnelPosition={normalizeScreenFunnelPosition(funnelPosition)}
+            performers={performers.map(p => ({
+              id: p.id,
+              name: p.name,
+              amountReceived: "",
+            }))}
+            projects={projects}
           >
             <div
               className="flex h-[180px] w-full flex-col items-center justify-center gap-1 bg-cover bg-center bg-no-repeat p-4 sm:h-28 md:w-48"
@@ -301,6 +318,8 @@ export function VenueEventCard({
         activeSession={activeSession}
         refetchSessions={fetchSessions}
         initialAmountToRaise={amountToRaise}
+        initialShowPinnedOnScreen={showPinnedOnScreen}
+        initialFunnelPosition={normalizeScreenFunnelPosition(funnelPosition)}
       />
     </div>
   );

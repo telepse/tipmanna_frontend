@@ -90,6 +90,7 @@ export async function loginOrRegisterHostAction(
     username: string;
     acceptedTerms: boolean;
     password: string;
+    intent?: "register";
   } & SignupAttributionFields
 ) {
   return runServerFetch(
@@ -174,6 +175,8 @@ export async function checkHostUsernameAvailabilityAction(values: {
 export async function checkCoOwnerSignupEligibilityAction(email: string) {
   return runServerFetch<{
     eligible: boolean;
+    inviteEligible: boolean;
+    host: "none" | "unclaimed" | "claimed";
   }>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/public/co-owner-signup-eligibility?email=${encodeURIComponent(email.trim())}`,
     {

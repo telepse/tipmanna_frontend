@@ -17,6 +17,7 @@ type Props = {
   pipReserveMobile?: number;
   pipReserveDesktop?: number;
   onTipsClick?: () => void;
+  navActions?: ReactNode;
 };
 
 function TickerSegment({
@@ -55,6 +56,7 @@ function TickerLine({
   sectionCtaLabel,
   hideActionLabels = false,
   onTipsClick,
+  navActions,
 }: Omit<
   Props,
   | "docked"
@@ -81,6 +83,12 @@ function TickerLine({
           <TickerLabel>Support</TickerLabel>
         </>
       ) : null}
+      {navActions ? (
+        <>
+          <span className="shrink-0 text-white/30">·</span>
+          {navActions}
+        </>
+      ) : null}
     </>
   );
 }
@@ -98,6 +106,7 @@ export function TipLinkMetricsTicker({
   pipReserveMobile = 108,
   pipReserveDesktop = 140,
   onTipsClick,
+  navActions,
 }: Props) {
   const line = (
     <TickerLine
@@ -107,6 +116,7 @@ export function TipLinkMetricsTicker({
       sectionCtaLabel={sectionCtaLabel}
       hideActionLabels={hideActionLabels}
       onTipsClick={onTipsClick}
+      navActions={navActions}
     />
   );
 

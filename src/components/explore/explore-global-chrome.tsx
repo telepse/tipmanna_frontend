@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { CircleX, Search, ToggleLeft } from "lucide-react";
 import { useSelector } from "react-redux";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { prefetchWatchTvFromExplore } from "@/lib/explore-watch-tv";
 import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
 import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
+import { Bars3BottomLeftIcon } from "@heroicons/react/24/outline";
 
 const EXPLORE = "/explore";
 
@@ -60,12 +61,16 @@ export function SideChickCommunityMenu({
   highlight,
   triggerClassName = "",
   activeDedicatedCommunityId = null,
+  headerTint = null,
+  headerContrast = null,
 }: {
   rows: SideChickMenuRow[];
   highlight: boolean;
   triggerClassName?: string;
   /** When set, switching to another community requires confirmation. */
   activeDedicatedCommunityId?: string | null;
+  headerTint?: string | null;
+  headerContrast?: string | null;
 }) {
   const [pendingSwitch, setPendingSwitch] = useState<{
     communityId: string;
@@ -91,18 +96,23 @@ export function SideChickCommunityMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
+            data-testid="explore-side-chick-community-menu"
+            aria-label="Side chick community menu"
             className={cn(
-              "h-8 rounded-full px-3 text-xs font-normal",
+              "rounded border border-black p-0.25 text-xs font-normal sm:p-0.5",
               highlight && "bg-background shadow-sm",
               triggerClassName
             )}
           >
-            Side chick
-          </Button>
+            <ToggleLeft
+              className={`sm:size-6} size-4`}
+              style={{
+                backgroundColor: headerContrast ?? undefined,
+              }}
+            />
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
@@ -326,84 +336,60 @@ export function ExploreGlobalChrome({
           </Link>
 
           <div className="flex items-center gap-1 rounded-full p-1 text-sm">
-            {sideChickLocked ? (
+            <button
+              type="button"
+              data-testid="explore-open-discover-panel"
+              aria-label="Open Discover panel"
+              className="flex cursor-pointer items-center gap-1 rounded border border-black p-0.25 sm:p-0.5"
+              onClick={() => router.push(`${EXPLORE}?tab=discover`)}
+            >
+              <Bars3BottomLeftIcon className="size-4 sm:size-5" />
+            </button>
+
+            {communityFeatureEnabled && sideChickLocked ? (
               <button
                 type="button"
                 onClick={() => setDedicatedModalOpen(true)}
-                className="size-3 shrink-0 animate-pulse rounded-full bg-amber-400 ring-2 ring-amber-200 sm:hidden"
+                className="shrink-0 rounded-full sm:inline-block"
                 title="Dedicated community mode"
                 aria-label="Dedicated community mode — tap for details"
-              />
+              >
+                <CircleX
+                  className={`size-4 animate-pulse fill-${headerTint}`}
+                  style={{
+                    fill: headerTint ? `${headerTint}` : undefined,
+                  }}
+                />
+              </button>
             ) : null}
 
-            <Link
-              href={`${EXPLORE}?tab=discover`}
-              onMouseEnter={prefetchExploreFeedInitial}
-              className="relative p-1"
-            >
-              <Input
-                readOnly
-                type="text"
-                placeholder="Search videos..."
-                className="pointer-events-none h-4 w-32 text-xs"
-                tabIndex={-1}
-              />
-              <Search className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
-            </Link>
-
-            <Link
-              href={`${EXPLORE}?feedTab=community`}
-              onMouseEnter={prefetchExploreFeedInitial}
-              className={cn(
-                "hidden rounded-full px-3 py-1 transition sm:inline-block",
-                communityFeedActive && "bg-background shadow-sm"
-              )}
-            >
-              Community
-            </Link>
-            <Link
-              href={`${EXPLORE}?tab=discover`}
-              className={cn(
-                "hidden rounded-full px-3 py-1 transition sm:inline-block",
-                discoverActive && "bg-background shadow-sm"
-              )}
-            >
-              Discover
-            </Link>
-
-            {communityFeatureEnabled ? (
-              <>
-                <Link
-                  href={`${EXPLORE}?tab=my-communities`}
-                  className={cn(
-                    "hidden rounded-full px-3 py-1 text-xs transition sm:inline-block",
-                    activeSurface === "join" && "bg-background shadow-sm"
-                  )}
-                >
-                  Join communities
-                </Link>
-                <div className="hidden sm:block">
-                  <SideChickCommunityMenu
-                    rows={sideChickMenuRows}
-                    highlight={activeSurface === "side-chick"}
-                    activeDedicatedCommunityId={activeDedicatedCommunityId}
-                  />
-                </div>
-              </>
-            ) : null}
+            <SideChickCommunityMenu
+              rows={sideChickMenuRows}
+              highlight={false}
+              activeDedicatedCommunityId={
+                sideChickLocked ? activeDedicatedCommunityId : null
+              }
+              headerTint={headerTint}
+              headerContrast={headerContrast?.foreground ?? null}
+            />
           </div>
         </div>
 
         <div className="flex min-w-0 items-center gap-2">
-          {communityFeatureEnabled && sideChickLocked ? (
-            <button
-              type="button"
-              onClick={() => setDedicatedModalOpen(true)}
-              className="hidden size-3 shrink-0 animate-pulse rounded-full bg-amber-400 ring-2 ring-amber-200 sm:inline-block"
-              title="Dedicated community mode"
-              aria-label="Dedicated community mode — tap for details"
+          <Link
+            href={`${EXPLORE}?tab=discover`}
+            onMouseEnter={prefetchExploreFeedInitial}
+            className="relative p-1"
+          >
+            <Input
+              readOnly
+              type="text"
+              placeholder="Search videos..."
+              className="pointer-events-none h-4 w-20 text-xs sm:w-32"
+              tabIndex={-1}
             />
-          ) : null}
+            <Search className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-gray-600" />
+          </Link>
         </div>
 
         <div className="-mr-10 flex items-center gap-1">
@@ -421,7 +407,7 @@ export function ExploreGlobalChrome({
             <div className="flex items-center gap-1">
               <span className="bg-moonstone-blue size-[10px] rounded-full sm:size-4"></span>{" "}
               <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
-                {exploreLiveViewers.length} online
+                {exploreLiveViewers.length} watching live
               </span>
             </div>
           </span>
@@ -454,7 +440,7 @@ export function ExploreGlobalChrome({
                     : "bg-background shadow-sm")
               )}
             >
-              Feed
+              Explore
             </Link>
 
             <Link
@@ -481,28 +467,6 @@ export function ExploreGlobalChrome({
             >
               Find Communities
             </Link>
-
-            {communityFeatureEnabled ? (
-              <>
-                <Link
-                  href={`${EXPLORE}?tab=my-communities`}
-                  className={cn(
-                    "inline-block rounded-full px-2.5 py-1 text-xs transition sm:hidden sm:px-3",
-                    activeSurface === "join" && "bg-background shadow-sm"
-                  )}
-                >
-                  Join
-                </Link>
-                <span className="inline-flex sm:hidden">
-                  <SideChickCommunityMenu
-                    rows={sideChickMenuRows}
-                    highlight={activeSurface === "side-chick"}
-                    triggerClassName="h-7 px-2.5 text-[11px]"
-                    activeDedicatedCommunityId={activeDedicatedCommunityId}
-                  />
-                </span>
-              </>
-            ) : null}
           </div>
         </div>
       </div>
@@ -511,7 +475,7 @@ export function ExploreGlobalChrome({
         open={dedicatedModalOpen}
         onOpenChange={setDedicatedModalOpen}
       >
-        <DialogContent>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
               Explore feed and TV are limited to your dedicated community
@@ -538,8 +502,9 @@ export function ExploreGlobalChrome({
                 })
                 .finally(() => setExitBusy(false));
             }}
+            className="h-13! flex-1 shrink-0"
           >
-            Reactivate Tipmanna Public (exit dedicated mode)
+            Exit dedicated mode <br /> (Reactivate Tipmanna Public)
           </Button>
         </DialogContent>
       </Dialog>

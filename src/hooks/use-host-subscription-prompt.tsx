@@ -21,6 +21,15 @@ type Options = {
   focusTier?: "premium" | "community";
 };
 
+export type HostSubscriptionPromptFns = {
+  openForRequired: (tier?: "premium" | "community") => void;
+  openForLapsed: (tier?: "premium" | "community") => void;
+  handleSubscriptionActionError: (
+    result: ActionResultLike,
+    opts?: { focusTier?: "premium" | "community"; toastFallback?: boolean }
+  ) => boolean;
+};
+
 /**
  * Opens the reusable subscribe/renew modal when host plan writes return
  * SUBSCRIPTION_LAPSED or SUBSCRIPTION_REQUIRED.

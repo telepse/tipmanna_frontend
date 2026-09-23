@@ -242,6 +242,16 @@ export default async function EventRoomPage({ params }: Props) {
   const eventUrl = buildRoomShareUrl(eventId);
   const isEventOwner = hostId;
 
+  const eventRecord = event as Record<string, unknown>;
+  const showPinnedOnScreen =
+    typeof eventRecord.showPinnedOnScreen === "boolean"
+      ? eventRecord.showPinnedOnScreen
+      : true;
+  const funnelPosition =
+    typeof eventRecord.funnelPosition === "string"
+      ? eventRecord.funnelPosition
+      : "bottom_left";
+
   const defaultContent = (Array.isArray(channels) ? channels : []).find(
     (c: EventRoomVideoChannel) => c.isDefault === true
   );
@@ -326,6 +336,8 @@ export default async function EventRoomPage({ params }: Props) {
             contributionType={contributionType ?? ""}
             EventSession={Array.isArray(EventSession) ? EventSession : []}
             eventEventType={eventType}
+            showPinnedOnScreen={showPinnedOnScreen}
+            funnelPosition={funnelPosition}
           />
         </EventRoomAccessGate>
       </ClientErrorBoundary>

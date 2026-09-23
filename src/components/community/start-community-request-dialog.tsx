@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
@@ -16,51 +16,58 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import type { HostCapability } from "@/hooks/use-host-capability";
+import type { HostAuthRequestOutcome } from "@/lib/host-auth-request-outcome";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { tryUploadImage } from "@/lib/cloudinary";
 import { COMMUNITY_TYPE_LABELS } from "@/lib/community-type-labels";
-import { getHostUserFromCookies } from "@/lib/host-session-client";
 import { normalizeEmail } from "@/lib/normalize-email";
+import {
+  beginExclusiveSubmit,
+  endExclusiveSubmit,
+} from "@/lib/exclusive-submit";
+import {
+  resolveHostCommunityPlanPath,
+  resolveHostCommunityPlanSlug,
+} from "@/lib/resolve-host-community-plan-path";
 import {
   COMMUNITY_TYPE_OPTIONS,
   type CommunityType,
 } from "@/schemas/community.schema";
 import type { RootState } from "@/redux/store";
 
+const CALENDLY_DEMO_URL =
+  "https://calendly.com/partner-telepse/tipmanna-session";
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preferredHostSlug?: string | null;
+  canWriteAsHost: boolean;
+  capability: HostCapability;
+  requestHostAuth: (
+    onSuccess?: () => void | Promise<void>
+  ) => HostAuthRequestOutcome;
   onSubmittedSuccess?: (eventSlug: string) => void;
 };
-
-function manageHostCommunityHref(eventSlug: string) {
-  return `/host/${encodeURIComponent(eventSlug)}/host-community`;
-}
 
 export function StartCommunityRequestDialog({
   open,
   onOpenChange,
+  preferredHostSlug,
+  canWriteAsHost,
+  capability,
+  requestHostAuth,
   onSubmittedSuccess,
 }: Props) {
   const { user } = useSelector((s: RootState) => s.auth);
   const userId = user?.id;
-  const { canWriteAsHost, capability } = useHostCapabilityWithAuth();
 
-  const hostCommunitySlug = useMemo(() => {
-    const hostSession = getHostUserFromCookies();
-    const fromCookie =
-      hostSession?.eventSlug?.trim() || hostSession?.username?.trim() || "";
-    if (fromCookie) return fromCookie;
-    if (capability.status === "active") {
-      return capability.eventSlug?.trim() || capability.username?.trim() || "";
-    }
-    return "";
-  }, [capability]);
-
-  const hostCommunityPath = hostCommunitySlug
-    ? manageHostCommunityHref(hostCommunitySlug)
-    : "/dashboard/host-community";
+  const hostCommunityPath = useMemo(
+    () =>
+      resolveHostCommunityPlanPath({ preferredHostSlug, capability }),
+    [capability, preferredHostSlug]
+  );
 
   const [interestName, setInterestName] = useState("");
   const [interestDesc, setInterestDesc] = useState("");
@@ -71,17 +78,16 @@ export function StartCommunityRequestDialog({
   const [interestEmail, setInterestEmail] = useState("");
   const [interestPhone, setInterestPhone] = useState("");
   const [interestSubmitting, setInterestSubmitting] = useState(false);
+  const [successPhase, setSuccessPhase] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
     null
   );
   const redirectPathRef = useRef("");
+  const submitInFlightRef = useRef(false);
 
   const {
     readableImage: interestLogoPreview,
-    error: interestLogoUploadError,
-    inputRef: interestLogoInputRef,
-    handleImageUpload: handleInterestLogoUpload,
-    handleChangeImage: handleInterestLogoChangeClick,
     handleRemoveImage: handleRemoveInterestLogo,
   } = useImageUpload({ maxSizeMB: 2 });
 
@@ -94,6 +100,22 @@ export function StartCommunityRequestDialog({
     setInterestEmail(email);
   }, [open, user]);
 
+  const beginRedirectCountdown = useCallback((path: string) => {
+    redirectPathRef.current = path;
+    setRedirectCountdown(5);
+  }, []);
+
+  useEffect(() => {
+    if (!successPhase || redirectCountdown !== null) return;
+    if (!hostCommunityPath) return;
+    beginRedirectCountdown(hostCommunityPath);
+  }, [
+    beginRedirectCountdown,
+    hostCommunityPath,
+    redirectCountdown,
+    successPhase,
+  ]);
+
   useEffect(() => {
     if (redirectCountdown === null) return;
     if (redirectCountdown <= 0) {
@@ -103,6 +125,7 @@ export function StartCommunityRequestDialog({
       }
       setRedirectCountdown(null);
       redirectPathRef.current = "";
+      setSuccessPhase(false);
       onOpenChange(false);
       setInterestName("");
       setInterestDesc("");
@@ -125,16 +148,24 @@ export function StartCommunityRequestDialog({
     setInterestPhone("");
     setRedirectCountdown(null);
     redirectPathRef.current = "";
+    setSuccessPhase(false);
+    setPendingSubmit(false);
+    endExclusiveSubmit(submitInFlightRef);
     handleRemoveInterestLogo();
   };
 
   const handleClose = (nextOpen: boolean) => {
+    if (!nextOpen && (redirectCountdown !== null || successPhase)) {
+      const ok = window.confirm(
+        "Leave before opening Community plan?"
+      );
+      if (!ok) return;
+    }
     if (!nextOpen) resetForm();
     onOpenChange(nextOpen);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const runSubmit = useCallback(async () => {
     if (!userId || !canWriteAsHost) {
       toast.error("Sign in to your host account to send this request.");
       return;
@@ -145,6 +176,10 @@ export function StartCommunityRequestDialog({
     const contactEmail = normalizeEmail(interestEmail.trim());
     if (!communityName || !description || !contactEmail) {
       toast.error("Please fill in community name, description, and email.");
+      return;
+    }
+
+    if (interestSubmitting || !beginExclusiveSubmit(submitInFlightRef)) {
       return;
     }
 
@@ -176,18 +211,76 @@ export function StartCommunityRequestDialog({
 
       if (r.success) {
         toast.success("Interest sent — admins have been notified.");
-        redirectPathRef.current = hostCommunityPath;
-        if (hostCommunitySlug) {
-          onSubmittedSuccess?.(hostCommunitySlug);
+        setSuccessPhase(true);
+        const path = resolveHostCommunityPlanPath({
+          preferredHostSlug,
+          capability,
+        });
+        if (path) {
+          beginRedirectCountdown(path);
         }
-        setRedirectCountdown(5);
+        const slug = resolveHostCommunityPlanSlug({
+          preferredHostSlug,
+          capability,
+        });
+        if (slug) {
+          onSubmittedSuccess?.(slug);
+        }
       } else {
         toast.error(r.message ?? "Could not send request");
       }
     } finally {
+      endExclusiveSubmit(submitInFlightRef);
       setInterestSubmitting(false);
     }
+  }, [
+    beginRedirectCountdown,
+    capability,
+    interestDesc,
+    interestEmail,
+    interestLogoPreview,
+    interestName,
+    interestPhone,
+    interestStart,
+    interestType,
+    onSubmittedSuccess,
+    preferredHostSlug,
+    userId,
+    canWriteAsHost,
+  ]);
+
+  useEffect(() => {
+    if (!pendingSubmit || !canWriteAsHost) return;
+    setPendingSubmit(false);
+    void runSubmit();
+  }, [pendingSubmit, canWriteAsHost, runSubmit]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) {
+      toast.error("Sign in to send this request.");
+      return;
+    }
+    if (!canWriteAsHost) {
+      setPendingSubmit(true);
+      const outcome = requestHostAuth(() => {
+        setPendingSubmit(true);
+      });
+      if (outcome === "noop") {
+        if (user?.role === "HOST") {
+          return;
+        }
+        setPendingSubmit(false);
+        toast.error(
+          "A host account is required. Add an email to your tipper profile or create a host account."
+        );
+      }
+      return;
+    }
+    await runSubmit();
   };
+
+  const showSuccess = successPhase;
 
   return (
     <Dialog
@@ -195,7 +288,7 @@ export function StartCommunityRequestDialog({
       onOpenChange={handleClose}
     >
       <DialogContent className="flex max-h-[min(90dvh,640px)] flex-col gap-0 overflow-hidden sm:max-w-lg">
-        {redirectCountdown !== null ? (
+        {showSuccess ? (
           <>
             <DialogHeader className="shrink-0 space-y-2 pr-6 pb-2">
               <DialogTitle>Request sent</DialogTitle>
@@ -209,8 +302,11 @@ export function StartCommunityRequestDialog({
                 <Button
                   type="button"
                   className="flex-1"
+                  disabled={!hostCommunityPath}
                   onClick={() => {
-                    window.location.assign(hostCommunityPath);
+                    if (hostCommunityPath) {
+                      window.location.assign(hostCommunityPath);
+                    }
                   }}
                 >
                   Community plan
@@ -220,26 +316,29 @@ export function StartCommunityRequestDialog({
                   variant="outline"
                   className="flex-1"
                   onClick={() => {
-                    window.open(
-                      "https://calendly.com/partner-telepse/tipmanna-session",
-                      "_blank",
-                      "noreferrer"
-                    );
+                    window.open(CALENDLY_DEMO_URL, "_blank", "noreferrer");
                   }}
                 >
                   Book a demo
                 </Button>
               </div>
-              <p className="text-muted-foreground text-center text-sm">
-                Opening Community plan in{" "}
-                <span
-                  className="text-primary font-semibold tabular-nums"
-                  aria-live="polite"
-                >
-                  {redirectCountdown}
-                </span>
-                …
-              </p>
+              {redirectCountdown !== null ? (
+                <p className="text-muted-foreground text-center text-sm">
+                  Opening Community plan in{" "}
+                  <span
+                    className="text-primary font-semibold tabular-nums"
+                    aria-live="polite"
+                  >
+                    {redirectCountdown}
+                  </span>
+                  …
+                </p>
+              ) : !hostCommunityPath ? (
+                <p className="text-muted-foreground text-center text-sm">
+                  Finishing host setup — Community plan link will appear
+                  shortly.
+                </p>
+              ) : null}
             </div>
           </>
         ) : (

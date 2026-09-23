@@ -200,4 +200,34 @@ test.describe("explore URL sync journeys", () => {
       new RegExp(`joinCommunity=${E2E_JOIN_COMMUNITY_ID}`)
     );
   });
+
+  test("Discover sheet Open community closes panel and navigates to join tab", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await gotoExplore(page, withE2eFixtures("/explore"));
+    await waitFeedReady(page);
+    await openExploreHeaderDiscoverSearch(page, "");
+
+    const discoverDialog = page.getByRole("dialog", { name: "Discover" });
+    await expect(discoverDialog).toBeVisible({ timeout: 30_000 });
+
+    const openCommunityBtn = discoverDialog
+      .getByRole("button", { name: "Open community" })
+      .first();
+    await expect(openCommunityBtn).toBeVisible({ timeout: 30_000 });
+    await openCommunityBtn.scrollIntoViewIfNeeded();
+    await openCommunityBtn.click();
+
+    await expect(discoverDialog).not.toBeVisible({ timeout: 15_000 });
+    await expectMainTab(page, "join");
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("joinCommunity"), {
+        timeout: 12_000,
+      })
+      .toBe(E2E_JOIN_COMMUNITY_ID);
+    await expect(
+      page.getByRole("heading", { name: /E2E Join Community/i })
+    ).toBeVisible({ timeout: 15_000 });
+  });
 });

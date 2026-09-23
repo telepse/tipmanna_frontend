@@ -1,4 +1,8 @@
 import type { NewEventFormData } from "@/schemas";
+import {
+  splitThankYouMessage,
+  THANK_YOU_PREFIX_MAX,
+} from "@/lib/thank-you-message";
 import type { AddVideoFormValues } from "@/components/events/add-video-form";
 
 export type CoOwnerDraftSlice = {
@@ -168,6 +172,10 @@ export function mergeDraftPayload(
   const mergedBase: NewEventFormData = {
     ...base,
     cohosts,
+    thankYouMessage: splitThankYouMessage(base.thankYouMessage).prefix.slice(
+      0,
+      THANK_YOU_PREFIX_MAX
+    ),
   };
 
   if (!Array.isArray(policy.videoLinks) || policy.videoLinks.length === 0) {

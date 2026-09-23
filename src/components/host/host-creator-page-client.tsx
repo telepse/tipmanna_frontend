@@ -1,8 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
-import {
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -56,19 +57,38 @@ import {
   type CommunityFeaturedVideo,
 } from "@/actions/communities";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
+import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import {
   EditCreatorProfileDialog,
   type CreatorProfileSavedPayload,
 } from "@/components/host/edit-creator-profile-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { CommunityPublicMembersRoster } from "@/components/community/community-public-members-roster";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
   buildCreatorProfileSharePath,
   buildCreatorProfileShareUrl,
 } from "@/lib/creator-profile-url";
 import { copyShareUrl } from "@/lib/copy-share-url";
+import {
+  HOST_SUBSCRIPTION_RESUME_CHANNEL_ID,
+  HOST_SUBSCRIPTION_RESUME_EVENT_ID,
+  HOST_SUBSCRIPTION_RESUME_QUERY,
+  HOST_SUBSCRIPTION_RESUME_TITLE,
+  parseResumeKindFromSearch,
+  setHostSubscriptionResume,
+  type HostSubscriptionResumeKind,
+} from "@/lib/host-subscription-resume";
 import { cn } from "@/lib/utils";
 import { useHostSession } from "@/hooks/use-host-session";
 import type { RootState } from "@/redux/store";
@@ -81,6 +101,8 @@ import { postCreatorProfileVisitAction } from "@/actions/host-creator";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { CommunityMemberInfo } from "@/components/community/community-member-info";
 import { AddCommunityBankVideoDialog } from "@/components/community/add-community-bank-video-dialog";
+import { HostCommunityNotificationsDrawer } from "@/components/community/host-community-notifications-drawer";
+import { useHostCommunityNotificationBadge } from "@/hooks/use-host-community-notification-badge";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import type { HostCreatorDefaultTab } from "@/schemas/creator.schema";
 import { CompactEventCard } from "../events/compact-event-card";
@@ -98,24 +120,26 @@ import {
 import { ProfileDrawer } from "@/components/tv/profile-drawer";
 import { StartCommunityRequestDialog } from "@/components/community/start-community-request-dialog";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
-
-function buildTipLinkManageHref(
-  hostEventSlug: string,
-  eventId: string,
-  channelId?: string
-) {
-  const base = `/host/${hostEventSlug}/manage-event/${eventId}?tab=tiplink`;
-  return channelId
-    ? `${base}&channelId=${encodeURIComponent(channelId)}`
-    : base;
-}
-
+import {
+  shouldOpenStartCommunityFromSearch,
+  START_COMMUNITY_RESUME_QUERY,
+} from "@/lib/start-community-resume";
+import {
+  resolveStartCommunityAfterGuestModal,
+  START_COMMUNITY_CHECKING_HOST_LABEL,
+} from "@/lib/start-community-guest-resume";
+import { buildTipLinkManageHref } from "@/lib/tiplink-manage-navigation";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import {
+  expressNavigateToCommunity,
+  expressNavigateToDiscover,
   expressNavigateToExplore,
   expressNavigateToTv,
 } from "@/lib/express-surface-navigation";
 import { awaitProfileDrawerPrefetch } from "@/lib/drawer-prefetch-cache";
+import { isCommunityAlreadyIn } from "@/lib/community-already-in";
+import { syncCreatorProfileTabToUrl } from "@/lib/creator-profile-tab-url";
+import { HostPlaylistCreateDialog } from "./host-playlist-create-dialog";
 
 const PLACEHOLDER_AVATAR =
   "https://res.cloudinary.com/tipmanna/image/upload/v1786172267/user_sce6gw.png";
@@ -127,9 +151,22 @@ const EVENT_TAB_SUBMISSION_KINDS = new Set(["event_only", "event_and_content"]);
 
 const CO_OWNED_VIDEOS_SUBTAB_ID = "__co_owned_videos__";
 
+const ADD_COMMUNITY_VIDEO_QUERY = "addCommunityVideo";
+const ADD_COMMUNITY_VIDEO_ID_QUERY = "addCommunityVideoId";
+const REMINDER_BLAST_QUERY = "reminderBlast";
+const REMINDER_BLAST_COMMUNITY_ID_QUERY = "reminderBlastCommunityId";
+
+const HostReminderBucketTab = dynamic(
+  () =>
+    import("@/components/dashboard/host-reminder-bucket-tab").then(m => ({
+      default: m.HostReminderBucketTab,
+    })),
+  { ssr: false, loading: () => null }
+);
+
 const TABS = [
   { id: "all_videos", label: "" },
-  { id: "channels", label: "Channel" },
+  { id: "channels", label: "Content" },
   { id: "events", label: "Event" },
   { id: "communities", label: "Community" },
   { id: "playlists", label: "List" },
@@ -237,15 +274,22 @@ export function HostCreatorPageClient({
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", tab);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    const nextHref = syncCreatorProfileTabToUrl({
+      variant: isDrawer ? "drawer" : "page",
+      pathname: pathname ?? "",
+      currentQuery: searchParams.toString(),
+      tab,
+    });
+    if (nextHref) {
+      router.replace(nextHref, { scroll: false });
+    }
   };
 
   const {
     pickerOpen: tipLinkPickerOpen,
     setPickerOpen: setTipLinkPickerOpen,
-    eligibleVideos: tipLinkEligibleVideos,
+    eligibleEvents: tipLinkEligibleEvents,
+    communityBankVideos: tipLinkCommunityBankVideos,
     creatingChannelId: tipLinkCreatingChannelId,
     draftTipLinks,
     openPicker: openTipLinkPicker,
@@ -255,6 +299,7 @@ export function HostCreatorPageClient({
     SubscriptionPromptModal: TipLinkCreateSubscriptionModal,
   } = useTipLinkProfileCreate({
     events,
+    communities,
     tipLinks,
     isOwnProfile,
     onDraftCreated: () => {
@@ -289,15 +334,37 @@ export function HostCreatorPageClient({
   const [createDialogEntry, setCreateDialogEntry] =
     useState<CreateDialogEntry>("default");
   const [startCommunityOpen, setStartCommunityOpen] = useState(false);
+  const [startCommunityPreferredSlug, setStartCommunityPreferredSlug] =
+    useState<string | null>(null);
   const [pendingStartCommunity, setPendingStartCommunity] = useState(false);
+  const startCommunityResumeHandledRef = useRef(false);
 
   const userRole = useSelector((s: RootState) => s.auth.user?.role);
   const isSignedIn =
     useSelector((s: RootState) => s.auth.isAuthenticated) &&
     (userRole === "HOST" || userRole === "TIPPER");
 
-  const { canWriteAsHost, requestHostAuth, HostAuthModal } =
-    useHostCapabilityWithAuth();
+  const startCommunityUpgradeReturnTo = useMemo(() => {
+    const q = searchParams.toString();
+    const base = q ? `${pathname}?${q}` : pathname;
+    const url = new URL(base, "https://tipmanna.tv");
+    url.searchParams.set(START_COMMUNITY_RESUME_QUERY, "1");
+    return `${url.pathname}${url.search}`;
+  }, [pathname, searchParams]);
+
+  const {
+    canWriteAsHost,
+    capability,
+    sessionLoading,
+    requestHostAuth,
+    HostAuthModal,
+  } = useHostCapabilityWithAuth({
+    requireHostAccount: true,
+    hostUpgradeReturnToOverride: startCommunityUpgradeReturnTo,
+  });
+
+  const hostCapabilityLoading =
+    capability.status === "loading" || sessionLoading;
 
   const accountHref = getAccountNavHref(user, isAuthenticated, {
     hostSessionActive: hostSession.isActive,
@@ -309,7 +376,21 @@ export function HostCreatorPageClient({
     setStartCommunityOpen(true);
   }, []);
 
+  const resumeStartCommunityAfterAuth = useCallback(() => {
+    if (canWriteAsHost) {
+      openStartCommunityForm();
+      return;
+    }
+    const outcome = requestHostAuth(openStartCommunityForm);
+    if (outcome === "noop") {
+      toast.error(
+        "A host account is required. Add an email to your tipper profile or create a host account."
+      );
+    }
+  }, [canWriteAsHost, openStartCommunityForm, requestHostAuth]);
+
   const openStartCommunityFlow = useCallback(() => {
+    if (hostCapabilityLoading) return;
     if (!isAuthenticated || !user) {
       setPendingStartCommunity(true);
       setSignInOpen(true);
@@ -319,9 +400,15 @@ export function HostCreatorPageClient({
       openStartCommunityForm();
       return;
     }
-    requestHostAuth(openStartCommunityForm);
+    const outcome = requestHostAuth(openStartCommunityForm);
+    if (outcome === "noop") {
+      toast.error(
+        "A host account is required. Add an email to your tipper profile or create a host account."
+      );
+    }
   }, [
     canWriteAsHost,
+    hostCapabilityLoading,
     isAuthenticated,
     openStartCommunityForm,
     requestHostAuth,
@@ -346,10 +433,13 @@ export function HostCreatorPageClient({
 
     if (pendingStartCommunity) {
       setPendingStartCommunity(false);
-      if (canWriteAsHost) {
+      if (resolveStartCommunityAfterGuestModal(payload.role) === "openForm") {
+        const slug =
+          payload.eventSlug?.trim() || payload.username?.trim() || null;
+        setStartCommunityPreferredSlug(slug);
         openStartCommunityForm();
       } else {
-        requestHostAuth(openStartCommunityForm);
+        resumeStartCommunityAfterAuth();
       }
     }
   };
@@ -367,6 +457,210 @@ export function HostCreatorPageClient({
   };
 
   const [copied, setCopied] = useState(false);
+  const [playlistDialogOpen, setPlaylistDialogOpen] = useState(false);
+  const [pendingOpenPlaylist, setPendingOpenPlaylist] = useState(false);
+  const [pendingTipLinkDraft, setPendingTipLinkDraft] = useState<{
+    channelId: string;
+    eventId: string;
+    title: string;
+  } | null>(null);
+  const hostSubscriptionResumeClaimedRef = useRef<string | null>(null);
+  const { hasActivePremium, isLoading: hostPlanLoading } =
+    useHostPlanCapabilities();
+  const {
+    openForRequired: openPlaylistPlanRequired,
+    SubscriptionPromptModal: PlaylistSubscriptionModal,
+  } = useHostSubscriptionPrompt({ focusTier: "premium" });
+
+  const creatorProfileReturnPath = useCallback(() => {
+    if (typeof window === "undefined") {
+      return buildCreatorProfileSharePath(host.username);
+    }
+    return `${window.location.pathname}${window.location.search}`;
+  }, [host.username]);
+
+  const tryOpenCreatePlaylist = useCallback(() => {
+    if (!isOwnProfile) return;
+    if (hasActivePremium) {
+      setPlaylistDialogOpen(true);
+      return;
+    }
+    setPendingOpenPlaylist(true);
+    setHostSubscriptionResume({
+      kind: "create-playlist",
+      returnPath: creatorProfileReturnPath(),
+    });
+    openPlaylistPlanRequired("premium");
+  }, [
+    creatorProfileReturnPath,
+    hasActivePremium,
+    isOwnProfile,
+    openPlaylistPlanRequired,
+  ]);
+
+  useEffect(() => {
+    if (!pendingOpenPlaylist || !hasActivePremium) return;
+    setPendingOpenPlaylist(false);
+    setPlaylistDialogOpen(true);
+  }, [hasActivePremium, pendingOpenPlaylist]);
+
+  const replayTipLinkDraft = useCallback(
+    (payload: { channelId: string; eventId: string; title: string }) => {
+      const event = events.find(e => e.id === payload.eventId);
+      createDraftForVideo({
+        channelId: payload.channelId,
+        eventId: payload.eventId,
+        eventSlug: event?.eventSlug ?? null,
+        title: payload.title,
+        url: event?.videos.find(v => v.id === payload.channelId)?.url ?? "",
+        thumb: null,
+        source: "event_room",
+      });
+    },
+    [createDraftForVideo, events]
+  );
+
+  useEffect(() => {
+    if (!pendingTipLinkDraft || hostPlanLoading || !hasActivePremium) return;
+    const payload = pendingTipLinkDraft;
+    setPendingTipLinkDraft(null);
+    replayTipLinkDraft(payload);
+  }, [
+    hasActivePremium,
+    hostPlanLoading,
+    pendingTipLinkDraft,
+    replayTipLinkDraft,
+  ]);
+
+  useEffect(() => {
+    if (
+      !shouldOpenStartCommunityFromSearch(
+        searchParams.get(START_COMMUNITY_RESUME_QUERY)
+      )
+    ) {
+      startCommunityResumeHandledRef.current = false;
+      return;
+    }
+    if (hostCapabilityLoading) return;
+    if (startCommunityResumeHandledRef.current) return;
+    startCommunityResumeHandledRef.current = true;
+
+    const cleanParams = new URLSearchParams(searchParams.toString());
+    cleanParams.delete(START_COMMUNITY_RESUME_QUERY);
+    const cleanQ = cleanParams.toString();
+    router.replace(cleanQ ? `${pathname}?${cleanQ}` : (pathname ?? ""), {
+      scroll: false,
+    });
+
+    if (canWriteAsHost) {
+      openStartCommunityForm();
+    } else if (isAuthenticated && user) {
+      resumeStartCommunityAfterAuth();
+    }
+  }, [
+    canWriteAsHost,
+    hostCapabilityLoading,
+    isAuthenticated,
+    openStartCommunityForm,
+    pathname,
+    resumeStartCommunityAfterAuth,
+    router,
+    searchParams,
+    user,
+  ]);
+
+  const [profileSubscriptionResume, setProfileSubscriptionResume] =
+    useState<HostSubscriptionResumeKind | null>(null);
+
+  useEffect(() => {
+    const kind = parseResumeKindFromSearch(
+      searchParams.get(HOST_SUBSCRIPTION_RESUME_QUERY)
+    );
+    if (!kind || !isOwnProfile) return;
+
+    if (
+      kind === "return-path" &&
+      searchParams.get(ADD_COMMUNITY_VIDEO_QUERY) === "1"
+    ) {
+      return;
+    }
+
+    const resumeChannelId = searchParams.get(
+      HOST_SUBSCRIPTION_RESUME_CHANNEL_ID
+    );
+    const resumeEventId = searchParams.get(HOST_SUBSCRIPTION_RESUME_EVENT_ID);
+    const resumeTitle = searchParams.get(HOST_SUBSCRIPTION_RESUME_TITLE);
+
+    const claimKey = `${kind}:${resumeChannelId ?? ""}:${resumeEventId ?? ""}:${searchParams.toString()}`;
+    if (hostSubscriptionResumeClaimedRef.current === claimKey) return;
+    hostSubscriptionResumeClaimedRef.current = claimKey;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(HOST_SUBSCRIPTION_RESUME_QUERY);
+    params.delete(HOST_SUBSCRIPTION_RESUME_CHANNEL_ID);
+    params.delete(HOST_SUBSCRIPTION_RESUME_EVENT_ID);
+    params.delete(HOST_SUBSCRIPTION_RESUME_TITLE);
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : (pathname ?? ""), {
+      scroll: false,
+    });
+
+    if (kind === "create-playlist") {
+      if (hasActivePremium) {
+        setPlaylistDialogOpen(true);
+      } else {
+        setPendingOpenPlaylist(true);
+      }
+      return;
+    }
+
+    if (kind === "create-tiplink-draft") {
+      if (!resumeChannelId) return;
+      const payload = {
+        channelId: resumeChannelId,
+        eventId: resumeEventId ?? "",
+        title: resumeTitle ?? "link",
+      };
+      if (hostPlanLoading) {
+        setPendingTipLinkDraft(payload);
+        return;
+      }
+      if (hasActivePremium) {
+        replayTipLinkDraft(payload);
+      } else {
+        setPendingTipLinkDraft(payload);
+      }
+      return;
+    }
+
+    setProfileSubscriptionResume(kind);
+  }, [
+    hasActivePremium,
+    hostPlanLoading,
+    isOwnProfile,
+    pathname,
+    replayTipLinkDraft,
+    router,
+    searchParams,
+  ]);
+
+  const hasVideosToDisplay = useMemo(() => {
+    const allVideos = events.flatMap(event => event.videos);
+    const hasPartyCoOwnerVideos = coOwnerPartyVideos.length > 0;
+    const coOwnedSubtabVideos = hasPartyCoOwnerVideos
+      ? coOwnerPartyVideos
+      : coOwnedVideos;
+    return allVideos.length > 0 || coOwnedSubtabVideos.length > 0;
+  }, [coOwnedVideos, coOwnerPartyVideos, events]);
+
+  const tryOpenTipLink = useCallback(() => {
+    if (!hasVideosToDisplay) {
+      toast.info("Add a video first");
+      openCreateDialog("add-video");
+      return;
+    }
+    openTipLinkPicker();
+  }, [hasVideosToDisplay, openTipLinkPicker]);
 
   const copyLink = async () => {
     const shareUrl = buildCreatorProfileShareUrl(host.username);
@@ -386,74 +680,77 @@ export function HostCreatorPageClient({
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 shrink-0 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-4 py-2 sm:max-w-2xl md:max-w-4xl">
-          <Link
-            href="/explore"
-            className="racing_sans_one justify-self-start text-xl sm:text-2xl"
-          >
-            <span className="text-primary">tip</span>manna
-          </Link>
-
-          {isOwnProfile && !isDrawer ? (
-            <nav
-              className="flex items-center gap-4 sm:gap-6"
-              aria-label="Creator page navigation"
+    <div className={cn("flex flex-col", isDrawer ? "min-h-0" : "min-h-screen")}>
+      {!isDrawer ? (
+        <header className="sticky top-0 z-50 shrink-0 bg-white">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 px-4 py-2 sm:max-w-2xl md:max-w-4xl">
+            <Link
+              href="/explore"
+              className="racing_sans_one justify-self-start text-xl sm:text-2xl"
             >
-              <button
-                type="button"
-                className="hover:text-primary flex flex-row items-center gap-0.5 gap-1.5"
-                onClick={() => expressNavigateToTv()}
+              <span className="text-primary">tip</span>manna
+            </Link>
+
+            {isOwnProfile && !isDrawer ? (
+              <nav
+                className="flex items-center gap-4 sm:gap-6"
+                aria-label="Creator page navigation"
               >
-                <Tv className="size-4 sm:size-5" />
-                <span className="text-xs">Watch TV</span>
-              </button>
-              <button
-                type="button"
-                className="hover:text-primary flex flex-row items-center gap-0.5 gap-1.5"
-                onClick={() => {
-                  setIsCreatePopupOpen(false);
-                  setIsProfileDrawerOpen(false);
-                  expressNavigateToExplore();
-                }}
-              >
-                <Rocket className="size-4 sm:size-5" />
-                <span className="text-xs">Explore</span>
-              </button>
-            </nav>
-          ) : !isDrawer ? (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="shrink-0 px-1 py-0.5"
-                aria-label={
-                  copied ? "Creator link copied" : "Copy creator profile link"
-                }
-                title={copied ? "Copied!" : "Copy creator profile link"}
-                onClick={() => void copyLink()}
-              >
-                {copied ? (
-                  <Check className="size-3.5" />
-                ) : (
-                  <Copy className="size-3.5" />
-                )}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleMyAccountClick}
-              >
-                My Account
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </header>
+                <button
+                  type="button"
+                  className="hover:text-primary flex flex-row items-center gap-0.5 gap-1.5"
+                  onClick={() => expressNavigateToTv()}
+                >
+                  <Tv className="size-4 sm:size-5" />
+                  <span className="text-xs">Watch TV</span>
+                </button>
+                <button
+                  type="button"
+                  className="hover:text-primary flex flex-row items-center gap-0.5 gap-1.5"
+                  onClick={() => {
+                    setIsCreatePopupOpen(false);
+                    setIsProfileDrawerOpen(false);
+                    expressNavigateToExplore();
+                  }}
+                >
+                  <Rocket className="size-4 sm:size-5" />
+                  <span className="text-xs">Explore</span>
+                </button>
+              </nav>
+            ) : !isDrawer ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 px-1 py-0.5"
+                  aria-label={
+                    copied ? "Creator link copied" : "Copy creator profile link"
+                  }
+                  title={copied ? "Copied!" : "Copy creator profile link"}
+                  onClick={() => void copyLink()}
+                >
+                  {copied ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleMyAccountClick}
+                >
+                  My Account
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </header>
+      ) : null}
 
       <SignInDialog
+        freezeTipperTab={true}
         open={signInOpen}
         onOpenChange={open => {
           setSignInOpen(open);
@@ -483,7 +780,14 @@ export function HostCreatorPageClient({
 
       <StartCommunityRequestDialog
         open={startCommunityOpen}
-        onOpenChange={setStartCommunityOpen}
+        onOpenChange={open => {
+          setStartCommunityOpen(open);
+          if (!open) setStartCommunityPreferredSlug(null);
+        }}
+        preferredHostSlug={startCommunityPreferredSlug}
+        canWriteAsHost={canWriteAsHost}
+        capability={capability}
+        requestHostAuth={requestHostAuth}
       />
 
       {!isDrawer ? (
@@ -496,19 +800,21 @@ export function HostCreatorPageClient({
       <TipLinkCreatePickerDialog
         open={tipLinkPickerOpen}
         onOpenChange={setTipLinkPickerOpen}
-        videos={tipLinkEligibleVideos}
+        events={tipLinkEligibleEvents}
+        communityVideos={tipLinkCommunityBankVideos}
         creatingChannelId={tipLinkCreatingChannelId}
         onSelect={createDraftForVideo}
       />
       {TipLinkCreateHostAuthModal}
       {TipLinkCreateSubscriptionModal}
+      {PlaylistSubscriptionModal}
 
       <section className="relative z-[1000] flex-1 bg-white">
         <div
           className={cn(
             "relative mx-auto max-w-lg bg-white sm:max-w-2xl md:max-w-4xl",
             showBottomExpressNav && "pb-20",
-            className ?? "min-h-screen"
+            className ?? (isDrawer ? "min-h-0" : "min-h-screen")
           )}
         >
           <ProfileHeader
@@ -516,6 +822,11 @@ export function HostCreatorPageClient({
             stats={stats}
             isOwnProfile={isOwnProfile}
             editProfileHref={editProfileHref}
+            subscriptionResume={profileSubscriptionResume}
+            onSubscriptionResumeHandled={() =>
+              setProfileSubscriptionResume(null)
+            }
+            creatorProfileReturnPath={creatorProfileReturnPath()}
           />
 
           {isDrawer ? (
@@ -564,6 +875,7 @@ export function HostCreatorPageClient({
                 hostEventSlug={host.eventSlug}
                 openTipLinkPicker={openTipLinkPicker}
                 createDraftForChannelVideo={createDraftForChannelVideo}
+                onAddVideo={() => openCreateDialog("add-video")}
               />
             </TabsContent>
 
@@ -589,7 +901,9 @@ export function HostCreatorPageClient({
               <CommunitiesTabContent
                 communities={communities}
                 isOwnProfile={isOwnProfile}
+                isDrawer={isDrawer}
                 onStartCommunity={openStartCommunityFlow}
+                startCommunityLoading={hostCapabilityLoading}
               />
             </TabsContent>
 
@@ -601,7 +915,13 @@ export function HostCreatorPageClient({
                 hostEventSlug={host.eventSlug}
                 events={events}
                 draftTipLinks={draftTipLinks}
-                openTipLinkPicker={openTipLinkPicker}
+                onTryOpenTipLink={tryOpenTipLink}
+                onCreatePlaylist={tryOpenCreatePlaylist}
+              />
+
+              <HostPlaylistCreateDialog
+                open={playlistDialogOpen}
+                onOpenChange={setPlaylistDialogOpen}
               />
             </TabsContent>
           </Tabs>
@@ -695,11 +1015,17 @@ function ProfileHeader({
   stats,
   isOwnProfile,
   editProfileHref,
+  subscriptionResume,
+  onSubscriptionResumeHandled,
+  creatorProfileReturnPath,
 }: {
   host: HostCreatorPublicProfile["host"];
   stats: HostCreatorPublicProfile["stats"];
   isOwnProfile: boolean;
   editProfileHref: string | null;
+  subscriptionResume: HostSubscriptionResumeKind | null;
+  onSubscriptionResumeHandled: () => void;
+  creatorProfileReturnPath: string;
 }) {
   const router = useRouter();
   const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
@@ -710,6 +1036,12 @@ function ProfileHeader({
   const [pageDescription, setPageDescription] = useState(host.pageDescription);
   const [externalLink, setExternalLink] = useState(host.externalLink);
   const [profileCategory, setProfileCategory] = useState(host.profileCategory);
+
+  useEffect(() => {
+    if (subscriptionResume) {
+      setOpenCreatorDialog(true);
+    }
+  }, [subscriptionResume]);
 
   useEffect(() => {
     setDisplayUsername(host.username);
@@ -745,6 +1077,12 @@ function ProfileHeader({
   };
 
   const [copied, setCopied] = useState(false);
+  const [saveHostSignInOpen, setSaveHostSignInOpen] = useState(false);
+  const [saveHostSignInToken, setSaveHostSignInToken] = useState(0);
+  const saveHostSignInPath =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : buildCreatorProfileSharePath(host.username);
 
   const copyLink = async () => {
     const shareUrl = buildCreatorProfileShareUrl(displayUsername);
@@ -780,6 +1118,9 @@ function ProfileHeader({
         initialAvatarUrl={profileImageUrl}
         onSaved={handleProfileSaved}
         onClose={() => setOpenCreatorDialog(false)}
+        subscriptionResume={subscriptionResume}
+        onSubscriptionResumeHandled={onSubscriptionResumeHandled}
+        creatorProfileReturnPath={creatorProfileReturnPath}
       />
 
       {HostAuthModal}
@@ -801,11 +1142,11 @@ function ProfileHeader({
               </span>
               {host.creatorPayoutVerifiedAt ? (
                 <div
-                  className="flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5"
+                  className="bg-moonstone-blue flex items-center gap-1 rounded-md px-2 py-0.5"
                   title="Verified creator"
                 >
-                  <CircleStar className="size-3.5 text-emerald-700" />
-                  <span className="text-[10px] font-medium text-emerald-800 sm:text-xs">
+                  <CircleStar className="size-3.5 text-black" />
+                  <span className="text-[10px] font-medium text-black sm:text-xs">
                     Verified
                   </span>
                 </div>
@@ -815,6 +1156,8 @@ function ProfileHeader({
                   hostId={host.id}
                   className="cursor-pointer rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
                   iconClassName="size-4"
+                  onRequireSignIn={() => setSaveHostSignInOpen(true)}
+                  signInCompletedToken={saveHostSignInToken}
                 />
               ) : null}
 
@@ -935,6 +1278,17 @@ function ProfileHeader({
           </div>
         </div>
       </div>
+
+      <TipperEmailOtpSignInDialog
+        open={saveHostSignInOpen}
+        onOpenChange={setSaveHostSignInOpen}
+        signInTitle="Sign in to save this host"
+        signupSurface="creator_profile"
+        getRedirectPathAfterVerify={() => saveHostSignInPath}
+        onVerified={() => {
+          setSaveHostSignInToken(t => t + 1);
+        }}
+      />
     </section>
   );
 }
@@ -1000,6 +1354,7 @@ function AllVideosTabContent({
   isOwnProfile,
   hostEventSlug,
   openTipLinkPicker,
+  onAddVideo,
   createDraftForChannelVideo,
 }: {
   events: HostCreatorEvent[];
@@ -1015,6 +1370,7 @@ function AllVideosTabContent({
     channelId: string,
     title: string
   ) => void;
+  onAddVideo: () => void;
 }) {
   const allVideos = useMemo(
     () => events.flatMap(event => event.videos),
@@ -1055,18 +1411,33 @@ function AllVideosTabContent({
   const hasVideosToDisplay =
     allVideos.length > 0 || coOwnedSubtabVideos.length > 0;
 
-  if (!hasVideosToDisplay) {
-    return isOwnProfile ? (
-      <EmptyTabMessage message="Add a video to one of your channels or create a new channel." />
-    ) : (
-      <EmptyTabMessage message="No videos available yet." />
-    );
-  }
+  const tryOpenTipLink = () => {
+    if (!hasVideosToDisplay) {
+      toast.info("Add a video first");
+      onAddVideo();
+      return;
+    }
+    openTipLinkPicker();
+  };
 
   return (
     <div>
+      {isOwnProfile ? (
+        <div className="flex items-center justify-end gap-2 px-2 pt-2">
+          <button
+            type="button"
+            onClick={tryOpenTipLink}
+            className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
+          >
+            <Plus className="size-3.5" />
+            Create TipLink
+          </button>
+        </div>
+      ) : null}
+
       <CreatorSubtabBar stickyClassName="top-[5.75rem]">
         <CreatorSubtabButton
+          subtabId="all"
           active={activeVideosSubtab === "all"}
           onClick={() => setActiveVideosSubtab("all")}
         >
@@ -1084,52 +1455,113 @@ function AllVideosTabContent({
           </CreatorSubtabButton>
         ) : null}
 
-        {isOwnProfile && hostEventSlug ? (
-          <button
-            type="button"
-            onClick={openTipLinkPicker}
-            className="border-primary/30 text-primary ml-auto inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold"
+        {isOwnProfile ? (
+          <CreatorSubtabButton
+            subtabId="add-content"
+            active={false}
+            onClick={onAddVideo}
           >
-            <Plus className="size-3.5" />
-            Create TipLink
-          </button>
+            Add content
+          </CreatorSubtabButton>
         ) : null}
       </CreatorSubtabBar>
 
-      {activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID ? (
-        coOwnedSubtabVideos.length === 0 ? (
-          <p className="text-muted-foreground px-4 py-8 text-center text-sm">
-            No co-owned videos yet.
-          </p>
+      {!hasVideosToDisplay ? (
+        isOwnProfile ? (
+          <EmptyTabMessage
+            title="Turn content into support."
+            message="Add a video or create a TipLink."
+            ctas={[
+              {
+                label: "Add content",
+                onClick: () => onAddVideo(),
+              },
+              {
+                label: "Create tiplink",
+                onClick: () => tryOpenTipLink(),
+              },
+            ]}
+          />
         ) : (
-          <VideoCardGrid
-            videos={coOwnedSubtabVideos}
-            onPlay={onPlay}
+          <EmptyTabMessage
+            title=""
+            message={
+              <>
+                Nothing here yet. <br className="sm:hidden" /> Discover what&apos;s
+                happening on Tipmanna
+              </>
+            }
+            ctas={[
+              {
+                icon: <Rocket className="size-3.5" />,
+                label: "Explore Tipmanna",
+                onClick: () => expressNavigateToExplore(),
+              },
+            ]}
           />
         )
-      ) : allVideos.length === 0 ? (
-        <EmptyTabMessage
-          message={
-            isOwnProfile
-              ? "Add a video to one of your channels or create a new channel."
-              : "No videos available yet."
-          }
-        />
       ) : (
-        <VideoCardGrid
-          videos={allVideos}
-          onPlay={onPlay}
-          onTipLinkManage={
-            isOwnProfile && hostEventSlug
-              ? video =>
-                  createDraftForChannelVideo(
-                    video.event.id,
-                    video.id,
-                    video.title
-                  )
-              : undefined
-          }
-        />
+        <>
+          {activeVideosSubtab === CO_OWNED_VIDEOS_SUBTAB_ID ? (
+            coOwnedSubtabVideos.length === 0 ? (
+              <p className="text-muted-foreground px-4 py-8 text-center text-sm">
+                No co-owned videos yet.
+              </p>
+            ) : (
+              <VideoCardGrid
+                videos={coOwnedSubtabVideos}
+                onPlay={onPlay}
+              />
+            )
+          ) : allVideos.length === 0 ? (
+            <EmptyTabMessage
+              title={
+                isOwnProfile
+                  ? "Turn content into support."
+                  : "Add a video or create a TipLink."
+              }
+              message={
+                isOwnProfile ? (
+                  <>
+                    Add your first video and <br className="sm:hidden" /> start
+                    building your presence on Tipmanna
+                  </>
+                ) : (
+                  <>
+                    Nothing here yet. <br className="sm:hidden" /> Discover
+                    what’s happening on Tipmanna
+                  </>
+                )
+              }
+              ctas={
+                !isOwnProfile
+                  ? [
+                      {
+                        icon: <Rocket className="size-3.5" />,
+                        label: "Explore Tipmanna",
+                        onClick: () => expressNavigateToExplore(),
+                      },
+                    ]
+                  : undefined
+              }
+            />
+          ) : (
+            <VideoCardGrid
+              videos={allVideos}
+              onPlay={onPlay}
+              onTipLinkManage={
+                isOwnProfile && hostEventSlug
+                  ? video =>
+                      createDraftForChannelVideo(
+                        video.event.id,
+                        video.id,
+                        video.title
+                      )
+                  : undefined
+              }
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -1172,7 +1604,27 @@ function ChannelsTabContent({
   );
 
   if (sortedEvents.length === 0 && !isOwnProfile) {
-    return <EmptyTabMessage message="No channels created yet." />;
+    return (
+      <EmptyTabMessage
+        message={
+          <>
+            No content here yet. <br className="sm:hidden" /> Discover creators
+            and videos on Tipmanna
+          </>
+        }
+        ctas={
+          !isOwnProfile
+            ? [
+                {
+                  icon: <Rocket className="size-3.5" />,
+                  label: "Explore Tipmanna",
+                  onClick: () => expressNavigateToExplore(),
+                },
+              ]
+            : undefined
+        }
+      />
+    );
   }
 
   return (
@@ -1209,7 +1661,16 @@ function ChannelsTabContent({
           />
         )
       ) : isOwnProfile ? (
-        <EmptyTabMessage message="Add a video to one of your channels or create a new channel." />
+        <EmptyTabMessage
+          title="Your creator profile starts here."
+          message="Add your first video and start building your presence on Tipmanna."
+          ctas={[
+            {
+              label: "Add your first video",
+              onClick: () => onAddVideo(),
+            },
+          ]}
+        />
       ) : null}
     </div>
   );
@@ -1232,7 +1693,27 @@ function EventsTabContent({
   const activeEvent = events.find(event => event.id === activeId);
 
   if (events.length === 0 && !isOwnProfile) {
-    return <EmptyTabMessage message="No events created yet." />;
+    return (
+      <EmptyTabMessage
+        message={
+          <>
+            No events here yet. <br className="sm:hidden" /> Find something
+            happening live.
+          </>
+        }
+        ctas={
+          !isOwnProfile
+            ? [
+                {
+                  icon: <Rocket className="size-3.5" />,
+                  label: "Discover Events",
+                  onClick: () => expressNavigateToDiscover(),
+                },
+              ]
+            : undefined
+        }
+      />
+    );
   }
 
   return (
@@ -1242,7 +1723,7 @@ function EventsTabContent({
         subtabScrollRef={subtabScrollRef}
         action={
           isOwnProfile
-            ? { label: "+ Add live event", onClick: onAddLiveEvent }
+            ? { label: "+ Create an event", onClick: onAddLiveEvent }
             : null
         }
       >
@@ -1285,7 +1766,26 @@ function EventsTabContent({
           </div>
         </>
       ) : isOwnProfile ? (
-        <EmptyTabMessage message="Create a live event room to start streaming." />
+        <EmptyTabMessage
+          title={
+            <>
+              Reach more people <br className="sm:hidden" /> with your event.
+            </>
+          }
+          message={
+            <>
+              Create an Event Room to stream live and{" "}
+              <br className="sm:hidden" /> let people join and support from
+              anywhere
+            </>
+          }
+          ctas={[
+            {
+              label: "Create an event",
+              onClick: () => onAddLiveEvent(),
+            },
+          ]}
+        />
       ) : null}
     </div>
   );
@@ -1294,12 +1794,39 @@ function EventsTabContent({
 function CommunitiesTabContent({
   communities,
   isOwnProfile,
+  isDrawer = false,
   onStartCommunity,
+  startCommunityLoading = false,
 }: {
   communities: HostCreatorCommunity[];
   isOwnProfile: boolean;
+  isDrawer?: boolean;
   onStartCommunity: () => void;
+  startCommunityLoading?: boolean;
 }) {
+  const startCommunityLabel = startCommunityLoading
+    ? START_COMMUNITY_CHECKING_HOST_LABEL
+    : "Start your community";
+  const startCommunityBarLabel = startCommunityLoading
+    ? START_COMMUNITY_CHECKING_HOST_LABEL
+    : "+ Start your community";
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const {
+    status: hostPlanStatus,
+    hostSubscriptionTier,
+    isLoading: hostPlanLoading,
+  } = useHostPlanCapabilities();
+  const communityPlanActive =
+    hostSubscriptionTier === "HOST_COMMUNITY" && hostPlanStatus === "active";
+  const [resumeAddVideoId, setResumeAddVideoId] = useState<string | null>(null);
+  const [resumeReminderCommunityId, setResumeReminderCommunityId] = useState<
+    string | null
+  >(null);
+  const addCommunityVideoResumeHandledRef = useRef(false);
+  const reminderBlastResumeHandledRef = useRef(false);
+
   const { activeId, selectById, carouselRef, subtabScrollRef } =
     useSnapCarouselSync(communities);
 
@@ -1307,8 +1834,156 @@ function CommunitiesTabContent({
     community => community.id === activeId
   );
 
+  const buildAddCommunityVideoReturnPath = useCallback(
+    (communityId: string) => {
+      const q = searchParams.toString();
+      const base = q ? `${pathname}?${q}` : (pathname ?? "");
+      const url = new URL(base, "https://tipmanna.tv");
+      url.searchParams.set(ADD_COMMUNITY_VIDEO_QUERY, "1");
+      url.searchParams.set(ADD_COMMUNITY_VIDEO_ID_QUERY, communityId);
+      return `${url.pathname}${url.search}`;
+    },
+    [pathname, searchParams]
+  );
+
+  const onAddCommunityVideoSubscribeRequired = useCallback(
+    (communityId: string) => {
+      setHostSubscriptionResume({
+        kind: "return-path",
+        returnPath: buildAddCommunityVideoReturnPath(communityId),
+      });
+    },
+    [buildAddCommunityVideoReturnPath]
+  );
+
+  const buildReminderBlastReturnPath = useCallback(
+    (communityId: string) => {
+      const q = searchParams.toString();
+      const base = q ? `${pathname}?${q}` : (pathname ?? "");
+      const url = new URL(base, "https://tipmanna.tv");
+      url.searchParams.set(REMINDER_BLAST_QUERY, "1");
+      url.searchParams.set(REMINDER_BLAST_COMMUNITY_ID_QUERY, communityId);
+      return `${url.pathname}${url.search}`;
+    },
+    [pathname, searchParams]
+  );
+
+  const onReminderSubscribeRequired = useCallback(
+    (communityId: string) => {
+      setHostSubscriptionResume({
+        kind: "return-path",
+        returnPath: buildReminderBlastReturnPath(communityId),
+      });
+    },
+    [buildReminderBlastReturnPath]
+  );
+
+  const onAddVideoResumeOpened = useCallback(() => {
+    setResumeAddVideoId(null);
+  }, []);
+
+  const onReminderResumeOpened = useCallback(() => {
+    setResumeReminderCommunityId(null);
+  }, []);
+
+  useEffect(() => {
+    if (!isOwnProfile || isDrawer) return;
+    if (searchParams.get(ADD_COMMUNITY_VIDEO_QUERY) !== "1") return;
+    const targetId = searchParams.get(ADD_COMMUNITY_VIDEO_ID_QUERY)?.trim();
+    if (!targetId) return;
+    if (hostPlanLoading) return;
+    if (addCommunityVideoResumeHandledRef.current) return;
+    addCommunityVideoResumeHandledRef.current = true;
+
+    selectById(targetId);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(ADD_COMMUNITY_VIDEO_QUERY);
+    params.delete(ADD_COMMUNITY_VIDEO_ID_QUERY);
+    params.delete(HOST_SUBSCRIPTION_RESUME_QUERY);
+    params.delete(HOST_SUBSCRIPTION_RESUME_CHANNEL_ID);
+    params.delete(HOST_SUBSCRIPTION_RESUME_EVENT_ID);
+    params.delete(HOST_SUBSCRIPTION_RESUME_TITLE);
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : (pathname ?? ""), {
+      scroll: false,
+    });
+
+    if (communityPlanActive) {
+      setResumeAddVideoId(targetId);
+    }
+  }, [
+    communityPlanActive,
+    hostPlanLoading,
+    isDrawer,
+    isOwnProfile,
+    pathname,
+    router,
+    searchParams,
+    selectById,
+  ]);
+
+  useEffect(() => {
+    if (!isOwnProfile || isDrawer) return;
+    if (searchParams.get(REMINDER_BLAST_QUERY) !== "1") return;
+    const targetId = searchParams
+      .get(REMINDER_BLAST_COMMUNITY_ID_QUERY)
+      ?.trim();
+    if (!targetId) return;
+    if (hostPlanLoading) return;
+    if (reminderBlastResumeHandledRef.current) return;
+    reminderBlastResumeHandledRef.current = true;
+
+    selectById(targetId);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(REMINDER_BLAST_QUERY);
+    params.delete(REMINDER_BLAST_COMMUNITY_ID_QUERY);
+    params.delete(HOST_SUBSCRIPTION_RESUME_QUERY);
+    params.delete(HOST_SUBSCRIPTION_RESUME_CHANNEL_ID);
+    params.delete(HOST_SUBSCRIPTION_RESUME_EVENT_ID);
+    params.delete(HOST_SUBSCRIPTION_RESUME_TITLE);
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : (pathname ?? ""), {
+      scroll: false,
+    });
+
+    if (communityPlanActive) {
+      setResumeReminderCommunityId(targetId);
+    }
+  }, [
+    communityPlanActive,
+    hostPlanLoading,
+    isDrawer,
+    isOwnProfile,
+    pathname,
+    router,
+    searchParams,
+    selectById,
+  ]);
+
   if (communities.length === 0 && !isOwnProfile) {
-    return <EmptyTabMessage message="No communities created yet." />;
+    return (
+      <EmptyTabMessage
+        message={
+          <>
+            No community here yet. <br className="sm:hidden" /> Find communities
+            to join and belong to.
+          </>
+        }
+        ctas={
+          !isOwnProfile
+            ? [
+                {
+                  icon: <Rocket className="size-3.5" />,
+                  label: "Explore Communities",
+                  onClick: () => expressNavigateToCommunity(),
+                },
+              ]
+            : undefined
+        }
+      />
+    );
   }
 
   return (
@@ -1318,7 +1993,11 @@ function CommunitiesTabContent({
         subtabScrollRef={subtabScrollRef}
         action={
           isOwnProfile && communities.length === 0
-            ? { label: "+ Start community", onClick: onStartCommunity }
+            ? {
+                label: startCommunityBarLabel,
+                onClick: onStartCommunity,
+                disabled: startCommunityLoading,
+              }
             : null
         }
       >
@@ -1345,7 +2024,12 @@ function CommunitiesTabContent({
                 <CommunityBannerSection
                   community={community}
                   isOwnProfile={isOwnProfile}
+                  isDrawer={isDrawer}
                   compact
+                  onAddCommunityVideoSubscribeRequired={
+                    onAddCommunityVideoSubscribeRequired
+                  }
+                  onReminderSubscribeRequired={onReminderSubscribeRequired}
                 />
               </SnapCarouselSlide>
             ))}
@@ -1356,12 +2040,42 @@ function CommunitiesTabContent({
               <CommunityBannerSection
                 community={activeCommunity}
                 isOwnProfile={isOwnProfile}
+                isDrawer={isDrawer}
+                openAddVideoOnResume={activeCommunity.id === resumeAddVideoId}
+                openReminderOnResume={
+                  activeCommunity.id === resumeReminderCommunityId
+                }
+                onAddCommunityVideoSubscribeRequired={
+                  onAddCommunityVideoSubscribeRequired
+                }
+                onAddVideoResumeOpened={onAddVideoResumeOpened}
+                onReminderSubscribeRequired={onReminderSubscribeRequired}
+                onReminderResumeOpened={onReminderResumeOpened}
               />
             ) : null}
           </div>
         </>
       ) : isOwnProfile ? (
-        <EmptyTabMessage message="Send a start community request to tell us about." />
+        <EmptyTabMessage
+          title={
+            <>
+              Turn your audience <br className="sm:hidden" /> into a community.
+            </>
+          }
+          message={
+            <>
+              Create a space where your people can <br className="sm:hidden" />{" "}
+              join, engage and belong.
+            </>
+          }
+          ctas={[
+            {
+              label: startCommunityLabel,
+              onClick: () => onStartCommunity(),
+              disabled: startCommunityLoading,
+            },
+          ]}
+        />
       ) : null}
     </div>
   );
@@ -1703,11 +2417,20 @@ function CreatorSubtabBar({
   stickyClassName,
   action = null,
   subtabScrollRef,
+  actions = [],
 }: {
   children: ReactNode;
   stickyClassName: string;
-  action?: { label: string; onClick: () => void } | null;
+  action?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+  } | null;
   subtabScrollRef?: RefObject<HTMLDivElement | null>;
+  actions?: Array<{
+    label: string;
+    onClick: () => void;
+  }>;
 }) {
   return (
     <div
@@ -1722,6 +2445,8 @@ function CreatorSubtabBar({
             active={false}
             variant="action"
             onClick={action.onClick}
+            disabled={action.disabled}
+            aria-busy={action.disabled}
           >
             {action.label}
           </CreatorSubtabButton>
@@ -1731,7 +2456,20 @@ function CreatorSubtabBar({
         ref={subtabScrollRef}
         className="scrollbar-none hide__scrollbar min-w-0 flex-1 overflow-x-auto py-2 pl-2"
       >
-        <div className="flex gap-2">{children}</div>
+        <div className="flex gap-2">
+          {children}
+
+          {actions.map(action => (
+            <CreatorSubtabButton
+              key={action.label}
+              subtabId={`action-${action.label}`}
+              active={false}
+              onClick={action.onClick}
+            >
+              {action.label}
+            </CreatorSubtabButton>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1744,6 +2482,8 @@ function CreatorSubtabButton({
   variant = "default",
   subtabId,
   subtabLabel,
+  disabled = false,
+  "aria-busy": ariaBusy,
 }: {
   children: ReactNode;
   active: boolean;
@@ -1751,12 +2491,16 @@ function CreatorSubtabButton({
   variant?: "default" | "action";
   subtabId?: string;
   subtabLabel?: string;
+  disabled?: boolean;
+  "aria-busy"?: boolean;
 }) {
   return (
     <button
       type="button"
       data-subtab-id={subtabId}
       onClick={onClick}
+      disabled={disabled}
+      aria-busy={ariaBusy}
       className={cn(
         "shrink-0 cursor-pointer rounded-md px-2 py-1 text-[8px] font-medium transition-colors",
         variant === "action"
@@ -1831,13 +2575,35 @@ function CommunityBannerSection({
   community,
   compact = false,
   isOwnProfile = false,
+  isDrawer = false,
+  openAddVideoOnResume = false,
+  openReminderOnResume = false,
+  onAddCommunityVideoSubscribeRequired,
+  onAddVideoResumeOpened,
+  onReminderSubscribeRequired,
+  onReminderResumeOpened,
 }: {
   community: HostCreatorCommunity;
   compact?: boolean;
   isOwnProfile?: boolean;
+  isDrawer?: boolean;
+  openAddVideoOnResume?: boolean;
+  openReminderOnResume?: boolean;
+  onAddCommunityVideoSubscribeRequired?: (communityId: string) => void;
+  onAddVideoResumeOpened?: () => void;
+  onReminderSubscribeRequired?: (communityId: string) => void;
+  onReminderResumeOpened?: () => void;
 }) {
   const hostSession = useHostSession();
   const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
+  const { status: hostPlanStatus, hostSubscriptionTier } =
+    useHostPlanCapabilities();
+  const { openForRequired, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({
+      focusTier: "community",
+    });
+  const communityPlanActive =
+    hostSubscriptionTier === "HOST_COMMUNITY" && hostPlanStatus === "active";
   const pathname = usePathname();
   const hostSlug = hostSession.eventSlug?.trim() || "";
   const joinHref = exploreCommunityJoinHref(community.id);
@@ -1847,6 +2613,13 @@ function CommunityBannerSection({
   const tvActivated = Boolean(community.tvActivatedAt?.trim());
   const [joinOpen, setJoinOpen] = useState(false);
   const [addVideoOpen, setAddVideoOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { unreadCount: communityUnreadCount, refreshUnread } =
+    useHostCommunityNotificationBadge(
+      community.id,
+      Boolean(isOwnProfile && !isDrawer)
+    );
   const [isMember, setIsMember] = useState(false);
   const [viewerHostsCommunity, setViewerHostsCommunity] = useState(false);
   const [membershipStatus, setMembershipStatus] = useState<string | null>(null);
@@ -1862,8 +2635,11 @@ function CommunityBannerSection({
   const [overlayVideo, setOverlayVideo] =
     useState<CommunityFeaturedVideo | null>(null);
 
-  const canAccessMemberActions =
-    isOwnProfile || isMember || viewerHostsCommunity;
+  const alreadyIn = isCommunityAlreadyIn({
+    isMember,
+    viewerHostsCommunity,
+  });
+  const canAccessMemberActions = isOwnProfile || alreadyIn;
 
   const reloadAccessState = useCallback(async () => {
     const res = await getCommunityAccessStateAction(community.id);
@@ -1937,6 +2713,63 @@ function CommunityBannerSection({
     );
   }, [canAccessMemberActions, community.id, openJoinGate]);
 
+  const openAddCommunityVideo = useCallback(() => {
+    requestHostAuth(() => {
+      if (communityPlanActive) {
+        setAddVideoOpen(true);
+        return;
+      }
+      onAddCommunityVideoSubscribeRequired?.(community.id);
+      openForRequired("community");
+    });
+  }, [
+    community.id,
+    communityPlanActive,
+    onAddCommunityVideoSubscribeRequired,
+    openForRequired,
+    requestHostAuth,
+  ]);
+
+  useEffect(() => {
+    if (!openAddVideoOnResume) return;
+    setAddVideoOpen(true);
+    onAddVideoResumeOpened?.();
+  }, [openAddVideoOnResume, onAddVideoResumeOpened]);
+
+  useEffect(() => {
+    if (!openReminderOnResume) return;
+    setReminderOpen(true);
+    onReminderResumeOpened?.();
+  }, [openReminderOnResume, onReminderResumeOpened]);
+
+  const openCommunityReminders = useCallback(() => {
+    requestHostAuth(() => {
+      if (!tvActivated) {
+        toast.info("Activate community TV for this community first.");
+        return;
+      }
+      if (!communityPlanActive) {
+        onReminderSubscribeRequired?.(community.id);
+        openForRequired("community");
+        return;
+      }
+      setReminderOpen(true);
+    });
+  }, [
+    community.id,
+    communityPlanActive,
+    onReminderSubscribeRequired,
+    openForRequired,
+    requestHostAuth,
+    tvActivated,
+  ]);
+
+  const openCommunityNotifications = useCallback(() => {
+    requestHostAuth(() => {
+      setNotifOpen(true);
+    });
+  }, [requestHostAuth]);
+
   const shouldReduceMotion = useReducedMotion();
   const displayedFeatured = featuredVideos.slice(0, 3);
 
@@ -1948,6 +2781,7 @@ function CommunityBannerSection({
       )}
     >
       {HostAuthModal}
+      {SubscriptionPromptModal}
       <button
         type="button"
         disabled={community.locked}
@@ -2064,12 +2898,19 @@ function CommunityBannerSection({
           </p>
         </div>
 
-        {isMember && !viewerHostsCommunity ? (
+        {alreadyIn ? (
           <CommunityMemberInfo
             communityName={community.name}
             membershipStatus={membershipStatus}
             membershipExpiresAt={membershipExpiresAt}
             subscriptionExpiresAt={subscriptionExpiresAt}
+          />
+        ) : null}
+
+        {!isDrawer && !compact ? (
+          <CommunityPublicMembersRoster
+            communityId={community.id}
+            className="border-t pt-4"
           />
         ) : null}
 
@@ -2099,7 +2940,7 @@ function CommunityBannerSection({
           </button>
         </div>
 
-        {displayedFeatured.length > 0 ? (
+        {!isDrawer && displayedFeatured.length > 0 ? (
           <div className="space-y-2 border-t pt-4">
             <h4 className="text-sm font-medium">Featured videos</h4>
             <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
@@ -2128,7 +2969,7 @@ function CommunityBannerSection({
           </div>
         ) : null}
 
-        {isOwnProfile && hostSlug ? (
+        {isOwnProfile && !isDrawer && hostSlug ? (
           <div className="flex flex-wrap gap-3 border-t pt-4">
             <Button
               asChild
@@ -2145,9 +2986,33 @@ function CommunityBannerSection({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => requestHostAuth(() => setAddVideoOpen(true))}
+              onClick={() => openAddCommunityVideo()}
             >
               Add community video
+            </Button>
+            {tvActivated ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => openCommunityReminders()}
+              >
+                Reminders
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="relative"
+              onClick={() => openCommunityNotifications()}
+            >
+              Notifications
+              {communityUnreadCount > 0 ? (
+                <span className="bg-primary absolute -top-1 -right-1 flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white">
+                  {communityUnreadCount > 9 ? "9+" : communityUnreadCount}
+                </span>
+              ) : null}
             </Button>
             <AddCommunityBankVideoDialog
               open={addVideoOpen}
@@ -2156,10 +3021,27 @@ function CommunityBannerSection({
               hostSlug={hostSlug}
               pathname={pathname ?? undefined}
             />
+            <Dialog
+              open={reminderOpen}
+              onOpenChange={setReminderOpen}
+            >
+              <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Community reminders</DialogTitle>
+                </DialogHeader>
+                <HostReminderBucketTab communityId={community.id} />
+              </DialogContent>
+            </Dialog>
+            <HostCommunityNotificationsDrawer
+              communityId={community.id}
+              open={notifOpen}
+              onOpenChange={setNotifOpen}
+              onUnreadChanged={() => void refreshUnread()}
+            />
           </div>
         ) : null}
 
-        {!isOwnProfile && !canAccessMemberActions ? (
+        {!isOwnProfile && !alreadyIn ? (
           <div className="border-t pt-4">
             <Button
               type="button"
@@ -2184,7 +3066,7 @@ function CommunityBannerSection({
           }}
         />
       </div>
-      {overlayVideo ? (
+      {!isDrawer && overlayVideo ? (
         <CommunityFeaturedVideoOverlay
           video={overlayVideo}
           onClose={() => setOverlayVideo(null)}
@@ -2356,7 +3238,8 @@ function PlaylistsTabContent({
   hostEventSlug,
   events,
   draftTipLinks,
-  openTipLinkPicker,
+  onTryOpenTipLink,
+  onCreatePlaylist,
 }: {
   playlists: HostPlaylistSummary[];
   tipLinks: TipLinkSummary[];
@@ -2364,23 +3247,35 @@ function PlaylistsTabContent({
   hostEventSlug: string | null;
   events: HostCreatorEvent[];
   draftTipLinks: TipLinkSummary[];
-  openTipLinkPicker: () => void;
+  onTryOpenTipLink: () => void;
+  onCreatePlaylist: () => void;
 }) {
   const router = useRouter();
   const { requestHostAuth } = useHostCapabilityWithAuth();
 
   return (
     <div className="space-y-6 px-2 py-4">
-      {isOwnProfile && hostEventSlug ? (
-        <div className="flex justify-end px-2">
+      {isOwnProfile ? (
+        <div className="flex items-center justify-between gap-3 px-2">
           <button
             type="button"
-            onClick={openTipLinkPicker}
+            onClick={onCreatePlaylist}
             className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
           >
             <Plus className="size-3.5" />
-            Create TipLink
+            Create Playlist
           </button>
+
+          {hostEventSlug ? (
+            <button
+              type="button"
+              onClick={onTryOpenTipLink}
+              className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
+            >
+              <Plus className="size-3.5" />
+              Create TipLink
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -2446,7 +3341,7 @@ function PlaylistsTabContent({
                     {eventSlug ? (
                       <button
                         type="button"
-                        className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold"
+                        className="border-primary/30 text-primary hover:bg-primary/5 flex min-h-9 min-w-[96px] cursor-pointer items-center justify-center rounded-full border px-4 py-2 text-xs font-semibold transition-colors active:scale-[0.98]"
                         onClick={() =>
                           requestHostAuth(() =>
                             router.push(
@@ -2459,7 +3354,7 @@ function PlaylistsTabContent({
                           )
                         }
                       >
-                        Complete
+                        <span className="pointer-events-none">Complete</span>
                       </button>
                     ) : null}
                   </div>
@@ -2473,7 +3368,42 @@ function PlaylistsTabContent({
       {playlists.length === 0 &&
       tipLinks.length === 0 &&
       draftTipLinks.length === 0 ? (
-        <EmptyTabMessage message="No playlists or TipLinks published yet." />
+        <EmptyTabMessage
+          title={isOwnProfile ? "Keep viewers watching." : undefined}
+          message={
+            isOwnProfile ? (
+              <>
+                Group your videos into <br className="sm:hidden" /> playlists or
+                create a Tiplink.
+              </>
+            ) : (
+              <>
+                No playlists or TipLinks here yet. <br className="sm:hidden" />{" "}
+                Discover more to watch.
+              </>
+            )
+          }
+          ctas={
+            !isOwnProfile
+              ? [
+                  {
+                    icon: <Tv className="size-3.5" />,
+                    label: "Watch Tipmanna TV",
+                    onClick: () => expressNavigateToTv(),
+                  },
+                ]
+              : [
+                  {
+                    label: "Create a playlist",
+                    onClick: () => onCreatePlaylist(),
+                  },
+                  {
+                    label: "Create tiplink",
+                    onClick: () => onTryOpenTipLink(),
+                  },
+                ]
+          }
+        />
       ) : playlists.length === 0 ? null : (
         <div className="space-y-2">
           <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
@@ -2504,10 +3434,46 @@ function PlaylistsTabContent({
   );
 }
 
-function EmptyTabMessage({ message }: { message: string }) {
+type EmptyTabCta = {
+  label: string;
+  icon?: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+};
+
+function EmptyTabMessage({
+  title,
+  message,
+  ctas,
+}: {
+  title?: React.ReactNode;
+  message: React.ReactNode;
+  ctas?: EmptyTabCta[];
+}) {
   return (
-    <p className="text-muted-foreground px-4 py-12 text-center text-sm">
-      {message}
-    </p>
+    <div className="space-y-2 px-4 py-12">
+      <h5 className="text-center text-lg leading-tight font-semibold">
+        {title}
+      </h5>
+      <p className="text-muted-foreground text-center text-sm">{message}</p>
+
+      {ctas && ctas.length > 0 ? (
+        <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
+          {ctas.map((cta, index) => (
+            <button
+              type="button"
+              className="relative flex w-fit items-center justify-center gap-2 rounded-full border-2 border-black/20 bg-black/50 px-3 py-1.5 text-[14px] font-medium text-white shadow-lg shadow-black/10 backdrop-blur-md transition-all duration-200 ease-out hover:border-white/30 hover:bg-black/70 hover:shadow-xl hover:shadow-black active:scale-95 disabled:pointer-events-none disabled:opacity-60"
+              onClick={cta.onClick}
+              disabled={cta.disabled}
+              aria-busy={cta.disabled}
+              key={`empty-tab-cta-${index}-${cta.label}`}
+            >
+              {cta.icon}
+              {cta.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

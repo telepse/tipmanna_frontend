@@ -20,7 +20,6 @@ import {
 // Local imports
 import { Logo } from "./logo";
 import { RootState } from "@/redux/store";
-import { CreateDialog } from "../home/create-dialog";
 import { getAccountNavHref } from "@/lib/account-nav-href";
 import { useSideChick } from "@/components/community/side-chick-provider";
 
@@ -62,8 +61,6 @@ export default function NavbarClient() {
 
   const communityFeatureEnabled =
     process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
-
-  const [openPopup, setOpenPopup] = useState(false);
 
   const communityExploreActive =
     pathname === "/explore" && searchParams.get("tab") === "my-communities";
@@ -129,11 +126,6 @@ export default function NavbarClient() {
             FAQs
           </Link>
         </nav>
-
-        <CreateDialog
-          openPopup={openPopup}
-          setOpenPopup={setOpenPopup}
-        />
 
         {/* Desktop buttons */}
         <div className="hidden gap-4 lg:flex">

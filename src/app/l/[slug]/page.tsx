@@ -12,6 +12,7 @@ import {
   buildOgImageMetadata,
   resolveVideoOgImageUrl,
 } from "@/lib/video-og-image";
+import { formatTipLinkAttribution } from "@/lib/tiplink-attribution";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -31,17 +32,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!res.success || !res.data) {
     return { title: "TipLink · Tipmanna", robots: { index: false } };
   }
-  const { channel, tipLink, host } = res.data;
+  const { channel, tipLink, host, metrics, community, tipConfig, coOwnerName } =
+    res.data;
   const origin = getPrimaryOrigin();
   const url = `${origin}${tipLink.landingUrl}`;
   const image = tipLink.bannerUrl?.trim()
     ? tipLink.bannerUrl
     : resolveVideoOgImageUrl(channel.url);
 
+  const displayName = formatTipLinkAttribution({
+    hostFirstName: host.fullName.split(" ")[0] || host.username,
+    communityName: community?.name,
+    coOwnerName,
+  });
+  const displayHandle =
+    community !== null ? community?.communityType : host.username;
+
+  const ctaSectionLabel =
+    tipConfig?.mode === "live" ? tipConfig.config.ctaSectionLabel : undefined;
+
   return {
-    title: `${channel.title} · @${host.username}`,
-    description:
-      tipLink.pitch ?? channel.description ?? `TipLink by @${host.username}`,
+    title: `${channel.title} by ${displayName}`,
+    description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel} Support. Tiplink by ${displayName} @${displayHandle} ${tipLink.pitch}`,
     robots: { index: true, follow: true },
     alternates: { canonical: url },
     openGraph: {

@@ -21,6 +21,7 @@ import { dispatchAuthChanged } from "@/lib/auth-events";
 import { touchVisitorTimestamp } from "@/lib/visitor-session";
 import { useMediaQuery } from "react-responsive";
 import { BeatLoader } from "react-spinners";
+import { ChevronRight } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   ExpressCheckoutElement,
@@ -112,6 +113,7 @@ export type TipDrawerProps = {
   tippingCharacters?: Character[];
   characterSets?: any[];
   performerId?: string | null;
+  projectId?: string | null;
   paymentSurface?: PaymentSurface;
   /** When tipping in a community context (explore community tab, community TV, etc.) */
   paymentCommunityId?: string;
@@ -1183,6 +1185,25 @@ function TipDrawerContent({
                       );
                     }
                   )}
+                  {filteredCharacterSets.length > 1 &&
+                  selectedTabIndex < filteredCharacterSets.length - 1 ? (
+                    <button
+                      type="button"
+                      aria-label="Next character set"
+                      title="Next character set"
+                      className="flex size-16 shrink-0 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white hover:bg-gray-50"
+                      onClick={() =>
+                        setSelectedTabIndex(i =>
+                          Math.min(i + 1, filteredCharacterSets.length - 1)
+                        )
+                      }
+                    >
+                      <ChevronRight className="size-6" />
+                      <span className="mt-0.5 text-[8px] font-medium">
+                        Next
+                      </span>
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useCallback, useMemo, useState } from "react";
+import { useCreateDialogHost } from "@/components/home/create-dialog-host";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -17,11 +18,6 @@ const LocationPrompt = dynamic(
   { ssr: false }
 );
 
-const CreateDialog = dynamic(
-  () => import("./create-dialog").then(m => m.CreateDialog),
-  { ssr: false }
-);
-
 const PATHS = {
   leftPattern: "/patterns/hero_left_pattern.webp",
   rightPattern: "/patterns/hero_right_pattern.webp",
@@ -33,7 +29,7 @@ const PATHS = {
 
 export default function NewHeroClient() {
   const [showPrompt, setShowPrompt] = useState(false);
-  const [openPopup, setOpenPopup] = useState(false);
+  const { openCreate } = useCreateDialogHost();
   const router = useRouter();
 
   const handleLocationAllow = useCallback(() => {
@@ -226,7 +222,7 @@ export default function NewHeroClient() {
             className="h-10 flex-1 shrink-0 px-3 text-sm sm:h-11 sm:px-8 sm:text-base"
             aria-label="Create channel"
             aria-haspopup="dialog"
-            onClick={() => setOpenPopup(true)}
+            onClick={() => openCreate()}
           >
             Create Channel
           </Button>
@@ -249,13 +245,6 @@ export default function NewHeroClient() {
             onAllow={handleLocationAllow}
             onDeny={handleLocationDeny}
             onClose={handleClosePrompt}
-          />
-        ) : null}
-
-        {openPopup ? (
-          <CreateDialog
-            openPopup={openPopup}
-            setOpenPopup={setOpenPopup}
           />
         ) : null}
       </div>

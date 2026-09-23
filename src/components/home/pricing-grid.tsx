@@ -24,15 +24,11 @@ import {
   type MarketingPricingCard,
 } from "@/lib/public-plan-pricing";
 import type { PricingTier } from "@/constants";
+import { useCreateDialogHost } from "@/components/home/create-dialog-host";
 
 import "swiper/css";
 import "swiper/css/pagination";
 import "swiper/css/a11y";
-
-const CreateDialog = dynamic(
-  () => import("./create-dialog").then(m => m.CreateDialog),
-  { ssr: false }
-);
 
 const SignInDialog = dynamic(() => import("@/components/auth/sign-in-dialog"), {
   ssr: false,
@@ -52,7 +48,7 @@ export default function NewPricingGrid() {
   const swiperRef = useRef<SwiperType | null>(null);
 
   const [visible, setVisible] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
+  const { openCreate } = useCreateDialogHost();
   const [signInOpen, setSignInOpen] = useState(false);
   const [pricingCards, setPricingCards] = useState<MarketingPricingCard[]>(
     buildMarketingPricingCards(null)
@@ -121,7 +117,7 @@ export default function NewPricingGrid() {
 
       switch (tier) {
         case "free":
-          setCreateOpen(true);
+          openCreate();
           break;
 
         case "premium":
@@ -184,7 +180,7 @@ export default function NewPricingGrid() {
 
       switch (selectedTier) {
         case "free":
-          setCreateOpen(true);
+          openCreate();
           break;
 
         case "premium":
@@ -283,13 +279,6 @@ export default function NewPricingGrid() {
       <div className="mt-6 hidden grid-cols-3 items-start gap-6 lg:grid">
         {pricingCards.map((item, index) => renderCard(item, index))}
       </div>
-
-      {createOpen ? (
-        <CreateDialog
-          openPopup={createOpen}
-          setOpenPopup={setCreateOpen}
-        />
-      ) : null}
 
       {signInOpen ? (
         <SignInDialog

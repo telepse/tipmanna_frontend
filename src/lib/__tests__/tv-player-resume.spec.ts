@@ -107,8 +107,18 @@ describe("shouldRemountTvPlayer", () => {
     ).toBe(false);
   });
 
-  it("remounts when the iframe is detached", () => {
-    expect(shouldRemountTvPlayer({ ...alive, iframeLive: false })).toBe(true);
+  it("does not remount on iframe flicker when command API still works", () => {
+    expect(shouldRemountTvPlayer({ ...alive, iframeLive: false })).toBe(false);
+  });
+
+  it("remounts when iframe is detached and command API is gone", () => {
+    expect(
+      shouldRemountTvPlayer({
+        ...alive,
+        iframeLive: false,
+        commandReady: false,
+      })
+    ).toBe(true);
   });
 
   it("remounts when command APIs are not ready", () => {
@@ -149,12 +159,23 @@ describe("shouldRecoverTvPlayerEmbed", () => {
     ).toBe(true);
   });
 
-  it("recovers after sustained dead iframe", () => {
+  it("does not recover when iframe flickers but command API still works", () => {
     expect(
       shouldRecoverTvPlayerEmbed({
         ...healthy,
         iframeLive: false,
         commandReady: true,
+        deadIframeSinceMs: 10_000 - TV_EMBED_DEAD_IFRAME_MS,
+      })
+    ).toBe(false);
+  });
+
+  it("recovers after sustained dead iframe when command API is gone", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        iframeLive: false,
+        commandReady: false,
         deadIframeSinceMs: 10_000 - TV_EMBED_DEAD_IFRAME_MS,
       })
     ).toBe(true);

@@ -75,6 +75,20 @@ export const E2E_JOINED_MEMBERSHIP = {
 };
 
 /** Synthetic join-form payload for dual-gated E2E Join deep links. */
+/** Top communities rail row for Discover Open e2e (`?e2e=1` only). */
+export const E2E_TOP_COMMUNITY = {
+  id: E2E_JOIN_COMMUNITY_ID,
+  name: "E2E Join Community",
+  description: "Synthetic join target for E2E routing tests.",
+  logoUrl: null,
+  createdAt: "2020-01-01T00:00:00.000Z",
+  isSystem: false,
+  numVideos: 0,
+  totalTips: 0,
+  memberCount: 1,
+  viewer: { joined: false as const },
+};
+
 export const E2E_JOIN_FORM_PUBLIC = {
   name: "E2E Join Community",
   logoUrl: null,

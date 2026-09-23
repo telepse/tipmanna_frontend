@@ -62,9 +62,9 @@ export function isTvPlayerStateUsable(
 }
 
 /**
- * Remount only after a real hide→show (or bfcache pageshow) when the embed is
- * actually dead (iframe detached or playback API gone). Do not remount merely
- * because YouTube reports UNSTARTED/null after background blur.
+ * Remount only after a real hide→show (or bfcache pageshow) when the playback
+ * command API is gone. If `commandReady` is true, do not remount (iframe flicker
+ * or UNSTARTED/null after a brief tab-away). Same veto as heartbeat recovery.
  */
 export function shouldRemountTvPlayer(opts: TvPlayerResumeProbe): boolean {
   if (opts.visibilityState !== "visible") return false;
@@ -72,9 +72,8 @@ export function shouldRemountTvPlayer(opts: TvPlayerResumeProbe): boolean {
   if (opts.startupInFlight) return false;
   if (!opts.firstPlayReached) return false;
   if (opts.remountedThisHideShowCycle) return false;
-  if (!opts.iframeLive) return true;
-  if (!opts.commandReady) return true;
-  return false;
+  if (opts.commandReady) return false;
+  return !opts.iframeLive || !opts.commandReady;
 }
 
 export type TvEmbedHealthProbe = {
@@ -94,7 +93,9 @@ export type TvEmbedHealthProbe = {
 
 /**
  * In-place embed recovery while the user stays on /tv (no full page reload).
- * Remounts via startupEmbedGeneration key bump when the handle or iframe is dead.
+ * Remounts via startupEmbedGeneration key bump when the provider ref is orphaned
+ * or the iframe has been dead long enough **and** the playback command API is gone.
+ * Do not remount when commandReady is true (iframe flicker during live play).
  */
 export function shouldRecoverTvPlayerEmbed(opts: TvEmbedHealthProbe): boolean {
   if (!opts.playerVisible) return false;
@@ -107,6 +108,8 @@ export function shouldRecoverTvPlayerEmbed(opts: TvEmbedHealthProbe): boolean {
   const now = opts.nowMs ?? Date.now();
 
   if (opts.orphanedRef) return true;
+
+  if (opts.commandReady) return false;
 
   const deadLongEnough =
     opts.deadIframeSinceMs != null &&

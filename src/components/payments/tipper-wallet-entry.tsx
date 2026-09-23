@@ -86,6 +86,8 @@ type Props = {
   /** When set (event room + tip customization), wallet debit must match server quote. */
   ensureTipQuoteId?: () => Promise<string | undefined>;
   videoFeatureCardId?: string;
+  performerId?: string | null;
+  projectId?: string | null;
 };
 
 const expressCheckoutLayout = {
@@ -329,6 +331,8 @@ export function TipperWalletDialog({
   onBeforeStripeWalletRedirect,
   ensureTipQuoteId,
   videoFeatureCardId,
+  performerId,
+  projectId,
 }: Props) {
   const [pin, setPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -457,6 +461,8 @@ export function TipperWalletDialog({
           ? { videoFeatureCardId: videoFeatureCardId.trim() }
           : {}),
         ...(tipQuoteId ? { tipQuoteId } : {}),
+        ...(performerId ? { performerId } : {}),
+        ...(projectId ? { projectId } : {}),
       });
       void refresh();
       try {

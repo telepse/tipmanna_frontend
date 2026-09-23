@@ -81,6 +81,11 @@ import { EventTimezoneField } from "@/components/events/event-timezone-field";
 import { useHostSession } from "@/hooks/use-host-session";
 import { VideoTipReminderSlotsEditor } from "@/components/events/video-tip-reminder-slots-editor";
 import { buildContentShareUrl } from "@/lib/public-video-url";
+import {
+  reassembleThankYouForSubmit,
+  splitThankYouMessage,
+} from "@/lib/thank-you-message";
+import { ThankYouMessageField } from "@/components/events/thank-you-message-field";
 
 interface TipUsageDisclosure {
   percentage: number;
@@ -140,6 +145,8 @@ interface Props {
   projects: Project[];
   amountToRaise: number;
   thankYouMessage?: string | null;
+  communityName?: string | null;
+  moneyFor?: string | null;
   eventBanner?: string | null;
   venueLocation: string;
   venueName: string;
@@ -289,6 +296,8 @@ export const EventDetailClient = ({
   projects,
   amountToRaise,
   thankYouMessage,
+  communityName,
+  moneyFor: initialMoneyFor = "",
   eventBanner,
   venueLocation,
   venueName,
@@ -331,7 +340,12 @@ export const EventDetailClient = ({
     hostPlanInfo?.hasPremiumFeatures ||
     capabilities.usePremiumDashboardActions;
   const [archiveNotes, setArchiveNotes] = useState("");
+  const [archiveMoneyFor, setArchiveMoneyFor] = useState(initialMoneyFor ?? "");
+  const [clearHostChat, setClearHostChat] = useState(false);
+  const [defaultChannelId, setDefaultChannelId] = useState<string>("");
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const initialThankYouSplit = splitThankYouMessage(thankYouMessage);
+  const [thankYouUnmatchedTail] = useState(initialThankYouSplit.unmatchedTail);
 
   const handleArchiveRequest = async () => {
     setArchiveBusy(true);
@@ -340,8 +354,23 @@ export const EventDetailClient = ({
       const res = await postEventArchiveRequestAction(eventId, {
         eventName: values.eventName,
         eventDescription: values.eventDescription,
-        thankYouMessage: values.thankYouMessage,
+        eventBanner: values.eventBanner,
+        organizationName: values.organizationName,
+        hostName: values.hostName,
+        eventDate: values.eventDate,
+        startTime: values.startTime,
+        endTime: values.endTime,
+        activities: values.activities,
+        thankYouMessage: reassembleThankYouForSubmit(
+          values.thankYouMessage,
+          thankYouUnmatchedTail
+        ),
+        moneyFor: archiveMoneyFor.trim() || null,
         archiveNotes: archiveNotes.trim() || null,
+        clearHostChat,
+        ...(defaultChannelId.trim()
+          ? { defaultChannelId: defaultChannelId.trim() }
+          : {}),
       });
       if (!res.success) {
         toast.error(res.message ?? "Archive request failed.");
@@ -377,7 +406,7 @@ export const EventDetailClient = ({
       performers,
       projects,
       amountToRaise,
-      thankYouMessage: thankYouMessage ?? "",
+      thankYouMessage: initialThankYouSplit.prefix,
       eventBanner: eventBanner ?? "",
       venueLocation,
       venueName,
@@ -537,7 +566,10 @@ export const EventDetailClient = ({
             reminders: content.reminders ?? [],
           })),
 
-          thankYouMessage: values.thankYouMessage?.trim() || null,
+          thankYouMessage: reassembleThankYouForSubmit(
+            values.thankYouMessage,
+            thankYouUnmatchedTail
+          ),
         },
       });
 
@@ -1382,31 +1414,15 @@ export const EventDetailClient = ({
                     )}
                   />
 
-                  <FormField
+                  <ThankYouMessageField
                     control={form.control}
-                    name="thankYouMessage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-semibold">
-                          Thank-you message for tippers
-                        </FormLabel>
-                        <FormControl>
-                          <Textarea
-                            {...field}
-                            value={field.value ?? ""}
-                            rows={4}
-                            placeholder="Sent after each successful tip."
-                          />
-                        </FormControl>
-                        <p className="text-muted-foreground text-xs">
-                          Placeholders: {"{amount}"}, {"{character}"},{" "}
-                          {"{tippedAt}"}, {"{hostFirstName}"},{" "}
-                          {"{creatorPageUrl}"}, {"{communityName}"},{" "}
-                          {"{communityPageUrl}"}.
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    variant="light"
+                    unmatchedTail={thankYouUnmatchedTail}
+                    remainderContext={{
+                      hostFirstName:
+                        user?.fullName?.trim().split(/\s+/)[0] ?? hostName,
+                      communityName,
+                    }}
                   />
                 </div>
 
@@ -1414,9 +1430,50 @@ export const EventDetailClient = ({
                   <div className="bg-card space-y-4 rounded-md border p-6">
                     <h5 className="text-xl font-bold">Archive event</h5>
                     <p className="text-muted-foreground text-sm">
-                      Save a snapshot of this event and apply any metadata
-                      updates from the form above. Growth plan required.
+                      Save a snapshot, apply metadata updates from the form
+                      above, optionally clear host chat, and post a re-event
+                      host message. Growth plan required.
                     </p>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Money for (screen progress caption)
+                      </label>
+                      <Input
+                        value={archiveMoneyFor}
+                        onChange={e => setArchiveMoneyFor(e.target.value)}
+                        placeholder="e.g. Performer welfare"
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={clearHostChat}
+                        onChange={e => setClearHostChat(e.target.checked)}
+                      />
+                      Clear host chat before re-event (tipper chat is kept)
+                    </label>
+                    {contents.length > 0 ? (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          Optional new default video
+                        </label>
+                        <select
+                          className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+                          value={defaultChannelId}
+                          onChange={e => setDefaultChannelId(e.target.value)}
+                        >
+                          <option value="">Keep current default</option>
+                          {contents.map(ch => (
+                            <option
+                              key={ch.id}
+                              value={ch.id}
+                            >
+                              {ch.title?.trim() || ch.id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                     <Textarea
                       value={archiveNotes}
                       onChange={e => setArchiveNotes(e.target.value)}

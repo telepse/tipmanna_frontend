@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import SignInDialog, {
   type SignInModalPayload,
@@ -13,7 +14,15 @@ import {
   isAuthSessionRequired,
 } from "@/lib/host-auth-fetch";
 import { detectEmailVerificationRequired } from "@/lib/detect-email-verification-required";
+import {
+  hostAuthOutcomeHandled,
+  type HostAuthRequestOutcome,
+} from "@/lib/host-auth-request-outcome";
 import type { RootState } from "@/redux/store";
+import {
+  SIGN_IN_NESTED_OVERLAY_Z_INDEX,
+  SIGN_IN_NESTED_Z_INDEX,
+} from "@/lib/drawer-z-index";
 
 type PendingTask = () => void | Promise<void>;
 
@@ -24,6 +33,8 @@ type Options = {
   requireHostAccount?: boolean;
   /** Event id for cohost re-login when COHOST_SESSION_REQUIRED is returned. */
   cohostEventId?: string;
+  /** Override HostUpgrade redirect (e.g. hub + startCommunity=1). */
+  hostUpgradeReturnToOverride?: string | null;
 };
 
 /**
@@ -35,13 +46,23 @@ export function useHostCapabilityWithAuth(options?: Options) {
   const hostRequiredNotice = options?.hostRequiredNotice ?? false;
   const requireHostAccount = options?.requireHostAccount ?? false;
   const cohostEventId = options?.cohostEventId;
+  const hostUpgradeReturnToOverride =
+    options?.hostUpgradeReturnToOverride ?? null;
 
   const user = useSelector((s: RootState) => s.auth.user);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const base = useHostCapability({ enabled });
   const [hostSignInOpen, setHostSignInOpen] = useState(false);
   const [cohostSignInOpen, setCohostSignInOpen] = useState(false);
   const [hostUpgradeOpen, setHostUpgradeOpen] = useState(false);
   const pendingRef = useRef<PendingTask | null>(null);
+
+  const hostUpgradeReturnTo = (() => {
+    if (hostUpgradeReturnToOverride) return hostUpgradeReturnToOverride;
+    const q = searchParams.toString();
+    return q ? `${pathname}?${q}` : pathname;
+  })();
 
   useEffect(() => {
     if (base.canWriteAsHost && hostSignInOpen) {
@@ -50,23 +71,25 @@ export function useHostCapabilityWithAuth(options?: Options) {
   }, [base.canWriteAsHost, hostSignInOpen]);
 
   const requestHostAuth = useCallback(
-    (onSuccess?: PendingTask) => {
+    (onSuccess?: PendingTask): HostAuthRequestOutcome => {
       if (base.canWriteAsHost) {
         void onSuccess?.();
-        return;
+        return "ran";
       }
       if (base.capability.status === "loading" || base.sessionLoading) {
         pendingRef.current = onSuccess ?? null;
-        return;
+        return "loading-hold";
       }
       if (base.capability.status === "none") {
         if (requireHostAccount && user?.role === "TIPPER" && user.email) {
           setHostUpgradeOpen(true);
+          return "upgrade";
         }
-        return;
+        return "noop";
       }
       pendingRef.current = onSuccess ?? null;
       setHostSignInOpen(true);
+      return "signin";
     },
     [
       base.canWriteAsHost,
@@ -85,9 +108,40 @@ export function useHostCapabilityWithAuth(options?: Options) {
     void task();
   }, [base.canWriteAsHost]);
 
+  /** Resolve loading-hold when link probe finishes without a host account. */
+  useEffect(() => {
+    if (base.capability.status === "loading" || base.sessionLoading) return;
+    if (!pendingRef.current) return;
+
+    if (base.canWriteAsHost) return;
+
+    if (base.capability.status === "none") {
+      const task = pendingRef.current;
+      pendingRef.current = null;
+      if (requireHostAccount && user?.role === "TIPPER" && user.email) {
+        setHostUpgradeOpen(true);
+        pendingRef.current = task;
+        return;
+      }
+      return;
+    }
+
+    if (base.capability.status === "stale") {
+      setHostSignInOpen(true);
+    }
+  }, [
+    base.canWriteAsHost,
+    base.capability.status,
+    base.sessionLoading,
+    requireHostAccount,
+    user?.email,
+    user?.role,
+  ]);
+
   const requestCohostAuth = useCallback((onSuccess?: PendingTask) => {
     pendingRef.current = onSuccess ?? null;
     setCohostSignInOpen(true);
+    return "signin" as const;
   }, []);
 
   const resumePending = useCallback(() => {
@@ -129,8 +183,8 @@ export function useHostCapabilityWithAuth(options?: Options) {
       }
       const kind = isAuthSessionRequired(code, message);
       if (kind === "host") {
-        requestHostAuth(retry);
-        return true;
+        const outcome = requestHostAuth(retry);
+        return hostAuthOutcomeHandled(outcome);
       }
       if (kind === "cohost") {
         requestCohostAuth(retry);
@@ -148,9 +202,12 @@ export function useHostCapabilityWithAuth(options?: Options) {
         onOpenChange={setHostSignInOpen}
         title="Sign in to your host account"
         defaultUserType="host"
+        defaultHostAuthView="signIn"
         hostRequiredNotice={hostRequiredNotice}
         allowInlineSignUp
         signupSurface="host_auth_modal"
+        overlayClassName={SIGN_IN_NESTED_OVERLAY_Z_INDEX}
+        contentClassName={SIGN_IN_NESTED_Z_INDEX}
         onSuccess={onHostSignInSuccess}
       />
       {cohostEventId ? (
@@ -167,6 +224,9 @@ export function useHostCapabilityWithAuth(options?: Options) {
           open={hostUpgradeOpen}
           onOpenChange={setHostUpgradeOpen}
           email={user.email}
+          returnTo={hostUpgradeReturnTo}
+          overlayClassName={SIGN_IN_NESTED_OVERLAY_Z_INDEX}
+          className={SIGN_IN_NESTED_Z_INDEX}
         />
       ) : null}
     </>

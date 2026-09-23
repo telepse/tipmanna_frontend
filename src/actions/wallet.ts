@@ -73,6 +73,8 @@ export async function debitWalletAction(body: {
   idempotencyKey?: string;
   videoFeatureCardId?: string;
   tipQuoteId?: string;
+  performerId?: string;
+  projectId?: string;
 }) {
   const idem = body.idempotencyKey?.trim();
   const headers = await serverAuthHeaders();

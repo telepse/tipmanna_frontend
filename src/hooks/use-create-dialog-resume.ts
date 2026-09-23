@@ -10,6 +10,8 @@ type CreateDialogResumeConfig = {
   setHostTab?: (tab: "event" | "owner" | "cocreator") => void;
   setTargetId?: (id: string) => void;
   setModalDraftId?: (id: string) => void;
+  /** When false, ignore resume query params (page-owned dialogs). */
+  enabled?: boolean;
 };
 
 /** Opens CreateDialog when resume query params are present; clears params after handling. */
@@ -18,12 +20,14 @@ export function useCreateDialogResume({
   setHostTab,
   setTargetId,
   setModalDraftId,
+  enabled = true,
 }: CreateDialogResumeConfig) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const handledRef = useRef(false);
 
   useEffect(() => {
+    if (!enabled) return;
     if (handledRef.current) return;
     const resume = searchParams.get("resumeCreateVideo")?.trim();
     if (resume !== "1") return;
@@ -65,6 +69,7 @@ export function useCreateDialogResume({
     ].forEach(key => url.searchParams.delete(key));
     router.replace(url.pathname + url.search, { scroll: false });
   }, [
+    enabled,
     searchParams,
     router,
     openCreateDialog,

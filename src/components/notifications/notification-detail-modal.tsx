@@ -21,6 +21,7 @@ import {
 import type { RootState } from "@/redux/store";
 import { isHostTipNotificationKind } from "@/lib/tip-notification-display";
 import { TipNotificationDetails } from "@/components/notifications/tip-notification-details";
+import { linkifyText } from "@/lib/linkify-text";
 
 type Props = {
   row: FeedNotificationRow | null;
@@ -96,7 +97,7 @@ export function NotificationDetailModal({
           <DialogTitle>{row.title}</DialogTitle>
           <DialogDescription asChild>
             <div className="text-muted-foreground mt-2 space-y-2 text-sm whitespace-pre-wrap">
-              {row.body}
+              {row.body ? linkifyText(row.body) : null}
               {isHostTipNotificationKind(row.kind) ? (
                 <TipNotificationDetails
                   payload={

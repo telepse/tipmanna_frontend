@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { usePushPermission } from "@/hooks/use-push-permission";
 import {
@@ -165,13 +166,15 @@ export function GuestReminderPushOffer({
                 ? "Verify to enable push"
                 : "Verify for in-app reminders"}
             </DialogTitle>
-            <DialogDescription>
-              We will verify <strong>{email}</strong>. If you do not have a
-              Tipmanna tipper account yet, we will create one for this email
-              {flow === "push"
-                ? " so push reminders can reach this device."
-                : " so in-app reminders appear in your account."}{" "}
-              By continuing you agree to the Terms and Privacy Policy.
+            <DialogDescription className="space-y-2">
+              <span>
+                We will verify <strong>{email}</strong>. If you do not have a
+                Tipmanna tipper account yet, we will create one for this email
+                {flow === "push"
+                  ? " so push reminders can reach this device."
+                  : " so in-app reminders appear in your account."}
+              </span>
+              <TermsPrivacyLabel />
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2 sm:flex-row">

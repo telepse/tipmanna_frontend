@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Loader2, Pin, PinOff } from "lucide-react";
+import { toast } from "react-toastify";
 
-import { addEventProjectsAction } from "@/actions/events";
+import {
+  addEventProjectsAction,
+  getEventPinRosterAction,
+  toggleProjectPinAction,
+} from "@/actions/events";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,12 +18,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
-import { toast } from "react-toastify";
-import { X, Plus } from "lucide-react";
+import {
+  MAX_PINNED_ROSTER_ITEMS,
+  pinnedRosterItems,
+  type EventPinRoster,
+  type PinRosterItem,
+} from "@/lib/event-pin-roster";
 
 interface Project {
+  id?: string;
   name: string;
-  amountReceived?: string;
+  isPinned?: boolean;
+  amountReceived?: number | string;
 }
 
 interface Props {
@@ -39,70 +51,106 @@ export const AddProjectsModal = ({
   const { handleAuthRequiredError, HostAuthModal } = useHostCapabilityWithAuth({
     cohostEventId: eventId,
   });
-  const [localProjects, setLocalProjects] = useState(projects);
+  const [roster, setRoster] = useState<PinRosterItem[]>([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [loadingPinId, setLoadingPinId] = useState<string | null>(null);
+
+  const applyRoster = useCallback(
+    (items: PinRosterItem[]) => {
+      setRoster(items);
+      setProjects(items);
+    },
+    [setProjects]
+  );
+
+  const loadRoster = useCallback(async () => {
+    setLoadingRoster(true);
+    try {
+      const res = await getEventPinRosterAction(eventId);
+      if (!res.success || !res.data) {
+        toast.error(res.error ?? "Could not load projects");
+        return;
+      }
+      applyRoster(res.data.items);
+    } finally {
+      setLoadingRoster(false);
+    }
+  }, [applyRoster, eventId]);
 
   useEffect(() => {
-    if (open) {
-      setLocalProjects(
-        projects.length > 0 ? projects : [{ name: "", amountReceived: "" }]
-      );
+    if (!open) return;
+    setNewName("");
+    void loadRoster();
+  }, [open, loadRoster]);
+
+  useEffect(() => {
+    if (!open && projects.length > 0) {
+      setRoster(projects as PinRosterItem[]);
     }
   }, [open, projects]);
 
-  const addProject = () => {
-    setLocalProjects(prev => [...prev, { name: "", amountReceived: "" }]);
-  };
+  const handleAdd = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      toast.error("Enter a project name");
+      return;
+    }
 
-  const removeProject = (index: number) => {
-    setLocalProjects(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const updateProject = (
-    index: number,
-    field: "name" | "amountReceived",
-    value: string
-  ) => {
-    setLocalProjects(prev => {
-      const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        [field]: value,
-      };
-      return updated;
-    });
-  };
-
-  const submitProjects = async (cleaned: Project[]) => {
-    const res = await addEventProjectsAction(eventId, cleaned);
-    if (!res.success) {
-      if (handleAuthRequiredError(res, () => void submitProjects(cleaned))) {
+    setAdding(true);
+    try {
+      const res = await addEventProjectsAction(eventId, trimmed);
+      if (!res.success || !res.data) {
+        if (
+          handleAuthRequiredError(res, () => {
+            void handleAdd();
+          })
+        ) {
+          return;
+        }
+        toast.error(res.error ?? "Failed to add project");
         return;
       }
-      toast.error(res.error ?? "Failed to add projects");
-      return;
-    }
-    toast.success("Projects added successfully!");
-    if (res.data) setProjects(res.data as Project[]);
-    onClose();
-  };
-
-  const onSubmit = async () => {
-    const cleaned = localProjects.filter(p => p.name.trim() !== "");
-    if (cleaned.length === 0) {
-      toast.error("Add at least one project");
-      return;
-    }
-    try {
-      await submitProjects(cleaned);
+      applyRoster((res.data as EventPinRoster).items);
+      setNewName("");
+      toast.success("Project added");
     } catch (err) {
       console.error(err);
-      toast.error("Error adding projects");
+      toast.error("Error adding project");
+    } finally {
+      setAdding(false);
     }
   };
 
-  useEffect(() => {
-    setLocalProjects(projects);
-  }, [projects]);
+  const handleTogglePin = async (projectId: string) => {
+    setLoadingPinId(projectId);
+    try {
+      const res = await toggleProjectPinAction(projectId);
+      if (!res.success || !res.data) {
+        throw new Error(res.message ?? res.error ?? "Failed to toggle pin");
+      }
+      const data = res.data as { isPinned?: boolean };
+      setRoster(prev => {
+        const next = prev.map(item =>
+          item.id === projectId
+            ? { ...item, isPinned: Boolean(data.isPinned) }
+            : item
+        );
+        setProjects(next);
+        return next;
+      });
+      toast.success(data.isPinned ? "Project pinned" : "Project unpinned");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Something went wrong";
+      toast.error(message);
+    } finally {
+      setLoadingPinId(null);
+    }
+  };
+
+  const pinnedCount = roster.filter(item => item.isPinned).length;
 
   return (
     <>
@@ -112,55 +160,86 @@ export const AddProjectsModal = ({
         onOpenChange={onClose}
       >
         <DialogContent className="max-h-[70vh] w-full overflow-y-scroll rounded-md sm:max-w-sm">
-          <DialogHeader className="flex items-center justify-between">
-            <DialogTitle>Add projects to pin to screen display</DialogTitle>
+          <DialogHeader>
+            <DialogTitle>Add or pin projects for screen display</DialogTitle>
           </DialogHeader>
 
-          <button
-            type="button"
-            onClick={addProject}
-            className="flex w-fit items-center gap-2 rounded-md bg-black p-2 text-sm text-white"
-          >
-            <Plus /> Add project
-          </button>
-
-          {localProjects.map((project, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-1 rounded-md"
-            >
-              <Input
-                placeholder="Title"
-                value={project.name}
-                onChange={e => updateProject(index, "name", e.target.value)}
-              />
-
-              <Input
-                placeholder="0"
-                value={project.amountReceived}
-                onChange={e =>
-                  updateProject(index, "amountReceived", e.target.value)
-                }
-                disabled={true}
-              />
-
-              {localProjects.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeProject(index)}
-                  className="text-destructive"
-                >
-                  <X />
-                </button>
-              )}
+          {loadingRoster ? (
+            <div className="text-muted-foreground flex items-center justify-center gap-2 py-6 text-sm">
+              <Loader2 className="size-4 animate-spin" />
+              Loading roster…
             </div>
-          ))}
+          ) : roster.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No projects yet. Add a name below (up to {MAX_PINNED_ROSTER_ITEMS}{" "}
+              can be pinned).
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {roster.map(item => (
+                <div
+                  key={item.id}
+                  className="bg-muted/20 flex items-center justify-between rounded-md border p-3"
+                >
+                  <div>
+                    <div className="text-sm font-medium">{item.name}</div>
+                    <div className="text-muted-foreground text-xs">
+                      £{item.amountReceived ?? 0} received
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={loadingPinId === item.id}
+                    onClick={() => void handleTogglePin(item.id)}
+                    className={`ml-2 transition-colors disabled:opacity-50 ${
+                      item.isPinned
+                        ? "text-primary hover:text-primary/80"
+                        : "text-muted-foreground hover:text-black"
+                    }`}
+                    title={item.isPinned ? "Unpin project" : "Pin project"}
+                  >
+                    {loadingPinId === item.id ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : item.isPinned ? (
+                      <PinOff className="size-4" />
+                    ) : (
+                      <Pin className="size-4 fill-current" />
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-muted-foreground text-xs">
+            {pinnedCount}/{MAX_PINNED_ROSTER_ITEMS} pinned. Unpin one to swap.
+          </p>
+
+          <div className="flex gap-2">
+            <Input
+              placeholder="Project name"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") void handleAdd();
+              }}
+            />
+            <Button
+              type="button"
+              disabled={adding}
+              onClick={() => void handleAdd()}
+            >
+              {adding ? <Loader2 className="size-4 animate-spin" /> : "Add"}
+            </Button>
+          </div>
 
           <Button
             type="button"
-            onClick={() => void onSubmit()}
+            variant="outline"
+            className="w-full"
+            onClick={onClose}
           >
-            Submit
+            Done
           </Button>
         </DialogContent>
       </Dialog>

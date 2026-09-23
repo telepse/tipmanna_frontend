@@ -5,7 +5,6 @@ import { useCallback, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 
 import type { CommunityExploreCatalogRow } from "@/actions/communities";
-import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import {
@@ -21,6 +20,9 @@ import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import type { RootState } from "@/redux/store";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
+import { Button } from "../ui/button";
+import { ExternalLink } from "lucide-react";
+import { trimTitle } from "@/lib/utils";
 
 type JoinedMembershipRow = {
   communityId: string;
@@ -73,12 +75,6 @@ export function ExploreCommunityPickerMenu({
     closeJoinModal,
     openJoin,
     openCommunity,
-    signInOpen,
-    setSignInOpen,
-    signInReturnTo,
-    onSignInVerified,
-    signInTitle,
-    signupSurface,
   } = useCommunityJoinFlow({
     signupSurface: "community_picker",
     signInTitle: "Sign in to join this community",
@@ -105,14 +101,32 @@ export function ExploreCommunityPickerMenu({
   const renderCommunityRow = useCallback(
     (c: CommunityExploreCatalogRow) => (
       <div className="flex items-center justify-between gap-2 rounded-md border bg-white px-2 py-1.5">
-        <button
-          type="button"
-          className="hover:bg-accent min-w-0 flex-1 rounded-md px-1 py-0.5 text-left transition-colors"
-          onClick={() => openCommunity(c.id)}
-        >
-          <p className="truncate text-xs font-medium">{c.name}</p>
-          <CommunityStatsLine community={c} />
-        </button>
+        <div className="hover:bg-accent flex min-w-0 flex-1 items-start gap-1 rounded-md px-1 py-0.5">
+          <button
+            type="button"
+            className="min-w-0 flex-1 text-left transition-colors"
+            onClick={() => openCommunity(c.id)}
+          >
+            <div className="truncate text-xs font-medium">
+              {trimTitle(c.name, 15)}
+            </div>
+            <CommunityStatsLine community={c} />
+          </button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 shrink-0 px-0"
+            aria-label="Open community"
+            title="Open community"
+            onClick={e => {
+              e.stopPropagation();
+              openCommunity(c.id);
+            }}
+          >
+            <ExternalLink className="size-3.5" />
+          </Button>
+        </div>
         <CommunityJoinOpenControls
           communityId={c.id}
           joined={Boolean(c.viewer?.joined)}
@@ -127,14 +141,6 @@ export function ExploreCommunityPickerMenu({
 
   return (
     <>
-      <TipperEmailOtpSignInDialog
-        open={signInOpen}
-        onOpenChange={setSignInOpen}
-        signInTitle={signInTitle}
-        signupSurface={signupSurface}
-        getRedirectPathAfterVerify={() => signInReturnTo}
-        onVerified={onSignInVerified}
-      />
       {joinCommunityId ? (
         <JoinCommunityModal
           open={joinModalOpen}

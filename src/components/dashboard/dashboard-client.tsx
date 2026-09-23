@@ -28,6 +28,7 @@ import type { Event } from "@/types";
 import { RecentEventCard } from "./recent-event-card";
 import { useHostEvents } from "@/hooks/useHostEvents";
 import { HostSubscriptionQuickLinks } from "@/components/dashboard/host-subscription-quick-links";
+import { HostDashboardShortcutsRow } from "@/components/dashboard/host-dashboard-shortcuts-row";
 import { CreateDialog } from "@/components/home/create-dialog";
 import { FormDraftsPanel } from "@/components/dashboard/form-drafts-panel";
 import { useHostSession } from "@/hooks/use-host-session";
@@ -80,6 +81,11 @@ export const DashboardClient = () => {
       </div>
 
       <HostSubscriptionQuickLinks eventSlug={hostEventSlugParam} />
+
+      <HostDashboardShortcutsRow
+        hostEventSlug={hostEventSlugParam ?? hostEventSlug ?? null}
+        hideTipLayout
+      />
 
       <FormDraftsPanel />
 

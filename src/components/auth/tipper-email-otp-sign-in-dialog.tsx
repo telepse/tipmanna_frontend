@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { MoveLeft } from "lucide-react";
 import OTPInput from "react-otp-input";
@@ -44,6 +44,7 @@ import {
   SIGN_IN_NESTED_OVERLAY_Z_INDEX,
   SIGN_IN_NESTED_Z_INDEX,
 } from "@/lib/drawer-z-index";
+import { shouldNavigateAfterTipperVerify } from "@/lib/tipper-otp-redirect";
 
 type Step = "signIn" | "verifyCode";
 
@@ -76,6 +77,8 @@ export function TipperEmailOtpSignInDialog({
   signupSurface,
 }: TipperEmailOtpSignInDialogProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const dispatch = useDispatch();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -196,7 +199,13 @@ export function TipperEmailOtpSignInDialog({
       await onVerified?.();
 
       const path = getRedirectPathAfterVerify?.();
-      if (path) {
+      const currentPathWithSearch = searchParams.toString()
+        ? `${pathname}?${searchParams.toString()}`
+        : pathname;
+      if (
+        path &&
+        shouldNavigateAfterTipperVerify(path, currentPathWithSearch)
+      ) {
         router.push(path);
       }
       onOpenChange(false);

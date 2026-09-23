@@ -25,6 +25,8 @@ import { EventRoomAccessControl } from "@/components/dashboard/event-room-access
 import { HostChannelManageClient } from "@/components/dashboard/host-channel-manage-client";
 import { VideoAnalyticsPanel } from "@/components/dashboard/video-analytics-panel";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { parseHostPremiumTab } from "@/lib/host-dashboard-shortcuts";
+import { parseHostEventsPickList } from "@/lib/parse-host-events";
 
 type PremiumTab =
   | "channel_manage"
@@ -57,32 +59,27 @@ export const HostPremiumClient = () => {
     []
   );
   const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [eventsLoading, setEventsLoading] = useState(true);
   const { status, capabilities, isLoading } = useHostPlanCapabilities();
 
   useEffect(() => {
-    if (tabFromUrl === "advanced_video_analytics") {
-      setTabType("advanced_video_analytics");
-      return;
-    }
-    if (tabFromUrl === "video_coowners") {
-      setTabType("video_coowners");
-      return;
-    }
-    if (tabFromUrl === "playlist") {
-      setTabType("playlist");
-    }
+    const parsed = parseHostPremiumTab(tabFromUrl);
+    if (parsed) setTabType(parsed);
   }, [tabFromUrl]);
 
   useEffect(() => {
-    void getHostEventsAction({ limit: 100 }).then(res => {
-      if (!res.success || !res.data) return;
-      const list = Array.isArray(res.data)
-        ? (res.data as { id: string; eventName?: string }[])
-        : ((res.data as { events?: { id: string; eventName?: string }[] })
-            .events ?? []);
-      setEvents(list);
-      setSelectedEventId(prev => prev || list[0]?.id || "");
-    });
+    setEventsLoading(true);
+    void getHostEventsAction({ limit: 100 })
+      .then(res => {
+        if (!res.success || !res.data) {
+          setEvents([]);
+          return;
+        }
+        const list = parseHostEventsPickList(res.data);
+        setEvents(list);
+        setSelectedEventId(prev => prev || list[0]?.id || "");
+      })
+      .finally(() => setEventsLoading(false));
   }, []);
 
   const showFeatures =
@@ -198,7 +195,9 @@ export const HostPremiumClient = () => {
               </SelectContent>
             </Select>
           ) : null}
-          {selectedEventId ? (
+          {eventsLoading ? (
+            <p className="text-muted-foreground text-sm">Loading events…</p>
+          ) : selectedEventId ? (
             <EventRoomAccessControl
               eventId={selectedEventId}
               hostId={hostId || undefined}

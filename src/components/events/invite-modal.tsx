@@ -20,6 +20,8 @@ import { ApiError } from "@/types/api-error.types";
 import { RootState, AppDispatch } from "@/redux/store";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
+import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import { Paragraph } from "../shared/paragraph";
 import OTPInput from "react-otp-input";
 import { useForm } from "react-hook-form";
@@ -56,7 +58,7 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
   const form = useForm<{
     fullName: string;
     email: string;
-    acceptedTerms: false;
+    acceptedTerms: boolean;
   }>({
     defaultValues: { fullName: "", email: "", acceptedTerms: false },
   });
@@ -64,14 +66,21 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
 
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const handleLogin = async (values: { email: string }) => {
+  const handleLogin = async (values: {
+    email: string;
+    acceptedTerms: boolean;
+  }) => {
+    if (!values.acceptedTerms) {
+      toast.error("You must agree to the terms and privacy policy");
+      return;
+    }
     try {
       setIsLoading(true);
 
       const res = await loginOrRegisterTipperAction({
         fullName: "",
         email: values.email,
-        acceptedTerms: true,
+        acceptedTerms: values.acceptedTerms,
         visitorId: getVisitorIdForAuthMerge(user),
         ...buildSignupAttributionPayload("invite_modal"),
       });
@@ -176,6 +185,27 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
                             {...field}
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="acceptedTerms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">
+                            <TermsPrivacyLabel />
+                          </FormLabel>
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}

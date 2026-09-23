@@ -195,7 +195,6 @@ export const HostEventAndContentInfo = ({
                       <SelectItem value="FASHION">Fashion</SelectItem>
                       <SelectItem value="CHILDREN">Children</SelectItem>
                       <SelectItem value="EDUCATION">Education</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormControl>

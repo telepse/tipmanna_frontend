@@ -28,7 +28,7 @@ export function HostSubscriptionQuickLinks({
         <p className="font-medium">Host plans</p>
         <p className="text-muted-foreground text-sm">{subtitle}</p>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2">
         {!hasActivePremium ? (
           <HostSubscriptionUpgradeTrigger
             label={status === "lapsed" ? "Renew plan" : "Subscribe now"}
@@ -45,34 +45,37 @@ export function HostSubscriptionQuickLinks({
             }
           />
         ) : null}
-        <Button
-          asChild
-          variant="outline"
-          size="sm"
-          className="min-w-0 flex-1"
-        >
-          <Link
-            href={`/host/${eventSlug}/host-premium`}
-            className="flex min-w-0 items-center justify-center gap-1.5"
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="min-w-0 flex-1"
           >
-            <Crown className="size-4" />
-            Host Premium
-          </Link>
-        </Button>
-        <Button
-          asChild
-          variant="outline"
-          size="sm"
-          className="min-w-0 flex-1"
-        >
-          <Link
-            href={`/host/${eventSlug}/host-community`}
-            className="flex min-w-0 items-center justify-center gap-1.5"
+            <Link
+              href={`/host/${eventSlug}/host-premium`}
+              className="flex min-w-0 items-center justify-center gap-1.5"
+            >
+              <Crown className="size-4" />
+              Host Premium
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="min-w-0 flex-1"
           >
-            <Users className="size-4" />
-            Host Community
-          </Link>
-        </Button>
+            <Link
+              href={`/host/${eventSlug}/host-community`}
+              className="flex min-w-0 items-center justify-center gap-1.5"
+            >
+              <Users className="size-4" />
+              Host Community
+            </Link>
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -349,6 +349,8 @@ export type EventByIdData = {
   eventDescription?: string;
   hideProgressBarAmount?: boolean;
   showLatestAmount?: boolean;
+  showPinnedOnScreen?: boolean;
+  funnelPosition?: string;
   totalAttendees?: number;
   latestTipAmount?: number;
   characterSets: unknown[];
@@ -713,6 +715,8 @@ export async function changeEventScreenSettings(
     }>;
     performers: { id?: string; name: string; description?: string }[];
     projects: { id?: string; name: string; description?: string }[];
+    showPinnedOnScreen?: boolean;
+    funnelPosition?: string;
   },
   eventId: string
 ) {
@@ -724,6 +728,8 @@ export async function changeEventScreenSettings(
     tipUsageDisclosure: values.tipUsageDisclosure,
     performers: values.performers,
     projects: values.projects,
+    showPinnedOnScreen: values.showPinnedOnScreen,
+    funnelPosition: values.funnelPosition,
   };
 
   return runServerFetch(
@@ -800,6 +806,38 @@ export async function togglePerformerPinAction(performerId: string) {
       cache: "no-store",
     },
     "togglePerformerPinAction"
+  );
+}
+
+export async function toggleProjectPinAction(projectId: string) {
+  return runServerFetch(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/projects/${encodeURIComponent(projectId)}/toggle-pin`,
+    {
+      method: "PATCH",
+      headers: await serverEventActorAuthHeaders(),
+      cache: "no-store",
+    },
+    "toggleProjectPinAction"
+  );
+}
+
+export async function getEventPinRosterAction(eventId: string) {
+  return runServerFetch<{
+    contributionType: string;
+    items: Array<{
+      id: string;
+      name: string;
+      isPinned: boolean;
+      amountReceived: number | string;
+    }>;
+  }>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/pin-roster`,
+    {
+      method: "GET",
+      headers: await serverEventActorAuthHeaders(),
+      cache: "no-store",
+    },
+    "getEventPinRosterAction"
   );
 }
 
@@ -898,32 +936,42 @@ export async function getSavedVideosForTipper(token?: string | null) {
   );
 }
 
-export async function addEventPerformersAction(
-  eventId: string,
-  performers: { name: string; amountReceived?: string }[]
-) {
-  return runServerFetch(
+export async function addEventPerformersAction(eventId: string, name: string) {
+  return runServerFetch<{
+    contributionType: string;
+    items: Array<{
+      id: string;
+      name: string;
+      isPinned: boolean;
+      amountReceived: number | string;
+    }>;
+  }>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/performers`,
     {
       method: "POST",
       headers: await serverEventActorAuthHeaders(),
-      body: JSON.stringify({ performers }),
+      body: JSON.stringify({ name }),
       cache: "no-store",
     },
     "addEventPerformersAction"
   );
 }
 
-export async function addEventProjectsAction(
-  eventId: string,
-  projects: { name: string; amountReceived?: string }[]
-) {
-  return runServerFetch(
+export async function addEventProjectsAction(eventId: string, name: string) {
+  return runServerFetch<{
+    contributionType: string;
+    items: Array<{
+      id: string;
+      name: string;
+      isPinned: boolean;
+      amountReceived: number | string;
+    }>;
+  }>(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/projects`,
     {
       method: "POST",
       headers: await serverEventActorAuthHeaders(),
-      body: JSON.stringify({ projects }),
+      body: JSON.stringify({ name }),
       cache: "no-store",
     },
     "addEventProjectsAction"

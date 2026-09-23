@@ -8,10 +8,7 @@ export function resolveProgramOgImageUrl(
     return program.landingBannerUrl.trim();
   }
 
-  const itemThumb = program.items.find(i => i.thumbnailUrl)?.thumbnailUrl;
-  if (itemThumb?.trim()) return itemThumb.trim();
-
-  const contentUrl = program.items.find(i => i.contentUrl)?.contentUrl;
+  const contentUrl = program.items.find(i => i.contentUrl?.trim())?.contentUrl;
   if (contentUrl?.trim()) {
     return getYoutubeThumbnail(contentUrl.trim());
   }

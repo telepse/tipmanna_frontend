@@ -169,6 +169,19 @@ describe("TV playback contract — leave/return player lifecycle", () => {
     );
   });
 
+  it("heartbeat and hide→show recovery do not remount when command API is ready", () => {
+    const resumeSource = readFileSync(
+      join(frontendRoot, "src/lib/tv-player-resume.ts"),
+      "utf8"
+    );
+    const vetoMatches = resumeSource.match(
+      /if \(opts\.commandReady\) return false;/g
+    );
+    expect(vetoMatches?.length).toBeGreaterThanOrEqual(2);
+    expect(resumeSource).toContain("shouldRemountTvPlayer");
+    expect(resumeSource).toContain("shouldRecoverTvPlayerEmbed");
+  });
+
   it("loopers key TvPlayer by startupEmbedGeneration for ref rebind", () => {
     const tvLooperSource = readFileSync(
       join(frontendRoot, "src/components/tv/tv-looper.tsx"),

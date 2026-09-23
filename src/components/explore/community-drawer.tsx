@@ -50,6 +50,7 @@ export function CommunityDrawer({ open, onOpenChange, communityId }: Props) {
             <CommunityJoinPanel
               key={id}
               communityId={id}
+              variant="drawer"
               signInRedirectPath={exploreCommunityJoinHref(id)}
             />
           ) : (

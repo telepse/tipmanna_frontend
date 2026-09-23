@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isClaimedHostExistsMessage,
   isPendingEmailVerification,
+  isUnclaimedHostClaimMessage,
+  isUnverifiedHostMessage,
   parseAuthResponse,
 } from "@/lib/auth-response";
 
@@ -115,5 +118,27 @@ describe("parseAuthResponse dual host payloads", () => {
     });
 
     expect(parsed).toBeNull();
+  });
+});
+
+describe("host auth handoff message helpers", () => {
+  it("detects unclaimed invite sign-in message", () => {
+    expect(
+      isUnclaimedHostClaimMessage(
+        "This email has a pending creator invite. Sign up to claim your host account."
+      )
+    ).toBe(true);
+    expect(isUnclaimedHostClaimMessage("Invalid credentials")).toBe(false);
+    expect(isUnclaimedHostClaimMessage("Proceed to verify your email")).toBe(
+      false
+    );
+  });
+
+  it("detects claimed host exists message", () => {
+    expect(isClaimedHostExistsMessage("Email already exists as a HOST.")).toBe(
+      true
+    );
+    expect(isClaimedHostExistsMessage("Invalid credentials")).toBe(false);
+    expect(isUnverifiedHostMessage("Proceed to verify your email")).toBe(true);
   });
 });

@@ -14,6 +14,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   communityName: string;
+  communityLogoUrl?: string;
   actionLabel?: string;
   busy?: boolean;
   onConfirm: () => void | Promise<void>;
@@ -24,6 +25,7 @@ export function DedicatedExitConfirmDialog({
   open,
   onOpenChange,
   communityName,
+  communityLogoUrl,
   actionLabel = "Leave dedicated mode",
   busy = false,
   onConfirm,

@@ -33,6 +33,8 @@ import {
   resolveExploreCoOwnerReelLabel,
 } from "@/lib/explore-co-owner-label";
 import {
+  exploreEndedAdvanceScrollBehavior,
+  shouldCommitExploreActiveIndexOnScroll,
   shouldHandleExploreReelEnded,
   shouldPaginateExploreReelOnEnd,
 } from "@/lib/explore-reel-advance";
@@ -136,7 +138,6 @@ import { writePlaybackReturn } from "@/lib/playback-return-stack";
 import { useOpenChannelWithReturn } from "@/hooks/use-open-channel-with-return";
 import { ChannelProgressBar } from "@/components/events/channel-progress-bar";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { CreateDialog } from "@/components/home/create-dialog";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { ImmersiveChannelActionsRail } from "@/components/events/immersive-channel-actions-rail";
 import { CommentDrawer } from "@/components/events/comment-drawer";
@@ -171,7 +172,9 @@ import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-rea
 import { getAuthToken } from "@/lib/getAuthToken";
 import {
   prefetchChannelDrawers,
+  prefetchCommunityAccessState,
   prefetchCreatorProfile,
+  prefetchDrawerUiChunks,
 } from "@/lib/drawer-prefetch-cache";
 import { markExplorePerf } from "@/lib/web-vitals";
 import {
@@ -772,6 +775,7 @@ type ExploreReelSlideTitleProps = {
   onOpenCreatorDrawer: (username: string) => void;
   onOpenCommunityDrawer?: (communityId: string) => void;
   onPrefetchCreator?: (username: string) => void;
+  onPrefetchCommunity?: (communityId: string) => void;
   onEngageUnlocked?: () => void;
   className?: string;
 };
@@ -789,6 +793,7 @@ function ExploreReelSlideTitle({
   onOpenCreatorDrawer,
   onOpenCommunityDrawer,
   onPrefetchCreator,
+  onPrefetchCommunity,
   onEngageUnlocked,
   className,
 }: ExploreReelSlideTitleProps) {
@@ -868,6 +873,10 @@ function ExploreReelSlideTitle({
                   type="button"
                   className="cursor-pointer truncate underline-offset-2 hover:underline"
                   onPointerDown={e => e.stopPropagation()}
+                  onPointerEnter={() => {
+                    const id = community?.id?.trim();
+                    if (id) onPrefetchCommunity?.(id);
+                  }}
                   onClick={e => {
                     e.stopPropagation();
                     onOpenCommunityDrawer?.(community!.id!);
@@ -970,6 +979,8 @@ export interface ExploreFeedClientProps {
   communityIds?: string[];
   /** TV source for Watch TV handoff from reel dock (community id or tipmanna). */
   tvExploreSource?: string;
+  /** Opens the page-level create dialog (avoids mounting a second CreateDialog). */
+  onOpenCreateDialog?: () => void;
   trendsFilters?: {
     eventTypes: string[];
     language: string;
@@ -1000,6 +1011,7 @@ export const ExploreFeedClient = forwardRef<
     feedMode = "trends",
     communityIds,
     tvExploreSource = "tipmanna",
+    onOpenCreateDialog,
     trendsFilters = {
       eventTypes: [] as string[],
       language: "",
@@ -1101,7 +1113,6 @@ export const ExploreFeedClient = forwardRef<
   const [bootLoadFailed, setBootLoadFailed] = useState(false);
   useExploreFeedInitialLoadingFailOpen(initialLoading, setInitialLoading);
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [exploreCommentOpen, setExploreCommentOpen] = useState(false);
   const openExploreCommentDrawer = useCallback((open: boolean) => {
     if (open) {
@@ -1318,7 +1329,15 @@ export const ExploreFeedClient = forwardRef<
     });
     const hostUsername = resolveExploreItemHostUsername(active);
     if (hostUsername) prefetchCreatorProfile(hostUsername);
+    const communityId = active?.community?.id;
+    if (typeof communityId === "string" && communityId.trim()) {
+      prefetchCommunityAccessState(communityId);
+    }
   }, [activeEventId, activeChannelId, active]);
+
+  useEffect(() => {
+    prefetchDrawerUiChunks();
+  }, []);
 
   const [videoTipCatalog, setVideoTipCatalog] = useState<TvEventCatalog | null>(
     null
@@ -1926,7 +1945,7 @@ export const ExploreFeedClient = forwardRef<
       if (h <= 0) return;
       const idx = Math.min(itemsRef.current.length - 1, Math.max(0, index));
       scrollExploreFeedToIndex(root, idx, behavior);
-      if (behavior !== "smooth") {
+      if (shouldCommitExploreActiveIndexOnScroll(behavior)) {
         activeIndexRef.current = idx;
         setActiveIndex(prev => (prev === idx ? prev : idx));
       }
@@ -1957,7 +1976,7 @@ export const ExploreFeedClient = forwardRef<
       }
       return;
     }
-    scrollToIndex(idx + 1, "smooth");
+    scrollToIndex(idx + 1, exploreEndedAdvanceScrollBehavior());
   }, [feedSurfaceActive, scrollToIndex]);
 
   const executeOpenInExplore = useCallback(
@@ -2922,6 +2941,7 @@ export const ExploreFeedClient = forwardRef<
                             onOpenCreatorDrawer={openCreatorDrawer}
                             onOpenCommunityDrawer={openCommunityDrawer}
                             onPrefetchCreator={prefetchCreatorProfile}
+                            onPrefetchCommunity={prefetchCommunityAccessState}
                             onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelTitleOnVideoClassName(
                               slideLayoutMode
@@ -2944,6 +2964,7 @@ export const ExploreFeedClient = forwardRef<
                             onOpenCreatorDrawer={openCreatorDrawer}
                             onOpenCommunityDrawer={openCommunityDrawer}
                             onPrefetchCreator={prefetchCreatorProfile}
+                            onPrefetchCommunity={prefetchCommunityAccessState}
                             onEngageUnlocked={() => setReelEngageUnlocked(true)}
                             className={exploreReelTitleAboveDockClassName(
                               slideLayoutMode
@@ -3083,7 +3104,7 @@ export const ExploreFeedClient = forwardRef<
                             onClick={e => {
                               e.preventDefault();
                               e.stopPropagation();
-                              setCreateDialogOpen(true);
+                              onOpenCreateDialog?.();
                             }}
                           >
                             <Plus
@@ -3159,17 +3180,6 @@ export const ExploreFeedClient = forwardRef<
           );
         })}
       </div>
-
-      <CreateDialog
-        openPopup={createDialogOpen}
-        setOpenPopup={setCreateDialogOpen}
-        onExploreLayer
-      />
-
-      {/* <CreateDialog
-          openPopup={openPopup}
-          setOpenPopup={setOpenPopup}
-        /> */}
 
       {tipDrawerStripeMounted ? (
         <TippingElementsProvider

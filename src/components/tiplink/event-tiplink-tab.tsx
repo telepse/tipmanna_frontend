@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -13,6 +13,7 @@ import {
   getTipLinkCreateEligibilityAction,
   listEventTipLinksAction,
   suggestTipLinkSlugAction,
+  suggestTipLinkStoreLinksAction,
   updateTipLinkAction,
   type TipLinkSummary,
 } from "@/actions/tiplink";
@@ -29,8 +30,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { subscriptionActionErrorMessage } from "@/lib/host-subscription-errors";
+import {
+  isSubscriptionLapsedError,
+  isSubscriptionRequiredError,
+  subscriptionActionErrorMessage,
+} from "@/lib/host-subscription-errors";
+import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
+import {
+  openTipLinkCreateSubscriptionPrompt,
+  shouldPreGateTipLinkCreate,
+  TIPLINK_DRAFT_CREATE_TOAST_ID,
+} from "@/lib/tiplink-create-subscription-gate";
+import { buildTipLinkManageHref } from "@/lib/tiplink-manage-navigation";
+import { PremiumFeatureBadge } from "@/components/dashboard/premium-feature-badge";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import { useHostSession } from "@/hooks/use-host-session";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { tryUploadImage } from "@/lib/cloudinary";
 import {
@@ -39,11 +54,16 @@ import {
 } from "@/components/tiplink/tiplink-store-icons";
 import { TIPLINK_SOCIAL_PLATFORMS } from "@/components/tiplink/tiplink-social-icons";
 import { cn } from "@/lib/utils";
-import { isTipLinkEligibleChannel } from "@/lib/tiplink-channel-eligibility";
+import { TIPLINK_MONEY_FOR_MAX } from "@/lib/tiplink-raised-line";
+import {
+  isCommunityBankChannel,
+  isTipLinkEligibleEventRoomChannel,
+} from "@/lib/tiplink-channel-eligibility";
 
 type Content = {
   id: string;
   title: string;
+  description?: string | null;
   url: string;
   communityBankEntry?: {
     status?: string | null;
@@ -62,20 +82,37 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
   const [eligibility, setEligibility] = useState<{
     canCreate: boolean;
     firstFreeAvailable: boolean;
+    subscriptionStatus: string;
   } | null>(null);
   const [creatingForChannel, setCreatingForChannel] = useState<string>("");
   const [editing, setEditing] = useState<TipLinkSummary | null>(null);
   const [playlists, setPlaylists] = useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [playlistPlan, setPlaylistPlan] = useState<
+    "ok" | "required" | "lapsed" | "error"
+  >("ok");
   const [saving, setSaving] = useState(false);
-  const { handleSubscriptionActionError, SubscriptionPromptModal } =
-    useHostSubscriptionPrompt({ focusTier: "premium" });
+  const [previewRevision, setPreviewRevision] = useState(0);
+  const [suggestingStoreLinks, setSuggestingStoreLinks] = useState(false);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosavingRef = useRef(false);
+  const skipAutosaveRef = useRef(true);
+  const pathname = usePathname();
+  const { eventSlug } = useHostSession();
+  const { hasActivePremium } = useHostPlanCapabilities();
+  const {
+    handleSubscriptionActionError,
+    openForRequired,
+    openForLapsed,
+    SubscriptionPromptModal,
+  } = useHostSubscriptionPrompt({ focusTier: "premium" });
 
   const [form, setForm] = useState({
     eventChannelId: "",
     slug: "",
     pitch: "",
+    moneyFor: "",
     title: "",
     description: "",
     appleMusicUrl: "",
@@ -121,11 +158,28 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         setEligibility({
           canCreate: eligRes.data.canCreate,
           firstFreeAvailable: eligRes.data.firstFreeAvailable,
+          subscriptionStatus: eligRes.data.subscriptionStatus,
         });
       }
       if (plRes.success && plRes.data) {
+        setPlaylistPlan("ok");
         setPlaylists(
           (plRes.data.playlists ?? []).map(p => ({ id: p.id, name: p.name }))
+        );
+      } else if (isSubscriptionRequiredError(plRes.validationBody)) {
+        setPlaylists([]);
+        setPlaylistPlan("required");
+      } else if (isSubscriptionLapsedError(plRes.validationBody)) {
+        setPlaylists([]);
+        setPlaylistPlan("lapsed");
+      } else if (!plRes.success) {
+        setPlaylists([]);
+        setPlaylistPlan("error");
+        toast.error(
+          subscriptionActionErrorMessage(
+            plRes.validationBody,
+            plRes.message ?? "Could not load playlists"
+          )
         );
       }
     } finally {
@@ -134,12 +188,43 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
   }, [eventId]);
 
   useEffect(() => {
+    if (hasActivePremium && playlistPlan !== "ok") {
+      void load();
+    }
+  }, [hasActivePremium, load, playlistPlan]);
+
+  const resumePathForPlaylistSubscribe = useCallback(() => {
+    if (typeof window === "undefined") {
+      return pathname ?? "";
+    }
+    return `${window.location.pathname}${window.location.search}`;
+  }, [pathname]);
+
+  const openFeaturedPlaylistSubscribe = useCallback(() => {
+    setHostSubscriptionResume({
+      kind: "create-playlist",
+      returnPath: resumePathForPlaylistSubscribe(),
+    });
+    openForRequired("premium");
+  }, [openForRequired, resumePathForPlaylistSubscribe]);
+
+  const openFeaturedPlaylistRenew = useCallback(() => {
+    setHostSubscriptionResume({
+      kind: "create-playlist",
+      returnPath: resumePathForPlaylistSubscribe(),
+    });
+    openForLapsed("premium");
+  }, [openForLapsed, resumePathForPlaylistSubscribe]);
+
+  useEffect(() => {
     void load();
   }, [load]);
 
   const channelsWithoutTipLink = useMemo(() => {
     const used = new Set(tipLinks.map(t => t.eventChannelId));
-    return contents.filter(c => !used.has(c.id) && isTipLinkEligibleChannel(c));
+    return contents.filter(
+      c => !used.has(c.id) && isTipLinkEligibleEventRoomChannel(c)
+    );
   }, [contents, tipLinks]);
 
   const selectableVideos = useMemo(() => {
@@ -150,7 +235,8 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     return contents.filter(
       c =>
         (c.id === editing.eventChannelId || !usedByOther.has(c.id)) &&
-        (c.id === editing.eventChannelId || isTipLinkEligibleChannel(c))
+        (c.id === editing.eventChannelId ||
+          isTipLinkEligibleEventRoomChannel(c))
     );
   }, [contents, editing, tipLinks]);
 
@@ -161,21 +247,85 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     return selected?.url ?? editing.videoUrl;
   }, [contents, editing, form.eventChannelId]);
 
+  const isCommunityBankDraft = useMemo(() => {
+    if (!editing) return false;
+    const selectedId = form.eventChannelId || editing.eventChannelId;
+    const selected = contents.find(c => c.id === selectedId);
+    return selected ? isCommunityBankChannel(selected) : false;
+  }, [contents, editing, form.eventChannelId]);
+
+  const suggestStoreLinks = useCallback(async () => {
+    const title = form.title.trim() || editing?.title?.trim() || "";
+    if (!title) {
+      toast.error("Add a title before searching store links");
+      return;
+    }
+    setSuggestingStoreLinks(true);
+    try {
+      const res = await suggestTipLinkStoreLinksAction({
+        title,
+        youtubeUrl: activeVideoUrl || null,
+      });
+      if (!res.success || !res.data) {
+        toast.error(res.message ?? "Could not find store links");
+        return;
+      }
+      setForm(f => ({
+        ...f,
+        appleMusicUrl: f.appleMusicUrl.trim() || res.data!.appleMusicUrl || "",
+        spotifyUrl: f.spotifyUrl.trim() || res.data!.spotifyUrl || "",
+        audiomackUrl: f.audiomackUrl.trim() || res.data!.audiomackUrl || "",
+      }));
+      toast.success("Store link suggestions applied to empty fields");
+    } finally {
+      setSuggestingStoreLinks(false);
+    }
+  }, [activeVideoUrl, editing?.title, form.title]);
+
+  useEffect(() => {
+    setPreviewRevision(0);
+    skipAutosaveRef.current = true;
+  }, [editing?.id]);
+
   const thumbFor = (url: string) => {
     const id = extractYoutubeID(url);
     return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
   };
 
+  const resumeTipLinkCreate = useCallback(
+    (channelId: string, title: string) => {
+      const slug = eventSlug?.trim();
+      const search = searchParams.toString();
+      const returnPath = slug
+        ? buildTipLinkManageHref(slug, eventId, channelId)
+        : `${pathname ?? ""}${search ? `?${search}` : ""}`;
+      setHostSubscriptionResume({
+        kind: "create-tiplink-draft",
+        returnPath,
+        channelId,
+        eventId,
+        title,
+      });
+    },
+    [eventId, eventSlug, pathname, searchParams]
+  );
+
   const startCreate = useCallback(
     async (channelId: string, title: string) => {
-      if (!eligibility?.canCreate) {
-        handleSubscriptionActionError(
-          { success: false, validationBody: { code: "SUBSCRIPTION_REQUIRED" } },
-          { focusTier: "premium" }
-        );
+      if (shouldPreGateTipLinkCreate(eligibility)) {
+        resumeTipLinkCreate(channelId, title);
+        openTipLinkCreateSubscriptionPrompt({
+          eligibility,
+          openForRequired,
+          openForLapsed,
+          focusTier: "premium",
+        });
         return;
       }
       setCreatingForChannel(channelId);
+      toast.info("Creating TipLink draft…", {
+        toastId: TIPLINK_DRAFT_CREATE_TOAST_ID,
+      });
       try {
         const slugRes = await suggestTipLinkSlugAction(title);
         const slug =
@@ -185,20 +335,43 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
           slug,
         });
         if (!res.success || !res.data) {
-          if (handleSubscriptionActionError(res, { focusTier: "premium" }))
+          if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
+            toast.dismiss(TIPLINK_DRAFT_CREATE_TOAST_ID);
+            resumeTipLinkCreate(channelId, title);
             return;
+          }
+          toast.dismiss(TIPLINK_DRAFT_CREATE_TOAST_ID);
           toast.error(res.message ?? "Could not create TipLink");
           return;
         }
+        toast.dismiss(TIPLINK_DRAFT_CREATE_TOAST_ID);
         toast.success("TipLink draft created");
+        const channel = contents.find(c => c.id === channelId);
         setEditing(res.data.tipLink);
-        setForm(f => ({ ...f, slug: res.data!.tipLink.slug, pitch: "" }));
+        setForm(f => ({
+          ...f,
+          eventChannelId: channelId,
+          slug: res.data!.tipLink.slug,
+          pitch: "",
+          moneyFor: "",
+          title: channel?.title ?? res.data!.tipLink.title ?? "",
+          description:
+            channel?.description ?? res.data!.tipLink.description ?? "",
+        }));
         await load();
       } finally {
         setCreatingForChannel("");
       }
     },
-    [eligibility?.canCreate, handleSubscriptionActionError, load]
+    [
+      contents,
+      eligibility,
+      handleSubscriptionActionError,
+      load,
+      openForLapsed,
+      openForRequired,
+      resumeTipLinkCreate,
+    ]
   );
 
   const openEdit = (row: TipLinkSummary) => {
@@ -208,6 +381,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       eventChannelId: row.eventChannelId,
       slug: row.slug,
       pitch: row.pitch ?? "",
+      moneyFor: row.moneyFor ?? "",
       title: row.title,
       description: row.description ?? "",
       appleMusicUrl: row.appleMusicUrl ?? "",
@@ -245,7 +419,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       return;
     }
     const channel = contents.find(c => c.id === autoCreateChannelId);
-    if (!channel || !isTipLinkEligibleChannel(channel)) {
+    if (!channel || !isTipLinkEligibleEventRoomChannel(channel)) {
       return;
     }
     void startCreate(channel.id, channel.title);
@@ -268,7 +442,20 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     return socials;
   };
 
-  const persistDraft = async (): Promise<boolean> => {
+  const persistDraft = async (
+    options: {
+      silent?: boolean;
+      includeSlug?: boolean;
+      bumpPreview?: boolean;
+      reloadList?: boolean;
+    } = {}
+  ): Promise<boolean> => {
+    const {
+      silent = false,
+      includeSlug = true,
+      bumpPreview = false,
+      reloadList = true,
+    } = options;
     if (!editing) return false;
     try {
       let bannerUrl = form.bannerUrl ?? editing.bannerUrl;
@@ -276,11 +463,11 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       if (bannerPreview) {
         const uploaded = await tryUploadImage(bannerPreview);
         if (!uploaded.ok) {
-          toast.error(uploaded.message);
+          if (!silent) toast.error(uploaded.message);
           return false;
         }
         if (!uploaded.data?.secure_url) {
-          toast.error("Could not upload banner image");
+          if (!silent) toast.error("Could not upload banner image");
           return false;
         }
         bannerUrl = uploaded.data.secure_url;
@@ -295,10 +482,13 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         (bannerSource == null && editing.bannerSource === "thumbnail");
 
       const res = await updateTipLinkAction(editing.id, {
-        ...(isRebinding ? { eventChannelId: form.eventChannelId } : {}),
-        slug: form.slug,
+        ...(includeSlug ? { slug: form.slug } : {}),
+        ...(isRebinding && includeSlug
+          ? { eventChannelId: form.eventChannelId }
+          : {}),
         pitch: form.pitch || null,
-        ...(!isRebinding
+        moneyFor: form.moneyFor.trim() || null,
+        ...(!isRebinding || !includeSlug
           ? {
               titleOverride: form.title || null,
               descriptionOverride: form.description || null,
@@ -310,8 +500,14 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         tiktokUrl: form.tiktokUrl || null,
         customLinkLabel: form.customLinkLabel.trim() || null,
         customLinkUrl: form.customLinkUrl.trim() || null,
-        featuredPlaylistId: form.featuredPlaylistId || null,
-        socials: buildSocials(),
+        ...(includeSlug
+          ? {
+              ...(playlistPlan === "ok"
+                ? { featuredPlaylistId: form.featuredPlaylistId || null }
+                : {}),
+              socials: buildSocials(),
+            }
+          : {}),
         ...(!(isRebinding && usesThumbnailBanner)
           ? {
               bannerUrl,
@@ -321,15 +517,20 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
           : {}),
       });
       if (!res.success || !res.data) {
-        toast.error(res.message ?? "Save failed");
+        if (!silent) toast.error(res.message ?? "Save failed");
         return false;
       }
-      toast.success("Draft saved");
+      if (!silent) toast.success("Draft saved");
       setEditing(res.data.tipLink);
-      await load();
+      if (bumpPreview) {
+        setPreviewRevision(revision => revision + 1);
+      }
+      if (reloadList) {
+        await load();
+      }
       return true;
     } catch {
-      toast.error("Save failed");
+      if (!silent) toast.error("Save failed");
       return false;
     }
   };
@@ -337,7 +538,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
   const saveDraft = async () => {
     setSaving(true);
     try {
-      await persistDraft();
+      await persistDraft({ bumpPreview: true });
     } finally {
       setSaving(false);
     }
@@ -351,7 +552,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     }
     setSaving(true);
     try {
-      const savedOk = await persistDraft();
+      const savedOk = await persistDraft({ bumpPreview: true });
       if (!savedOk) return;
       const res = await updateTipLinkAction(editing.id, {
         status: "published",
@@ -361,6 +562,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         toast.error(res.message ?? "Publish failed");
         return;
       }
+      setPreviewRevision(revision => revision + 1);
       toast.success("TipLink published");
       setEditing(null);
       await load();
@@ -368,6 +570,55 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    if (!editing) return;
+
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
+      return;
+    }
+    if (saving || autosavingRef.current) return;
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      autosavingRef.current = true;
+      void persistDraft({
+        silent: true,
+        includeSlug: false,
+        bumpPreview: true,
+        reloadList: false,
+      }).finally(() => {
+        autosavingRef.current = false;
+      });
+    }, 1000);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [
+    editing,
+    saving,
+    form.title,
+    form.description,
+    form.pitch,
+    form.moneyFor,
+    form.appleMusicUrl,
+    form.spotifyUrl,
+    form.audiomackUrl,
+    form.tiktokUrl,
+    form.customLinkLabel,
+    form.customLinkUrl,
+    form.bannerUrl,
+    form.bannerSource,
+    form.bannerAspect,
+    bannerPreview,
+  ]);
 
   const remove = async (id: string) => {
     const res = await deleteTipLinkAction(id);
@@ -515,6 +766,11 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                       <span className="text-sm font-medium">{ch.title}</span>
                       {creatingForChannel === ch.id ? (
                         <Loader2 className="ml-auto size-4 animate-spin" />
+                      ) : shouldPreGateTipLinkCreate(eligibility) ? (
+                        <PremiumFeatureBadge
+                          className="ml-auto size-4"
+                          label="Additional TipLink requires Host Growth or Community"
+                        />
                       ) : (
                         <Plus className="ml-auto size-4" />
                       )}
@@ -588,10 +844,25 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
             <div className="space-y-2">
               <Label>Pitch (required to publish)</Label>
               <Textarea
-                maxLength={120}
+                maxLength={400}
                 value={form.pitch}
                 onChange={e => setForm(f => ({ ...f, pitch: e.target.value }))}
+                className="break-words whitespace-pre-wrap"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>TipLink money for</Label>
+              <Input
+                maxLength={TIPLINK_MONEY_FOR_MAX}
+                placeholder="charity and upkeep"
+                value={form.moneyFor}
+                onChange={e =>
+                  setForm(f => ({ ...f, moneyFor: e.target.value }))
+                }
+              />
+              <p className="text-muted-foreground text-xs">
+                Shown on the pitch as “towards …” in front of amount raised.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Banner</Label>
@@ -720,6 +991,20 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                 </Button>
               </div>
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={suggestingStoreLinks}
+                onClick={() => void suggestStoreLinks()}
+              >
+                {suggestingStoreLinks ? "Searching…" : "Find store links"}
+              </Button>
+              <p className="text-muted-foreground text-xs">
+                Fills empty Apple, Spotify, and Audiomack fields only.
+              </p>
+            </div>
             {TIPLINK_STORE_FIELDS.map(field => (
               <div
                 key={field.key}
@@ -755,33 +1040,64 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                 }
               />
             </div>
-            <div className="space-y-2">
-              <Label>Featured playlist</Label>
-              <Select
-                value={form.featuredPlaylistId || "none"}
-                onValueChange={v =>
-                  setForm(f => ({
-                    ...f,
-                    featuredPlaylistId: v === "none" ? "" : v,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Optional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {playlists.map(p => (
-                    <SelectItem
-                      key={p.id}
-                      value={p.id}
+            {!isCommunityBankDraft ? (
+              <div className="space-y-2">
+                <Label>Featured playlist</Label>
+                {playlistPlan === "ok" ? (
+                  <Select
+                    value={form.featuredPlaylistId || "none"}
+                    onValueChange={v =>
+                      setForm(f => ({
+                        ...f,
+                        featuredPlaylistId: v === "none" ? "" : v,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Optional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {playlists.map(p => (
+                        <SelectItem
+                          key={p.id}
+                          value={p.id}
+                        >
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="space-y-2 rounded-md border border-dashed p-3 text-sm">
+                    <p className="text-muted-foreground">
+                      {playlistPlan === "lapsed"
+                        ? "Featuring a playlist on your TipLink requires an active Host Growth or Community plan."
+                        : "Featuring a playlist on your TipLink requires Host Growth or Community."}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="inline-flex items-center gap-1.5"
+                      onClick={
+                        playlistPlan === "lapsed"
+                          ? openFeaturedPlaylistRenew
+                          : openFeaturedPlaylistSubscribe
+                      }
                     >
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                      <PremiumFeatureBadge
+                        className="size-3.5"
+                        label="Requires Host Growth — tap to subscribe or renew"
+                      />
+                      {playlistPlan === "lapsed"
+                        ? "Renew plan"
+                        : "Subscribe to Host Growth"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               {[1, 2].map(n => (
                 <div
@@ -853,14 +1169,25 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
             </div>
           </div>
           <div className="bg-muted/20 rounded-lg border p-4">
-            <p className="mb-2 text-sm font-medium">Live preview</p>
-            <Link
-              href={`/l/preview/${editing.id}`}
-              target="_blank"
-              className="text-primary text-sm underline"
-            >
-              Open preview in new tab
-            </Link>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-medium">Live preview</p>
+              <Link
+                href={`/l/preview/${editing.id}`}
+                target="_blank"
+                className="text-primary inline-flex items-center gap-1 text-sm underline"
+              >
+                Open in new tab
+                <ExternalLink className="size-3.5" />
+              </Link>
+            </div>
+            <div className="overflow-hidden rounded-lg border bg-black/90">
+              <iframe
+                key={`${editing.id}-${previewRevision}`}
+                title="TipLink preview"
+                src={`/l/preview/${editing.id}`}
+                className="aspect-[9/16] max-h-[min(70vh,720px)] w-full bg-black"
+              />
+            </div>
           </div>
         </div>
       )}

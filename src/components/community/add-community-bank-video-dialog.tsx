@@ -11,6 +11,7 @@ import {
   type AddVideoFormValues,
 } from "@/components/events/add-video-form";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,8 @@ import {
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
 import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
+import { buildAddCommunityVideoSubscriptionResumePath } from "@/lib/add-community-video-resume-path";
+import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 import { ApiError } from "@/types/api-error.types";
 
 type Props = {
@@ -45,6 +48,8 @@ export function AddCommunityBankVideoDialog({
 }: Props) {
   const { handleAuthRequiredError, HostAuthModal } =
     useHostCapabilityWithAuth();
+  const { handleSubscriptionActionError, SubscriptionPromptModal } =
+    useHostSubscriptionPrompt({ focusTier: "community" });
   const [addLoading, setAddLoading] = useState(false);
   const [addVideoForm, setAddVideoForm] =
     useState<UseFormReturn<AddVideoFormValues> | null>(null);
@@ -72,6 +77,21 @@ export function AddCommunityBankVideoDialog({
             void onAddVideo(values);
           })
         ) {
+          return;
+        }
+        if (
+          handleSubscriptionActionError(res, {
+            focusTier: "community",
+            toastFallback: false,
+          })
+        ) {
+          setHostSubscriptionResume({
+            kind: "return-path",
+            returnPath: buildAddCommunityVideoSubscriptionResumePath(
+              resumePathname,
+              communityId
+            ),
+          });
           return;
         }
         if (addVideoForm) {
@@ -104,6 +124,7 @@ export function AddCommunityBankVideoDialog({
   return (
     <>
       {HostAuthModal}
+      {SubscriptionPromptModal}
       <Dialog
         open={open}
         onOpenChange={onOpenChange}

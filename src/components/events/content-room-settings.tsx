@@ -9,8 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { AddProjectsModal } from "./add-projects-modal";
 import { AddPerformersModal } from "./add-performers-modal";
 import { SelectDefaultVideoModal } from "./select-default-video-modal";
-import { Crown } from "lucide-react";
-
 interface SectionItem {
   title: string;
   // icon: React.ReactNode;
@@ -43,6 +41,8 @@ export const ContentRoomSettings = ({
   eventEventType,
   onClose,
   onChannelCreated,
+  onPerformersUpdated,
+  onProjectsUpdated,
 }: {
   isHost: boolean;
   isCohost: boolean;
@@ -58,6 +58,8 @@ export const ContentRoomSettings = ({
   eventEventType?: string;
   onClose: () => void;
   onChannelCreated?: (channel: EventRoomVideoChannel) => void;
+  onPerformersUpdated?: (performers: Performer[]) => void;
+  onProjectsUpdated?: (projects: Project[]) => void;
 }) => {
   const searchParams = useSearchParams();
   const seedModalDraftId = searchParams.get("modalDraftId");
@@ -123,7 +125,6 @@ export const ContentRoomSettings = ({
           ? () => setPerformersModalOpen(true)
           : () => setProjectsModalOpen(true),
       show: canManageChannel,
-      isPremium: true,
     },
   ];
 
@@ -171,11 +172,8 @@ export const ContentRoomSettings = ({
                 >
                   <div className="flex items-center gap-3">
                     <span className="size-1 rounded-full bg-black"></span>
-                    <div
-                      className={`flex items-center gap-1 text-sm font-medium ${section.isPremium ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-                    >
-                      {section.title}{" "}
-                      {section.isPremium && <Crown className="text-primary" />}
+                    <div className="flex items-center gap-1 text-sm font-medium">
+                      {section.title}
                     </div>
                   </div>
                   <span className="text-gray-400">{">"}</span>
@@ -221,9 +219,13 @@ export const ContentRoomSettings = ({
             isHost={canManageChannel}
             eventId={eventId}
             performers={performers} // fetch existing projects if you want
-            setPerformers={updatedPerformers =>
-              console.log("New performers", updatedPerformers)
-            }
+            setPerformers={updatedPerformers => {
+              const next =
+                typeof updatedPerformers === "function"
+                  ? updatedPerformers(performers as never)
+                  : updatedPerformers;
+              onPerformersUpdated?.(next);
+            }}
           />
 
           <AddProjectsModal
@@ -232,9 +234,13 @@ export const ContentRoomSettings = ({
             isHost={canManageChannel}
             eventId={eventId}
             projects={projects} // fetch existing projects if you want
-            setProjects={updatedProjects =>
-              console.log("New projects", updatedProjects)
-            }
+            setProjects={updatedProjects => {
+              const next =
+                typeof updatedProjects === "function"
+                  ? updatedProjects(projects as never)
+                  : updatedProjects;
+              onProjectsUpdated?.(next);
+            }}
           />
         </section>
       </DialogContent>

@@ -3,10 +3,14 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
-import SignInDialog from "@/components/auth/sign-in-dialog";
+
+const SignInDialog = dynamic(() => import("@/components/auth/sign-in-dialog"), {
+  ssr: false,
+});
 import { useSelector } from "react-redux";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "react-toastify";
@@ -50,7 +54,8 @@ import {
   CREATE_FORM_SELECT_TRIGGER_CLASS,
 } from "@/lib/create-form-theme";
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
-import { useCreateDialogResume } from "@/hooks/use-create-dialog-resume";
+import { shouldUseExploreCreateLayer } from "@/lib/create-dialog-explore-layer";
+import type { CreateDialogResumeSeed } from "@/components/home/create-dialog-resume-listener";
 import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { Button } from "@/components/ui/button";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
@@ -102,6 +107,8 @@ interface Props {
   onExploreLayer?: boolean;
   /** Opens add-video flow or live-event picker (content-only disabled). */
   entry?: CreateDialogEntry;
+  /** Chrome host resume seed (first mount only). */
+  initialResume?: CreateDialogResumeSeed | null;
 }
 
 type CommunityBrief = {
@@ -124,6 +131,7 @@ export const CreateDialog = ({
   setOpenPopup,
   onExploreLayer = false,
   entry = "default",
+  initialResume = null,
 }: Props) => {
   const { push } = useAppRouter();
   const router = useRouter();
@@ -134,12 +142,12 @@ export const CreateDialog = ({
   const [isProceeding, setIsProceeding] = useState(false);
 
   const [hostTab, setHostTab] = useState<"event" | "owner" | "cocreator">(
-    "event"
+    initialResume?.hostTab ?? "event"
   );
   const [events, setEvents] = useState<HostEventRow[]>([]);
   const [owned, setOwned] = useState<CommunityBrief[]>([]);
   const [coCreated, setCoCreated] = useState<CommunityBrief[]>([]);
-  const [targetId, setTargetId] = useState("");
+  const [targetId, setTargetId] = useState(initialResume?.targetId ?? "");
   const [pickerLoading, setPickerLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
@@ -148,7 +156,9 @@ export const CreateDialog = ({
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [addVideoForm, setAddVideoForm] =
     useState<UseFormReturn<AddVideoFormValues> | null>(null);
-  const [modalDraftId, setModalDraftId] = useState<string | null>(null);
+  const [modalDraftId, setModalDraftId] = useState<string | null>(
+    initialResume?.modalDraftId ?? null
+  );
   const pendingVideoSubmitRef = useRef<AddVideoFormValues | null>(null);
   const signInIntentRef = useRef<SignInIntent>(null);
   const pendingHrefRef = useRef<string | null>(null);
@@ -168,6 +178,7 @@ export const CreateDialog = ({
     HostAuthModal,
   } = useHostCapabilityWithAuth({
     enabled: openPopup,
+    requireHostAccount: true,
   });
   const showHostCreateFlow = communityFeatureOn && canReadAsHost;
   const summarizedIntent =
@@ -184,13 +195,6 @@ export const CreateDialog = ({
     canReadAsHost,
     showNewEventRoomPicker: summarizedIntent,
     holdUntilLinkSettled,
-  });
-
-  useCreateDialogResume({
-    openCreateDialog: () => setOpenPopup(true),
-    setHostTab,
-    setTargetId,
-    setModalDraftId,
   });
 
   const modalResumeOrigin: DraftResumeOrigin | undefined =
@@ -508,12 +512,17 @@ export const CreateDialog = ({
       }
     };
 
-    if (hostTab !== "event" && !canWriteAsHost) {
+    if (!canWriteAsHost) {
       pendingVideoSubmitRef.current = values;
-      requestHostAuth(() => {
+      const outcome = requestHostAuth(() => {
         pendingVideoSubmitRef.current = values;
         setResumeVideoSubmit(true);
       });
+      if (outcome === "noop") {
+        toast.error(
+          "A host account is required. Add an email to your tipper profile or create a host account."
+        );
+      }
       return;
     }
 
@@ -533,16 +542,19 @@ export const CreateDialog = ({
     void handleHostVideoSubmit(values);
   }, [resumeVideoSubmit, showHostCreateFlow, user?.id]);
 
-  const dialogOverlayZIndex = onExploreLayer
+  const useExploreLayer =
+    onExploreLayer || shouldUseExploreCreateLayer(pathname);
+
+  const dialogOverlayZIndex = useExploreLayer
     ? EXPLORE_MODAL_Z_INDEX
     : AUTH_MODAL_OVERLAY_Z_INDEX;
-  const dialogContentZIndex = onExploreLayer
+  const dialogContentZIndex = useExploreLayer
     ? EXPLORE_MODAL_Z_INDEX
     : AUTH_MODAL_Z_INDEX;
-  const signInOverlayZIndex = onExploreLayer
+  const signInOverlayZIndex = useExploreLayer
     ? SIGN_IN_EXPLORE_OVERLAY_Z_INDEX
     : SIGN_IN_NESTED_OVERLAY_Z_INDEX;
-  const signInContentZIndex = onExploreLayer
+  const signInContentZIndex = useExploreLayer
     ? SIGN_IN_EXPLORE_Z_INDEX
     : SIGN_IN_NESTED_Z_INDEX;
 
@@ -695,7 +707,7 @@ export const CreateDialog = ({
           </Select>
           {!events.length && (
             <p className="mt-2 text-xs text-white/50">
-              No events found — create one from your dashboard first.
+              No channels found — click on create new channel.
             </p>
           )}
         </TabsContent>
@@ -806,88 +818,135 @@ export const CreateDialog = ({
     </div>
   );
 
-  if (dialogView === "loading") {
-    return (
-      <>
-        {createDialogOpen ? (
-          <Dialog
-            open
-            onOpenChange={handleCreateOpenChange}
-          >
-            <DialogContent
-              overlayClassName={dialogOverlayZIndex}
-              className={`${dialogContentZIndex} rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-md`}
-            >
-              <DialogHeader>
-                <DialogTitle className="text-white/70">Add a video</DialogTitle>
-              </DialogHeader>
-              <p className="text-sm text-white/70">
-                Checking your host session…
-              </p>
-            </DialogContent>
-          </Dialog>
-        ) : null}
-        {signInDialog}
-        {HostAuthModal}
-      </>
-    );
-  }
+  const fullPickerContent = (
+    <>
+      {isLiveEventEntry ? (
+        <p className="text-sm text-white/70">{hostEventRoomDialogSubtitle}</p>
+      ) : null}
 
-  if (dialogView === "summarized-picker") {
-    return (
-      <>
-        {createDialogOpen ? (
-          <Dialog
-            open
-            onOpenChange={handleCreateOpenChange}
-          >
-            <DialogContent
-              overlayClassName={dialogOverlayZIndex}
-              className={`${dialogContentZIndex} max-h-[90vh] overflow-y-auto rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-2xl`}
-            >
-              <DialogHeader>
-                <DialogTitle className="text-white/70">
-                  {hostEventRoomDialogTitle}
-                </DialogTitle>
-              </DialogHeader>
-              {summarizedPickerContent}
-            </DialogContent>
-          </Dialog>
-        ) : null}
-        {signInDialog}
-        {HostAuthModal}
-      </>
-    );
-  }
+      <div className="mt-4 grid w-full grid-cols-1 gap-4 md:grid-cols-3">
+        <RadioGroup
+          value={selected}
+          onValueChange={handleCreateTypeChange}
+          className="grid w-full grid-cols-1"
+        >
+          {createTypeOptions.map(option => {
+            const isDisabled = disabledCreateOptions.has(option.value);
 
-  if (dialogView === "prepared") {
-    return (
-      <>
-        {createDialogOpen ? (
-          <Dialog
-            open
-            onOpenChange={handleCreateOpenChange}
+            return (
+              <Label
+                key={option.value}
+                htmlFor={option.value}
+                className={cn(
+                  "relative flex w-full flex-col sm:w-[400px] sm:flex-row",
+                  isDisabled && "cursor-not-allowed opacity-50"
+                )}
+              >
+                <div
+                  className={cn(
+                    "duration transition-300 flex w-full items-center justify-between gap-2 rounded-2xl border-2 p-4 text-white shadow-2xl sm:w-[270px]",
+                    selected === option.value
+                      ? "border-primary bg-primary/20"
+                      : "border-white/30 bg-[#251212]",
+                    isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                  )}
+                >
+                  <div className="relative flex w-full">
+                    <div className="flex flex-col gap-1">
+                      <h5>{option.title}</h5>
+                      {"subtitle" in option ? (
+                        <>
+                          <p className="text-xs text-white/80">
+                            {option.subtitle}
+                          </p>
+                          <span className="inline-block shrink-0 text-[10px] text-white/50 sm:hidden">
+                            {option.description} for {option.role}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+
+                    <RadioGroupItem
+                      className={`absolute top-1/2 right-2 -translate-y-1/2 ${selected === option.value ? "bg-primary" : "bg-[#3b3b3b]"}`}
+                      value={option.value}
+                      id={option.value}
+                      disabled={isDisabled}
+                    />
+                  </div>
+                </div>
+
+                {"description" in option ? (
+                  <span className="hidden text-xs text-white/80 sm:inline-block">
+                    {option.description} <br /> {option.role}
+                  </span>
+                ) : null}
+              </Label>
+            );
+          })}
+        </RadioGroup>
+      </div>
+
+      {!isLiveEventEntry && (!user || user.role === "VISITOR") ? (
+        <p className="mt-3 text-center text-xs text-white/55">
+          * To add videos straight to your existing channels <br /> and
+          communities, sign in as a{" "}
+          <button
+            type="button"
+            className="text-primary cursor-pointer underline underline-offset-2 hover:underline"
+            onClick={() => openSignInFromCreate("return-prepared")}
           >
-            <DialogContent
-              overlayClassName={dialogOverlayZIndex}
-              className={`${dialogContentZIndex} max-h-[90vh] overflow-y-auto rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-2xl`}
-            >
-              <DialogHeader>
-                <DialogTitle className="text-white/70">Add a video</DialogTitle>
-              </DialogHeader>
-              {pickerLoading ? (
-                <p className="text-sm text-white/70">Loading your events…</p>
-              ) : (
-                preparedViewContent
-              )}
-            </DialogContent>
-          </Dialog>
-        ) : null}
-        {signInDialog}
-        {HostAuthModal}
-      </>
+            host creator
+          </button>{" "}
+          from here.
+        </p>
+      ) : null}
+
+      <div className="mt-4 flex items-center justify-between">
+        <button
+          className="rounded-md border border-white/70 bg-[#3b3b3b] px-2 py-1 text-sm text-white shadow-2xl"
+          onClick={() => setOpenPopup(false)}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          className="bg-primary shadow- rounded-md px-2 py-1 text-sm text-white disabled:opacity-50"
+          disabled={!selected || isProceeding}
+          onClick={handleProceed}
+        >
+          {isProceeding ? "Opening…" : "Proceed"}
+        </button>
+      </div>
+    </>
+  );
+
+  const isWideCreateShell =
+    dialogView === "summarized-picker" || dialogView === "prepared";
+
+  const createDialogTitle =
+    dialogView === "loading" || dialogView === "prepared"
+      ? "Add a video"
+      : dialogView === "summarized-picker"
+        ? hostEventRoomDialogTitle
+        : isLiveEventEntry
+          ? hostEventRoomDialogTitle
+          : "What are you creating?";
+
+  const createDialogBody =
+    dialogView === "loading" ? (
+      <p className="text-sm text-white/70">Checking your host session…</p>
+    ) : dialogView === "summarized-picker" ? (
+      summarizedPickerContent
+    ) : dialogView === "prepared" ? (
+      pickerLoading ? (
+        <p className="text-sm text-white/70">Loading your events…</p>
+      ) : (
+        preparedViewContent
+      )
+    ) : (
+      fullPickerContent
     );
-  }
 
   return (
     <>
@@ -898,116 +957,18 @@ export const CreateDialog = ({
         >
           <DialogContent
             overlayClassName={dialogOverlayZIndex}
-            className={`${dialogContentZIndex} rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl sm:max-w-md`}
+            className={`${dialogContentZIndex} rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl ${
+              isWideCreateShell
+                ? "max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+                : "sm:max-w-md"
+            }`}
           >
             <DialogHeader>
               <DialogTitle className="text-white/70">
-                {isLiveEventEntry
-                  ? hostEventRoomDialogTitle
-                  : "What are you creating?"}
+                {createDialogTitle}
               </DialogTitle>
             </DialogHeader>
-
-            {isLiveEventEntry ? (
-              <p className="text-sm text-white/70">
-                {hostEventRoomDialogSubtitle}
-              </p>
-            ) : null}
-
-            <div className="mt-4 grid w-full grid-cols-1 gap-4 md:grid-cols-3">
-              <RadioGroup
-                value={selected}
-                onValueChange={handleCreateTypeChange}
-                className="grid w-full grid-cols-1"
-              >
-                {createTypeOptions.map(option => {
-                  const isDisabled = disabledCreateOptions.has(option.value);
-
-                  return (
-                    <Label
-                      key={option.value}
-                      htmlFor={option.value}
-                      className={cn(
-                        "relative flex w-full flex-col sm:w-[400px] sm:flex-row",
-                        isDisabled && "cursor-not-allowed opacity-50"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "duration transition-300 flex w-full items-center justify-between gap-2 rounded-2xl border-2 p-4 text-white shadow-2xl sm:w-[270px]",
-                          selected === option.value
-                            ? "border-primary bg-primary/20"
-                            : "border-white/30 bg-[#251212]",
-                          isDisabled ? "cursor-not-allowed" : "cursor-pointer"
-                        )}
-                      >
-                        <div className="relative flex w-full">
-                          <div className="flex flex-col gap-1">
-                            <h5>{option.title}</h5>
-                            {"subtitle" in option ? (
-                              <>
-                                <p className="text-xs text-white/80">
-                                  {option.subtitle}
-                                </p>
-                                <span className="inline-block shrink-0 text-[10px] text-white/50 sm:hidden">
-                                  {option.description} for {option.role}
-                                </span>
-                              </>
-                            ) : null}
-                          </div>
-
-                          <RadioGroupItem
-                            className={`absolute top-1/2 right-2 -translate-y-1/2 ${selected === option.value ? "bg-primary" : "bg-[#3b3b3b]"}`}
-                            value={option.value}
-                            id={option.value}
-                            disabled={isDisabled}
-                          />
-                        </div>
-                      </div>
-
-                      {"description" in option ? (
-                        <span className="hidden text-xs text-white/80 sm:inline-block">
-                          {option.description} <br /> {option.role}
-                        </span>
-                      ) : null}
-                    </Label>
-                  );
-                })}
-              </RadioGroup>
-            </div>
-
-            {!isLiveEventEntry && (!user || user.role === "VISITOR") ? (
-              <p className="mt-3 text-center text-xs text-white/55">
-                * To add videos straight to your existing channels <br /> and
-                communities, sign in as a{" "}
-                <button
-                  type="button"
-                  className="text-primary cursor-pointer underline underline-offset-2 hover:underline"
-                  onClick={() => openSignInFromCreate("return-prepared")}
-                >
-                  host creator
-                </button>{" "}
-                from here.
-              </p>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-between">
-              <button
-                className="rounded-md border border-white/70 bg-[#3b3b3b] px-2 py-1 text-sm text-white shadow-2xl"
-                onClick={() => setOpenPopup(false)}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                className="bg-primary shadow- rounded-md px-2 py-1 text-sm text-white disabled:opacity-50"
-                disabled={!selected || isProceeding}
-                onClick={handleProceed}
-              >
-                {isProceeding ? "Opening…" : "Proceed"}
-              </button>
-            </div>
+            {createDialogBody}
           </DialogContent>
         </Dialog>
       ) : null}

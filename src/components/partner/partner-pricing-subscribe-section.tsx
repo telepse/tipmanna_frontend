@@ -54,7 +54,7 @@ export function PartnerPricingSubscribeSection() {
                 asChild
                 variant="outline"
               >
-                <Link href="/#pricing">Compare plans</Link>
+                <Link href="/partner#pricing">Compare plans</Link>
               </Button>
             </>
           )}

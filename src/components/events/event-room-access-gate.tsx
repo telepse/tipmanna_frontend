@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
+import { getCommunityAccessStateAction } from "@/actions/communities";
 import { persistEventRoomInviteToken } from "@/lib/event-room-invite-cookie";
 import type { RootState } from "@/redux/store";
 
@@ -216,6 +217,13 @@ function EventRoomAccessForm({
   const [reminderOffset, setReminderOffset] = useState(15);
   const [signInOpen, setSignInOpen] = useState(false);
   const [communityOpen, setCommunityOpen] = useState(false);
+  const [communityAccessLoading, setCommunityAccessLoading] = useState(false);
+  const [communityMembership, setCommunityMembership] = useState<{
+    isMember: boolean;
+    membershipStartedAt: string | null;
+    membershipExpiresAt: string | null;
+    subscriptionExpiresAt: string | null;
+  } | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
   const [guestEmailUsed, setGuestEmailUsed] = useState("");
   const [pendingGuestMerge, setPendingGuestMerge] = useState(false);
@@ -226,6 +234,49 @@ function EventRoomAccessForm({
     () => parseFormConfig(gate?.formConfig),
     [gate?.formConfig]
   );
+
+  const communityId = gate?.communityId?.trim() ?? "";
+
+  useEffect(() => {
+    if (
+      step !== "details" ||
+      !gate?.requiresCommunityMembership ||
+      !communityId
+    ) {
+      return;
+    }
+    setCommunityAccessLoading(true);
+    void getCommunityAccessStateAction(communityId)
+      .then(res => {
+        if (!res.success || !res.data) return;
+        const data = res.data as {
+          isMember?: boolean;
+          membershipStartedAt?: string | null;
+          membershipExpiresAt?: string | null;
+          subscriptionExpiresAt?: string | null;
+        };
+        setCommunityMembership({
+          isMember: Boolean(data.isMember),
+          membershipStartedAt: data.membershipStartedAt ?? null,
+          membershipExpiresAt: data.membershipExpiresAt ?? null,
+          subscriptionExpiresAt: data.subscriptionExpiresAt ?? null,
+        });
+      })
+      .finally(() => setCommunityAccessLoading(false));
+  }, [step, gate?.requiresCommunityMembership, communityId]);
+
+  const formatMembershipDate = (iso: string | null) => {
+    if (!iso) return "No expiry";
+    try {
+      return new Date(iso).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return iso;
+    }
+  };
 
   const persistCredentials = () => {
     if (accessCode.trim()) {
@@ -493,42 +544,6 @@ function EventRoomAccessForm({
     );
   }
 
-  if (gate?.requiresCommunityMembership) {
-    const communityId = gate.communityId?.trim();
-    if (!communityId) {
-      return <PrivateEventRoomBlocked accessMode={accessMode} />;
-    }
-    return (
-      <div className="mx-auto flex min-h-[50vh] max-w-md flex-col justify-center gap-6 px-4 py-10">
-        <div className="space-y-2 text-center">
-          <Lock className="text-muted-foreground mx-auto size-10" />
-          <h1 className="text-2xl font-semibold">Community members only</h1>
-          <p className="text-muted-foreground text-sm">
-            Join the host&apos;s community to access this event room.
-          </p>
-        </div>
-        <Button
-          type="button"
-          className="w-full"
-          onClick={() => setCommunityOpen(true)}
-        >
-          Join community
-        </Button>
-        <JoinCommunityModal
-          open={communityOpen}
-          onOpenChange={setCommunityOpen}
-          communityId={communityId}
-          signInRedirectPath={`${pathname}?communityJoin=1`}
-          title="Join community to enter"
-          onJoined={() => {
-            setCommunityOpen(false);
-            onSuccess();
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto flex min-h-[50vh] max-w-md flex-col justify-center gap-6 px-4 py-10">
       <div className="space-y-2 text-center">
@@ -563,6 +578,76 @@ function EventRoomAccessForm({
               value={accessCode}
               onChange={e => setAccessCode(e.target.value)}
               autoComplete="off"
+            />
+          </div>
+        ) : null}
+
+        {gate?.requiresCommunityMembership ? (
+          <div className="space-y-3 rounded-md border p-4">
+            <p className="text-sm font-medium">Community membership</p>
+            {!communityId ? (
+              <p className="text-muted-foreground text-sm">
+                Community not configured for this event.
+              </p>
+            ) : communityAccessLoading ? (
+              <p className="text-muted-foreground text-sm">
+                Checking membership…
+              </p>
+            ) : communityMembership?.isMember ? (
+              <div className="text-muted-foreground space-y-1 text-sm">
+                <p>
+                  Joined:{" "}
+                  {formatMembershipDate(
+                    communityMembership.membershipStartedAt
+                  )}
+                </p>
+                <p>
+                  Expires:{" "}
+                  {formatMembershipDate(
+                    communityMembership.membershipExpiresAt ??
+                      communityMembership.subscriptionExpiresAt
+                  )}
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-muted-foreground text-sm">
+                  Join the host&apos;s community to access this event room.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => setCommunityOpen(true)}
+                >
+                  Join community
+                </Button>
+              </>
+            )}
+            <JoinCommunityModal
+              open={communityOpen}
+              onOpenChange={setCommunityOpen}
+              communityId={communityId}
+              signInRedirectPath={`${pathname}?communityJoin=1`}
+              title="Join community to enter"
+              onJoined={() => {
+                setCommunityOpen(false);
+                void getCommunityAccessStateAction(communityId).then(res => {
+                  if (!res.success || !res.data) return;
+                  const data = res.data as {
+                    isMember?: boolean;
+                    membershipStartedAt?: string | null;
+                    membershipExpiresAt?: string | null;
+                    subscriptionExpiresAt?: string | null;
+                  };
+                  setCommunityMembership({
+                    isMember: Boolean(data.isMember),
+                    membershipStartedAt: data.membershipStartedAt ?? null,
+                    membershipExpiresAt: data.membershipExpiresAt ?? null,
+                    subscriptionExpiresAt: data.subscriptionExpiresAt ?? null,
+                  });
+                });
+              }}
             />
           </div>
         ) : null}
@@ -704,7 +789,11 @@ function EventRoomAccessForm({
         <Button
           type="button"
           className="w-full"
-          disabled={busy}
+          disabled={
+            busy ||
+            (gate?.requiresCommunityMembership &&
+              !communityMembership?.isMember)
+          }
           onClick={() => void submit()}
         >
           {busy ? (

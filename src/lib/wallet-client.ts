@@ -67,6 +67,8 @@ export async function debitWalletRequest(body: {
   idempotencyKey?: string;
   videoFeatureCardId?: string;
   tipQuoteId?: string;
+  performerId?: string;
+  projectId?: string;
 }): Promise<{ transactionId: string; newBalance: string }> {
   const res = await debitWalletAction(body);
   if (!res.success || !res.data) {

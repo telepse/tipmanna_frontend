@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -8,21 +8,16 @@ import Image from "next/image";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { CiLinkedin, CiInstagram } from "react-icons/ci";
 import { FaXTwitter } from "react-icons/fa6";
-import { useSelector } from "react-redux";
 
 // Local impoorts
 import { Logo } from "@/components/shared/logo";
 import { Paragraph } from "@/components/shared/paragraph";
 import { LocationPrompt } from "@/components/shared/location-prompt";
-import { RootState } from "@/redux/store";
 import { FooterSection } from "./footer-section";
 import { FooterLinks } from "./footer-links";
 import { SocialIcon } from "./social-icon";
-import { CreateDialog } from "../home/create-dialog";
-import { getAccountNavHref, getAddEventNavHref } from "@/lib/account-nav-href";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
-import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
-import { useHostSession } from "@/hooks/use-host-session";
+import { useCreateDialogHost } from "@/components/home/create-dialog-host";
 
 const supportLinks = [
   { href: "/partner#faq", label: "FAQ" },
@@ -44,85 +39,13 @@ const paymentOptions = [
 
 const currentYear = new Date().getFullYear();
 
-const communityFeatureOn =
-  process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
-
 export default function Footer() {
   const { push } = useAppRouter();
+  const { openCreate } = useCreateDialogHost();
   const [showPrompt, setShowPrompt] = useState(false);
-
-  const { user, isAuthenticated } = useSelector(
-    (state: RootState) => state.auth
-  );
-
-  const { canReadAsHost, requestHostAuth, HostAuthModal } =
-    useHostCapabilityWithAuth({ requireHostAccount: true });
-  const {
-    isActive: hostSessionActive,
-    eventSlug: hostEventSlug,
-    username: hostUsername,
-  } = useHostSession();
-
-  const linkedHost = user?.role === "TIPPER" && canReadAsHost;
-
-  const addEventHref = useMemo(
-    () =>
-      getAddEventNavHref(
-        user,
-        isAuthenticated,
-        user?.role === "TIPPER" ? linkedHost : undefined
-      ),
-    [user, isAuthenticated, linkedHost]
-  );
-
-  const accountHref = useMemo(
-    () =>
-      getAccountNavHref(user, isAuthenticated, {
-        linkedHost,
-        hostSessionActive,
-        hostEventSlug,
-        hostUsername,
-      }),
-    [
-      user,
-      isAuthenticated,
-      linkedHost,
-      hostSessionActive,
-      hostEventSlug,
-      hostUsername,
-    ]
-  );
 
   const handleJoinClick = () => {
     setShowPrompt(true);
-  };
-
-  const [openPopup, setOpenPopup] = useState(false);
-
-  const openCreateFlow = () => {
-    if (communityFeatureOn) {
-      setOpenPopup(true);
-      return;
-    }
-    push("/event-only");
-  };
-
-  const handleAddEventClick = () => {
-    if (!isAuthenticated || !user) {
-      push(addEventHref);
-      return;
-    }
-
-    if (user.role === "TIPPER") {
-      if (canReadAsHost) {
-        requestHostAuth(openCreateFlow);
-        return;
-      }
-      requestHostAuth();
-      return;
-    }
-
-    push(addEventHref);
   };
 
   return (
@@ -192,20 +115,13 @@ export default function Footer() {
                 <button
                   type="button"
                   className="hover:underline"
-                  onClick={handleAddEventClick}
+                  onClick={() => openCreate()}
                 >
-                  Create Event
+                  Create Channel
                 </button>
               </li>
             </ul>
           </FooterSection>
-
-          <CreateDialog
-            openPopup={openPopup}
-            setOpenPopup={setOpenPopup}
-          />
-
-          {HostAuthModal}
 
           {/* Support */}
           <FooterSection title="Support">

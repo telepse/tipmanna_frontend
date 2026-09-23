@@ -22,6 +22,7 @@ export type SignInModalPayload = {
 };
 
 type SignInDialogProps = {
+  freezeTipperTab?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
@@ -45,6 +46,11 @@ type SignInDialogProps = {
   showSignedInNotice?: boolean;
   /** Analytics: UI surface that opened this sign-in flow. */
   signupSurface: SignupSurface;
+  /**
+   * Modal only: initial Host creator sub-view. Omit for sign-up-first (guest flows).
+   * HostAuthModal passes signIn for linked hosts without an active host session.
+   */
+  defaultHostAuthView?: "signIn" | "signUp";
 };
 
 /**
@@ -52,9 +58,10 @@ type SignInDialogProps = {
  * Tipper email-code flow still redirects to /verify-email with `returnTo` preserved when possible.
  */
 export default function SignInDialog({
+  freezeTipperTab,
   open,
   onOpenChange,
-  title = "Sign in",
+  title = "Sign up",
   returnTo = null,
   defaultUserType = "host",
   onSuccess,
@@ -65,6 +72,7 @@ export default function SignInDialog({
   closeOnSuccess = true,
   showSignedInNotice,
   signupSurface,
+  defaultHostAuthView,
 }: SignInDialogProps) {
   const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
   const resolvedCloseOnSuccess = onSuccess ? false : closeOnSuccess;
@@ -81,7 +89,7 @@ export default function SignInDialog({
         className={`max-h-[80vh] overflow-y-auto sm:max-w-md ${contentClassName ?? ""}`}
         onOpenAutoFocus={e => e.preventDefault()}
       >
-        <DialogHeader>
+        <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
@@ -95,27 +103,30 @@ export default function SignInDialog({
           </div>
         ) : null}
 
-        {resolvedShowSignedInNotice && isAuthenticated && user ? (
+        {open && resolvedShowSignedInNotice && isAuthenticated && user ? (
           <AlreadySignedInNotice compact />
         ) : null}
 
-        <SigninForm
-          key={open ? "open" : "closed"}
-          mode="modal"
-          returnTo={returnTo}
-          defaultUserType={defaultUserType}
-          allowInlineSignUp={allowInlineSignUp}
-          signupSurface={signupSurface}
-          onModalHostSuccess={payload => {
-            onSuccess?.(payload);
-            if (resolvedCloseOnSuccess) onOpenChange(false);
-          }}
-          onModalTipperSuccess={payload => {
-            onSuccess?.(payload);
-            if (resolvedCloseOnSuccess) onOpenChange(false);
-          }}
-          className="py-4"
-        />
+        {open ? (
+          <SigninForm
+            mode="modal"
+            returnTo={returnTo}
+            defaultUserType={defaultUserType}
+            allowInlineSignUp={allowInlineSignUp}
+            signupSurface={signupSurface}
+            defaultHostAuthView={defaultHostAuthView}
+            onModalHostSuccess={payload => {
+              onSuccess?.(payload);
+              if (resolvedCloseOnSuccess) onOpenChange(false);
+            }}
+            onModalTipperSuccess={payload => {
+              onSuccess?.(payload);
+              if (resolvedCloseOnSuccess) onOpenChange(false);
+            }}
+            className="py-4"
+            freezeTipperTab={freezeTipperTab}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

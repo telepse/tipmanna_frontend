@@ -8,6 +8,13 @@ import { useSWRConfig } from "swr";
 import { hostSubscriptionConfirmAction } from "@/actions/host";
 import { useHostAuthOptional } from "@/contexts/host-auth-context";
 import { useHostSession } from "@/hooks/use-host-session";
+import {
+  consumeHostSubscriptionResume,
+  HOST_SUBSCRIPTION_RESUME_CHANNEL_ID,
+  HOST_SUBSCRIPTION_RESUME_EVENT_ID,
+  HOST_SUBSCRIPTION_RESUME_QUERY,
+  HOST_SUBSCRIPTION_RESUME_TITLE,
+} from "@/lib/host-subscription-resume";
 
 /**
  * Handles Stripe Checkout return query params on any host dashboard route
@@ -50,6 +57,38 @@ export function HostSubscriptionReturnHandler() {
       router.replace(q ? `${pathname}?${q}` : pathname);
     };
 
+    const redirectResumeIfAny = () => {
+      const resume = consumeHostSubscriptionResume();
+      if (!resume?.returnPath) return false;
+      try {
+        const base =
+          typeof window !== "undefined" ? window.location.origin : "";
+        const url = new URL(resume.returnPath, base || "https://tipmanna.tv");
+        url.searchParams.set(HOST_SUBSCRIPTION_RESUME_QUERY, resume.kind);
+        if (resume.kind === "create-tiplink-draft") {
+          if (resume.channelId) {
+            url.searchParams.set(
+              HOST_SUBSCRIPTION_RESUME_CHANNEL_ID,
+              resume.channelId
+            );
+          }
+          if (resume.eventId) {
+            url.searchParams.set(
+              HOST_SUBSCRIPTION_RESUME_EVENT_ID,
+              resume.eventId
+            );
+          }
+          if (resume.title) {
+            url.searchParams.set(HOST_SUBSCRIPTION_RESUME_TITLE, resume.title);
+          }
+        }
+        router.push(`${url.pathname}${url.search}`);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
     const confirmCheckout = (id: string) => {
       void (async () => {
         try {
@@ -59,13 +98,15 @@ export function HostSubscriptionReturnHandler() {
               return;
             }
             toast.error(res.message ?? "Could not confirm subscription.");
+            clearQuery();
             return;
           }
           toast.success("Subscription activated!");
           await mutate("/subscriptions/host/me-capabilities");
+          clearQuery();
+          redirectResumeIfAny();
         } catch {
           toast.error("Network error confirming subscription.");
-        } finally {
           clearQuery();
         }
       })();
@@ -82,20 +123,25 @@ export function HostSubscriptionReturnHandler() {
 
     if (subscriptionParam === "upgraded") {
       toast.success("Upgraded to Community!");
-      void mutate("/subscriptions/host/me-capabilities");
-      clearQuery();
+      void mutate("/subscriptions/host/me-capabilities").then(() => {
+        clearQuery();
+        redirectResumeIfAny();
+      });
       return;
     }
 
     if (subscriptionParam === "upgrade_scheduled") {
       toast.success("Community upgrade scheduled for end of billing period.");
-      void mutate("/subscriptions/host/me-capabilities");
-      clearQuery();
+      void mutate("/subscriptions/host/me-capabilities").then(() => {
+        clearQuery();
+        redirectResumeIfAny();
+      });
       return;
     }
 
     if (subscriptionParam === "cancel") {
       toast.info("Checkout cancelled.");
+      consumeHostSubscriptionResume();
       clearQuery();
     }
   }, [

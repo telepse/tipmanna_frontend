@@ -56,6 +56,8 @@ interface Props {
   tippingCharacters: any[];
   characterSets: any[];
   performers?: any[];
+  projects?: any[];
+  contributionType?: string;
   stackDrawerAboveImmersive?: boolean;
   /** Defaults to event_room (room / embedded tips). */
   paymentSurface?: PaymentSurface;
@@ -93,6 +95,8 @@ export const TipSection = ({
   tippingCharacters,
   characterSets,
   performers,
+  projects,
+  contributionType = "",
   stackDrawerAboveImmersive,
   paymentSurface = "event_room",
   paymentChannelId = null,
@@ -120,8 +124,11 @@ export const TipSection = ({
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [openWalletAfterPerformer, setOpenWalletAfterPerformer] =
     useState(false);
-  const [openPerformerModal, setOpenPerformerModal] = useState(false);
+  const [openPinSelectionModal, setOpenPinSelectionModal] = useState(false);
   const [selectedPerformerId, setSelectedPerformerId] = useState<string | null>(
+    null
+  );
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
   );
   const { paymentCompleted } = useSelector((state: RootState) => state.tip);
@@ -291,11 +298,26 @@ export const TipSection = ({
     void prefetch("/success");
   }, [prefetch]);
 
-  const handleEngageOpen = () => {
-    if (performers && performers.length > 0) {
-      setOpenPerformerModal(true);
-      return;
+  const pinSelectionList =
+    contributionType === "PROJECT"
+      ? (projects ?? [])
+      : contributionType === "PERFORMER"
+        ? (performers ?? [])
+        : [];
+
+  const requiresPinSelection =
+    paymentSurface === "event_room" && pinSelectionList.length > 0;
+
+  const openPinSelectionIfNeeded = () => {
+    if (requiresPinSelection) {
+      setOpenPinSelectionModal(true);
+      return true;
     }
+    return false;
+  };
+
+  const handleEngageOpen = () => {
+    if (openPinSelectionIfNeeded()) return;
     proceedToDrawer();
   };
 
@@ -305,10 +327,7 @@ export const TipSection = ({
       return;
     }
 
-    if (performers && performers.length > 0) {
-      setOpenPerformerModal(true);
-      return;
-    }
+    if (openPinSelectionIfNeeded()) return;
 
     proceedToDrawer();
 
@@ -352,6 +371,7 @@ export const TipSection = ({
       tippingCharacters={tippingCharacters}
       characterSets={characterSets}
       performerId={selectedPerformerId}
+      projectId={selectedProjectId}
       paymentSurface={paymentSurface}
       paymentChannelId={paymentChannelId}
       paymentCommunityId={paymentCommunityId}
@@ -371,6 +391,7 @@ export const TipSection = ({
 
   useEffect(() => {
     if (!openTipDrawerNonce) return;
+    if (openPinSelectionIfNeeded()) return;
     proceedToDrawer();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nonce edge only
   }, [openTipDrawerNonce]);
@@ -522,9 +543,9 @@ export const TipSection = ({
                 toast.error("Please select at least one tip item");
                 return;
               }
-              if (performers && performers.length > 0) {
+              if (requiresPinSelection) {
                 setOpenWalletAfterPerformer(true);
-                setOpenPerformerModal(true);
+                setOpenPinSelectionModal(true);
                 return;
               }
               if (externalDrawer) {
@@ -556,39 +577,70 @@ export const TipSection = ({
           tipDrawer
         ))}
 
-      {/* 👈 ADDED: Performer Selection Modal */}
       <Dialog
-        open={openPerformerModal}
-        onOpenChange={setOpenPerformerModal}
+        open={openPinSelectionModal}
+        onOpenChange={setOpenPinSelectionModal}
       >
         <DialogContent className="max-w-[320px] rounded-md bg-white p-6 sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-center text-lg font-semibold">
-              Tag a performer to your tip
+              {contributionType === "PROJECT"
+                ? "Select a project for your tip"
+                : "Select a performer for your tip"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-col gap-4 overflow-y-auto">
-            {performers &&
-              performers.map(performer => (
-                <div
-                  key={performer.id}
-                  onClick={() => setSelectedPerformerId(performer.id)}
-                  className={`flex cursor-pointer items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-all ${
-                    selectedPerformerId === performer.id
-                      ? "border-orange-500 bg-orange-50"
-                      : "border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  @{performer.name.toLowerCase()}
-                </div>
-              ))}
+          <div className="flex max-h-[240px] flex-col gap-3 overflow-y-auto">
+            {contributionType === "PROJECT"
+              ? pinSelectionList.map(
+                  (project: { id: string; name: string }) => (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedProjectId(project.id);
+                        setSelectedPerformerId(null);
+                      }}
+                      className={`flex cursor-pointer items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-all ${
+                        selectedProjectId === project.id
+                          ? "border-orange-500 bg-orange-50"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      {project.name}
+                    </button>
+                  )
+                )
+              : pinSelectionList.map(
+                  (performer: { id: string; name: string }) => (
+                    <button
+                      key={performer.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPerformerId(performer.id);
+                        setSelectedProjectId(null);
+                      }}
+                      className={`flex cursor-pointer items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-all ${
+                        selectedPerformerId === performer.id
+                          ? "border-orange-500 bg-orange-50"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      {performer.name}
+                    </button>
+                  )
+                )}
           </div>
 
           <Button
             className="w-full bg-black text-white"
+            disabled={
+              contributionType === "PROJECT"
+                ? !selectedProjectId
+                : !selectedPerformerId
+            }
             onClick={() => {
-              setOpenPerformerModal(false);
+              setOpenPinSelectionModal(false);
               if (openWalletAfterPerformer) {
                 setOpenWalletAfterPerformer(false);
                 setWalletDialogOpen(true);

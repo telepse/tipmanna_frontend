@@ -8,6 +8,7 @@ import { EventCountdown } from "../event-countdown";
 import { EventLive } from "./event-live";
 import { TipsDrawer } from "./tips-drawer";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
+import { normalizeScreenFunnelPosition } from "@/lib/screen-funnel-position";
 
 interface Props {
   eventId: string;
@@ -48,6 +49,8 @@ interface Props {
   characterSets: any[];
 
   performers: any[];
+  projects?: any[];
+  contributionType?: string;
   currentSessionAmountToRaise?: number;
   channels: any[];
   onChannelCreated?: (channel: EventRoomVideoChannel) => void;
@@ -57,6 +60,8 @@ interface Props {
   activities: any[];
   eventDescription: string;
   eventBanner: string;
+  showPinnedOnScreen?: boolean;
+  funnelPosition?: string;
 }
 
 export const EventHeader = ({
@@ -96,6 +101,8 @@ export const EventHeader = ({
   setOpenDrawer,
   onOpenTipDrawer,
   performers,
+  projects = [],
+  contributionType = "PERFORMER",
   channels,
   onChannelCreated,
   currentSessionAmountToRaise,
@@ -105,6 +112,8 @@ export const EventHeader = ({
   activities,
   eventDescription,
   eventBanner,
+  showPinnedOnScreen = true,
+  funnelPosition = "bottom_left",
 }: Props) => {
   const [tipsListOpen, setTipsListOpen] = useState(false);
 
@@ -115,6 +124,7 @@ export const EventHeader = ({
     ? tipUsageDisclosure
     : [];
   const safePerformers = Array.isArray(performers) ? performers : [];
+  const safeProjects = Array.isArray(projects) ? projects : [];
   const safeChannels = Array.isArray(channels) ? channels : [];
   const safeCharacterSets = Array.isArray(characterSets) ? characterSets : [];
 
@@ -140,6 +150,8 @@ export const EventHeader = ({
             tippingCharacters={safeTippingCharacters}
             tipUsageDisclosure={safeTipUsageDisclosure}
             performers={safePerformers}
+            projects={safeProjects}
+            contributionType={contributionType}
             defaultScreenOpen={forceScreenOpen}
             venueName={venueName}
             venueLocation={venueLocation}
@@ -149,6 +161,8 @@ export const EventHeader = ({
             startTime={startTime}
             endTime={endTime}
             eventBanner={eventBanner}
+            showPinnedOnScreen={showPinnedOnScreen}
+            funnelPosition={normalizeScreenFunnelPosition(funnelPosition)}
           />
 
           <div className="-mt-4 flex items-center gap-2">

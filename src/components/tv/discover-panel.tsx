@@ -24,6 +24,7 @@ import {
   UserRound,
   UsersRound,
   CalendarDays,
+  ExternalLink,
 } from "lucide-react";
 import type { DiscoveryEventRow } from "@/actions/contents";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +46,6 @@ import { ContentCardSkeleton } from "./tv-loading-skeletons";
 import { VirtualRail } from "./virtual-rail";
 import { CommunityJoinOpenControls } from "@/components/community/community-join-open-controls";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
-import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { useCommunityJoinFlow } from "@/hooks/use-community-join-flow";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { useSelector } from "react-redux";
@@ -94,6 +94,7 @@ import {
   DISCOVER_RAIL_INITIAL_COUNT,
   sliceDiscoverRail,
 } from "@/lib/discover-catalog-cache";
+import { Button } from "../ui/button";
 
 const CONTENT_CARD_MIN = "min-w-[220px] sm:min-w-[270px] flex-shrink-0";
 const PROGRAM_CARD_MIN = "min-w-[160px] sm:min-w-[220px] flex-shrink-0";
@@ -494,12 +495,6 @@ export function DiscoverPanel({
     closeJoinModal,
     openJoin,
     openCommunity,
-    signInOpen,
-    setSignInOpen,
-    signInReturnTo,
-    onSignInVerified,
-    signInTitle,
-    signupSurface,
   } = useCommunityJoinFlow({
     signupSurface: "explore",
     signInTitle: "Sign in to join this community",
@@ -872,14 +867,6 @@ export function DiscoverPanel({
 
   return (
     <>
-      <TipperEmailOtpSignInDialog
-        open={signInOpen}
-        onOpenChange={setSignInOpen}
-        signInTitle={signInTitle}
-        signupSurface={signupSurface}
-        getRedirectPathAfterVerify={() => signInReturnTo}
-        onVerified={onSignInVerified}
-      />
       {joinCommunityId ? (
         <JoinCommunityModal
           open={joinModalOpen}
@@ -1650,13 +1637,31 @@ export function DiscoverPanel({
                             : ""}
                         </p>
                       </button>
-                      <CommunityJoinOpenControls
-                        communityId={community.id}
-                        joined={Boolean(community.viewer?.joined)}
-                        isAuthenticated={isAuthenticated}
-                        onJoin={openJoin}
-                        onOpen={openCommunity}
-                      />
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 px-0"
+                          aria-label="Open community"
+                          title="Open community"
+                          onClick={e => {
+                            e.stopPropagation();
+                            openCommunity(community.id);
+                          }}
+                        >
+                          <ExternalLink className="size-3.5" />
+                        </Button>
+
+                        <CommunityJoinOpenControls
+                          communityId={community.id}
+                          joined={Boolean(community.viewer?.joined)}
+                          isAuthenticated={isAuthenticated}
+                          onJoin={openJoin}
+                          onOpen={openCommunity}
+                        />
+                      </div>
                     </div>
                   )}
                 />

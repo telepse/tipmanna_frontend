@@ -15,9 +15,13 @@ import { EventRoomVideosModal } from "@/components/dashboard/event-room-videos-m
 import { PremiumFeatureBadge } from "@/components/dashboard/premium-feature-badge";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { useHostSession } from "@/hooks/use-host-session";
-import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import {
+  useHostSubscriptionPrompt,
+  type HostSubscriptionPromptFns,
+} from "@/hooks/use-host-subscription-prompt";
 import { formatDate } from "@/lib/formatDate";
 import { buildChannelSharePath } from "@/lib/public-video-url";
+import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 
 interface DefaultChannelInfo {
   id: string;
@@ -41,6 +45,7 @@ interface Props {
   hostSubscriptionTier?: "NONE" | "HOST_PREMIUM" | "HOST_COMMUNITY";
   variant?: "event" | "channel";
   defaultChannel?: DefaultChannelInfo;
+  subscriptionPrompt?: HostSubscriptionPromptFns;
 }
 
 export function ManageEventCard({
@@ -57,17 +62,15 @@ export function ManageEventCard({
   showEncounterOnVideos = false,
   variant = "event",
   defaultChannel,
+  subscriptionPrompt,
 }: Props) {
   const hostSession = useHostSession();
   const params = useParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const { capabilities, status } = useHostPlanCapabilities();
-  const {
-    openForLapsed,
-    openForRequired,
-    handleSubscriptionActionError,
-    SubscriptionPromptModal,
-  } = useHostSubscriptionPrompt({ focusTier: "premium" });
+  const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
+  const { openForLapsed, openForRequired, handleSubscriptionActionError } =
+    subscriptionPrompt ?? localPrompt;
 
   const [videosOpen, setVideosOpen] = useState(false);
   const [showAmountRaised, setShowAmountRaised] = useState(
@@ -95,6 +98,16 @@ export function ManageEventCard({
       return;
     }
     openForRequired("premium");
+  };
+
+  const promptTipLayoutAccess = () => {
+    if (hostSlug) {
+      setHostSubscriptionResume({
+        kind: "return-path",
+        returnPath: `/host/${hostSlug}/tip-customization/${id}`,
+      });
+    }
+    promptPremiumAccess();
   };
 
   const displayTitle = isChannelVariant
@@ -148,7 +161,9 @@ export function ManageEventCard({
         className="text-muted-foreground flex items-center gap-1.5 text-sm font-normal"
       >
         {label}
-        <PremiumFeatureBadge />
+        {!canToggleDisplay ? (
+          <PremiumFeatureBadge label="Requires Host Growth — tap to subscribe or renew" />
+        ) : null}
       </Label>
       <Switch
         id={`${idSuffix}-${id}`}
@@ -167,12 +182,16 @@ export function ManageEventCard({
         <div className="space-y-2">
           <h5 className="flex items-center gap-2 text-xl font-semibold">
             {displayTitle}{" "}
-            <MoveUpRight
-              className="size-4 cursor-pointer"
+            <button
+              type="button"
               onClick={() =>
                 router.push(`/host/${hostSlug}/manage-event/${id}`)
               }
-            />
+              className="text-primary flex items-center gap-1 px-3 py-2 text-sm"
+            >
+              <MoveUpRight className="size-3 cursor-pointer sm:size-4" />{" "}
+              <span className="underline underline-offset-2">edit</span>
+            </button>
           </h5>
           {isChannelVariant ? (
             <p className="text-muted-foreground text-sm">
@@ -350,7 +369,6 @@ export function ManageEventCard({
                 prefetch={false}
                 className="inline-flex items-center gap-2"
               >
-                <PremiumFeatureBadge className="size-3.5" />
                 Tip layout
               </Link>
             </Button>
@@ -358,7 +376,7 @@ export function ManageEventCard({
             <Button
               type="button"
               className="bg-secondary/20 inline-flex w-fit items-center gap-2 text-black"
-              onClick={promptPremiumAccess}
+              onClick={promptTipLayoutAccess}
             >
               <PremiumFeatureBadge className="size-3.5" />
               Tip layout
@@ -381,7 +399,7 @@ export function ManageEventCard({
           eventName={eventName}
         />
       ) : null}
-      {SubscriptionPromptModal}
+      {!subscriptionPrompt ? localPrompt.SubscriptionPromptModal : null}
     </>
   );
 }

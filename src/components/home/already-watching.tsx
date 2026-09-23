@@ -1,18 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ALREADY_WATCHING_FEATURES } from "@/constants";
 import { Paragraph } from "@/components/shared/paragraph";
 import { Title } from "@/components/shared/title";
 
-const CreateDialog = dynamic(
-  () => import("./create-dialog").then(m => m.CreateDialog),
-  { ssr: false }
-);
+import { useCreateDialogHost } from "@/components/home/create-dialog-host";
 
 const PARTICLES = [
   { top: "10%", left: "8%" },
@@ -28,7 +23,7 @@ const PARTICLES = [
 ] as const;
 
 export const AlreadyWatching = () => {
-  const [openPopup, setOpenPopup] = useState(false);
+  const { openCreate } = useCreateDialogHost();
 
   return (
     <section className="relative mt-6 overflow-hidden bg-black lg:mt-12">
@@ -111,7 +106,7 @@ export const AlreadyWatching = () => {
             className="h-10 w-fit flex-1 shrink-0 px-3 text-sm sm:h-11 sm:px-8 sm:text-base"
             aria-label="Create your channel"
             aria-haspopup="dialog"
-            onClick={() => setOpenPopup(true)}
+            onClick={() => openCreate()}
           >
             Create <span className="hidden sm:inline">Your</span> Channel
           </Button>
@@ -125,13 +120,6 @@ export const AlreadyWatching = () => {
             <Link href="/partner#pricing">See pricing</Link>
           </Button>
         </div>
-
-        {openPopup ? (
-          <CreateDialog
-            openPopup={openPopup}
-            setOpenPopup={setOpenPopup}
-          />
-        ) : null}
       </div>
     </section>
   );

@@ -9,8 +9,10 @@ import { EmbeddedSupportChat } from "@/components/support/embedded-support-chat"
 import { HostYoutubeChannelsSettings } from "@/components/dashboard/host-youtube-channels-settings";
 import { HostProfileAddressFields } from "@/components/dashboard/host-profile-address-fields";
 import { isUkCountry } from "@/lib/is-uk-country";
+import { useHostPayoutSummary } from "@/hooks/useHostPayoutSummary";
+import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 
-// THird-party imports
+// Third-party imports
 import {
   Eye,
   Headset,
@@ -19,6 +21,8 @@ import {
   MoveLeft,
   User,
   Wallet,
+  Building2,
+  Settings2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -70,7 +74,13 @@ import {
 } from "@/schemas";
 import { useHostSession } from "@/hooks/use-host-session";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
-import { useImageUpload } from "@/hooks/use-image-upload";
+
+function branchLabel(branch: string) {
+  if (branch === "event_tip") return "Event tips";
+  if (branch === "community_subscription") return "Community subscription";
+  if (branch === "host_subscription") return "Host subscription";
+  return branch;
+}
 
 type HostUser = {
   id: string;
@@ -86,8 +96,16 @@ type HostUser = {
   organizationName?: string;
 };
 
+type SettingsTab =
+  | "account_settings"
+  | "payment_payouts"
+  | "help_section"
+  | "individual_profile"
+  | "organisation_profile";
+
 export const SettingsClient = () => {
   const searchParams = useSearchParams();
+
   const initialProfileTab =
     searchParams.get("tab") === "organisation_profile"
       ? "organisation_profile"
@@ -95,13 +113,22 @@ export const SettingsClient = () => {
         ? "individual_profile"
         : "account_settings";
 
-  const [tabType, setTabType] = useState<
-    | "account_settings"
-    | "payment_payouts"
-    | "help_section"
-    | "individual_profile"
-    | "organisation_profile"
-  >(initialProfileTab);
+  const {
+    host,
+    communities,
+    isLoading: payoutsLoading,
+  } = useHostPayoutSummary();
+
+  const allObligations = [...host, ...communities];
+
+  const settlementHistory = allObligations.flatMap(obligation =>
+    (obligation.settlements ?? []).map(settlement => ({
+      ...settlement,
+      branch: obligation.branch,
+    }))
+  );
+
+  const [tabType, setTabType] = useState<SettingsTab>(initialProfileTab);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -116,6 +143,7 @@ export const SettingsClient = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const token = useSelector((state: RootState) => state.auth.token);
   const userId = user ? user.id : "";
+
   const { eventSlug, isActive: hostSessionActive } = useHostSession();
 
   const dispatch = useDispatch<AppDispatch>();
@@ -130,6 +158,7 @@ export const SettingsClient = () => {
   const [openEmailModal, setOpenEmailModal] = useState(false);
   const [step, setStep] = useState<"signIn" | "verifyCode">("signIn");
   const [emailCode, setEmailCode] = useState("");
+
   const emailForm = useForm<{ email: string }>({
     defaultValues: { email: "" },
   });
@@ -142,7 +171,6 @@ export const SettingsClient = () => {
     setShowConfirmPassword(prev => !prev);
   };
 
-  // 1. Define profile form
   const profileForm = useForm<profileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -153,7 +181,6 @@ export const SettingsClient = () => {
     },
   });
 
-  // 2. Define payment form
   const paymentForm = useForm<paymentFormData>({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: {
@@ -209,8 +236,6 @@ export const SettingsClient = () => {
     },
   });
 
-  const invoice = organisationProfileForm.watch("invoice");
-
   const [isUploading, setIsUploading] = useState(false);
 
   const handleFileUpload = async (
@@ -221,6 +246,7 @@ export const SettingsClient = () => {
     if (!file) return;
 
     setIsUploading(true);
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("upload_preset", "tipmanna");
@@ -237,16 +263,37 @@ export const SettingsClient = () => {
       const data = await res.json();
 
       if (data.secure_url) {
-        // Save the cloudinary URL directly into react-hook-form state
         onChange(data.secure_url);
       }
     } catch (error) {
       console.error("Cloudinary upload error", error);
+      toast.error("Failed to upload file");
+    } finally {
+      setIsUploading(false);
     }
   };
 
+  /*
+   * Profile tab visibility rules:
+   *
+   * - No account type loaded yet:
+   *   Show both profile tabs.
+   *
+   * - Individual account:
+   *   Show only the Individual profile tab.
+   *
+   * - Organisation account:
+   *   Show BOTH Individual and Organisation profile tabs.
+   *
+   * An organisation account is intentionally allowed to access the
+   * individual profile because the individual profile can still contain
+   * the authorised person's personal information.
+   */
   const showIndividualProfileTab =
-    profileAccountType === null || profileAccountType === "INDIVIDUAL";
+    profileAccountType === null ||
+    profileAccountType === "INDIVIDUAL" ||
+    profileAccountType === "ORGANIZATION";
+
   const showOrganisationProfileTab =
     profileAccountType === null || profileAccountType === "ORGANIZATION";
 
@@ -259,31 +306,70 @@ export const SettingsClient = () => {
       return;
     }
 
-    setTabType(
-      value as
-        | "account_settings"
-        | "payment_payouts"
-        | "help_section"
-        | "individual_profile"
-        | "organisation_profile"
-    );
+    if (
+      value !== "account_settings" &&
+      value !== "payment_payouts" &&
+      value !== "help_section" &&
+      value !== "individual_profile" &&
+      value !== "organisation_profile"
+    ) {
+      return;
+    }
+
+    setTabType(value as SettingsTab);
   };
 
   const individualCountry = individualProfileForm.watch("country");
   const individualIsUk = isUkCountry(individualCountry);
+
   const organisationCountry = organisationProfileForm.watch("country");
   const organisationIsUk = isUkCountry(organisationCountry);
+
   const individualFirstName = individualProfileForm.watch("firstName");
   const individualLastName = individualProfileForm.watch("lastName");
+
   const registeredCompanyName = organisationProfileForm.watch(
     "registeredCompanyName"
   );
+
+  const individualAccountName = individualProfileForm.watch("accountName");
+  const individualAccountNumber = individualProfileForm.watch("accountNumber");
+  const individualSortCode = individualProfileForm.watch("sortCode");
+
+  const organisationAccountName = organisationProfileForm.watch("accountName");
+  const organisationAccountNumber =
+    organisationProfileForm.watch("accountNumber");
+  const organisationSortCode = organisationProfileForm.watch("sortCode");
+
+  const payoutAccountName =
+    profileAccountType === "ORGANIZATION"
+      ? organisationAccountName
+      : individualAccountName;
+
+  const payoutRoutingNumber =
+    profileAccountType === "ORGANIZATION"
+      ? organisationSortCode
+      : individualSortCode;
+
+  const payoutAccountHolderName =
+    profileAccountType === "ORGANIZATION"
+      ? registeredCompanyName
+      : [individualFirstName, individualLastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+
+  const payoutAccountNumber =
+    profileAccountType === "ORGANIZATION"
+      ? organisationAccountNumber
+      : individualAccountNumber;
 
   useEffect(() => {
     const accountName = [individualFirstName, individualLastName]
       .filter(Boolean)
       .join(" ")
       .trim();
+
     if (accountName) {
       individualProfileForm.setValue("accountName", accountName);
     }
@@ -309,6 +395,7 @@ export const SettingsClient = () => {
       };
 
       const accountType = profile.profileAccountType ?? null;
+
       setProfileAccountType(accountType);
       setConnectLegalNameLocked(Boolean(profile.connectLegalNameLocked));
 
@@ -328,17 +415,19 @@ export const SettingsClient = () => {
     });
   }, [hostSessionActive]);
 
+  /*
+   * Only an Individual account needs to be redirected away from the
+   * Organisation profile tab.
+   *
+   * An Organisation account is intentionally allowed to remain on and
+   * navigate to the Individual profile tab.
+   */
   useEffect(() => {
     if (
       profileAccountType === "INDIVIDUAL" &&
       tabType === "organisation_profile"
     ) {
       setTabType("individual_profile");
-    } else if (
-      profileAccountType === "ORGANIZATION" &&
-      tabType === "individual_profile"
-    ) {
-      setTabType("organisation_profile");
     }
   }, [profileAccountType, tabType]);
 
@@ -352,6 +441,7 @@ export const SettingsClient = () => {
 
     try {
       setIsProfileLoading(true);
+
       const response = await updateHostProfileAction({
         profileAccountType: "INDIVIDUAL",
         individualProfile: values,
@@ -381,6 +471,7 @@ export const SettingsClient = () => {
 
     try {
       setIsProfileLoading(true);
+
       const response = await updateHostProfileAction({
         profileAccountType: "ORGANIZATION",
         organisationProfile: values,
@@ -466,10 +557,6 @@ export const SettingsClient = () => {
     console.log(values);
   };
 
-  const onSubmitTax = async () => {
-    console.log("clicked");
-  };
-
   const isMobile = useMediaQuery({
     query: "(max-width: 500px)",
   });
@@ -484,1328 +571,1499 @@ export const SettingsClient = () => {
     fontSize: isMobile ? "16px" : "20px",
   };
 
+  const settingsNavigation: Array<{
+    value: SettingsTab;
+    label: string;
+    icon: typeof User;
+  }> = [
+    {
+      value: "account_settings",
+      label: "Account settings",
+      icon: Settings2,
+    },
+    ...(showIndividualProfileTab
+      ? [
+          {
+            value: "individual_profile" as SettingsTab,
+            label: "Individual profile",
+            icon: User,
+          },
+        ]
+      : []),
+    ...(showOrganisationProfileTab
+      ? [
+          {
+            value: "organisation_profile" as SettingsTab,
+            label: "Organisation profile",
+            icon: Building2,
+          },
+        ]
+      : []),
+    {
+      value: "payment_payouts",
+      label: "Payment payouts",
+      icon: Wallet,
+    },
+    {
+      value: "help_section",
+      label: "Help & support",
+      icon: Headset,
+    },
+  ];
+
   return (
-    <Tabs
-      value={tabType}
-      onValueChange={handleTabChange}
-      className="grid min-w-0 grid-cols-12 items-start gap-6 overflow-x-hidden"
-    >
-      {/* Tabs navigation */}
-      <div className="col-span-full min-w-0 self-start md:col-span-3">
-        <div className="w-full min-w-0 overflow-x-auto">
-          <TabsList className="mt-0 flex h-auto w-max min-w-full flex-row justify-start gap-2 rounded-none p-0 md:w-full md:min-w-0 md:flex-col md:gap-4">
-            <TabsTrigger
-              className="data-[state=active]:bg-primary h-13! w-auto! shrink-0 border border-gray-300 px-4 whitespace-nowrap data-[state=active]:text-white md:w-full!"
-              value="account_settings"
-            >
-              <User />
+    <div className="w-full min-w-0">
+      {/* Settings header */}
+      <div className="mb-4 rounded-xl border bg-white p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg">
+            <Settings2 className="text-muted-foreground size-5" />
+          </div>
+
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold sm:text-xl">
               Account settings
-            </TabsTrigger>
+            </h2>
 
-            {showIndividualProfileTab ? (
-              <TabsTrigger
-                className="data-[state=active]:bg-primary h-13! w-auto! shrink-0 border border-gray-300 px-4 whitespace-nowrap data-[state=active]:text-white md:w-full!"
-                value="individual_profile"
-              >
-                <User />
-                Individual profile
-              </TabsTrigger>
-            ) : null}
-
-            {showOrganisationProfileTab ? (
-              <TabsTrigger
-                className="data-[state=active]:bg-primary h-13! w-auto! shrink-0 border border-gray-300 px-4 whitespace-nowrap data-[state=active]:text-white md:w-full!"
-                value="organisation_profile"
-              >
-                <User />
-                Organisation profile
-              </TabsTrigger>
-            ) : null}
-
-            <TabsTrigger
-              className="data-[state=active]:bg-primary h-13! w-auto! shrink-0 border border-gray-300 bg-white px-4 whitespace-nowrap data-[state=active]:text-white md:w-full!"
-              value="payment_payouts"
-            >
-              <Wallet />
-              Payment payouts
-            </TabsTrigger>
-
-            <TabsTrigger
-              className="data-[state=active]:bg-primary h-13! w-auto! shrink-0 border border-gray-300 bg-white px-4 whitespace-nowrap data-[state=active]:text-white md:w-full!"
-              value="help_section"
-            >
-              <Headset />
-              Help section
-            </TabsTrigger>
-
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-auto shrink-0 whitespace-nowrap md:w-full"
-              onClick={handleLogout}
-            >
-              <LogOut />
-              Logout
-            </Button>
-          </TabsList>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Manage your account, profile, payout details and support options.
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="col-span-full w-full min-w-0 self-start md:col-span-9">
-        <TabsContent
-          value="account_settings"
-          className="mt-0 w-full"
-        >
-          <div className="space-y-6 rounded-md border bg-white p-6">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Profile information</h5>
-              <p className="text-muted-foreground text-sm">
-                Update your basic profile details
-              </p>
-            </div>
-
-            <Form {...profileForm}>
-              <form
-                onSubmit={profileForm.handleSubmit(onSubmitProfile)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={profileForm.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter full name"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={profileForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Email{" "}
-                        <span
-                          className="text-primary cursor-pointer"
-                          onClick={() => {
-                            setOpenEmailModal(true);
-                            setStep("signIn");
-                          }}
-                        >
-                          Change email
-                        </span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="Enter email address"
-                          autoComplete="off"
-                          disabled={!isEditable}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </form>
-            </Form>
-          </div>
-
-          <div className="mt-6 space-y-6 rounded-md border bg-white p-6">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Login & Security</h5>
-              <p className="text-muted-foreground text-sm">
-                Mange your account security settings
-              </p>
-            </div>
-
-            <Form {...profileForm}>
-              <form
-                onSubmit={profileForm.handleSubmit(onSubmitProfile)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={profileForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Current password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Enter current password"
-                            autoComplete="off"
-                            {...field}
-                          />
-
-                          <button
-                            type="button"
-                            onClick={togglePasswordVisibility}
-                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
-                          >
-                            <Eye className="text-muted-foreground" />
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={profileForm.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>New password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            type={showConfirmPassword ? "text" : "password"}
-                            placeholder="Enter new password"
-                            autoComplete="off"
-                            {...field}
-                          />
-
-                          <button
-                            type="button"
-                            onClick={toggleConfirmPasswordVisibility}
-                            className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer"
-                          >
-                            <Eye className="text-muted-foreground" />
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end gap-4">
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    size="lg"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="lg"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="size-4 animate-spin" /> Saving
-                        changes...
-                      </span>
-                    ) : (
-                      <span>Save changes</span>
-                    )}
-                  </Button>
-                </div>
-
-                {/*  */}
-              </form>
-            </Form>
-          </div>
-
-          <HostYoutubeChannelsSettings />
-        </TabsContent>
-
-        {showIndividualProfileTab ? (
-          <TabsContent
-            value="individual_profile"
-            className="mt-0 w-full"
-          >
-            <div className="space-y-6 rounded-md border bg-white p-6">
-              <div className="space-y-1">
-                <h5 className="text-xl font-semibold">Individual profile</h5>
-                <p className="text-muted-foreground text-sm">
-                  Update your individual profile
+      <Tabs
+        value={tabType}
+        onValueChange={handleTabChange}
+        className="w-full min-w-0"
+      >
+        <div className="flex w-full min-w-0 flex-col gap-4 md:flex-row md:items-start md:gap-6">
+          {/* Secondary settings navigation */}
+          <aside className="w-full shrink-0 md:w-60">
+            <div className="rounded-xl border bg-white p-2">
+              <div className="px-3 pt-2 pb-2">
+                <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                  Settings
                 </p>
               </div>
 
-              <Form {...individualProfileForm}>
-                <form
-                  onSubmit={individualProfileForm.handleSubmit(
-                    onSubmitIndividualProfile
-                  )}
-                  className="space-y-6"
-                >
-                  <div className="grid grid-cols-2 gap-6">
-                    <FormField
-                      control={individualProfileForm.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>First name</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter first name"
-                              autoComplete="off"
-                              disabled={connectLegalNameLocked}
-                              {...field}
-                            />
-                          </FormControl>
-                          <span className="text-muted-foreground text-sm">
-                            {connectLegalNameLocked
-                              ? "Locked to match your Stripe payout identity."
-                              : "For official records and HMRC reporting"}
-                          </span>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+              <TabsList className="flex h-auto w-full flex-row justify-start gap-1 overflow-x-auto bg-transparent p-0 md:flex-col md:overflow-visible">
+                {settingsNavigation.map(item => {
+                  const Icon = item.icon;
 
-                    <FormField
-                      control={individualProfileForm.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last name</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter last name"
-                              autoComplete="off"
-                              disabled={connectLegalNameLocked}
-                              {...field}
-                            />
-                          </FormControl>
-                          <span className="text-muted-foreground text-sm">
-                            {connectLegalNameLocked
-                              ? "Locked to match your Stripe payout identity."
-                              : "For official records and HMRC reporting"}
-                          </span>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  return (
+                    <TabsTrigger
+                      key={item.value}
+                      value={item.value}
+                      className="text-muted-foreground hover:bg-muted/60 hover:text-foreground data-[state=active]:border-border data-[state=active]:bg-muted data-[state=active]:text-foreground h-11 shrink-0 justify-start gap-3 rounded-lg border border-transparent bg-transparent px-3 text-sm font-medium whitespace-nowrap md:w-full"
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </TabsTrigger>
+                  );
+                })}
+
+                <div className="bg-border hidden h-px w-full md:block" />
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground h-11 shrink-0 justify-start gap-3 rounded-lg px-3 text-sm font-medium hover:bg-red-50 hover:text-red-600 md:w-full"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="size-4 shrink-0" />
+                  <span>Logout</span>
+                </Button>
+              </TabsList>
+            </div>
+          </aside>
+
+          {/* Settings content */}
+          <main className="min-w-0 flex-1">
+            <TabsContent
+              value="account_settings"
+              className="mt-0 w-full"
+            >
+              <div className="space-y-5">
+                {/* Profile information */}
+                <section className="rounded-xl border bg-white p-4 sm:p-6">
+                  <div className="mb-5 space-y-1">
+                    <h3 className="text-lg font-semibold">
+                      Profile information
+                    </h3>
+
+                    <p className="text-muted-foreground text-sm">
+                      Update your basic profile details.
+                    </p>
                   </div>
 
-                  <HostProfileAddressFields
-                    control={individualProfileForm.control}
-                    setValue={individualProfileForm.setValue}
-                    watch={individualProfileForm.watch}
-                    fields={{
-                      address: "homeAddress",
-                      city: "city",
-                      state: "state",
-                      postalCode: "postalCode",
-                      country: "country",
-                    }}
-                    addressLabel="Home address"
-                  />
-
-                  <span className="text-muted-foreground -mt-4 block text-sm">
-                    For official records, correspondence, and HMRC reporting
-                  </span>
-
-                  {individualIsUk ? (
-                    <FormField
-                      control={individualProfileForm.control}
-                      name="niNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>National Insurance (NI) number</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Enter national insurance (NI) number"
-                              autoComplete="off"
-                              {...field}
-                            />
-                          </FormControl>
-                          <span className="text-muted-foreground text-sm">
-                            Essential for calculating NI contributions and
-                            reporting to HMRC
-                          </span>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  ) : (
-                    <>
+                  <Form {...profileForm}>
+                    <form
+                      onSubmit={profileForm.handleSubmit(onSubmitProfile)}
+                      className="space-y-5"
+                    >
                       <FormField
-                        control={individualProfileForm.control}
-                        name="passportNumber"
+                        control={profileForm.control}
+                        name="fullName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Passport number</FormLabel>
+                            <FormLabel>Full name</FormLabel>
+
                             <FormControl>
                               <Input
-                                type="text"
-                                placeholder="Enter passport number"
+                                placeholder="Enter full name"
                                 autoComplete="off"
                                 {...field}
                               />
                             </FormControl>
+
                             <FormMessage />
                           </FormItem>
                         )}
                       />
 
                       <FormField
-                        control={individualProfileForm.control}
-                        name="additionalTaxIdentification"
+                        control={profileForm.control}
+                        name="email"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
-                              Additional tax identification detail for your
-                              country
+                              Email{" "}
+                              <button
+                                type="button"
+                                className="text-primary ml-1 cursor-pointer font-medium"
+                                onClick={() => {
+                                  setOpenEmailModal(true);
+                                  setStep("signIn");
+                                }}
+                              >
+                                Change email
+                              </button>
                             </FormLabel>
+
                             <FormControl>
                               <Input
-                                type="text"
-                                placeholder="Enter your country's tax identification"
+                                type="email"
+                                placeholder="Enter email address"
                                 autoComplete="off"
+                                disabled={!isEditable}
                                 {...field}
                               />
                             </FormControl>
+
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </>
-                  )}
+                    </form>
+                  </Form>
+                </section>
 
-                  <FormField
-                    control={individualProfileForm.control}
-                    name="dateOfBirth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date of birth</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="date"
-                            {...field}
-                          />
-                        </FormControl>
-                        <span className="text-muted-foreground text-sm">
-                          Required for payroll processing (format: YYYY-MM-DD)
-                        </span>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* Login & Security */}
+                <section className="rounded-xl border bg-white p-4 sm:p-6">
+                  <div className="mb-5 space-y-1">
+                    <h3 className="text-lg font-semibold">Login & security</h3>
 
-                  <FormField
-                    control={individualProfileForm.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Gender</FormLabel>
-                        <FormControl>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <SelectTrigger className="h-12 !w-full">
-                              <SelectValue placeholder="Select Gender" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="MALE">Male</SelectItem>
-                              <SelectItem value="FEMALE">Female</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <span className="text-muted-foreground text-sm">
-                          Required data for payroll processing
-                        </span>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-3 gap-6">
-                    <FormField
-                      control={individualProfileForm.control}
-                      name="accountName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account name</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Same as your legal name"
-                              autoComplete="off"
-                              readOnly
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={individualProfileForm.control}
-                      name="accountNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account number</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Enter account number"
-                              autoComplete="off"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={individualProfileForm.control}
-                      name="sortCode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sort code</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Enter sort code"
-                              autoComplete="off"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <p className="text-muted-foreground text-sm">
+                      Manage your account security settings.
+                    </p>
                   </div>
 
-                  <Button
-                    type="submit"
-                    size="lg"
-                    disabled={isProfileLoading}
-                  >
-                    {isProfileLoading ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="size-4 animate-spin" />{" "}
-                        Submitting...
-                      </span>
-                    ) : (
-                      <span>Submit</span>
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </div>
-          </TabsContent>
-        ) : null}
+                  <Form {...profileForm}>
+                    <form
+                      onSubmit={profileForm.handleSubmit(onSubmitProfile)}
+                      className="space-y-5"
+                    >
+                      <FormField
+                        control={profileForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Current password</FormLabel>
 
-        {showOrganisationProfileTab ? (
-          <TabsContent
-            value="organisation_profile"
-            className="mt-0 w-full min-w-0"
-          >
-            <div className="w-full min-w-0 space-y-6 overflow-hidden rounded-md border bg-white p-4 sm:p-6">
-              <div className="min-w-0 space-y-1">
-                <h5 className="text-xl font-semibold">Organisation profile</h5>
-                <p className="text-muted-foreground text-sm">
-                  Update your organisation profile
-                </p>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showPassword ? "text" : "password"}
+                                  placeholder="Enter current password"
+                                  autoComplete="off"
+                                  className="pr-11"
+                                  {...field}
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={togglePasswordVisibility}
+                                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                                  aria-label={
+                                    showPassword
+                                      ? "Hide current password"
+                                      : "Show current password"
+                                  }
+                                >
+                                  <Eye className="size-4" />
+                                </button>
+                              </div>
+                            </FormControl>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={profileForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>New password</FormLabel>
+
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={
+                                    showConfirmPassword ? "text" : "password"
+                                  }
+                                  placeholder="Enter new password"
+                                  autoComplete="off"
+                                  className="pr-11"
+                                  {...field}
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={toggleConfirmPasswordVisibility}
+                                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                                  aria-label={
+                                    showConfirmPassword
+                                      ? "Hide new password"
+                                      : "Show new password"
+                                  }
+                                >
+                                  <Eye className="size-4" />
+                                </button>
+                              </div>
+                            </FormControl>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          className="w-full sm:w-auto"
+                          onClick={() => {
+                            profileForm.reset({
+                              ...profileForm.getValues(),
+                              password: "",
+                              confirmPassword: "",
+                            });
+                          }}
+                        >
+                          Cancel
+                        </Button>
+
+                        <Button
+                          type="submit"
+                          size="lg"
+                          className="w-full sm:w-auto"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="size-4 animate-spin" />
+                              Saving changes...
+                            </span>
+                          ) : (
+                            "Save changes"
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </section>
+
+                <HostYoutubeChannelsSettings />
               </div>
+            </TabsContent>
 
-              <Form {...organisationProfileForm}>
-                <form
-                  onSubmit={organisationProfileForm.handleSubmit(
-                    onSubmitOrganisationProfile
-                  )}
-                  className="min-w-0 space-y-6"
-                >
-                  {/* Registered company name */}
-                  <FormField
-                    control={organisationProfileForm.control}
-                    name="registeredCompanyName"
-                    render={({ field }) => (
-                      <FormItem className="min-w-0">
-                        <FormLabel>Registered company name</FormLabel>
+            {showIndividualProfileTab ? (
+              <TabsContent
+                value="individual_profile"
+                className="mt-0 w-full"
+              >
+                <div className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">
+                      Individual profile
+                    </h3>
 
-                        <FormControl>
-                          <Input
-                            placeholder="Enter registered company name"
-                            autoComplete="off"
-                            className="w-full min-w-0"
-                            disabled={connectLegalNameLocked}
-                            {...field}
-                          />
-                        </FormControl>
-
-                        <span className="text-muted-foreground block text-sm">
-                          {connectLegalNameLocked
-                            ? "Locked to match your Stripe payout identity."
-                            : "For official records and invoices"}
-                        </span>
-
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Company registration number */}
-                  <FormField
-                    control={organisationProfileForm.control}
-                    name="companyRegistrationNumber"
-                    render={({ field }) => (
-                      <FormItem className="min-w-0">
-                        <FormLabel>Company registration number (CRN)</FormLabel>
-
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="Enter company registration number"
-                            autoComplete="off"
-                            className="w-full min-w-0"
-                            {...field}
-                          />
-                        </FormControl>
-
-                        <span className="text-muted-foreground block text-sm">
-                          To verify your company on the Company House register
-                        </span>
-
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Registered address */}
-                  <div className="min-w-0">
-                    <HostProfileAddressFields
-                      control={organisationProfileForm.control}
-                      setValue={organisationProfileForm.setValue}
-                      watch={organisationProfileForm.watch}
-                      fields={{
-                        address: "registeredAddress",
-                        city: "city",
-                        state: "state",
-                        postalCode: "postalCode",
-                        country: "country",
-                      }}
-                      addressLabel="Registered address / trading address"
-                    />
-
-                    <span className="text-muted-foreground -mt-4 block text-sm">
-                      For official correspondence and records
-                    </span>
+                    <p className="text-muted-foreground text-sm">
+                      Update your individual profile and payout information.
+                    </p>
                   </div>
 
-                  {/* Date of birth */}
-                  <FormField
-                    control={organisationProfileForm.control}
-                    name="dateOfBirth"
-                    render={({ field }) => (
-                      <FormItem className="min-w-0">
-                        <FormLabel>
-                          Date of birth (authorised signatory)
-                        </FormLabel>
+                  {/* Organisation account notice */}
+                  {profileAccountType === "ORGANIZATION" ? (
+                    <div className="border-primary/20 from-primary/10 via-primary/5 to-background relative overflow-hidden rounded-xl border bg-gradient-to-br p-4 sm:p-5">
+                      <div className="bg-primary/10 absolute -top-10 -right-10 size-24 rounded-full blur-2xl" />
 
-                        <FormControl>
-                          <Input
-                            type="date"
-                            className="w-full min-w-0"
-                            {...field}
-                          />
-                        </FormControl>
+                      <div className="relative flex items-start gap-3 sm:gap-4">
+                        <div className="border-primary/20 bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl border sm:size-11">
+                          <Building2 className="size-5 sm:size-5" />
+                        </div>
 
-                        <span className="text-muted-foreground block text-sm">
-                          Required for payroll processing (format: YYYY-MM-DD)
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold sm:text-base">
+                              You&apos;re operating this account as an
+                              organisation
+                            </p>
 
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                            <span className="border-primary/20 bg-primary/10 text-primary rounded-full border px-2.5 py-0.5 text-[11px] font-medium">
+                              Organisation account
+                            </span>
+                          </div>
 
-                  {/* Tax payer reference */}
-                  <FormField
-                    control={organisationProfileForm.control}
-                    name="uniqueTaxpayerReference"
-                    render={({ field }) => (
-                      <FormItem className="min-w-0">
-                        <FormLabel>
-                          {organisationIsUk
-                            ? "Tax payer reference (UTR)"
-                            : "Tax identification for your country"}
-                        </FormLabel>
+                          <p className="text-muted-foreground mt-1.5 text-sm leading-6">
+                            This account is configured as an organisation
+                            account.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
 
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder={
-                              organisationIsUk
-                                ? "Enter unique tax payer reference"
-                                : "Enter tax identification for your country"
-                            }
-                            autoComplete="off"
-                            className="w-full min-w-0"
-                            {...field}
-                          />
-                        </FormControl>
-
-                        <span className="text-muted-foreground block text-sm">
-                          For tax records and verification
-                        </span>
-
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Additional tax identification / VAT */}
-                  {!organisationIsUk ? (
-                    <FormField
-                      control={organisationProfileForm.control}
-                      name="additionalTaxIdentification"
-                      render={({ field }) => (
-                        <FormItem className="min-w-0">
-                          <FormLabel>
-                            Additional tax identification detail for your
-                            country
-                          </FormLabel>
-
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Enter additional tax information"
-                              autoComplete="off"
-                              className="w-full min-w-0"
-                              {...field}
-                            />
-                          </FormControl>
-
-                          <FormMessage />
-                        </FormItem>
+                  <Form {...individualProfileForm}>
+                    <form
+                      onSubmit={individualProfileForm.handleSubmit(
+                        onSubmitIndividualProfile
                       )}
-                    />
-                  ) : (
-                    <FormField
-                      control={organisationProfileForm.control}
-                      name="vatRegistrationNumber"
-                      render={({ field }) => (
-                        <FormItem className="min-w-0">
-                          <FormLabel>
-                            VAT registration number (if you have one)
-                          </FormLabel>
+                      className="space-y-6"
+                    >
+                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        <FormField
+                          control={individualProfileForm.control}
+                          name="firstName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>First name</FormLabel>
 
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Enter VAT registration number"
-                              autoComplete="off"
-                              className="w-full min-w-0"
-                              {...field}
-                            />
-                          </FormControl>
+                              <FormControl>
+                                <Input
+                                  placeholder="Enter first name"
+                                  autoComplete="off"
+                                  disabled={connectLegalNameLocked}
+                                  {...field}
+                                />
+                              </FormControl>
 
-                          <FormMessage />
-                        </FormItem>
+                              <span className="text-muted-foreground text-sm">
+                                {connectLegalNameLocked
+                                  ? "Locked to match your Stripe payout identity."
+                                  : "For official records and HMRC reporting"}
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={individualProfileForm.control}
+                          name="lastName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Last name</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  placeholder="Enter last name"
+                                  autoComplete="off"
+                                  disabled={connectLegalNameLocked}
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <span className="text-muted-foreground text-sm">
+                                {connectLegalNameLocked
+                                  ? "Locked to match your Stripe payout identity."
+                                  : "For official records and HMRC reporting"}
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <HostProfileAddressFields
+                        control={individualProfileForm.control}
+                        setValue={individualProfileForm.setValue}
+                        watch={individualProfileForm.watch}
+                        fields={{
+                          address: "homeAddress",
+                          city: "city",
+                          state: "state",
+                          postalCode: "postalCode",
+                          country: "country",
+                        }}
+                        addressLabel="Home address"
+                      />
+
+                      <span className="text-muted-foreground -mt-4 block text-sm">
+                        For official records, correspondence, and HMRC
+                        reporting.
+                      </span>
+
+                      {individualIsUk ? (
+                        <FormField
+                          control={individualProfileForm.control}
+                          name="niNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                National Insurance (NI) number
+                              </FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter national insurance (NI) number"
+                                  autoComplete="off"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <span className="text-muted-foreground text-sm">
+                                Essential for calculating NI contributions and
+                                reporting to HMRC.
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ) : (
+                        <>
+                          <FormField
+                            control={individualProfileForm.control}
+                            name="passportNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Passport number</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter passport number"
+                                    autoComplete="off"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={individualProfileForm.control}
+                            name="additionalTaxIdentification"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  Additional tax identification detail for your
+                                  country
+                                </FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter your country's tax identification"
+                                    autoComplete="off"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
                       )}
-                    />
-                  )}
 
-                  {/* Invoice */}
-                  <FormField
-                    control={organisationProfileForm.control}
-                    name="invoice"
-                    render={({ field }) => (
-                      <FormItem className="min-w-0">
-                        <FormLabel>Upload</FormLabel>
+                      <FormField
+                        control={individualProfileForm.control}
+                        name="dateOfBirth"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Date of birth</FormLabel>
 
-                        <FormControl>
-                          <>
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              disabled={isUploading}
-                              onChange={e =>
-                                void handleFileUpload(e, field.onChange)
-                              }
-                              placeholder="Upload invoice"
-                              autoComplete="off"
-                              className="w-full min-w-0"
-                            />
+                            <FormControl>
+                              <Input
+                                type="date"
+                                {...field}
+                              />
+                            </FormControl>
 
-                            {isUploading && (
-                              <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                                <Loader2 className="size-3 animate-spin" />{" "}
-                                Uploading to Cloudinary...
+                            <span className="text-muted-foreground text-sm">
+                              Required for payroll processing (format:
+                              YYYY-MM-DD).
+                            </span>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={individualProfileForm.control}
+                        name="gender"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Gender</FormLabel>
+
+                            <FormControl>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <SelectTrigger className="h-12 !w-full">
+                                  <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                  <SelectItem value="MALE">Male</SelectItem>
+
+                                  <SelectItem value="FEMALE">Female</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+
+                            <span className="text-muted-foreground text-sm">
+                              Required data for payroll processing.
+                            </span>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                        <FormField
+                          control={individualProfileForm.control}
+                          name="accountName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account name</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Same as your legal name"
+                                  autoComplete="off"
+                                  readOnly
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={individualProfileForm.control}
+                          name="accountNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Account number</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter account number"
+                                  autoComplete="off"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={individualProfileForm.control}
+                          name="sortCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sort code</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter sort code"
+                                  autoComplete="off"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full sm:w-auto"
+                        disabled={isProfileLoading}
+                      >
+                        {isProfileLoading ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="size-4 animate-spin" />
+                            Submitting...
+                          </span>
+                        ) : (
+                          "Submit"
+                        )}
+                      </Button>
+                    </form>
+                  </Form>
+                </div>
+              </TabsContent>
+            ) : null}
+
+            {showOrganisationProfileTab ? (
+              <TabsContent
+                value="organisation_profile"
+                className="mt-0 w-full"
+              >
+                <div className="w-full min-w-0 space-y-5 overflow-hidden rounded-xl border bg-white p-4 sm:p-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">
+                      Organisation profile
+                    </h3>
+
+                    <p className="text-muted-foreground text-sm">
+                      Update your organisation details and payout information.
+                    </p>
+                  </div>
+
+                  <Form {...organisationProfileForm}>
+                    <form
+                      onSubmit={organisationProfileForm.handleSubmit(
+                        onSubmitOrganisationProfile
+                      )}
+                      className="min-w-0 space-y-6"
+                    >
+                      <FormField
+                        control={organisationProfileForm.control}
+                        name="registeredCompanyName"
+                        render={({ field }) => (
+                          <FormItem className="min-w-0">
+                            <FormLabel>Registered company name</FormLabel>
+
+                            <FormControl>
+                              <Input
+                                placeholder="Enter registered company name"
+                                autoComplete="off"
+                                className="w-full min-w-0"
+                                disabled={connectLegalNameLocked}
+                                {...field}
+                              />
+                            </FormControl>
+
+                            <span className="text-muted-foreground block text-sm">
+                              {connectLegalNameLocked
+                                ? "Locked to match your Stripe payout identity."
+                                : "For official records and invoices."}
+                            </span>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={organisationProfileForm.control}
+                        name="companyRegistrationNumber"
+                        render={({ field }) => (
+                          <FormItem className="min-w-0">
+                            <FormLabel>
+                              Company registration number (CRN)
+                            </FormLabel>
+
+                            <FormControl>
+                              <Input
+                                type="text"
+                                placeholder="Enter company registration number"
+                                autoComplete="off"
+                                className="w-full min-w-0"
+                                {...field}
+                              />
+                            </FormControl>
+
+                            <span className="text-muted-foreground block text-sm">
+                              To verify your company on the Companies House
+                              register.
+                            </span>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="min-w-0">
+                        <HostProfileAddressFields
+                          control={organisationProfileForm.control}
+                          setValue={organisationProfileForm.setValue}
+                          watch={organisationProfileForm.watch}
+                          fields={{
+                            address: "registeredAddress",
+                            city: "city",
+                            state: "state",
+                            postalCode: "postalCode",
+                            country: "country",
+                          }}
+                          addressLabel="Registered address / trading address"
+                        />
+
+                        <span className="text-muted-foreground -mt-4 block text-sm">
+                          For official correspondence and records.
+                        </span>
+                      </div>
+
+                      <FormField
+                        control={organisationProfileForm.control}
+                        name="dateOfBirth"
+                        render={({ field }) => (
+                          <FormItem className="min-w-0">
+                            <FormLabel>
+                              Date of birth (authorised signatory)
+                            </FormLabel>
+
+                            <FormControl>
+                              <Input
+                                type="date"
+                                className="w-full min-w-0"
+                                {...field}
+                              />
+                            </FormControl>
+
+                            <span className="text-muted-foreground block text-sm">
+                              Required for payroll processing (format:
+                              YYYY-MM-DD).
+                            </span>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={organisationProfileForm.control}
+                        name="uniqueTaxpayerReference"
+                        render={({ field }) => (
+                          <FormItem className="min-w-0">
+                            <FormLabel>
+                              {organisationIsUk
+                                ? "Tax payer reference (UTR)"
+                                : "Tax identification for your country"}
+                            </FormLabel>
+
+                            <FormControl>
+                              <Input
+                                type="text"
+                                placeholder={
+                                  organisationIsUk
+                                    ? "Enter unique tax payer reference"
+                                    : "Enter tax identification for your country"
+                                }
+                                autoComplete="off"
+                                className="w-full min-w-0"
+                                {...field}
+                              />
+                            </FormControl>
+
+                            <span className="text-muted-foreground block text-sm">
+                              For tax records and verification.
+                            </span>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {!organisationIsUk ? (
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="additionalTaxIdentification"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>
+                                Additional tax identification detail for your
+                                country
+                              </FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter additional tax information"
+                                  autoComplete="off"
+                                  className="w-full min-w-0"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ) : (
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="vatRegistrationNumber"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>
+                                VAT registration number (if you have one)
+                              </FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter VAT registration number"
+                                  autoComplete="off"
+                                  className="w-full min-w-0"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      <FormField
+                        control={organisationProfileForm.control}
+                        name="invoice"
+                        render={({ field }) => (
+                          <FormItem className="min-w-0">
+                            <FormLabel>Upload</FormLabel>
+
+                            <FormControl>
+                              <>
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={isUploading}
+                                  onChange={e =>
+                                    void handleFileUpload(e, field.onChange)
+                                  }
+                                  placeholder="Upload invoice"
+                                  autoComplete="off"
+                                  className="w-full min-w-0"
+                                />
+
+                                {isUploading && (
+                                  <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                                    <Loader2 className="size-3 animate-spin" />
+                                    Uploading to Cloudinary...
+                                  </div>
+                                )}
+                              </>
+                            </FormControl>
+
+                            <span className="text-muted-foreground block text-sm">
+                              The formal document detailing your
+                              &quot;supply&quot; (the tips) and any applicable
+                              VAT.
+                            </span>
+
+                            <FormMessage />
+
+                            {organisationProfileForm.watch("invoice") && (
+                              <div className="text-muted-foreground text-xs break-all">
+                                Uploaded:{" "}
+                                {organisationProfileForm.watch("invoice")}
                               </div>
                             )}
-                          </>
-                        </FormControl>
-
-                        <span className="text-muted-foreground block text-sm">
-                          The formal document detailing your &quot;supply&quot;
-                          (the tips) and any applicable VAT
-                        </span>
-
-                        <FormMessage />
-
-                        {organisationProfileForm.watch("invoice") && (
-                          <div className="text-muted-foreground text-xs break-all">
-                            Uploaded: {organisationProfileForm.watch("invoice")}
-                          </div>
+                          </FormItem>
                         )}
-                      </FormItem>
-                    )}
+                      />
+
+                      <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3">
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="accountName"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>Account name</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Same as registered company name"
+                                  autoComplete="off"
+                                  readOnly
+                                  className="w-full min-w-0"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="accountNumber"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>Account number</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter account number"
+                                  autoComplete="off"
+                                  className="w-full min-w-0"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="sortCode"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>Sort code</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter sort code"
+                                  autoComplete="off"
+                                  className="w-full min-w-0"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full sm:w-auto"
+                        disabled={isProfileLoading}
+                      >
+                        {isProfileLoading ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="size-4 animate-spin" />
+                            Submitting...
+                          </span>
+                        ) : (
+                          "Submit"
+                        )}
+                      </Button>
+                    </form>
+                  </Form>
+                </div>
+              </TabsContent>
+            ) : null}
+
+            {/* Payment & Payouts */}
+            <TabsContent
+              value="payment_payouts"
+              className="mt-0 w-full"
+            >
+              <div className="space-y-5">
+                {/* Bank account information */}
+                <section className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">
+                      Bank account information
+                    </h3>
+
+                    <p className="text-muted-foreground text-sm">
+                      Your payout bank details are taken from your{" "}
+                      {profileAccountType === "ORGANIZATION"
+                        ? "organisation"
+                        : "individual"}{" "}
+                      profile.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="payout-bank-name"
+                        className="text-sm leading-none font-medium"
+                      >
+                        Bank name
+                      </label>
+
+                      <Input
+                        id="payout-bank-name"
+                        value=""
+                        placeholder="Bank name not provided"
+                        readOnly
+                        disabled
+                      />
+
+                      <p className="text-muted-foreground text-xs">
+                        Bank name is not currently stored in your profile.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="payout-account-name"
+                        className="text-sm leading-none font-medium"
+                      >
+                        Account name
+                      </label>
+
+                      <Input
+                        id="payout-account-name"
+                        value={payoutAccountName ?? ""}
+                        placeholder="Account name"
+                        readOnly
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="payout-routing-number"
+                        className="text-sm leading-none font-medium"
+                      >
+                        Sort code
+                      </label>
+
+                      <Input
+                        id="payout-routing-number"
+                        value={payoutRoutingNumber ?? ""}
+                        placeholder="Routing number"
+                        readOnly
+                      />
+
+                      <p className="text-muted-foreground text-xs">
+                        This uses the sort code saved in your profile.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="payout-account-holder-name"
+                        className="text-sm leading-none font-medium"
+                      >
+                        Account holder name
+                      </label>
+
+                      <Input
+                        id="payout-account-holder-name"
+                        value={payoutAccountHolderName ?? ""}
+                        placeholder="Account holder name"
+                        readOnly
+                      />
+                    </div>
+                  </div>
+
+                  {payoutAccountNumber ? (
+                    <div className="bg-muted/30 rounded-lg border p-3">
+                      <p className="text-muted-foreground text-xs">
+                        Account number
+                      </p>
+
+                      <p className="mt-1 text-sm font-medium">
+                        {payoutAccountNumber}
+                      </p>
+                    </div>
+                  ) : null}
+                </section>
+
+                {/* Account type banner */}
+                <section className="rounded-xl border bg-white p-4 shadow-sm sm:p-5">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-muted flex size-11 shrink-0 items-center justify-center rounded-xl border">
+                      {profileAccountType === "ORGANIZATION" ? (
+                        <Building2 className="text-foreground size-5" />
+                      ) : (
+                        <User className="text-foreground size-5" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                        Profile type
+                      </p>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold sm:text-base">
+                          {profileAccountType === "ORGANIZATION"
+                            ? "Organisation"
+                            : "Individual"}
+                        </p>
+                      </div>
+
+                      <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+                        Your payout and tax information is managed using this
+                        profile.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Payout schedule */}
+                <section className="bg-card space-y-4 rounded-lg border p-4 sm:p-5">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      Payout settlement history
+                    </h2>
+
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      Recent payouts that have been settled for your host
+                      account.
+                    </p>
+                  </div>
+
+                  {payoutsLoading ? (
+                    <p className="text-muted-foreground text-sm">
+                      Loading settlement history…
+                    </p>
+                  ) : settlementHistory.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-6 text-center">
+                      <p className="text-sm font-medium">
+                        No settlements recorded yet.
+                      </p>
+
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Your payout settlement history will appear here once a
+                        payout has been settled.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {settlementHistory.map(settlement => (
+                        <li
+                          key={settlement.id}
+                          className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">
+                              {branchLabel(settlement.branch)}
+                            </p>
+
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              {settlement.status} ·{" "}
+                              {new Date(settlement.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+
+                          <p className="text-sm font-semibold">
+                            {formatGbpMinor(settlement.amountMinor)}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </div>
+            </TabsContent>
+
+            {/* Help & Support */}
+            <TabsContent
+              value="help_section"
+              className="mt-0 w-full"
+            >
+              <div className="space-y-5">
+                <section className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">Help & support</h3>
+
+                    <p className="text-muted-foreground text-sm">
+                      Need assistance or have questions about your dashboard or
+                      event setup? Our support team is here to help.
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/30 rounded-lg border p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-background flex size-9 shrink-0 items-center justify-center rounded-lg border">
+                        <Headset className="size-4" />
+                      </div>
+
+                      <div className="min-w-0">
+                        <h4 className="font-medium">Live chat support</h4>
+
+                        <p className="text-muted-foreground mt-1 text-sm">
+                          Instantly connect with our support team to resolve any
+                          issue in real time.
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="lg"
+                      className="mt-4 w-full"
+                      onClick={() => setSupportOpen(true)}
+                    >
+                      Start live chat
+                    </Button>
+                  </div>
+
+                  <EmbeddedSupportChat
+                    open={supportOpen}
+                    onOpenChange={setSupportOpen}
+                    source="host_settings"
                   />
+                </section>
 
-                  {/* Bank account details */}
-                  <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-3">
-                    <FormField
-                      control={organisationProfileForm.control}
-                      name="accountName"
-                      render={({ field }) => (
-                        <FormItem className="min-w-0">
-                          <FormLabel>Account name</FormLabel>
+                <section className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">Contact support</h3>
 
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Same as registered company name"
-                              autoComplete="off"
-                              readOnly
-                              className="w-full min-w-0"
-                              {...field}
-                            />
-                          </FormControl>
+                    <p className="text-muted-foreground text-sm">
+                      Email us directly for more detailed assistance.
+                    </p>
+                  </div>
 
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="bg-muted/30 rounded-lg border p-4">
+                    <p className="text-sm font-medium">Email</p>
 
-                    <FormField
-                      control={organisationProfileForm.control}
-                      name="accountNumber"
-                      render={({ field }) => (
-                        <FormItem className="min-w-0">
-                          <FormLabel>Account number</FormLabel>
+                    <a
+                      href="mailto:hello@tipmanna.tv"
+                      className="text-primary mt-1 block text-sm hover:underline"
+                    >
+                      hello@tipmanna.tv
+                    </a>
+                  </div>
 
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Enter account number"
-                              autoComplete="off"
-                              className="w-full min-w-0"
-                              {...field}
-                            />
-                          </FormControl>
+                  <Link
+                    href="mailto:hello@tipmanna.tv"
+                    className="block"
+                  >
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className="w-full border"
+                    >
+                      Send email
+                    </Button>
+                  </Link>
+                </section>
 
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                <section className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-semibold">Report a problem</h3>
 
-                    <FormField
-                      control={organisationProfileForm.control}
-                      name="sortCode"
-                      render={({ field }) => (
-                        <FormItem className="min-w-0">
-                          <FormLabel>Sort code</FormLabel>
+                    <p className="text-muted-foreground text-sm">
+                      Facing a technical issue? Submit a quick report and
+                      we&apos;ll get back to you.
+                    </p>
+                  </div>
 
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Enter sort code"
-                              autoComplete="off"
-                              className="w-full min-w-0"
-                              {...field}
-                            />
-                          </FormControl>
+                  <Link
+                    href="mailto:hello@tipmanna.tv"
+                    className="block"
+                  >
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className="w-full border"
+                    >
+                      Report issue
+                    </Button>
+                  </Link>
+                </section>
+              </div>
+            </TabsContent>
+          </main>
+        </div>
 
-                          <FormMessage />
-                        </FormItem>
-                      )}
+        {/* Change email dialog */}
+        <Dialog
+          open={openEmailModal}
+          onOpenChange={setOpenEmailModal}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader className="open_sans">
+              {step === "signIn" ? (
+                <>
+                  <h2 className="text-center text-3xl font-semibold sm:text-4xl">
+                    Enter your email
+                  </h2>
+
+                  <Form {...emailForm}>
+                    <form
+                      onSubmit={emailForm.handleSubmit(async values => {
+                        try {
+                          if (!token) {
+                            return toast.error("Invalid token");
+                          }
+
+                          setIsLoading(true);
+
+                          const res = await changeEmailAction({
+                            userId,
+                            newEmail: values.email,
+                          });
+
+                          if (!res.success) {
+                            toast.error(res.message);
+                            return;
+                          }
+
+                          setStep("verifyCode");
+
+                          toast.success("Verification code sent to your email");
+                        } catch (err: unknown) {
+                          if (err instanceof Error) {
+                            toast.error(err.message);
+                          } else if (
+                            typeof err === "object" &&
+                            err !== null &&
+                            "error" in err
+                          ) {
+                            const apiErr = err as ApiError;
+                            toast.error(apiErr.error.message);
+                          } else {
+                            toast.error("Failed to send verification code");
+                          }
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      })}
+                      className="mt-8 space-y-6"
+                    >
+                      <FormField
+                        control={emailForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>New email</FormLabel>
+
+                            <FormControl>
+                              <Input
+                                placeholder="Enter email"
+                                {...field}
+                              />
+                            </FormControl>
+
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full bg-black"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "Sending code..." : "Send code"}
+                      </Button>
+                    </form>
+                  </Form>
+                </>
+              ) : (
+                <div className="relative flex flex-col items-center justify-center gap-4 py-8">
+                  <h2 className="mt-6 text-3xl font-semibold sm:text-4xl">
+                    Verify your email
+                  </h2>
+
+                  <p className="text-muted-foreground text-center text-sm">
+                    We&apos;ve sent a 6-digit code to{" "}
+                    <strong>{emailForm.watch("email")}</strong>. Enter it below
+                    to verify your account.
+                  </p>
+
+                  <div className="react-otp-input">
+                    <OTPInput
+                      value={emailCode}
+                      onChange={setEmailCode}
+                      numInputs={6}
+                      renderInput={props => <input {...props} />}
+                      inputStyle={inputStyle}
+                      shouldAutoFocus
                     />
                   </div>
 
-                  {/* Submit */}
                   <Button
-                    type="submit"
+                    type="button"
                     size="lg"
-                    className="w-full sm:w-auto"
-                    disabled={isProfileLoading}
-                  >
-                    {isProfileLoading ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="size-4 animate-spin" />
-                        Submitting...
-                      </span>
-                    ) : (
-                      <span>Submit</span>
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </div>
-          </TabsContent>
-        ) : null}
-
-        <TabsContent
-          value="payment_payouts"
-          className="mt-0 w-full"
-        >
-          <div className="space-y-6 rounded-md border bg-white p-6">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Bank Account Details</h5>
-              <p className="text-muted-foreground text-sm">
-                Configure where you receive payouts
-              </p>
-            </div>
-
-            <Form {...paymentForm}>
-              <form
-                onSubmit={paymentForm.handleSubmit(onSubmitPayment)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={paymentForm.control}
-                  name="bankName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bank name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Choose bank"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-6">
-                  <FormField
-                    control={paymentForm.control}
-                    name="accountName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account name</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Enter account name"
-                            autoComplete="off"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={paymentForm.control}
-                    name="routingNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Routing number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Enter routing number"
-                            autoComplete="off"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={paymentForm.control}
-                  name="accountHolderName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Account holder name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter account holder name"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </form>
-            </Form>
-          </div>
-
-          <div className="mt-6 space-y-6 rounded-md border bg-white p-6">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Tax information</h5>
-              <p className="text-muted-foreground text-sm">
-                Required for tax information purposes
-              </p>
-            </div>
-
-            <Form {...paymentForm}>
-              <form
-                onSubmit={paymentForm.handleSubmit(onSubmitTax)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={paymentForm.control}
-                  name="taxId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tax ID / SSN</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          placeholder="XXXX"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={paymentForm.control}
-                  name="businessType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Select business type</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          placeholder="Select business type"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </form>
-            </Form>
-          </div>
-
-          <div className="mt-6 space-y-6 rounded-md border bg-white p-6">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Payout Schedule</h5>
-              <p className="text-muted-foreground text-sm">
-                Close when you receive your earnings
-              </p>
-            </div>
-
-            <Form {...paymentForm}>
-              <form
-                onSubmit={paymentForm.handleSubmit(onSubmitPayment)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={paymentForm.control}
-                  name="payoutFrequency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payout frequency</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          placeholder="Select payout frequency"
-                          autoComplete="off"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end gap-4">
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    size="lg"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="lg"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="size-4 animate-spin" /> Saving
-                        changes...
-                      </span>
-                    ) : (
-                      <span>Save changes</span>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </div>
-        </TabsContent>
-
-        <TabsContent
-          value="help_section"
-          className="mt-0 w-full"
-        >
-          <div className="space-y-6 rounded-md border bg-white p-6">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Help & Support</h5>
-              <p className="text-muted-foreground text-sm">
-                Need assistance or have questions about your dashboard or event
-                setup? Our support team is here to help you.
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Live chat support</h5>
-              <p className="text-muted-foreground text-sm">
-                Instantly connect with our support team to resolve any issue in
-                real time.
-              </p>
-            </div>
-
-            <Button
-              size="lg"
-              className="w-full"
-              onClick={() => setSupportOpen(true)}
-            >
-              Start live chat
-            </Button>
-            <EmbeddedSupportChat
-              open={supportOpen}
-              onOpenChange={setSupportOpen}
-              source="host_settings"
-            />
-          </div>
-
-          <div className="mt-6 space-y-6 rounded-md border bg-white p-6">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Contact Support</h5>
-              <p className="text-muted-foreground text-sm">
-                Email us directly for more detailed assistance.
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">
-                Email us directly for more detailed assistance
-              </h5>
-              <div className="bg-secondary/20 space-y-1 p-2">
-                <p>Email:</p>
-                <a href="mailto:hello@tipmanna.tv">hello@tipmanna.tv</a>
-              </div>
-            </div>
-            <Link href="mailto:hello@tipmanna.tv">
-              <Button
-                variant="secondary"
-                size="lg"
-                className="bg-secondary/30 w-full border"
-              >
-                Send email
-              </Button>
-            </Link>
-          </div>
-
-          <div className="mt-6 space-y-6 rounded-md border bg-white p-6">
-            <div className="space-y-1">
-              <h5 className="text-xl font-semibold">Report a Problem</h5>
-              <p className="text-muted-foreground text-sm">
-                Facing a technical issue? Submit a quick report and we&apos;ll
-                get back to you.
-              </p>
-            </div>
-
-            <Link href="mailto:hello@tipmanna.tv">
-              <Button
-                variant="secondary"
-                size="lg"
-                className="bg-secondary/30 w-full border"
-              >
-                Report issue
-              </Button>
-            </Link>
-          </div>
-        </TabsContent>
-      </div>
-
-      <Dialog
-        open={openEmailModal}
-        onOpenChange={setOpenEmailModal}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="open_sans">
-            {step === "signIn" ? (
-              <>
-                <h2 className="text-center text-3xl font-semibold sm:text-4xl">
-                  Enter your email
-                </h2>
-
-                <Form {...emailForm}>
-                  <form
-                    onSubmit={emailForm.handleSubmit(async values => {
+                    className="mt-4 w-full"
+                    disabled={emailCode.length < 6 || isLoading}
+                    onClick={async () => {
                       try {
-                        if (!token) return toast.error("Invalid token");
-
                         setIsLoading(true);
-                        // send verification code to new emai
-                        const res = await changeEmailAction({
-                          userId,
-                          newEmail: values.email,
-                        });
-                        if (!res.success) {
-                          toast.error(res.message);
-                          return;
-                        }
 
-                        setStep("verifyCode");
-                        toast.success("Verification code sent to your email");
+                        await verifyCodeAction(
+                          emailForm.watch("email"),
+                          emailCode
+                        );
+
+                        dispatch(
+                          setCredentials({
+                            user: {
+                              ...user!,
+                              email: emailForm.watch("email"),
+                            },
+                            token: token!,
+                          })
+                        );
+
+                        toast.success("Email verified successfully!");
+
+                        replace(`/host/${eventSlug!}/profile`);
+
+                        setOpenEmailModal(false);
                       } catch (err: unknown) {
-                        if (err instanceof Error) {
-                          toast.error(err.message);
-                        } else if (
-                          typeof err === "object" &&
-                          err !== null &&
-                          "error" in err
-                        ) {
-                          const apiErr = err as ApiError;
-                          toast.error(apiErr.error.message);
-                        } else {
-                          toast.error("Failed to send verification code");
-                        }
+                        console.error(err);
+                        toast.error("Failed to verify email");
                       } finally {
                         setIsLoading(false);
                       }
-                    })}
-                    className="mt-12 space-y-6"
+                    }}
                   >
-                    <FormField
-                      control={emailForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>New Email</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter email"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {isLoading ? "Verifying..." : "Verify email"}
+                  </Button>
 
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="w-full bg-black"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Sending code..." : "Send Code"}
-                    </Button>
-                  </form>
-                </Form>
-              </>
-            ) : (
-              <div className="relative flex flex-col items-center justify-center gap-4 py-12">
-                <h2 className="mt-6 text-3xl font-semibold sm:text-4xl">
-                  Verify your email
-                </h2>
-                <p className="text-muted-foreground text-center text-sm">
-                  We&apos;ve sent a 6-digit code to{" "}
-                  <strong>{emailForm.watch("email")}</strong> Enter it below to
-                  verify your account.
-                </p>
-
-                <div className="react-otp-input">
-                  <OTPInput
-                    value={emailCode}
-                    onChange={setEmailCode}
-                    numInputs={6}
-                    renderInput={props => <input {...props} />}
-                    inputStyle={inputStyle}
-                    shouldAutoFocus
-                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="absolute -top-2 left-0 border border-gray-300 outline-none hover:bg-gray-200"
+                    onClick={() => setStep("signIn")}
+                  >
+                    <MoveLeft />
+                    Back
+                  </Button>
                 </div>
-
-                <Button
-                  type="button"
-                  size="lg"
-                  className="mt-4 w-full"
-                  disabled={emailCode.length < 6 || isLoading}
-                  onClick={async () => {
-                    try {
-                      setIsLoading(true);
-
-                      // Verify the code
-                      await verifyCodeAction(
-                        emailForm.watch("email"),
-                        emailCode
-                      );
-
-                      // Update email in redux
-                      dispatch(
-                        setCredentials({
-                          user: {
-                            ...user!,
-                            email: emailForm.watch("email"),
-                          },
-                          token: token!,
-                        })
-                      );
-
-                      toast.success("Email verified successfully!");
-
-                      replace(`/host/${eventSlug!}/profile`);
-                      // window.location.reload();
-
-                      setOpenEmailModal(false);
-                    } catch (err: unknown) {
-                      console.error(err);
-                      toast.error("Failed to verify email");
-                    } finally {
-                      setIsLoading(false);
-                    }
-                  }}
-                >
-                  {isLoading ? "Verifying..." : "Verify Email"}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="absolute -top-4 left-0 mt-4 border border-gray-300 outline-none hover:bg-gray-200"
-                  onClick={() => setStep("signIn")}
-                >
-                  <MoveLeft /> Back
-                </Button>
-              </div>
-            )}
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
-    </Tabs>
+              )}
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      </Tabs>
+    </div>
   );
 };

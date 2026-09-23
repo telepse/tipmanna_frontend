@@ -11,6 +11,16 @@ export interface EventPusherProviderProps {
   onAmountUpdated: (data: {
     amountRaised?: number;
     numOfTips?: number;
+    pinnedPerformers?: Array<{
+      id: string;
+      name: string;
+      amountReceived: number;
+    }>;
+    pinnedProjects?: Array<{
+      id: string;
+      name: string;
+      amountReceived: number;
+    }>;
   }) => void;
   onLatestTipUpdated: (latestTipAmount: number) => void;
   onSessionActivated: (amountToRaise: number) => void;
@@ -20,6 +30,9 @@ export interface EventPusherProviderProps {
     showLatestAmount: boolean;
     tipUsageDisclosure: unknown[];
     performers: unknown[];
+    projects?: unknown[];
+    showPinnedOnScreen?: boolean;
+    funnelPosition?: string;
   }) => void;
   onNewChatMessage: (message: Message) => void;
 }
@@ -61,12 +74,28 @@ export function EventPusherProvider({
     const handleAmount = (data: {
       amountRaised: number;
       numOfTips: number;
+      pinnedPerformers?: Array<{
+        id: string;
+        name: string;
+        amountReceived: number;
+      }>;
+      pinnedProjects?: Array<{
+        id: string;
+        name: string;
+        amountReceived: number;
+      }>;
     }) => {
       onAmountUpdatedRef.current({
         amountRaised:
           typeof data.amountRaised === "number" ? data.amountRaised : undefined,
         numOfTips:
           typeof data.numOfTips === "number" ? data.numOfTips : undefined,
+        pinnedPerformers: Array.isArray(data.pinnedPerformers)
+          ? data.pinnedPerformers
+          : undefined,
+        pinnedProjects: Array.isArray(data.pinnedProjects)
+          ? data.pinnedProjects
+          : undefined,
       });
     };
 
@@ -87,15 +116,20 @@ export function EventPusherProvider({
       showLatestAmount: boolean;
       tipUsageDisclosure: unknown[];
       performers: unknown[];
+      projects?: unknown[];
+      showPinnedOnScreen?: boolean;
+      funnelPosition?: string;
     }) => {
       animLog("🎙️ screen settings", data);
-      console.log(data.performers);
       onScreenSettingsUpdatedRef.current({
         eventBackground: data.eventBackground,
         hideProgressBarAmount: data.hideProgressBarAmount,
         showLatestAmount: data.showLatestAmount,
         tipUsageDisclosure: data.tipUsageDisclosure,
         performers: data.performers,
+        projects: data.projects,
+        showPinnedOnScreen: data.showPinnedOnScreen,
+        funnelPosition: data.funnelPosition,
       });
     };
 

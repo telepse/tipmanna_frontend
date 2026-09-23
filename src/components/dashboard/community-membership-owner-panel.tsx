@@ -116,6 +116,7 @@ export function CommunityMembershipOwnerPanel({
   const [joinQuestion, setJoinQuestion] = useState("");
   const [joinDefaultMonths, setJoinDefaultMonths] = useState(1);
   const [joinSubscriptionFee, setJoinSubscriptionFee] = useState("");
+  const savedSubscriptionFeeRef = useRef("");
   const [autoApproveFreeJoin, setAutoApproveFreeJoin] = useState(false);
   const [autoApprovePaidJoin, setAutoApprovePaidJoin] = useState(false);
 
@@ -179,11 +180,12 @@ export function CommunityMembershipOwnerPanel({
     setJoinDefaultMonths(d.joinFormDefaultMonths ?? 1);
     setAutoApproveFreeJoin(Boolean(d.autoApproveFreeJoin));
     setAutoApprovePaidJoin(Boolean(d.autoApprovePaidJoin));
-    setJoinSubscriptionFee(
+    const feeStr =
       d.subscriptionFeeGbp != null && d.subscriptionFeeGbp !== ""
         ? String(d.subscriptionFeeGbp)
-        : ""
-    );
+        : "";
+    setJoinSubscriptionFee(feeStr);
+    savedSubscriptionFeeRef.current = feeStr;
   }, [communityId, userId]);
 
   const loadMembers = useCallback(async () => {
@@ -325,6 +327,20 @@ export function CommunityMembershipOwnerPanel({
         }
         feeVal = n;
       }
+      const prevFeeRaw = savedSubscriptionFeeRef.current.trim();
+      const prevFeeNum = prevFeeRaw === "" ? 0 : Number(prevFeeRaw);
+      const nextFeeNum = feeVal ?? 0;
+      if (prevFeeNum <= 0 && nextFeeNum > 0) {
+        const ok = window.confirm(
+          "Turn on paid membership? Current members keep access until their end date. They will be asked to subscribe to continue."
+        );
+        if (!ok) return;
+      } else if (prevFeeNum > 0 && nextFeeNum <= 0) {
+        const ok = window.confirm(
+          "Turn off paid membership? New members join free. People who already paid stay until their paid end date, then receive the default free period."
+        );
+        if (!ok) return;
+      }
       const feeRes = await patchCommunitySubscriptionFeeAction(
         communityId,
         feeVal
@@ -333,6 +349,7 @@ export function CommunityMembershipOwnerPanel({
         toast.error(feeRes.message ?? "Could not save subscription fee");
         return;
       }
+      savedSubscriptionFeeRef.current = feeRaw;
       toast.success("Join form saved");
     } finally {
       setLoading(false);

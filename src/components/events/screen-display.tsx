@@ -2,19 +2,18 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import QRCode from "react-qr-code";
 import { NativeVideo } from "@/components/native-video";
 
 // Third-party imports
-import { ArrowLeft, Pin } from "lucide-react";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
+import { ScreenDisplayHud } from "@/components/events/screen-display-hud";
+import {
+  normalizeScreenFunnelPosition,
+  type ScreenFunnelPosition,
+} from "@/lib/screen-funnel-position";
 
 // Local imports
-import { Title } from "@/components/shared/title";
-import { Paragraph } from "@/components/shared/paragraph";
 import { SCREEN_BACKGROUNDS } from "@/lib/backgrounds";
-import { formatWithCommas, toSentenceCase } from "@/lib/utils";
 import { TipUsageDisclosure } from "@/types/tipusagedisclosure.types";
 import { RoomCharacter } from "@/types";
 import { useWakeLock } from "@/hooks/use-wake-lock";
@@ -24,6 +23,7 @@ import { preloadPaymentAnimationAssetsForCharacters } from "@/lib/preload-paymen
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { Performer } from "@/types/performer.types";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
+import { pinnedForScreenDisplay } from "@/lib/event-pin-roster";
 
 function getLightboxVideoSrc(bg: string): string {
   switch (bg) {
@@ -50,6 +50,12 @@ interface ScreenDisplayProps {
   tipUsageDisclosure?: TipUsageDisclosure[] | undefined;
   tippingCharacters?: RoomCharacter[] | undefined;
   performers?: Performer[];
+  projects?: Array<{
+    id?: string;
+    name: string;
+    amountReceived?: string | number;
+  }>;
+  contributionType?: string;
   children: React.ReactNode;
   /** Open fundraise / screen display lightbox on mount (e.g. /room/:id/screen). */
   defaultOpen?: boolean;
@@ -58,6 +64,8 @@ interface ScreenDisplayProps {
   /** When true, show view count if provided. */
   showViewCountOnVideos?: boolean;
   viewCount?: number;
+  showPinnedOnScreen?: boolean;
+  funnelPosition?: ScreenFunnelPosition;
 }
 
 export const ScreenDisplay = ({
@@ -75,11 +83,18 @@ export const ScreenDisplay = ({
   tipUsageDisclosure,
   tippingCharacters,
   performers,
+  projects,
+  contributionType = "PERFORMER",
   defaultOpen = false,
   showAmountRaisedOnVideos = true,
   showViewCountOnVideos = false,
   viewCount,
+  showPinnedOnScreen = true,
+  funnelPosition: funnelPositionProp,
 }: ScreenDisplayProps) => {
+  const funnelPosition = normalizeScreenFunnelPosition(
+    funnelPositionProp ?? "bottom_left"
+  );
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const lightboxVideoRef = useRef<HTMLVideoElement | null>(null);
   const router = useRouter();
@@ -168,6 +183,11 @@ export const ScreenDisplay = ({
     () => (Array.isArray(tippingCharacters) ? tippingCharacters : []),
     [tippingCharacters]
   );
+
+  const pinnedDisplayItems = useMemo(() => {
+    const source = contributionType === "PROJECT" ? projects : performers;
+    return pinnedForScreenDisplay(source ?? []);
+  }, [contributionType, performers, projects]);
 
   usePaymentAnimationPlayer({
     eventId,
@@ -317,10 +337,6 @@ export const ScreenDisplay = ({
     };
   }, [isLandscape, isMobile, isDesktop]);
 
-  const disclosureItems = Array.isArray(tipUsageDisclosure)
-    ? tipUsageDisclosure
-    : [];
-
   const [showPinnedPerformers, setShowPinnedPerformers] = useState(false);
 
   return (
@@ -363,182 +379,35 @@ export const ScreenDisplay = ({
               className={`pointer-events-none absolute inset-0 ${OVERLAY_Z_INDEX}`}
             />
 
-            {performers && performers.length && performers.length > 0 && (
-              <div className="absolute top-2 left-1/2 z-20 -translate-x-1/2">
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowPinnedPerformers(prev => !prev)}
-                    className="cursor-pointer"
-                  >
-                    <Pin className={`${textColor}`} />
-                  </button>
-
-                  {showPinnedPerformers && (
-                    <div className="absolute top-4 left-1/2 flex h-[50px] w-[250px] -translate-x-1/2 items-center justify-between border bg-white/70 p-4 sm:w-[500px]">
-                      {performers.map((performer: Performer) => (
-                        <div
-                          key={performer.id}
-                          className="flex gap-2 text-xs"
-                        >
-                          {performer.name}{" "}
-                          <span className="font-medium">
-                            &pound;{performer.amountReceived ?? 0}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={closeLightbox}
-              className={`absolute ${isMobile ? "top-2 left-2" : "top-4 left-4"} flex cursor-pointer items-center gap-2 rounded-full`}
-            >
-              <ArrowLeft
-                className={`${isMobile ? "size-4" : "size-5 sm:size-6"} ${textColor}`}
-              />
-            </button>
-
-            <h2
-              className={`text-center ${responsiveStyles.headingSize} font-semibold ${textColor}`}
-            >
-              {showLatest ? "Latest amount sent" : "Together you've sent"}
-            </h2>
-
-            {showRaisedAmount ? (
-              <Title
-                size="lg"
-                className={`${isMobile ? (isLandscape ? "-mt-1" : "-mt-2") : isLandscape ? "-mt-4" : "-mt-6"} ${responsiveStyles.titleSize} ${textColor}`}
-              >
-                &pound;
-                {showLatest
-                  ? formatWithCommas(latestTipAmount ?? 0)
-                  : formatWithCommas(amountRaised)}
-              </Title>
-            ) : null}
-
-            {showViewCountOnVideos && typeof viewCount === "number" ? (
-              <Paragraph
-                align="center"
-                weight="bold"
-                className={textColor}
-              >
-                {formatWithCommas(viewCount)} views
-              </Paragraph>
-            ) : null}
-
-            <div>
-              <Paragraph
-                align="center"
-                weight="bold"
-                className={textColor}
-              >
-                <div className="screen-display-marquee">
-                  <div className="screen-display-marquee-track">
-                    For{" "}
-                    {disclosureItems.length > 0 &&
-                      disclosureItems.map((item, index) => (
-                        <span key={item.id}>
-                          {toSentenceCase(item.customLabel || item.usageType)}
-                          {index < disclosureItems.length - 1 ? ", " : ""}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              </Paragraph>
-            </div>
-
-            <div
-              className="popup-container"
-              id="popup-container"
-            ></div>
-
-            <div
-              className={`flex w-full ${responsiveStyles.progressWidth} items-center gap-3`}
-            >
-              <div className="flex-1">
-                <div
-                  className={`relative z-50 ${responsiveStyles.progressBarHeight} overflow-hidden rounded-md bg-black`}
-                >
-                  <div
-                    className={`from-primary to-secondary absolute top-0 left-0 h-full bg-gradient-to-r transition-all duration-500 ${
-                      animateTip ? "animate-glow" : ""
-                    }`}
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-
-                {!shouldShowProgressAmounts && showRaisedAmount ? (
-                  <Paragraph
-                    weight="bold"
-                    className={`${textColor} ${isMobile ? "text-xs" : "text-sm sm:text-base"}`}
-                  >
-                    &pound;{formatWithCommas(amountRaised)}
-                  </Paragraph>
-                ) : null}
-              </div>
-
-              <div className="flex flex-col items-center">
-                <Image
-                  src="/icons/diamond.png"
-                  alt="Diamond"
-                  width={40}
-                  height={40}
-                  className="-mt-1 size-5 shrink-0 sm:size-10"
-                />
-
-                {!shouldShowProgressAmounts && showRaisedAmount ? (
-                  <Paragraph
-                    weight="bold"
-                    className={`${textColor} ${isMobile ? "text-xs" : "text-sm sm:text-base"}`}
-                  >
-                    &pound;{formatWithCommas(amountToRaise)}
-                  </Paragraph>
-                ) : null}
-              </div>
-            </div>
-
-            <Paragraph
-              weight="bold"
-              className={`${textColor} ${!shouldShowProgressAmounts ? "-mt-10 sm:-mt-12 lg:-mt-14" : "-mt-4"}`}
-            >
-              tipmanna.com
-            </Paragraph>
-
-            <div
-              className={`flex flex-col items-center justify-center gap-1 ${isMobile ? (isLandscape ? "mt-1" : "mt-4") : "mt-8 sm:mt-12"}`}
-            >
-              <QRCode
-                size={responsiveStyles.qrSize}
-                bgColor="white"
-                fgColor="black"
-                value={scanLink}
-              />
-
-              <div
-                className={`rounded border border-[#667185] bg-[#212121] px-2 py-1 text-center text-white ${isMobile ? (isLandscape ? "text-xs" : "text-sm") : "text-base"}`}
-              >
-                {eventName}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              id="funnel-btn"
-              className={`absolute animate-bounce ${isMobile ? "bottom-2 left-2" : "bottom-4 left-4"}`}
-            >
-              <Image
-                src="/events/funnel.png"
-                alt="Funnel"
-                width={100}
-                height={100}
-                className={`${responsiveStyles.funnelSize} object-contain`}
-              />
-            </button>
+            <ScreenDisplayHud
+              variant="opaque"
+              amountToRaise={amountToRaise}
+              amountRaised={amountRaised}
+              eventName={eventName}
+              showLatest={showLatest}
+              latestTipAmount={latestTipAmount}
+              shouldShowProgressAmounts={shouldShowProgressAmounts}
+              showRaisedAmount={showRaisedAmount}
+              textColor={textColor}
+              progress={progress}
+              animateTip={animateTip}
+              tipUsageDisclosure={tipUsageDisclosure}
+              contributionType={contributionType}
+              pinnedDisplayItems={pinnedDisplayItems}
+              showPinnedOnScreen={showPinnedOnScreen}
+              funnelPosition={funnelPosition}
+              scanLink={scanLink}
+              onClose={closeLightbox}
+              isMobile={isMobile}
+              isLandscape={isLandscape}
+              responsiveStyles={responsiveStyles}
+              showPinnedPerformers={showPinnedPerformers}
+              onTogglePinnedPerformers={() =>
+                setShowPinnedPerformers(prev => !prev)
+              }
+              showViewCountOnVideos={showViewCountOnVideos}
+              viewCount={viewCount}
+            />
           </div>
         </div>
       )}

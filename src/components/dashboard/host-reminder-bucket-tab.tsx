@@ -508,7 +508,7 @@ export function HostReminderBucketTab({ communityId }: Props) {
 
       <Button
         type="button"
-        disabled={busy}
+        disabled={busy || !selected}
         onClick={() => void submit()}
       >
         {busy ? "Creating…" : "Create reminder post"}

@@ -117,6 +117,8 @@ interface Props {
   venueLocation: string;
   activities: any[];
   eventDescription: string;
+  onPerformersUpdated?: (performers: any[]) => void;
+  onProjectsUpdated?: (projects: any[]) => void;
 }
 
 export const MessageHeader = ({
@@ -142,6 +144,8 @@ export const MessageHeader = ({
   venueLocation,
   activities,
   eventDescription,
+  onPerformersUpdated,
+  onProjectsUpdated,
 }: Props) => {
   const safeChannels = Array.isArray(channels) ? channels : [];
   const safePerformers = Array.isArray(performers) ? performers : [];
@@ -175,9 +179,6 @@ export const MessageHeader = ({
 
   const eventOwner = isEventOwner === user?.id || tag === "COHOST";
   const role = user?.role;
-
-  console.log("eventOwner", eventOwner);
-  console.log("isEventOwner", isEventOwner);
 
   const [dropMessageModalOpen, setDropMessageModalOpen] = useState(false);
 
@@ -357,6 +358,8 @@ export const MessageHeader = ({
               eventEventType={eventEventType}
               onClose={() => setModalOpen(false)}
               onChannelCreated={onChannelCreated}
+              onPerformersUpdated={onPerformersUpdated}
+              onProjectsUpdated={onProjectsUpdated}
             />
           </div>
         </div>

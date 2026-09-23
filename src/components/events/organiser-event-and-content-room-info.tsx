@@ -35,10 +35,16 @@ import { useDispatch, useSelector } from "react-redux";
 // Local imports
 import { ImageUploader } from "./image-uploader";
 import { RootState } from "@/redux/store";
-import { NewEventFormData } from "@/schemas";
+import {
+  individualProfileFormData,
+  NewEventFormData,
+  organisationProfileFormData,
+} from "@/schemas";
 import { toast } from "react-toastify";
 import { setCredentials } from "@/features/auth-slice";
 import { getLockedCustomerType } from "@/lib/locked-customer-type";
+import { useHostSession } from "@/hooks/use-host-session";
+import { getHostProfileAction, updateHostAction } from "@/actions/auth";
 
 interface Props {
   control: Control<NewEventFormData>;
@@ -152,6 +158,31 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
   const hasCreatedBefore = ((user as HostUser)?.numOfEvents ?? 0) > 0;
   const lockedCustomerType = getLockedCustomerType(user as HostUser);
 
+  const { isActive: hostSessionActive, hostUser } = useHostSession();
+
+  const [profileAccountType, setProfileAccountType] = useState<
+    "INDIVIDUAL" | "ORGANIZATION" | null
+  >(null);
+
+  const [connectLegalNameLocked, setConnectLegalNameLocked] = useState(false);
+
+  /**
+   * These booleans are derived from profileAccountType.
+   *
+   * INDIVIDUAL:
+   * - Individual radio remains enabled/selected
+   * - Organization radio is disabled
+   * - Individual profile fields are disabled
+   *
+   * ORGANIZATION:
+   * - Organization radio remains enabled/selected
+   * - Individual radio is disabled
+   * - Organization profile field is disabled
+   */
+  const isIndividualProfile = profileAccountType === "INDIVIDUAL";
+
+  const isOrganizationProfile = profileAccountType === "ORGANIZATION";
+
   useEffect(() => {
     setFullName(user?.fullName);
   }, [user]);
@@ -162,6 +193,66 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
     }
   }, [lockedCustomerType, setValue]);
 
+  /**
+   * Load the host profile and determine which account type
+   * is locked.
+   */
+  useEffect(() => {
+    if (!hostSessionActive) return;
+
+    let isMounted = true;
+
+    void getHostProfileAction().then(response => {
+      if (!isMounted) return;
+
+      if (!response.success || !response.data) return;
+
+      const profile = response.data as {
+        profileAccountType?: "INDIVIDUAL" | "ORGANIZATION" | null;
+
+        individualProfile?: Partial<individualProfileFormData> | null;
+
+        organisationProfile?: Partial<organisationProfileFormData> | null;
+
+        connectLegalNameLocked?: boolean;
+
+        organizationName?: string;
+      };
+
+      const accountType = profile.profileAccountType ?? null;
+
+      setProfileAccountType(accountType);
+
+      setConnectLegalNameLocked(Boolean(profile.connectLegalNameLocked));
+
+      /**
+       * Keep customerType synchronized with the profile account type.
+       *
+       * This is important because the profile account type determines
+       * which radio option and which fields can be used.
+       */
+      if (accountType) {
+        setValue("customerType", accountType);
+      }
+
+      /**
+       * Populate organization name if available.
+       */
+      if (profile.organizationName !== undefined) {
+        setValue("organizationName", profile.organizationName ?? "");
+      } else if (profile.organisationProfile?.organizationName) {
+        setValue(
+          "organizationName",
+          profile.organisationProfile.organizationName
+        );
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hostSessionActive, setValue]);
+
   useEffect(() => {
     // Use the flattened fields from the user object
     if (hasCreatedBefore && user && "individualLegalFirstName" in user) {
@@ -171,7 +262,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
     }
   }, [hasCreatedBefore, user, setValue]);
 
-  const confirmLegalNames = () => {
+  const confirmLegalNames = async () => {
     if (user?.fullName !== fullName) {
       toast.error("Your full name does not match the one you signed up with");
     } else {
@@ -181,6 +272,10 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
       setIsEditingName(false);
       setValue("firstName", fullName?.split(" ")[0]);
       setValue("lastName", fullName?.split(" ")[1]);
+      await updateHostAction({
+        fullName: fullName ?? "",
+        email: user?.email ?? "",
+      });
       dispatch(
         setCredentials({
           user: { ...(user as HostUser), fullName: fullName ?? "" },
@@ -195,7 +290,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
       {/* Basic event information */}
       <div className="space-y-6 rounded-lg border bg-black/50 p-4 text-white shadow sm:p-6">
         <p className="text-sm text-white/80">
-          Signed in as host: {user?.fullName} @{user?.username}
+          Signed in as host: {user?.fullName} @{hostUser?.username}
         </p>
 
         <h2 className="font-semibold">
@@ -347,46 +442,64 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
           )}
         </div>
 
+        {/* Customer / Account Type */}
         <FormField
           control={control}
           name="customerType"
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Are you creating this channel as an individual or an
-                organisation? *
+                Are you uploading videos to this channel as an individual or an
+                organisation? <span className="text-destructive">*</span>
               </FormLabel>
+
               <FormControl>
                 <RadioGroup
                   onValueChange={field.onChange}
                   value={field.value}
                   className="mt-2 flex gap-4"
                 >
+                  {/* Individual */}
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem
                       value="INDIVIDUAL"
                       id="individual"
-                      disabled={lockedCustomerType === "ORGANIZATION"}
-                    />{" "}
-                    <Label htmlFor="individual">Individual</Label>
+                      disabled={isOrganizationProfile}
+                    />
+
+                    <Label
+                      htmlFor="individual"
+                      className={`${isOrganizationProfile ? "cursor-not-allowed opacity-50" : ""}`}
+                    >
+                      Individual
+                    </Label>
                   </div>
 
+                  {/* Organization */}
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem
                       value="ORGANIZATION"
                       id="organisation"
-                      disabled={lockedCustomerType === "INDIVIDUAL"}
-                    />{" "}
-                    <Label htmlFor="organisation">Organisation</Label>
+                      disabled={isIndividualProfile}
+                    />
+
+                    <Label
+                      htmlFor="organisation"
+                      className={`${isIndividualProfile ? "cursor-not-allowed opacity-50" : ""}`}
+                    >
+                      Organisation
+                    </Label>
                   </div>
                 </RadioGroup>
               </FormControl>
+
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {customerType === "ORGANIZATION" ? (
+        {/* Organization Profile */}
+        {customerType === "ORGANIZATION" && (
           <>
             <FormField
               control={control}
@@ -397,13 +510,16 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
                     Official Name of Organization{" "}
                     <span className="text-destructive">*</span>
                   </FormLabel>
+
                   <FormControl>
                     <Input
                       placeholder="Enter organization name"
                       className="bg-black/25"
+                      disabled={isOrganizationProfile}
                       {...field}
                     />
                   </FormControl>
+
                   <FormMessage />
                 </FormItem>
               )}
@@ -414,19 +530,24 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
               receiving payout
             </span>
           </>
-        ) : customerType === "INDIVIDUAL" ? (
+        )}
+
+        {/* Individual Profile */}
+        {customerType === "INDIVIDUAL" && (
           <>
             <div className="flex items-center gap-4 text-xs text-white/80">
               You are signed in as {user?.fullName}{" "}
-              {!hasCreatedBefore && !isNameConfirmed && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingName(true)}
-                  className="cursor-pointer"
-                >
-                  <PencilLineIcon className="size-4" />
-                </button>
-              )}{" "}
+              {!hasCreatedBefore &&
+                !isNameConfirmed &&
+                !isOrganizationProfile && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingName(true)}
+                    className="cursor-pointer"
+                  >
+                    <PencilLineIcon className="size-4" />
+                  </button>
+                )}
               {isEditingName && !isNameConfirmed ? (
                 <div className="relative flex w-full items-center gap-2">
                   <Input
@@ -435,14 +556,18 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
                     className="flex-1 bg-black/25"
                     value={fullName}
                     onChange={e => setFullName(e.target.value)}
+                    disabled={isOrganizationProfile}
                   />
 
                   <button
                     type="button"
                     onClick={() => {
                       setFullName(user?.fullName);
-                      setValue("firstName", fullName?.split(" ")[0]);
-                      setValue("lastName", fullName?.split(" ")[1]);
+
+                      setValue("firstName", fullName?.split(" ")[0] ?? "");
+
+                      setValue("lastName", fullName?.split(" ")[1] ?? "");
+
                       dispatch(
                         setCredentials({
                           user: {
@@ -462,6 +587,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
             </div>
 
             <div className="-mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {/* First Name */}
               <FormField
                 control={control}
                 name="firstName"
@@ -470,22 +596,28 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
                     <FormLabel>
                       First name <span className="text-destructive">*</span>
                     </FormLabel>
+
                     <FormControl>
                       <Input
                         placeholder="Please enter your first name"
                         className="bg-black/25 opacity-25"
                         readOnly
                         disabled={
-                          hasCreatedBefore || isNameConfirmed || isEditingName
+                          isIndividualProfile ||
+                          hasCreatedBefore ||
+                          isNameConfirmed ||
+                          isEditingName
                         }
                         {...field}
                       />
                     </FormControl>
+
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              {/* Last Name */}
               <FormField
                 control={control}
                 name="lastName"
@@ -494,17 +626,22 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
                     <FormLabel>
                       Last name <span className="text-destructive">*</span>
                     </FormLabel>
+
                     <FormControl>
                       <Input
                         placeholder="Please enter your last name"
                         className="bg-black/25 opacity-25"
                         readOnly
                         disabled={
-                          hasCreatedBefore || isNameConfirmed || isEditingName
+                          isIndividualProfile ||
+                          hasCreatedBefore ||
+                          isNameConfirmed ||
+                          isEditingName
                         }
                         {...field}
                       />
                     </FormControl>
+
                     <FormMessage />
                   </FormItem>
                 )}
@@ -519,19 +656,6 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
               <div>
                 <Button
                   type="button"
-                  // onClick={() => {
-                  //   setIsNameConfirmed(true);
-                  //   setFullName(user?.fullName);
-                  //   setIsEditingName(false);
-                  //   setValue("firstName", fullName?.split(" ")[0]);
-                  //   setValue("lastName", fullName?.split(" ")[1]);
-                  //   dispatch(
-                  //     setCredentials({
-                  //       user: { ...(user as HostUser), fullName: fullName ?? "" },
-                  //       token: token ?? "",
-                  //     })
-                  //   );
-                  // }}
                   onClick={confirmLegalNames}
                   className="bg-white text-black hover:bg-white/80"
                 >
@@ -548,7 +672,7 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
               </div>
             )}
           </>
-        ) : null}
+        )}
 
         <FormField
           control={control}

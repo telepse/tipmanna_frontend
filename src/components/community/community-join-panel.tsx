@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import type { RootState } from "@/redux/store";
 import {
-  getCommunityAccessStateAction,
   getApprovedCommunityContentBankAction,
   type CommunityFeaturedVideo,
 } from "@/actions/communities";
@@ -44,6 +43,7 @@ import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { EVENT_VIDEO_TYPE_OPTIONS } from "@/lib/event-video-type-options";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { buildContentShareUrl } from "@/lib/public-video-url";
+import { YoutubeChromeMask } from "@/components/youtube-chrome-mask";
 import { formatBankDuration } from "@/lib/utils";
 import { formatMetaMetricsLine } from "@/lib/creator-profile-metadata";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
@@ -57,6 +57,10 @@ import VideoPlayer, {
 } from "../events/video-player";
 import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature-card-banner";
 import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
+import { isCommunityAlreadyIn } from "@/lib/community-already-in";
+import { fetchCommunityAccessStateCached } from "@/lib/drawer-prefetch-cache";
+import { CommunityPublicMembersRoster } from "@/components/community/community-public-members-roster";
+import { invalidateCommunityPublicMembersCache } from "@/lib/community-public-members";
 
 const communityFeatureOn =
   process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
@@ -385,6 +389,7 @@ function FeaturedCommunityVideoOverlay({
                   onMuteStateChange={setIsMuted}
                   loadingBackdropClassName="bg-black"
                 />
+                <YoutubeChromeMask blockClicks />
               </div>
             ) : null}
           </div>
@@ -420,6 +425,7 @@ export type CommunityJoinPanelProps = {
   communityId: string;
   /** Full path + query for sign-in redirect (e.g. `/explore?tab=join&joinCommunity=…`). */
   signInRedirectPath: string;
+  variant?: "page" | "drawer";
 };
 
 // Constants for better maintainability
@@ -433,17 +439,19 @@ const PATHS = {
 export function CommunityJoinPanel({
   communityId,
   signInRedirectPath,
+  variant = "page",
 }: CommunityJoinPanelProps) {
+  const isDrawer = variant === "drawer";
   const router = useRouter();
   const pathname = usePathname();
   const openContentWithReturn = useOpenContentWithReturn();
   const { user, isAuthenticated } = useSelector((s: RootState) => s.auth);
 
-  const [gateOk, setGateOk] = useState(false);
   const [form, setForm] = useState<JoinFormPublic | null>(null);
 
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
   const [isMember, setIsMember] = useState(false);
+  const [viewerHostsCommunity, setViewerHostsCommunity] = useState(false);
   const [membershipStatus, setMembershipStatus] = useState<string | null>(null);
   const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(
     null
@@ -469,13 +477,14 @@ export function CommunityJoinPanel({
     useState<CommunityFeaturedVideo | null>(null);
 
   const featuredVideosRef = useRef<HTMLDivElement>(null);
+  const [membersRosterRefresh, setMembersRosterRefresh] = useState(0);
 
   useEffect(() => {
     formLoadedForRef.current = null;
     setDoneMessage(null);
     setForm(null);
-    setGateOk(false);
     setIsMember(false);
+    setViewerHostsCommunity(false);
     setMembershipStatus(null);
     setMembershipExpiresAt(null);
     setSubscriptionExpiresAt(null);
@@ -483,13 +492,8 @@ export function CommunityJoinPanel({
     setContentBankVideos([]);
   }, [communityId]);
 
-  useEffect(() => {
-    if (!communityFeatureOn) return;
-    setGateOk(true);
-  }, []);
-
   const loadForm = useCallback(
-    async (options?: { background?: boolean }) => {
+    async (options?: { background?: boolean; force?: boolean }) => {
       if (!communityId) return;
       const requestCommunityId = communityId;
       const background =
@@ -503,10 +507,12 @@ export function CommunityJoinPanel({
         formLoadedForRef.current = communityId;
         return;
       }
-      const res = await getCommunityAccessStateAction(communityId);
+      const data = await fetchCommunityAccessStateCached(communityId, {
+        force: options?.force,
+      });
       if (activeCommunityIdRef.current !== requestCommunityId) return;
-      if (!res.success || !res.data) {
-        toast.error(res.message ?? "Could not load community");
+      if (!data) {
+        toast.error("Could not load community");
         setForm(null);
         formLoadedForRef.current = null;
         return;
@@ -538,8 +544,7 @@ export function CommunityJoinPanel({
         viewerHostsCommunity: boolean;
       };
 
-      const d = res.data as AccessPayload;
-      console.log("res.data", res.data);
+      const d = data as AccessPayload;
       const jp = d.joinFormPublic;
       const nextForm: JoinFormPublic = {
         name: jp.name,
@@ -560,6 +565,7 @@ export function CommunityJoinPanel({
       };
       setForm(nextForm);
       setIsMember(d.isMember);
+      setViewerHostsCommunity(Boolean(d.viewerHostsCommunity));
       setMembershipStatus(d.membershipStatus ?? null);
       setMembershipExpiresAt(d.membershipExpiresAt ?? null);
       setSubscriptionExpiresAt(d.subscriptionExpiresAt ?? null);
@@ -567,21 +573,21 @@ export function CommunityJoinPanel({
 
       formLoadedForRef.current = communityId;
 
-      if (!background) {
-        if (d.isMember && !d.viewerHostsCommunity) {
-          toast.success("You already belong to this community.");
-        } else if (d.viewerHostsCommunity) {
-          toast.info(
-            "You operate this community as host — manage it from Host tools rather than joining as a tipper."
-          );
-        }
+      if (
+        !background &&
+        isCommunityAlreadyIn({
+          isMember: d.isMember,
+          viewerHostsCommunity: d.viewerHostsCommunity,
+        })
+      ) {
+        toast.success("You already belong to this community.");
       }
     },
     [communityId]
   );
 
   useEffect(() => {
-    if (!communityId) return;
+    if (!communityId || isDrawer) return;
 
     let cancelled = false;
 
@@ -604,7 +610,7 @@ export function CommunityJoinPanel({
     return () => {
       cancelled = true;
     };
-  }, [communityId]);
+  }, [communityId, isDrawer]);
 
   const copyFeaturedVideoLink = async (video: CommunityFeaturedVideo) => {
     const shareUrl = getFeaturedVideoShareUrl(video);
@@ -626,8 +632,10 @@ export function CommunityJoinPanel({
     });
   }, [loadForm]);
 
-  console.log("isMember", isMember);
-  console.log("membershipStatus", membershipStatus);
+  const alreadyIn = isCommunityAlreadyIn({
+    isMember,
+    viewerHostsCommunity,
+  });
 
   if (!communityFeatureOn) {
     return (
@@ -645,12 +653,6 @@ export function CommunityJoinPanel({
     joinBody = (
       <p className="text-muted-foreground p-6 text-sm">Missing community.</p>
     );
-  } else if (!gateOk) {
-    joinBody = (
-      <div className="flex min-h-[30vh] items-center justify-center">
-        <Loader2 className="text-muted-foreground size-8 animate-spin" />
-      </div>
-    );
   } else if (!form) {
     joinBody = (
       <div className="flex min-h-[30vh] items-center justify-center">
@@ -663,62 +665,75 @@ export function CommunityJoinPanel({
 
     joinBody = (
       <section
-        className="relative min-h-screen space-y-0 bg-cover bg-fixed bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
+        className={
+          isDrawer
+            ? "relative min-h-0 space-y-0 bg-white"
+            : "relative min-h-screen space-y-0 bg-cover bg-fixed bg-center bg-no-repeat"
+        }
+        style={
+          isDrawer
+            ? undefined
+            : { backgroundImage: `url(/patterns/bg_pattern.webp)` }
+        }
       >
-        <Image
-          src={PATHS.trophy}
-          alt="Trophy icon"
-          width={50}
-          height={50}
-          className="absolute top-0 left-4 size-12 object-contain opacity-50 sm:top-8 sm:size-16 lg:left-8"
-          loading="lazy"
-          priority={false}
-          aria-hidden="true"
-        />
+        {!isDrawer ? (
+          <>
+            <Image
+              src={PATHS.trophy}
+              alt="Trophy icon"
+              width={50}
+              height={50}
+              className="absolute top-0 left-4 size-12 object-contain opacity-50 sm:top-8 sm:size-16 lg:left-8"
+              loading="lazy"
+              priority={false}
+              aria-hidden="true"
+            />
 
-        {/* Fun Icon */}
-        <Image
-          src={PATHS.fun}
-          alt="Fun icon"
-          width={50}
-          height={50}
-          className="absolute top-0 right-4 size-12 sm:top-8 sm:size-16 lg:right-8"
-          loading="lazy"
-          priority={false}
-          aria-hidden="true"
-        />
+            {/* Fun Icon */}
+            <Image
+              src={PATHS.fun}
+              alt="Fun icon"
+              width={50}
+              height={50}
+              className="absolute top-0 right-4 size-12 sm:top-8 sm:size-16 lg:right-8"
+              loading="lazy"
+              priority={false}
+              aria-hidden="true"
+            />
 
-        {/* Diamond Icon */}
-        <Image
-          src={PATHS.diamond}
-          alt="Diamond icon"
-          width={50}
-          height={50}
-          className="absolute bottom-0 left-8 size-8 -rotate-[15deg] object-contain opacity-50 sm:left-8 sm:size-12"
-          loading="lazy"
-          priority={false}
-          aria-hidden="true"
-        />
+            {/* Diamond Icon */}
+            <Image
+              src={PATHS.diamond}
+              alt="Diamond icon"
+              width={50}
+              height={50}
+              className="absolute bottom-0 left-8 size-8 -rotate-[15deg] object-contain opacity-50 sm:left-8 sm:size-12"
+              loading="lazy"
+              priority={false}
+              aria-hidden="true"
+            />
 
-        {/* Flash Icon */}
-        <Image
-          src={PATHS.flash}
-          alt="Flash icon"
-          width={50}
-          height={50}
-          className="absolute right-12 bottom-0 size-10 rotate-[30deg] object-contain opacity-50 sm:size-16 lg:right-22"
-          loading="lazy"
-          priority={false}
-          aria-hidden="true"
-        />
+            {/* Flash Icon */}
+            <Image
+              src={PATHS.flash}
+              alt="Flash icon"
+              width={50}
+              height={50}
+              className="absolute right-12 bottom-0 size-10 rotate-[30deg] object-contain opacity-50 sm:size-16 lg:right-22"
+              loading="lazy"
+              priority={false}
+              aria-hidden="true"
+            />
 
-        <div className="mx-auto max-w-4xl p-4">
-          <CommunitySearchBrowseSection
-            compact
-            isAuthenticated={isAuthenticated}
-          />
-        </div>
+            <div className="mx-auto max-w-4xl p-4">
+              <CommunitySearchBrowseSection
+                compact
+                deferCatalogLoad
+                isAuthenticated={isAuthenticated}
+              />
+            </div>
+          </>
+        ) : null}
 
         <section className="relative mx-auto flex min-h-[25vh] max-w-4xl flex-col items-center justify-center rounded-2xl bg-cover bg-fixed bg-center bg-no-repeat bg-blend-multiply lg:min-h-[30vh]">
           <Image
@@ -781,7 +796,7 @@ export function CommunityJoinPanel({
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-2xl font-semibold">{form.name}</h2>
             {isAuthenticated ? (
-              isMember ? (
+              alreadyIn ? (
                 <Badge variant="default">Member</Badge>
               ) : (
                 <Badge variant="outline">Not a member</Badge>
@@ -795,7 +810,7 @@ export function CommunityJoinPanel({
             </div>
           ) : null}
 
-          {isMember ? (
+          {alreadyIn ? (
             <CommunityMemberInfo
               communityName={form.name}
               membershipStatus={membershipStatus}
@@ -844,7 +859,7 @@ export function CommunityJoinPanel({
             </div>
           </div>
 
-          {featuredVideos.length > 0 ? (
+          {!isDrawer && featuredVideos.length > 0 ? (
             <div className="space-y-4 pt-2">
               <h5 className="text-muted-foreground text-lg font-medium">
                 Featured community videos
@@ -889,45 +904,47 @@ export function CommunityJoinPanel({
           ) : null}
 
           {/* LARGE SCREENS */}
-          <div className="no-scrollbar hide__scrollbar relative hidden items-center gap-4 overflow-x-auto lg:flex">
-            <div
-              ref={featuredVideosRef}
-              className="flex w-[550px] snap-x snap-mandatory space-x-4"
-            >
-              {featuredVideos.map(video => (
-                <div
-                  key={video.id}
-                  className="w-[85%] flex-shrink-0 snap-center transition-transform duration-300 sm:w-[50%]"
-                >
-                  <FeaturedContentCard
+          {!isDrawer ? (
+            <div className="no-scrollbar hide__scrollbar relative hidden items-center gap-4 overflow-x-auto lg:flex">
+              <div
+                ref={featuredVideosRef}
+                className="flex w-[550px] snap-x snap-mandatory space-x-4"
+              >
+                {featuredVideos.map(video => (
+                  <div
                     key={video.id}
-                    channelId={video.eventId ?? ""}
-                    roomId={video.id}
-                    videoId={video.id}
-                    eventBanner={(() => {
-                      const videoId = extractYoutubeID(video.url);
-                      return videoId
-                        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                        : "";
-                    })()}
-                    eventName={video.title}
-                    numOfTips={video.numOfTips ?? 0}
-                    numOfEncounters={video.numOfSeen ?? 0}
-                    numOfSaves={video.numOfSaves ?? 0}
-                    numOfShares={video.numOfShares ?? 0}
-                    numOfComments={video.numOfComments}
-                    startTime={""}
-                    endTime={""}
-                    duration={video.durationSeconds ?? 0}
-                    videoUrl={video.url}
-                    onPlayClick={() => setOverlayVideo(video)}
-                  />
-                </div>
-              ))}
+                    className="w-[85%] flex-shrink-0 snap-center transition-transform duration-300 sm:w-[50%]"
+                  >
+                    <FeaturedContentCard
+                      key={video.id}
+                      channelId={video.eventId ?? ""}
+                      roomId={video.id}
+                      videoId={video.id}
+                      eventBanner={(() => {
+                        const videoId = extractYoutubeID(video.url);
+                        return videoId
+                          ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                          : "";
+                      })()}
+                      eventName={video.title}
+                      numOfTips={video.numOfTips ?? 0}
+                      numOfEncounters={video.numOfSeen ?? 0}
+                      numOfSaves={video.numOfSaves ?? 0}
+                      numOfShares={video.numOfShares ?? 0}
+                      numOfComments={video.numOfComments}
+                      startTime={""}
+                      endTime={""}
+                      duration={video.durationSeconds ?? 0}
+                      videoUrl={video.url}
+                      onPlayClick={() => setOverlayVideo(video)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          {contentBankVideos.length > 0 ? (
+          {!isDrawer && contentBankVideos.length > 0 ? (
             <div className="space-y-4 pt-6">
               <h5 className="text-muted-foreground text-lg font-medium">
                 Community videos {!isMember && "(only shown to members)"}
@@ -995,7 +1012,20 @@ export function CommunityJoinPanel({
             className="mt-6 border-t pt-6 lg:mt-12"
             showMemberInfo={false}
             onDoneMessageChange={setDoneMessage}
+            onJoined={() => {
+              invalidateCommunityPublicMembersCache(communityId);
+              setMembersRosterRefresh(n => n + 1);
+              void loadForm({ background: true, force: true });
+            }}
           />
+
+          {!isDrawer ? (
+            <CommunityPublicMembersRoster
+              communityId={communityId}
+              refreshNonce={membersRosterRefresh}
+              className="mt-8 border-t pt-6"
+            />
+          ) : null}
         </div>
       </section>
     );
@@ -1004,7 +1034,7 @@ export function CommunityJoinPanel({
   return (
     <>
       {joinBody}
-      {overlayVideo ? (
+      {!isDrawer && overlayVideo ? (
         <FeaturedCommunityVideoOverlay
           video={overlayVideo}
           onClose={() => setOverlayVideo(null)}
@@ -1018,7 +1048,7 @@ export function CommunityJoinPanel({
         getRedirectPathAfterVerify={() => signInReturnTo}
         onVerified={() => {
           if (signInReturnTo === signInRedirectPath) {
-            void loadForm({ background: true });
+            void loadForm({ background: true, force: true });
           } else {
             router.push(signInReturnTo);
           }

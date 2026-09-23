@@ -3,6 +3,7 @@ import type { TipAnimationEvent } from "@/lib/animation-guard";
 export type RealtimeSurface =
   | "event_room"
   | "screen_display"
+  | "screen_overlay"
   | "channel_client"
   | "content_client"
   | "tv_looper"

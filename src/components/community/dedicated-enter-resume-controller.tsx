@@ -24,9 +24,24 @@ export function DedicatedEnterResumeController() {
   const resumedRef = useRef(false);
 
   useEffect(() => {
-    if (!installed || !authToken) return;
+    if (!installed || !authToken || sideChick.loading) return;
     const pending = readPendingDedicatedEnter();
     if (!pending || resumedRef.current) return;
+
+    const activeId = sideChick.activation?.communityId;
+    if (sideChick.active && activeId) {
+      resumedRef.current = true;
+      if (activeId === pending.communityId) {
+        clearPendingDedicatedEnter();
+        router.push("/explore");
+        return;
+      }
+      clearPendingDedicatedEnter();
+      router.push(
+        `/community/side-chick/${encodeURIComponent(pending.communityId)}`
+      );
+      return;
+    }
 
     resumedRef.current = true;
     void (async () => {
@@ -41,6 +56,7 @@ export function DedicatedEnterResumeController() {
           router.push("/explore");
         } else {
           await assertNotEmailVerificationRequiredFromResponse(r);
+          resumedRef.current = false;
         }
       } catch {
         resumedRef.current = false;

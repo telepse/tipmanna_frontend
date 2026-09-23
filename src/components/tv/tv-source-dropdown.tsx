@@ -17,10 +17,15 @@ export function TvSourceDropdown({
   communityId,
   options,
   onChange,
+  headerTint = null,
+  headerForeground = null,
 }: {
   communityId: string | null;
   options: { id: string; name: string }[];
   onChange: (id: string | null) => void;
+  /** Dedicated side-chick brand tint (optional). */
+  headerTint?: string | null;
+  headerForeground?: string | null;
 }) {
   const [copying, setCopying] = useState(false);
 
@@ -44,14 +49,28 @@ export function TvSourceDropdown({
     }
   };
 
+  const branded = Boolean(headerTint);
+  const fgStyle = headerForeground ? { color: headerForeground } : undefined;
+  const tintStyle = headerTint
+    ? { backgroundColor: headerTint, borderColor: headerTint }
+    : undefined;
+
   return (
-    <div className="inline-flex items-center rounded-md border border-zinc-200 bg-white shadow-sm">
+    <div
+      className={cn(
+        "inline-flex items-center rounded-md border shadow-sm",
+        branded ? "border-transparent" : "border-zinc-200 bg-white"
+      )}
+      style={tintStyle}
+    >
       <button
         type="button"
         className={cn(
-          "inline-flex h-8 items-center justify-center rounded-l-md px-2 text-zinc-700 hover:bg-zinc-50",
+          "inline-flex h-8 items-center justify-center rounded-l-md px-2",
+          branded ? "hover:opacity-90" : "text-zinc-700 hover:bg-zinc-50",
           copying && "opacity-60"
         )}
+        style={fgStyle}
         aria-label="Copy TV link"
         title="Copy TV link"
         disabled={copying}
@@ -64,7 +83,13 @@ export function TvSourceDropdown({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="-mt-1 inline-flex h-8 max-w-[160px] items-center gap-1 rounded-r-md border-l border-zinc-200 bg-white px-2 text-xs font-medium text-zinc-800 hover:bg-zinc-50 sm:max-w-[180px]"
+            className={cn(
+              "-mt-1 inline-flex h-8 max-w-[160px] items-center gap-1 rounded-r-md border-l px-2 text-xs font-medium sm:max-w-[180px]",
+              branded
+                ? "border-white/25 hover:opacity-90"
+                : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50"
+            )}
+            style={fgStyle}
             aria-label="TV source"
           >
             <span className="truncate">

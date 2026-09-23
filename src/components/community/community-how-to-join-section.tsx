@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { RootState } from "@/redux/store";
 import {
-  getCommunityAccessStateAction,
   getMyCommunitySubscriptionAction,
   requestDomainOtpAction,
   submitJoinAction,
@@ -31,6 +30,11 @@ import { CommunityMemberInfo } from "@/components/community/community-member-inf
 import { DedicatedExitConfirmDialog } from "@/components/community/dedicated-exit-confirm-dialog";
 import { useSideChick } from "@/components/community/side-chick-provider";
 import { useDedicatedExitGate } from "@/hooks/use-dedicated-exit-gate";
+import { isCommunityAlreadyIn } from "@/lib/community-already-in";
+import {
+  fetchCommunityAccessStateCached,
+  invalidateCommunityAccessState,
+} from "@/lib/drawer-prefetch-cache";
 import { cn } from "@/lib/utils";
 
 const EXPLORE_COMMUNITY_HUB_HREF = "/explore?tab=my-communities";
@@ -148,6 +152,7 @@ export function CommunityHowToJoinSection({
   const loadForm = useCallback(
     async (options?: {
       background?: boolean;
+      force?: boolean;
     }): Promise<{
       isMember: boolean;
       viewerHostsCommunity: boolean;
@@ -172,19 +177,6 @@ export function CommunityHowToJoinSection({
         return { isMember: false, viewerHostsCommunity: false };
       }
 
-      const res = await getCommunityAccessStateAction(communityId);
-      if (activeCommunityIdRef.current !== requestCommunityId) return null;
-
-      if (!res.success || !res.data) {
-        if (!background) {
-          toast.error(res.message ?? "Could not load community");
-        }
-        setForm(null);
-        formLoadedForRef.current = null;
-        setLoading(false);
-        return null;
-      }
-
       type AccessPayload = {
         joinFormPublic: {
           name: string;
@@ -203,7 +195,22 @@ export function CommunityHowToJoinSection({
         viewerHostsCommunity: boolean;
       };
 
-      const d = res.data as AccessPayload;
+      const data = await fetchCommunityAccessStateCached(communityId, {
+        force: options?.force,
+      });
+      if (activeCommunityIdRef.current !== requestCommunityId) return null;
+
+      if (!data) {
+        if (!background) {
+          toast.error("Could not load community");
+        }
+        setForm(null);
+        formLoadedForRef.current = null;
+        setLoading(false);
+        return null;
+      }
+
+      const d = data as AccessPayload;
       const jp = d.joinFormPublic;
       setForm({
         name: jp.name,
@@ -224,12 +231,13 @@ export function CommunityHowToJoinSection({
       setLoading(false);
 
       if (!background) {
-        if (d.isMember && !d.viewerHostsCommunity) {
+        if (
+          isCommunityAlreadyIn({
+            isMember: d.isMember,
+            viewerHostsCommunity: d.viewerHostsCommunity,
+          })
+        ) {
           toast.success("You already belong to this community.");
-        } else if (d.viewerHostsCommunity) {
-          toast.info(
-            "You operate this community as host — manage it from Host tools rather than joining as a tipper."
-          );
         }
       }
 
@@ -253,14 +261,20 @@ export function CommunityHowToJoinSection({
       };
       setPaidSubExpiresAt(d.subscription?.expiresAt ?? null);
     }
-    const access = await loadForm({ background: true });
+    const access = await loadForm({ background: true, force: true });
     if (!access) return;
-    if (access.isMember && !access.viewerHostsCommunity) {
+    if (
+      isCommunityAlreadyIn({
+        isMember: access.isMember,
+        viewerHostsCommunity: access.viewerHostsCommunity,
+      })
+    ) {
+      invalidateCommunityAccessState(communityId);
       toast.success("Welcome!");
       onJoined?.();
+      void loadForm({ background: true, force: true });
       return;
     }
-    if (access.viewerHostsCommunity) return;
     toast.info(
       "Payment received. The community host will approve your membership."
     );
@@ -368,9 +382,10 @@ export function CommunityHowToJoinSection({
           onDoneMessageChange?.(message);
           toast.success("Request submitted");
         } else {
+          invalidateCommunityAccessState(communityId);
           toast.success("Welcome!");
           onJoined?.();
-          void loadForm({ background: true });
+          void loadForm({ background: true, force: true });
         }
       } finally {
         setSubmitting(false);
@@ -390,11 +405,16 @@ export function CommunityHowToJoinSection({
     return null;
   }
 
-  if (isMember && !showMemberInfo) {
+  const alreadyIn = isCommunityAlreadyIn({
+    isMember,
+    viewerHostsCommunity,
+  });
+
+  if (alreadyIn && !showMemberInfo) {
     return null;
   }
 
-  if (joinDisabled && !isMember && !viewerHostsCommunity) {
+  if (joinDisabled && !alreadyIn) {
     return null;
   }
 
@@ -412,21 +432,13 @@ export function CommunityHowToJoinSection({
           </div>
         ) : null}
 
-        {isMember ? (
+        {alreadyIn ? (
           <CommunityMemberInfo
             communityName={form.name}
             membershipStatus={membershipStatus}
             membershipExpiresAt={membershipExpiresAt}
             subscriptionExpiresAt={paidSubExpiresAt}
           />
-        ) : viewerHostsCommunity ? (
-          <div className="space-y-3 rounded-lg border p-4">
-            <h5 className="text-lg font-semibold">Community host</h5>
-            <p className="text-muted-foreground text-sm">
-              You operate this community as host. Manage it from Host tools
-              rather than joining as a tipper.
-            </p>
-          </div>
         ) : (
           <>
             <h5 className="text-xl">
@@ -616,7 +628,7 @@ export function CommunityHowToJoinSection({
         getRedirectPathAfterVerify={() => signInReturnTo}
         onVerified={() => {
           if (signInReturnTo === signInRedirectPath) {
-            void loadForm({ background: true });
+            void loadForm({ background: true, force: true });
           } else {
             router.push(signInReturnTo);
           }

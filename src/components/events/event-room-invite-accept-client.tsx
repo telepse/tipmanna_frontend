@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,21 +14,36 @@ import {
 } from "@/actions/events";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { persistEventRoomInviteToken } from "@/lib/event-room-invite-cookie";
+import type { RootState } from "@/redux/store";
 
 type Props = {
   eventId: string;
 };
 
+type MismatchState = {
+  inviteEmail: string;
+  signedInEmail: string;
+};
+
 export function EventRoomInviteAcceptClient({ eventId }: Props) {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const token = searchParams.get("token")?.trim() ?? "";
+  const user = useSelector((s: RootState) => s.auth.user);
+  const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
   const [loading, setLoading] = useState(true);
   const [eventName, setEventName] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<string | null>(null);
+  const [emailMismatch, setEmailMismatch] = useState<MismatchState | null>(
+    null
+  );
   const [signInOpen, setSignInOpen] = useState(false);
   const [accepting, setAccepting] = useState(false);
+
+  const signedInEmail =
+    isAuthenticated && user?.role !== "VISITOR" && user?.email?.trim()
+      ? user.email.trim()
+      : "";
 
   useEffect(() => {
     if (!token) {
@@ -71,7 +87,16 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
     try {
       const accept = await acceptEventRoomInviteAction(token);
       if (!accept.success) {
-        setInvalid(accept.message ?? "Could not accept invitation.");
+        const msg = accept.message ?? "Could not accept invitation.";
+        const inviteAddr = inviteEmail?.trim().toLowerCase() ?? "";
+        if (msg.toLowerCase().includes("different email") && inviteAddr) {
+          setEmailMismatch({
+            inviteEmail: inviteAddr,
+            signedInEmail: signedInEmail.toLowerCase(),
+          });
+          return;
+        }
+        setInvalid(msg);
         return;
       }
 
@@ -81,7 +106,7 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
       }
 
       toast.success("Invitation accepted");
-      router.replace(`/room/${encodeURIComponent(eventId)}`);
+      window.location.href = `/room/${encodeURIComponent(eventId)}`;
     } finally {
       setAccepting(false);
     }
@@ -92,6 +117,52 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin" />
         <p className="text-muted-foreground text-sm">Verifying invitation…</p>
+      </div>
+    );
+  }
+
+  if (emailMismatch) {
+    return (
+      <div className="mx-auto max-w-md space-y-4 py-16 text-center">
+        <h1 className="text-xl font-semibold">Wrong account</h1>
+        <p className="text-muted-foreground text-sm">
+          This invitation was sent to{" "}
+          <span className="text-foreground font-medium">
+            {emailMismatch.inviteEmail}
+          </span>
+          . Sign in with that address to accept.
+        </p>
+        {emailMismatch.signedInEmail ? (
+          <p className="text-muted-foreground text-xs">
+            You are currently signed in as {emailMismatch.signedInEmail}.
+          </p>
+        ) : null}
+        <Button
+          type="button"
+          className="w-full"
+          onClick={() => setSignInOpen(true)}
+        >
+          Sign in with invited email
+        </Button>
+        <Button
+          asChild
+          variant="outline"
+        >
+          <Link href="/">Back home</Link>
+        </Button>
+        <TipperEmailOtpSignInDialog
+          open={signInOpen}
+          onOpenChange={setSignInOpen}
+          signInTitle="Sign in with invited email"
+          initialEmail={emailMismatch.inviteEmail}
+          autoSendCode
+          signupSurface="event_room"
+          onVerified={() => {
+            setSignInOpen(false);
+            setEmailMismatch(null);
+            void completeAccept();
+          }}
+        />
       </div>
     );
   }
@@ -108,13 +179,26 @@ export function EventRoomInviteAcceptClient({ eventId }: Props) {
     );
   }
 
+  const wrongAccountHint =
+    inviteEmail &&
+    signedInEmail &&
+    signedInEmail.toLowerCase() !== inviteEmail.toLowerCase();
+
   return (
     <div className="mx-auto max-w-md space-y-4 py-16 text-center">
       <h1 className="text-xl font-semibold">Welcome to {eventName}</h1>
-      <p className="text-muted-foreground text-sm">
-        Verify your email{inviteEmail ? ` (${inviteEmail})` : ""} to accept this
-        invitation and enter the event room.
-      </p>
+      {wrongAccountHint ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+          This invite is for <span className="font-medium">{inviteEmail}</span>.
+          You are signed in as {signedInEmail}. Verify with the invited email to
+          continue.
+        </p>
+      ) : (
+        <p className="text-muted-foreground text-sm">
+          Verify your email{inviteEmail ? ` (${inviteEmail})` : ""} to accept
+          this invitation and enter the event room.
+        </p>
+      )}
       <Button
         type="button"
         className="w-full"

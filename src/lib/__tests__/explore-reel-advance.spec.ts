@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  exploreEndedAdvanceScrollBehavior,
   shouldAdvanceExploreReelOnEnd,
+  shouldCommitExploreActiveIndexOnScroll,
   shouldHandleExploreReelEnded,
   shouldPaginateExploreReelOnEnd,
 } from "@/lib/explore-reel-advance";
@@ -88,5 +90,13 @@ describe("shouldPaginateExploreReelOnEnd", () => {
 
   it("does not paginate when feed is empty", () => {
     expect(shouldPaginateExploreReelOnEnd(0, 0, 5)).toBe(false);
+  });
+});
+
+describe("exploreEndedAdvanceScrollBehavior", () => {
+  it("uses auto scroll so activeIndex commits before next play", () => {
+    expect(exploreEndedAdvanceScrollBehavior()).toBe("auto");
+    expect(shouldCommitExploreActiveIndexOnScroll("auto")).toBe(true);
+    expect(shouldCommitExploreActiveIndexOnScroll("smooth")).toBe(false);
   });
 });

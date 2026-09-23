@@ -16,5 +16,4 @@ export const EVENT_VIDEO_TYPE_OPTIONS: readonly {
   { value: "GAME_SPORT", label: "Game/Sport" },
   { value: "CHILDREN", label: "Children" },
   { value: "EDUCATION", label: "Education" },
-  { value: "OTHER", label: "Other" },
 ];
