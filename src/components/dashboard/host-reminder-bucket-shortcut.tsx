@@ -8,19 +8,24 @@ import { Button } from "@/components/ui/button";
 import { CommunityFeatureBadge } from "@/components/dashboard/community-feature-badge";
 import { HostCommunityPickerDialog } from "@/components/dashboard/host-community-picker-dialog";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
-import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import {
+  useHostSubscriptionPrompt,
+  type HostSubscriptionPromptFns,
+} from "@/hooks/use-host-subscription-prompt";
 import { buildCommunityTvHref } from "@/lib/host-dashboard-shortcuts";
 import { useOwnedCommunitiesPicker } from "@/lib/use-owned-communities-picker";
 import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 
 type Props = {
   hostEventSlug: string | null;
+  subscriptionPrompt?: HostSubscriptionPromptFns;
   size?: "sm" | "default";
   className?: string;
 };
 
 export function HostReminderBucketShortcut({
   hostEventSlug,
+  subscriptionPrompt,
   size = "sm",
   className,
 }: Props) {
@@ -30,8 +35,9 @@ export function HostReminderBucketShortcut({
   const { info, status, isLoading } = useHostPlanCapabilities();
   const communityActive =
     info?.tier === "HOST_COMMUNITY" && status === "active";
-  const { openForRequired, openForLapsed, SubscriptionPromptModal } =
-    useHostSubscriptionPrompt({ focusTier: "community" });
+  const localPrompt = useHostSubscriptionPrompt({ focusTier: "community" });
+  const { openForRequired, openForLapsed } =
+    subscriptionPrompt ?? localPrompt;
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const { communities, loading, error } = useOwnedCommunitiesPicker(
@@ -96,19 +102,21 @@ export function HostReminderBucketShortcut({
         ) : null}
         Send reminder
       </Button>
-      <HostCommunityPickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        title="Send reminder bucket"
-        communities={tvReady.map(c => ({ id: c.id, name: c.name }))}
-        loading={loading}
-        error={error}
-        onSelect={c => {
-          setPickerOpen(false);
-          goReminders(c.id);
-        }}
-      />
-      {SubscriptionPromptModal}
+      {pickerOpen ? (
+        <HostCommunityPickerDialog
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          title="Send reminder bucket"
+          communities={tvReady.map(c => ({ id: c.id, name: c.name }))}
+          loading={loading}
+          error={error}
+          onSelect={c => {
+            setPickerOpen(false);
+            goReminders(c.id);
+          }}
+        />
+      ) : null}
+      {!subscriptionPrompt ? localPrompt.SubscriptionPromptModal : null}
     </>
   );
 }

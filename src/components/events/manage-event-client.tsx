@@ -10,8 +10,13 @@ import { Event } from "@/types/event.types";
 import { ManageEventCardSkeleton } from "../dashboard/manage-event-card-skeleton";
 import { getHostEventsTabsAction } from "@/actions/events";
 import type { RootState } from "@/redux/store";
+import type { HostSubscriptionPromptFns } from "@/hooks/use-host-subscription-prompt";
 
-export const ManageEventClient = () => {
+type Props = {
+  subscriptionPrompt?: HostSubscriptionPromptFns;
+};
+
+export const ManageEventClient = ({ subscriptionPrompt }: Props) => {
   const user = useSelector((s: RootState) => s.auth.user);
   const [tabType, setTabType] = useState<
     "all_events" | "approved_events" | "pending_events"
@@ -91,6 +96,7 @@ export const ManageEventClient = () => {
                   showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
                   showViewCountOnVideos={event.showViewCountOnVideos}
                   showEncounterOnVideos={event.showEncounterOnVideos}
+                  subscriptionPrompt={subscriptionPrompt}
                 />
               ))}
         </TabsContent>
@@ -117,6 +123,7 @@ export const ManageEventClient = () => {
                   showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
                   showViewCountOnVideos={event.showViewCountOnVideos}
                   showEncounterOnVideos={event.showEncounterOnVideos}
+                  subscriptionPrompt={subscriptionPrompt}
                 />
               ))}
         </TabsContent>
@@ -143,6 +150,7 @@ export const ManageEventClient = () => {
                   showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
                   showViewCountOnVideos={event.showViewCountOnVideos}
                   showEncounterOnVideos={event.showEncounterOnVideos}
+                  subscriptionPrompt={subscriptionPrompt}
                 />
               ))}
         </TabsContent>

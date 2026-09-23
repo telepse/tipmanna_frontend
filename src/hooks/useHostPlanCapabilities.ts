@@ -15,6 +15,8 @@ import {
   isAuthSessionRequired,
 } from "@/lib/host-auth-fetch";
 import { updateTipper } from "@/features/auth-slice";
+import { shouldDispatchHostSubscriptionTier } from "@/lib/host-subscription-tier-sync";
+import { store } from "@/redux/store";
 
 export type HostSubscriptionFetchError = {
   message: string;
@@ -52,7 +54,18 @@ export function useHostPlanCapabilities() {
         t === "NONE" || t === "HOST_PREMIUM" || t === "HOST_COMMUNITY"
           ? t
           : undefined;
-      dispatch(updateTipper({ hostSubscriptionTier }));
+      const authUser = store.getState().auth.user as {
+        hostSubscriptionTier?:
+          | "NONE"
+          | "HOST_PREMIUM"
+          | "HOST_COMMUNITY";
+      } | null;
+      const currentTier = authUser?.hostSubscriptionTier;
+      if (
+        shouldDispatchHostSubscriptionTier(currentTier, hostSubscriptionTier)
+      ) {
+        dispatch(updateTipper({ hostSubscriptionTier }));
+      }
       return payload;
     },
     { revalidateOnFocus: true, dedupingInterval: 15_000 }

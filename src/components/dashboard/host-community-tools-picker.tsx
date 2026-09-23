@@ -15,7 +15,10 @@ import {
 import { CommunityFeatureBadge } from "@/components/dashboard/community-feature-badge";
 import { HostCommunityPickerDialog } from "@/components/dashboard/host-community-picker-dialog";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
-import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import {
+  useHostSubscriptionPrompt,
+  type HostSubscriptionPromptFns,
+} from "@/hooks/use-host-subscription-prompt";
 import {
   buildCommunityAnalyticsHref,
   buildCommunityCustomizationHref,
@@ -28,6 +31,7 @@ import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 
 type Props = {
   hostEventSlug: string | null;
+  subscriptionPrompt?: HostSubscriptionPromptFns;
   size?: "sm" | "default";
   className?: string;
 };
@@ -40,6 +44,7 @@ type CommunityAction =
 
 export function HostCommunityToolsPicker({
   hostEventSlug,
+  subscriptionPrompt,
   size = "sm",
   className,
 }: Props) {
@@ -49,8 +54,9 @@ export function HostCommunityToolsPicker({
   const { info, status, isLoading } = useHostPlanCapabilities();
   const communityActive =
     info?.tier === "HOST_COMMUNITY" && status === "active";
-  const { openForRequired, openForLapsed, SubscriptionPromptModal } =
-    useHostSubscriptionPrompt({ focusTier: "community" });
+  const localPrompt = useHostSubscriptionPrompt({ focusTier: "community" });
+  const { openForRequired, openForLapsed } =
+    subscriptionPrompt ?? localPrompt;
 
   const [communityPickOpen, setCommunityPickOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<CommunityAction | null>(
@@ -179,7 +185,7 @@ export function HostCommunityToolsPicker({
           ) : null}
           Community tools
         </Button>
-        {SubscriptionPromptModal}
+        {!subscriptionPrompt ? localPrompt.SubscriptionPromptModal : null}
       </>
     );
   }
@@ -210,19 +216,21 @@ export function HostCommunityToolsPicker({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <HostCommunityPickerDialog
-        open={communityPickOpen}
-        onOpenChange={open => {
-          setCommunityPickOpen(open);
-          if (!open) setPendingAction(null);
-        }}
-        title="Choose a community"
-        communities={communities}
-        loading={loading}
-        error={error}
-        onSelect={c => onCommunitySelect(c.id, c.name)}
-      />
-      {SubscriptionPromptModal}
+      {communityPickOpen ? (
+        <HostCommunityPickerDialog
+          open={communityPickOpen}
+          onOpenChange={open => {
+            setCommunityPickOpen(open);
+            if (!open) setPendingAction(null);
+          }}
+          title="Choose a community"
+          communities={communities}
+          loading={loading}
+          error={error}
+          onSelect={c => onCommunitySelect(c.id, c.name)}
+        />
+      ) : null}
+      {!subscriptionPrompt ? localPrompt.SubscriptionPromptModal : null}
     </>
   );
 }

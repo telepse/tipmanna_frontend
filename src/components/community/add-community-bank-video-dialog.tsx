@@ -21,6 +21,8 @@ import {
 import { clearModalFormDraft } from "@/hooks/use-modal-form-draft-restore";
 import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
+import { buildAddCommunityVideoSubscriptionResumePath } from "@/lib/add-community-video-resume-path";
+import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 import { ApiError } from "@/types/api-error.types";
 
 type Props = {
@@ -83,6 +85,13 @@ export function AddCommunityBankVideoDialog({
             toastFallback: false,
           })
         ) {
+          setHostSubscriptionResume({
+            kind: "return-path",
+            returnPath: buildAddCommunityVideoSubscriptionResumePath(
+              resumePathname,
+              communityId
+            ),
+          });
           return;
         }
         if (addVideoForm) {

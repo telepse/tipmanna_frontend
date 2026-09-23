@@ -10,19 +10,24 @@ import {
   type HostEventRoomOption,
 } from "@/components/dashboard/host-event-room-picker-dialog";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
-import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import {
+  useHostSubscriptionPrompt,
+  type HostSubscriptionPromptFns,
+} from "@/hooks/use-host-subscription-prompt";
 import { useApprovedHostEvents } from "@/lib/use-approved-host-events";
 import { buildTipLayoutHref } from "@/lib/host-dashboard-shortcuts";
 import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 
 type Props = {
   hostEventSlug: string | null;
+  subscriptionPrompt?: HostSubscriptionPromptFns;
   size?: "sm" | "default";
   className?: string;
 };
 
 export function HostTipLayoutPicker({
   hostEventSlug,
+  subscriptionPrompt,
   size = "sm",
   className,
 }: Props) {
@@ -30,8 +35,9 @@ export function HostTipLayoutPicker({
   const [open, setOpen] = useState(false);
   const { hasActivePremium, capabilities, status, isLoading } =
     useHostPlanCapabilities();
-  const { openForRequired, openForLapsed, SubscriptionPromptModal } =
-    useHostSubscriptionPrompt({ focusTier: "premium" });
+  const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
+  const { openForRequired, openForLapsed } =
+    subscriptionPrompt ?? localPrompt;
   const { events, loading, error } = useApprovedHostEvents(open);
 
   const showLock = !isLoading && !hasActivePremium;
@@ -73,16 +79,18 @@ export function HostTipLayoutPicker({
         ) : null}
         Tip layout
       </Button>
-      <HostEventRoomPickerDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Customize tip layout"
-        events={events}
-        loading={loading}
-        error={error}
-        onSelect={onSelect}
-      />
-      {SubscriptionPromptModal}
+      {open ? (
+        <HostEventRoomPickerDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="Customize tip layout"
+          events={events}
+          loading={loading}
+          error={error}
+          onSelect={onSelect}
+        />
+      ) : null}
+      {!subscriptionPrompt ? localPrompt.SubscriptionPromptModal : null}
     </>
   );
 }

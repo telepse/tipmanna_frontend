@@ -16,7 +16,10 @@ import {
 } from "@/actions/tiplink";
 import { getApprovedCommunityContentBankAction } from "@/actions/communities";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
-import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import {
+  useHostSubscriptionPrompt,
+  type HostSubscriptionPromptFns,
+} from "@/hooks/use-host-subscription-prompt";
 import {
   listTipLinkEligibleCommunityBankVideos,
   listTipLinkEligibleEvents,
@@ -36,6 +39,7 @@ export function useTipLinkProfileCreate({
   isOwnProfile,
   onDraftCreated,
   buildSubscriptionResumeReturnPath,
+  subscriptionPrompt,
 }: {
   events: HostCreatorEvent[];
   communities: HostCreatorCommunity[];
@@ -45,14 +49,15 @@ export function useTipLinkProfileCreate({
   onDraftCreated?: (draft: TipLinkSummary) => void;
   /** Stripe resume destination when create is blocked (defaults to current URL). */
   buildSubscriptionResumeReturnPath?: (video: TipLinkPickerVideo) => string;
+  subscriptionPrompt?: HostSubscriptionPromptFns;
 }) {
   const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
+  const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
   const {
     handleSubscriptionActionError,
     openForRequired,
     openForLapsed,
-    SubscriptionPromptModal,
-  } = useHostSubscriptionPrompt({ focusTier: "premium" });
+  } = subscriptionPrompt ?? localPrompt;
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [draftTipLinks, setDraftTipLinks] = useState<TipLinkSummary[]>([]);
@@ -95,7 +100,7 @@ export function useTipLinkProfileCreate({
 
   useEffect(() => {
     if (!pickerOpen || !isOwnProfile || ownedCommunities.length === 0) {
-      setCommunityBankVideos([]);
+      setCommunityBankVideos(prev => (prev.length === 0 ? prev : []));
       return;
     }
     let cancelled = false;
@@ -238,6 +243,8 @@ export function useTipLinkProfileCreate({
     createDraftForVideo,
     createDraftForChannelVideo,
     HostAuthModal,
-    SubscriptionPromptModal,
+    SubscriptionPromptModal: subscriptionPrompt
+      ? null
+      : localPrompt.SubscriptionPromptModal,
   };
 }

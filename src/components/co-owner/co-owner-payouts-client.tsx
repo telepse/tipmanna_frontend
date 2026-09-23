@@ -60,6 +60,8 @@ type Props =
 export function CoOwnerPayoutsClient(props: Props) {
   const compact = props.compact ?? false;
   const showPendingTotal = props.showPendingTotal ?? false;
+  const mode = props.mode;
+  const token = props.mode === "token" ? props.token : "";
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export function CoOwnerPayoutsClient(props: Props) {
     setLoading(true);
     setError(null);
     try {
-      if (props.mode === "hostSession") {
+      if (mode === "hostSession") {
         const res = await getSelfCoOwnerPayoutsAction();
         if (!res.success) {
           setError(res.error ?? "Could not load payouts");
@@ -86,7 +88,7 @@ export function CoOwnerPayoutsClient(props: Props) {
       }
 
       const res = await fetch(
-        `${apiBase}/public/co-owner/payouts?token=${encodeURIComponent(props.token)}`
+        `${apiBase}/public/co-owner/payouts?token=${encodeURIComponent(token)}`
       );
       const raw = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -106,7 +108,7 @@ export function CoOwnerPayoutsClient(props: Props) {
     } finally {
       setLoading(false);
     }
-  }, [props]);
+  }, [mode, token]);
 
   useEffect(() => {
     void load();

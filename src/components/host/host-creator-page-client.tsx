@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import React, {
@@ -64,6 +65,12 @@ import {
   type CreatorProfileSavedPayload,
 } from "@/components/host/edit-creator-profile-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { CommunityPublicMembersRoster } from "@/components/community/community-public-members-roster";
@@ -94,6 +101,8 @@ import { postCreatorProfileVisitAction } from "@/actions/host-creator";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { CommunityMemberInfo } from "@/components/community/community-member-info";
 import { AddCommunityBankVideoDialog } from "@/components/community/add-community-bank-video-dialog";
+import { HostCommunityNotificationsDrawer } from "@/components/community/host-community-notifications-drawer";
+import { useHostCommunityNotificationBadge } from "@/hooks/use-host-community-notification-badge";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import type { HostCreatorDefaultTab } from "@/schemas/creator.schema";
 import { CompactEventCard } from "../events/compact-event-card";
@@ -144,6 +153,16 @@ const CO_OWNED_VIDEOS_SUBTAB_ID = "__co_owned_videos__";
 
 const ADD_COMMUNITY_VIDEO_QUERY = "addCommunityVideo";
 const ADD_COMMUNITY_VIDEO_ID_QUERY = "addCommunityVideoId";
+const REMINDER_BLAST_QUERY = "reminderBlast";
+const REMINDER_BLAST_COMMUNITY_ID_QUERY = "reminderBlastCommunityId";
+
+const HostReminderBucketTab = dynamic(
+  () =>
+    import("@/components/dashboard/host-reminder-bucket-tab").then(m => ({
+      default: m.HostReminderBucketTab,
+    })),
+  { ssr: false, loading: () => null }
+);
 
 const TABS = [
   { id: "all_videos", label: "" },
@@ -315,6 +334,8 @@ export function HostCreatorPageClient({
   const [createDialogEntry, setCreateDialogEntry] =
     useState<CreateDialogEntry>("default");
   const [startCommunityOpen, setStartCommunityOpen] = useState(false);
+  const [startCommunityPreferredSlug, setStartCommunityPreferredSlug] =
+    useState<string | null>(null);
   const [pendingStartCommunity, setPendingStartCommunity] = useState(false);
   const startCommunityResumeHandledRef = useRef(false);
 
@@ -413,6 +434,9 @@ export function HostCreatorPageClient({
     if (pendingStartCommunity) {
       setPendingStartCommunity(false);
       if (resolveStartCommunityAfterGuestModal(payload.role) === "openForm") {
+        const slug =
+          payload.eventSlug?.trim() || payload.username?.trim() || null;
+        setStartCommunityPreferredSlug(slug);
         openStartCommunityForm();
       } else {
         resumeStartCommunityAfterAuth();
@@ -756,7 +780,14 @@ export function HostCreatorPageClient({
 
       <StartCommunityRequestDialog
         open={startCommunityOpen}
-        onOpenChange={setStartCommunityOpen}
+        onOpenChange={open => {
+          setStartCommunityOpen(open);
+          if (!open) setStartCommunityPreferredSlug(null);
+        }}
+        preferredHostSlug={startCommunityPreferredSlug}
+        canWriteAsHost={canWriteAsHost}
+        capability={capability}
+        requestHostAuth={requestHostAuth}
       />
 
       {!isDrawer ? (
@@ -1790,7 +1821,11 @@ function CommunitiesTabContent({
   const communityPlanActive =
     hostSubscriptionTier === "HOST_COMMUNITY" && hostPlanStatus === "active";
   const [resumeAddVideoId, setResumeAddVideoId] = useState<string | null>(null);
+  const [resumeReminderCommunityId, setResumeReminderCommunityId] = useState<
+    string | null
+  >(null);
   const addCommunityVideoResumeHandledRef = useRef(false);
+  const reminderBlastResumeHandledRef = useRef(false);
 
   const { activeId, selectById, carouselRef, subtabScrollRef } =
     useSnapCarouselSync(communities);
@@ -1821,8 +1856,34 @@ function CommunitiesTabContent({
     [buildAddCommunityVideoReturnPath]
   );
 
+  const buildReminderBlastReturnPath = useCallback(
+    (communityId: string) => {
+      const q = searchParams.toString();
+      const base = q ? `${pathname}?${q}` : (pathname ?? "");
+      const url = new URL(base, "https://tipmanna.tv");
+      url.searchParams.set(REMINDER_BLAST_QUERY, "1");
+      url.searchParams.set(REMINDER_BLAST_COMMUNITY_ID_QUERY, communityId);
+      return `${url.pathname}${url.search}`;
+    },
+    [pathname, searchParams]
+  );
+
+  const onReminderSubscribeRequired = useCallback(
+    (communityId: string) => {
+      setHostSubscriptionResume({
+        kind: "return-path",
+        returnPath: buildReminderBlastReturnPath(communityId),
+      });
+    },
+    [buildReminderBlastReturnPath]
+  );
+
   const onAddVideoResumeOpened = useCallback(() => {
     setResumeAddVideoId(null);
+  }, []);
+
+  const onReminderResumeOpened = useCallback(() => {
+    setResumeReminderCommunityId(null);
   }, []);
 
   useEffect(() => {
@@ -1850,6 +1911,45 @@ function CommunitiesTabContent({
 
     if (communityPlanActive) {
       setResumeAddVideoId(targetId);
+    }
+  }, [
+    communityPlanActive,
+    hostPlanLoading,
+    isDrawer,
+    isOwnProfile,
+    pathname,
+    router,
+    searchParams,
+    selectById,
+  ]);
+
+  useEffect(() => {
+    if (!isOwnProfile || isDrawer) return;
+    if (searchParams.get(REMINDER_BLAST_QUERY) !== "1") return;
+    const targetId = searchParams
+      .get(REMINDER_BLAST_COMMUNITY_ID_QUERY)
+      ?.trim();
+    if (!targetId) return;
+    if (hostPlanLoading) return;
+    if (reminderBlastResumeHandledRef.current) return;
+    reminderBlastResumeHandledRef.current = true;
+
+    selectById(targetId);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(REMINDER_BLAST_QUERY);
+    params.delete(REMINDER_BLAST_COMMUNITY_ID_QUERY);
+    params.delete(HOST_SUBSCRIPTION_RESUME_QUERY);
+    params.delete(HOST_SUBSCRIPTION_RESUME_CHANNEL_ID);
+    params.delete(HOST_SUBSCRIPTION_RESUME_EVENT_ID);
+    params.delete(HOST_SUBSCRIPTION_RESUME_TITLE);
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : (pathname ?? ""), {
+      scroll: false,
+    });
+
+    if (communityPlanActive) {
+      setResumeReminderCommunityId(targetId);
     }
   }, [
     communityPlanActive,
@@ -1929,6 +2029,7 @@ function CommunitiesTabContent({
                   onAddCommunityVideoSubscribeRequired={
                     onAddCommunityVideoSubscribeRequired
                   }
+                  onReminderSubscribeRequired={onReminderSubscribeRequired}
                 />
               </SnapCarouselSlide>
             ))}
@@ -1941,10 +2042,15 @@ function CommunitiesTabContent({
                 isOwnProfile={isOwnProfile}
                 isDrawer={isDrawer}
                 openAddVideoOnResume={activeCommunity.id === resumeAddVideoId}
+                openReminderOnResume={
+                  activeCommunity.id === resumeReminderCommunityId
+                }
                 onAddCommunityVideoSubscribeRequired={
                   onAddCommunityVideoSubscribeRequired
                 }
                 onAddVideoResumeOpened={onAddVideoResumeOpened}
+                onReminderSubscribeRequired={onReminderSubscribeRequired}
+                onReminderResumeOpened={onReminderResumeOpened}
               />
             ) : null}
           </div>
@@ -2471,16 +2577,22 @@ function CommunityBannerSection({
   isOwnProfile = false,
   isDrawer = false,
   openAddVideoOnResume = false,
+  openReminderOnResume = false,
   onAddCommunityVideoSubscribeRequired,
   onAddVideoResumeOpened,
+  onReminderSubscribeRequired,
+  onReminderResumeOpened,
 }: {
   community: HostCreatorCommunity;
   compact?: boolean;
   isOwnProfile?: boolean;
   isDrawer?: boolean;
   openAddVideoOnResume?: boolean;
+  openReminderOnResume?: boolean;
   onAddCommunityVideoSubscribeRequired?: (communityId: string) => void;
   onAddVideoResumeOpened?: () => void;
+  onReminderSubscribeRequired?: (communityId: string) => void;
+  onReminderResumeOpened?: () => void;
 }) {
   const hostSession = useHostSession();
   const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
@@ -2501,6 +2613,13 @@ function CommunityBannerSection({
   const tvActivated = Boolean(community.tvActivatedAt?.trim());
   const [joinOpen, setJoinOpen] = useState(false);
   const [addVideoOpen, setAddVideoOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { unreadCount: communityUnreadCount, refreshUnread } =
+    useHostCommunityNotificationBadge(
+      community.id,
+      Boolean(isOwnProfile && !isDrawer)
+    );
   const [isMember, setIsMember] = useState(false);
   const [viewerHostsCommunity, setViewerHostsCommunity] = useState(false);
   const [membershipStatus, setMembershipStatus] = useState<string | null>(null);
@@ -2616,6 +2735,40 @@ function CommunityBannerSection({
     setAddVideoOpen(true);
     onAddVideoResumeOpened?.();
   }, [openAddVideoOnResume, onAddVideoResumeOpened]);
+
+  useEffect(() => {
+    if (!openReminderOnResume) return;
+    setReminderOpen(true);
+    onReminderResumeOpened?.();
+  }, [openReminderOnResume, onReminderResumeOpened]);
+
+  const openCommunityReminders = useCallback(() => {
+    requestHostAuth(() => {
+      if (!tvActivated) {
+        toast.info("Activate community TV for this community first.");
+        return;
+      }
+      if (!communityPlanActive) {
+        onReminderSubscribeRequired?.(community.id);
+        openForRequired("community");
+        return;
+      }
+      setReminderOpen(true);
+    });
+  }, [
+    community.id,
+    communityPlanActive,
+    onReminderSubscribeRequired,
+    openForRequired,
+    requestHostAuth,
+    tvActivated,
+  ]);
+
+  const openCommunityNotifications = useCallback(() => {
+    requestHostAuth(() => {
+      setNotifOpen(true);
+    });
+  }, [requestHostAuth]);
 
   const shouldReduceMotion = useReducedMotion();
   const displayedFeatured = featuredVideos.slice(0, 3);
@@ -2837,12 +2990,53 @@ function CommunityBannerSection({
             >
               Add community video
             </Button>
+            {tvActivated ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => openCommunityReminders()}
+              >
+                Reminders
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="relative"
+              onClick={() => openCommunityNotifications()}
+            >
+              Notifications
+              {communityUnreadCount > 0 ? (
+                <span className="bg-primary absolute -top-1 -right-1 flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white">
+                  {communityUnreadCount > 9 ? "9+" : communityUnreadCount}
+                </span>
+              ) : null}
+            </Button>
             <AddCommunityBankVideoDialog
               open={addVideoOpen}
               onOpenChange={setAddVideoOpen}
               communityId={community.id}
               hostSlug={hostSlug}
               pathname={pathname ?? undefined}
+            />
+            <Dialog
+              open={reminderOpen}
+              onOpenChange={setReminderOpen}
+            >
+              <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Community reminders</DialogTitle>
+                </DialogHeader>
+                <HostReminderBucketTab communityId={community.id} />
+              </DialogContent>
+            </Dialog>
+            <HostCommunityNotificationsDrawer
+              communityId={community.id}
+              open={notifOpen}
+              onOpenChange={setNotifOpen}
+              onUnreadChanged={() => void refreshUnread()}
             />
           </div>
         ) : null}

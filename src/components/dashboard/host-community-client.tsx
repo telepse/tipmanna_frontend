@@ -38,22 +38,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AddCommunityBankVideoDialog } from "@/components/community/add-community-bank-video-dialog";
+import { useHostCommunityDashboardCache } from "@/hooks/use-host-community-dashboard-cache";
+import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 import {
   acceptPayoutSettlementAction,
   getHostPayoutSummaryAction,
 } from "@/actions/host-payouts";
 import {
   approveCommunityBankEntryAction,
-  getCommunityContentBankAction,
-  getCommunitySendsAction,
   inviteCoCreatorAction,
-  listCoCreatorsAction,
   rejectCommunityBankEntryAction,
   revokeCoCreatorAction,
   revokeCoCreatorInviteAction,
   patchCommunityBankEntryVisibilityAction,
   listCommunitySubscribersAction,
-  getCommunityOwedAction,
   resumeCommunityTvAction,
 } from "@/actions/communities";
 import { ApiError } from "@/types/api-error.types";
@@ -536,8 +534,11 @@ export function HostCommunityClient() {
     info: planInfo,
     isLoading: planLoading,
   } = useHostPlanCapabilities();
-  const { handleSubscriptionActionError, SubscriptionPromptModal } =
-    useHostSubscriptionPrompt({ focusTier: "community" });
+  const {
+    handleSubscriptionActionError,
+    openForRequired,
+    SubscriptionPromptModal,
+  } = useHostSubscriptionPrompt({ focusTier: "community" });
   const {
     installed: pwaInstalled,
     promptInstall,
@@ -560,22 +561,8 @@ export function HostCommunityClient() {
   } = useMyCommunitiesMemberships(authUserId, authToken);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState("bank");
-  const [bank, setBank] = useState<{
-    approved: BankItem[];
-    pending: BankItem[];
-  } | null>(null);
-  const [sends, setSends] = useState<BankItem[] | null>(null);
-  const [loadingBank, setLoadingBank] = useState(false);
-  const [loadingSends, setLoadingSends] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [modalDraftId, setModalDraftId] = useState<string | null>(null);
-  const [coCreators, setCoCreators] = useState<{
-    active: CoCreatorHostRow[];
-    pendingMemberships: CoCreatorHostRow[];
-    revoked: CoCreatorHostRow[];
-    pendingInvites: PendingInviteRow[];
-  } | null>(null);
-  const [loadingCo, setLoadingCo] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -612,8 +599,6 @@ export function HostCommunityClient() {
   );
 
   const [subscribers, setSubscribers] = useState<PaidSubRow[]>([]);
-  const [owed, setOwed] = useState<OwedPayload | null>(null);
-  const [loadingOwed, setLoadingOwed] = useState(false);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [payoutSummary, setPayoutSummary] = useState<{
     host: Array<{
@@ -638,10 +623,7 @@ export function HostCommunityClient() {
   const mainTabInitializedForRef = useRef<string | null>(null);
   const urlMainTabRef = useRef<HostCommunityMainTab | null>(null);
   const appliedSearchParamsRef = useRef("");
-  const bankLoadedForRef = useRef<string | null>(null);
-  const sendsLoadedForRef = useRef<string | null>(null);
-  const coCreatorsLoadedForRef = useRef<string | null>(null);
-  const owedLoadedForRef = useRef<string | null>(null);
+  const swrDashboardToastKeyRef = useRef<string | null>(null);
 
   const pendingPayoutSettlements = useMemo(() => {
     if (!payoutSummary) return [];
@@ -718,6 +700,90 @@ export function HostCommunityClient() {
   );
 
   const selectedRole = selected?.role ?? null;
+
+  const {
+    bank,
+    bankError,
+    loadingBank,
+    coCreators,
+    coCreatorsError,
+    loadingCo,
+    owed,
+    loadingOwed,
+    sends,
+    sendsError,
+    loadingSends,
+    refreshBank,
+    refreshCoCreators,
+    refreshOwed,
+    refreshSends,
+    refreshAfterVideoChange,
+  } = useHostCommunityDashboardCache(
+    selectedId,
+    selectedRole,
+    authToken,
+    authUserId,
+    communityFeatureOn
+  );
+
+  const bankTyped = bank as {
+    approved: BankItem[];
+    pending: BankItem[];
+  } | null;
+  const coCreatorsTyped = coCreators as {
+    active: CoCreatorHostRow[];
+    pendingMemberships: CoCreatorHostRow[];
+    revoked: CoCreatorHostRow[];
+    pendingInvites: PendingInviteRow[];
+  } | null;
+  const sendsTyped = sends as BankItem[] | null;
+  const owedTyped = owed as OwedPayload | null;
+
+  const buildAddVideoReturnPath = useCallback(() => {
+    const basePath = pathname ?? `/host/${hostSlug}/host-community`;
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedId) params.set("communityId", selectedId);
+    params.set("addVideo", "1");
+    const q = params.toString();
+    return q ? `${basePath}?${q}` : basePath;
+  }, [hostSlug, pathname, searchParams, selectedId]);
+
+  const openAddCommunityVideoFlow = useCallback(() => {
+    if (!communityActive) {
+      setHostSubscriptionResume({
+        kind: "return-path",
+        returnPath: buildAddVideoReturnPath(),
+      });
+      openForRequired("community");
+      return;
+    }
+    setAddOpen(true);
+  }, [buildAddVideoReturnPath, communityActive, openForRequired]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+
+    const failures: Array<{ kind: string; error: unknown }> = [];
+    if (bankError) failures.push({ kind: "bank", error: bankError });
+    if (coCreatorsError) failures.push({ kind: "coCreators", error: coCreatorsError });
+    if (sendsError) failures.push({ kind: "sends", error: sendsError });
+    if (failures.length === 0) {
+      swrDashboardToastKeyRef.current = null;
+      return;
+    }
+
+    for (const { kind, error } of failures) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not load community data";
+      if (isCommunityApiUnavailable(message)) continue;
+      const toastKey = `${selectedId}:${kind}:${message}`;
+      if (swrDashboardToastKeyRef.current === toastKey) continue;
+      swrDashboardToastKeyRef.current = toastKey;
+      toast.error(message);
+    }
+  }, [bankError, coCreatorsError, sendsError, selectedId]);
 
   useEffect(() => {
     if (!membershipsFetchError) return;
@@ -905,7 +971,8 @@ export function HostCommunityClient() {
     pushState,
   ]);
 
-  const canRequestTV = bank?.approved?.length && bank.approved.length >= 5;
+  const canRequestTV =
+    bankTyped?.approved?.length && bankTyped.approved.length >= 5;
 
   const submitTVActivationRequest = useCallback(async () => {
     if (!authUser || !authToken || !canRequestTV) {
@@ -966,108 +1033,6 @@ export function HostCommunityClient() {
     void refreshMemberships();
   }, [selected?.id, refreshMemberships, handleSubscriptionActionError]);
 
-  const loadBank = useCallback(
-    async (options?: { background?: boolean }) => {
-      if (!selectedId || selectedRole !== "owner") return;
-      if (!authUserId) return;
-      const background =
-        options?.background ?? bankLoadedForRef.current === selectedId;
-      if (!background) setLoadingBank(true);
-      try {
-        const res = await getCommunityContentBankAction(authToken, selectedId);
-        if (!res.success || !res.data) {
-          toast.error(res.message ?? "Could not load content bank");
-          return;
-        }
-        const d = res.data as { approved: BankItem[]; pending: BankItem[] };
-        setBank({ approved: d.approved ?? [], pending: d.pending ?? [] });
-        bankLoadedForRef.current = selectedId;
-      } finally {
-        setLoadingBank(false);
-      }
-    },
-    [authToken, authUserId, selectedId, selectedRole]
-  );
-
-  const loadSends = useCallback(
-    async (options?: { background?: boolean }) => {
-      if (!selectedId || selectedRole !== "coCreator") return;
-      if (!authUserId) return;
-      const background =
-        options?.background ?? sendsLoadedForRef.current === selectedId;
-      if (!background) setLoadingSends(true);
-      try {
-        const res = await getCommunitySendsAction(authToken, selectedId);
-        if (!res.success || !res.data) {
-          toast.error(res.message ?? "Could not load sends");
-          return;
-        }
-        const d = res.data as { sends: BankItem[] };
-        setSends(d.sends ?? []);
-        sendsLoadedForRef.current = selectedId;
-      } finally {
-        setLoadingSends(false);
-      }
-    },
-    [authToken, authUserId, selectedId, selectedRole]
-  );
-
-  const loadCoCreators = useCallback(
-    async (options?: { background?: boolean }) => {
-      if (!selectedId || selectedRole !== "owner") return;
-      if (!authUserId) return;
-      const background =
-        options?.background ?? coCreatorsLoadedForRef.current === selectedId;
-      if (!background) setLoadingCo(true);
-      try {
-        const res = await listCoCreatorsAction(selectedId);
-        if (!res.success || !res.data) {
-          toast.error(res.message ?? "Could not load co-creators");
-          return;
-        }
-        const d = res.data as {
-          active: CoCreatorHostRow[];
-          pendingMemberships: CoCreatorHostRow[];
-          revoked: CoCreatorHostRow[];
-          pendingInvites: PendingInviteRow[];
-        };
-        setCoCreators({
-          active: d.active ?? [],
-          pendingMemberships: d.pendingMemberships ?? [],
-          revoked: d.revoked ?? [],
-          pendingInvites: d.pendingInvites ?? [],
-        });
-        coCreatorsLoadedForRef.current = selectedId;
-      } finally {
-        setLoadingCo(false);
-      }
-    },
-    [authToken, authUserId, selectedId, selectedRole]
-  );
-
-  const loadOwed = useCallback(
-    async (options?: { background?: boolean }) => {
-      if (!selectedId || selectedRole !== "owner") return;
-      if (!authUserId) return;
-      const background =
-        options?.background ?? owedLoadedForRef.current === selectedId;
-      if (!background) setLoadingOwed(true);
-      try {
-        const res = await getCommunityOwedAction(authToken, selectedId);
-        if (res.success && res.data) {
-          setOwed(res.data as OwedPayload);
-          owedLoadedForRef.current = selectedId;
-        } else {
-          setOwed(null);
-          owedLoadedForRef.current = null;
-        }
-      } finally {
-        setLoadingOwed(false);
-      }
-    },
-    [authToken, authUserId, selectedId, selectedRole]
-  );
-
   const loadSubscribers = useCallback(async () => {
     if (!selectedId || selectedRole !== "owner") return;
     if (!authUserId) return;
@@ -1099,17 +1064,6 @@ export function HostCommunityClient() {
   }, [selectedId, selectedRole]);
 
   useEffect(() => {
-    bankLoadedForRef.current = null;
-    sendsLoadedForRef.current = null;
-    coCreatorsLoadedForRef.current = null;
-    owedLoadedForRef.current = null;
-    setBank(null);
-    setSends(null);
-    setCoCreators(null);
-    setOwed(null);
-  }, [selectedId]);
-
-  useEffect(() => {
     if (mainTab === "subscribers" && selectedRole === "owner") {
       void loadSubscribers();
     }
@@ -1131,7 +1085,7 @@ export function HostCommunityClient() {
 
     const onPayoutSettled = () => {
       toast.info("Community payout updated");
-      if (selectedRole === "owner") void loadOwed({ background: true });
+      if (selectedRole === "owner") void refreshOwed();
     };
     if (hostChannel) {
       hostChannel.bind("community-payout-settled", onPayoutSettled);
@@ -1145,7 +1099,7 @@ export function HostCommunityClient() {
       selectedRole === "owner" && selectedId ? selectedId : null;
     let communityChannel: ReturnType<typeof subscribeChannel> | null = null;
     const onBankUpdated = () => {
-      void loadBank({ background: true });
+      void refreshBank();
     };
     if (communityIdForPusher) {
       const cname = `community-${communityIdForPusher}`;
@@ -1164,33 +1118,11 @@ export function HostCommunityClient() {
         unsubscribeChannel(`community-${communityIdForPusher}`);
       }
     };
-  }, [hostSession.hostId, selectedId, selectedRole, loadOwed, loadBank]);
-
-  useEffect(() => {
-    if (!communityFeatureOn || !selectedId || !selectedRole) return;
-    if (selectedRole === "owner") {
-      void loadBank({
-        background: bankLoadedForRef.current === selectedId,
-      });
-      void loadCoCreators({
-        background: coCreatorsLoadedForRef.current === selectedId,
-      });
-      void loadOwed({
-        background: owedLoadedForRef.current === selectedId,
-      });
-    }
-    if (selectedRole === "coCreator") {
-      void loadSends({
-        background: sendsLoadedForRef.current === selectedId,
-      });
-    }
-  }, [selectedId, selectedRole, loadBank, loadSends, loadCoCreators, loadOwed]);
+  }, [hostSession.hostId, selectedId, selectedRole, refreshOwed, refreshBank]);
 
   const onAddVideoSuccess = useCallback(async () => {
-    await loadBank({ background: true });
-    await loadSends({ background: true });
-    await loadCoCreators({ background: true });
-  }, [loadBank, loadCoCreators, loadSends]);
+    await refreshAfterVideoChange();
+  }, [refreshAfterVideoChange]);
 
   const onInviteCoCreator = async () => {
     if (!selected || selected.role !== "owner") return;
@@ -1213,7 +1145,7 @@ export function HostCommunityClient() {
       toast.success("Invitation sent");
       setInviteOpen(false);
       setInviteEmail("");
-      await loadCoCreators({ background: true });
+      await refreshCoCreators();
     } finally {
       setInviteLoading(false);
     }
@@ -1231,8 +1163,8 @@ export function HostCommunityClient() {
       return;
     }
     toast.success("Co-creator revoked");
-    await loadCoCreators({ background: true });
-    await loadBank({ background: true });
+    await refreshCoCreators();
+    await refreshBank();
   };
 
   const onRevokePendingInvite = async (inviteId: string) => {
@@ -1247,7 +1179,7 @@ export function HostCommunityClient() {
       return;
     }
     toast.success("Invite revoked");
-    await loadCoCreators({ background: true });
+    await refreshCoCreators();
   };
 
   if (!communityFeatureOn) {
@@ -1482,14 +1414,14 @@ export function HostCommunityClient() {
                     </p>
                     {loadingOwed ? (
                       <p className="text-muted-foreground text-xs">Loading…</p>
-                    ) : owed?.payout ? (
+                    ) : owedTyped?.payout ? (
                       <p className="text-lg font-semibold">
-                        £{owed.payout.outstanding}
+                        £{owedTyped.payout.outstanding}
                         <Badge
                           variant="secondary"
                           className="ml-2 align-middle text-xs"
                         >
-                          {owed.payout.status}
+                          {owedTyped.payout.status}
                         </Badge>
                       </p>
                     ) : (
@@ -1499,7 +1431,8 @@ export function HostCommunityClient() {
                     )}
                   </div>
                 </div>
-                {owed?.payout && Number(owed.payout.outstanding) <= 0 && (
+                {owedTyped?.payout &&
+                  Number(owedTyped.payout.outstanding) <= 0 && (
                   <span className="text-sm text-green-700">Fully settled</span>
                 )}
               </div>
@@ -1631,14 +1564,14 @@ export function HostCommunityClient() {
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => setAddOpen(true)}
+                      onClick={openAddCommunityVideoFlow}
                     >
                       <Plus className="mr-1 size-4" />
                       Add video
                     </Button>
                   </div>
 
-                  {loadingBank && bank === null ? (
+                  {loadingBank && bankTyped === null ? (
                     <p className="text-muted-foreground text-sm">
                       Loading bank…
                     </p>
@@ -1650,20 +1583,20 @@ export function HostCommunityClient() {
                         </h5>
 
                         <div className="grid gap-4 sm:grid-cols-2">
-                          {(bank?.approved ?? []).map(item => (
+                          {(bankTyped?.approved ?? []).map(item => (
                             <OwnerBankCard
                               key={item.id}
                               item={item}
                               communityId={selected.id}
                               eventId={selected.eventId}
                               onUpdated={() =>
-                                void loadBank({ background: true })
+                                void refreshBank()
                               }
                             />
                           ))}
                         </div>
 
-                        {!bank?.approved?.length && (
+                        {!bankTyped?.approved?.length && (
                           <p className="text-muted-foreground text-sm">
                             No approved videos yet.
                           </p>
@@ -1676,20 +1609,20 @@ export function HostCommunityClient() {
                         </h5>
 
                         <div className="grid gap-4 sm:grid-cols-2">
-                          {(bank?.pending ?? []).map(item => (
+                          {(bankTyped?.pending ?? []).map(item => (
                             <OwnerBankCard
                               key={item.id}
                               item={item}
                               communityId={selected.id}
                               eventId={selected.eventId}
                               onUpdated={() =>
-                                void loadBank({ background: true })
+                                void refreshBank()
                               }
                             />
                           ))}
                         </div>
 
-                        {!bank?.pending?.length && (
+                        {!bankTyped?.pending?.length && (
                           <p className="text-muted-foreground text-sm">
                             No pending submissions.
                           </p>
@@ -1721,15 +1654,15 @@ export function HostCommunityClient() {
                     </Button>
                   </div>
 
-                  {loadingCo && coCreators === null ? (
+                  {loadingCo && coCreatorsTyped === null ? (
                     <p className="text-muted-foreground text-sm">Loading…</p>
-                  ) : coCreators ? (
+                  ) : coCreatorsTyped ? (
                     <>
                       <section>
                         <h3 className="mb-2 text-sm font-medium">Active</h3>
 
                         <ul className="space-y-2">
-                          {coCreators.active.map(row => (
+                          {coCreatorsTyped.active.map(row => (
                             <li
                               key={row.id}
                               className="bg-card flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
@@ -1759,7 +1692,7 @@ export function HostCommunityClient() {
                           ))}
                         </ul>
 
-                        {!coCreators.active.length && (
+                        {!coCreatorsTyped.active.length && (
                           <p className="text-muted-foreground text-sm">
                             No active co-creators yet.
                           </p>
@@ -1772,7 +1705,7 @@ export function HostCommunityClient() {
                         </h3>
 
                         <ul className="space-y-2">
-                          {coCreators.pendingInvites.map(inv => (
+                          {coCreatorsTyped.pendingInvites.map(inv => (
                             <li
                               key={inv.id}
                               className="bg-muted/40 flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
@@ -1802,31 +1735,31 @@ export function HostCommunityClient() {
                           ))}
                         </ul>
 
-                        {!coCreators.pendingInvites.length && (
+                        {!coCreatorsTyped.pendingInvites.length && (
                           <p className="text-muted-foreground text-sm">
                             No pending email invites.
                           </p>
                         )}
                       </section>
 
-                      {(coCreators.pendingMemberships.length > 0 ||
-                        coCreators.revoked.length > 0) && (
+                      {(coCreatorsTyped.pendingMemberships.length > 0 ||
+                        coCreatorsTyped.revoked.length > 0) && (
                         <section>
                           <h3 className="mb-2 text-sm font-medium">Other</h3>
 
-                          {coCreators.pendingMemberships.length > 0 && (
+                          {coCreatorsTyped.pendingMemberships.length > 0 && (
                             <p className="text-muted-foreground mb-2 text-xs">
                               Pending memberships:{" "}
-                              {coCreators.pendingMemberships
+                              {coCreatorsTyped.pendingMemberships
                                 .map(r => r.host.email)
                                 .join(", ")}
                             </p>
                           )}
 
-                          {coCreators.revoked.length > 0 && (
+                          {coCreatorsTyped.revoked.length > 0 && (
                             <p className="text-muted-foreground text-xs">
                               Revoked:{" "}
-                              {coCreators.revoked
+                              {coCreatorsTyped.revoked
                                 .map(r => r.host?.email ?? r.host?.username)
                                 .join(", ")}
                             </p>
@@ -1910,14 +1843,14 @@ export function HostCommunityClient() {
                     </ul>
                   )}
 
-                  {owed && owed.recentSubs.length > 0 && (
+                  {owedTyped && owedTyped.recentSubs.length > 0 && (
                     <div className="mt-6">
                       <h3 className="mb-2 text-sm font-medium">
                         Recent payment activity
                       </h3>
 
                       <ul className="text-muted-foreground space-y-1 text-xs">
-                        {owed.recentSubs.map(r => (
+                        {owedTyped.recentSubs.map(r => (
                           <li key={r.id}>
                             £{r.amount} · {r.tipper?.username ?? "—"} ·{" "}
                             {r.status} ·{" "}
@@ -2005,11 +1938,11 @@ export function HostCommunityClient() {
                     </Button>
                   </div>
 
-                  {loadingSends && sends === null ? (
+                  {loadingSends && sendsTyped === null ? (
                     <p className="text-muted-foreground text-sm">Loading…</p>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {(sends ?? []).map(item => (
+                      {(sendsTyped ?? []).map(item => (
                         <SendCard
                           key={item.id}
                           item={item}
@@ -2019,7 +1952,7 @@ export function HostCommunityClient() {
                     </div>
                   )}
 
-                  {sends !== null && sends.length === 0 && (
+                  {sendsTyped !== null && sendsTyped.length === 0 && (
                     <p className="text-muted-foreground text-sm">
                       You have not submitted any videos yet.
                     </p>

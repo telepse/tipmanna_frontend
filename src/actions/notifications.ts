@@ -59,10 +59,14 @@ export async function listNotificationsFeedAction(opts?: {
 export async function listHostNotificationsMeAction(opts?: {
   unreadOnly?: boolean;
   limit?: number;
+  communityId?: string;
 }) {
   const qs = new URLSearchParams();
   if (opts?.unreadOnly) qs.set("unreadOnly", "true");
   if (opts?.limit != null) qs.set("limit", String(opts.limit));
+  if (opts?.communityId?.trim()) {
+    qs.set("communityId", opts.communityId.trim());
+  }
   const q = qs.toString();
   return runServerFetch<{ notifications: InAppNotificationRow[] }>(
     `${base()}/notifications/me${q ? `?${q}` : ""}`,
@@ -94,9 +98,16 @@ export async function listNotificationsMeAction(
   );
 }
 
-export async function getHostNotificationsUnreadCountAction() {
+export async function getHostNotificationsUnreadCountAction(opts?: {
+  communityId?: string;
+}) {
+  const qs = new URLSearchParams();
+  if (opts?.communityId?.trim()) {
+    qs.set("communityId", opts.communityId.trim());
+  }
+  const q = qs.toString();
   return runServerFetch<{ count: number }>(
-    `${base()}/notifications/me/unread-count`,
+    `${base()}/notifications/me/unread-count${q ? `?${q}` : ""}`,
     {
       method: "GET",
       headers: await serverHostAuthHeaders(),
@@ -208,9 +219,15 @@ export async function markHostNotificationReadAction(id: string) {
   );
 }
 
-export async function markAllHostNotificationsReadAction() {
+export async function markAllHostNotificationsReadAction(opts?: {
+  communityId?: string;
+}) {
+  const communityId = opts?.communityId?.trim();
+  const qs = communityId
+    ? `?communityId=${encodeURIComponent(communityId)}`
+    : "";
   return runServerFetch<{ ok: boolean }>(
-    `${base()}/notifications/me/read-all`,
+    `${base()}/notifications/me/read-all${qs}`,
     {
       method: "POST",
       headers: await serverHostAuthHeaders(),

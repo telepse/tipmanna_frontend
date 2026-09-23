@@ -178,6 +178,7 @@ export const CreateDialog = ({
     HostAuthModal,
   } = useHostCapabilityWithAuth({
     enabled: openPopup,
+    requireHostAccount: true,
   });
   const showHostCreateFlow = communityFeatureOn && canReadAsHost;
   const summarizedIntent =
@@ -513,10 +514,15 @@ export const CreateDialog = ({
 
     if (!canWriteAsHost) {
       pendingVideoSubmitRef.current = values;
-      requestHostAuth(() => {
+      const outcome = requestHostAuth(() => {
         pendingVideoSubmitRef.current = values;
         setResumeVideoSubmit(true);
       });
+      if (outcome === "noop") {
+        toast.error(
+          "A host account is required. Add an email to your tipper profile or create a host account."
+        );
+      }
       return;
     }
 

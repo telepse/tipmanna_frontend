@@ -281,6 +281,7 @@ export async function postCommunityTvEnforcementDraftAction(
     title: string;
     scheduledAt: string;
     channelIds: string[];
+    landingBannerUrl?: string;
   }
 ) {
   return runServerFetch(

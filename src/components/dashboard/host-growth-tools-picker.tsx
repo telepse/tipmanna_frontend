@@ -12,7 +12,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PremiumFeatureBadge } from "@/components/dashboard/premium-feature-badge";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
-import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import {
+  useHostSubscriptionPrompt,
+  type HostSubscriptionPromptFns,
+} from "@/hooks/use-host-subscription-prompt";
 import {
   buildHostPremiumHref,
   type HostPremiumTab,
@@ -21,6 +24,7 @@ import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 
 type Props = {
   hostEventSlug: string | null;
+  subscriptionPrompt?: HostSubscriptionPromptFns;
   size?: "sm" | "default";
   className?: string;
 };
@@ -35,13 +39,15 @@ const GROWTH_ITEMS: { label: string; tab: HostPremiumTab }[] = [
 
 export function HostGrowthToolsPicker({
   hostEventSlug,
+  subscriptionPrompt,
   size = "sm",
   className,
 }: Props) {
   const router = useRouter();
   const { hasActivePremium, status, isLoading } = useHostPlanCapabilities();
-  const { openForRequired, openForLapsed, SubscriptionPromptModal } =
-    useHostSubscriptionPrompt({ focusTier: "premium" });
+  const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
+  const { openForRequired, openForLapsed } =
+    subscriptionPrompt ?? localPrompt;
 
   const videoRequestsOn =
     process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false";
@@ -86,7 +92,7 @@ export function HostGrowthToolsPicker({
           ) : null}
           Growth tools
         </Button>
-        {SubscriptionPromptModal}
+        {!subscriptionPrompt ? localPrompt.SubscriptionPromptModal : null}
       </>
     );
   }

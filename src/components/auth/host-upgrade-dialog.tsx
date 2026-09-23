@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
+import { cn } from "@/lib/utils";
 
 type Props = {
   open: boolean;
@@ -17,6 +18,8 @@ type Props = {
   email: string;
   /** Safe internal path to return to after host sign-up (redirect query). */
   returnTo?: string | null;
+  overlayClassName?: string;
+  className?: string;
 };
 
 function safeInternalPath(next: string | null | undefined): string | null {
@@ -30,6 +33,8 @@ export function HostUpgradeDialog({
   onOpenChange,
   email,
   returnTo,
+  overlayClassName,
+  className,
 }: Props) {
   const { push } = useAppRouter();
 
@@ -38,7 +43,10 @@ export function HostUpgradeDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        overlayClassName={overlayClassName}
+        className={cn("sm:max-w-md", className)}
+      >
         <DialogHeader>
           <DialogTitle>Continue as a host</DialogTitle>
           <DialogDescription>

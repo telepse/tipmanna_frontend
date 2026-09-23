@@ -47,6 +47,7 @@ import {
   overlayStripPrices,
   resolveTipDrawerPresentation,
 } from "@/lib/resolve-tip-drawer-sets";
+import { resolveTipLinkVisibleStrip } from "@/lib/resolve-tip-link-visible-strip";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { fetchPublicTipLinkHydrate } from "@/lib/tiplink-hydrate";
 import { shouldLoadTipStripe } from "@/lib/should-load-tip-stripe";
@@ -480,26 +481,36 @@ export function TipLinkLandingClient({
     }
   );
 
-  const displayStrip = useMemo(
-    () => overlayStripPrices(stripTipChars, tipPres.catalog as RoomCharacter[]),
-    [stripTipChars, tipPres.catalog]
-  );
-
-  const { drawerSets: resolvedDrawerSets } = useMemo(
-    () =>
-      resolveTipDrawerPresentation(
+  const { drawerSets: resolvedDrawerSets, stripPool: hydratedStripPool } =
+    useMemo(
+      () =>
+        resolveTipDrawerPresentation(
+          drawerCatalogSets,
+          tipPres.catalog as RoomCharacter[],
+          firstPaintSets,
+          tipPres.eliteCharacterIds
+        ),
+      [
         drawerCatalogSets,
-        tipPres.catalog as RoomCharacter[],
+        tipPres.catalog,
         firstPaintSets,
-        tipPres.eliteCharacterIds
-      ),
-    [
-      drawerCatalogSets,
-      tipPres.catalog,
-      firstPaintSets,
-      tipPres.eliteCharacterIds,
-    ]
-  );
+        tipPres.eliteCharacterIds,
+      ]
+    );
+
+  const displayStrip = useMemo(() => {
+    const visible = resolveTipLinkVisibleStrip({
+      firstPaint: stripTipChars as RoomCharacter[],
+      liveStrip: (tipPres.strip ?? []) as RoomCharacter[],
+      hydratedPool: hydratedStripPool as RoomCharacter[],
+    });
+    return overlayStripPrices(visible, tipPres.catalog as RoomCharacter[]);
+  }, [
+    stripTipChars,
+    tipPres.catalog,
+    tipPres.strip,
+    hydratedStripPool,
+  ]);
 
   const drawerCatalog =
     (tipPres.catalog as RoomCharacter[]) ?? presentationBaseChars;
@@ -2142,7 +2153,7 @@ export function TipLinkLandingClient({
               hasPendingVideo: false,
             });
             if (resume.navigateTo) {
-              window.open(resume.navigateTo, "_blank", "noopener,noreferrer");
+              window.location.assign(resume.navigateTo);
             }
             setPendingCreateHref(null);
           }}

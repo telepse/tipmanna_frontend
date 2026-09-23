@@ -10,6 +10,7 @@ import {
   type CommunityPublicMember,
 } from "@/lib/community-public-members";
 import { Button } from "@/components/ui/button";
+import { PublicTipperProfileDrawer } from "@/components/community/public-tipper-profile-drawer";
 
 type Props = {
   communityId: string;
@@ -28,6 +29,8 @@ export function CommunityPublicMembersRoster({
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drawerUsername, setDrawerUsername] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const loadPage = useCallback(
     async (cursor?: string | null, append = false) => {
@@ -102,6 +105,11 @@ export function CommunityPublicMembersRoster({
     );
   }
 
+  const openMemberDrawer = (username: string) => {
+    setDrawerUsername(username);
+    setDrawerOpen(true);
+  };
+
   return (
     <div className={className}>
       <h3 className="text-foreground mb-3 text-sm font-semibold">Members</h3>
@@ -111,6 +119,19 @@ export function CommunityPublicMembersRoster({
             <Link
               href={`/tipper/${encodeURIComponent(m.username)}`}
               className="hover:bg-muted/50 flex items-center justify-between gap-3 px-3 py-2.5 transition-colors"
+              onClick={e => {
+                if (
+                  e.metaKey ||
+                  e.ctrlKey ||
+                  e.shiftKey ||
+                  e.altKey ||
+                  e.button !== 0
+                ) {
+                  return;
+                }
+                e.preventDefault();
+                openMemberDrawer(m.username);
+              }}
             >
               <div className="min-w-0">
                 <p className="text-foreground truncate text-sm font-medium">
@@ -157,6 +178,14 @@ export function CommunityPublicMembersRoster({
           </Button>
         </div>
       ) : null}
+      <PublicTipperProfileDrawer
+        username={drawerUsername}
+        open={drawerOpen}
+        onOpenChange={open => {
+          setDrawerOpen(open);
+          if (!open) setDrawerUsername(null);
+        }}
+      />
     </div>
   );
 }

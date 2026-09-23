@@ -844,7 +844,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
             <div className="space-y-2">
               <Label>Pitch (required to publish)</Label>
               <Textarea
-                maxLength={120}
+                maxLength={400}
                 value={form.pitch}
                 onChange={e => setForm(f => ({ ...f, pitch: e.target.value }))}
                 className="break-words whitespace-pre-wrap"

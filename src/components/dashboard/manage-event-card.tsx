@@ -15,7 +15,10 @@ import { EventRoomVideosModal } from "@/components/dashboard/event-room-videos-m
 import { PremiumFeatureBadge } from "@/components/dashboard/premium-feature-badge";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import { useHostSession } from "@/hooks/use-host-session";
-import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import {
+  useHostSubscriptionPrompt,
+  type HostSubscriptionPromptFns,
+} from "@/hooks/use-host-subscription-prompt";
 import { formatDate } from "@/lib/formatDate";
 import { buildChannelSharePath } from "@/lib/public-video-url";
 import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
@@ -42,6 +45,7 @@ interface Props {
   hostSubscriptionTier?: "NONE" | "HOST_PREMIUM" | "HOST_COMMUNITY";
   variant?: "event" | "channel";
   defaultChannel?: DefaultChannelInfo;
+  subscriptionPrompt?: HostSubscriptionPromptFns;
 }
 
 export function ManageEventCard({
@@ -58,17 +62,15 @@ export function ManageEventCard({
   showEncounterOnVideos = false,
   variant = "event",
   defaultChannel,
+  subscriptionPrompt,
 }: Props) {
   const hostSession = useHostSession();
   const params = useParams();
   const hostSlug = typeof params?.slug === "string" ? params.slug : "";
   const { capabilities, status } = useHostPlanCapabilities();
-  const {
-    openForLapsed,
-    openForRequired,
-    handleSubscriptionActionError,
-    SubscriptionPromptModal,
-  } = useHostSubscriptionPrompt({ focusTier: "premium" });
+  const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
+  const { openForLapsed, openForRequired, handleSubscriptionActionError } =
+    subscriptionPrompt ?? localPrompt;
 
   const [videosOpen, setVideosOpen] = useState(false);
   const [showAmountRaised, setShowAmountRaised] = useState(
@@ -397,7 +399,7 @@ export function ManageEventCard({
           eventName={eventName}
         />
       ) : null}
-      {SubscriptionPromptModal}
+      {!subscriptionPrompt ? localPrompt.SubscriptionPromptModal : null}
     </>
   );
 }

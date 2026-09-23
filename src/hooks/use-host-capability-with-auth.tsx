@@ -19,6 +19,10 @@ import {
   type HostAuthRequestOutcome,
 } from "@/lib/host-auth-request-outcome";
 import type { RootState } from "@/redux/store";
+import {
+  SIGN_IN_NESTED_OVERLAY_Z_INDEX,
+  SIGN_IN_NESTED_Z_INDEX,
+} from "@/lib/drawer-z-index";
 
 type PendingTask = () => void | Promise<void>;
 
@@ -202,6 +206,8 @@ export function useHostCapabilityWithAuth(options?: Options) {
         hostRequiredNotice={hostRequiredNotice}
         allowInlineSignUp
         signupSurface="host_auth_modal"
+        overlayClassName={SIGN_IN_NESTED_OVERLAY_Z_INDEX}
+        contentClassName={SIGN_IN_NESTED_Z_INDEX}
         onSuccess={onHostSignInSuccess}
       />
       {cohostEventId ? (
@@ -219,6 +225,8 @@ export function useHostCapabilityWithAuth(options?: Options) {
           onOpenChange={setHostUpgradeOpen}
           email={user.email}
           returnTo={hostUpgradeReturnTo}
+          overlayClassName={SIGN_IN_NESTED_OVERLAY_Z_INDEX}
+          className={SIGN_IN_NESTED_Z_INDEX}
         />
       ) : null}
     </>

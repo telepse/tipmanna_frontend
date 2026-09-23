@@ -19,6 +19,8 @@ import {
   communityProgramLandingUrl,
   copyProgramLink,
 } from "@/lib/program-share";
+import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
+import { cn } from "@/lib/utils";
 
 type EnforcementRow = {
   id: string;
@@ -29,6 +31,9 @@ type EnforcementRow = {
   landingBannerUrl?: string | null;
   rejectionReason?: string | null;
 };
+
+const BANK_SEARCH_EMPTY =
+  "No TV-ready approved bank videos found. Approve bank clips for TV, or search by title or event name (2+ characters).";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
@@ -56,10 +61,18 @@ export function CommunityTvEnforcementHostTab({
   const [kind, setKind] = useState<"VIDEO" | "PROGRAM">("PROGRAM");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQ, setSearchQ] = useState("");
+  const [channelUrlsById, setChannelUrlsById] = useState<Record<string, string>>(
+    {}
+  );
+  const [selectedBannerUrl, setSelectedBannerUrl] = useState<string | null>(
+    null
+  );
+  const [searchEmptyHint, setSearchEmptyHint] = useState<string | null>(null);
   const [searchHits, setSearchHits] = useState<
     {
       id: string;
       title: string;
+      url?: string;
       eventName?: string;
       playbackStatus?: string;
       liveStatus?: string;
@@ -110,26 +123,44 @@ export function CommunityTvEnforcementHostTab({
     void load();
   }, [load]);
 
-  const onSearch = async () => {
-    const q = searchQ.trim();
-    if (q.length < 2) {
-      toast.info("Enter at least 2 characters");
-      return;
-    }
-    try {
-      const res = await searchCommunityTvChannelsAction(communityId, q);
-      if (!res.success || !res.data) throw new Error("search failed");
-      setSearchHits((res.data.items ?? []) as typeof searchHits);
-    } catch {
-      toast.error("Channel search failed");
-    }
+  const runBankSearch = useCallback(
+    async (query: string) => {
+      const q = query.trim();
+      try {
+        const res = await searchCommunityTvChannelsAction(communityId, q);
+        if (!res.success || !res.data) throw new Error("search failed");
+        const items = (res.data.items ?? []) as typeof searchHits;
+        setSearchHits(items);
+        setSearchEmptyHint(items.length === 0 ? BANK_SEARCH_EMPTY : null);
+      } catch {
+        setSearchEmptyHint(null);
+        toast.error("Channel search failed");
+      }
+    },
+    [communityId]
+  );
+
+  useEffect(() => {
+    if (!communityId) return;
+    void runBankSearch("");
+  }, [communityId, runBankSearch]);
+
+  const onSearch = () => void runBankSearch(searchQ);
+
+  const rememberChannelUrl = (id: string, url?: string) => {
+    if (!url?.trim()) return;
+    setChannelUrlsById(prev => ({ ...prev, [id]: url.trim() }));
   };
 
-  const toggleChannel = (id: string) => {
+  const toggleChannel = (id: string, url?: string) => {
+    rememberChannelUrl(id, url);
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
+
+  const channelUrlFor = (id: string) =>
+    channelUrlsById[id] ?? searchHits.find(c => c.id === id)?.url ?? "";
 
   const moveSelectedChannel = (id: string, direction: "up" | "down") => {
     setSelectedIds(prev => {
@@ -155,11 +186,16 @@ export function CommunityTvEnforcementHostTab({
         title: title.trim(),
         scheduledAt: new Date(scheduledAt).toISOString(),
         channelIds: selectedIds,
+        ...(selectedBannerUrl?.trim()
+          ? { landingBannerUrl: selectedBannerUrl.trim() }
+          : {}),
       });
       if (!res.success) {
         throw new Error(res.message ?? res.error ?? "Draft failed");
       }
       toast.success("Draft saved");
+      setSelectedIds([]);
+      setSelectedBannerUrl(null);
       void load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Draft failed");
@@ -285,6 +321,9 @@ export function CommunityTvEnforcementHostTab({
             Search
           </Button>
         </div>
+        {searchEmptyHint ? (
+          <p className="text-muted-foreground text-sm">{searchEmptyHint}</p>
+        ) : null}
         <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
           {searchHits.map(c => (
             <li key={c.id}>
@@ -292,7 +331,7 @@ export function CommunityTvEnforcementHostTab({
                 <input
                   type="checkbox"
                   checked={selectedIds.includes(c.id)}
-                  onChange={() => toggleChannel(c.id)}
+                  onChange={() => toggleChannel(c.id, c.url)}
                 />
                 <span>
                   {c.title}
@@ -330,19 +369,47 @@ export function CommunityTvEnforcementHostTab({
         </ul>
         {selectedIds.length > 0 ? (
           <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs font-medium">Lineup order (before save)</p>
-            <ul className="space-y-1 text-sm">
+            <p className="text-xs font-medium">
+              Lineup order and landing banner (before save)
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Click a thumbnail to use it as the program landing page banner.
+            </p>
+            <ul className="space-y-2 text-sm">
               {selectedIds.map((id, idx) => {
-                const title =
+                const label =
                   searchHits.find(c => c.id === id)?.title ?? "Selected video";
+                const thumb = getYoutubeThumbnail(channelUrlFor(id));
                 return (
                   <li
                     key={id}
-                    className="flex items-center justify-between gap-2"
+                    className="flex flex-wrap items-center justify-between gap-2"
                   >
-                    <span className="min-w-0 truncate">
-                      {idx + 1}. {title}
-                    </span>
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      {thumb ? (
+                        <button
+                          type="button"
+                          title="Use as landing banner"
+                          className={cn(
+                            "shrink-0 rounded border p-0.5 hover:ring-2 hover:ring-primary",
+                            selectedBannerUrl === thumb &&
+                              "ring-primary ring-2"
+                          )}
+                          onClick={() => setSelectedBannerUrl(thumb)}
+                        >
+                          <img
+                            src={thumb}
+                            alt=""
+                            className="size-14 rounded object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <div className="bg-muted size-14 shrink-0 rounded" />
+                      )}
+                      <span className="min-w-0 truncate">
+                        {idx + 1}. {label}
+                      </span>
+                    </div>
                     <span className="flex shrink-0 gap-1">
                       <Button
                         type="button"
@@ -402,9 +469,13 @@ export function CommunityTvEnforcementHostTab({
                       Rejected: {row.rejectionReason}
                     </p>
                   ) : null}
-                  {["AUTHORIZED", "ACTIVE", "COMPLETED"].includes(
-                    row.status
-                  ) ? (
+                  {[
+                    "DRAFT",
+                    "PENDING_APPROVAL",
+                    "AUTHORIZED",
+                    "ACTIVE",
+                    "COMPLETED",
+                  ].includes(row.status) ? (
                     <div className="bg-muted/20 mt-3 space-y-2 rounded-md border p-3">
                       <p className="text-xs font-medium">
                         Program landing banner

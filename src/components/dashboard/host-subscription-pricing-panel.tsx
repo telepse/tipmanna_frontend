@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { toast } from "react-toastify";
 
@@ -169,6 +169,8 @@ function HostSubscriptionPricingPanelContent({
 
   const [inlinePlanError, setInlinePlanError] = useState<string | null>(null);
 
+  const sessionRefreshRetriedRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -187,13 +189,22 @@ function HostSubscriptionPricingPanelContent({
     };
   }, []);
 
+  const requiresHostSession = fetchError?.requiresHostSession ?? false;
+  const fetchErrorMessage = fetchError?.message;
+  const fetchErrorValidationBody = fetchError?.validationBody;
+
   useEffect(() => {
-    if (!fetchError?.requiresHostSession || hostSessionLoading) {
+    if (!requiresHostSession) {
+      sessionRefreshRetriedRef.current = false;
+      return;
+    }
+    if (hostSessionLoading) {
       return;
     }
 
     if (hostSessionActive) {
-      if (refreshSubscription) {
+      if (refreshSubscription && !sessionRefreshRetriedRef.current) {
+        sessionRefreshRetriedRef.current = true;
         void refreshSubscription();
       }
 
@@ -202,21 +213,24 @@ function HostSubscriptionPricingPanelContent({
 
     handleAuthRequiredError(
       {
-        message: fetchError.message,
-        validationBody: fetchError.validationBody,
+        message: fetchErrorMessage ?? "Host session required",
+        validationBody: fetchErrorValidationBody,
       },
       () => {
-        if (refreshSubscription) {
+        if (refreshSubscription && !sessionRefreshRetriedRef.current) {
+          sessionRefreshRetriedRef.current = true;
           void refreshSubscription();
         }
       }
     );
   }, [
-    fetchError,
+    fetchErrorMessage,
+    fetchErrorValidationBody,
     handleAuthRequiredError,
     hostSessionActive,
     hostSessionLoading,
     refreshSubscription,
+    requiresHostSession,
   ]);
 
   const ensureHostSession = useCallback(

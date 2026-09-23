@@ -246,6 +246,8 @@ export default function CommunityHubClient() {
   const [coCreated, setCoCreated] = useState<CommunityBrief[]>([]);
 
   const [startCommunityModalOpen, setStartCommunityModalOpen] = useState(false);
+  const [startCommunityPreferredSlug, setStartCommunityPreferredSlug] =
+    useState<string | null>(null);
   const startCommunityResumeHandledRef = useRef(false);
   const [leaveConfirmTarget, setLeaveConfirmTarget] = useState<{
     communityId: string;
@@ -556,6 +558,15 @@ export default function CommunityHubClient() {
     setStartCommunityModalOpen(true);
   }, []);
 
+  const setPreferredSlugFromPayload = useCallback(
+    (payload: SignInModalPayload) => {
+      const slug =
+        payload.eventSlug?.trim() || payload.username?.trim() || null;
+      setStartCommunityPreferredSlug(slug);
+    },
+    []
+  );
+
   const resumeStartCommunityAfterAuth = useCallback(() => {
     if (canWriteAsHost) {
       openStartCommunityForm();
@@ -602,6 +613,7 @@ export default function CommunityHubClient() {
       if (pendingStartCommunity) {
         setPendingStartCommunity(false);
         if (resolveStartCommunityAfterGuestModal(payload.role) === "openForm") {
+          setPreferredSlugFromPayload(payload);
           openStartCommunityForm();
         } else {
           resumeStartCommunityAfterAuth();
@@ -612,6 +624,7 @@ export default function CommunityHubClient() {
       openStartCommunityForm,
       pendingStartCommunity,
       resumeStartCommunityAfterAuth,
+      setPreferredSlugFromPayload,
     ]
   );
 
@@ -688,7 +701,14 @@ export default function CommunityHubClient() {
       {HostAuthModal}
       <StartCommunityRequestDialog
         open={startCommunityModalOpen}
-        onOpenChange={setStartCommunityModalOpen}
+        onOpenChange={open => {
+          setStartCommunityModalOpen(open);
+          if (!open) setStartCommunityPreferredSlug(null);
+        }}
+        preferredHostSlug={startCommunityPreferredSlug}
+        canWriteAsHost={canWriteAsHost}
+        capability={capability}
+        requestHostAuth={requestHostAuth}
       />
 
       <AlertDialog

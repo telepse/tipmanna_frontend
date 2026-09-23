@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
-import type { HostCreatorEvent } from "@/actions/host-creator";
+import type {
+  HostCreatorCommunity,
+  HostCreatorEvent,
+} from "@/actions/host-creator";
 import { listHostTipLinksAction, type TipLinkSummary } from "@/actions/tiplink";
 import { listMyVideosForVideoRequestsAction } from "@/actions/video-requests";
 import { useTipLinkProfileCreate } from "@/hooks/use-tip-link-profile-create";
@@ -13,8 +16,18 @@ import {
   mapVideosByEventToHostCreatorEvents,
   type VideosByEventRow,
 } from "@/lib/tiplink-eligible-videos";
+import type { HostSubscriptionPromptFns } from "@/hooks/use-host-subscription-prompt";
 
-export function useTipLinkDashboardCreate(hostEventSlug: string | null) {
+type Options = {
+  subscriptionPrompt?: HostSubscriptionPromptFns;
+};
+
+const EMPTY_COMMUNITIES: HostCreatorCommunity[] = [];
+
+export function useTipLinkDashboardCreate(
+  hostEventSlug: string | null,
+  options?: Options
+) {
   const router = useRouter();
   const [events, setEvents] = useState<HostCreatorEvent[]>([]);
   const [tipLinks, setTipLinks] = useState<TipLinkSummary[]>([]);
@@ -55,11 +68,12 @@ export function useTipLinkDashboardCreate(hostEventSlug: string | null) {
 
   const profileCreate = useTipLinkProfileCreate({
     events,
-    communities: [],
+    communities: EMPTY_COMMUNITIES,
     tipLinks,
     isOwnProfile: true,
     onDraftCreated,
     buildSubscriptionResumeReturnPath,
+    subscriptionPrompt: options?.subscriptionPrompt,
   });
 
   useEffect(() => {

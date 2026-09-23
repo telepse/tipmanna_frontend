@@ -16,6 +16,7 @@ import { useTipLinkDashboardCreate } from "@/hooks/use-tip-link-dashboard-create
 import { TipLinkCreatePickerDialog } from "@/components/tiplink/tiplink-create-picker-dialog";
 import { useHostSession } from "@/hooks/use-host-session";
 import { HostDashboardShortcutsRow } from "@/components/dashboard/host-dashboard-shortcuts-row";
+import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 
 export default function ManageEvent() {
   const [openPopup, setOpenPopup] = useState(false);
@@ -24,6 +25,8 @@ export default function ManageEvent() {
     typeof params.slug === "string" ? params.slug : (params.slug?.[0] ?? null);
   const { eventSlug: sessionSlug } = useHostSession();
   const hostEventSlug = paramSlug ?? sessionSlug ?? null;
+
+  const subscriptionPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
 
   const {
     pickerOpen,
@@ -34,10 +37,11 @@ export default function ManageEvent() {
     openPicker,
     createDraftForVideo,
     HostAuthModal,
-    SubscriptionPromptModal,
     pickerDataLoading,
     pickerDataError,
-  } = useTipLinkDashboardCreate(hostEventSlug);
+  } = useTipLinkDashboardCreate(hostEventSlug, {
+    subscriptionPrompt,
+  });
 
   return (
     <ProtectedRoute>
@@ -48,7 +52,10 @@ export default function ManageEvent() {
         />
 
         <div className="flex flex-col items-end gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <HostDashboardShortcutsRow hostEventSlug={hostEventSlug} />
+          <HostDashboardShortcutsRow
+            hostEventSlug={hostEventSlug}
+            subscriptionPrompt={subscriptionPrompt}
+          />
           <div className="flex items-center gap-2">
             <Button
               size="sm"
@@ -72,27 +79,31 @@ export default function ManageEvent() {
 
       <div className="space-y-6">
         <CoOwnerSelfPayoutsSection />
-        <ManageEventClient />
+        <ManageEventClient subscriptionPrompt={subscriptionPrompt} />
       </div>
 
-      <CreateDialog
-        openPopup={openPopup}
-        setOpenPopup={setOpenPopup}
-      />
+      {openPopup ? (
+        <CreateDialog
+          openPopup={openPopup}
+          setOpenPopup={setOpenPopup}
+        />
+      ) : null}
 
-      <TipLinkCreatePickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        events={eligibleEvents}
-        communityVideos={communityBankVideos}
-        creatingChannelId={creatingChannelId}
-        onSelect={createDraftForVideo}
-        loading={pickerDataLoading}
-        error={pickerDataError}
-      />
+      {pickerOpen ? (
+        <TipLinkCreatePickerDialog
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          events={eligibleEvents}
+          communityVideos={communityBankVideos}
+          creatingChannelId={creatingChannelId}
+          onSelect={createDraftForVideo}
+          loading={pickerDataLoading}
+          error={pickerDataError}
+        />
+      ) : null}
 
       {HostAuthModal}
-      {SubscriptionPromptModal}
+      {subscriptionPrompt.SubscriptionPromptModal}
     </ProtectedRoute>
   );
 }

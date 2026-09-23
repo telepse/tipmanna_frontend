@@ -216,6 +216,24 @@ export function EventRoomAccessControl({
     void loadRequests();
   }, [loadRequests]);
 
+  const onModeSelect = (mode: EventAccessMode) => {
+    if (!eligible && mode !== "public") {
+      toast.error(
+        "Access control is only available for event-only and event-and-content events"
+      );
+      return;
+    }
+    if (mode === "community_members" && !communityId) {
+      toast.error("Link this event to a community first");
+      return;
+    }
+    if (mode === "host_code" || mode === "custom_code") {
+      setAccessMode(mode);
+      return;
+    }
+    void saveAccessMode(mode);
+  };
+
   const saveAccessMode = async (mode: EventAccessMode) => {
     if (!eligible && mode !== "public") {
       toast.error(
@@ -372,7 +390,7 @@ export function EventRoomAccessControl({
             </div>
             <Select
               value={accessMode}
-              onValueChange={v => void saveAccessMode(v as EventAccessMode)}
+              onValueChange={v => onModeSelect(v as EventAccessMode)}
               disabled={busy === "mode" || !eligible}
             >
               <SelectTrigger className="max-w-md">
@@ -398,38 +416,45 @@ export function EventRoomAccessControl({
       {accessMode === "host_code" || accessMode === "custom_code" ? (
         <div className="bg-card space-y-3 rounded-lg border p-4">
           <p className="font-medium">Access codes</p>
-          <div className="flex flex-wrap gap-2">
-            <Input
-              placeholder="Host access code"
-              value={hostCode}
-              onChange={e => setHostCode(e.target.value)}
-              className="max-w-xs"
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={busy === "mode"}
-              onClick={() => void saveAccessMode("host_code")}
-            >
-              Save host code
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Input
-              placeholder="Shared invitation code"
-              value={customCode}
-              onChange={e => setCustomCode(e.target.value)}
-              className="max-w-xs"
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={busy === "mode"}
-              onClick={() => void saveAccessMode("custom_code")}
-            >
-              Save shared code
-            </Button>
-          </div>
+          <p className="text-muted-foreground text-sm">
+            Enter a code and save to apply this access mode on the server.
+          </p>
+          {accessMode === "host_code" ? (
+            <div className="flex flex-wrap gap-2">
+              <Input
+                placeholder="Host access code"
+                value={hostCode}
+                onChange={e => setHostCode(e.target.value)}
+                className="max-w-xs"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy === "mode"}
+                onClick={() => void saveAccessMode("host_code")}
+              >
+                Save host code
+              </Button>
+            </div>
+          ) : null}
+          {accessMode === "custom_code" ? (
+            <div className="flex flex-wrap gap-2">
+              <Input
+                placeholder="Shared invitation code"
+                value={customCode}
+                onChange={e => setCustomCode(e.target.value)}
+                className="max-w-xs"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy === "mode"}
+                onClick={() => void saveAccessMode("custom_code")}
+              >
+                Save shared code
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
