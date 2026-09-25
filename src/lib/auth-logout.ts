@@ -1,6 +1,7 @@
 import Cookies from "js-cookie";
 import type { AppDispatch } from "@/redux/store";
 import { clearCredentials } from "@/features/auth-slice";
+import { invalidateHostLinkCache } from "@/lib/host-link-cache";
 import { clearAuthSession, clearHostSession } from "@/lib/session-client";
 
 /** Clears Redux, legacy cookies, localStorage persist, HttpOnly session and host session cookies. */
@@ -14,5 +15,6 @@ export async function performAuthLogout(dispatch: AppDispatch): Promise<void> {
     Cookies.remove("visitorUser");
     Cookies.remove("hostUser");
   }
+  invalidateHostLinkCache();
   await Promise.all([clearAuthSession(), clearHostSession()]);
 }

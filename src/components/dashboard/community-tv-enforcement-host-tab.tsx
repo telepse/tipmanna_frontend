@@ -61,9 +61,9 @@ export function CommunityTvEnforcementHostTab({
   const [kind, setKind] = useState<"VIDEO" | "PROGRAM">("PROGRAM");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQ, setSearchQ] = useState("");
-  const [channelUrlsById, setChannelUrlsById] = useState<Record<string, string>>(
-    {}
-  );
+  const [channelUrlsById, setChannelUrlsById] = useState<
+    Record<string, string>
+  >({});
   const [selectedBannerUrl, setSelectedBannerUrl] = useState<string | null>(
     null
   );
@@ -391,9 +391,8 @@ export function CommunityTvEnforcementHostTab({
                           type="button"
                           title="Use as landing banner"
                           className={cn(
-                            "shrink-0 rounded border p-0.5 hover:ring-2 hover:ring-primary",
-                            selectedBannerUrl === thumb &&
-                              "ring-primary ring-2"
+                            "hover:ring-primary shrink-0 rounded border p-0.5 hover:ring-2",
+                            selectedBannerUrl === thumb && "ring-primary ring-2"
                           )}
                           onClick={() => setSelectedBannerUrl(thumb)}
                         >

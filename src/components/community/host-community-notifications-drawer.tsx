@@ -92,8 +92,8 @@ export function HostCommunityNotificationsDrawer({
         onOpenChange={onOpenChange}
       >
         <DrawerContent
-          className="max-h-[85vh]"
-          style={{ zIndex: DRAWER_Z_INDEX }}
+          className="max-h-[85vh] bg-white"
+          style={{ zIndex: 100037 }}
         >
           <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
             <DrawerTitle className="text-base font-semibold">

@@ -4,9 +4,9 @@ import { shouldDispatchHostSubscriptionTier } from "@/lib/host-subscription-tier
 
 describe("shouldDispatchHostSubscriptionTier", () => {
   it("dispatches when tier was missing and next is set", () => {
-    expect(
-      shouldDispatchHostSubscriptionTier(undefined, "HOST_PREMIUM")
-    ).toBe(true);
+    expect(shouldDispatchHostSubscriptionTier(undefined, "HOST_PREMIUM")).toBe(
+      true
+    );
   });
 
   it("does not dispatch when tier is unchanged", () => {
@@ -17,16 +17,13 @@ describe("shouldDispatchHostSubscriptionTier", () => {
 
   it("dispatches when tier changes", () => {
     expect(
-      shouldDispatchHostSubscriptionTier(
-        "HOST_PREMIUM",
-        "HOST_COMMUNITY"
-      )
+      shouldDispatchHostSubscriptionTier("HOST_PREMIUM", "HOST_COMMUNITY")
     ).toBe(true);
   });
 
   it("dispatches when clearing to undefined", () => {
-    expect(
-      shouldDispatchHostSubscriptionTier("HOST_PREMIUM", undefined)
-    ).toBe(true);
+    expect(shouldDispatchHostSubscriptionTier("HOST_PREMIUM", undefined)).toBe(
+      true
+    );
   });
 });

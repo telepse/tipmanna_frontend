@@ -248,9 +248,17 @@ export function prefetchCommunityAccessState(communityId: string) {
 /** Warm drawer UI chunks without opening a drawer. */
 export function prefetchDrawerUiChunks() {
   scheduleIdle(() => {
-    void import("@/components/host/host-creator-page-client");
-    void import("@/components/community/community-join-panel");
+    warmCreatorDrawerChunk();
+    warmCommunityDrawerChunk();
   });
+}
+
+export function warmCreatorDrawerChunk() {
+  void import("@/components/host/host-creator-page-client");
+}
+
+export function warmCommunityDrawerChunk() {
+  void import("@/components/community/community-join-panel");
 }
 
 export async function awaitCreatorProfilePrefetch(username: string) {

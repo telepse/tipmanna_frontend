@@ -172,9 +172,13 @@ import { useChannelEngagementRealtime } from "@/hooks/use-channel-engagement-rea
 import { getAuthToken } from "@/lib/getAuthToken";
 import {
   prefetchChannelDrawers,
+  fetchCommunityAccessStateCached,
+  fetchCreatorProfileCached,
   prefetchCommunityAccessState,
   prefetchCreatorProfile,
   prefetchDrawerUiChunks,
+  warmCommunityDrawerChunk,
+  warmCreatorDrawerChunk,
 } from "@/lib/drawer-prefetch-cache";
 import { markExplorePerf } from "@/lib/web-vitals";
 import {
@@ -219,6 +223,14 @@ import {
   parseCommunityDrawerFromUrl,
   parseCreatorDrawerFromUrl,
 } from "@/lib/playback-return-restore";
+import {
+  readExploreDrawerIntent,
+  writeExploreDrawerIntent,
+} from "@/lib/explore-drawer-intent";
+import {
+  isExploreFeedTabForDrawerGlance,
+  resolveInitialExploreDrawerHydrate,
+} from "@/lib/explore-drawer-hydrate";
 import { commitExploreHistory } from "@/lib/explore-url-history";
 import { exploreLiveSearchParamsKey } from "@/lib/explore-url-sync-policy";
 
@@ -852,6 +864,7 @@ function ExploreReelSlideTitle({
                   onPointerDown={e => e.stopPropagation()}
                   onPointerEnter={() => {
                     if (coOwnerDrawerUsername) {
+                      warmCreatorDrawerChunk();
                       onPrefetchCreator?.(coOwnerDrawerUsername);
                     }
                   }}
@@ -875,7 +888,10 @@ function ExploreReelSlideTitle({
                   onPointerDown={e => e.stopPropagation()}
                   onPointerEnter={() => {
                     const id = community?.id?.trim();
-                    if (id) onPrefetchCommunity?.(id);
+                    if (id) {
+                      warmCommunityDrawerChunk();
+                      onPrefetchCommunity?.(id);
+                    }
                   }}
                   onClick={e => {
                     e.stopPropagation();
@@ -897,7 +913,10 @@ function ExploreReelSlideTitle({
                       e.stopPropagation();
                       onOpenCreatorDrawer(hostUsername);
                     }}
-                    onPointerEnter={() => onPrefetchCreator?.(hostUsername)}
+                    onPointerEnter={() => {
+                      warmCreatorDrawerChunk();
+                      onPrefetchCreator?.(hostUsername);
+                    }}
                   >
                     @{hostUsername}
                   </button>
@@ -1140,86 +1159,65 @@ export const ExploreFeedClient = forwardRef<
   const [paginationRetryEpoch, setPaginationRetryEpoch] = useState(0);
   const [reelMuted, setReelMuted] = useState(() => !loadReelSoundPref());
 
-  const syncDrawerExploreUrl = useCallback(
-    (mutate: (params: URLSearchParams) => void) => {
-      const liveKey = exploreLiveSearchParamsKey(
-        searchParams?.toString() ?? ""
-      );
-      const params = new URLSearchParams(liveKey);
-      mutate(params);
-      commitExploreHistory({
-        href: `/explore?${params.toString()}`,
-        mode: "replace",
-        source: "passive-sync",
-      });
-    },
-    [searchParams]
-  );
+  const openCreatorDrawer = useCallback((username: string) => {
+    const handle = resolveCreatorUsernameAlias(username);
+    if (!handle) return;
+    warmCreatorDrawerChunk();
+    void fetchCreatorProfileCached(handle);
+    setCreatorDrawerUsername(handle);
+    setCreatorDrawerOpen(true);
+    writeExploreDrawerIntent({ kind: "creator", username: handle });
+  }, []);
 
-  const openCreatorDrawer = useCallback(
-    (username: string) => {
-      const handle = resolveCreatorUsernameAlias(username);
-      if (!handle) return;
-      setCreatorDrawerUsername(handle);
-      setCreatorDrawerOpen(true);
-      syncDrawerExploreUrl(params => {
-        params.delete("communityDrawer");
-        params.set("creatorDrawer", handle);
-      });
-    },
-    [syncDrawerExploreUrl]
-  );
-
-  const handleCreatorDrawerOpenChange = useCallback(
-    (open: boolean) => {
-      setCreatorDrawerOpen(open);
-      if (!open) {
-        setCreatorDrawerUsername(null);
-        syncDrawerExploreUrl(params => {
-          params.delete("creatorDrawer");
-        });
-      }
-    },
-    [syncDrawerExploreUrl]
-  );
-
-  const openCommunityDrawer = useCallback(
-    (communityId: string) => {
-      const id = communityId.trim();
-      if (!id) return;
-      setCommunityDrawerId(id);
-      setCommunityDrawerOpen(true);
-      syncDrawerExploreUrl(params => {
-        params.delete("creatorDrawer");
-        params.set("communityDrawer", id);
-      });
-    },
-    [syncDrawerExploreUrl]
-  );
-
-  const handleCommunityDrawerOpenChange = useCallback(
-    (open: boolean) => {
-      setCommunityDrawerOpen(open);
-      if (!open) {
-        setCommunityDrawerId(null);
-        syncDrawerExploreUrl(params => {
-          params.delete("communityDrawer");
-        });
-      }
-    },
-    [syncDrawerExploreUrl]
-  );
-
-  useEffect(() => {
-    const creator = parseCreatorDrawerFromUrl(searchParams);
-    const community = parseCommunityDrawerFromUrl(searchParams);
-    if (creator) {
-      setCreatorDrawerUsername(creator);
-      setCreatorDrawerOpen(true);
+  const handleCreatorDrawerOpenChange = useCallback((open: boolean) => {
+    setCreatorDrawerOpen(open);
+    if (!open) {
+      writeExploreDrawerIntent(null);
     }
-    if (community) {
-      setCommunityDrawerId(community);
+  }, []);
+
+  const openCommunityDrawer = useCallback((communityId: string) => {
+    const id = communityId.trim();
+    if (!id) return;
+    warmCommunityDrawerChunk();
+    void fetchCommunityAccessStateCached(id);
+    setCommunityDrawerId(id);
+    setCommunityDrawerOpen(true);
+    writeExploreDrawerIntent({ kind: "community", communityId: id });
+  }, []);
+
+  const handleCommunityDrawerOpenChange = useCallback((open: boolean) => {
+    setCommunityDrawerOpen(open);
+    if (!open) {
+      writeExploreDrawerIntent(null);
+    }
+  }, []);
+
+  const drawerHydratedRef = useRef(false);
+  useEffect(() => {
+    if (drawerHydratedRef.current) return;
+    drawerHydratedRef.current = true;
+
+    const liveParams =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : searchParams;
+    const feedTabVisible = isExploreFeedTabForDrawerGlance(liveParams);
+    const intent = resolveInitialExploreDrawerHydrate({
+      creatorFromUrl: parseCreatorDrawerFromUrl(searchParams),
+      communityFromUrl: parseCommunityDrawerFromUrl(searchParams),
+      intent: readExploreDrawerIntent(),
+      feedTabVisible,
+    });
+    if (!intent) return;
+    if (intent.kind === "creator") {
+      setCreatorDrawerUsername(intent.username);
+      setCreatorDrawerOpen(true);
+      writeExploreDrawerIntent(intent);
+    } else {
+      setCommunityDrawerId(intent.communityId);
       setCommunityDrawerOpen(true);
+      writeExploreDrawerIntent(intent);
     }
   }, [searchParams]);
 

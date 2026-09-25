@@ -8,10 +8,26 @@ export const TV_EMBED_ONREADY_MAX_REMOUNTS = 1;
 export const TV_EMBED_HEALTH_POLL_MS = 1500;
 
 /** Sustained dead iframe before heartbeat triggers recovery. */
-export const TV_EMBED_DEAD_IFRAME_MS = 2000;
+export const TV_EMBED_DEAD_IFRAME_MS = 8000;
 
 /** Minimum gap between automatic embed recoveries. */
-export const TV_EMBED_RECOVERY_COOLDOWN_MS = 5000;
+export const TV_EMBED_RECOVERY_COOLDOWN_MS = 15_000;
+
+/** Drop a stuck recovery latch only after a real construct stall. */
+export const TV_EMBED_RECOVERY_LATCH_MS = 12_000;
+
+/** Brief tab hide (Chrome iframe discard) must not remount — flush + sync only. */
+export const TV_HIDE_REMOUNT_MS = 30_000;
+
+/** Heartbeat must not remount while playback was usable within this window. */
+export const TV_HEARTBEAT_USABLE_VETO_MS = 20_000;
+
+const RECENT_PLAYBACK_STATES = new Set([
+  "PLAYING",
+  "PAUSED",
+  "BUFFERING",
+  "CUED",
+]);
 
 let tabEmbedGeneration = 0;
 
@@ -35,6 +51,8 @@ export type TvPlayerResumeProbe = {
   commandReady: boolean;
   playerState: string | null;
   remountedThisHideShowCycle: boolean;
+  /** Elapsed ms document was hidden before this visible tick. */
+  hiddenDurationMs: number;
 };
 
 export type TvEmbedOnReadyWatchdogInput = {
@@ -61,10 +79,17 @@ export function isTvPlayerStateUsable(
   return !!state && USABLE_RESUME_STATES.has(state);
 }
 
+/** Recent PLAYING/PAUSED/BUFFERING/CUED — used for heartbeat remount veto. */
+export function isTvPlayerStateRecentPlayback(
+  state: string | null | undefined
+): boolean {
+  return !!state && RECENT_PLAYBACK_STATES.has(state);
+}
+
 /**
- * Remount only after a real hide→show (or bfcache pageshow) when the playback
- * command API is gone. If `commandReady` is true, do not remount (iframe flicker
- * or UNSTARTED/null after a brief tab-away). Same veto as heartbeat recovery.
+ * Remount only after a real hide→show (or bfcache pageshow) when the embed is
+ * actually gone. A usable playerState with the iframe still in the document, or
+ * a one-tick commandReady hole, is not a remount. Same both-dead rule as heartbeat.
  */
 export function shouldRemountTvPlayer(opts: TvPlayerResumeProbe): boolean {
   if (opts.visibilityState !== "visible") return false;
@@ -72,8 +97,10 @@ export function shouldRemountTvPlayer(opts: TvPlayerResumeProbe): boolean {
   if (opts.startupInFlight) return false;
   if (!opts.firstPlayReached) return false;
   if (opts.remountedThisHideShowCycle) return false;
+  if (opts.hiddenDurationMs < TV_HIDE_REMOUNT_MS) return false;
+  if (isTvPlayerStateUsable(opts.playerState) && opts.iframeLive) return false;
   if (opts.commandReady) return false;
-  return !opts.iframeLive || !opts.commandReady;
+  return !opts.iframeLive && !opts.commandReady;
 }
 
 export type TvEmbedHealthProbe = {
@@ -83,19 +110,23 @@ export type TvEmbedHealthProbe = {
   scheduleReady: boolean;
   commandReady: boolean;
   iframeLive: boolean;
+  playerState?: string | null;
   /** Looper mounted and first play reached but provider ref is null (orphaned). */
   orphanedRef: boolean;
   embedRecoveryInFlight: boolean;
   msSinceLastRecovery: number;
   deadIframeSinceMs: number | null;
+  /** Ms since last PLAYING/PAUSED/BUFFERING/CUED; omit or Infinity when never. */
+  msSinceLastUsableState?: number;
   nowMs?: number;
 };
 
 /**
  * In-place embed recovery while the user stays on /tv (no full page reload).
- * Remounts via startupEmbedGeneration key bump when the provider ref is orphaned
- * or the iframe has been dead long enough **and** the playback command API is gone.
- * Do not remount when commandReady is true (iframe flicker during live play).
+ * Remounts via startupEmbedGeneration when the iframe has been dead long enough
+ * and the command API is gone (including a true orphan after cooldown).
+ * Do not remount a usable playing/paused row, a generation still in-flight,
+ * or a one-tick orphan after hide→show remount.
  */
 export function shouldRecoverTvPlayerEmbed(opts: TvEmbedHealthProbe): boolean {
   if (!opts.playerVisible) return false;
@@ -105,15 +136,28 @@ export function shouldRecoverTvPlayerEmbed(opts: TvEmbedHealthProbe): boolean {
   if (opts.embedRecoveryInFlight) return false;
   if (opts.msSinceLastRecovery < TV_EMBED_RECOVERY_COOLDOWN_MS) return false;
 
+  if (
+    opts.msSinceLastUsableState != null &&
+    opts.msSinceLastUsableState < TV_HEARTBEAT_USABLE_VETO_MS
+  ) {
+    return false;
+  }
+
   const now = opts.nowMs ?? Date.now();
-
-  if (opts.orphanedRef) return true;
-
-  if (opts.commandReady) return false;
-
   const deadLongEnough =
     opts.deadIframeSinceMs != null &&
     now - opts.deadIframeSinceMs >= TV_EMBED_DEAD_IFRAME_MS;
+
+  if (
+    isTvPlayerStateUsable(opts.playerState) &&
+    (opts.iframeLive || !deadLongEnough)
+  ) {
+    return false;
+  }
+
+  if (opts.commandReady) return false;
+
+  if (opts.orphanedRef && !opts.iframeLive) return true;
 
   if (!opts.iframeLive && deadLongEnough) return true;
 
@@ -129,7 +173,7 @@ export function shouldClearEmbedRecoveryInFlight(opts: {
 }): boolean {
   if (!opts.embedRecoveryInFlight) return false;
   if (opts.commandReady) return false;
-  const timeoutMs = opts.timeoutMs ?? TV_EMBED_ONREADY_TIMEOUT_MS;
+  const timeoutMs = opts.timeoutMs ?? TV_EMBED_RECOVERY_LATCH_MS;
   return opts.elapsedMs >= timeoutMs;
 }
 

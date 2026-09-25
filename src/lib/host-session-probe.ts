@@ -2,6 +2,10 @@
 
 import type { HostUserCookie } from "@/lib/host-session-client";
 import { getHostUserFromCookies } from "@/lib/host-session-client";
+import {
+  clearHostSessionGrant,
+  writeHostSessionGrant,
+} from "@/lib/host-session-grant";
 
 export type HostSessionProbeStatus =
   | "idle"
@@ -42,8 +46,9 @@ function mergeHostUserFromProbe(
   };
 }
 
-/** Server-verified host session (backend touch via Next route). */
-export async function probeHostSessionVerified(): Promise<HostSessionProbeResult> {
+let verifyInFlight: Promise<HostSessionProbeResult> | null = null;
+
+async function fetchHostSessionVerified(): Promise<HostSessionProbeResult> {
   try {
     const res = await fetch("/api/auth/host-session?verify=true", {
       method: "GET",
@@ -79,6 +84,12 @@ export async function probeHostSessionVerified(): Promise<HostSessionProbeResult
       ? mergeHostUserFromProbe(hostId, hostSessionExpiresAt)
       : null;
 
+    if (active && hostId) {
+      writeHostSessionGrant(hostId);
+    } else if (!active) {
+      clearHostSessionGrant();
+    }
+
     return {
       status: active ? "active" : "inactive",
       active,
@@ -99,6 +110,15 @@ export async function probeHostSessionVerified(): Promise<HostSessionProbeResult
       transientFailure: true,
     };
   }
+}
+
+/** Server-verified host session (backend touch via Next route). Single-flight. */
+export async function probeHostSessionVerified(): Promise<HostSessionProbeResult> {
+  if (verifyInFlight) return verifyInFlight;
+  verifyInFlight = fetchHostSessionVerified().finally(() => {
+    verifyInFlight = null;
+  });
+  return verifyInFlight;
 }
 
 export const HOST_SESSION_TOUCHED_EVENT = "tipmanna:host-session-touched";
@@ -124,5 +144,6 @@ export const HOST_SESSION_CLEARED_EVENT = "tipmanna:host-session-cleared";
 
 export function notifyHostSessionCleared(): void {
   if (typeof window === "undefined") return;
+  clearHostSessionGrant();
   window.dispatchEvent(new CustomEvent(HOST_SESSION_CLEARED_EVENT));
 }

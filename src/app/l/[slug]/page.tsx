@@ -46,14 +46,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     coOwnerName,
   });
   const displayHandle =
-    community !== null ? community?.communityType : host.username;
+    community !== null
+      ? `${community?.communityType} - community`
+      : host.username;
 
   const ctaSectionLabel =
-    tipConfig?.mode === "live" ? tipConfig.config.ctaSectionLabel : undefined;
+    (tipConfig?.mode === "live" ? tipConfig.config.ctaSectionLabel : "") ||
+    (tipConfig?.mode === "legacy" ? "Engage" : "");
 
   return {
     title: `${channel.title} by ${displayName}`,
-    description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel} Support. Tiplink by ${displayName} @${displayHandle} ${tipLink.pitch}`,
+    description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel}, Support. Tiplink by ${displayName} @${displayHandle} ${tipLink.pitch}`,
     robots: { index: true, follow: true },
     alternates: { canonical: url },
     openGraph: {

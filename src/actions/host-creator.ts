@@ -21,6 +21,8 @@ export type HostCreatorVideo = {
   numOfSeen: number;
   numOfComments: number;
   locked: boolean;
+  awaitingCoOwnerApproval?: boolean;
+  adminApprovalPending?: boolean;
   createdAt?: string;
   event: {
     id: string;
@@ -119,6 +121,7 @@ export type HostCreatorPublicProfile = {
   communities: HostCreatorCommunity[];
   playlists: HostPlaylistSummary[];
   tipLinks: TipLinkSummary[];
+  viewerIsOwner?: boolean;
 };
 
 export async function getHostCreatorPublicProfileAction(username: string) {
@@ -131,6 +134,22 @@ export async function getHostCreatorPublicProfileAction(username: string) {
       cache: "no-store",
     },
     "getHostCreatorPublicProfileAction"
+  );
+}
+
+/** Owner session: includes waiting_coowner videos omitted from anonymous public profile. */
+export async function getHostCreatorPublicProfileForOwnerAction(
+  username: string
+) {
+  const handle = username.trim().replace(/^@/, "");
+  return runServerFetch<HostCreatorPublicProfile>(
+    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/hosts/creator/${encodeURIComponent(handle)}`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getHostCreatorPublicProfileForOwnerAction"
   );
 }
 

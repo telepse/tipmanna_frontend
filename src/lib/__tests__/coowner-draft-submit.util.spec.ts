@@ -20,6 +20,7 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
       blocked: true,
       reason: "status_fetch_failed",
       willDropOnSubmit: false,
+      hiddenUntilCoOwnerApprove: false,
     });
   });
 
@@ -33,19 +34,22 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
       blocked: false,
       reason: null,
       willDropOnSubmit: false,
+      hiddenUntilCoOwnerApprove: false,
     });
   });
 
-  it("blocks when no approved invite exists and not terminal-only", () => {
+  it("allows submit while pending (hidden until approve)", () => {
     expect(evaluateCoOwnerSubmitReadiness([{ status: "pending" }])).toEqual({
-      blocked: true,
+      blocked: false,
       reason: "has_pending",
       willDropOnSubmit: false,
+      hiddenUntilCoOwnerApprove: true,
     });
     expect(evaluateCoOwnerSubmitReadiness([])).toEqual({
       blocked: true,
       reason: "missing_approved",
       willDropOnSubmit: false,
+      hiddenUntilCoOwnerApprove: false,
     });
   });
 
@@ -54,44 +58,45 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
       blocked: false,
       reason: null,
       willDropOnSubmit: false,
+      hiddenUntilCoOwnerApprove: false,
     });
   });
 
-  it("approved wins over declined sibling invites", () => {
-    expect(
-      evaluateCoOwnerSubmitReadiness([
-        { status: "declined" },
-        { status: "approved" },
-      ])
-    ).toEqual({
+  it("terminal-only invites can submit (waiting on server)", () => {
+    expect(evaluateCoOwnerSubmitReadiness([{ status: "expired" }])).toEqual({
       blocked: false,
       reason: null,
       willDropOnSubmit: false,
-    });
-  });
-
-  it("terminal-only invites will drop on submit", () => {
-    expect(evaluateCoOwnerSubmitReadiness([{ status: "expired" }])).toEqual({
-      blocked: false,
-      reason: "will_be_dropped",
-      willDropOnSubmit: true,
+      hiddenUntilCoOwnerApprove: true,
     });
   });
 });
 
 describe("coOwnerBlockReasonMessage", () => {
   it("maps all reasons to user-facing copy", () => {
-    expect(coOwnerBlockReasonMessage("has_pending")).toContain("approved");
+    expect(coOwnerBlockReasonMessage("has_pending")).toContain("submit");
     expect(coOwnerBlockReasonMessage("missing_draft_key")).toContain("draft");
-    expect(coOwnerBlockReasonMessage("default_awaiting_approval")).toContain(
-      "default video"
-    );
   });
 });
 
 describe("validateCoOwnerDraftsForSubmit", () => {
   beforeEach(() => {
     mockStatus.mockReset();
+  });
+
+  it("passes default co-owned video when invite is pending", async () => {
+    mockStatus.mockResolvedValueOnce({
+      success: true,
+      data: { invites: [{ status: "pending" }] },
+    } as never);
+    const err = await validateCoOwnerDraftsForSubmit([
+      {
+        ownershipAnswer: "no",
+        coOwnerDraftKey: "draft-1",
+        isDefault: true,
+      },
+    ]);
+    expect(err).toBeNull();
   });
 
   it("passes default co-owned video when invite is approved", async () => {
@@ -109,22 +114,7 @@ describe("validateCoOwnerDraftsForSubmit", () => {
     expect(err).toBeNull();
   });
 
-  it("returns default message when default co-owned video is pending", async () => {
-    mockStatus.mockResolvedValueOnce({
-      success: true,
-      data: { invites: [{ status: "pending" }] },
-    } as never);
-    const err = await validateCoOwnerDraftsForSubmit([
-      {
-        ownershipAnswer: "no",
-        coOwnerDraftKey: "draft-1",
-        isDefault: true,
-      },
-    ]);
-    expect(err).toBe(coOwnerBlockReasonMessage("default_awaiting_approval"));
-  });
-
-  it("returns default message when default co-owned video lacks approval", async () => {
+  it("blocks when default co-owned video has empty invites", async () => {
     mockStatus.mockResolvedValueOnce({
       success: true,
       data: { invites: [] },
@@ -136,10 +126,10 @@ describe("validateCoOwnerDraftsForSubmit", () => {
         isDefault: true,
       },
     ]);
-    expect(err).toBe(coOwnerBlockReasonMessage("default_awaiting_approval"));
+    expect(err).toBe(coOwnerBlockReasonMessage("missing_approved"));
   });
 
-  it("blocks submit when one of multiple co-owned links is pending", async () => {
+  it("passes when one of multiple co-owned links is pending", async () => {
     mockStatus
       .mockResolvedValueOnce({
         success: true,
@@ -160,83 +150,13 @@ describe("validateCoOwnerDraftsForSubmit", () => {
         ownershipAnswer: "no",
         coOwnerDraftKey: "draft-b",
         isDefault: false,
-      },
-      { ownershipAnswer: "yes" },
-      {
-        ownershipAnswer: "no",
-        coOwnerDraftKey: "draft-d",
-        isDefault: true,
-      },
-    ]);
-    expect(err).toBe(coOwnerBlockReasonMessage("has_pending"));
-    expect(mockStatus).toHaveBeenCalledTimes(2);
-  });
-
-  it("passes mixed links when co-owned are approved and fully-owned skips checks", async () => {
-    mockStatus
-      .mockResolvedValueOnce({
-        success: true,
-        data: { invites: [{ status: "approved" }] },
-      } as never)
-      .mockResolvedValueOnce({
-        success: true,
-        data: { invites: [{ status: "approved" }] },
-      } as never)
-      .mockResolvedValueOnce({
-        success: true,
-        data: { invites: [{ status: "approved" }] },
-      } as never);
-
-    const err = await validateCoOwnerDraftsForSubmit([
-      {
-        ownershipAnswer: "no",
-        coOwnerDraftKey: "draft-a",
-        isDefault: false,
-      },
-      {
-        ownershipAnswer: "no",
-        coOwnerDraftKey: "draft-c",
-        isDefault: false,
-      },
-      { ownershipAnswer: "yes" },
-      {
-        ownershipAnswer: "no",
-        coOwnerDraftKey: "draft-d",
-        isDefault: true,
       },
     ]);
     expect(err).toBeNull();
-    expect(mockStatus).toHaveBeenCalledTimes(3);
+    expect(mockStatus).toHaveBeenCalledTimes(2);
   });
 
-  it("returns default-specific message when default co-owned link is pending among mixed links", async () => {
-    mockStatus
-      .mockResolvedValueOnce({
-        success: true,
-        data: { invites: [{ status: "approved" }] },
-      } as never)
-      .mockResolvedValueOnce({
-        success: true,
-        data: { invites: [{ status: "pending" }] },
-      } as never);
-
-    const err = await validateCoOwnerDraftsForSubmit([
-      {
-        ownershipAnswer: "no",
-        coOwnerDraftKey: "draft-a",
-        isDefault: false,
-      },
-      {
-        ownershipAnswer: "no",
-        coOwnerDraftKey: "draft-b",
-        isDefault: true,
-      },
-      { ownershipAnswer: "yes" },
-    ]);
-    expect(err).toBe(coOwnerBlockReasonMessage("default_awaiting_approval"));
-  });
-
-  it("allows wizard drop when only terminal invites exist", async () => {
+  it("allows wizard when only terminal invites exist", async () => {
     mockStatus.mockResolvedValueOnce({
       success: true,
       data: { invites: [{ status: "declined" }] },
@@ -250,7 +170,7 @@ describe("validateCoOwnerDraftsForSubmit", () => {
     expect(err).toBeNull();
   });
 
-  it("blocks single-video modal when only terminal invites exist", async () => {
+  it("allows single-video modal when only terminal invites exist", async () => {
     mockStatus.mockResolvedValueOnce({
       success: true,
       data: { invites: [{ status: "declined" }] },
@@ -264,6 +184,6 @@ describe("validateCoOwnerDraftsForSubmit", () => {
       ],
       { singleVideo: true }
     );
-    expect(err).toContain("not be included");
+    expect(err).toBeNull();
   });
 });

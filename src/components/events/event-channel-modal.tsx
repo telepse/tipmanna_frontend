@@ -84,7 +84,8 @@ export const EventChannelModal = ({
       await clearModalFormDraft("room_add_video", eventId, modalDraftId);
       setModalDraftId(null);
 
-      router.refresh();
+      setLoading(false);
+      void router.refresh();
       onClose();
     } catch (err: unknown) {
       if (err instanceof Error) {

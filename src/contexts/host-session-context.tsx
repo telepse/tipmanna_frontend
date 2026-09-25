@@ -16,6 +16,7 @@ import {
   hasActiveHostSession,
   type HostUserCookie,
 } from "@/lib/host-session-client";
+import { isHostSessionGrantValid } from "@/lib/host-session-grant";
 import {
   HOST_SESSION_CLEARED_EVENT,
   HOST_SESSION_TOUCHED_EVENT,
@@ -46,15 +47,47 @@ type Props = {
   enabled?: boolean;
 };
 
+function readInitialSessionState(enabled: boolean): {
+  status: HostSessionProbeStatus;
+  hostId: string | null;
+  hostUser: HostUserCookie | null;
+  hostSessionExpiresAt: string | null;
+} {
+  if (!enabled) {
+    return {
+      status: "idle",
+      hostId: null,
+      hostUser: null,
+      hostSessionExpiresAt: null,
+    };
+  }
+  const cookieUser = getHostUserFromCookies();
+  if (cookieUser?.id && isHostSessionGrantValid(cookieUser.id)) {
+    return {
+      status: "active",
+      hostId: cookieUser.id,
+      hostUser: cookieUser,
+      hostSessionExpiresAt: cookieUser.hostSessionExpiresAt ?? null,
+    };
+  }
+  return {
+    status: cookieUser?.id ? "loading" : "loading",
+    hostId: null,
+    hostUser: null,
+    hostSessionExpiresAt: null,
+  };
+}
+
 export function HostSessionProvider({ children, enabled = true }: Props) {
-  const [status, setStatus] = useState<HostSessionProbeStatus>(
-    enabled ? "loading" : "idle"
+  const initial = readInitialSessionState(enabled);
+  const [status, setStatus] = useState<HostSessionProbeStatus>(initial.status);
+  const [hostId, setHostId] = useState<string | null>(initial.hostId);
+  const [hostUser, setHostUser] = useState<HostUserCookie | null>(
+    initial.hostUser
   );
-  const [hostId, setHostId] = useState<string | null>(null);
-  const [hostUser, setHostUser] = useState<HostUserCookie | null>(null);
   const [hostSessionExpiresAt, setHostSessionExpiresAt] = useState<
     string | null
-  >(null);
+  >(initial.hostSessionExpiresAt);
   const [code, setCode] = useState<string | null>(null);
   const refreshInFlightRef = useRef(false);
 

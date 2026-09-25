@@ -23,6 +23,10 @@ import {
   COOWNER_RESEND_MIN_INTERVAL_MINUTES,
 } from "@/lib/coowner-config";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
+import {
+  activeCoOwnerInviteRow,
+  coOwnerInvitePhaseFromRows,
+} from "@/lib/coowner-invite-phase.util";
 
 export type CoOwnerInvitePhase =
   | "idle"
@@ -59,34 +63,6 @@ export type UseCoOwnerDraftFieldsOptions = {
   onRefreshSubmitReadiness?: () => void;
   refreshToken?: number;
 };
-
-function invitePhaseFromRows(
-  invites: InviteRow[] | undefined
-): CoOwnerInvitePhase {
-  if (!invites?.length) return "typing";
-  if (invites.some(i => i.status === "pending")) return "pending";
-  if (invites.some(i => i.status === "approved")) return "approved";
-  if (invites.some(i => i.status === "declined")) return "declined";
-  if (invites.some(i => i.status === "expired")) return "expired";
-  if (invites.some(i => i.status === "revoked")) return "revoked";
-  return "typing";
-}
-
-function activeInviteRow(invites: InviteRow[] | undefined): InviteRow | null {
-  if (!invites?.length) return null;
-  const priority = [
-    "approved",
-    "pending",
-    "expired",
-    "declined",
-    "revoked",
-  ] as const;
-  for (const status of priority) {
-    const row = invites.find(i => i.status === status);
-    if (row) return row;
-  }
-  return null;
-}
 
 function sliceFromInvite(row: InviteRow): CoOwnerDraftSlice {
   return {
@@ -261,11 +237,11 @@ export function useCoOwnerDraftFields({
         }
       ).invites;
 
-      const phase = invitePhaseFromRows(invites);
+      const phase = coOwnerInvitePhaseFromRows(invites);
 
       setInvitePhase(phase);
 
-      const active = activeInviteRow(invites);
+      const active = activeCoOwnerInviteRow(invites);
 
       setActiveInvite(active);
 

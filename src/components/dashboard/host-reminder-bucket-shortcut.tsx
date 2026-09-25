@@ -36,8 +36,7 @@ export function HostReminderBucketShortcut({
   const communityActive =
     info?.tier === "HOST_COMMUNITY" && status === "active";
   const localPrompt = useHostSubscriptionPrompt({ focusTier: "community" });
-  const { openForRequired, openForLapsed } =
-    subscriptionPrompt ?? localPrompt;
+  const { openForRequired, openForLapsed } = subscriptionPrompt ?? localPrompt;
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const { communities, loading, error } = useOwnedCommunitiesPicker(

@@ -47,17 +47,8 @@ export async function validateCoOwnerDraftsForSubmit(
       continue;
     }
 
-    if (readiness.blocked) {
-      if (
-        link.isDefault &&
-        (readiness.reason === "has_pending" ||
-          readiness.reason === "missing_approved")
-      ) {
-        return coOwnerBlockReasonMessage("default_awaiting_approval");
-      }
-      if (readiness.reason) {
-        return coOwnerBlockReasonMessage(readiness.reason);
-      }
+    if (readiness.blocked && readiness.reason) {
+      return coOwnerBlockReasonMessage(readiness.reason);
     }
   }
   return null;

@@ -2,10 +2,12 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { useCreatorDrawerData } from "@/hooks/use-creator-drawer-data";
 import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
+import { DRAWER_DATA_LOAD_TIMEOUT_MS } from "@/lib/drawer-data-timeout";
 import { cn } from "@/lib/utils";
 
 const HostCreatorPageClient = dynamic(
@@ -57,7 +59,23 @@ function CreatorDrawerSkeleton() {
 
 export function CreatorDrawer({ open, onOpenChange, username }: Props) {
   const handle = username?.trim().replace(/^@/, "") ?? "";
-  const { profile, loading, error } = useCreatorDrawerData(handle, open);
+  const enabled = Boolean(handle);
+  const { profile, loading, error } = useCreatorDrawerData(handle, enabled);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || profile) {
+      setLoadTimedOut(false);
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setLoadTimedOut(true),
+      DRAWER_DATA_LOAD_TIMEOUT_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [enabled, handle, profile]);
+
+  const showLoadingSkeleton = loading && !profile && !loadTimedOut;
 
   return (
     <Drawer
@@ -72,7 +90,7 @@ export function CreatorDrawer({ open, onOpenChange, username }: Props) {
         )}
       >
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {loading && !profile ? (
+          {showLoadingSkeleton ? (
             <CreatorDrawerSkeleton />
           ) : profile ? (
             <HostCreatorPageClient
@@ -85,7 +103,7 @@ export function CreatorDrawer({ open, onOpenChange, username }: Props) {
           ) : (
             <div className="space-y-3 px-4 py-10 text-center">
               <p className="text-muted-foreground text-sm">
-                {error
+                {error || loadTimedOut
                   ? "Could not load this creator profile."
                   : "Creator profile not found."}
               </p>

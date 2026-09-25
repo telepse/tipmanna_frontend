@@ -152,6 +152,33 @@ describe("useTvPlayerControls", () => {
     unmount();
   });
 
+  it("onPlayerReady mutes when session pref is muted", () => {
+    const player = makePlayer({ isMuted: () => true });
+    const { result, unmount } = renderControlsHook({ player });
+
+    act(() => {
+      result.current.onPlayerReady();
+    });
+
+    expect(player.mute).toHaveBeenCalled();
+    expect(player.unmute).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it("onPlayerReady unmutes when session pref wants sound", () => {
+    vi.mocked(readTvMutePref).mockReturnValue(false);
+    const player = makePlayer({ isMuted: () => true });
+    const { result, unmount } = renderControlsHook({ player });
+
+    act(() => {
+      result.current.onPlayerReady();
+    });
+
+    expect(player.unmute).toHaveBeenCalled();
+    expect(player.setVolume).toHaveBeenCalledWith(100);
+    unmount();
+  });
+
   it("toggleMute unmutes and persists preference", () => {
     const player = makePlayer({ isMuted: () => true });
     const { result, unmount } = renderControlsHook({ player });

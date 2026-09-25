@@ -498,7 +498,8 @@ export const CreateDialog = ({
           setModalDraftId(null);
         }
         setOpenPopup(false);
-        router.refresh();
+        setSubmitLoading(false);
+        void router.refresh();
       } catch (err: unknown) {
         if (err instanceof Error) toast.error(err.message);
         else if (typeof err === "object" && err !== null && "error" in err) {

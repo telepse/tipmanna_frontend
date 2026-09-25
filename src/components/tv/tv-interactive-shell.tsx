@@ -119,7 +119,11 @@ import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
 import { useTV } from "../tv-provider";
-import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
+import {
+  holdTvTipLastGood,
+  resolveTipDrawerPresentation,
+  type TvTipLastGoodHeld,
+} from "@/lib/resolve-tip-drawer-sets";
 import { useFeatureCardTipContext } from "@/components/video-feature/feature-card-tip-context";
 import { TipSection } from "../events/tip-section";
 import { TipsFeedPanel } from "../events/tips-feed-panel";
@@ -165,8 +169,10 @@ export type TvInteractiveShellProps = {
   scrollProgress: number;
   handleScroll: () => void;
   tipDrawerEventId: string;
+  tipCatalogEventId?: string;
   tippingCharactersForDrawer: any[];
   characterSetsForDrawer: any[];
+  tipCatalogLoading?: boolean;
   videoTipKey?: string;
   openWalletModalNonce?: number;
   onSnapshotPaymentRedirect?: () => void;
@@ -199,8 +205,10 @@ export function TvInteractiveShell({
   scrollProgress,
   handleScroll,
   tipDrawerEventId,
+  tipCatalogEventId = "",
   tippingCharactersForDrawer,
   characterSetsForDrawer,
+  tipCatalogLoading = false,
   videoTipKey = "",
   openWalletModalNonce = 0,
   onSnapshotPaymentRedirect,
@@ -243,16 +251,31 @@ export function TvInteractiveShell({
     { paymentSurface: tvAnalyticsSurface }
   );
 
-  const { drawerSets: resolvedDrawerSets, stripPool: tipStripPool } = useMemo(
-    () =>
-      resolveTipDrawerPresentation(
+  const lastGoodTipPresentationRef = useRef<TvTipLastGoodHeld | null>(null);
+
+  const { drawerSets: resolvedDrawerSets, stripPool: tipStripPool } =
+    useMemo(() => {
+      const next = resolveTipDrawerPresentation(
         characterSetsForDrawer,
         tipPres.catalog as RoomCharacter[],
         undefined,
         tipPres.eliteCharacterIds
-      ),
-    [characterSetsForDrawer, tipPres.catalog, tipPres.eliteCharacterIds]
-  );
+      );
+      const result = holdTvTipLastGood({
+        tipDrawerEventId,
+        catalogEventId: tipCatalogEventId,
+        next,
+        held: lastGoodTipPresentationRef.current,
+      });
+      lastGoodTipPresentationRef.current = result.held;
+      return result.presentation;
+    }, [
+      characterSetsForDrawer,
+      tipPres.catalog,
+      tipPres.eliteCharacterIds,
+      tipDrawerEventId,
+      tipCatalogEventId,
+    ]);
 
   const handleTipFromFeatureCard = useCallback(
     (cardId: string) => {
@@ -500,6 +523,10 @@ export function TvInteractiveShell({
                 onTipFeatured={handleTipFromFeatureCard}
                 sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
                 pageDrawerOpen={isTipDrawerOpen}
+                onGoLive={goLive}
+                onSwitchToLocal={switchToLocal}
+                onOpenPreviewPlaylist={openPreviewPlaylistDrawer}
+                onOpenSchedule={openScheduleDrawer}
                 commentDrawerVideoTitle={
                   typeof currentPlaying?.channel?.title === "string"
                     ? currentPlaying.channel.title

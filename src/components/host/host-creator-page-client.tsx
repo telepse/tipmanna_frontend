@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import React, {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -44,6 +45,7 @@ import type {
   HostCreatorPublicProfile,
   HostCreatorVideo,
 } from "@/actions/host-creator";
+import { getHostCreatorPublicProfileForOwnerAction } from "@/actions/host-creator";
 import type { HostPlaylistSummary } from "@/actions/host-playlist";
 import type { TipLinkSummary } from "@/actions/tiplink";
 import { TipLinkCreatePickerDialog } from "@/components/tiplink/tiplink-create-picker-dialog";
@@ -73,6 +75,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { exploreDrawerSignInRedirectPath } from "@/lib/explore-url-sync-policy";
 import { CommunityPublicMembersRoster } from "@/components/community/community-public-members-roster";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
@@ -94,7 +97,12 @@ import { useHostSession } from "@/hooks/use-host-session";
 import type { RootState } from "@/redux/store";
 import { formatCreatorProfileCategoryLabel } from "@/schemas/creator.schema";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useOpenContentWithReturn } from "@/hooks/use-open-content-with-return";
+import {
+  buildCreatorProfilePlayHref,
+  buildOverlayPlayHref,
+  parseOverlayPlayFromSearchParams,
+  type OverlayPlayParams,
+} from "@/lib/playback-overlay-url";
 import { peekPlaybackReturn } from "@/lib/playback-return-stack";
 import { restoreProfileUiScroll } from "@/lib/playback-return-restore";
 import { postCreatorProfileVisitAction } from "@/actions/host-creator";
@@ -103,7 +111,6 @@ import { CommunityMemberInfo } from "@/components/community/community-member-inf
 import { AddCommunityBankVideoDialog } from "@/components/community/add-community-bank-video-dialog";
 import { HostCommunityNotificationsDrawer } from "@/components/community/host-community-notifications-drawer";
 import { useHostCommunityNotificationBadge } from "@/hooks/use-host-community-notification-badge";
-import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import type { HostCreatorDefaultTab } from "@/schemas/creator.schema";
 import { CompactEventCard } from "../events/compact-event-card";
 import { CreatorEventCard } from "../events/creator-event-card";
@@ -113,6 +120,7 @@ import SignInDialog, {
   type SignInModalPayload,
 } from "@/components/auth/sign-in-dialog";
 import { getAccountNavHref } from "@/lib/account-nav-href";
+import { warmHostSessionIntent } from "@/lib/warm-host-session-intent";
 import {
   CreateDialog,
   type CreateDialogEntry,
@@ -120,6 +128,8 @@ import {
 import { ProfileDrawer } from "@/components/tv/profile-drawer";
 import { StartCommunityRequestDialog } from "@/components/community/start-community-request-dialog";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import type { HostAuthRequestOutcome } from "@/lib/host-auth-request-outcome";
+import type { RequestHostAuthOptions } from "@/hooks/use-host-capability-with-auth";
 import {
   shouldOpenStartCommunityFromSearch,
   START_COMMUNITY_RESUME_QUERY,
@@ -156,12 +166,28 @@ const ADD_COMMUNITY_VIDEO_ID_QUERY = "addCommunityVideoId";
 const REMINDER_BLAST_QUERY = "reminderBlast";
 const REMINDER_BLAST_COMMUNITY_ID_QUERY = "reminderBlastCommunityId";
 
+const ContentPlaybackOverlay = dynamic(
+  () =>
+    import("@/components/events/content-playback-overlay").then(m => ({
+      default: m.ContentPlaybackOverlay,
+    })),
+  { ssr: false }
+);
+
+function ReminderTabLoading() {
+  return (
+    <p className="text-muted-foreground py-8 text-center text-sm">
+      Loading reminders…
+    </p>
+  );
+}
+
 const HostReminderBucketTab = dynamic(
   () =>
     import("@/components/dashboard/host-reminder-bucket-tab").then(m => ({
       default: m.HostReminderBucketTab,
     })),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: () => <ReminderTabLoading /> }
 );
 
 const TABS = [
@@ -186,6 +212,13 @@ export function HostCreatorPageClient({
   variant = "page",
 }: Props) {
   const isDrawer = variant === "drawer";
+  const [displayProfile, setDisplayProfile] =
+    useState<HostCreatorPublicProfile>(profile);
+
+  useEffect(() => {
+    setDisplayProfile(profile);
+  }, [profile]);
+
   const {
     host,
     stats,
@@ -196,9 +229,7 @@ export function HostCreatorPageClient({
     coOwnedVideos = [],
     coOwnerPartyVideos = [],
     coOwnerPartyName = null,
-  } = profile;
-  const openContentWithReturn = useOpenContentWithReturn();
-
+  } = displayProfile;
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -214,6 +245,15 @@ export function HostCreatorPageClient({
     user != null &&
     (user.id === host.id ||
       user.username?.toLowerCase() === host.username.toLowerCase());
+
+  useEffect(() => {
+    if (!isOwnProfile || isDrawer || !hostSession.isActive) return;
+    void getHostCreatorPublicProfileForOwnerAction(host.username).then(res => {
+      if (res.success && res.data) {
+        setDisplayProfile(res.data);
+      }
+    });
+  }, [isOwnProfile, isDrawer, host.username, hostSession.isActive]);
 
   const showBottomExpressNav =
     !isDrawer &&
@@ -252,6 +292,41 @@ export function HostCreatorPageClient({
   const initialTab =
     tabFromUrl && TABS.some(t => t.id === tabFromUrl) ? tabFromUrl : defaultTab;
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [profileOverlayPlay, setProfileOverlayPlay] = useState<{
+    eventId: string;
+    channelId: string;
+    url?: string;
+    title?: string;
+  } | null>(null);
+  const profileOverlayHydratedRef = useRef(false);
+
+  const openProfileOverlayPlay = useCallback(
+    (play: OverlayPlayParams) => {
+      setProfileOverlayPlay(play);
+      if (isDrawer) return;
+      router.replace(
+        buildOverlayPlayHref(pathname ?? "", searchParams.toString(), play),
+        { scroll: false }
+      );
+    },
+    [isDrawer, pathname, router, searchParams]
+  );
+
+  const dismissProfileOverlay = useCallback(() => {
+    setProfileOverlayPlay(null);
+    if (isDrawer) return;
+    router.replace(
+      buildOverlayPlayHref(pathname ?? "", searchParams.toString(), null),
+      { scroll: false }
+    );
+  }, [isDrawer, pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (isDrawer || profileOverlayHydratedRef.current) return;
+    profileOverlayHydratedRef.current = true;
+    const play = parseOverlayPlayFromSearchParams(searchParams);
+    if (play) setProfileOverlayPlay(play);
+  }, [isDrawer, searchParams]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -310,21 +385,19 @@ export function HostCreatorPageClient({
   const playVideo = (video: HostCreatorVideo) => {
     if (video.locked) return;
     onVideoPlay?.();
-    const returnPath = isDrawer
-      ? pathname
-      : `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-    openContentWithReturn({
+    if (isDrawer) {
+      window.open(
+        buildCreatorProfilePlayHref(host.username, video.event.id, video.id),
+        "_blank",
+        "noopener,noreferrer"
+      );
+      return;
+    }
+    openProfileOverlayPlay({
       eventId: video.event.id,
       channelId: video.id,
-      returnTo: returnPath,
-      label: `Back to @${host.username}`,
-      drawer: isDrawer
-        ? { type: "creator", username: host.username }
-        : undefined,
-      profileUi: {
-        tab: activeTab,
-        scrollY: typeof window !== "undefined" ? window.scrollY : 0,
-      },
+      url: video.url,
+      title: video.title,
     });
   };
 
@@ -360,7 +433,6 @@ export function HostCreatorPageClient({
     HostAuthModal,
   } = useHostCapabilityWithAuth({
     requireHostAccount: true,
-    hostUpgradeReturnToOverride: startCommunityUpgradeReturnTo,
   });
 
   const hostCapabilityLoading =
@@ -381,16 +453,23 @@ export function HostCreatorPageClient({
       openStartCommunityForm();
       return;
     }
-    const outcome = requestHostAuth(openStartCommunityForm);
+    const outcome = requestHostAuth(openStartCommunityForm, {
+      upgradeReturnTo: startCommunityUpgradeReturnTo,
+    });
     if (outcome === "noop") {
       toast.error(
         "A host account is required. Add an email to your tipper profile or create a host account."
       );
     }
-  }, [canWriteAsHost, openStartCommunityForm, requestHostAuth]);
+  }, [
+    canWriteAsHost,
+    openStartCommunityForm,
+    requestHostAuth,
+    startCommunityUpgradeReturnTo,
+  ]);
 
   const openStartCommunityFlow = useCallback(() => {
-    if (hostCapabilityLoading) return;
+    warmHostSessionIntent(user?.id);
     if (!isAuthenticated || !user) {
       setPendingStartCommunity(true);
       setSignInOpen(true);
@@ -400,7 +479,9 @@ export function HostCreatorPageClient({
       openStartCommunityForm();
       return;
     }
-    const outcome = requestHostAuth(openStartCommunityForm);
+    const outcome = requestHostAuth(openStartCommunityForm, {
+      upgradeReturnTo: startCommunityUpgradeReturnTo,
+    });
     if (outcome === "noop") {
       toast.error(
         "A host account is required. Add an email to your tipper profile or create a host account."
@@ -408,10 +489,10 @@ export function HostCreatorPageClient({
     }
   }, [
     canWriteAsHost,
-    hostCapabilityLoading,
     isAuthenticated,
     openStartCommunityForm,
     requestHostAuth,
+    startCommunityUpgradeReturnTo,
     user,
   ]);
 
@@ -445,6 +526,7 @@ export function HostCreatorPageClient({
   };
 
   const handleMyAccountClick = () => {
+    warmHostSessionIntent(user?.id);
     if (isAuthenticated && user) {
       if (hostSession.isActive && viewerCreatorProfileHref) {
         router.push(viewerCreatorProfileHref);
@@ -827,6 +909,7 @@ export function HostCreatorPageClient({
               setProfileSubscriptionResume(null)
             }
             creatorProfileReturnPath={creatorProfileReturnPath()}
+            requestHostAuth={requestHostAuth}
           />
 
           {isDrawer ? (
@@ -902,8 +985,13 @@ export function HostCreatorPageClient({
                 communities={communities}
                 isOwnProfile={isOwnProfile}
                 isDrawer={isDrawer}
+                creatorUsername={host.username}
+                onPageFeaturedPlay={openProfileOverlayPlay}
+                onVideoPlay={onVideoPlay}
                 onStartCommunity={openStartCommunityFlow}
                 startCommunityLoading={hostCapabilityLoading}
+                canWriteAsHost={canWriteAsHost}
+                requestHostAuth={requestHostAuth}
               />
             </TabsContent>
 
@@ -917,6 +1005,7 @@ export function HostCreatorPageClient({
                 draftTipLinks={draftTipLinks}
                 onTryOpenTipLink={tryOpenTipLink}
                 onCreatePlaylist={tryOpenCreatePlaylist}
+                requestHostAuth={requestHostAuth}
               />
 
               <HostPlaylistCreateDialog
@@ -1006,9 +1095,23 @@ export function HostCreatorPageClient({
           </div>
         </div>
       ) : null}
+
+      {!isDrawer && profileOverlayPlay ? (
+        <ContentPlaybackOverlay
+          eventId={profileOverlayPlay.eventId}
+          channelId={profileOverlayPlay.channelId}
+          seed={profileOverlayPlay}
+          onDismiss={dismissProfileOverlay}
+        />
+      ) : null}
     </div>
   );
 }
+
+type CreatorPageRequestHostAuth = (
+  onSuccess?: () => void | Promise<void>,
+  options?: RequestHostAuthOptions
+) => HostAuthRequestOutcome;
 
 function ProfileHeader({
   host,
@@ -1018,6 +1121,7 @@ function ProfileHeader({
   subscriptionResume,
   onSubscriptionResumeHandled,
   creatorProfileReturnPath,
+  requestHostAuth,
 }: {
   host: HostCreatorPublicProfile["host"];
   stats: HostCreatorPublicProfile["stats"];
@@ -1026,9 +1130,9 @@ function ProfileHeader({
   subscriptionResume: HostSubscriptionResumeKind | null;
   onSubscriptionResumeHandled: () => void;
   creatorProfileReturnPath: string;
+  requestHostAuth: CreatorPageRequestHostAuth;
 }) {
   const router = useRouter();
-  const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
   const [showSecondaryStats, setShowSecondaryStats] = useState(false);
   const [openCreatorDialog, setOpenCreatorDialog] = useState(false);
   const [displayUsername, setDisplayUsername] = useState(host.username);
@@ -1122,8 +1226,6 @@ function ProfileHeader({
         onSubscriptionResumeHandled={onSubscriptionResumeHandled}
         creatorProfileReturnPath={creatorProfileReturnPath}
       />
-
-      {HostAuthModal}
 
       <div className="relative z-10 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
         <div className="relative size-24 shrink-0 overflow-hidden rounded-full sm:size-28">
@@ -1487,8 +1589,8 @@ function AllVideosTabContent({
             title=""
             message={
               <>
-                Nothing here yet. <br className="sm:hidden" /> Discover what&apos;s
-                happening on Tipmanna
+                Nothing here yet. <br className="sm:hidden" /> Discover
+                what&apos;s happening on Tipmanna
               </>
             }
             ctas={[
@@ -1795,14 +1897,24 @@ function CommunitiesTabContent({
   communities,
   isOwnProfile,
   isDrawer = false,
+  creatorUsername,
+  onPageFeaturedPlay,
+  onVideoPlay,
   onStartCommunity,
   startCommunityLoading = false,
+  canWriteAsHost,
+  requestHostAuth,
 }: {
   communities: HostCreatorCommunity[];
   isOwnProfile: boolean;
   isDrawer?: boolean;
+  creatorUsername: string;
+  onPageFeaturedPlay: (play: OverlayPlayParams) => void;
+  onVideoPlay?: () => void;
   onStartCommunity: () => void;
   startCommunityLoading?: boolean;
+  canWriteAsHost: boolean;
+  requestHostAuth: CreatorPageRequestHostAuth;
 }) {
   const startCommunityLabel = startCommunityLoading
     ? START_COMMUNITY_CHECKING_HOST_LABEL
@@ -2025,7 +2137,12 @@ function CommunitiesTabContent({
                   community={community}
                   isOwnProfile={isOwnProfile}
                   isDrawer={isDrawer}
+                  creatorUsername={creatorUsername}
+                  onPageFeaturedPlay={onPageFeaturedPlay}
+                  onVideoPlay={onVideoPlay}
                   compact
+                  canWriteAsHost={canWriteAsHost}
+                  requestHostAuth={requestHostAuth}
                   onAddCommunityVideoSubscribeRequired={
                     onAddCommunityVideoSubscribeRequired
                   }
@@ -2041,6 +2158,11 @@ function CommunitiesTabContent({
                 community={activeCommunity}
                 isOwnProfile={isOwnProfile}
                 isDrawer={isDrawer}
+                creatorUsername={creatorUsername}
+                onPageFeaturedPlay={onPageFeaturedPlay}
+                onVideoPlay={onVideoPlay}
+                canWriteAsHost={canWriteAsHost}
+                requestHostAuth={requestHostAuth}
                 openAddVideoOnResume={activeCommunity.id === resumeAddVideoId}
                 openReminderOnResume={
                   activeCommunity.id === resumeReminderCommunityId
@@ -2576,8 +2698,13 @@ function CommunityBannerSection({
   compact = false,
   isOwnProfile = false,
   isDrawer = false,
+  creatorUsername,
+  onPageFeaturedPlay,
+  onVideoPlay,
   openAddVideoOnResume = false,
   openReminderOnResume = false,
+  canWriteAsHost,
+  requestHostAuth,
   onAddCommunityVideoSubscribeRequired,
   onAddVideoResumeOpened,
   onReminderSubscribeRequired,
@@ -2587,15 +2714,19 @@ function CommunityBannerSection({
   compact?: boolean;
   isOwnProfile?: boolean;
   isDrawer?: boolean;
+  creatorUsername: string;
+  onPageFeaturedPlay: (play: OverlayPlayParams) => void;
+  onVideoPlay?: () => void;
   openAddVideoOnResume?: boolean;
   openReminderOnResume?: boolean;
+  canWriteAsHost: boolean;
+  requestHostAuth: CreatorPageRequestHostAuth;
   onAddCommunityVideoSubscribeRequired?: (communityId: string) => void;
   onAddVideoResumeOpened?: () => void;
   onReminderSubscribeRequired?: (communityId: string) => void;
   onReminderResumeOpened?: () => void;
 }) {
   const hostSession = useHostSession();
-  const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
   const { status: hostPlanStatus, hostSubscriptionTier } =
     useHostPlanCapabilities();
   const { openForRequired, SubscriptionPromptModal } =
@@ -2632,8 +2763,29 @@ function CommunityBannerSection({
   const [featuredVideos, setFeaturedVideos] = useState<
     CommunityFeaturedVideo[]
   >([]);
-  const [overlayVideo, setOverlayVideo] =
-    useState<CommunityFeaturedVideo | null>(null);
+  const playFeaturedVideo = useCallback(
+    (video: CommunityFeaturedVideo) => {
+      const eventId = video.eventId?.trim() ?? "";
+      const channelId = video.channelId?.trim() ?? video.id?.trim() ?? "";
+      if (!eventId || !channelId) return;
+      if (isDrawer) {
+        onVideoPlay?.();
+        window.open(
+          buildCreatorProfilePlayHref(creatorUsername, eventId, channelId),
+          "_blank",
+          "noopener,noreferrer"
+        );
+        return;
+      }
+      onPageFeaturedPlay({
+        eventId,
+        channelId,
+        url: video.url,
+        title: video.title,
+      });
+    },
+    [creatorUsername, isDrawer, onPageFeaturedPlay, onVideoPlay]
+  );
 
   const alreadyIn = isCommunityAlreadyIn({
     isMember,
@@ -2743,17 +2895,19 @@ function CommunityBannerSection({
   }, [openReminderOnResume, onReminderResumeOpened]);
 
   const openCommunityReminders = useCallback(() => {
+    setReminderOpen(true);
     requestHostAuth(() => {
       if (!tvActivated) {
+        setReminderOpen(false);
         toast.info("Activate community TV for this community first.");
         return;
       }
       if (!communityPlanActive) {
+        setReminderOpen(false);
         onReminderSubscribeRequired?.(community.id);
         openForRequired("community");
         return;
       }
-      setReminderOpen(true);
     });
   }, [
     community.id,
@@ -2780,7 +2934,6 @@ function CommunityBannerSection({
         compact && "mx-auto"
       )}
     >
-      {HostAuthModal}
       {SubscriptionPromptModal}
       <button
         type="button"
@@ -2907,7 +3060,7 @@ function CommunityBannerSection({
           />
         ) : null}
 
-        {!isDrawer && !compact ? (
+        {!isDrawer ? (
           <CommunityPublicMembersRoster
             communityId={community.id}
             className="border-t pt-4"
@@ -2940,7 +3093,7 @@ function CommunityBannerSection({
           </button>
         </div>
 
-        {!isDrawer && displayedFeatured.length > 0 ? (
+        {displayedFeatured.length > 0 ? (
           <div className="space-y-2 border-t pt-4">
             <h4 className="text-sm font-medium">Featured videos</h4>
             <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
@@ -2954,7 +3107,7 @@ function CommunityBannerSection({
                     key={video.id}
                     type="button"
                     className="relative aspect-[9/16] overflow-hidden bg-neutral-100"
-                    onClick={() => setOverlayVideo(video)}
+                    onClick={() => playFeaturedVideo(video)}
                     aria-label={`Play ${video.title}`}
                   >
                     <img
@@ -3029,7 +3182,21 @@ function CommunityBannerSection({
                 <DialogHeader>
                   <DialogTitle>Community reminders</DialogTitle>
                 </DialogHeader>
-                <HostReminderBucketTab communityId={community.id} />
+                {canWriteAsHost ? (
+                  <Suspense
+                    fallback={
+                      <p className="text-muted-foreground py-8 text-center text-sm">
+                        Loading reminders…
+                      </p>
+                    }
+                  >
+                    <HostReminderBucketTab communityId={community.id} />
+                  </Suspense>
+                ) : (
+                  <p className="text-muted-foreground py-8 text-center text-sm">
+                    {START_COMMUNITY_CHECKING_HOST_LABEL}
+                  </p>
+                )}
               </DialogContent>
             </Dialog>
             <HostCommunityNotificationsDrawer
@@ -3058,7 +3225,11 @@ function CommunityBannerSection({
           open={joinOpen}
           onOpenChange={setJoinOpen}
           communityId={community.id}
-          signInRedirectPath={joinHref}
+          signInRedirectPath={
+            isDrawer
+              ? exploreDrawerSignInRedirectPath(pathname ?? "/explore")
+              : joinHref
+          }
           joinDisabled={community.locked}
           onJoined={() => {
             setJoinOpen(false);
@@ -3066,54 +3237,7 @@ function CommunityBannerSection({
           }}
         />
       </div>
-      {!isDrawer && overlayVideo ? (
-        <CommunityFeaturedVideoOverlay
-          video={overlayVideo}
-          onClose={() => setOverlayVideo(null)}
-        />
-      ) : null}
     </article>
-  );
-}
-
-function CommunityFeaturedVideoOverlay({
-  video,
-  onClose,
-}: {
-  video: CommunityFeaturedVideo;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className={`${OVERLAY_Z_INDEX} fixed inset-0 flex items-center justify-center bg-black/80 p-4`}
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-xl rounded-md bg-white p-4 shadow-xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          aria-label="Close video"
-          onClick={onClose}
-          className="absolute top-3 right-3 rounded-full bg-black/60 p-1.5 text-white"
-        >
-          <CircleX className="size-4" />
-        </button>
-        <div className="aspect-video overflow-hidden rounded-lg bg-black">
-          <iframe
-            title={video.title}
-            src={`https://www.youtube.com/embed/${extractYoutubeID(video.url) ?? ""}`}
-            className="size-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-        <p className="mt-3 text-sm font-medium">{video.title}</p>
-      </div>
-    </div>
   );
 }
 
@@ -3211,11 +3335,23 @@ function VideoCard({
         </p>
       </div>
       {locked ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 px-1 text-center">
           <Lock className="size-5 text-white" />
-          <span className="text-[10px] font-medium text-white/90">
-            Pending admin approval
-          </span>
+          {video.adminApprovalPending ? (
+            <span className="text-[10px] font-medium text-white/90">
+              Pending admin approval
+            </span>
+          ) : null}
+          {video.awaitingCoOwnerApproval ? (
+            <span className="text-[10px] font-medium text-white/90">
+              Awaiting co-owner approval
+            </span>
+          ) : null}
+          {!video.adminApprovalPending && !video.awaitingCoOwnerApproval ? (
+            <span className="text-[10px] font-medium text-white/90">
+              Pending admin approval
+            </span>
+          ) : null}
         </div>
       ) : null}
     </button>
@@ -3240,6 +3376,7 @@ function PlaylistsTabContent({
   draftTipLinks,
   onTryOpenTipLink,
   onCreatePlaylist,
+  requestHostAuth,
 }: {
   playlists: HostPlaylistSummary[];
   tipLinks: TipLinkSummary[];
@@ -3249,9 +3386,9 @@ function PlaylistsTabContent({
   draftTipLinks: TipLinkSummary[];
   onTryOpenTipLink: () => void;
   onCreatePlaylist: () => void;
+  requestHostAuth: CreatorPageRequestHostAuth;
 }) {
   const router = useRouter();
-  const { requestHostAuth } = useHostCapabilityWithAuth();
 
   return (
     <div className="space-y-6 px-2 py-4">

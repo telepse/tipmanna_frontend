@@ -9,8 +9,7 @@ export function useHostCommunityNotificationBadge(
   enabled: boolean
 ) {
   const id = communityId?.trim();
-  const key =
-    enabled && id ? `host-community-notif-unread:${id}` : null;
+  const key = enabled && id ? `host-community-notif-unread:${id}` : null;
 
   const { data, mutate, isValidating } = useSWR(
     key,

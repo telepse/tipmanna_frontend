@@ -58,8 +58,9 @@ export function useCoOwnerDraftSubmitBlocked(
   checking: boolean;
   revalidating: boolean;
   reason: CoOwnerBlockReason | null;
+  hiddenUntilCoOwnerApprove: boolean;
   warnings: string[];
-  refresh: () => Promise<void>;
+  refresh: (opts?: { background?: boolean }) => Promise<void>;
 } {
   const fingerprint = linksFingerprint(links);
   const watchKey = useMemo(
@@ -69,12 +70,12 @@ export function useCoOwnerDraftSubmitBlocked(
   );
 
   const hasCoOwned = watchKey.length > 0;
-  const [blocked, setBlocked] = useState(hasCoOwned);
+  const [blocked, setBlocked] = useState(false);
   const [checking, setChecking] = useState(hasCoOwned);
   const [revalidating, setRevalidating] = useState(false);
-  const [reason, setReason] = useState<CoOwnerBlockReason | null>(
-    hasCoOwned ? "missing_approved" : null
-  );
+  const [reason, setReason] = useState<CoOwnerBlockReason | null>(null);
+  const [hiddenUntilCoOwnerApprove, setHiddenUntilCoOwnerApprove] =
+    useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const refreshRequestIdRef = useRef(0);
   const allTerminalRef = useRef(false);
@@ -87,6 +88,7 @@ export function useCoOwnerDraftSubmitBlocked(
         setChecking(false);
         setRevalidating(false);
         setReason(null);
+        setHiddenUntilCoOwnerApprove(false);
         setWarnings([]);
         allTerminalRef.current = true;
         return;
@@ -104,16 +106,19 @@ export function useCoOwnerDraftSubmitBlocked(
       const coOwned = parseCoOwnedFromWatchKey(watchKey);
       let nextBlocked = false;
       let nextReason: CoOwnerBlockReason | null = null;
+      let nextHidden = false;
       const nextWarnings: string[] = [];
       let allTerminal = true;
+      let awaitingDraftKey = false;
 
       for (const link of coOwned) {
         const draftKey = link.coOwnerDraftKey?.trim();
         if (!draftKey) {
           nextBlocked = true;
-          nextReason = "missing_draft_key";
+          nextReason = null;
           allTerminal = false;
-          break;
+          awaitingDraftKey = true;
+          continue;
         }
 
         const res = await getVideoCoOwnerInviteStatusAction(draftKey);
@@ -140,26 +145,28 @@ export function useCoOwnerDraftSubmitBlocked(
           }
           continue;
         }
+        if (readiness.hiddenUntilCoOwnerApprove) {
+          nextHidden = true;
+          nextReason = readiness.reason;
+          allTerminal = false;
+          continue;
+        }
         if (readiness.blocked) {
           nextBlocked = true;
           nextReason = readiness.reason;
-          if (
-            readiness.reason === "has_pending" ||
-            readiness.reason === "missing_approved"
-          ) {
-            allTerminal = false;
-          }
+          allTerminal = false;
           break;
         }
       }
 
       if (requestId !== refreshRequestIdRef.current) return;
 
-      allTerminalRef.current = allTerminal && !nextBlocked;
+      allTerminalRef.current = allTerminal && !nextBlocked && !nextHidden;
       setBlocked(nextBlocked);
       setReason(nextReason);
+      setHiddenUntilCoOwnerApprove(nextHidden);
       setWarnings(nextWarnings);
-      setChecking(false);
+      setChecking(awaitingDraftKey);
       setRevalidating(false);
     },
     [watchKey, singleVideo]
@@ -172,6 +179,7 @@ export function useCoOwnerDraftSubmitBlocked(
       setChecking(false);
       setRevalidating(false);
       setReason(null);
+      setHiddenUntilCoOwnerApprove(false);
       setWarnings([]);
       refreshRequestIdRef.current += 1;
       return;
@@ -190,5 +198,13 @@ export function useCoOwnerDraftSubmitBlocked(
     };
   }, [watchKey, refresh]);
 
-  return { blocked, checking, revalidating, reason, warnings, refresh };
+  return {
+    blocked,
+    checking,
+    revalidating,
+    reason,
+    hiddenUntilCoOwnerApprove,
+    warnings,
+    refresh,
+  };
 }

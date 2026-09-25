@@ -6,9 +6,11 @@ import {
 import { getHostID } from "@/lib/getHostId";
 import { ProtectedRoute } from "@/components/protected-route";
 import { EventDetailClient } from "@/components/host/event-detail-client";
+import { shouldDeferHostEventMessagesForTab } from "@/lib/manage-event-first-paint";
 
 interface Props {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
 interface HostMessage {
@@ -19,22 +21,22 @@ interface HostMessage {
   createdAt: string;
 }
 
-export default async function ManageEventDetailPage({ params }: Props) {
+export default async function ManageEventDetailPage({
+  params,
+  searchParams,
+}: Props) {
   const hostId = await getHostID();
   const { eventId } = await params;
+  const sp = await searchParams;
+  const deferMessages = shouldDeferHostEventMessagesForTab(sp.tab);
 
-  const { data: eventDetails } = await getHostEventDetailsAction(
-    hostId!,
-    eventId
-  );
-  const { data: hostMessages } = await getHostEventMessagesAction(
-    hostId!,
-    eventId
-  );
-  // const [data, hostMessages] = await Promise.all([
-  //   getHostEventDetailsAction(hostId!, eventId, token),
-  //   getHostEventMessagesAction(hostId!, eventId, token),
-  // ]);
+  const [{ data: eventDetails }, messagesResult] = await Promise.all([
+    getHostEventDetailsAction(hostId!, eventId),
+    deferMessages
+      ? Promise.resolve({ data: [] as HostMessage[] })
+      : getHostEventMessagesAction(hostId!, eventId),
+  ]);
+  const hostMessages = messagesResult.data;
 
   const {
     eventName,

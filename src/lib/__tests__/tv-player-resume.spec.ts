@@ -14,6 +14,9 @@ import {
   TV_EMBED_DEAD_IFRAME_MS,
   TV_EMBED_ONREADY_TIMEOUT_MS,
   TV_EMBED_RECOVERY_COOLDOWN_MS,
+  TV_EMBED_RECOVERY_LATCH_MS,
+  TV_HEARTBEAT_USABLE_VETO_MS,
+  TV_HIDE_REMOUNT_MS,
 } from "@/lib/tv-player-resume";
 
 const alive = {
@@ -25,6 +28,7 @@ const alive = {
   commandReady: true,
   playerState: "PLAYING",
   remountedThisHideShowCycle: false,
+  hiddenDurationMs: TV_HIDE_REMOUNT_MS,
 };
 
 describe("allocateTvEmbedGeneration", () => {
@@ -111,18 +115,51 @@ describe("shouldRemountTvPlayer", () => {
     expect(shouldRemountTvPlayer({ ...alive, iframeLive: false })).toBe(false);
   });
 
-  it("remounts when iframe is detached and command API is gone", () => {
+  it("does not remount on brief hide when iframe and command API are both gone", () => {
     expect(
       shouldRemountTvPlayer({
         ...alive,
         iframeLive: false,
         commandReady: false,
+        playerState: "UNSTARTED",
+        hiddenDurationMs: 5_000,
+      })
+    ).toBe(false);
+  });
+
+  it("remounts after long hide when iframe is detached, command API is gone, and state is not usable", () => {
+    expect(
+      shouldRemountTvPlayer({
+        ...alive,
+        iframeLive: false,
+        commandReady: false,
+        playerState: "UNSTARTED",
+        hiddenDurationMs: TV_HIDE_REMOUNT_MS,
       })
     ).toBe(true);
   });
 
-  it("remounts when command APIs are not ready", () => {
-    expect(shouldRemountTvPlayer({ ...alive, commandReady: false })).toBe(true);
+  it("does not remount when command APIs are not ready but iframe is still live", () => {
+    expect(shouldRemountTvPlayer({ ...alive, commandReady: false })).toBe(
+      false
+    );
+  });
+
+  it("does not remount a usable PLAYING or PAUSED row with a live iframe", () => {
+    expect(
+      shouldRemountTvPlayer({
+        ...alive,
+        commandReady: false,
+        playerState: "PLAYING",
+      })
+    ).toBe(false);
+    expect(
+      shouldRemountTvPlayer({
+        ...alive,
+        commandReady: false,
+        playerState: "PAUSED",
+      })
+    ).toBe(false);
   });
 
   it("does not remount when iframe and command API are healthy despite UNSTARTED state", () => {
@@ -141,22 +178,59 @@ describe("shouldRecoverTvPlayerEmbed", () => {
     scheduleReady: true,
     commandReady: true,
     iframeLive: true,
+    playerState: "PLAYING" as string | null,
     orphanedRef: false,
     embedRecoveryInFlight: false,
     msSinceLastRecovery: TV_EMBED_RECOVERY_COOLDOWN_MS,
     deadIframeSinceMs: null as number | null,
-    nowMs: 10_000,
+    nowMs: 20_000,
   };
 
-  it("recovers immediately when the provider ref is orphaned", () => {
+  it("recovers when the provider ref is orphaned after cooldown and iframe is dead", () => {
     expect(
       shouldRecoverTvPlayerEmbed({
         ...healthy,
         orphanedRef: true,
         commandReady: false,
         iframeLive: false,
+        playerState: "UNSTARTED",
       })
     ).toBe(true);
+  });
+
+  it("does not recover an orphan during in-flight remount or cooldown", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        orphanedRef: true,
+        commandReady: false,
+        iframeLive: false,
+        playerState: "UNSTARTED",
+        embedRecoveryInFlight: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        orphanedRef: true,
+        commandReady: false,
+        iframeLive: false,
+        playerState: "UNSTARTED",
+        msSinceLastRecovery: 100,
+      })
+    ).toBe(false);
+  });
+
+  it("does not recover a PLAYING or BUFFERING row", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        commandReady: false,
+        iframeLive: false,
+        playerState: "PLAYING",
+        deadIframeSinceMs: 20_000 - TV_EMBED_DEAD_IFRAME_MS + 1,
+      })
+    ).toBe(false);
   });
 
   it("does not recover when iframe flickers but command API still works", () => {
@@ -165,18 +239,33 @@ describe("shouldRecoverTvPlayerEmbed", () => {
         ...healthy,
         iframeLive: false,
         commandReady: true,
-        deadIframeSinceMs: 10_000 - TV_EMBED_DEAD_IFRAME_MS,
+        deadIframeSinceMs: 20_000 - TV_EMBED_DEAD_IFRAME_MS,
       })
     ).toBe(false);
   });
 
-  it("recovers after sustained dead iframe when command API is gone", () => {
+  it("does not recover when playback was usable recently despite dead iframe", () => {
     expect(
       shouldRecoverTvPlayerEmbed({
         ...healthy,
         iframeLive: false,
         commandReady: false,
-        deadIframeSinceMs: 10_000 - TV_EMBED_DEAD_IFRAME_MS,
+        playerState: "UNSTARTED",
+        deadIframeSinceMs: 20_000 - TV_EMBED_DEAD_IFRAME_MS,
+        msSinceLastUsableState: 2_000,
+      })
+    ).toBe(false);
+  });
+
+  it("recovers after sustained dead iframe when command API is gone and no recent usable state", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        iframeLive: false,
+        commandReady: false,
+        playerState: "UNSTARTED",
+        deadIframeSinceMs: 20_000 - TV_EMBED_DEAD_IFRAME_MS,
+        msSinceLastUsableState: TV_HEARTBEAT_USABLE_VETO_MS,
       })
     ).toBe(true);
   });
@@ -187,6 +276,9 @@ describe("shouldRecoverTvPlayerEmbed", () => {
         ...healthy,
         firstPlayReached: true,
         orphanedRef: true,
+        commandReady: false,
+        iframeLive: false,
+        playerState: "UNSTARTED",
       })
     ).toBe(true);
     expect(
@@ -194,6 +286,9 @@ describe("shouldRecoverTvPlayerEmbed", () => {
         ...healthy,
         firstPlayReached: false,
         orphanedRef: true,
+        commandReady: false,
+        iframeLive: false,
+        playerState: "UNSTARTED",
       })
     ).toBe(false);
   });
@@ -224,9 +319,19 @@ describe("shouldClearEmbedRecoveryInFlight", () => {
       shouldClearEmbedRecoveryInFlight({
         embedRecoveryInFlight: true,
         commandReady: false,
-        elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS,
+        elapsedMs: TV_EMBED_RECOVERY_LATCH_MS,
       })
     ).toBe(true);
+  });
+
+  it("does not clear at the old 4s onReady timeout", () => {
+    expect(
+      shouldClearEmbedRecoveryInFlight({
+        embedRecoveryInFlight: true,
+        commandReady: false,
+        elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS,
+      })
+    ).toBe(false);
   });
 
   it("does not clear while command-ready or before timeout", () => {
@@ -234,14 +339,14 @@ describe("shouldClearEmbedRecoveryInFlight", () => {
       shouldClearEmbedRecoveryInFlight({
         embedRecoveryInFlight: true,
         commandReady: true,
-        elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS,
+        elapsedMs: TV_EMBED_RECOVERY_LATCH_MS,
       })
     ).toBe(false);
     expect(
       shouldClearEmbedRecoveryInFlight({
         embedRecoveryInFlight: true,
         commandReady: false,
-        elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS - 1,
+        elapsedMs: TV_EMBED_RECOVERY_LATCH_MS - 1,
       })
     ).toBe(false);
   });

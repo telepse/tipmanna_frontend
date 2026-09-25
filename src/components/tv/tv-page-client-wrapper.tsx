@@ -41,9 +41,18 @@ import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import { tvTrace } from "@/lib/tvDebugLog";
 import { schedulePostTtfvIdle } from "@/lib/tv-post-ttfv-idle";
 import { prefetchTvScheduleTips } from "@/lib/drawer-prefetch-cache";
+import {
+  collectTvScheduleEventIdsFromIndex,
+  prefetchTvEventCatalogs,
+} from "@/lib/tv-event-catalog-cache";
 import { useTvLazyCharacters } from "@/hooks/use-tv-lazy-characters";
 import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
+import { persistTvScheduleSessionCache } from "@/lib/tv-schedule-session-cache";
+import type {
+  TvInitialTipCatalog,
+  TvSsrScheduleBootstrap,
+} from "@/lib/tv-ssr-live-tip-catalog";
 
 interface Character {
   id: string;
@@ -64,6 +73,8 @@ interface Character {
 interface Props {
   channels?: Channel[];
   characters: Character[];
+  initialTvTipCatalog?: TvInitialTipCatalog | null;
+  ssrScheduleBootstrap?: TvSsrScheduleBootstrap | null;
 }
 
 export const getCurrentUser = () => {
@@ -84,6 +95,8 @@ export const getCurrentUser = () => {
 export default function TVPageClientWrapper({
   channels = [],
   characters: ssrCharacters,
+  initialTvTipCatalog = null,
+  ssrScheduleBootstrap = null,
 }: Props) {
   const { characters } = useTvLazyCharacters(ssrCharacters);
   const {
@@ -127,6 +140,17 @@ export default function TVPageClientWrapper({
     scheduleSourceCommunityId,
     playEnforcementProgram,
   });
+
+  const ssrSchedulePersistedRef = useRef(false);
+  useEffect(() => {
+    if (ssrSchedulePersistedRef.current || !ssrScheduleBootstrap?.body) return;
+    ssrSchedulePersistedRef.current = true;
+    persistTvScheduleSessionCache(
+      ssrScheduleBootstrap.body,
+      ssrScheduleBootstrap.etag,
+      null
+    );
+  }, [ssrScheduleBootstrap]);
 
   useEffect(() => {
     if (!isPhoneSurface) return;
@@ -200,9 +224,21 @@ export default function TVPageClientWrapper({
   );
 
   const {
+    catalogEventId: tipCatalogEventId,
     tippingCharacters: tippingCharactersForDrawer,
     characterSets: characterSetsForDrawer,
-  } = useTvEventTipCatalog(playingVideoKey ? tipDrawerEventId : "");
+    catalogLoading: tipCatalogLoading,
+  } = useTvEventTipCatalog(tipDrawerEventId, {
+    initial: initialTvTipCatalog,
+    allowPendingInitial: items.length === 0,
+  });
+
+  useEffect(() => {
+    if (!items.length) return;
+    prefetchTvEventCatalogs(
+      collectTvScheduleEventIdsFromIndex(items, currentIndex, 4)
+    );
+  }, [items, currentIndex]);
 
   useEffect(() => {
     if (!items.length || !tipDrawerEventId) return;
@@ -284,8 +320,10 @@ export default function TVPageClientWrapper({
     scrollProgress,
     handleScroll,
     tipDrawerEventId,
+    tipCatalogEventId,
     tippingCharactersForDrawer,
     characterSetsForDrawer,
+    tipCatalogLoading,
     videoTipKey: playingVideoKey,
     openWalletModalNonce,
     onSnapshotPaymentRedirect: snapshotPlaybackForPaymentRedirect,

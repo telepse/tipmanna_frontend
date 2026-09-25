@@ -7,6 +7,7 @@ import {
   HOST_SESSION_TOUCHED_EVENT,
   type HostSessionTouchedDetail,
 } from "@/lib/host-session-probe";
+import { wasHostSessionRecentlyVerified } from "@/lib/host-session-grant";
 import { useHostSessionContextOptional } from "@/contexts/host-session-context";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
@@ -89,10 +90,13 @@ export function HostDashboardSessionTouch() {
 
     if (!initialTouchDoneRef.current) {
       initialTouchDoneRef.current = true;
-      window.setTimeout(
-        () => void touch({ force: true }),
-        INITIAL_TOUCH_DELAY_MS
-      );
+      const hostCookieId = hostSession?.hostId ?? undefined;
+      if (!wasHostSessionRecentlyVerified(hostCookieId)) {
+        window.setTimeout(
+          () => void touch({ force: true }),
+          INITIAL_TOUCH_DELAY_MS
+        );
+      }
     }
 
     const id = window.setInterval(() => void touch(), TOUCH_INTERVAL_MS);

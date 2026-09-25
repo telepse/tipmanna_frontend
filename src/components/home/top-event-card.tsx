@@ -59,20 +59,6 @@ export const TopEventCard = ({
           className="h-[180px] w-[320px] rounded-t-2xl object-contain sm:object-cover"
         />
 
-        {/* Play button overlay */}
-        {/* <button
-          type="button"
-          className="absolute inset-0 flex items-center justify-center"
-          onClick={() => goToRoom(roomId)}
-        >
-          <div className="relative rounded-full bg-black p-2">
-            <div
-              className={`absolute inset-0 flex size-12 cursor-pointer items-center justify-center rounded-full ${loadingEventId === channelId ? "animate-spin border-4 border-white border-r-transparent" : ""} p-2 transition-all duration-300 ease-in-out`}
-            />
-            <Play className="z-50 flex size-8 flex-col items-center justify-center rounded-full text-white" />
-          </div>
-        </button> */}
-
         <span
           className={`absolute top-4 left-4 w-fit rounded-md px-2 py-1 text-sm ${statusColor}`}
         >

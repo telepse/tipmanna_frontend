@@ -49,7 +49,9 @@ export function HostDashboardShortcutsRow({
           subscriptionPrompt={subscriptionPrompt}
         />
       </div>
-      {!subscriptionPromptFromParent ? localPrompt.SubscriptionPromptModal : null}
+      {!subscriptionPromptFromParent
+        ? localPrompt.SubscriptionPromptModal
+        : null}
     </>
   );
 }

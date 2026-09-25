@@ -18,7 +18,7 @@ export function useCreatorDrawerData(
   const fallbackProfile =
     enabled && handle ? getCachedCreatorProfile(handle) : undefined;
 
-  const { data, error, isLoading, isValidating } = useSWR(
+  const { data, error, isLoading } = useSWR(
     swrKey,
     async () => fetchCreatorProfileCached(handle),
     {
@@ -28,9 +28,13 @@ export function useCreatorDrawerData(
     }
   );
 
+  const profile = (data ??
+    fallbackProfile ??
+    null) as HostCreatorPublicProfile | null;
+
   return {
-    profile: (data ?? null) as HostCreatorPublicProfile | null,
-    loading: enabled && (isLoading || isValidating) && !data,
+    profile,
+    loading: enabled && !profile && isLoading,
     error,
   };
 }

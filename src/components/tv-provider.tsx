@@ -55,6 +55,7 @@ import {
   type PendingAudioRestore,
 } from "@/lib/tv-autoplay";
 import {
+  isTvPlayerStateRecentPlayback,
   shouldClearEmbedRecoveryInFlight,
   shouldRecoverTvPlayerEmbed,
   shouldRemountTvPlayer,
@@ -592,6 +593,8 @@ export default function GlobalTVProvider({
   const documentWasHiddenRef = useRef(
     typeof document !== "undefined" && document.visibilityState === "hidden"
   );
+  const documentHiddenAtRef = useRef<number | null>(null);
+  const lastUsablePlaybackAtRef = useRef(0);
   const remountedThisHideShowCycleRef = useRef(false);
   const playerVisibleRef = useRef(false);
   const embedRecoveryInFlightRef = useRef(false);
@@ -1819,6 +1822,11 @@ export default function GlobalTVProvider({
     (source: string, persisted = false) => {
       if (persisted) documentWasHiddenRef.current = true;
       const player = playerRef.current;
+      const now = Date.now();
+      const hiddenDurationMs =
+        documentHiddenAtRef.current != null
+          ? now - documentHiddenAtRef.current
+          : 0;
       if (
         shouldRemountTvPlayer({
           documentWasHidden: documentWasHiddenRef.current,
@@ -1829,6 +1837,7 @@ export default function GlobalTVProvider({
           commandReady: !!player?.isReady(),
           playerState: player?.getPlayerState?.() ?? null,
           remountedThisHideShowCycle: remountedThisHideShowCycleRef.current,
+          hiddenDurationMs,
         })
       ) {
         remountPlayerForResume(source);
@@ -2603,6 +2612,7 @@ export default function GlobalTVProvider({
     const onVis = () => {
       if (document.visibilityState === "hidden") {
         documentWasHiddenRef.current = true;
+        documentHiddenAtRef.current = Date.now();
         remountedThisHideShowCycleRef.current = false;
         return;
       }
@@ -2631,7 +2641,12 @@ export default function GlobalTVProvider({
       const player = playerRef.current;
       const iframeLive = player?.isIframeLive?.() ?? false;
       const commandReady = !!player?.isReady();
+      const playerState = player?.getPlayerState?.() ?? null;
       const now = Date.now();
+
+      if (isTvPlayerStateRecentPlayback(playerState)) {
+        lastUsablePlaybackAtRef.current = now;
+      }
 
       if (iframeLive) {
         deadIframeSinceRef.current = null;
@@ -2666,10 +2681,15 @@ export default function GlobalTVProvider({
           scheduleReady: isReadyRef.current,
           commandReady,
           iframeLive,
+          playerState,
           orphanedRef,
           embedRecoveryInFlight: embedRecoveryInFlightRef.current,
           msSinceLastRecovery: now - lastEmbedRecoveryAtRef.current,
           deadIframeSinceMs: deadIframeSinceRef.current,
+          msSinceLastUsableState:
+            lastUsablePlaybackAtRef.current > 0
+              ? now - lastUsablePlaybackAtRef.current
+              : undefined,
           nowMs: now,
         })
       ) {
@@ -2822,7 +2842,6 @@ export default function GlobalTVProvider({
     pendingEnforcementPlaybackRef.current = null;
     setMode("GLOBAL");
     modeRef.current = "GLOBAL";
-    lastSyncedIndex.current = -1;
     if (typeof window !== "undefined") {
       sessionStorage.removeItem(SESSION_LOCAL_INDEX_KEY);
     }
@@ -2834,23 +2853,25 @@ export default function GlobalTVProvider({
         offsetSeconds: null,
       });
     }
+
+    lastSyncedIndex.current = -1;
     syncToLive();
     if (fromMode !== "GLOBAL") {
       queueMicrotask(() => {
         if (paymentActiveRef.current) return;
         if (!broadcastEpoch || !items.length || !totalDuration) return;
-        const player = playerRef.current;
-        if (!player?.isReady()) return;
-        const pos = resolveBroadcastPosition(
+        const readyPlayer = playerRef.current;
+        if (!readyPlayer?.isReady()) return;
+        const livePos = resolveBroadcastPosition(
           items,
           broadcastEpoch,
           totalDuration,
           getNow()
         );
-        if (pos.item?.segmentKind === "notice") return;
-        const state = player.getPlayerState?.() ?? null;
+        if (livePos.item?.segmentKind === "notice") return;
+        const state = readyPlayer.getPlayerState?.() ?? null;
         if (state !== "PLAYING" && state !== "BUFFERING") {
-          player.play();
+          readyPlayer.play();
         }
       });
     }

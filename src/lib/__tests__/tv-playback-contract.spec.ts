@@ -149,6 +149,32 @@ describe("TV playback contract — leave/return player lifecycle", () => {
     expect(remountBody!).not.toContain("playerRef.current = null");
   });
 
+  it("Go Live resets lastSyncedIndex and calls syncToLive without resolveGoLiveAction", () => {
+    expect(tvProviderSource).not.toContain("resolveGoLiveAction");
+    expect(tvProviderSource).toContain("lastSyncedIndex.current = -1");
+    expect(tvProviderSource).toContain("syncToLive()");
+    expect(tvProviderSource).toMatch(
+      /prepareMutedLoadForAutoplay\(\s*player,\s*true\s*\)/
+    );
+    expect(tvProviderSource).not.toMatch(
+      /prepareMutedLoadForAutoplay\(\s*player,\s*true,\s*req\.videoId/
+    );
+  });
+
+  it("onPlayerReady applies session mute pref (mute or unmute)", () => {
+    const controlsSource = readFileSync(
+      join(frontendRoot, "src/hooks/use-tv-player-controls.ts"),
+      "utf8"
+    );
+    const readyFn = controlsSource.match(
+      /const onPlayerReady = useCallback\(\(\) => \{[\s\S]*?\}, \[isMuted, playerRef, syncFromPlayer\]\);/
+    )?.[0];
+    expect(readyFn).toBeTruthy();
+    expect(readyFn!).toContain("player.unmute()");
+    expect(readyFn!).toContain("player.setVolume(100)");
+    expect(readyFn!).toContain("if (targetMuted)");
+  });
+
   it("applyPendingAudioRestore re-applies mute when session pref is muted", () => {
     const autoplaySource = readFileSync(
       join(frontendRoot, "src/lib/tv-autoplay.ts"),
@@ -169,17 +195,26 @@ describe("TV playback contract — leave/return player lifecycle", () => {
     );
   });
 
-  it("heartbeat and hide→show recovery do not remount when command API is ready", () => {
+  it("heartbeat and hide→show remount only when iframe and command API are both gone", () => {
     const resumeSource = readFileSync(
       join(frontendRoot, "src/lib/tv-player-resume.ts"),
       "utf8"
     );
-    const vetoMatches = resumeSource.match(
-      /if \(opts\.commandReady\) return false;/g
-    );
-    expect(vetoMatches?.length).toBeGreaterThanOrEqual(2);
     expect(resumeSource).toContain("shouldRemountTvPlayer");
     expect(resumeSource).toContain("shouldRecoverTvPlayerEmbed");
+    expect(resumeSource).toContain(
+      "isTvPlayerStateUsable(opts.playerState) && opts.iframeLive"
+    );
+    expect(resumeSource).toContain(
+      "return !opts.iframeLive && !opts.commandReady;"
+    );
+    expect(resumeSource).toContain(
+      "if (opts.orphanedRef && !opts.iframeLive) return true;"
+    );
+    expect(resumeSource).toContain("TV_EMBED_DEAD_IFRAME_MS = 8000");
+    expect(resumeSource).toContain("TV_EMBED_RECOVERY_COOLDOWN_MS = 15_000");
+    expect(resumeSource).toContain("TV_EMBED_RECOVERY_LATCH_MS = 12_000");
+    expect(tvProviderSource).toContain("playerState,");
   });
 
   it("loopers key TvPlayer by startupEmbedGeneration for ref rebind", () => {

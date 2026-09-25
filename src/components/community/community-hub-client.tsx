@@ -29,6 +29,7 @@ import {
 } from "@/lib/start-community-resume";
 import { resolveStartCommunityAfterGuestModal } from "@/lib/start-community-guest-resume";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
+import { warmHostSessionIntent } from "@/lib/warm-host-session-intent";
 import {
   clearCommunityExploreCatalogCache,
   isCommunityExploreCatalogStale,
@@ -572,16 +573,23 @@ export default function CommunityHubClient() {
       openStartCommunityForm();
       return;
     }
-    const outcome = requestHostAuth(openStartCommunityForm);
+    const outcome = requestHostAuth(openStartCommunityForm, {
+      upgradeReturnTo: startCommunityUpgradeReturnTo,
+    });
     if (outcome === "noop") {
       toast.error(
         "A host account is required. Add an email to your tipper profile or create a host account."
       );
     }
-  }, [canWriteAsHost, openStartCommunityForm, requestHostAuth]);
+  }, [
+    canWriteAsHost,
+    openStartCommunityForm,
+    requestHostAuth,
+    startCommunityUpgradeReturnTo,
+  ]);
 
   const openStartCommunityFlow = useCallback(() => {
-    if (hostCapabilityLoading) return;
+    warmHostSessionIntent(userId);
     if (!isAuthenticated || !userId || !authToken) {
       setPendingStartCommunity(true);
       setHostSignInOpen(true);
@@ -591,7 +599,9 @@ export default function CommunityHubClient() {
       openStartCommunityForm();
       return;
     }
-    const outcome = requestHostAuth(openStartCommunityForm);
+    const outcome = requestHostAuth(openStartCommunityForm, {
+      upgradeReturnTo: startCommunityUpgradeReturnTo,
+    });
     if (outcome === "noop") {
       toast.error(
         "A host account is required. Add an email to your tipper profile or create a host account."
@@ -600,10 +610,10 @@ export default function CommunityHubClient() {
   }, [
     authToken,
     canWriteAsHost,
-    hostCapabilityLoading,
     isAuthenticated,
     openStartCommunityForm,
     requestHostAuth,
+    startCommunityUpgradeReturnTo,
     userId,
   ]);
 

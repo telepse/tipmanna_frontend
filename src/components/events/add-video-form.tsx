@@ -27,14 +27,15 @@ import { EVENT_VIDEO_TYPE_OPTIONS } from "@/lib/event-video-type-options";
 import { AddVideoPolicyFields } from "@/components/events/add-video-policy-fields";
 import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
 import {
+  coOwnerAddVideoSubmitButtonLabel,
+  coOwnerSubmitHelperText,
+  shouldShowCoOwnerSubmitHelper,
+} from "@/lib/coowner-submit-readiness.util";
+import {
   beginExclusiveSubmit,
   endExclusiveSubmit,
 } from "@/lib/exclusive-submit";
 import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
-import {
-  coOwnerBlockReasonMessage,
-  coOwnerDropWarningMessage,
-} from "@/lib/coowner-submit-readiness.util";
 import { useCoOwnerPusherApprovalRefresh } from "@/hooks/use-coowner-pusher-approval-refresh";
 import {
   mintYoutubeVerifyRequest,
@@ -318,7 +319,9 @@ export function AddVideoForm({
       : [];
   const {
     blocked: coOwnerSubmitBlocked,
+    checking: coOwnerChecking,
     reason: coOwnerBlockReason,
+    hiddenUntilCoOwnerApprove,
     warnings: coOwnerWarnings,
     refresh: refreshCoOwnerSubmit,
   } = useCoOwnerDraftSubmitBlocked(coOwnerLinkSlice, { singleVideo: true });
@@ -329,7 +332,7 @@ export function AddVideoForm({
     extraInviteIds: pendingCoOwnerInviteIds,
     enabled: requirePolicyFields,
     onApproved: () => {
-      void refreshCoOwnerSubmit();
+      void refreshCoOwnerSubmit({ background: true });
       setCoOwnerRefreshToken(t => t + 1);
     },
     successMessage: `Co-owner approved: ${form.watch("title") || "video"}`,
@@ -341,7 +344,7 @@ export function AddVideoForm({
     (watchedSlot === "1" || watchedSlot === "2") &&
     (verifyState === "checking" || verifyState !== "verified");
   const submitDisabled =
-    loading || coOwnerSubmitDisabled || verifySubmitDisabled;
+    loading || coOwnerSubmitDisabled || coOwnerChecking || verifySubmitDisabled;
 
   const inheritEventTypeLabel =
     eventEventType &&
@@ -419,13 +422,19 @@ export function AddVideoForm({
                     toast.error("Please answer the ownership question");
                     return;
                   }
-                  if (requirePolicyFields && values.ownershipAnswer === "no") {
-                    if (!values.coOwnerDraftKey?.trim()) {
-                      toast.error(
-                        "Co-owner draft id missing — refresh and try again"
-                      );
-                      return;
-                    }
+                  if (
+                    requirePolicyFields &&
+                    values.ownershipAnswer === "no" &&
+                    (coOwnerSubmitDisabled || coOwnerChecking)
+                  ) {
+                    return;
+                  }
+                  if (
+                    requirePolicyFields &&
+                    values.ownershipAnswer === "no" &&
+                    !coOwnerSubmitDisabled &&
+                    !coOwnerChecking
+                  ) {
                     const coOwnerErr = await validateCoOwnerDraftsForSubmit(
                       [
                         {
@@ -937,19 +946,23 @@ export function AddVideoForm({
                   ? "Saving video..."
                   : verifyState === "checking"
                     ? "Verifying on YouTube…"
-                    : coOwnerSubmitDisabled
-                      ? coOwnerBlockReason === "will_be_dropped"
-                        ? coOwnerDropWarningMessage("will_be_dropped")
-                        : coOwnerBlockReason
-                          ? coOwnerBlockReasonMessage(coOwnerBlockReason)
-                          : "Awaiting co-owner approval"
-                      : "Save video"}
+                    : coOwnerAddVideoSubmitButtonLabel(
+                        coOwnerSubmitDisabled,
+                        coOwnerBlockReason,
+                        coOwnerChecking,
+                        hiddenUntilCoOwnerApprove
+                      )}
               </Button>
-              {coOwnerSubmitDisabled ? (
+              {shouldShowCoOwnerSubmitHelper(
+                coOwnerSubmitDisabled,
+                coOwnerChecking,
+                hiddenUntilCoOwnerApprove
+              ) ? (
                 <p className="text-muted-foreground text-center text-xs">
-                  {coOwnerBlockReason
-                    ? coOwnerBlockReasonMessage(coOwnerBlockReason)
-                    : "Submit unlocks after the co-owner approves the email invite. You can save to draft while waiting."}
+                  {coOwnerSubmitHelperText(
+                    coOwnerBlockReason,
+                    hiddenUntilCoOwnerApprove
+                  )}
                 </p>
               ) : null}
             </form>

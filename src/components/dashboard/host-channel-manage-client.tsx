@@ -16,7 +16,9 @@ export function HostChannelManageClient() {
   const user = useSelector((s: RootState) => s.auth.user);
   const [items, setItems] = useState<HostDefaultChannelItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const subscriptionPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
+  const subscriptionPrompt = useHostSubscriptionPrompt({
+    focusTier: "premium",
+  });
 
   useEffect(() => {
     if (!user?.id) {

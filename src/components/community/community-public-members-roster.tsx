@@ -181,10 +181,7 @@ export function CommunityPublicMembersRoster({
       <PublicTipperProfileDrawer
         username={drawerUsername}
         open={drawerOpen}
-        onOpenChange={open => {
-          setDrawerOpen(open);
-          if (!open) setDrawerUsername(null);
-        }}
+        onOpenChange={setDrawerOpen}
       />
     </div>
   );

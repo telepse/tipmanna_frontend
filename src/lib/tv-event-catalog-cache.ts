@@ -15,10 +15,10 @@ export type TvEventCatalog = {
 const EMPTY_CATALOG: TvEventCatalog = { characterSets: [], characters: [] };
 
 const memoryCache = new Map<string, TvEventCatalog>();
-const inflight = new Map<string, Promise<TvEventCatalog>>();
+const inflight = new Map<string, Promise<TvEventCatalog | null>>();
 const listeners = new Set<() => void>();
 
-const SESSION_PREFIX = "tv-event-catalog-v1:";
+const SESSION_PREFIX = "tv-event-catalog-v2:";
 
 function notifyListeners() {
   for (const listener of listeners) {
@@ -74,9 +74,47 @@ export function subscribeTvEventCatalog(listener: () => void) {
   };
 }
 
+function unwrapCharacterSetsFromActionData(
+  data:
+    | { characterSets?: unknown; data?: { characterSets?: unknown } }
+    | undefined
+): unknown {
+  if (!data) return undefined;
+  if (Array.isArray(data.characterSets)) return data.characterSets;
+  const nested = data.data?.characterSets;
+  if (Array.isArray(nested)) return nested;
+  return data.characterSets;
+}
+
+async function fetchCatalogOnce(
+  eventId: string
+): Promise<TvEventCatalog | null> {
+  try {
+    const res = await getEventCharacterCatalogAction(eventId);
+    if (!res.success) return null;
+    const catalog = toCatalog(
+      unwrapCharacterSetsFromActionData(
+        res.data as {
+          characterSets?: unknown;
+          data?: { characterSets?: unknown };
+        }
+      )
+    );
+    memoryCache.set(eventId, catalog);
+    writeSessionCatalog(eventId, catalog);
+    return catalog;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Load event catalog. Returns null on failure (not cached). Successful empty
+ * catalogs are cached. Retries the action once before giving up.
+ */
 export async function loadTvEventCatalog(
   eventId: string
-): Promise<TvEventCatalog> {
+): Promise<TvEventCatalog | null> {
   const trimmed = eventId.trim();
   if (!trimmed) return EMPTY_CATALOG;
 
@@ -88,19 +126,11 @@ export async function loadTvEventCatalog(
 
   const promise = (async () => {
     try {
-      const res = await getEventCharacterCatalogAction(trimmed);
-      const catalog = res.success
-        ? toCatalog(
-            (res.data as { characterSets?: unknown } | undefined)?.characterSets
-          )
-        : EMPTY_CATALOG;
-
-      memoryCache.set(trimmed, catalog);
-      writeSessionCatalog(trimmed, catalog);
+      let catalog = await fetchCatalogOnce(trimmed);
+      if (!catalog) {
+        catalog = await fetchCatalogOnce(trimmed);
+      }
       return catalog;
-    } catch {
-      memoryCache.set(trimmed, EMPTY_CATALOG);
-      return EMPTY_CATALOG;
     } finally {
       inflight.delete(trimmed);
       notifyListeners();
@@ -114,7 +144,7 @@ export async function loadTvEventCatalog(
 export function prefetchTvEventCatalogs(eventIds: string[]) {
   const unique = [...new Set(eventIds.map(id => id.trim()).filter(Boolean))];
   for (const eventId of unique) {
-    if (memoryCache.has(eventId) || inflight.has(eventId)) continue;
+    if (getCachedTvEventCatalog(eventId) || inflight.has(eventId)) continue;
     void loadTvEventCatalog(eventId);
   }
 }
@@ -129,6 +159,25 @@ export function collectTvScheduleEventIds(
     if (!eventId || ids.includes(eventId)) continue;
     ids.push(eventId);
     if (ids.length >= limit) break;
+  }
+  return ids;
+}
+
+/** Unique event ids from startIndex for up to count schedule rows. */
+export function collectTvScheduleEventIdsFromIndex(
+  items: { channel?: { eventId?: string }; defaultChannelEventId?: string }[],
+  startIndex = 0,
+  count = 4
+): string[] {
+  const ids: string[] = [];
+  for (
+    let i = startIndex;
+    i < Math.min(items.length, startIndex + count);
+    i++
+  ) {
+    const eventId = resolveTvScheduleEventId(items[i]);
+    if (!eventId || ids.includes(eventId)) continue;
+    ids.push(eventId);
   }
   return ids;
 }
@@ -155,3 +204,11 @@ export function primeTvEventCatalog(eventId: string, rawSets: unknown) {
   writeSessionCatalog(trimmed, catalog);
   notifyListeners();
 }
+
+/** Test-only reset. */
+export function resetTvEventCatalogCacheForTests(): void {
+  memoryCache.clear();
+  inflight.clear();
+}
+
+export { unwrapCharacterSetsFromActionData };

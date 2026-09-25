@@ -849,6 +849,9 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                 onChange={e => setForm(f => ({ ...f, pitch: e.target.value }))}
                 className="break-words whitespace-pre-wrap"
               />
+              <span className="text-right text-sm">
+                {form.pitch.length}/400
+              </span>
             </div>
             <div className="space-y-2">
               <Label>TipLink money for</Label>

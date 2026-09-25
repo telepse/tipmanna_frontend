@@ -84,8 +84,9 @@ export function ProgramLanding({
     }
   };
 
-  const firstContentUrl = program.items.find(i => i.contentUrl?.trim())
-    ?.contentUrl;
+  const firstContentUrl = program.items.find(i =>
+    i.contentUrl?.trim()
+  )?.contentUrl;
   const heroThumb =
     program.landingBannerUrl?.trim() ||
     (firstContentUrl ? getYoutubeThumbnail(firstContentUrl) : null);

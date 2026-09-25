@@ -318,7 +318,9 @@ export const MessageHeader = ({
 
       {!eventDate && (
         <div className="absolute top-full right-0 left-0 z-20 flex h-7 w-full items-center gap-2 rounded-b-lg border-t border-gray-200 bg-white px-3 text-xs text-gray-600 shadow-sm">
-          <i className="italic">No event info</i>
+          <i className="italic">
+            Content only event room - no event info found
+          </i>
         </div>
       )}
 
