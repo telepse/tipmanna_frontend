@@ -31,6 +31,8 @@ type DashboardVideo = {
   title: string;
   eventName: string;
   coOwnerApproved: boolean;
+  ownershipState?: string | null;
+  coOwnerInviteStatus?: "awaiting" | "approved" | "expired" | null;
   tipsGbp: number;
   coOwners: CoOwnerRow[];
   url: string;
@@ -105,8 +107,9 @@ export function HostVideoCoOwnersClient() {
 
       {videos.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          No event videos yet. Add videos from your event or community flows;
-          videos with approved co-owner invites appear here.
+          No co-owned videos yet. Submit co-owned uploads from your event or
+          community flows; they appear here while awaiting or after co-owner
+          approval.
         </p>
       ) : (
         <div className="space-y-6">
@@ -144,11 +147,19 @@ export function HostVideoCoOwnersClient() {
                     </p>
 
                     <p className="text-muted-foreground text-xs">
-                      {v.coOwners.length === 0
-                        ? "No co-owner payout rows yet"
-                        : `${v.coOwners.length} co-owner${
-                            v.coOwners.length === 1 ? "" : "s"
-                          } on file`}
+                      {v.coOwnerInviteStatus === "awaiting"
+                        ? "Awaiting co-owner email approval — hidden from public play"
+                        : v.coOwnerInviteStatus === "expired"
+                          ? "Co-owner invite expired — hidden from public play until resend and approve"
+                          : v.coOwnerInviteStatus === "approved"
+                            ? `${v.coOwners.length} co-owner${
+                                v.coOwners.length === 1 ? "" : "s"
+                              } on file`
+                            : v.coOwners.length === 0
+                              ? "No co-owner payout rows yet"
+                              : `${v.coOwners.length} co-owner${
+                                  v.coOwners.length === 1 ? "" : "s"
+                                } on file`}
                     </p>
                   </div>
                 </div>

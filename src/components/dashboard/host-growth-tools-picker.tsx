@@ -46,8 +46,7 @@ export function HostGrowthToolsPicker({
   const router = useRouter();
   const { hasActivePremium, status, isLoading } = useHostPlanCapabilities();
   const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
-  const { openForRequired, openForLapsed } =
-    subscriptionPrompt ?? localPrompt;
+  const { openForRequired, openForLapsed } = subscriptionPrompt ?? localPrompt;
 
   const videoRequestsOn =
     process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false";

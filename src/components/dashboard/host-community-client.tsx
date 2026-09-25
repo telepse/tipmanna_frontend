@@ -117,6 +117,7 @@ type BankItem = {
     title: string;
     url: string;
     shareUrl: string;
+    coOwnerInviteStatus?: "awaiting" | "approved" | "expired" | null;
   };
   metrics: {
     numOfTips: number;
@@ -348,6 +349,16 @@ function OwnerBankCard({
             From {item.submittedBy.fullName} (@{item.submittedBy.username})
           </p>
         )}
+        {item.channel.coOwnerInviteStatus ? (
+          <p className="text-xs text-amber-800">
+            Co-owner invite:{" "}
+            {item.channel.coOwnerInviteStatus === "awaiting"
+              ? "awaiting approval"
+              : item.channel.coOwnerInviteStatus === "expired"
+                ? "invite expired"
+                : "approved"}
+          </p>
+        ) : null}
         <span
           className={`absolute top-4 right-4 rounded ${item.status === "pending" ? "bg-secondary" : "bg-green-100 text-green-900"} px-2 py-0.5 text-[11px] font-medium`}
         >
@@ -765,7 +776,8 @@ export function HostCommunityClient() {
 
     const failures: Array<{ kind: string; error: unknown }> = [];
     if (bankError) failures.push({ kind: "bank", error: bankError });
-    if (coCreatorsError) failures.push({ kind: "coCreators", error: coCreatorsError });
+    if (coCreatorsError)
+      failures.push({ kind: "coCreators", error: coCreatorsError });
     if (sendsError) failures.push({ kind: "sends", error: sendsError });
     if (failures.length === 0) {
       swrDashboardToastKeyRef.current = null;
@@ -1433,8 +1445,10 @@ export function HostCommunityClient() {
                 </div>
                 {owedTyped?.payout &&
                   Number(owedTyped.payout.outstanding) <= 0 && (
-                  <span className="text-sm text-green-700">Fully settled</span>
-                )}
+                    <span className="text-sm text-green-700">
+                      Fully settled
+                    </span>
+                  )}
               </div>
             )}
 
@@ -1589,9 +1603,7 @@ export function HostCommunityClient() {
                               item={item}
                               communityId={selected.id}
                               eventId={selected.eventId}
-                              onUpdated={() =>
-                                void refreshBank()
-                              }
+                              onUpdated={() => void refreshBank()}
                             />
                           ))}
                         </div>
@@ -1615,9 +1627,7 @@ export function HostCommunityClient() {
                               item={item}
                               communityId={selected.id}
                               eventId={selected.eventId}
-                              onUpdated={() =>
-                                void refreshBank()
-                              }
+                              onUpdated={() => void refreshBank()}
                             />
                           ))}
                         </div>

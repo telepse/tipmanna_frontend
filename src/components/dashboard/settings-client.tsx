@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { EmbeddedSupportChat } from "@/components/support/embedded-support-chat";
 import { HostYoutubeChannelsSettings } from "@/components/dashboard/host-youtube-channels-settings";
@@ -23,6 +23,7 @@ import {
   Wallet,
   Building2,
   Settings2,
+  MoveRight,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -74,6 +75,7 @@ import {
 } from "@/schemas";
 import { useHostSession } from "@/hooks/use-host-session";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
+import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 
 function branchLabel(branch: string) {
   if (branch === "event_tip") return "Event tips";
@@ -611,10 +613,32 @@ export const SettingsClient = () => {
     },
   ];
 
+  const {
+    info,
+    status,
+    capabilities,
+    isLoading: planLoading,
+    fetchError: planFetchError,
+    refresh: refreshPlan,
+  } = useHostPlanCapabilities();
+
+  const subscriptionState = {
+    info,
+    status,
+    capabilities,
+    isLoading: planLoading,
+    fetchError: planFetchError,
+    refresh: refreshPlan,
+  };
+
+  const loading = planLoading;
+
+  const router = useRouter();
+
   return (
     <div className="w-full min-w-0">
       {/* Settings header */}
-      <div className="mb-4 rounded-xl border bg-white p-4 sm:p-5">
+      <div className="mb-4 space-y-4 rounded-xl border bg-white p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg">
             <Settings2 className="text-muted-foreground size-5" />
@@ -630,6 +654,48 @@ export const SettingsClient = () => {
             </p>
           </div>
         </div>
+
+        {/* FREE HOST */}
+        {!loading && status === "none" ? (
+          <div
+            className="space-y-4"
+            onClick={() =>
+              router.push(`/host/${eventSlug}/profile?tab=subscriptions`)
+            }
+          >
+            <div className="border-muted bg-muted/30 rounded-lg border p-4">
+              <h3 className="flex items-center gap-2 font-semibold">
+                Choose a host plan <MoveRight className="size-4" />
+              </h3>
+
+              <p className="text-muted-foreground mt-1 text-sm">
+                Unlock more tools for growing your events, audience, and
+                community.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {/* GROWTH HOST */}
+        {!loading && status === "active" && info?.tier === "HOST_PREMIUM" ? (
+          <div
+            className="space-y-4"
+            onClick={() =>
+              router.push(`/host/${eventSlug}/profile?tab=subscriptions`)
+            }
+          >
+            <div className="border-primary/20 bg-primary/5 rounded-lg border p-4">
+              <h3 className="flex items-center gap-2 font-semibold">
+                Upgrade to Host Community <MoveRight className="size-4" />
+              </h3>
+
+              <p className="text-muted-foreground mt-1 text-sm">
+                You currently have Host Growth. Explore the additional Community
+                features available to you.
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <Tabs

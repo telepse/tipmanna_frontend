@@ -36,8 +36,7 @@ export function HostTipLayoutPicker({
   const { hasActivePremium, capabilities, status, isLoading } =
     useHostPlanCapabilities();
   const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
-  const { openForRequired, openForLapsed } =
-    subscriptionPrompt ?? localPrompt;
+  const { openForRequired, openForLapsed } = subscriptionPrompt ?? localPrompt;
   const { events, loading, error } = useApprovedHostEvents(open);
 
   const showLock = !isLoading && !hasActivePremium;

@@ -56,15 +56,8 @@ const ChannelClient = dynamic(
   }
 );
 import { TipsDrawer } from "./tips-drawer";
-import {
-  AUTH_MODAL_Z_INDEX,
-  OVERLAY_Z_INDEX,
-  TV_RAIL_Z_INDEX,
-} from "@/lib/drawer-z-index";
-import {
-  buildChannelSharePath,
-  buildRoomSharePath,
-} from "@/lib/public-video-url";
+import { OVERLAY_Z_INDEX, TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
+import { buildRoomSharePath } from "@/lib/public-video-url";
 import { SelectDefaultVideoModal } from "./select-default-video-modal";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -153,7 +146,6 @@ export const EventLive = ({
   onChannelCreated,
 }: Props) => {
   const router = useRouter();
-  const roomPathRef = useRef<string | null>(null);
   const [open, setOpen] = useState(!!liveVideoLink && autoOpen);
   const videoRef = useRef<VideoPlayerRef>(null);
   const channelList = Array.isArray(channels) ? channels : [];
@@ -203,41 +195,13 @@ export const EventLive = ({
     channelList?.find(c => c.isDefault) ??
     channelList?.[0];
 
-  const syncLightboxUrl = useCallback(
-    (channelId: string | null | undefined, mode: "push" | "replace") => {
-      if (typeof window === "undefined" || !eventId?.trim()) return;
-      const path = buildChannelSharePath({
-        eventId,
-        channelId: channelId?.trim() || null,
-      });
-      const state = { eventRoomChannelLightbox: true };
-      if (mode === "push") {
-        window.history.pushState(state, "", path);
-      } else {
-        window.history.replaceState(state, "", path);
-      }
-    },
-    [eventId]
-  );
-
-  const closeLightbox = useCallback(
-    (restoreRoomUrl = true) => {
-      setIsLightboxOpen(false);
-      if (!restoreRoomUrl) return;
-      const roomPath = roomPathRef.current ?? buildRoomSharePath(eventId);
-      router.replace(roomPath, { scroll: false });
-    },
-    [eventId, router]
-  );
+  const closeLightbox = useCallback(() => {
+    setIsLightboxOpen(false);
+  }, []);
 
   const openLightbox = useCallback(() => {
-    roomPathRef.current = buildRoomSharePath(eventId);
-    syncLightboxUrl(
-      currentChannel?.id ? String(currentChannel.id) : null,
-      "push"
-    );
     setIsLightboxOpen(true);
-  }, [eventId, currentChannel?.id, syncLightboxUrl]);
+  }, []);
 
   const resolvedVideoUrl =
     liveVideoLink && liveVideoLink.trim() !== ""
@@ -314,13 +278,6 @@ export const EventLive = ({
 
   const [, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (!isLightboxOpen) return;
-    const onPopState = () => closeLightbox(false);
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [isLightboxOpen, closeLightbox]);
 
   const displayVideoTitle =
     typeof currentChannel?.title === "string"
@@ -773,15 +730,8 @@ export const EventLive = ({
   if (isLightboxOpen) {
     return (
       <div
-        className={`${OVERLAY_Z_INDEX} fixed inset-0 flex h-screen w-screen items-center justify-center bg-white`}
+        className={`${OVERLAY_Z_INDEX} fixed inset-0 flex h-[100dvh] w-screen flex-col bg-black`}
       >
-        <button
-          type="button"
-          className={`absolute top-10 right-4 inline-block rounded-md bg-black p-1 text-xs text-white underline lg:hidden ${AUTH_MODAL_Z_INDEX} cursor-pointer`}
-          onClick={() => closeLightbox()}
-        >
-          Back to event room
-        </button>
         <ChannelClient
           contents={channels as any[]}
           characters={tippingCharacters as any[]}
@@ -790,20 +740,12 @@ export const EventLive = ({
           initialChannelId={
             currentChannel?.id ? String(currentChannel.id) : null
           }
-          onActiveChannelChange={channelId => {
-            if (isLightboxOpen) {
-              syncLightboxUrl(channelId, "replace");
-            }
-          }}
-          openedFromEventRoom={true}
+          openedFromEventRoom
+          presentation="overlay"
+          startInFullView
+          onDismiss={closeLightbox}
+          paymentSurface="event_room"
         />
-        <button
-          type="button"
-          className={`absolute top-3 right-32 hidden text-sm underline lg:inline-block ${AUTH_MODAL_Z_INDEX} cursor-pointer`}
-          onClick={() => closeLightbox()}
-        >
-          Back to event room
-        </button>
       </div>
     );
   }

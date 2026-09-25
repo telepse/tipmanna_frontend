@@ -170,6 +170,8 @@ import { isTipCustomizationEnabled } from "@/lib/tip-customization";
 import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
 import { createFeatureCardOverlayPlaybackHandlers } from "@/lib/feature-card-overlay-playback";
 import { NotificationBadge } from "../notifications/notification-badge";
+import type { PaymentSurface } from "@/lib/analytics-types";
+import { resolveChannelTipIdsForSurface } from "@/lib/room-overlay-tip-ids";
 
 interface Props {
   contents: any[];
@@ -181,6 +183,10 @@ interface Props {
   /** When the active video changes (e.g. event room lightbox URL sync). */
   onActiveChannelChange?: (channelId: string) => void;
   openedFromEventRoom?: boolean;
+  presentation?: "page" | "overlay";
+  onDismiss?: () => void;
+  startInFullView?: boolean;
+  paymentSurface?: PaymentSurface;
 }
 
 const formatTime = (seconds: number) => {
@@ -212,14 +218,25 @@ export const ChannelClient = ({
   initialChannelId,
   onActiveChannelChange,
   openedFromEventRoom,
+  presentation = "page",
+  onDismiss,
+  startInFullView = false,
+  paymentSurface: paymentSurfaceProp,
 }: Props) => {
+  const isOverlay = presentation === "overlay";
+  const tipSurface: PaymentSurface =
+    paymentSurfaceProp ??
+    (openedFromEventRoom ? "event_room" : "channel_client");
+  const tipStreamSurface = openedFromEventRoom
+    ? ("event_room" as const)
+    : ("channel_client" as const);
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user);
   const baseTipChars = Array.isArray(characters) ? characters : [];
   const baseTipSets = Array.isArray(characterSets) ? characterSets : [];
   const tipPres = useTipPresentation(eventId, baseTipChars as RoomCharacter[], {
     quoteLock: isTipCustomizationEnabled(),
-    paymentSurface: "channel_client",
+    paymentSurface: tipSurface,
   });
   const { drawerSets: tipSets, stripPool: tipStripPool } = useMemo(
     () =>
@@ -326,7 +343,7 @@ export const ChannelClient = ({
         const cid =
           rows.find((c: any) => c?.community?.id)?.community?.id ??
           rows.find((c: any) => c?.event?.communityId)?.event?.communityId;
-        if (cid) {
+        if (cid && !isOverlay && !openedFromEventRoom) {
           const here = `/channel/${eventId}`;
           router.replace(
             `/restricted/${encodeURIComponent(cid)}?next=${encodeURIComponent(here)}`
@@ -347,20 +364,20 @@ export const ChannelClient = ({
     });
   }, [eventId, router, needsContentEnrichment, initialChannelId]);
 
-  useGlobalTipStream({ eventId, surface: "channel_client" });
+  useGlobalTipStream({ eventId, surface: tipStreamSurface });
   usePaymentAnimationPlayer({
     eventId,
     characters: tipPriceCatalog as RoomCharacter[],
-    surface: "channel_client",
+    surface: tipStreamSurface,
   });
   usePayerOriginAnimationRecovery({
     eventId,
-    paymentSurface: "channel_client",
+    paymentSurface: tipSurface,
     characters: tipPriceCatalog as RoomCharacter[],
-    surface: "channel_client",
+    surface: tipStreamSurface,
   });
   usePaymentPlaybackRestore({
-    paymentSurface: "channel_client",
+    paymentSurface: tipSurface,
     videoRef,
     currentChannelId: currentContent?.id ? String(currentContent.id) : null,
     onMuteChange: setIsMuted,
@@ -718,6 +735,13 @@ export const ChannelClient = ({
   });
 
   useEffect(() => {
+    if (!startInFullView || !isOverlay) return;
+    if (isMobileSurface) {
+      enterFull();
+    }
+  }, [startInFullView, isOverlay, isMobileSurface, enterFull]);
+
+  useEffect(() => {
     if (!isMobile || isFullView) return;
     const previousBodyOverflow = document.body.style.overflow;
     const previousHtmlOverflow = document.documentElement.style.overflow;
@@ -739,10 +763,12 @@ export const ChannelClient = ({
     return Math.max(0, Math.floor(t * 1000));
   };
 
-  const paymentChannelIdForTip =
+  const activeChannelIdForTips =
     playlist[currentContentIndex]?.id != null
       ? String(playlist[currentContentIndex].id)
       : null;
+  const { paymentChannelIdForTip, featureCardChannelId } =
+    resolveChannelTipIdsForSurface(tipSurface, activeChannelIdForTips);
 
   const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
 
@@ -876,14 +902,20 @@ export const ChannelClient = ({
     useSelector((s: RootState) => s.auth.isAuthenticated) &&
     (userRole === "HOST" || userRole === "TIPPER");
 
+  const overlayChrome =
+    isOverlay &&
+    (isFullView || !isMobileSurface || showPhoneLandscapeImmersive);
+
   return (
     <div
       className={cn(
-        isFullView
-          ? immersiveFullViewViewportClassName("channel")
-          : isMobile
-            ? "fixed inset-0 h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-white px-2"
-            : "relative h-[85%] w-[95%] bg-white sm:h-[80%]",
+        isOverlay
+          ? "relative h-full min-h-0 w-full flex-1 overflow-hidden bg-black text-white"
+          : isFullView
+            ? immersiveFullViewViewportClassName("channel")
+            : isMobile
+              ? "fixed inset-0 h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-white px-2"
+              : "relative h-[85%] w-[95%] bg-white sm:h-[80%]",
 
         showPhoneLandscapeImmersive &&
           "fixed top-0 right-0 bottom-0 left-0 h-[100%] w-[100%] bg-black p-4 text-white"
@@ -894,26 +926,28 @@ export const ChannelClient = ({
         canonicalEventId={currentContent?.event?.id ?? playlist[0]?.event?.id}
       />
       <div className="pointer-events-none absolute top-3 left-3 z-[100020]">
-        <PlaybackReturnBackChip />
+        {!isOverlay ? <PlaybackReturnBackChip /> : null}
       </div>
-      {isFullView && !showPhoneLandscapeImmersive && (
+      {(overlayChrome || (isFullView && !showPhoneLandscapeImmersive)) && (
         <ImmersiveMediaTopBar
-          onClose={exitFull}
+          onClose={isOverlay && onDismiss ? onDismiss : exitFull}
           title={currentContent?.title}
           trailing={
-            <Link
-              href={`/room/${eventId}`}
-              className="text-xs font-medium text-white underline underline-offset-2"
-            >
-              Room
-            </Link>
+            isOverlay ? null : (
+              <Link
+                href={`/room/${eventId}`}
+                className="text-xs font-medium text-white underline underline-offset-2"
+              >
+                Room
+              </Link>
+            )
           }
         />
       )}
 
       {!isPhoneLandscape ? (
         <>
-          {!isFullView && (
+          {!isFullView && !isOverlay && (
             <div
               className={cn(
                 isMobile
@@ -1119,12 +1153,12 @@ export const ChannelClient = ({
               {...pickVideoSurfaceBadgeProps(currentContent, eventId)}
               position="top-right"
             />
-            {paymentChannelIdForTip &&
+            {featureCardChannelId &&
             process.env.NEXT_PUBLIC_VIDEO_REQUESTS_ENABLED !== "false" ? (
               <div className="pointer-events-none absolute bottom-28 left-2 z-[62] max-w-[min(360px,calc(100%-1rem))]">
                 <VideoFeatureCardBanner
-                  surfaceChannelId={paymentChannelIdForTip}
-                  hostSurfaceChannelId={paymentChannelIdForTip}
+                  surfaceChannelId={featureCardChannelId}
+                  hostSurfaceChannelId={featureCardChannelId}
                   sectionCtaLabel={tipPres.sectionCtaLabel}
                   pageDrawerOpen={isTipDrawerOpen}
                   onTipFeatured={id => {
@@ -1546,7 +1580,7 @@ export const ChannelClient = ({
                       tippingCharacters={tipPriceCatalog as RoomCharacter[]}
                       stripCharacters={tipStripPool as RoomCharacter[]}
                       characterSets={tipSets}
-                      paymentSurface="channel_client"
+                      paymentSurface={tipSurface}
                       paymentChannelId={paymentChannelIdForTip}
                       getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
                       getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
@@ -1787,7 +1821,7 @@ export const ChannelClient = ({
             eventId={eventId}
             tippingCharacters={tipPriceCatalog as RoomCharacter[]}
             characterSets={tipSets}
-            paymentSurface="channel_client"
+            paymentSurface={tipSurface}
             paymentChannelId={paymentChannelIdForTip}
             getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
             getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
@@ -1916,7 +1950,7 @@ export const ChannelClient = ({
             tippingCharacters={tipPriceCatalog as RoomCharacter[]}
             stripCharacters={tipStripPool as RoomCharacter[]}
             characterSets={tipSets}
-            paymentSurface="channel_client"
+            paymentSurface={tipSurface}
             paymentChannelId={paymentChannelIdForTip}
             getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
             getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}

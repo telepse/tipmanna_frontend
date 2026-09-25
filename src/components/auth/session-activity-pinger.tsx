@@ -11,7 +11,7 @@ import { persistAuthSession, persistHostSession } from "@/lib/session-client";
 import { getHostUserFromCookies } from "@/lib/host-session-client";
 import {
   notifyHostSessionTouched,
-  HOST_SESSION_CLEARED_EVENT,
+  notifyHostSessionCleared,
 } from "@/lib/host-session-probe";
 import { notifyEmailVerificationRequired } from "@/lib/email-verification-events";
 
@@ -118,7 +118,7 @@ export function SessionActivityPinger() {
       })
         .then(async res => {
           if (res.status === 401 || res.status === 403) {
-            window.dispatchEvent(new CustomEvent(HOST_SESSION_CLEARED_EVENT));
+            notifyHostSessionCleared();
           } else if (res.ok) {
             try {
               const body = (await res.json()) as {

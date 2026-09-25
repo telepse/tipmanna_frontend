@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { LoaderCircle } from "lucide-react";
@@ -12,6 +12,12 @@ import { useHostSessionContextOptional } from "@/contexts/host-session-context";
 import type { RootState } from "@/redux/store";
 import { AUTH_ERROR_CODES } from "@/lib/authorization-policy";
 import { buildVerifyEmailPath } from "@/lib/verify-email-path";
+import { getHostUserFromCookies } from "@/lib/host-session-client";
+import { isHostSessionGrantValid } from "@/lib/host-session-grant";
+import {
+  shouldInitDashboardReady,
+  shouldKeepDashboardContentDuringProbe,
+} from "@/lib/host-dashboard-gate-state";
 
 type Props = {
   children: ReactNode;
@@ -22,7 +28,10 @@ function HostDashboardGateInner({ children }: Props) {
   const user = useSelector((s: RootState) => s.auth.user);
   const hostSession = useHostSessionContextOptional();
   const authRequestedRef = useRef(false);
-  const hadWriteGrantRef = useRef(false);
+  const hadWriteGrantRef = useRef(
+    typeof window !== "undefined" &&
+      isHostSessionGrantValid(getHostUserFromCookies()?.id)
+  );
 
   const auth = useHostCapabilityWithAuth({ hostRequiredNotice: true });
   const {
@@ -34,7 +43,18 @@ function HostDashboardGateInner({ children }: Props) {
     HostAuthModal,
   } = auth;
 
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const hostId = getHostUserFromCookies()?.id ?? null;
+    return shouldInitDashboardReady(isHostSessionGrantValid(hostId));
+  });
+
+  const cookieHostId = useMemo(
+    () => getHostUserFromCookies()?.id ?? null,
+    [hostSession?.hostId, hostSession?.status]
+  );
+
+  const grantValid = isHostSessionGrantValid(cookieHostId);
 
   const probeLoading =
     (hostSession?.isLoading === true && hostSession?.status !== "unknown") ||
@@ -45,7 +65,16 @@ function HostDashboardGateInner({ children }: Props) {
     hostSession?.status === "unknown" &&
     hostSession?.code === "HOST_SESSION_PROBE_FAILED";
 
+  const keepContentDuringProbe = shouldKeepDashboardContentDuringProbe({
+    hadWriteGrant: hadWriteGrantRef.current,
+    grantValid,
+    probeLoading,
+  });
+
   useEffect(() => {
+    if (grantValid) {
+      hadWriteGrantRef.current = true;
+    }
     if (canWriteAsHost) {
       hadWriteGrantRef.current = true;
     }
@@ -56,7 +85,7 @@ function HostDashboardGateInner({ children }: Props) {
     }
 
     if (probeLoading) {
-      if (!hadWriteGrantRef.current) {
+      if (!keepContentDuringProbe) {
         setReady(false);
       }
       return;
@@ -98,11 +127,14 @@ function HostDashboardGateInner({ children }: Props) {
   }, [
     canReadAsHost,
     canWriteAsHost,
+    keepContentDuringProbe,
     probeLoading,
     probeTransient,
     requestHostAuth,
     router,
+    grantValid,
     user,
+    hostSession?.code,
   ]);
 
   if (!ready) {
@@ -112,11 +144,23 @@ function HostDashboardGateInner({ children }: Props) {
         ? "Confirm host access to open the dashboard."
         : "Sign in to your host account to access the dashboard.";
 
+    const compactVerify =
+      probeLoading &&
+      Boolean(cookieHostId) &&
+      !grantValid &&
+      !hadWriteGrantRef.current;
+
     return (
       <>
         {HostAuthModal}
-        <div className="flex h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
-          <LoaderCircle className="text-primary size-10 animate-spin" />
+        <div
+          className={
+            compactVerify
+              ? "flex flex-col items-center gap-2 px-4 py-8 text-center"
+              : "flex h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center"
+          }
+        >
+          <LoaderCircle className="text-primary size-8 animate-spin" />
           <p className="text-muted-foreground text-sm">{loadingMessage}</p>
         </div>
       </>

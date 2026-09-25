@@ -25,10 +25,20 @@ import {
   UsersRound,
   CalendarDays,
   ExternalLink,
+  Users,
 } from "lucide-react";
 import type { DiscoveryEventRow } from "@/actions/contents";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatProgramScheduleDisplay, trimTitle } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  formatProgramScheduleDisplay,
+  formatWithCommas,
+  getEventDuration,
+  getStatusColor,
+  getEventStatus,
+  trimTitle,
+} from "@/lib/utils";
 import { takeRecentDiscoveryPrograms } from "@/lib/discover-programs";
 
 // Local imports
@@ -122,6 +132,23 @@ function RailCoverImage({
         className="object-cover"
         sizes="(max-width: 640px) 220px, 270px"
         unoptimized={!isOptimizableImageSrc(src)}
+      />
+    </div>
+  );
+}
+
+function DefaultEventBanner() {
+  return (
+    <div
+      className={cn("relative aspect-video w-full overflow-hidden rounded-md")}
+    >
+      <Image
+        src="/events/event_banner.webp"
+        alt="Default event banner"
+        fill
+        className="object-cover"
+        sizes="(max-width: 640px) 220px, 270px"
+        unoptimized={!isOptimizableImageSrc("events/event_banner.webp")}
       />
     </div>
   );
@@ -1235,6 +1262,7 @@ export function DiscoverPanel({
                               itemMinClassName={PROGRAM_CARD_MIN}
                               renderItem={event => {
                                 const idx = searchIdx++;
+
                                 return (
                                   <Link
                                     href={`/room/${event.id}`}
@@ -1259,6 +1287,7 @@ export function DiscoverPanel({
                                         <CalendarDays className="size-8 text-neutral-500" />
                                       </div>
                                     )}
+
                                     <div className="space-y-1 p-2">
                                       <div className="flex items-start justify-between gap-2">
                                         <p className="line-clamp-2 text-sm font-medium">
@@ -1691,50 +1720,106 @@ export function DiscoverPanel({
                   <div className="flex gap-4">
                     {catalogLoading && discoverEvents.length === 0
                       ? carouselSkeleton
-                      : discoverEvents.map(event => (
-                          <Link
-                            key={event.id}
-                            href={`/room/${event.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(
-                              "rounded-md border bg-gray-200 p-2",
-                              CONTENT_CARD_MIN
-                            )}
-                          >
-                            {event.banner ? (
-                              <RailCoverImage
-                                src={event.banner}
-                                alt={event.name}
-                                aspectClassName="aspect-video"
-                              />
-                            ) : (
-                              <div className="bg-muted flex aspect-video w-full items-center justify-center rounded-md">
-                                <CalendarDays className="size-8 text-neutral-500" />
-                              </div>
-                            )}
-                            <div className="space-y-1 p-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <h5 className="line-clamp-2 text-sm font-medium">
-                                  {trimTitle(event.name, 40)}
-                                </h5>
-                                <Badge
-                                  variant="secondary"
-                                  className="shrink-0 text-[10px]"
-                                >
-                                  {discoverEventBadgeLabel(event.badge)}
-                                </Badge>
-                              </div>
-                              {event.eventDate ? (
-                                <p className="text-muted-foreground text-xs">
-                                  {formatProgramScheduleDisplay(
-                                    event.eventDate
+                      : discoverEvents.map(event => {
+                          const status = getEventStatus(
+                            event.eventDate ?? "",
+                            event.startTime ?? "",
+                            event.endTime ?? ""
+                          );
+
+                          const statusColor = getStatusColor(status);
+
+                          return (
+                            <Link
+                              key={event.id}
+                              href={`/room/${event.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={cn(
+                                "rounded-md border bg-gray-200 p-2",
+                                CONTENT_CARD_MIN
+                              )}
+                            >
+                              <div className="relative">
+                                {event.banner ? (
+                                  <RailCoverImage
+                                    src={event.banner}
+                                    alt={event.name}
+                                    aspectClassName="aspect-video"
+                                  />
+                                ) : (
+                                  <DefaultEventBanner />
+                                )}
+
+                                <span
+                                  className={cn(
+                                    "absolute top-2 left-2 w-fit rounded-md px-2 py-1 text-sm",
+                                    statusColor
                                   )}
-                                </p>
-                              ) : null}
-                            </div>
-                          </Link>
-                        ))}
+                                >
+                                  {status}
+                                </span>
+                              </div>
+
+                              <div className="space-y-1 p-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h5 className="line-clamp-2 text-sm font-medium">
+                                    {trimTitle(event.name, 40)}
+                                  </h5>
+
+                                  <Badge
+                                    variant="secondary"
+                                    className="shrink-0 text-[10px]"
+                                  >
+                                    {discoverEventBadgeLabel(event.badge)}
+                                  </Badge>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-2">
+                                  {event.organizationName ? (
+                                    <p className="text-xs">
+                                      By: {event.organizationName}
+                                    </p>
+                                  ) : (
+                                    <span />
+                                  )}
+
+                                  <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                                    <Users className="size-4" />
+                                    {event.numOfTips ?? 0} Tips
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-muted-foreground flex gap-2 text-xs">
+                                      {getEventDuration(
+                                        event.startTime ?? "",
+                                        event.endTime ?? ""
+                                      )}
+                                    </span>
+
+                                    <span className="text-muted-foreground flex items-center gap-2 text-xs">
+                                      {formatDate(event.eventDate ?? "")}
+                                    </span>
+                                  </div>
+
+                                  <span className="text-primary border-primary flex items-center gap-1 rounded-md border px-1 py-0.5 text-xs">
+                                    <Image
+                                      src="/icons/diamond.png"
+                                      alt="Diamond"
+                                      width={40}
+                                      height={40}
+                                      className="size-5"
+                                    />
+                                    &pound;
+                                    {formatWithCommas(event.amountRaised ?? 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            </Link>
+                          );
+                        })}
                   </div>
                 </div>
                 {discoverEvents.length > 0 ? (

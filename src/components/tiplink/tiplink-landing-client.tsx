@@ -505,12 +505,7 @@ export function TipLinkLandingClient({
       hydratedPool: hydratedStripPool as RoomCharacter[],
     });
     return overlayStripPrices(visible, tipPres.catalog as RoomCharacter[]);
-  }, [
-    stripTipChars,
-    tipPres.catalog,
-    tipPres.strip,
-    hydratedStripPool,
-  ]);
+  }, [stripTipChars, tipPres.catalog, tipPres.strip, hydratedStripPool]);
 
   const drawerCatalog =
     (tipPres.catalog as RoomCharacter[]) ?? presentationBaseChars;
@@ -1699,11 +1694,11 @@ export function TipLinkLandingClient({
               </section>
 
               <p className="text-xs text-white/70">
-                {attributionLabel}
+                Created by: {attributionLabel}
                 {isCommunityTipLink && community?.communityType ? (
                   <span className="text-white/40">
                     {" "}
-                    · {community.communityType.replace(/_/g, " ")}
+                    · {community.communityType.replace(/_/g, " ")} - community
                   </span>
                 ) : null}
                 {!isCommunityTipLink ? (

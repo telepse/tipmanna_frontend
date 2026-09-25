@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "react-toastify";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import SignInDialog, {
@@ -23,8 +24,13 @@ import {
   SIGN_IN_NESTED_OVERLAY_Z_INDEX,
   SIGN_IN_NESTED_Z_INDEX,
 } from "@/lib/drawer-z-index";
+import { START_COMMUNITY_CHECKING_HOST_LABEL } from "@/lib/start-community-guest-resume";
 
 type PendingTask = () => void | Promise<void>;
+
+export type RequestHostAuthOptions = {
+  upgradeReturnTo?: string;
+};
 
 type Options = {
   enabled?: boolean;
@@ -57,12 +63,40 @@ export function useHostCapabilityWithAuth(options?: Options) {
   const [cohostSignInOpen, setCohostSignInOpen] = useState(false);
   const [hostUpgradeOpen, setHostUpgradeOpen] = useState(false);
   const pendingRef = useRef<PendingTask | null>(null);
+  const pendingUpgradeReturnToRef = useRef<string | undefined>(undefined);
+  const hostCheckToastRef = useRef<string | number | null>(null);
 
-  const hostUpgradeReturnTo = (() => {
-    if (hostUpgradeReturnToOverride) return hostUpgradeReturnToOverride;
+  const hostAuthChecking = useMemo(
+    () =>
+      enabled && (base.capability.status === "loading" || base.sessionLoading),
+    [base.capability.status, base.sessionLoading, enabled]
+  );
+
+  const defaultUpgradeReturnTo = useMemo(() => {
     const q = searchParams.toString();
     return q ? `${pathname}?${q}` : pathname;
-  })();
+  }, [pathname, searchParams]);
+
+  const resolveUpgradeReturnTo = useCallback(
+    (callOptions?: RequestHostAuthOptions) => {
+      if (callOptions?.upgradeReturnTo) return callOptions.upgradeReturnTo;
+      if (hostUpgradeReturnToOverride) return hostUpgradeReturnToOverride;
+      return defaultUpgradeReturnTo;
+    },
+    [defaultUpgradeReturnTo, hostUpgradeReturnToOverride]
+  );
+
+  const [activeUpgradeReturnTo, setActiveUpgradeReturnTo] = useState(() =>
+    resolveUpgradeReturnTo()
+  );
+
+  const showHostCheckToast = useCallback(() => {
+    if (hostCheckToastRef.current != null) return;
+    hostCheckToastRef.current = toast.info(
+      START_COMMUNITY_CHECKING_HOST_LABEL,
+      { autoClose: 4000 }
+    );
+  }, []);
 
   useEffect(() => {
     if (base.canWriteAsHost && hostSignInOpen) {
@@ -70,24 +104,40 @@ export function useHostCapabilityWithAuth(options?: Options) {
     }
   }, [base.canWriteAsHost, hostSignInOpen]);
 
+  useEffect(() => {
+    const waitingOnHostCheck = hostAuthChecking && pendingRef.current != null;
+    if (waitingOnHostCheck) return;
+    if (hostCheckToastRef.current != null) {
+      toast.dismiss(hostCheckToastRef.current);
+      hostCheckToastRef.current = null;
+    }
+  }, [hostAuthChecking]);
+
   const requestHostAuth = useCallback(
-    (onSuccess?: PendingTask): HostAuthRequestOutcome => {
+    (
+      onSuccess?: PendingTask,
+      callOptions?: RequestHostAuthOptions
+    ): HostAuthRequestOutcome => {
       if (base.canWriteAsHost) {
         void onSuccess?.();
         return "ran";
       }
       if (base.capability.status === "loading" || base.sessionLoading) {
         pendingRef.current = onSuccess ?? null;
+        pendingUpgradeReturnToRef.current = callOptions?.upgradeReturnTo;
+        showHostCheckToast();
         return "loading-hold";
       }
       if (base.capability.status === "none") {
         if (requireHostAccount && user?.role === "TIPPER" && user.email) {
+          setActiveUpgradeReturnTo(resolveUpgradeReturnTo(callOptions));
           setHostUpgradeOpen(true);
           return "upgrade";
         }
         return "noop";
       }
       pendingRef.current = onSuccess ?? null;
+      pendingUpgradeReturnToRef.current = callOptions?.upgradeReturnTo;
       setHostSignInOpen(true);
       return "signin";
     },
@@ -96,6 +146,8 @@ export function useHostCapabilityWithAuth(options?: Options) {
       base.capability.status,
       base.sessionLoading,
       requireHostAccount,
+      resolveUpgradeReturnTo,
+      showHostCheckToast,
       user?.email,
       user?.role,
     ]
@@ -119,6 +171,12 @@ export function useHostCapabilityWithAuth(options?: Options) {
       const task = pendingRef.current;
       pendingRef.current = null;
       if (requireHostAccount && user?.role === "TIPPER" && user.email) {
+        setActiveUpgradeReturnTo(
+          resolveUpgradeReturnTo({
+            upgradeReturnTo: pendingUpgradeReturnToRef.current,
+          })
+        );
+        pendingUpgradeReturnToRef.current = undefined;
         setHostUpgradeOpen(true);
         pendingRef.current = task;
         return;
@@ -134,6 +192,7 @@ export function useHostCapabilityWithAuth(options?: Options) {
     base.capability.status,
     base.sessionLoading,
     requireHostAccount,
+    resolveUpgradeReturnTo,
     user?.email,
     user?.role,
   ]);
@@ -224,7 +283,7 @@ export function useHostCapabilityWithAuth(options?: Options) {
           open={hostUpgradeOpen}
           onOpenChange={setHostUpgradeOpen}
           email={user.email}
-          returnTo={hostUpgradeReturnTo}
+          returnTo={activeUpgradeReturnTo}
           overlayClassName={SIGN_IN_NESTED_OVERLAY_Z_INDEX}
           className={SIGN_IN_NESTED_Z_INDEX}
         />
@@ -234,6 +293,7 @@ export function useHostCapabilityWithAuth(options?: Options) {
 
   return {
     ...base,
+    hostAuthChecking,
     requestHostAuth,
     requestCohostAuth,
     handleAuthRequiredError,

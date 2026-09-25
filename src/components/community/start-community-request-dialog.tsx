@@ -64,8 +64,7 @@ export function StartCommunityRequestDialog({
   const userId = user?.id;
 
   const hostCommunityPath = useMemo(
-    () =>
-      resolveHostCommunityPlanPath({ preferredHostSlug, capability }),
+    () => resolveHostCommunityPlanPath({ preferredHostSlug, capability }),
     [capability, preferredHostSlug]
   );
 
@@ -156,9 +155,7 @@ export function StartCommunityRequestDialog({
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen && (redirectCountdown !== null || successPhase)) {
-      const ok = window.confirm(
-        "Leave before opening Community plan?"
-      );
+      const ok = window.confirm("Leave before opening Community plan?");
       if (!ok) return;
     }
     if (!nextOpen) resetForm();

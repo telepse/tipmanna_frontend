@@ -143,7 +143,10 @@ describe("applyPendingAudioRestore", () => {
     player.play = vi.fn(() => callOrder.push("play"));
     player.unmute = vi.fn(() => callOrder.push("unmute"));
 
-    expect(pending).toEqual({ restoreUnmuted: true, shouldPlay: true });
+    expect(pending).toEqual({
+      restoreUnmuted: true,
+      shouldPlay: true,
+    });
     expect(
       applyPendingAudioRestore(player, pending, "auto_advance")
     ).toBeNull();
@@ -166,7 +169,10 @@ describe("applyPendingAudioRestore", () => {
     const player = makePlayer({ isMuted: () => false });
     const pending = prepareMutedLoadForAutoplay(player, true);
 
-    expect(pending).toEqual({ restoreUnmuted: false, shouldPlay: true });
+    expect(pending).toEqual({
+      restoreUnmuted: false,
+      shouldPlay: true,
+    });
     expect(
       applyPendingAudioRestore(player, pending, "auto_advance")
     ).toBeNull();

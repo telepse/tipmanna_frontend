@@ -6,6 +6,8 @@ import { toast } from "react-toastify";
 
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   Crown,
   Loader2,
   Settings,
@@ -76,7 +78,7 @@ function planLabel(tier?: string | null, status?: string) {
   if (tier === "HOST_PREMIUM" && status === "active") {
     return "Host Growth";
   }
-
+  ``;
   if (status === "lapsed") {
     return "Plan expired";
   }
@@ -222,6 +224,8 @@ export const HostProfileClient = () => {
   const user = useSelector((state: RootState) => state.auth.user);
 
   const params = useParams();
+
+  const [showCommunityFeatures, setShowCommunityFeatures] = useState(false);
 
   if (!user) return null;
 
@@ -551,6 +555,16 @@ export const HostProfileClient = () => {
                       Your Host Community subscription includes all Premium
                       features plus the additional Community features below.
                     </p>
+
+                    <button
+                      onClick={() => setShowCommunityFeatures(prev => !prev)}
+                    >
+                      {showCommunityFeatures ? (
+                        <ChevronUp className="size-4" />
+                      ) : (
+                        <ChevronDown className="size-4" />
+                      )}
+                    </button>
                   </div>
 
                   {capabilities.manageBilling && info?.hasStripeSubscription ? (
@@ -570,60 +584,62 @@ export const HostProfileClient = () => {
                   ) : null}
                 </div>
 
-                <div className="mt-5">
-                  <h4 className="font-semibold">Community features</h4>
+                {showCommunityFeatures && (
+                  <div className="mt-5">
+                    <h4 className="font-semibold">Community features</h4>
 
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    Everything included with your Host Community plan.
-                  </p>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                      Everything included with your Host Community plan.
+                    </p>
 
-                  <ul className="mt-4 w-full space-y-3">
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      Community TV system
-                    </li>
+                    <ul className="mt-4 w-full space-y-3">
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        Community TV system
+                      </li>
 
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      Community memberships
-                    </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        Community memberships
+                      </li>
 
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      Whitelabel community mode
-                    </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        Whitelabel community mode
+                      </li>
 
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      TV program scheduling
-                    </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        TV program scheduling
+                      </li>
 
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      Community branding
-                    </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        Community branding
+                      </li>
 
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      Broadcast messaging
-                    </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        Broadcast messaging
+                      </li>
 
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      Community analytics
-                    </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        Community analytics
+                      </li>
 
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      Co-creator management
-                    </li>
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        Co-creator management
+                      </li>
 
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="text-primary size-4 shrink-0" />
-                      Everything in Premium
-                    </li>
-                  </ul>
-                </div>
+                      <li className="flex items-center gap-2 text-sm">
+                        <Check className="text-primary size-4 shrink-0" />
+                        Everything in Premium
+                      </li>
+                    </ul>
+                  </div>
+                )}
               </div>
             ) : null}
 

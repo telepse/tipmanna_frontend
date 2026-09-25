@@ -26,6 +26,12 @@ export function exploreCurrentHref(
   return `${pathBase}${searchParamsKey ? `?${searchParamsKey}` : ""}`;
 }
 
+/** Tipper OTP from an Explore glance drawer should return to the current feed URL. */
+export function exploreDrawerSignInRedirectPath(pathname: string): string {
+  const key = exploreLiveSearchParamsKey("");
+  return exploreCurrentHref(pathname, key);
+}
+
 /** Prefer live browser query string on the client; fall back to React searchParams. */
 export function exploreLiveSearchParamsKey(searchParamsKey: string): string {
   if (typeof window !== "undefined") {

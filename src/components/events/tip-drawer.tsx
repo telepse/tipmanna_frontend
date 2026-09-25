@@ -154,6 +154,7 @@ function TipDrawerContent({
   tippingCharacters = [],
   characterSets = [],
   performerId = null,
+  projectId = null,
   paymentSurface = "unknown",
   paymentCommunityId,
   paymentChannelId,
@@ -766,55 +767,79 @@ function TipDrawerContent({
         : undefined;
 
     // Send the ConfirmationToken ID to your server for additional logic and attach the ConfirmationToken
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/payments/create-payment-intent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(inviteToken ? { "x-event-room-invite-token": inviteToken } : {}),
-        },
-        body: JSON.stringify({
-          amount: Number(walletPayTotal),
-          eventId,
-          userId,
-          role,
-          characters: walletPayLines,
-          confirmationTokenId: confirmationToken?.id,
-          performerId,
-          paymentSurface,
-          paymentContentId: paymentChannelId ?? undefined,
-          communityId: paymentCommunityId,
-          playbackOffsetSec: (() => {
-            const o = getPlaybackOffsetSec?.();
-            return typeof o === "number" && !Number.isNaN(o)
-              ? Math.max(0, Math.floor(o))
-              : undefined;
-          })(),
-          watchDurationBeforePayMs: (() => {
-            const w = getWatchDurationBeforePayMs?.();
-            return typeof w === "number" && !Number.isNaN(w) && w >= 0
-              ? Math.floor(w)
-              : undefined;
-          })(),
-          secondaryText:
-            (textTipActive || selectedTips.includes("Comment")) &&
-            textTipValue?.trim()
-              ? textTipValue.trim().slice(0, 500)
-              : undefined,
-          deviceCategory: getDeviceCategory(),
-          clientSessionId: getAnalyticsSessionId(),
-          ...(vfEffectiveId ? { videoFeatureCardId: vfEffectiveId } : {}),
-          ...(tipQuoteId ? { tipQuoteId } : {}),
-          deviceKey: getDeviceKey(),
-        }),
-      }
-    );
-
-    const data = await res.json();
-
-    if (!data?.client_secret) {
+    let res: Response;
+    let data: {
+      client_secret?: string;
+      transactionId?: string;
+      recoveryState?: string;
+      error?: { message?: string; details?: Array<{ message?: string }> };
+    };
+    try {
+      res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/payments/create-payment-intent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(inviteToken
+              ? { "x-event-room-invite-token": inviteToken }
+              : {}),
+          },
+          body: JSON.stringify({
+            amount: Number(walletPayTotal),
+            eventId,
+            userId,
+            role,
+            characters: walletPayLines,
+            confirmationTokenId: confirmationToken?.id,
+            paymentSurface,
+            paymentContentId: paymentChannelId?.trim() || undefined,
+            communityId: paymentCommunityId?.trim() || undefined,
+            ...(typeof performerId === "string" && performerId.trim()
+              ? { performerId: performerId.trim() }
+              : {}),
+            ...(typeof projectId === "string" && projectId.trim()
+              ? { projectId: projectId.trim() }
+              : {}),
+            playbackOffsetSec: (() => {
+              const o = getPlaybackOffsetSec?.();
+              return typeof o === "number" && !Number.isNaN(o)
+                ? Math.max(0, Math.floor(o))
+                : undefined;
+            })(),
+            watchDurationBeforePayMs: (() => {
+              const w = getWatchDurationBeforePayMs?.();
+              return typeof w === "number" && !Number.isNaN(w) && w >= 0
+                ? Math.floor(w)
+                : undefined;
+            })(),
+            secondaryText:
+              (textTipActive || selectedTips.includes("Comment")) &&
+              textTipValue?.trim()
+                ? textTipValue.trim().slice(0, 500)
+                : undefined,
+            deviceCategory: getDeviceCategory(),
+            clientSessionId: getAnalyticsSessionId(),
+            ...(vfEffectiveId ? { videoFeatureCardId: vfEffectiveId } : {}),
+            ...(tipQuoteId ? { tipQuoteId } : {}),
+            deviceKey: getDeviceKey(),
+          }),
+        }
+      );
+      data = await res.json();
+    } catch {
       setErrorMessage("Payment could not be initiated.");
+      setIsProcessing(false);
+      return;
+    }
+
+    if (!res.ok || !data?.client_secret) {
+      const apiMessage =
+        (typeof data?.error?.message === "string" && data.error.message) ||
+        (typeof data?.error?.details?.[0]?.message === "string" &&
+          data.error.details[0].message) ||
+        null;
+      setErrorMessage(apiMessage ?? "Payment could not be initiated.");
       setIsProcessing(false);
       return;
     }
@@ -1346,6 +1371,8 @@ function TipDrawerContent({
         onWalletSnapshotRefresh={refreshWallet}
         onBeforeStripeWalletRedirect={onSnapshotPaymentRedirect}
         videoFeatureCardId={vfEffectiveId}
+        performerId={performerId}
+        projectId={projectId}
         ensureTipQuoteId={
           tipQuoteContext &&
           (paymentSurface === "event_room" ||

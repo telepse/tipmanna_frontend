@@ -248,6 +248,77 @@ export function resolveTipDrawerPresentation<T extends CharacterSetLike>(
   };
 }
 
+/**
+ * TV always publishes resolved strip/drawer when icons exist (including Elite-only
+ * while sets load). Callers hold last-good only when `next.stripPool` is empty —
+ * never render a blank strip/drawer.
+ */
+export function shouldPublishTvTipPresentation(_opts: {
+  catalogLoading: boolean;
+  assignedSetCount: number;
+  eliteCharacterIdCount?: number;
+}): boolean {
+  return true;
+}
+
+export type TvTipLastGoodHeld = {
+  eventId: string;
+  drawerSets: CharacterSetLike[];
+  stripPool: RoomCharacter[];
+};
+
+function catalogOwnerMatchesDrawerEvent(
+  tipDrawerEventId: string,
+  catalogEventId: string
+): boolean {
+  const drawer = tipDrawerEventId.trim();
+  const owner = catalogEventId.trim();
+  if (drawer && owner === drawer) return true;
+  if (!drawer && owner) return true;
+  return false;
+}
+
+/** TV last-good strip/drawer — never pin icons under a mismatched catalog owner. */
+export function holdTvTipLastGood<T extends CharacterSetLike>(params: {
+  tipDrawerEventId: string;
+  catalogEventId: string;
+  next: { drawerSets: T[]; stripPool: RoomCharacter[] };
+  held: TvTipLastGoodHeld | null;
+}): {
+  presentation: { drawerSets: T[]; stripPool: RoomCharacter[] };
+  held: TvTipLastGoodHeld | null;
+} {
+  const { tipDrawerEventId, catalogEventId, next, held } = params;
+  const drawerKey = tipDrawerEventId.trim();
+
+  if (next.stripPool.length === 0) {
+    if (held && held.eventId === drawerKey) {
+      return {
+        presentation: {
+          drawerSets: held.drawerSets as T[],
+          stripPool: held.stripPool,
+        },
+        held,
+      };
+    }
+    return { presentation: next, held };
+  }
+
+  if (!catalogOwnerMatchesDrawerEvent(tipDrawerEventId, catalogEventId)) {
+    if (held && held.eventId !== drawerKey) {
+      return { presentation: next, held: null };
+    }
+    return { presentation: next, held };
+  }
+
+  const nextHeld: TvTipLastGoodHeld = {
+    eventId: drawerKey,
+    drawerSets: next.drawerSets as CharacterSetLike[],
+    stripPool: next.stripPool,
+  };
+  return { presentation: next, held: nextHeld };
+}
+
 /** Single-set fallback when assigned event catalog sets are unavailable (studio / pre-hydrate). */
 export function buildFallbackDrawerSetsFromCharacters(
   characters: RoomCharacter[]

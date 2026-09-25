@@ -12,7 +12,7 @@ export function formatTipLinkAttribution({
   const primary = communityName?.trim() || hostFirstName.trim();
   const coOwner = coOwnerName?.trim();
   if (primary && coOwner) {
-    return `${primary} and ${coOwner}`;
+    return `${coOwner} and ${primary}`;
   }
   return primary;
 }

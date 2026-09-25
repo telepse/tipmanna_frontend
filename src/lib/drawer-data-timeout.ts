@@ -1,0 +1,1 @@
+export const DRAWER_DATA_LOAD_TIMEOUT_MS = 8_000;

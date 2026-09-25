@@ -55,8 +55,7 @@ export function HostCommunityToolsPicker({
   const communityActive =
     info?.tier === "HOST_COMMUNITY" && status === "active";
   const localPrompt = useHostSubscriptionPrompt({ focusTier: "community" });
-  const { openForRequired, openForLapsed } =
-    subscriptionPrompt ?? localPrompt;
+  const { openForRequired, openForLapsed } = subscriptionPrompt ?? localPrompt;
 
   const [communityPickOpen, setCommunityPickOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<CommunityAction | null>(

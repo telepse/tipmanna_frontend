@@ -9,7 +9,8 @@ export type ExploreHistoryCommitSource =
   | "community-selection"
   | "discover-expand"
   | "passive-sync"
-  | "join-tab-guard";
+  | "join-tab-guard"
+  | "overlay-play";
 
 /** True for same-origin hrefs under /explore (relative or absolute). */
 export function isExploreSameOriginHref(href: string): boolean {

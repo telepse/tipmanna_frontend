@@ -36,7 +36,10 @@ import { deleteFormDraftAction } from "@/actions/form-drafts";
 import { applyServerFormErrors } from "@/lib/form-error-mapper";
 import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util";
 import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
-import { coOwnerBlockReasonMessage } from "@/lib/coowner-submit-readiness.util";
+import {
+  coOwnerSubmitHelperText,
+  shouldShowCoOwnerSubmitHelper,
+} from "@/lib/coowner-submit-readiness.util";
 import { useCoOwnerPusherApprovalRefresh } from "@/hooks/use-coowner-pusher-approval-refresh";
 import {
   isYoutubeVerifyBlockingSubmit,
@@ -238,7 +241,9 @@ export default function EventAndContentPage() {
   const videoLinks = form.watch("videoLinks") ?? [];
   const {
     blocked: coOwnerSubmitBlocked,
+    checking: coOwnerChecking,
     reason: coOwnerBlockReason,
+    hiddenUntilCoOwnerApprove,
     warnings: coOwnerWarnings,
     refresh: refreshCoOwnerSubmit,
   } = useCoOwnerDraftSubmitBlocked(videoLinks);
@@ -249,7 +254,7 @@ export default function EventAndContentPage() {
       .map(v => v.coOwnerDraftKey),
     extraInviteIds: pendingCoOwnerInviteIds,
     onApproved: () => {
-      void refreshCoOwnerSubmit();
+      void refreshCoOwnerSubmit({ background: true });
       setCoOwnerRefreshToken(t => t + 1);
     },
   });
@@ -260,15 +265,10 @@ export default function EventAndContentPage() {
     youtubeVerifyStatus
   );
   const submitDisabled =
-    isLoading || coOwnerSubmitDisabled || youtubeVerifyDisabled;
-  const submitBlockedLabel = coOwnerSubmitDisabled
-    ? coOwnerBlockReason
-      ? coOwnerBlockReasonMessage(coOwnerBlockReason)
-      : "Awaiting co-owner approval"
-    : youtubeVerifyDisabled
-      ? (youtubeVerifyBlockingMessage(videoLinks, youtubeVerifyStatus) ??
-        "Verify on YouTube")
-      : null;
+    isLoading ||
+    coOwnerSubmitDisabled ||
+    coOwnerChecking ||
+    youtubeVerifyDisabled;
 
   const onSubmit = async (values: NewEventFormData) => {
     if (!runPrivacyChecks()) {
@@ -277,11 +277,15 @@ export default function EventAndContentPage() {
     if (isLoading || !beginExclusiveSubmit(submitInFlightRef)) return;
 
     try {
-      const coOwnerErr = await validateCoOwnerDraftsForSubmit(
-        values.videoLinks ?? []
-      );
-      if (coOwnerErr) {
-        toast.error(coOwnerErr);
+      if (!coOwnerSubmitDisabled && !coOwnerChecking) {
+        const coOwnerErr = await validateCoOwnerDraftsForSubmit(
+          values.videoLinks ?? []
+        );
+        if (coOwnerErr) {
+          toast.error(coOwnerErr);
+          return;
+        }
+      } else if (coOwnerSubmitDisabled || coOwnerChecking) {
         return;
       }
 
@@ -532,13 +536,30 @@ export default function EventAndContentPage() {
                             <Loader2 className="size-4 animate-spin" />{" "}
                             Submitting for approval...
                           </span>
-                        ) : submitBlockedLabel ? (
-                          <span>{submitBlockedLabel}</span>
                         ) : (
                           <span>Submit for approval</span>
                         )}
                       </Button>
                     )}
+                    {shouldShowCoOwnerSubmitHelper(
+                      coOwnerSubmitDisabled,
+                      coOwnerChecking,
+                      hiddenUntilCoOwnerApprove
+                    ) ? (
+                      <p className="text-muted-foreground mt-2 max-w-lg text-center text-xs">
+                        {coOwnerSubmitHelperText(
+                          coOwnerBlockReason,
+                          hiddenUntilCoOwnerApprove
+                        )}
+                      </p>
+                    ) : youtubeVerifyDisabled ? (
+                      <p className="text-muted-foreground mt-2 max-w-lg text-center text-xs">
+                        {youtubeVerifyBlockingMessage(
+                          videoLinks,
+                          youtubeVerifyStatus
+                        ) ?? "Verify on YouTube"}
+                      </p>
+                    ) : null}
                   </>
                 )}
               </div>

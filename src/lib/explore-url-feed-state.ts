@@ -1,3 +1,9 @@
+import {
+  applyOverlayPlayToSearchParams,
+  PLAY_EVENT_PARAM,
+} from "@/lib/playback-overlay-url";
+import { VIDEO_DEEP_LINK_PARAM } from "@/lib/public-video-url";
+
 export type ExploreFeedSubTab = "trends" | "saves" | "tv" | "community";
 
 export type ExploreFeedUrlState = {
@@ -169,6 +175,12 @@ export function buildExploreFeedHref(
   } else {
     p.delete("tab");
     p.delete("joinCommunity");
+    applyOverlayPlayToSearchParams(p, null);
+  }
+
+  if (tabCtx.tab !== "join" || !tabCtx.joinCommunityId) {
+    p.delete(PLAY_EVENT_PARAM);
+    p.delete(VIDEO_DEEP_LINK_PARAM);
   }
 
   const q = p.toString();

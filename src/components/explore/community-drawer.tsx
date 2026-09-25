@@ -1,10 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
-import { exploreCommunityJoinHref } from "@/lib/community-links";
+import { exploreDrawerSignInRedirectPath } from "@/lib/explore-url-sync-policy";
 import { cn } from "@/lib/utils";
 
 const CommunityJoinPanel = dynamic(
@@ -32,6 +33,10 @@ type Props = {
 
 export function CommunityDrawer({ open, onOpenChange, communityId }: Props) {
   const id = communityId?.trim() ?? "";
+  const pathname = usePathname();
+  const drawerSignInRedirectPath = exploreDrawerSignInRedirectPath(
+    pathname ?? "/explore"
+  );
 
   return (
     <Drawer
@@ -51,7 +56,8 @@ export function CommunityDrawer({ open, onOpenChange, communityId }: Props) {
               key={id}
               communityId={id}
               variant="drawer"
-              signInRedirectPath={exploreCommunityJoinHref(id)}
+              signInRedirectPath={drawerSignInRedirectPath}
+              onDrawerDismiss={() => onOpenChange(false)}
             />
           ) : (
             <p className="text-muted-foreground p-8 text-center text-sm">

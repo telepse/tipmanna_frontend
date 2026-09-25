@@ -16,7 +16,7 @@ import { serverAuthHeaders } from "@/lib/server-auth";
 const DISCOVER_CATALOG_GET: ServerActionFetchInit = {
   method: "GET",
   headers: { "Content-Type": "application/json" },
-  cache: "force-cache",
+  cache: "no-store",
   next: { revalidate: 30 },
 };
 
@@ -157,6 +157,11 @@ export type DiscoveryEventRow = {
   accessMode: string;
   communityId: string | null;
   eventDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  organizationName: string | null;
+  numOfTips: number | null;
+  amountRaised: number | null;
   isArchived?: boolean;
   badge: "unrestricted" | "restricted" | "community" | "archived";
 };
@@ -166,7 +171,9 @@ export async function getDiscoveryEventsAction(limit = 5) {
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/discover/events?limit=${limit}`,
     DISCOVER_CATALOG_GET,
     "getDiscoveryEventsAction",
-    raw => (Array.isArray(raw) ? raw : []) as DiscoveryEventRow[]
+    raw => {
+      return (Array.isArray(raw) ? raw : []) as DiscoveryEventRow[];
+    }
   );
 }
 
@@ -305,8 +312,12 @@ export async function getContentChannelAction(
   const { buildEventRoomRequestHeaders } = await import(
     "@/lib/event-room-request"
   );
+  const { getToken } = await import("@/lib/getToken");
+  const { getHostToken } = await import("@/lib/getHostToken");
   const roomHeaders = await buildEventRoomRequestHeaders(trimmed);
-  const authHeaders = await serverAuthHeaders(authToken);
+  const resolvedToken =
+    authToken?.trim() || (await getToken()) || (await getHostToken()) || null;
+  const authHeaders = await serverAuthHeaders(resolvedToken);
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/contents/channel/${trimmed}`,
     {

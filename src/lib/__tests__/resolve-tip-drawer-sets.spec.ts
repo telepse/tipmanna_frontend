@@ -12,6 +12,8 @@ import {
   PUBLIC_STRIP_POOL_MAX,
   resolveTipDrawerPresentation,
   resolveTipDrawerSets,
+  holdTvTipLastGood,
+  shouldPublishTvTipPresentation,
   sortDrawerCharacterSets,
 } from "@/lib/resolve-tip-drawer-sets";
 import { shuffleTipStrip } from "@/lib/shuffle-tip-strip";
@@ -272,5 +274,99 @@ describe("sortDrawerCharacterSets", () => {
       { name: "premium elite", characters: [] },
     ]);
     expect(sorted[0].name).toBe("premium elite");
+  });
+});
+
+describe("holdTvTipLastGood", () => {
+  const char = (id: string) => ({
+    id,
+    name: id,
+    iconUrl: "/a.png",
+    price: 5,
+    styleName: "Confetti" as const,
+  });
+
+  it("does not write last-good when catalog owner mismatches drawer event id", () => {
+    const next = {
+      drawerSets: [{ id: "s1", name: "General", characters: [char("x")] }],
+      stripPool: [char("x")],
+    };
+    const result = holdTvTipLastGood({
+      tipDrawerEventId: "event-b",
+      catalogEventId: "event-a",
+      next,
+      held: null,
+    });
+    expect(result.held).toBeNull();
+    expect(result.presentation.stripPool).toHaveLength(1);
+  });
+
+  it("holds same-event empty strip from prior good presentation", () => {
+    const heldStrip = [char("y")];
+    const held = {
+      eventId: "event-a",
+      drawerSets: [{ id: "s1", name: "General", characters: heldStrip }],
+      stripPool: heldStrip,
+    };
+    const result = holdTvTipLastGood({
+      tipDrawerEventId: "event-a",
+      catalogEventId: "event-a",
+      next: { drawerSets: [], stripPool: [] },
+      held,
+    });
+    expect(result.presentation.stripPool).toEqual(heldStrip);
+    expect(result.held).toEqual(held);
+  });
+
+  it("does not reuse held when drawer event id changed", () => {
+    const held = {
+      eventId: "event-a",
+      drawerSets: [{ id: "s1", name: "General", characters: [char("z")] }],
+      stripPool: [char("z")],
+    };
+    const result = holdTvTipLastGood({
+      tipDrawerEventId: "event-b",
+      catalogEventId: "event-b",
+      next: { drawerSets: [], stripPool: [] },
+      held,
+    });
+    expect(result.presentation.stripPool).toHaveLength(0);
+  });
+});
+
+describe("shouldPublishTvTipPresentation", () => {
+  it("still publishes while catalog is loading (Elite-only is allowed; blank strip is not)", () => {
+    expect(
+      shouldPublishTvTipPresentation({
+        catalogLoading: true,
+        assignedSetCount: 0,
+        eliteCharacterIdCount: 2,
+      })
+    ).toBe(true);
+  });
+
+  it("publishes assigned General/Premium plus elite ids without PLAYING", () => {
+    expect(
+      shouldPublishTvTipPresentation({
+        catalogLoading: false,
+        assignedSetCount: 2,
+        eliteCharacterIdCount: 2,
+      })
+    ).toBe(true);
+    const text = comment();
+    const { drawerSets } = resolveTipDrawerPresentation(
+      [
+        { id: "s1", name: "General", characters: [char("a", 5)] },
+        { id: "s2", name: "Premium", characters: [char("b", 10)] },
+      ],
+      [text, char("a", 5), char("b", 10), char("e1", 12)],
+      undefined,
+      ["e1"]
+    );
+    expect(drawerSets.map(s => s.name)).toEqual([
+      "Elite",
+      "General",
+      "Premium",
+    ]);
   });
 });

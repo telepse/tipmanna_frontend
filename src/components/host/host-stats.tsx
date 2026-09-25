@@ -543,22 +543,26 @@ export const HostStats = ({ events, stats }: Props) => {
               >
                 {/* Event code section */}
                 <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    <span className="shrink-0">Host event code</span>
+                  <div className="flex min-w-0 flex-col gap-3 rounded-lg bg-gray-200 p-3 sm:flex-row sm:flex-wrap sm:items-center">
+                    <span className="shrink-0 font-medium">
+                      Host event code
+                    </span>
 
-                    <Button
-                      onClick={handleCopy}
-                      className="w-fit max-w-full"
-                    >
-                      <Copy />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={handleCopy}
+                        className="w-fit max-w-full"
+                      >
+                        <Copy />
 
-                      <span className="max-w-[180px] truncate">
-                        {eventCode}
-                      </span>
-                    </Button>
+                        <span className="max-w-[180px] truncate">
+                          {eventCode}
+                        </span>
+                      </Button>
 
-                    <div className="w-full sm:w-auto">
-                      <GenerateQrButton link={fullLink} />
+                      <div className="w-full sm:w-auto">
+                        <GenerateQrButton link={fullLink} />
+                      </div>
                     </div>
                   </div>
                 </div>

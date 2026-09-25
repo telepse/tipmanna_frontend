@@ -53,11 +53,8 @@ export function useTipLinkProfileCreate({
 }) {
   const { requestHostAuth, HostAuthModal } = useHostCapabilityWithAuth();
   const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
-  const {
-    handleSubscriptionActionError,
-    openForRequired,
-    openForLapsed,
-  } = subscriptionPrompt ?? localPrompt;
+  const { handleSubscriptionActionError, openForRequired, openForLapsed } =
+    subscriptionPrompt ?? localPrompt;
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [draftTipLinks, setDraftTipLinks] = useState<TipLinkSummary[]>([]);

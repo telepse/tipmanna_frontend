@@ -17,6 +17,7 @@ import { VisitorAutoLogoutWrapper } from "@/components/VistorAutoLogoutWrapper";
 import { SessionActivityPinger } from "@/components/auth/session-activity-pinger";
 import { EmailVerificationRequiredListener } from "@/components/auth/email-verification-required-listener";
 import { AuthIdentityBootstrap } from "@/components/auth/auth-identity-bootstrap";
+import { HostLinkWarmBootstrap } from "@/components/auth/host-link-warm-bootstrap";
 import { CreateDialogHost } from "@/components/home/create-dialog-host";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             <SessionActivityPinger />
             <EmailVerificationRequiredListener />
             <AuthIdentityBootstrap />
+            <HostLinkWarmBootstrap />
             <TvAnalyticsAuthBridge />
             <SideChickProvider>
               <FeatureCardTipProvider>

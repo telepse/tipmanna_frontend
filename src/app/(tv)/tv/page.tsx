@@ -7,6 +7,8 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { getPrimaryOrigin } from "@/lib/site-config";
 import { isTvLazySsrCharactersEnabled } from "@/lib/tv-feature-flags";
+import { loadSsrTipmannaTvBootstrap } from "@/lib/tv-ssr-live-tip-catalog";
+import { shouldSkipSsrTipmannaTvBootstrap } from "@/lib/tv-ssr-bootstrap-skip";
 
 type EventChannelListItem = {
   url?: string;
@@ -87,6 +89,16 @@ export default async function TVPage({
     loadChannelForVideoId(videoId),
   ]);
 
+  const tvBootstrap = shouldSkipSsrTipmannaTvBootstrap({
+    videoId,
+    currentChannel,
+  })
+    ? {
+        initialTvTipCatalog: null,
+        ssrScheduleBootstrap: null,
+      }
+    : await loadSsrTipmannaTvBootstrap();
+
   if (currentChannel && videoId) {
     return (
       <div className="fixed inset-0 z-50 bg-white">
@@ -102,7 +114,11 @@ export default async function TVPage({
     <>
       <section className="w-full p-2">
         <Suspense fallback={<TvPageSuspenseFallback />}>
-          <TVPageShell characters={characters ?? []} />
+          <TVPageShell
+            characters={characters ?? []}
+            initialTvTipCatalog={tvBootstrap.initialTvTipCatalog}
+            ssrScheduleBootstrap={tvBootstrap.ssrScheduleBootstrap}
+          />
         </Suspense>
       </section>
     </>

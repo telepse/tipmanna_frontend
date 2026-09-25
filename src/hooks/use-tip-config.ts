@@ -15,6 +15,47 @@ export type TipConfigHookState =
   | { status: "loading" }
   | ({ status: "ready" } & ActiveTipConfigResponse);
 
+const tipConfigMemoryCache = new Map<string, ActiveTipConfigResponse>();
+
+/** Test-only reset. */
+export function resetTipConfigCacheForTests(): void {
+  tipConfigMemoryCache.clear();
+}
+
+/** Test-only prime. */
+export function primeTipConfigCacheForTests(
+  eventId: string,
+  response: ActiveTipConfigResponse
+): void {
+  cacheTipConfig(eventId, response);
+}
+
+export function getCachedTipConfig(
+  eventId: string | undefined
+): ActiveTipConfigResponse | undefined {
+  const trimmed = eventId?.trim();
+  if (!trimmed) return undefined;
+  return tipConfigMemoryCache.get(trimmed);
+}
+
+/** Pure helper: initial hook state for an event (cache hit vs miss). */
+export function resolveTipConfigStateForEvent(
+  eventId: string | undefined,
+  opts?: { initial?: ActiveTipConfigResponse | null }
+): TipConfigHookState {
+  if (!eventId || !isTipCustomizationEnabled()) {
+    return { status: "disabled" };
+  }
+  if (opts?.initial) {
+    return { status: "ready", ...opts.initial };
+  }
+  const cached = getCachedTipConfig(eventId);
+  if (cached) {
+    return { status: "ready", ...cached };
+  }
+  return { status: "loading" };
+}
+
 /** Ignore stale fetch responses after eventId changes. */
 export function shouldApplyTipConfigFetch(
   requestId: number,
@@ -23,19 +64,17 @@ export function shouldApplyTipConfigFetch(
   return requestId === latestRequestId;
 }
 
+function cacheTipConfig(eventId: string, response: ActiveTipConfigResponse) {
+  tipConfigMemoryCache.set(eventId.trim(), response);
+}
+
 export function useTipConfig(
   eventId: string | undefined,
   opts?: { initial?: ActiveTipConfigResponse | null }
 ): TipConfigHookState {
-  const [state, setState] = useState<TipConfigHookState>(() => {
-    if (!eventId || !isTipCustomizationEnabled()) {
-      return { status: "disabled" };
-    }
-    if (opts?.initial) {
-      return { status: "ready", ...opts.initial };
-    }
-    return { status: "loading" };
-  });
+  const [state, setState] = useState<TipConfigHookState>(() =>
+    resolveTipConfigStateForEvent(eventId, opts)
+  );
   const etagRef = useRef<string | null>(
     opts?.initial && opts.initial.mode === "live" ? opts.initial.etag : null
   );
@@ -53,7 +92,9 @@ export function useTipConfig(
           return;
         }
         if (!res.ok) {
-          setState({ status: "ready", mode: "legacy" });
+          const legacy: ActiveTipConfigResponse = { mode: "legacy" };
+          cacheTipConfig(eventId, legacy);
+          setState({ status: "ready", ...legacy });
           return;
         }
         const json = (await res.json()) as ActiveTipConfigResponse;
@@ -65,12 +106,15 @@ export function useTipConfig(
         } else {
           etagRef.current = null;
         }
+        cacheTipConfig(eventId, json);
         setState({ status: "ready", ...json });
       } catch {
         if (!shouldApplyTipConfigFetch(requestId, fetchGenerationRef.current)) {
           return;
         }
-        setState({ status: "ready", mode: "legacy" });
+        const legacy: ActiveTipConfigResponse = { mode: "legacy" };
+        cacheTipConfig(eventId, legacy);
+        setState({ status: "ready", ...legacy });
       }
     },
     [eventId]
@@ -86,8 +130,19 @@ export function useTipConfig(
       return;
     }
     const requestId = ++fetchGenerationRef.current;
-    setState({ status: "loading" });
-    void fetchConfig(requestId);
+    const cached = getCachedTipConfig(eventId);
+    if (cached) {
+      setState({ status: "ready", ...cached });
+      if (cached.mode === "live") {
+        etagRef.current = cached.etag;
+      } else {
+        etagRef.current = null;
+      }
+      void fetchConfig(requestId);
+    } else {
+      setState({ status: "loading" });
+      void fetchConfig(requestId);
+    }
   }, [eventId, fetchConfig]);
 
   useEffect(() => {

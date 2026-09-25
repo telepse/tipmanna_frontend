@@ -21,6 +21,10 @@ export const WebTvLooper = ({
   onRegisterExitFull,
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
+  onGoLive,
+  onSwitchToLocal,
+  onOpenPreviewPlaylist,
+  onOpenSchedule,
 }: {
   characters: RoomCharacter[];
   /** compact: legacy column; wide: full-width player for desktop /tv */
@@ -35,6 +39,10 @@ export const WebTvLooper = ({
   onContinueCommentToTip?: () => void;
   commentDrawerVideoTitle?: string;
   commentDrawerVideoDescription?: string;
+  onGoLive?: () => void;
+  onSwitchToLocal?: () => void;
+  onOpenPreviewPlaylist?: () => void;
+  onOpenSchedule?: () => void;
 }) => (
   <TvLooper
     characters={characters}
@@ -49,5 +57,9 @@ export const WebTvLooper = ({
     onRegisterExitFull={onRegisterExitFull}
     commentDrawerVideoTitle={commentDrawerVideoTitle}
     commentDrawerVideoDescription={commentDrawerVideoDescription}
+    onGoLive={onGoLive}
+    onSwitchToLocal={onSwitchToLocal}
+    onOpenPreviewPlaylist={onOpenPreviewPlaylist}
+    onOpenSchedule={onOpenSchedule}
   />
 );

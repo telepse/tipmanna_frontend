@@ -127,6 +127,7 @@ import { resolveBroadcastPosition } from "@/lib/tv/broadcastEngine";
 import { computeInitialEmbedPosition } from "@/lib/tv-initial-live-offset-embed";
 import { useTvPlayerControls } from "@/hooks/use-tv-player-controls";
 import type { TvLooperLayout } from "@/lib/tv-surface-layout";
+import { TvPhoneLandscapeTopBar } from "@/components/tv/tv-phone-landscape-top-bar";
 
 /**
  * TvLooper renders the TvPlayer, local playback controls (play/pause, mute, seek),
@@ -148,6 +149,10 @@ export const TvLooper = ({
   commentDrawerVideoTitle,
   commentDrawerVideoDescription,
   showSideRails = true,
+  onGoLive,
+  onSwitchToLocal,
+  onOpenPreviewPlaylist,
+  onOpenSchedule,
 }: {
   characters: RoomCharacter[];
   /** Surface layout — mobileInline portrait, mobileImmersive phone landscape / full view. */
@@ -172,6 +177,10 @@ export const TvLooper = ({
   commentDrawerVideoTitle?: string;
   commentDrawerVideoDescription?: string;
   showSideRails?: boolean;
+  onGoLive?: () => void;
+  onSwitchToLocal?: () => void;
+  onOpenPreviewPlaylist?: () => void;
+  onOpenSchedule?: () => void;
 }) => {
   const {
     items,
@@ -275,6 +284,7 @@ export const TvLooper = ({
   /** Full-page payment overlays on mobile; confined to player on desktop web (match tv-page-client-wrapper). */
   const isMobileTv = layout !== "wideInline";
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [desktopEnlarged, setDesktopEnlarged] = useState(false);
 
   const [showShare, setShowShare] = useState(false);
   const [showCommentDrawer, setShowCommentDrawer] = useState(false);
@@ -1008,7 +1018,7 @@ export const TvLooper = ({
     current.channel as Parameters<typeof pickVideoSurfaceBadgeProps>[0],
     currentEventId || undefined
   );
-  const fillViewport = isFullView || isFullscreen;
+  const fillViewport = isFullView || isFullscreen || desktopEnlarged;
   const widePlayer =
     (layout === "wideInline" || playerLayout === "wide") &&
     !isMobileTv &&
@@ -1017,6 +1027,12 @@ export const TvLooper = ({
     isFullView && !shellEmbedsFullView && !lockFullLandscape;
   const showActionRails =
     showSideRails || (isMobileImmersiveLayout && isMobileTv);
+  const showDesktopEnlargedChrome =
+    desktopEnlarged &&
+    layout === "wideInline" &&
+    Boolean(
+      onGoLive && onSwitchToLocal && onOpenPreviewPlaylist && onOpenSchedule
+    );
 
   return (
     <div
@@ -1024,12 +1040,16 @@ export const TvLooper = ({
       {...chromeHide.interactionProps}
       className={cn(
         "relative w-full",
+        desktopEnlarged &&
+          layout === "wideInline" &&
+          immersiveFullViewViewportClassName("tv"),
         useFixedFullViewChrome && immersiveFullViewViewportClassName("tv"),
         isFullView &&
           shellEmbedsFullView &&
           "flex h-full min-h-0 w-full flex-col overflow-hidden bg-black text-white",
         fillViewport &&
           !isFullView &&
+          !desktopEnlarged &&
           "h-[100dvh] min-h-[100dvh] w-full max-w-none bg-black pt-[env(safe-area-inset-top,0px)] md:h-[min(70vh,680px)]",
         !fillViewport &&
           widePlayer &&
@@ -1044,7 +1064,21 @@ export const TvLooper = ({
       )}
     >
       {currentEventId ? <SaveEventId eventId={currentEventId} /> : null}
-      {isFullView && !lockFullLandscape ? (
+      {showDesktopEnlargedChrome ? (
+        <TvPhoneLandscapeTopBar
+          mode={mode}
+          onClose={() => setDesktopEnlarged(false)}
+          onGoLive={onGoLive!}
+          onSwitchToLocal={onSwitchToLocal!}
+          onOpenPreviewPlaylist={onOpenPreviewPlaylist!}
+          onOpenSchedule={onOpenSchedule!}
+        />
+      ) : desktopEnlarged && layout === "wideInline" ? (
+        <ImmersiveMediaTopBar
+          onClose={() => setDesktopEnlarged(false)}
+          title={currentTitle}
+        />
+      ) : isFullView && !lockFullLandscape ? (
         <ImmersiveMediaTopBar
           onClose={exitFull}
           title={currentTitle}
@@ -1105,6 +1139,15 @@ export const TvLooper = ({
                   <Maximize2 className="size-5" />
                 </button>
               )}
+            {!isMobileTv && layout === "wideInline" && !desktopEnlarged && (
+              <button
+                type="button"
+                onClick={() => setDesktopEnlarged(true)}
+                aria-label="Enlarge"
+              >
+                <Maximize2 className="size-5" />
+              </button>
+            )}
           </div>
 
           <div className="border-2 border-gray-300">
@@ -1598,7 +1641,9 @@ export const TvLooper = ({
               "absolute z-[20] truncate bg-black text-sm font-medium text-white",
               isFullView && isMobileTv && "hidden",
               !isFullView && isMobileTv ? "right-2 bottom-12 left-2" : null,
-              !isFullView && !isMobileTv ? "right-2 -bottom-6 left-10" : null
+              !isFullView && !isMobileTv && !desktopEnlarged
+                ? "right-2 -bottom-6 left-10"
+                : null
             )}
           >
             <div className="flex items-center gap-1">
@@ -1624,7 +1669,9 @@ export const TvLooper = ({
               "pointer-events-auto absolute z-[1110]",
               isFullView && isMobileTv && "hidden",
               !isFullView && isMobileTv ? "right-2 bottom-7 left-2" : null,
-              !isFullView && !isMobileTv ? "right-2 -bottom-12 left-10" : null
+              !isFullView && !isMobileTv && !desktopEnlarged
+                ? "right-2 -bottom-12 left-10"
+                : null
             )}
           >
             <input
@@ -1657,7 +1704,9 @@ export const TvLooper = ({
               "pointer-events-none absolute z-[1110]",
               isFullView && isMobileTv && "hidden",
               !isFullView && isMobileTv ? "right-2 bottom-3 left-2" : null,
-              !isFullView && !isMobileTv ? "right-2 -bottom-16 left-10" : null
+              !isFullView && !isMobileTv && !desktopEnlarged
+                ? "right-2 -bottom-16 left-10"
+                : null
             )}
           >
             <div className="flex items-center justify-between text-xs text-white">
@@ -1668,7 +1717,7 @@ export const TvLooper = ({
         </div>
       </div>
 
-      {isFullView && isMobileTv ? (
+      {(isFullView && isMobileTv) || showDesktopEnlargedChrome ? (
         <div className={immersiveMobileScrubberDockClassName(immersiveLayout)}>
           <div className="flex items-center gap-2 px-1">
             <div className="flex flex-1 flex-col gap-1">

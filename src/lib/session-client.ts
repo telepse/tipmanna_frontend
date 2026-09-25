@@ -1,4 +1,5 @@
 import type { AuthUserPayload } from "@/lib/auth-response";
+import { invalidateHostLinkCache } from "@/lib/host-link-cache";
 import { notifyHostSessionCleared } from "@/lib/host-session-probe";
 
 /** Persist auth via HttpOnly cookie route (token) + non-sensitive user cookie. */
@@ -45,6 +46,9 @@ export async function persistHostSession(
       credentials: "include",
       body: JSON.stringify({ token, user, expiresDays }),
     });
+    if (res.ok) {
+      invalidateHostLinkCache();
+    }
     return res.ok;
   } catch {
     return false;
@@ -57,6 +61,7 @@ export async function clearHostSession(): Promise<void> {
       method: "DELETE",
       credentials: "include",
     });
+    invalidateHostLinkCache();
     notifyHostSessionCleared();
   } catch {
     /* noop */

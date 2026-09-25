@@ -21,6 +21,7 @@ import {
 import { Logo } from "./logo";
 import { RootState } from "@/redux/store";
 import { getAccountNavHref } from "@/lib/account-nav-href";
+import { warmHostSessionIntent } from "@/lib/warm-host-session-intent";
 import { useSideChick } from "@/components/community/side-chick-provider";
 
 export default function NavbarClient() {
@@ -58,6 +59,10 @@ export default function NavbarClient() {
     () => getAccountNavHref(user, isAuthenticated),
     [user, isAuthenticated]
   );
+
+  const warmAccountNav = () => {
+    warmHostSessionIntent(user?.id);
+  };
 
   const communityFeatureEnabled =
     process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
@@ -145,6 +150,8 @@ export default function NavbarClient() {
             <Link
               href={accountHref}
               prefetch={true}
+              onPointerEnter={warmAccountNav}
+              onFocus={warmAccountNav}
             >
               My Account
             </Link>
@@ -259,7 +266,12 @@ export default function NavbarClient() {
                     <Link
                       href={accountHref}
                       prefetch={true}
-                      onClick={() => setIsOpen(false)}
+                      onPointerEnter={warmAccountNav}
+                      onFocus={warmAccountNav}
+                      onClick={() => {
+                        warmAccountNav();
+                        setIsOpen(false);
+                      }}
                     >
                       My Account
                     </Link>

@@ -12,6 +12,15 @@ import {
 } from "@/lib/host-session-client";
 import { useHostSessionContextOptional } from "@/contexts/host-session-context";
 import { isHostLinkResolutionPending } from "@/lib/host-link-resolution";
+import {
+  getCachedHostLink,
+  getOrFetchHostLink,
+  subscribeHostLinkCache,
+} from "@/lib/host-link-cache";
+import {
+  HOST_SESSION_CLEARED_EVENT,
+  HOST_SESSION_TOUCHED_EVENT,
+} from "@/lib/host-session-probe";
 
 export type HostCapability =
   | { status: "loading" }
@@ -34,21 +43,37 @@ type Options = {
   enabled?: boolean;
 };
 
+function shouldFetchHostLink(
+  enabled: boolean,
+  isAuthenticated: boolean,
+  user: RootState["auth"]["user"]
+): boolean {
+  return (
+    enabled && isAuthenticated && Boolean(user) && user?.role !== "VISITOR"
+  );
+}
+
 export function useHostCapability(options?: Options) {
   const enabled = options?.enabled ?? true;
   const user = useSelector((s: RootState) => s.auth.user);
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
   const authToken = useSelector((s: RootState) => s.auth.token);
   const hostSession = useHostSessionContextOptional();
-  const [link, setLink] = useState<HostLinkResponse | null>(null);
-  const [linkLoading, setLinkLoading] = useState(enabled);
+  const userId = user?.id ?? "";
+
+  const shouldFetchLink = shouldFetchHostLink(enabled, isAuthenticated, user);
+  const cachedOnMount =
+    shouldFetchLink && userId ? getCachedHostLink(userId) : null;
+
+  const [link, setLink] = useState<HostLinkResponse | null>(cachedOnMount);
+  const [linkLoading, setLinkLoading] = useState(
+    shouldFetchLink ? !cachedOnMount : false
+  );
   const canWriteRef = useRef(false);
   const prevFetchKeyRef = useRef<string | null>(null);
   const linkRef = useRef<HostLinkResponse | null>(null);
   linkRef.current = link;
 
-  const shouldFetchLink =
-    enabled && isAuthenticated && Boolean(user) && user?.role !== "VISITOR";
   const fetchKey = shouldFetchLink
     ? `${user?.id ?? ""}:${user?.role ?? ""}`
     : null;
@@ -80,16 +105,29 @@ export function useHostCapability(options?: Options) {
       setLinkLoading(false);
       return;
     }
+    const token = authToken?.trim() || getAuthToken();
+    if (!token || !user.id) {
+      setLinkLoading(false);
+      return;
+    }
+
+    const cached = getCachedHostLink(user.id);
+    if (cached) {
+      setLink(cached);
+      setLinkLoading(false);
+      return;
+    }
+
     if (!canWriteRef.current) {
       setLinkLoading(true);
     }
-    const token = authToken?.trim() || getAuthToken();
-    const res = await getHostLinkAction(token);
+    const res = await getOrFetchHostLink(user.id, token);
     if (res.success && res.data) {
       setLink(res.data);
     } else {
+      const direct = await getHostLinkAction(token);
       if (
-        detectEmailVerificationRequired(res, {
+        detectEmailVerificationRequired(direct, {
           accountType: "HOST",
         })
       ) {
@@ -109,6 +147,21 @@ export function useHostCapability(options?: Options) {
   }, [hostSession?.refresh, refreshLink]);
 
   useEffect(() => {
+    if (!userId) return;
+    return subscribeHostLinkCache(() => {
+      const cached = getCachedHostLink(userId);
+      if (cached) {
+        setLink(cached);
+        setLinkLoading(false);
+      } else {
+        setLink(null);
+        setLinkLoading(true);
+        void refreshLink();
+      }
+    });
+  }, [refreshLink, userId]);
+
+  useEffect(() => {
     if (!shouldFetchLink) {
       if (!isAuthenticated || !user || user.role === "VISITOR") {
         setLink(null);
@@ -121,15 +174,24 @@ export function useHostCapability(options?: Options) {
     const keyChanged = fetchKey !== prevFetchKeyRef.current;
     if (keyChanged) {
       prevFetchKeyRef.current = fetchKey;
-      setLink(null);
-      setLinkLoading(true);
-      void refreshLink();
+      const cached = user?.id ? getCachedHostLink(user.id) : null;
+      setLink(cached);
+      setLinkLoading(!cached);
+      if (!cached) {
+        void refreshLink();
+      }
       return;
     }
 
     if (!linkRef.current) {
-      setLinkLoading(true);
-      void refreshLink();
+      const cached = user?.id ? getCachedHostLink(user.id) : null;
+      if (cached) {
+        setLink(cached);
+        setLinkLoading(false);
+      } else {
+        setLinkLoading(true);
+        void refreshLink();
+      }
     }
   }, [
     fetchKey,
@@ -138,7 +200,20 @@ export function useHostCapability(options?: Options) {
     shouldFetchLink,
     user,
     user?.role,
+    user?.id,
   ]);
+
+  useEffect(() => {
+    const onSessionChange = () => {
+      void refreshLink();
+    };
+    window.addEventListener(HOST_SESSION_TOUCHED_EVENT, onSessionChange);
+    window.addEventListener(HOST_SESSION_CLEARED_EVENT, onSessionChange);
+    return () => {
+      window.removeEventListener(HOST_SESSION_TOUCHED_EVENT, onSessionChange);
+      window.removeEventListener(HOST_SESSION_CLEARED_EVENT, onSessionChange);
+    };
+  }, [refreshLink]);
 
   useEffect(() => {
     if (

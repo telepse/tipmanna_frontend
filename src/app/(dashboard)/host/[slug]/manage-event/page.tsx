@@ -26,7 +26,9 @@ export default function ManageEvent() {
   const { eventSlug: sessionSlug } = useHostSession();
   const hostEventSlug = paramSlug ?? sessionSlug ?? null;
 
-  const subscriptionPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
+  const subscriptionPrompt = useHostSubscriptionPrompt({
+    focusTier: "premium",
+  });
 
   const {
     pickerOpen,

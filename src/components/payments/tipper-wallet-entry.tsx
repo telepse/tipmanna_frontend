@@ -440,8 +440,8 @@ export function TipperWalletDialog({
         selectedTips,
         secondaryText: secondaryText || undefined,
         paymentSurface,
-        paymentContentId: paymentChannelId ?? undefined,
-        communityId: paymentCommunityId,
+        paymentContentId: paymentChannelId?.trim() || undefined,
+        communityId: paymentCommunityId?.trim() || undefined,
         playbackOffsetSec: (() => {
           const o = getPlaybackOffsetSec?.();
           return typeof o === "number" && !Number.isNaN(o)

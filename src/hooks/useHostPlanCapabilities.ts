@@ -55,10 +55,7 @@ export function useHostPlanCapabilities() {
           ? t
           : undefined;
       const authUser = store.getState().auth.user as {
-        hostSubscriptionTier?:
-          | "NONE"
-          | "HOST_PREMIUM"
-          | "HOST_COMMUNITY";
+        hostSubscriptionTier?: "NONE" | "HOST_PREMIUM" | "HOST_COMMUNITY";
       } | null;
       const currentTier = authUser?.hostSubscriptionTier;
       if (

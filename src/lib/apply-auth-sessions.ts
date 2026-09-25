@@ -1,6 +1,7 @@
 import type { AppDispatch } from "@/redux/store";
 import { setCredentials } from "@/features/auth-slice";
 import type { ParsedAuthResponse } from "@/lib/auth-response";
+import { invalidateHostLinkCache } from "@/lib/host-link-cache";
 import { persistAuthSession, persistHostSession } from "@/lib/session-client";
 import { notifyHostSessionTouched } from "@/lib/host-session-probe";
 
@@ -25,6 +26,8 @@ export async function applyPrimaryAndHostSessions(
       tag: parsed.tag ?? null,
     })
   );
+
+  invalidateHostLinkCache(parsed.user.id);
 
   if (!requiresVerification && parsed.token) {
     const persistPrimary = persistAuthSession(parsed.token, parsed.user, {
