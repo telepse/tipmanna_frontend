@@ -44,11 +44,11 @@ Both families share:
 
 ### How resume works
 
-| Surface           | UX                                                                                                                                 |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Wizards**       | Yellow **Resume/Discard** banner when a recent in-progress draft exists. User must choose. URL `?draftId=` also restores directly. |
-| **Modals**        | Silent restore when the modal opens (toast: “Draft restored”). Dashboard **Saved drafts** panel provides resume buttons.           |
-| **Create dialog** | Same as modals; can also resume via URL params (`resumeCreateVideo=1`, etc.).                                                      |
+| Surface           | UX                                                                                                                                                                                                                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Wizards**       | Yellow **Resume/Discard** banner when a recent in-progress draft exists. User must choose. URL `?draftId=` also restores directly.                                                                                                                                               |
+| **Modals**        | Restore **once on open** from seed/sessionStorage (toast: “Draft restored”). Autosave must not re-restore mid-edit. Dashboard **Saved drafts** panel provides resume buttons. While plan capabilities load, co-owner UI shows **Checking subscription…** (not the upgrade wall). |
+| **Create dialog** | Same as modals; can also resume via URL params (`resumeCreateVideo=1`, etc.).                                                                                                                                                                                                    |
 
 ### Dashboard — Saved drafts panel
 
@@ -82,13 +82,13 @@ Located on the host dashboard (`/host/{slug}`).
 
 ### YouTube verification (step 4)
 
-For each video where the host answers **“Yes, I own this on my YouTube channel”** and selects **slot 1 or 2**:
+For each video, YouTube channel slot + verify is **optional and independent** of the ownership answer:
 
-1. User clicks **Verify on YouTube channel**.
-2. System checks the video appears on the host’s linked YouTube channel.
-3. Submit stays disabled until verification succeeds.
-
-If ownership is **“No”** (co-owned), YouTube slot verification is replaced by the co-owner invite flow.
+1. Host may select a saved channel slot (1 or 2) and optionally click **Verify on YouTube channel**.
+2. When verify succeeds, the submit payload claims that slot (`isOnHostYoutube: true`).
+3. Submit is blocked only while a verify request is **in progress** for a selected slot; an unverified slot is omitted from the claim (treated like “not linked”).
+4. Ownership **“No”** uses the co-owner email invite flow in parallel — it does not hide or replace YouTube.
+5. Changing ownership (yes↔no) cancels in-flight verify and clears the claim flag so verify cannot strand submit; the optional slot selection may remain.
 
 ### Co-owner flow (step 4)
 
@@ -270,7 +270,7 @@ Uses the same `AddVideoForm` as the Create dialog with:
 - Full ownership toggle and co-owner invite flow
 - Same YouTube verification rules
 
-**Submit:** Adds video to community content bank (may enter moderation queue depending on community settings).
+**Submit:** Adds video to community content bank. Owner submissions are approved immediately; co-creator submissions enter pending until the community owner approves.
 
 ---
 
@@ -300,6 +300,7 @@ Uses the same `AddVideoForm` as the Create dialog with:
 - OTP required for approval (possession of email)
 - Invite token rotates on resend; old links stop working
 - YouTube URL at invite time binds consent to specific video
+- First-time co-owner emails (no Host yet) get an **unclaimed** host stub on successful approve (provisioned outside the promote transaction). Approve + channel promote run in one transaction so a failed promote leaves the invite pending and retryable. Already-approved invites with stuck `waiting_coowner` channels can repair on a subsequent approve call without OTP.
 
 ---
 
@@ -321,22 +322,24 @@ Applies to **wizards (step 4)** and **all add-video modals**.
 
 ## Co-owner invitations — unified rules
 
-| Rule               | Behavior                                                                                                                                                                                                                                               |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Tier               | **Host Growth (Premium)** or **Host Community** required to send invites. Community includes all Growth capabilities. Subscription must be **active** (lapsed plans freeze invite mutations).                                                          |
-| Co-create bank     | Co-creators **cannot** submit co-owned videos to a community they co-create; only the community owner can add co-owned videos to their own bank.                                                                                                       |
-| YouTube URL        | Required when sending invite (server validates)                                                                                                                                                                                                        |
-| Submit gate        | Blocked only when **no invite was sent** (missing draft key / empty invite list) or fetch failed. **Pending** or terminal-only invites allow submit.                                                                                                   |
-| Public play        | Co-owned videos persist as `waiting_coowner` until the invite is **approved**; hidden from TV, Explore, event rooms (non-host), `/content` and `/channel`, public playlists, Explore saves hydrate, TipLink publish, and public creator profile lists. |
-| Submit button copy | **Submit for approval** while co-owner approval is still outstanding; helper text explains the video stays hidden until approve. Terminal errors use **Can't submit**.                                                                                 |
-| Approved-wins      | If an **approved** invite exists, stale expired/declined/revoked **and pending** sibling rows on the same draft are ignored (submit hook, server assert/partition, and invite widget phase/resend/remove)                                              |
-| Wizard drop        | Co-owned videos are no longer dropped for terminal-only invites; they submit as waiting until a fresh invite is approved                                                                                                                               |
-| Single-video modal | Cannot drop the only video; terminal-only invites submit as waiting (same as wizard) — use resend/remove/switch-to-full-ownership if stuck                                                                                                             |
-| Default video      | May be default while pending; it stays hidden from viewers until co-owner approve                                                                                                                                                                      |
-| Resend             | Available for pending/expired/declined/revoked; 10 min cooldown; max 5                                                                                                                                                                                 |
-| Remove             | Clears pending/expired/declined invites; pending requires confirmation                                                                                                                                                                                 |
-| Approval           | Co-owner uses public page + email OTP, not in-app login                                                                                                                                                                                                |
-| Real-time          | Host UI refreshes on approval/resend via Pusher                                                                                                                                                                                                        |
+| Rule               | Behavior                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tier               | **Host Growth (Premium)** or **Host Community** required to send invites. Community includes all Growth capabilities. Subscription must be **active** (lapsed plans freeze invite mutations).                                                                                                                                                                                                      |
+| Co-create bank     | Co-creators **cannot** submit co-owned videos to a community they co-create; only the community owner can add co-owned videos to their own bank.                                                                                                                                                                                                                                                   |
+| YouTube URL        | Required when sending invite (server validates)                                                                                                                                                                                                                                                                                                                                                    |
+| Submit gate        | Blocked only when **no invite was sent** (missing draft key / empty invite list) or fetch failed. **Pending** or terminal-only invites allow submit immediately after Send invite succeeds (wizards and all add-video modals). After invite success, unlock is **sticky**: stale or failed status polls must not re-lock submit until ownership leaves co-owned or status confirms approved/clear. |
+| Invite API         | Create/resend returns after the invite row is **pending**; approval email is sent asynchronously (Resend latency must not delay the host UI).                                                                                                                                                                                                                                                      |
+| Plan load          | Co-owner invite UI waits for **host session + plan capabilities** (Checking subscription…) before showing the upgrade wall.                                                                                                                                                                                                                                                                        |
+| Public play        | Co-owned videos persist as `waiting_coowner` until the invite is **approved**; they are hidden from TV, Explore, event rooms (non-host), `/content` and `/channel`, public playlists, Explore saves hydrate, TipLink publish, and public creator profile lists.                                                                                                                                    |
+| Submit button copy | **Submit for approval** while invite is pending/outstanding; helper text explains the video stays hidden until approve. Status loading uses **Awaiting co-owner approval** only when submit is still blocked. Missing invite / terminal errors use **Can't submit**.                                                                                                                               |
+| Approved-wins      | If an **approved** invite exists, stale expired/declined/revoked **and pending** sibling rows on the same draft are ignored (submit hook, server assert/partition, and invite widget phase/resend/remove)                                                                                                                                                                                          |
+| Wizard drop        | Co-owned videos are no longer dropped for terminal-only invites; they submit as waiting until a fresh invite is approved                                                                                                                                                                                                                                                                           |
+| Single-video modal | Cannot drop the only video; terminal-only invites submit as waiting (same as wizard) — use resend/remove/switch-to-full-ownership if stuck                                                                                                                                                                                                                                                         |
+| Default video      | May be default while pending; it stays hidden from viewers until co-owner approve                                                                                                                                                                                                                                                                                                                  |
+| Resend             | Available for pending/expired/declined/revoked; 10 min cooldown; max 5                                                                                                                                                                                                                                                                                                                             |
+| Remove             | Clears pending/expired/declined invites; pending requires confirmation                                                                                                                                                                                                                                                                                                                             |
+| Approval           | Co-owner uses public page + email OTP, not in-app login                                                                                                                                                                                                                                                                                                                                            |
+| Real-time          | Host UI refreshes on approval/resend via Pusher                                                                                                                                                                                                                                                                                                                                                    |
 
 ### Status meanings (host UI)
 

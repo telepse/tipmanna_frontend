@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-import { ArrowUp, ChevronDown, LinkedinIcon, Tv } from "lucide-react";
+import { ArrowUp, ChevronDown, Tv } from "lucide-react";
 
 import { formatCurrency } from "@/lib/utils";
 import { TvLooper } from "./tv-looper";
@@ -17,9 +17,14 @@ import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { getTipFeed } from "@/actions/contents";
 import { getCharactersForTipping } from "@/actions/characters";
 import { Message, RoomCharacter } from "@/types";
-import { LinkedinShareButton, TwitterShareButton } from "next-share";
-import { TwitterIcon } from "lucide-react";
-import { WhatsappShareButton, WhatsappIcon } from "next-share";
+import {
+  LinkedinShareButton,
+  TwitterShareButton,
+  WhatsappShareButton,
+  LinkedinIcon,
+  TwitterIcon,
+  WhatsappIcon,
+} from "next-share";
 
 export const TVRightSection = () => {
   const [currentUser] = useState<UserInfo>(() => getOrCreateAnonymousViewer());

@@ -7,7 +7,7 @@ export type CommunityExploreCatalogSnapshot = {
   loadedAt: number;
 };
 
-const STORAGE_KEY = "tipmanna:community-explore-catalog:v1";
+const STORAGE_KEY = "tipmanna:community-explore-catalog:v2";
 const TTL_MS = 10 * 60 * 1000;
 
 export function readCommunityExploreCatalogCache(): CommunityExploreCatalogSnapshot | null {

@@ -32,6 +32,15 @@ export const TEXT_TIP_DRAFT_MODAL_Z_INDEX = "!z-[100026]";
 /** Dialog opened from creator drawer / explore must sit above drawer chrome. */
 export const CREATOR_PROFILE_DIALOG_OVERLAY_Z_INDEX = "z-[100010]";
 export const CREATOR_PROFILE_DIALOG_Z_INDEX = "z-[100011]";
+/** Full-screen content/channel playback overlay shell (profile, join, room Enlarge). */
 export const OVERLAY_Z_INDEX = "z-[1000000]";
+/** Tip/comment/tips drawers nested above the playback overlay shell. */
+export const PLAYBACK_OVERLAY_NESTED_OVERLAY_Z_INDEX = "z-[1000001]";
+export const PLAYBACK_OVERLAY_NESTED_Z_INDEX = "z-[1000002]";
+export const PLAYBACK_OVERLAY_NESTED_Z = 1_000_002;
+/** Wallet / sign-in modals nested above playback-overlay drawers. */
+export const PLAYBACK_OVERLAY_NESTED_MODAL_OVERLAY_Z_INDEX = "z-[1000003]";
+export const PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX = "z-[1000004]";
+export const PLAYBACK_OVERLAY_NESTED_MODAL_Z = 1_000_004;
 export const HOST_SUBSCRIPTION_MODAL_OVERLAY_Z_INDEX = "!z-[100035]";
 export const HOST_SUBSCRIPTION_MODAL_Z_INDEX = "!z-[100036]";

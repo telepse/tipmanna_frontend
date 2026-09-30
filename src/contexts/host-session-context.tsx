@@ -130,7 +130,7 @@ export function HostSessionProvider({ children, enabled = true }: Props) {
     try {
       const cookieUser = getHostUserFromCookies();
       if (!cookieUser?.id) {
-        applyInactive("HOST_SESSION_REQUIRED");
+        applyInactive("HOST_SESSION_ABSENT");
         return;
       }
 

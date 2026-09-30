@@ -16,24 +16,55 @@ import {
   shouldSuppressPlayerMuteSync,
 } from "@/lib/player-audio-intent";
 import { safeYoutubeCall } from "@/lib/tv/youtube-player-safe";
+import {
+  resolvePendingTransportIntent,
+  shouldClearPendingTransportOnSourceChange,
+} from "@/lib/tv-transport-intent";
 
 const RECONCILE_MS = 500;
 
 type Mode = "GLOBAL" | "LOCAL";
+type TransportIntent = "play" | "pause";
 
 export function useTvPlayerControls(opts: {
   playerRef: RefObject<TvPlayerRef | null>;
   mode: Mode;
   enterLocalMode: (reason: string, index?: number) => void;
   setPlayerPlayingState: (playing: boolean) => void;
+  /**
+   * Schedule source identity (null = Tipmanna global). When this changes,
+   * discard any pending play/pause so community A intent cannot run on B.
+   */
+  scheduleSourceCommunityId?: string | null;
 }) {
-  const { playerRef, mode, enterLocalMode, setPlayerPlayingState } = opts;
+  const {
+    playerRef,
+    mode,
+    enterLocalMode,
+    setPlayerPlayingState,
+    scheduleSourceCommunityId = null,
+  } = opts;
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(() => readTvMutePref());
   const intentGraceUntilRef = useRef(0);
   const pendingMuteRef = useRef<boolean | null>(null);
-  const pendingPlayRef = useRef<boolean | null>(null);
+  const pendingTransportIntentRef = useRef<TransportIntent | null>(null);
+  const scheduleSourceCommunityIdRef = useRef(scheduleSourceCommunityId);
+
+  // Invalidate stale transport when TV source/community changes (not on remount gen bump).
+  useEffect(() => {
+    if (
+      !shouldClearPendingTransportOnSourceChange({
+        previousCommunityId: scheduleSourceCommunityIdRef.current,
+        nextCommunityId: scheduleSourceCommunityId,
+      })
+    ) {
+      return;
+    }
+    scheduleSourceCommunityIdRef.current = scheduleSourceCommunityId;
+    pendingTransportIntentRef.current = null;
+  }, [scheduleSourceCommunityId]);
 
   const applyMuteToPlayer = useCallback(
     (muted: boolean) => {
@@ -133,12 +164,12 @@ export function useTvPlayerControls(opts: {
     }, undefined);
     syncFromPlayer();
 
-    const pendingPlay = pendingPlayRef.current;
-    if (pendingPlay != null) {
-      pendingPlayRef.current = null;
+    const pendingTransport = pendingTransportIntentRef.current;
+    if (pendingTransport != null) {
+      pendingTransportIntentRef.current = null;
       const player = playerRef.current;
       if (player?.isReady()) {
-        if (pendingPlay) {
+        if (pendingTransport === "play") {
           safeYoutubeCall(() => player.play(), undefined);
           setIsPlaying(true);
         } else {
@@ -153,7 +184,10 @@ export function useTvPlayerControls(opts: {
     markUserIntent();
     const player = playerRef.current;
     if (!player?.isReady()) {
-      pendingPlayRef.current = !isPlaying;
+      const playerState = player?.getPlayerState?.() ?? null;
+      pendingTransportIntentRef.current = resolvePendingTransportIntent({
+        playerState,
+      });
       return;
     }
     if (isPlaying) {

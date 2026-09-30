@@ -23,6 +23,9 @@ export type HostCreatorVideo = {
   locked: boolean;
   awaitingCoOwnerApproval?: boolean;
   adminApprovalPending?: boolean;
+  coOwnerResendInviteId?: string | null;
+  coOwnerResendAt?: string | null;
+  coOwnerResendCount?: number | null;
   createdAt?: string;
   event: {
     id: string;

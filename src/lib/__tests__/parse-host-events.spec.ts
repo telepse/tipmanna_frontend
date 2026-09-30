@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { parseApprovedHostEventsForPicker } from "@/lib/parse-host-events";
+import {
+  parseApprovedHostEventsForPicker,
+  parseHostEventsEligibleForCommunity,
+} from "@/lib/parse-host-events";
 
 describe("parseApprovedHostEventsForPicker", () => {
   it("unwraps paginated data and keeps approved only", () => {
@@ -37,5 +40,41 @@ describe("parseApprovedHostEventsForPicker", () => {
   it("returns empty for null or unknown shape", () => {
     expect(parseApprovedHostEventsForPicker(null)).toEqual([]);
     expect(parseApprovedHostEventsForPicker({ foo: [] })).toEqual([]);
+  });
+});
+
+describe("parseHostEventsEligibleForCommunity", () => {
+  it("keeps approved eligible unlinked rooms only", () => {
+    const raw = [
+      {
+        id: "ok",
+        eventName: "Room",
+        submissionKind: "event_only",
+        approved: true,
+        rejected: false,
+      },
+      {
+        id: "pending",
+        eventName: "Wait",
+        submissionKind: "event_only",
+        approved: false,
+      },
+      {
+        id: "linked",
+        eventName: "Used",
+        submissionKind: "event_only",
+        approved: true,
+        communityId: "c1",
+      },
+      {
+        id: "content",
+        eventName: "Content",
+        submissionKind: "content_only",
+        approved: true,
+      },
+    ];
+    expect(parseHostEventsEligibleForCommunity(raw)).toEqual([
+      { id: "ok", eventName: "Room" },
+    ]);
   });
 });

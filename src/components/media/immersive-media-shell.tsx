@@ -222,3 +222,7 @@ export const mobileInlineTipSectionClass =
 
 export const mobileInlineActionRailBottomClass = "bottom-20";
 export const mobileInlineActionRailBottomSmClass = "bottom-4";
+
+/** Overlay rails must clear the fixed scrubber dock (title + slider + timecodes). */
+export const OVERLAY_RAIL_DOCK_CLEARANCE_CLASS =
+  "bottom-[max(6.25rem,calc(env(safe-area-inset-bottom,0px)+5.25rem))]";

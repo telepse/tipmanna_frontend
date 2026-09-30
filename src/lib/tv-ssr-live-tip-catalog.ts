@@ -19,6 +19,52 @@ export type TvSsrScheduleBootstrap = {
   etag: string | null;
 };
 
+/** Source-tagged SSR payload for /tv or /tv?community=:id. */
+export type TvSsrBootstrap = {
+  communityId: string | null;
+  initialTvTipCatalog: TvInitialTipCatalog | null;
+  ssrScheduleBootstrap: TvSsrScheduleBootstrap | null;
+};
+
+/** URL `community` query only — never localStorage. */
+export function normalizeTvCommunitySearchParam(
+  community: string | null | undefined
+): string | null {
+  const trimmed = community?.trim();
+  return trimmed ? trimmed : null;
+}
+
+export function sameTvSsrSource(
+  bootstrapCommunityId: string | null | undefined,
+  scheduleSourceCommunityId: string | null | undefined
+): boolean {
+  return (bootstrapCommunityId ?? null) === (scheduleSourceCommunityId ?? null);
+}
+
+/** Pending SSR catalog is valid only before items arrive and only for the same TV source. */
+export function shouldAllowSsrTvTipPendingInitial(opts: {
+  scheduleItemsEmpty: boolean;
+  bootstrapCommunityId: string | null | undefined;
+  scheduleSourceCommunityId: string | null | undefined;
+}): boolean {
+  return (
+    opts.scheduleItemsEmpty &&
+    sameTvSsrSource(opts.bootstrapCommunityId, opts.scheduleSourceCommunityId)
+  );
+}
+
+/** Persist SSR schedule only when the body belongs to the client's current source. */
+export function shouldPersistSsrTvScheduleBootstrap(opts: {
+  hasBody: boolean;
+  bootstrapCommunityId: string | null | undefined;
+  scheduleSourceCommunityId: string | null | undefined;
+}): boolean {
+  return (
+    opts.hasBody &&
+    sameTvSsrSource(opts.bootstrapCommunityId, opts.scheduleSourceCommunityId)
+  );
+}
+
 type ScheduleBody = {
   items?: unknown[];
   livePosition?: { scheduleIndex?: number };
@@ -72,14 +118,20 @@ export async function fetchLiveRowTipCatalogForSchedule(
   return catalogFromCharacterSets(eventId, rawSets);
 }
 
-/** SSR: global Tipmanna schedule + live-row event catalog for /tv first paint. */
-export async function loadSsrTipmannaTvBootstrap(): Promise<{
-  initialTvTipCatalog: TvInitialTipCatalog | null;
-  ssrScheduleBootstrap: TvSsrScheduleBootstrap | null;
-}> {
-  const scheduleRes = await fetchTvScheduleAction();
+/** SSR: schedule + live-row catalog for the URL source (`community` or global). */
+export async function loadSsrTvBootstrap(
+  communityId?: string | null
+): Promise<TvSsrBootstrap> {
+  const cid = normalizeTvCommunitySearchParam(communityId);
+  const scheduleRes = await fetchTvScheduleAction(
+    cid ? { communityId: cid } : undefined
+  );
   if (!scheduleRes.success || !scheduleRes.data?.body) {
-    return { initialTvTipCatalog: null, ssrScheduleBootstrap: null };
+    return {
+      communityId: cid,
+      initialTvTipCatalog: null,
+      ssrScheduleBootstrap: null,
+    };
   }
 
   const ssrScheduleBootstrap: TvSsrScheduleBootstrap = {
@@ -91,5 +143,10 @@ export async function loadSsrTipmannaTvBootstrap(): Promise<{
     scheduleRes.data.body
   );
 
-  return { initialTvTipCatalog, ssrScheduleBootstrap };
+  return { communityId: cid, initialTvTipCatalog, ssrScheduleBootstrap };
+}
+
+/** SSR: global Tipmanna schedule + live-row event catalog for /tv first paint. */
+export async function loadSsrTipmannaTvBootstrap(): Promise<TvSsrBootstrap> {
+  return loadSsrTvBootstrap(null);
 }

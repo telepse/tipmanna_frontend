@@ -75,9 +75,12 @@ export function parseHostEventsEligibleForCommunity(
         eventName?: string;
         communityId?: string | null;
         submissionKind?: string | null;
+        approved?: boolean;
+        rejected?: boolean;
       };
       const id = String(e?.id ?? "").trim();
       if (!id || e.communityId) continue;
+      if (e.approved !== true || e.rejected === true) continue;
       const kind = e.submissionKind?.trim() ?? "";
       if (!COMMUNITY_ACTIVATION_KINDS.has(kind)) continue;
       rows.push({

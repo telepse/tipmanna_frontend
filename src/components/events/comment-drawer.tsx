@@ -41,6 +41,11 @@ import {
   EXPLORE_MODAL_Z_INDEX,
   IMMERSIVE_DRAWER_OVERLAY_Z_INDEX,
   IMMERSIVE_DRAWER_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_MODAL_OVERLAY_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_OVERLAY_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_Z,
+  PLAYBACK_OVERLAY_NESTED_Z_INDEX,
   SIGN_IN_EXPLORE_OVERLAY_Z_INDEX,
   SIGN_IN_EXPLORE_Z_INDEX,
   SIGN_IN_NESTED_OVERLAY_Z_INDEX,
@@ -85,6 +90,8 @@ interface Props {
   metricsRefreshKey?: number;
   /** Stack above explore/TV immersive chrome (feature cards, dock, rail). */
   stackAboveImmersive?: boolean;
+  /** Stack above ContentPlaybackOverlay / room Enlarge shell. Wins over immersive. */
+  stackAbovePlaybackOverlay?: boolean;
 }
 
 export const CommentDrawer = ({
@@ -105,26 +112,43 @@ export const CommentDrawer = ({
   hostUsername,
   metricsRefreshKey,
   stackAboveImmersive = false,
+  stackAbovePlaybackOverlay = false,
 }: Props) => {
-  const drawerOverlayClassName = stackAboveImmersive
-    ? IMMERSIVE_DRAWER_OVERLAY_Z_INDEX
-    : DRAWER_OVERLAY_Z_INDEX;
-  const drawerContentClassName = stackAboveImmersive
-    ? IMMERSIVE_DRAWER_Z_INDEX
-    : DRAWER_Z_INDEX;
-  const drawerContentZIndex = stackAboveImmersive ? 100019 : 99990;
-  const signInOverlayClassName = stackAboveImmersive
-    ? SIGN_IN_EXPLORE_OVERLAY_Z_INDEX
-    : SIGN_IN_NESTED_OVERLAY_Z_INDEX;
-  const signInContentClassName = stackAboveImmersive
-    ? SIGN_IN_EXPLORE_Z_INDEX
-    : SIGN_IN_NESTED_Z_INDEX;
-  const joinModalOverlayClassName = stackAboveImmersive
-    ? EXPLORE_MODAL_Z_INDEX
-    : DRAWER_OVERLAY_Z_INDEX;
-  const joinModalContentClassName = stackAboveImmersive
-    ? EXPLORE_MODAL_Z_INDEX
-    : DRAWER_Z_INDEX;
+  const drawerOverlayClassName = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_OVERLAY_Z_INDEX
+    : stackAboveImmersive
+      ? IMMERSIVE_DRAWER_OVERLAY_Z_INDEX
+      : DRAWER_OVERLAY_Z_INDEX;
+  const drawerContentClassName = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_Z_INDEX
+    : stackAboveImmersive
+      ? IMMERSIVE_DRAWER_Z_INDEX
+      : DRAWER_Z_INDEX;
+  const drawerContentZIndex = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_Z
+    : stackAboveImmersive
+      ? 100019
+      : 99990;
+  const signInOverlayClassName = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_MODAL_OVERLAY_Z_INDEX
+    : stackAboveImmersive
+      ? SIGN_IN_EXPLORE_OVERLAY_Z_INDEX
+      : SIGN_IN_NESTED_OVERLAY_Z_INDEX;
+  const signInContentClassName = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX
+    : stackAboveImmersive
+      ? SIGN_IN_EXPLORE_Z_INDEX
+      : SIGN_IN_NESTED_Z_INDEX;
+  const joinModalOverlayClassName = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_MODAL_OVERLAY_Z_INDEX
+    : stackAboveImmersive
+      ? EXPLORE_MODAL_Z_INDEX
+      : DRAWER_OVERLAY_Z_INDEX;
+  const joinModalContentClassName = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX
+    : stackAboveImmersive
+      ? EXPLORE_MODAL_Z_INDEX
+      : DRAWER_Z_INDEX;
   const dispatch = useDispatch();
   const authUser = useSelector((s: RootState) => s.auth.user);
   const selectedTips = useSelector((s: RootState) => s.tip.selectedTips);
@@ -518,11 +542,13 @@ export const CommentDrawer = ({
         <DrawerContent
           ref={drawerShellRef}
           overlayClassName={cn(
-            stackAboveImmersive && "!z-[100018]",
+            (stackAboveImmersive || stackAbovePlaybackOverlay) &&
+              drawerOverlayClassName,
             drawerOverlayClassName
           )}
           className={cn(
-            stackAboveImmersive && "!z-[100019]",
+            (stackAboveImmersive || stackAbovePlaybackOverlay) &&
+              drawerContentClassName,
             drawerContentClassName,
             "pointer-events-auto flex max-h-[72vh] flex-col overflow-y-auto rounded-t-[32px] bg-white p-0"
           )}
@@ -935,6 +961,7 @@ export const CommentDrawer = ({
             : undefined
         }
         stackOnTop
+        stackAbovePlaybackOverlay={stackAbovePlaybackOverlay}
       />
 
       <SignInDialog

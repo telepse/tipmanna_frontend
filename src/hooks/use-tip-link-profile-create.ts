@@ -25,6 +25,7 @@ import {
   listTipLinkEligibleEvents,
   type TipLinkPickerVideo,
 } from "@/lib/tiplink-eligible-videos";
+import { mergeCommunityBankRefreshResult } from "@/lib/tiplink-community-bank-refresh";
 import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 import {
   openTipLinkCreateSubscriptionPrompt,
@@ -64,6 +65,7 @@ export function useTipLinkProfileCreate({
   const [communityBankVideos, setCommunityBankVideos] = useState<
     TipLinkPickerVideo[]
   >([]);
+  const [communityBankLoading, setCommunityBankLoading] = useState(false);
 
   const refreshDrafts = useCallback(() => {
     if (!isOwnProfile) {
@@ -91,33 +93,61 @@ export function useTipLinkProfileCreate({
   );
 
   const ownedCommunities = useMemo(
-    () => communities.filter(c => c.isOwnProfile),
-    [communities]
+    () =>
+      isOwnProfile ? communities : communities.filter(c => c.isOwnProfile),
+    [communities, isOwnProfile]
   );
 
   useEffect(() => {
-    if (!pickerOpen || !isOwnProfile || ownedCommunities.length === 0) {
-      setCommunityBankVideos(prev => (prev.length === 0 ? prev : []));
+    if (!isOwnProfile) {
+      setCommunityBankLoading(false);
       return;
     }
+    // Keep last-good bank list while closed; revalidate only when open.
+    if (!pickerOpen) {
+      setCommunityBankLoading(false);
+      return;
+    }
+    if (ownedCommunities.length === 0) {
+      setCommunityBankVideos([]);
+      setCommunityBankLoading(false);
+      return;
+    }
+
     let cancelled = false;
+    setCommunityBankLoading(true);
     void (async () => {
-      const merged: TipLinkPickerVideo[] = [];
-      for (const community of ownedCommunities) {
-        const res = await getApprovedCommunityContentBankAction(community.id);
-        if (!res.success || !res.data) continue;
-        merged.push(
-          ...listTipLinkEligibleCommunityBankVideos(
-            community.id,
-            community.name,
-            res.data.approved,
-            tipLinks,
-            draftTipLinks
-          )
-        );
+      const results = await Promise.all(
+        ownedCommunities.map(async community => {
+          const res = await getApprovedCommunityContentBankAction(community.id);
+          if (!res.success || !res.data) {
+            return { ok: false as const, videos: [] as TipLinkPickerVideo[] };
+          }
+          return {
+            ok: true as const,
+            videos: listTipLinkEligibleCommunityBankVideos(
+              community.id,
+              community.name,
+              res.data.approved,
+              tipLinks,
+              draftTipLinks,
+              community.eventId
+            ),
+          };
+        })
+      );
+      if (cancelled) return;
+      const anySuccess = results.some(r => r.ok);
+      const next = results.filter(r => r.ok).flatMap(r => r.videos);
+      setCommunityBankVideos(prior =>
+        mergeCommunityBankRefreshResult({ prior, next, anySuccess })
+      );
+      if (!anySuccess) {
+        toast.error("Could not refresh community bank videos");
       }
-      if (!cancelled) setCommunityBankVideos(merged);
+      setCommunityBankLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
@@ -233,6 +263,7 @@ export function useTipLinkProfileCreate({
     setPickerOpen,
     eligibleEvents,
     communityBankVideos,
+    communityBankLoading,
     creatingChannelId,
     draftTipLinks,
     refreshDrafts,

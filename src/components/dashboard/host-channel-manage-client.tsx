@@ -1,53 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
-
-import {
-  getHostDefaultChannelsAction,
-  type HostDefaultChannelItem,
-} from "@/actions/events";
 import { ManageEventCard } from "@/components/dashboard/manage-event-card";
 import { ManageEventCardSkeleton } from "@/components/dashboard/manage-event-card-skeleton";
+import { useHostDefaultChannels } from "@/hooks/useHostDefaultChannels";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
-import type { RootState } from "@/redux/store";
 
 export function HostChannelManageClient() {
-  const user = useSelector((s: RootState) => s.auth.user);
-  const [items, setItems] = useState<HostDefaultChannelItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { items, hasData, isLoading } = useHostDefaultChannels();
   const subscriptionPrompt = useHostSubscriptionPrompt({
     focusTier: "premium",
   });
 
-  useEffect(() => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    void getHostDefaultChannelsAction().then(res => {
-      if (cancelled) {
-        return;
-      }
-
-      if (res.success && res.data && Array.isArray(res.data.items)) {
-        setItems(res.data.items);
-      } else {
-        setItems([]);
-      }
-
-      setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
-
-  if (loading) {
+  if (isLoading && !hasData) {
     return (
       <div className="space-y-6">
         {Array.from({ length: 3 }).map((_, idx) => (

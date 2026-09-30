@@ -27,6 +27,8 @@ import { verifyYoutubeOwnershipAction } from "@/actions/policy";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useCoOwnerDraftFields } from "@/hooks/use-coowner-draft-fields";
+import { useCoOwnerDraftLifecycle } from "@/providers/co-owner-draft-lifecycle-provider";
+import { ensureCoOwnerDraftKey } from "@/lib/form-draft-utils";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import type { CoOwnerDraftSlice } from "@/lib/form-draft-utils";
@@ -57,6 +59,7 @@ export function EventContentPrivacyStep({
   onRefreshSubmitReadiness,
   coOwnerRefreshToken = 0,
   onVerifyStateChange,
+  onInviteSentPending,
 }: {
   control: Control<NewEventFormData>;
   onCoOwnerInvitePending?: (inviteId: string) => void;
@@ -64,8 +67,10 @@ export function EventContentPrivacyStep({
   onRefreshSubmitReadiness?: () => void;
   coOwnerRefreshToken?: number;
   onVerifyStateChange?: (status: Record<number, YoutubeVerifyUiState>) => void;
+  onInviteSentPending?: () => void;
 }) {
   const { watch, setValue, getValues } = useFormContext<NewEventFormData>();
+  const { restoreReady } = useCoOwnerDraftLifecycle();
   const user = useSelector((s: RootState) => s.auth.user);
   const token = useSelector((s: RootState) => s.auth.token);
   const { canWriteAsHost } = useHostCapabilityWithAuth();
@@ -123,15 +128,8 @@ export function EventContentPrivacyStep({
   const verifyVideoOnChannel = async (videoIndex: number) => {
     const url = getValues(`videoLinks.${videoIndex}.url`)?.trim();
     const slot = getValues(`videoLinks.${videoIndex}.onYoutubeChannelSlot`);
-    const ownership = getValues(`videoLinks.${videoIndex}.ownershipAnswer`);
     if (!user?.id || !canWriteAsHost) {
       toast.error("Sign in as host to verify YouTube ownership");
-      return;
-    }
-    if (ownership !== "yes") {
-      toast.error(
-        "Select “Yes” for ownership before verifying on your channel"
-      );
       return;
     }
     if (!url) {
@@ -212,7 +210,7 @@ export function EventContentPrivacyStep({
   }, [videoLinks]);
 
   const verificationFingerprint = videoLinks
-    .map(v => `${v.url?.trim()}|${v.onYoutubeChannelSlot}|${v.ownershipAnswer}`)
+    .map(v => `${v.url?.trim()}|${v.onYoutubeChannelSlot}`)
     .join(";;");
   const prevFingerprint = useRef(verificationFingerprint);
 
@@ -338,11 +336,20 @@ export function EventContentPrivacyStep({
                   <Select
                     onValueChange={value => {
                       field.onChange(value);
-                      if (value !== "yes") {
-                        setValue(`videoLinks.${i}.onYoutubeChannelSlot`, null);
-                        setValue(`videoLinks.${i}.isOnHostYoutube`, false);
-                        setVerifyStatus(prev => ({ ...prev, [i]: "idle" }));
+                      if (
+                        value === "no" &&
+                        restoreReady &&
+                        !getValues(`videoLinks.${i}.coOwnerDraftKey`)?.trim()
+                      ) {
+                        setValue(
+                          `videoLinks.${i}.coOwnerDraftKey`,
+                          ensureCoOwnerDraftKey(),
+                          { shouldDirty: true }
+                        );
                       }
+                      // Cancel in-flight/stale verify + claim; keep slot (YouTube independent of ownership).
+                      setValue(`videoLinks.${i}.isOnHostYoutube`, false);
+                      setVerifyStatus(prev => ({ ...prev, [i]: "idle" }));
                     }}
                     value={field.value}
                   >
@@ -374,14 +381,15 @@ export function EventContentPrivacyStep({
               )}
             />
 
-            {watch(`videoLinks.${i}.ownershipAnswer`) === "yes" ? (
+            {watch(`videoLinks.${i}.ownershipAnswer`) === "yes" ||
+            watch(`videoLinks.${i}.ownershipAnswer`) === "no" ? (
               <FormField
                 control={control}
                 name={`videoLinks.${i}.onYoutubeChannelSlot`}
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className={CREATE_FORM_LABEL_CLASS}>
-                      Is this video on your YouTube channel?
+                      Is this video on your YouTube channel? (optional)
                     </FormLabel>
                     <Select
                       onValueChange={v => {
@@ -425,8 +433,9 @@ export function EventContentPrivacyStep({
                       </SelectContent>
                     </Select>
                     <p className={CREATE_FORM_MUTED_TEXT_CLASS}>
-                      If this video is on one of your saved channels, select the
-                      slot and verify so we can confirm it belongs to you.
+                      Optional. If this video is on one of your saved channels,
+                      select the slot and verify to confirm it belongs to you.
+                      You can submit without verifying.
                     </p>
                   </FormItem>
                 )}
@@ -435,7 +444,8 @@ export function EventContentPrivacyStep({
 
             {(watch(`videoLinks.${i}.onYoutubeChannelSlot`) === 1 ||
               watch(`videoLinks.${i}.onYoutubeChannelSlot`) === 2) &&
-            watch(`videoLinks.${i}.ownershipAnswer`) === "yes" ? (
+            (watch(`videoLinks.${i}.ownershipAnswer`) === "yes" ||
+              watch(`videoLinks.${i}.ownershipAnswer`) === "no") ? (
               <Button
                 type="button"
                 size="sm"
@@ -461,6 +471,7 @@ export function EventContentPrivacyStep({
                 onCoOwnerInvitePending={onCoOwnerInvitePending}
                 onDraftSaveNow={onDraftSaveNow}
                 onRefreshSubmitReadiness={onRefreshSubmitReadiness}
+                onInviteSentPending={onInviteSentPending}
                 refreshToken={coOwnerRefreshToken}
               />
             ) : null}
@@ -479,6 +490,7 @@ function CoOwnerInviteBlock({
   onCoOwnerInvitePending,
   onDraftSaveNow,
   onRefreshSubmitReadiness,
+  onInviteSentPending,
   refreshToken,
 }: {
   index: number;
@@ -488,6 +500,7 @@ function CoOwnerInviteBlock({
   onCoOwnerInvitePending?: (inviteId: string) => void;
   onDraftSaveNow?: () => void | Promise<void>;
   onRefreshSubmitReadiness?: () => void;
+  onInviteSentPending?: () => void;
   refreshToken?: number;
 }) {
   const { watch, setValue, getValues } = useFormContext<NewEventFormData>();
@@ -533,6 +546,7 @@ function CoOwnerInviteBlock({
     onCoOwnerInvitePending,
     onDraftSaveNow,
     onRefreshSubmitReadiness,
+    onInviteSentPending,
     refreshToken,
   });
 
@@ -638,7 +652,7 @@ function CoOwnerInviteBlock({
             }
             onClick={() => void sendInvite()}
           >
-            {pending ? "Sending…" : "Send invite email"}
+            {pending ? "Sending invite…" : "Send invite email"}
           </Button>
         )}
       </div>

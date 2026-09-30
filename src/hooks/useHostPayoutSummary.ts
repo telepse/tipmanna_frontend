@@ -19,6 +19,7 @@ export function useHostPayoutSummary() {
   );
 
   return {
+    creatorPayoutVerifiedAt: data?.creatorPayoutVerifiedAt ?? null,
     summary: data?.summary ?? null,
     pendingSettlements: data?.pendingSettlements ?? [],
     host: data?.host ?? [],

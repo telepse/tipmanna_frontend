@@ -175,8 +175,12 @@ export function listTipLinkEligibleCommunityBankVideos(
   communityName: string,
   approvedVideos: CommunityContentBankVideo[],
   tipLinks: TipLinkSummary[],
-  draftTipLinks: TipLinkSummary[] = []
+  draftTipLinks: TipLinkSummary[] = [],
+  eventId?: string | null
 ): TipLinkPickerVideo[] {
+  const linkedEventId = eventId?.trim() ?? "";
+  if (!linkedEventId) return [];
+
   const usedChannels = new Set([
     ...tipLinks.map(t => t.eventChannelId),
     ...draftTipLinks.map(t => t.eventChannelId),
@@ -196,7 +200,7 @@ export function listTipLinkEligibleCommunityBankVideos(
       const vid = extractYoutubeID(entry.channel.url);
       return {
         channelId: entry.channel.id,
-        eventId: "",
+        eventId: linkedEventId,
         eventSlug: null,
         title: entry.channel.title,
         url: entry.channel.url,

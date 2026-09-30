@@ -13,10 +13,20 @@ import type { RootState } from "@/redux/store";
 
 export const TEXT_TIP_DRAFT_PRESENT_EVENT = "tip:present-text-draft-modal";
 
+export type PresentTextTipDraftModalOpts = {
+  stackAbovePlaybackOverlay?: boolean;
+};
+
 /** Present the shared text draft modal (mounted at app root, above Stripe/drawers). */
-export function presentTextTipDraftModal() {
+export function presentTextTipDraftModal(opts?: PresentTextTipDraftModalOpts) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(TEXT_TIP_DRAFT_PRESENT_EVENT));
+  window.dispatchEvent(
+    new CustomEvent(TEXT_TIP_DRAFT_PRESENT_EVENT, {
+      detail: {
+        stackAbovePlaybackOverlay: Boolean(opts?.stackAbovePlaybackOverlay),
+      },
+    })
+  );
 }
 
 /**
@@ -28,6 +38,8 @@ export function TextTipDraftModalLayer() {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
+  const [stackAbovePlaybackOverlay, setStackAbovePlaybackOverlay] =
+    useState(false);
   const dispatch = useDispatch();
   const selectedTips = useSelector(
     (state: RootState) => state.tip.selectedTips
@@ -35,7 +47,12 @@ export function TextTipDraftModalLayer() {
 
   useEffect(() => setMounted(true), []);
 
-  const present = useCallback(() => {
+  const present = useCallback((event: Event) => {
+    const detail =
+      event instanceof CustomEvent
+        ? (event.detail as PresentTextTipDraftModalOpts | undefined)
+        : undefined;
+    setStackAbovePlaybackOverlay(Boolean(detail?.stackAbovePlaybackOverlay));
     try {
       setValue(localStorage.getItem("textTipValue") ?? "");
     } catch {
@@ -50,6 +67,11 @@ export function TextTipDraftModalLayer() {
       window.removeEventListener(TEXT_TIP_DRAFT_PRESENT_EVENT, present);
   }, [present]);
 
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) setStackAbovePlaybackOverlay(false);
+  };
+
   const save = () => {
     try {
       localStorage.setItem("textTipValue", value);
@@ -61,6 +83,7 @@ export function TextTipDraftModalLayer() {
       setSelectedTips(ensureSingleTextInCart([...selectedTips, "Comment"]))
     );
     setOpen(false);
+    setStackAbovePlaybackOverlay(false);
   };
 
   if (!mounted) return null;
@@ -68,11 +91,12 @@ export function TextTipDraftModalLayer() {
   return createPortal(
     <TextTipDraftModal
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
       value={value}
       onChange={setValue}
       onSave={save}
       stackOnTop
+      stackAbovePlaybackOverlay={stackAbovePlaybackOverlay}
     />,
     document.body
   );

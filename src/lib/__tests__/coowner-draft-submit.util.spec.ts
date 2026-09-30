@@ -75,7 +75,9 @@ describe("evaluateCoOwnerSubmitReadiness", () => {
 describe("coOwnerBlockReasonMessage", () => {
   it("maps all reasons to user-facing copy", () => {
     expect(coOwnerBlockReasonMessage("has_pending")).toContain("submit");
-    expect(coOwnerBlockReasonMessage("missing_draft_key")).toContain("draft");
+    expect(coOwnerBlockReasonMessage("missing_draft_key")).toContain(
+      "Send the invite email"
+    );
   });
 });
 

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type {
   TipLinkPickerEvent,
   TipLinkPickerVideo,
@@ -26,6 +27,8 @@ type Props = {
   /** Dashboard picker: avoid showing empty catalog while fetching */
   loading?: boolean;
   error?: string | null;
+  /** Community bank fetch in flight (show bank tab + loading body). */
+  communityBankLoading?: boolean;
 };
 
 export function TipLinkCreatePickerDialog({
@@ -37,6 +40,7 @@ export function TipLinkCreatePickerDialog({
   onSelect,
   loading = false,
   error = null,
+  communityBankLoading = false,
 }: Props) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [sourceTab, setSourceTab] = useState<"event_room" | "community_bank">(
@@ -49,6 +53,7 @@ export function TipLinkCreatePickerDialog({
   );
 
   const hasCommunityVideos = communityVideos.length > 0;
+  const showCommunityBankTab = communityBankLoading || hasCommunityVideos;
   const hasEventVideos = events.length > 0;
 
   const resetPicker = () => {
@@ -83,8 +88,23 @@ export function TipLinkCreatePickerDialog({
           ) : (
             <div className="bg-muted aspect-video w-[72px] rounded" />
           )}
-          <span className="min-w-0 flex-1 text-sm font-medium">
-            {video.title}
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">{video.title}</span>
+            {video.source === "community_bank" ? (
+              <span className="mt-1 flex flex-wrap items-center gap-1">
+                <Badge
+                  variant="secondary"
+                  className="text-[10px]"
+                >
+                  Community bank
+                </Badge>
+                {video.communityName ? (
+                  <span className="text-muted-foreground text-xs">
+                    {video.communityName}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
           </span>
           {busy ? (
             <Loader2 className="text-muted-foreground size-4 shrink-0 animate-spin" />
@@ -127,7 +147,7 @@ export function TipLinkCreatePickerDialog({
               Close
             </Button>
           </div>
-        ) : !hasEventVideos && !hasCommunityVideos ? (
+        ) : !hasEventVideos && !hasCommunityVideos && !communityBankLoading ? (
           <div className="space-y-3 py-4 text-sm">
             <p className="text-muted-foreground text-center">
               Add a video first, <br className="sm:hidden" /> then come back to
@@ -143,7 +163,7 @@ export function TipLinkCreatePickerDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            {hasCommunityVideos ? (
+            {showCommunityBankTab ? (
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -172,10 +192,21 @@ export function TipLinkCreatePickerDialog({
               </div>
             ) : null}
 
-            {sourceTab === "community_bank" && hasCommunityVideos ? (
-              <ul className="space-y-2">
-                {communityVideos.map(renderVideoButton)}
-              </ul>
+            {sourceTab === "community_bank" && showCommunityBankTab ? (
+              communityBankLoading && !hasCommunityVideos ? (
+                <div className="text-muted-foreground flex flex-col items-center gap-2 py-8 text-sm">
+                  <Loader2 className="size-6 animate-spin" />
+                  Loading community bank…
+                </div>
+              ) : hasCommunityVideos ? (
+                <ul className="space-y-2">
+                  {communityVideos.map(renderVideoButton)}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground py-6 text-center text-sm">
+                  No public community bank videos available for TipLink.
+                </p>
+              )
             ) : selectedEvent ? (
               <div className="space-y-3">
                 <button

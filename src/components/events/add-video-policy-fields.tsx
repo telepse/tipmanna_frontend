@@ -19,7 +19,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCoOwnerDraftFields } from "@/hooks/use-coowner-draft-fields";
+import { useCoOwnerDraftLifecycle } from "@/providers/co-owner-draft-lifecycle-provider";
 import type { CoOwnerDraftSlice } from "@/lib/form-draft-utils";
+import { ensureCoOwnerDraftKey } from "@/lib/form-draft-utils";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
 import type { AddVideoFormValues } from "./add-video-form";
 import { CoOwnerInviteStatusRow } from "./co-owner-invite-status-row";
@@ -43,6 +45,7 @@ type Props = {
   onCoOwnerInvitePending?: (inviteId: string) => void;
   onDraftSaveNow?: () => void | Promise<void>;
   onRefreshSubmitReadiness?: () => void;
+  onInviteSentPending?: () => void;
   refreshToken?: number;
 };
 
@@ -55,9 +58,12 @@ export function AddVideoPolicyFields({
   onCoOwnerInvitePending,
   onDraftSaveNow,
   onRefreshSubmitReadiness,
+  onInviteSentPending,
   refreshToken = 0,
 }: Props) {
-  const { hasActivePremium } = useHostPlanCapabilities();
+  const { restoreReady } = useCoOwnerDraftLifecycle();
+  const { hasActivePremium, isLoading: planLoading } =
+    useHostPlanCapabilities();
   const canInvite = hasActivePremium;
   const allowCoOwned = coOwnerPolicyMode === "full";
   const isCreate = variant === "create";
@@ -103,6 +109,7 @@ export function AddVideoPolicyFields({
     onCoOwnerInvitePending,
     onDraftSaveNow,
     onRefreshSubmitReadiness,
+    onInviteSentPending,
     refreshToken,
   });
 
@@ -151,7 +158,18 @@ export function AddVideoPolicyFields({
                 Do you have substantial ownership rights?
               </FormLabel>
               <Select
-                onValueChange={field.onChange}
+                onValueChange={value => {
+                  field.onChange(value);
+                  if (
+                    value === "no" &&
+                    restoreReady &&
+                    !form.getValues("coOwnerDraftKey")?.trim()
+                  ) {
+                    form.setValue("coOwnerDraftKey", ensureCoOwnerDraftKey(), {
+                      shouldDirty: true,
+                    });
+                  }
+                }}
                 value={field.value}
               >
                 <FormControl>
@@ -195,7 +213,17 @@ export function AddVideoPolicyFields({
 
         {ownershipAnswer === "no" && allowCoOwned ? (
           <div className="space-y-2">
-            {!canInvite ? (
+            {planLoading ? (
+              <p
+                className={
+                  isCreate
+                    ? CREATE_FORM_MUTED_TEXT_CLASS
+                    : "text-muted-foreground text-sm"
+                }
+              >
+                Checking subscription…
+              </p>
+            ) : !canInvite ? (
               <div className="space-y-2">
                 <p className="text-destructive text-sm">
                   Host Growth or Host Community required to invite co-owners.
@@ -275,7 +303,7 @@ export function AddVideoPolicyFields({
                     disabled={pending || !youtubeLink?.trim()}
                     onClick={() => void sendInvite()}
                   >
-                    {pending ? "Sending…" : "Send invite email"}
+                    {pending ? "Sending invite…" : "Send invite email"}
                   </Button>
                 )}
               </>

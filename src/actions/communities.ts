@@ -68,12 +68,18 @@ export async function resumeCommunityTvAction(communityId: string) {
   );
 }
 
-export async function getMyCommunitiesAction(token?: string | null) {
+export async function getMyCommunitiesAction(
+  token?: string | null,
+  options?: { useHostSession?: boolean }
+) {
+  const headers = options?.useHostSession
+    ? await serverHostAuthHeaders(token)
+    : await serverAuthHeaders(token);
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/communities/me`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(token),
+      headers,
       cache: "no-store",
     },
     "getMyCommunitiesAction"
@@ -139,6 +145,7 @@ export async function addCommunityVideoAction(
       headers,
       body: JSON.stringify(body),
       cache: "no-store",
+      perAttemptTimeoutMs: 20_000,
     },
     "addCommunityVideoAction",
     undefined,

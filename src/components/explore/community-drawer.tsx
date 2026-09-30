@@ -4,7 +4,9 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { GlanceDrawerChrome } from "@/components/explore/glance-drawer-chrome";
 import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
+import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { exploreDrawerSignInRedirectPath } from "@/lib/explore-url-sync-policy";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +52,12 @@ export function CommunityDrawer({ open, onOpenChange, communityId }: Props) {
           "flex max-h-[92vh] flex-col overflow-hidden rounded-t-[32px] bg-white p-0"
         )}
       >
+        <GlanceDrawerChrome
+          title="Community"
+          openHref={id ? exploreCommunityJoinHref(id) : null}
+          openLabel="Open community page"
+          onClose={() => onOpenChange(false)}
+        />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {id ? (
             <CommunityJoinPanel

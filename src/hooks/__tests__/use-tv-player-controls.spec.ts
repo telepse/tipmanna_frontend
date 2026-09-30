@@ -152,6 +152,34 @@ describe("useTvPlayerControls", () => {
     unmount();
   });
 
+  it("queues play when not ready even if UI still shows playing", () => {
+    let ready = false;
+    const player = makePlayer({
+      isReady: () => ready,
+      getPlayerState: () => (ready ? "PAUSED" : (null as unknown as string)),
+    });
+    const { result, unmount } = renderControlsHook({ player });
+
+    act(() => {
+      result.current.notifyPlayerPlaying();
+    });
+    act(() => {
+      result.current.togglePlayPause();
+    });
+
+    expect(player.play).not.toHaveBeenCalled();
+    expect(player.pause).not.toHaveBeenCalled();
+
+    ready = true;
+    act(() => {
+      result.current.onPlayerReady();
+    });
+
+    expect(player.play).toHaveBeenCalled();
+    expect(player.pause).not.toHaveBeenCalled();
+    unmount();
+  });
+
   it("onPlayerReady mutes when session pref is muted", () => {
     const player = makePlayer({ isMuted: () => true });
     const { result, unmount } = renderControlsHook({ player });

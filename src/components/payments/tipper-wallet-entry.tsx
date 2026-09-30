@@ -10,7 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DRAWER_NESTED_Z_INDEX, DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
+import {
+  DRAWER_NESTED_Z_INDEX,
+  DRAWER_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_MODAL_OVERLAY_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_MODAL_Z,
+  PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX,
+} from "@/lib/drawer-z-index";
 import {
   createWalletTopupIntentRequest,
   debitWalletRequest,
@@ -77,6 +83,8 @@ type Props = {
   stackAboveTipDrawer?: boolean;
   /** @deprecated use stackAboveTipDrawer */
   stackAboveImmersive?: boolean;
+  /** Stack above ContentPlaybackOverlay nested tip drawer. */
+  stackAbovePlaybackOverlay?: boolean;
   /** Live snapshot from `useTipperWalletStatus` (or null). */
   walletSnapshot: WalletStatusResponse | null;
   onWalletSnapshotRefresh: () => void | Promise<void>;
@@ -325,6 +333,7 @@ export function TipperWalletDialog({
   getWatchDurationBeforePayMs,
   stackAboveTipDrawer,
   stackAboveImmersive,
+  stackAbovePlaybackOverlay,
   walletSnapshot: status,
   onWalletSnapshotRefresh: refresh,
   onWalletDebitSuccess,
@@ -562,8 +571,19 @@ export function TipperWalletDialog({
 
   const stackNested =
     stackAboveTipDrawer === true || stackAboveImmersive === true;
-  const overlayZ = stackNested ? DRAWER_NESTED_Z_INDEX : DRAWER_Z_INDEX;
-  const contentZ = stackNested ? 99995 : 99990;
+  const overlayZ = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_MODAL_OVERLAY_Z_INDEX
+    : stackNested
+      ? DRAWER_NESTED_Z_INDEX
+      : DRAWER_Z_INDEX;
+  const contentZ = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_MODAL_Z
+    : stackNested
+      ? 99995
+      : 99990;
+  const contentClassZ = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX
+    : overlayZ;
 
   return (
     <Dialog
@@ -572,7 +592,7 @@ export function TipperWalletDialog({
     >
       <DialogContent
         overlayClassName={cn("bg-black/60", overlayZ)}
-        className={cn("max-w-md rounded-xl bg-white", overlayZ)}
+        className={cn("max-w-md rounded-xl bg-white", contentClassZ)}
         style={{ zIndex: contentZ }}
       >
         <DialogHeader>

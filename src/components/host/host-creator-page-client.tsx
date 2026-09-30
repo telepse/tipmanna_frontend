@@ -59,6 +59,7 @@ import {
   type CommunityFeaturedVideo,
 } from "@/actions/communities";
 import { SaveHostToggleButton } from "@/components/events/save-host-toggle-button";
+import { CoOwnerPostSubmitResendButton } from "@/components/events/co-owner-post-submit-resend-button";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
@@ -103,6 +104,7 @@ import {
   parseOverlayPlayFromSearchParams,
   type OverlayPlayParams,
 } from "@/lib/playback-overlay-url";
+import { writeOverlayPlaySeed } from "@/lib/playback-overlay-seed-handoff";
 import { peekPlaybackReturn } from "@/lib/playback-return-stack";
 import { restoreProfileUiScroll } from "@/lib/playback-return-restore";
 import { postCreatorProfileVisitAction } from "@/actions/host-creator";
@@ -214,8 +216,11 @@ export function HostCreatorPageClient({
   const isDrawer = variant === "drawer";
   const [displayProfile, setDisplayProfile] =
     useState<HostCreatorPublicProfile>(profile);
+  const ownerHydratedRef = useRef(false);
 
   useEffect(() => {
+    // Avoid overwriting an owner-hydrated catalog with the public SSR prop.
+    if (ownerHydratedRef.current) return;
     setDisplayProfile(profile);
   }, [profile]);
 
@@ -247,13 +252,21 @@ export function HostCreatorPageClient({
       user.username?.toLowerCase() === host.username.toLowerCase());
 
   useEffect(() => {
-    if (!isOwnProfile || isDrawer || !hostSession.isActive) return;
+    if (!isOwnProfile || isDrawer) {
+      ownerHydratedRef.current = false;
+      return;
+    }
+    if (!hostSession.isActive) {
+      ownerHydratedRef.current = false;
+      return;
+    }
     void getHostCreatorPublicProfileForOwnerAction(host.username).then(res => {
       if (res.success && res.data) {
+        ownerHydratedRef.current = true;
         setDisplayProfile(res.data);
       }
     });
-  }, [isOwnProfile, isDrawer, host.username, hostSession.isActive]);
+  }, [isOwnProfile, isDrawer, host.username, hostSession.isActive, profile]);
 
   const showBottomExpressNav =
     !isDrawer &&
@@ -365,6 +378,7 @@ export function HostCreatorPageClient({
     setPickerOpen: setTipLinkPickerOpen,
     eligibleEvents: tipLinkEligibleEvents,
     communityBankVideos: tipLinkCommunityBankVideos,
+    communityBankLoading: tipLinkCommunityBankLoading,
     creatingChannelId: tipLinkCreatingChannelId,
     draftTipLinks,
     openPicker: openTipLinkPicker,
@@ -386,6 +400,12 @@ export function HostCreatorPageClient({
     if (video.locked) return;
     onVideoPlay?.();
     if (isDrawer) {
+      writeOverlayPlaySeed({
+        eventId: video.event.id,
+        channelId: video.id,
+        url: video.url,
+        title: video.title,
+      });
       window.open(
         buildCreatorProfilePlayHref(host.username, video.event.id, video.id),
         "_blank",
@@ -886,6 +906,7 @@ export function HostCreatorPageClient({
         communityVideos={tipLinkCommunityBankVideos}
         creatingChannelId={tipLinkCreatingChannelId}
         onSelect={createDraftForVideo}
+        communityBankLoading={tipLinkCommunityBankLoading}
       />
       {TipLinkCreateHostAuthModal}
       {TipLinkCreateSubscriptionModal}
@@ -2770,6 +2791,12 @@ function CommunityBannerSection({
       if (!eventId || !channelId) return;
       if (isDrawer) {
         onVideoPlay?.();
+        writeOverlayPlaySeed({
+          eventId,
+          channelId,
+          url: video.url,
+          title: video.title,
+        });
         window.open(
           buildCreatorProfilePlayHref(creatorUsername, eventId, channelId),
           "_blank",
@@ -3291,24 +3318,27 @@ function VideoCard({
   }, [video.url]);
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        if (!locked) onPlay();
-      }}
-      disabled={locked}
+    <div
       className={cn(
         "group relative aspect-[9/16] overflow-hidden bg-neutral-100 text-left",
         locked ? "cursor-not-allowed" : "cursor-pointer"
       )}
       title={video.title}
-      aria-label={locked ? `${video.title} (locked)` : video.title}
+      aria-label={locked ? `${video.title} (locked)` : undefined}
     >
+      {!locked ? (
+        <button
+          type="button"
+          className="absolute inset-0 z-0"
+          onClick={onPlay}
+          aria-label={video.title}
+        />
+      ) : null}
       <img
         src={thumb}
         alt=""
         className={cn(
-          "size-full object-cover transition-transform duration-200",
+          "pointer-events-none size-full object-cover transition-transform duration-200",
           !locked && "group-hover:scale-[1.03]"
         )}
       />
@@ -3325,7 +3355,7 @@ function VideoCard({
           <Link2 className="size-3.5" />
         </button>
       ) : null}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pt-8 pb-1.5">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pt-8 pb-1.5">
         <p className="line-clamp-2 text-left text-[10px] font-medium text-white">
           {video.title}
         </p>
@@ -3335,7 +3365,7 @@ function VideoCard({
         </p>
       </div>
       {locked ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 px-1 text-center">
+        <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1 bg-black/50 px-1 text-center">
           <Lock className="size-5 text-white" />
           {video.adminApprovalPending ? (
             <span className="text-[10px] font-medium text-white/90">
@@ -3343,9 +3373,22 @@ function VideoCard({
             </span>
           ) : null}
           {video.awaitingCoOwnerApproval ? (
-            <span className="text-[10px] font-medium text-white/90">
-              Awaiting co-owner approval
-            </span>
+            <>
+              <span className="text-[10px] font-medium text-white/90">
+                Awaiting co-owner approval
+              </span>
+              {video.coOwnerResendInviteId ? (
+                <CoOwnerPostSubmitResendButton
+                  inviteId={video.coOwnerResendInviteId}
+                  contentTitle={video.title}
+                  youtubeLink={video.url}
+                  resentAt={video.coOwnerResendAt}
+                  resendCount={video.coOwnerResendCount}
+                  variant="secondary"
+                  className="mt-1 h-7 px-2 text-[10px]"
+                />
+              ) : null}
+            </>
           ) : null}
           {!video.adminApprovalPending && !video.awaitingCoOwnerApproval ? (
             <span className="text-[10px] font-medium text-white/90">
@@ -3354,7 +3397,7 @@ function VideoCard({
           ) : null}
         </div>
       ) : null}
-    </button>
+    </div>
   );
 }
 

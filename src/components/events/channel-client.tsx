@@ -110,7 +110,10 @@ import {
 import { toast } from "react-toastify";
 import { cn } from "@/lib/utils";
 import { TV_RAIL_Z_INDEX } from "@/lib/drawer-z-index";
-import { SURFACE_MOBILE_MAX_PX } from "@/lib/surface-breakpoints";
+import {
+  SURFACE_BELOW_TAILWIND_SM_MEDIA,
+  SURFACE_MOBILE_MAX_PX,
+} from "@/lib/surface-breakpoints";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import {
   expressNavigateToExplore,
@@ -132,6 +135,9 @@ import {
   MobileLandscapeCloseButton,
   immersiveControlRailClassName,
   immersiveFullViewViewportClassName,
+  immersiveInPlayerMetricsClusterClassName,
+  immersiveInPlayerSecondaryActionsClassName,
+  OVERLAY_RAIL_DOCK_CLEARANCE_CLASS,
   immersiveMainRowClassName,
   immersiveMobileScrubberDockClassName,
   immersivePlayerStageClassName,
@@ -719,6 +725,11 @@ export const ChannelClient = ({
     showPhoneLandscapeImmersive,
     handleLandscapeClose,
   } = usePhoneLandscapeImmersiveDismiss();
+  const isBelowTailwindSm = useMediaQuery({
+    query: SURFACE_BELOW_TAILWIND_SM_MEDIA,
+  });
+  const overlayPhoneChrome =
+    isOverlay && (isPhoneLandscape || isBelowTailwindSm);
   const isMobileSurface = isMobile || isPhoneLandscape;
   const {
     isFullView,
@@ -731,11 +742,13 @@ export const ChannelClient = ({
   } = useMobileVideoViewMode({
     videoUrl: currentContent?.url,
     isMobile: isMobileSurface,
-    lockFullLandscape: showPhoneLandscapeImmersive,
+    lockFullLandscape: isOverlay ? false : showPhoneLandscapeImmersive,
+    aspectAwareInlineChrome: overlayPhoneChrome,
   });
 
   useEffect(() => {
-    if (!startInFullView || !isOverlay) return;
+    if (isOverlay) return;
+    if (!startInFullView) return;
     if (isMobileSurface) {
       enterFull();
     }
@@ -902,15 +915,17 @@ export const ChannelClient = ({
     useSelector((s: RootState) => s.auth.isAuthenticated) &&
     (userRole === "HOST" || userRole === "TIPPER");
 
-  const overlayChrome =
-    isOverlay &&
-    (isFullView || !isMobileSurface || showPhoneLandscapeImmersive);
+  const overlayChrome = isOverlay;
+  const mobileOverlayImmersive = (isMobile && isFullView) || overlayPhoneChrome;
+  /** Overlay mobile uses dismiss-safe immersive chrome helpers without lockFullLandscape. */
+  const immersiveChromeOpen = isFullView || overlayPhoneChrome;
+  const chromeUsesMobileLayout = overlayPhoneChrome || isMobile;
 
   return (
     <div
       className={cn(
         isOverlay
-          ? "relative h-full min-h-0 w-full flex-1 overflow-hidden bg-black text-white"
+          ? "relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-black text-white"
           : isFullView
             ? immersiveFullViewViewportClassName("channel")
             : isMobile
@@ -918,6 +933,7 @@ export const ChannelClient = ({
               : "relative h-[85%] w-[95%] bg-white sm:h-[80%]",
 
         showPhoneLandscapeImmersive &&
+          !isOverlay &&
           "fixed top-0 right-0 bottom-0 left-0 h-[100%] w-[100%] bg-black p-4 text-white"
       )}
     >
@@ -1006,7 +1022,7 @@ export const ChannelClient = ({
             </div>
           )}
         </>
-      ) : (
+      ) : isOverlay ? null : (
         <MobileLandscapeCloseButton
           onClose={() => handleLandscapeClose({ isFullView, exitFull })}
         />
@@ -1014,21 +1030,27 @@ export const ChannelClient = ({
 
       <div
         className={cn(
-          !isFullView && isMobile
-            ? cn(mobileInlinePlayerBoundsClass, "flex gap-2")
-            : immersiveMainRowClassName(isFullView, isMobile, immersiveLayout),
-          !isFullView && !isMobile && "h-full w-full"
+          isOverlay && !overlayPhoneChrome
+            ? "flex h-full min-h-0 w-full flex-1 gap-2"
+            : !immersiveChromeOpen && isMobile
+              ? cn(mobileInlinePlayerBoundsClass, "flex gap-2")
+              : immersiveMainRowClassName(
+                  immersiveChromeOpen,
+                  chromeUsesMobileLayout,
+                  immersiveLayout
+                ),
+          !isOverlay && !isFullView && !isMobile && "h-full w-full"
         )}
       >
         {/* Player controls */}
         <div
           className={cn(
             immersiveControlRailClassName(
-              isFullView,
-              isMobile,
+              immersiveChromeOpen,
+              chromeUsesMobileLayout,
               immersiveLayout
             ),
-            !isFullView && isMobile && "shrink-0 gap-2 pt-2"
+            !immersiveChromeOpen && isMobile && "shrink-0 gap-2 pt-2"
           )}
         >
           <button
@@ -1067,7 +1089,7 @@ export const ChannelClient = ({
 
           {isMobile && (
             <span className="flex flex-col items-center gap-1">
-              {!isFullView && (
+              {!isFullView && !isOverlay && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1122,11 +1144,12 @@ export const ChannelClient = ({
 
         <div
           className={cn(
-            !isFullView && isMobile
+            (isOverlay && !overlayPhoneChrome) ||
+              (!immersiveChromeOpen && isMobile)
               ? "relative h-full min-h-0 flex-1 overflow-hidden"
               : immersivePlayerStageClassName(
-                  isFullView,
-                  isMobile,
+                  immersiveChromeOpen,
+                  chromeUsesMobileLayout,
                   immersiveLayout
                 )
           )}
@@ -1360,7 +1383,20 @@ export const ChannelClient = ({
           )}
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-7 z-[90] -mt-1 flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-7 -mt-1 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={
+              isOverlay
+                ? cn(
+                    immersiveInPlayerSecondaryActionsClassName(
+                      true,
+                      chromeUsesMobileLayout,
+                      immersiveLayout
+                    ),
+                    overlayPhoneChrome && OVERLAY_RAIL_DOCK_CLEARANCE_CLASS
+                  )
+                : isFullView && isMobile
+                  ? "pointer-events-auto absolute top-1/2 right-7 z-[1110] -mt-1 flex -translate-y-1/2 flex-col items-center gap-2"
+                  : `absolute right-7 -mt-1 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`
+            }
           >
             <button
               type="button"
@@ -1459,6 +1495,7 @@ export const ChannelClient = ({
               onContinueToTip={() => openPageTipDrawer()}
               hostName={currentContent?.event?.hostName}
               hostUsername={currentContent?.event?.username}
+              stackAbovePlaybackOverlay={isOverlay}
             />
 
             {showInfo && (
@@ -1476,7 +1513,20 @@ export const ChannelClient = ({
           </div>
 
           <div
-            className={`${isFullView ? "absolute top-1/2 right-2 z-[90] flex -translate-y-1/2 flex-col items-center gap-2" : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`}`}
+            className={
+              isOverlay
+                ? cn(
+                    immersiveInPlayerMetricsClusterClassName(
+                      true,
+                      chromeUsesMobileLayout,
+                      immersiveLayout
+                    ),
+                    overlayPhoneChrome && OVERLAY_RAIL_DOCK_CLEARANCE_CLASS
+                  )
+                : isFullView && isMobile
+                  ? "pointer-events-auto absolute top-1/2 right-2 z-[1110] flex -translate-y-1/2 flex-col items-center gap-2"
+                  : `absolute right-2 ${isMobile ? mobileInlineActionRailBottomClass : mobileInlineActionRailBottomSmClass} z-[90] flex flex-col items-center gap-2`
+            }
           >
             <button
               type="button"
@@ -1589,6 +1639,7 @@ export const ChannelClient = ({
                       payLabel={tipPres.payLabel}
                       tipQuoteContext={tipPres.quoteCtx}
                       eliteCharacterIds={tipPres.eliteCharacterIds}
+                      stackAbovePlaybackOverlay={isOverlay}
                       externalDrawer
                       onRequestOpenDrawer={() => openPageTipDrawer()}
                       onRequestOpenWallet={() => openPageTipDrawer()}
@@ -1731,7 +1782,7 @@ export const ChannelClient = ({
       <div
         className={cn(
           "absolute right-2 bottom-[env(safe-area-inset-bottom,0px)] left-2 flex flex-col border-t px-4 py-1 sm:hidden",
-          isFullView && isMobile && "hidden"
+          mobileOverlayImmersive && "hidden"
         )}
       >
         <div className="flex items-center justify-between gap-4">
@@ -1825,7 +1876,8 @@ export const ChannelClient = ({
             paymentChannelId={paymentChannelIdForTip}
             getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
             getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
-            stackAboveImmersive={isFullView && isMobile}
+            stackAboveImmersive={mobileOverlayImmersive}
+            stackAbovePlaybackOverlay={isOverlay}
             openWalletModalNonce={openWalletModalNonce}
             textTipUnitPrice={tipPres.textUnitPrice}
             payLabel={tipPres.payLabel}
@@ -1836,17 +1888,18 @@ export const ChannelClient = ({
       {/* Scrubber - MOBILE */}
       <div
         className={cn(
-          "flex flex-col gap-2 sm:hidden",
-          !isFullView && mobileInlineScrubberDockClass,
-          isFullView &&
-            isMobile &&
-            immersiveMobileScrubberDockClassName(immersiveLayout)
+          "flex flex-col gap-2",
+          !(overlayPhoneChrome || mobileOverlayImmersive) && "sm:hidden",
+          !mobileOverlayImmersive && mobileInlineScrubberDockClass,
+          mobileOverlayImmersive &&
+            immersiveMobileScrubberDockClassName(immersiveLayout),
+          mobileOverlayImmersive && "pointer-events-none"
         )}
       >
         <div
           className={cn(
             "flex items-center gap-2 text-xs",
-            isFullView && isMobile && "text-white"
+            mobileOverlayImmersive && "pointer-events-auto text-white"
           )}
         >
           <span className="flex">
@@ -1898,14 +1951,16 @@ export const ChannelClient = ({
               }}
               className={cn(
                 "accent-primary h-1 w-full flex-1 rounded-full",
-                isFullView && isMobile ? "bg-white/20" : "bg-black"
+                mobileOverlayImmersive
+                  ? "pointer-events-auto bg-white/20"
+                  : "bg-black"
               )}
             />
 
             <div
               className={cn(
                 "-mt-0.5 flex justify-between px-1 text-xs",
-                isFullView && isMobile && "text-white"
+                mobileOverlayImmersive && "text-white"
               )}
             >
               <span>{formatTime(currentTime)}</span>
@@ -1913,11 +1968,11 @@ export const ChannelClient = ({
             </div>
           </div>
 
-          {isFullView && isMobile ? (
+          {mobileOverlayImmersive ? (
             <button
               type="button"
               onClick={() => openPageTipDrawer()}
-              className="mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
+              className="pointer-events-auto mb-2 flex shrink-0 items-center gap-0.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-black shadow"
             >
               <ChevronsUp className="text-primary size-4" />
               {tipPres.sectionCtaLabel?.trim() || "Engage"}{" "}
@@ -1936,7 +1991,7 @@ export const ChannelClient = ({
         <div
           className={cn(
             "absolute sm:hidden",
-            isFullView && isMobile
+            mobileOverlayImmersive
               ? cn(
                   "hidden max-h-[min(38vh,280px)] overflow-y-auto rounded-t-xl border border-white/15 bg-zinc-900/95 px-2 py-2",
                   "right-2 bottom-[5.25rem] left-2",
@@ -1954,7 +2009,8 @@ export const ChannelClient = ({
             paymentChannelId={paymentChannelIdForTip}
             getPlaybackOffsetSec={getPaymentPlaybackOffsetSec}
             getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
-            stackDrawerAboveImmersive={isFullView && isMobile}
+            stackDrawerAboveImmersive={mobileOverlayImmersive}
+            stackAbovePlaybackOverlay={isOverlay}
             textTipUnitPrice={tipPres.textUnitPrice}
             sectionCtaLabel={tipPres.sectionCtaLabel}
             payLabel={tipPres.payLabel}
@@ -1980,6 +2036,7 @@ export const ChannelClient = ({
         channelId={currentContent?.id ? String(currentContent.id) : null}
         eventRoomTipCount={liveNumOfTips}
         videoTipCount={liveChannelNumOfTips}
+        stackAbovePlaybackOverlay={isOverlay}
       />
 
       {/* PROFILE DRAWER */}

@@ -28,7 +28,21 @@ type Options = {
   ) => void;
 };
 
-/** Restore modal add-video draft from sessionStorage + server on open. */
+/** Resolve draft id for a one-shot modal restore attempt (seed > draftId > session). */
+export function resolveModalDraftRestoreId(input: {
+  seedDraftId?: string | null;
+  draftId?: string | null;
+  sessionStoredId?: string | null;
+}): string | null {
+  const id =
+    input.seedDraftId?.trim() ||
+    input.draftId?.trim() ||
+    input.sessionStoredId?.trim() ||
+    "";
+  return id || null;
+}
+
+/** Restore modal add-video draft from sessionStorage + server on open (once per mount). */
 export function useModalFormDraftRestore({
   kind,
   targetId,
@@ -41,6 +55,9 @@ export function useModalFormDraftRestore({
 }: Options) {
   const restoredRef = useRef(false);
   const [restoring, setRestoring] = useState(false);
+  // Freeze first-open seed so later autosave draftId updates cannot re-trigger restore.
+  const seedOnOpenRef = useRef(seedDraftId);
+  const draftIdOnOpenRef = useRef(draftId);
 
   useEffect(() => {
     if (!enabled || !targetId?.trim() || restoredRef.current) {
@@ -48,19 +65,24 @@ export function useModalFormDraftRestore({
       return;
     }
 
+    // One-shot: mark attempted even when there is no id, so autosave cannot wipe the form.
+    restoredRef.current = true;
+
     const storageKey = modalDraftStorageKey(kind, targetId);
-    const storedId =
-      seedDraftId?.trim() ??
-      draftId ??
-      (typeof window !== "undefined"
-        ? sessionStorage.getItem(storageKey)
-        : null);
-    if (!storedId?.trim()) {
+    const storedId = resolveModalDraftRestoreId({
+      seedDraftId: seedOnOpenRef.current,
+      draftId: draftIdOnOpenRef.current,
+      sessionStoredId:
+        typeof window !== "undefined"
+          ? sessionStorage.getItem(storageKey)
+          : null,
+    });
+
+    if (!storedId) {
       setRestoring(false);
       return;
     }
 
-    restoredRef.current = true;
     setRestoring(true);
     void getFormDraftAction(storedId).then(res => {
       setRestoring(false);
@@ -94,16 +116,9 @@ export function useModalFormDraftRestore({
       }
       toast.success("Draft restored");
     });
-  }, [
-    enabled,
-    targetId,
-    kind,
-    form,
-    draftId,
-    seedDraftId,
-    onDraftId,
-    onVerifyStateRestored,
-  ]);
+    // Intentionally omit draftId/seedDraftId: restore is one-shot per open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on enable/target
+  }, [enabled, targetId, kind, form, onDraftId, onVerifyStateRestored]);
 
   return { restoring };
 }

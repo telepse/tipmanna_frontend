@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EmbeddedSupportChat } from "@/components/support/embedded-support-chat";
 import { HostYoutubeChannelsSettings } from "@/components/dashboard/host-youtube-channels-settings";
@@ -12,8 +12,105 @@ import { isUkCountry } from "@/lib/is-uk-country";
 import { useHostPayoutSummary } from "@/hooks/useHostPayoutSummary";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
 
+/**
+ * Returns true when a profile field has a meaningful value.
+ */
+function hasProfileValue(value: unknown): boolean {
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  if (typeof value === "boolean") {
+    return true;
+  }
+
+  if (value instanceof Date) {
+    return !Number.isNaN(value.getTime());
+  }
+
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function getProfileCompleteness(
+  accountType: "INDIVIDUAL" | "ORGANIZATION" | null,
+  profile: Record<string, unknown> | null | undefined
+): number | null {
+  if (!accountType || !profile) {
+    return null;
+  }
+
+  const country = String(profile.country ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+  const isUk =
+    country === "united kingdom" ||
+    country === "uk" ||
+    country === "gb" ||
+    country === "great britain";
+
+  const requiredFields: unknown[] =
+    accountType === "INDIVIDUAL"
+      ? [
+          profile.firstName,
+          profile.lastName,
+          profile.homeAddress,
+          profile.city,
+          profile.state,
+          profile.postalCode,
+          profile.country,
+
+          // UK hosts provide NI number.
+          // Non-UK hosts provide passport number
+          // and additional tax identification.
+          isUk ? profile.niNumber : profile.passportNumber,
+
+          ...(isUk ? [] : [profile.additionalTaxIdentification]),
+
+          profile.dateOfBirth,
+          profile.gender,
+          profile.accountNumber,
+          profile.sortCode,
+        ]
+      : [
+          profile.registeredCompanyName,
+          profile.companyRegistrationNumber,
+          profile.registeredAddress,
+          profile.city,
+          profile.state,
+          profile.postalCode,
+          profile.country,
+          profile.dateOfBirth,
+          profile.uniqueTaxpayerReference,
+          profile.accountNumber,
+          profile.sortCode,
+        ];
+
+  const completedFields = requiredFields.filter(hasProfileValue).length;
+
+  const completionRatio =
+    requiredFields.length > 0 ? completedFields / requiredFields.length : 0;
+
+  if (completionRatio >= 1) {
+    return 100;
+  }
+
+  if (completionRatio >= 0.9) {
+    return 90;
+  }
+
+  if (completionRatio >= 0.7) {
+    return 70;
+  }
+
+  return 50;
+}
+
 // Third-party imports
 import {
+  ArrowUpRight,
+  Crown,
   Eye,
   Headset,
   Loader2,
@@ -23,7 +120,9 @@ import {
   Wallet,
   Building2,
   Settings2,
-  MoveRight,
+  Globe,
+  GlobeCheck,
+  ArrowRight,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -76,6 +175,7 @@ import {
 import { useHostSession } from "@/hooks/use-host-session";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { Badge } from "@/components/ui/badge";
 
 function branchLabel(branch: string) {
   if (branch === "event_tip") return "Event tips";
@@ -105,21 +205,171 @@ type SettingsTab =
   | "individual_profile"
   | "organisation_profile";
 
+type SubscriptionPageBlockProps = {
+  status: string;
+  tier?: string | null;
+  isLoading: boolean;
+  onOpenSubscriptions: () => void;
+};
+
+function SubscriptionPageBlock({
+  status,
+  tier,
+  isLoading,
+  onOpenSubscriptions,
+}: SubscriptionPageBlockProps) {
+  if (isLoading) return null;
+
+  const isCommunity = status === "active" && tier === "HOST_COMMUNITY";
+
+  const isGrowth = status === "active" && tier === "HOST_PREMIUM";
+
+  const isFree = status === "none";
+
+  const isLapsed = status === "lapsed";
+
+  if (!isFree && !isGrowth && !isCommunity && !isLapsed) {
+    return null;
+  }
+
+  const title = isCommunity
+    ? "You are on Host Community"
+    : isGrowth
+      ? "Ready to launch your community?"
+      : isLapsed
+        ? "Bring your host plan back"
+        : "Ready for creator growth?";
+
+  const description = isCommunity
+    ? "You’re on Host Community. Manage your plan and explore everything included with your subscription."
+    : isGrowth
+      ? "Unlock Community tools and TV. Take your growth experience further."
+      : isLapsed
+        ? "Your previous host subscription has ended. Review the available plans and renew when you’re ready."
+        : "Unlock growth tools. Transform your events and contents to a wider audience.";
+
+  const buttonLabel = isCommunity
+    ? "View subscription"
+    : isGrowth
+      ? "Launch Community TV"
+      : isLapsed
+        ? "Renew plan"
+        : "Upgrade to Growth";
+
+  const badgeLabel = isCommunity
+    ? "Host Community"
+    : isGrowth
+      ? "Host Growth"
+      : isLapsed
+        ? "Plan expired"
+        : "Free";
+
+  /*
+   * One shared visual treatment for every subscription state.
+   *
+   * Keeping the same gradient across all plans makes the settings page feel
+   * consistent while the badge, copy and CTA communicate the current plan.
+   */
+  const sharedGradient =
+    "linear-gradient(135deg, rgba(245,125,17,0.10) 0%, rgba(247,200,124,0.16) 48%, rgba(122,173,204,0.10) 100%)";
+
+  const sharedGlow =
+    "radial-gradient(circle, rgba(245,125,17,0.16) 0%, rgba(245,125,17,0) 70%)";
+
+  const sharedSecondaryGlow =
+    "radial-gradient(circle, rgba(122,173,204,0.14) 0%, rgba(122,173,204,0) 70%)";
+
+  return (
+    <section
+      className="border-primary/15 relative isolate overflow-hidden rounded-2xl border p-5 shadow-sm sm:p-6"
+      style={{
+        background: sharedGradient,
+      }}
+    >
+      {/* Decorative gradient glows */}
+      <div
+        className="pointer-events-none absolute -top-24 -right-20 size-56 rounded-full blur-3xl"
+        style={{
+          background: sharedGlow,
+        }}
+      />
+
+      <div
+        className="pointer-events-none absolute -bottom-28 left-1/3 size-52 rounded-full blur-3xl"
+        style={{
+          background: sharedSecondaryGlow,
+        }}
+      />
+
+      {/* Subtle top accent */}
+      <div className="from-primary/0 via-primary/50 to-primary/0 absolute inset-x-0 top-0 h-px bg-gradient-to-r" />
+
+      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="border-primary/15 bg-background/75 text-primary flex size-11 shrink-0 items-center justify-center rounded-xl border shadow-sm backdrop-blur-sm">
+            {isCommunity ? (
+              <GlobeCheck className="size-5" />
+            ) : (
+              <Crown className="size-5" />
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              {" "}
+              <span className="text-xs font-medium sm:text-sm">
+                Your current plan is
+              </span>
+              <span className="border-primary/15 bg-primary/10 text-primary rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase">
+                {badgeLabel}
+              </span>
+            </div>
+
+            <h3 className="text-base font-semibold sm:text-lg">{title}</h3>
+
+            <p className="text-muted-foreground mt-1 max-w-2xl text-sm leading-6">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          size="lg"
+          className="bg-primary hover:bg-primary/90 w-full shrink-0 border-0 text-white shadow-sm transition-all sm:w-auto"
+          onClick={onOpenSubscriptions}
+        >
+          {buttonLabel}
+          <ArrowUpRight className="ml-1 size-4" />
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export const SettingsClient = () => {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const initialProfileTab =
-    searchParams.get("tab") === "organisation_profile"
+    searchParams.get("settingsTab") === "organisation_profile"
       ? "organisation_profile"
-      : searchParams.get("tab") === "individual_profile"
+      : searchParams.get("settingsTab") === "individual_profile"
         ? "individual_profile"
-        : "account_settings";
+        : searchParams.get("settingsTab") === "payment_payouts"
+          ? "payment_payouts"
+          : searchParams.get("settingsTab") === "help_section"
+            ? "help_section"
+            : "account_settings";
 
   const {
     host,
     communities,
+    creatorPayoutVerifiedAt,
     isLoading: payoutsLoading,
   } = useHostPayoutSummary();
+
+  const isCreatorProfileVerified = Boolean(creatorPayoutVerifiedAt);
 
   const allObligations = [...host, ...communities];
 
@@ -150,6 +400,35 @@ export const SettingsClient = () => {
 
   const dispatch = useDispatch<AppDispatch>();
   const { push, replace } = useAppRouter();
+
+  const {
+    info,
+    status,
+    capabilities,
+    isLoading: planLoading,
+    fetchError: planFetchError,
+    refresh: refreshPlan,
+  } = useHostPlanCapabilities();
+
+  const subscriptionState = {
+    info,
+    status,
+    capabilities,
+    isLoading: planLoading,
+    fetchError: planFetchError,
+    refresh: refreshPlan,
+  };
+
+  const loading = planLoading;
+
+  const openSubscriptions = () => {
+    if (!eventSlug) {
+      toast.error("Host event session not available");
+      return;
+    }
+
+    router.push(`/host/${eventSlug}/profile?tab=subscriptions`);
+  };
 
   const handleLogout = async () => {
     await performAuthLogout(dispatch);
@@ -275,31 +554,36 @@ export const SettingsClient = () => {
     }
   };
 
-  /*
-   * Profile tab visibility rules:
+  /**
+   * Both profile tabs are always accessible.
    *
-   * - No account type loaded yet:
-   *   Show both profile tabs.
+   * - Individual accounts can still view/edit the Organisation profile tab.
+   *   A notice explains that the account is currently operating as an individual.
    *
-   * - Individual account:
-   *   Show only the Individual profile tab.
+   * - Organisation accounts can still view/edit the Individual profile tab.
+   *   A notice explains that the account is currently operating as an organisation.
    *
-   * - Organisation account:
-   *   Show BOTH Individual and Organisation profile tabs.
-   *
-   * An organisation account is intentionally allowed to access the
-   * individual profile because the individual profile can still contain
-   * the authorised person's personal information.
+   * The profileAccountType determines which profile is used for the account's
+   * active payout/tax configuration; it does not prevent access to either
+   * profile section.
    */
-  const showIndividualProfileTab =
-    profileAccountType === null ||
-    profileAccountType === "INDIVIDUAL" ||
-    profileAccountType === "ORGANIZATION";
+  const showIndividualProfileTab = true;
+  const showOrganisationProfileTab = true;
 
-  const showOrganisationProfileTab =
-    profileAccountType === null || profileAccountType === "ORGANIZATION";
+  const isSettingsTab = (value: string | null): value is SettingsTab =>
+    value === "account_settings" ||
+    value === "payment_payouts" ||
+    value === "help_section" ||
+    value === "individual_profile" ||
+    value === "organisation_profile";
+
+  const pathname = usePathname();
 
   const handleTabChange = (value: string) => {
+    if (!isSettingsTab(value)) {
+      return;
+    }
+
     if (value === "individual_profile" && !showIndividualProfileTab) {
       return;
     }
@@ -308,18 +592,83 @@ export const SettingsClient = () => {
       return;
     }
 
-    if (
-      value !== "account_settings" &&
-      value !== "payment_payouts" &&
-      value !== "help_section" &&
-      value !== "individual_profile" &&
-      value !== "organisation_profile"
-    ) {
+    setTabType(value);
+
+    const params = new URLSearchParams(searchParams.toString());
+
+    // SettingsClient is nested inside the HostProfileClient's
+    // account_settings tab, so keep the parent tab intact.
+    params.set("tab", "account_settings");
+
+    if (value === "account_settings") {
+      params.delete("settingsTab");
+    } else {
+      params.set("settingsTab", value);
+    }
+
+    const queryString = params.toString();
+
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+      scroll: false,
+    });
+  };
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("settingsTab");
+
+    if (!requestedTab) {
+      setTabType("account_settings");
       return;
     }
 
-    setTabType(value as SettingsTab);
-  };
+    if (!isSettingsTab(requestedTab)) {
+      setTabType("account_settings");
+      return;
+    }
+
+    if (requestedTab === "individual_profile" && !showIndividualProfileTab) {
+      setTabType("account_settings");
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("settingsTab");
+      params.set("tab", "account_settings");
+
+      const queryString = params.toString();
+
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+        scroll: false,
+      });
+
+      return;
+    }
+
+    if (
+      requestedTab === "organisation_profile" &&
+      !showOrganisationProfileTab
+    ) {
+      setTabType("account_settings");
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("settingsTab");
+      params.set("tab", "account_settings");
+
+      const queryString = params.toString();
+
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+        scroll: false,
+      });
+
+      return;
+    }
+
+    setTabType(requestedTab);
+  }, [
+    searchParams,
+    pathname,
+    router,
+    showIndividualProfileTab,
+    showOrganisationProfileTab,
+  ]);
 
   const individualCountry = individualProfileForm.watch("country");
   const individualIsUk = isUkCountry(individualCountry);
@@ -383,6 +732,16 @@ export const SettingsClient = () => {
     }
   }, [registeredCompanyName, organisationProfileForm]);
 
+  const [profileData, setProfileData] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+
+  const profileCompleteness = getProfileCompleteness(
+    profileAccountType ?? null,
+    profileData ?? null
+  );
+
   useEffect(() => {
     if (!hostSessionActive) return;
 
@@ -414,24 +773,17 @@ export const SettingsClient = () => {
           ...profile.organisationProfile,
         });
       }
+
+      const selectedProfile =
+        accountType === "ORGANIZATION"
+          ? profile.organisationProfile
+          : accountType === "INDIVIDUAL"
+            ? profile.individualProfile
+            : null;
+
+      setProfileData(selectedProfile ?? null);
     });
   }, [hostSessionActive]);
-
-  /*
-   * Only an Individual account needs to be redirected away from the
-   * Organisation profile tab.
-   *
-   * An Organisation account is intentionally allowed to remain on and
-   * navigate to the Individual profile tab.
-   */
-  useEffect(() => {
-    if (
-      profileAccountType === "INDIVIDUAL" &&
-      tabType === "organisation_profile"
-    ) {
-      setTabType("individual_profile");
-    }
-  }, [profileAccountType, tabType]);
 
   const onSubmitIndividualProfile = async (
     values: individualProfileFormData
@@ -613,28 +965,6 @@ export const SettingsClient = () => {
     },
   ];
 
-  const {
-    info,
-    status,
-    capabilities,
-    isLoading: planLoading,
-    fetchError: planFetchError,
-    refresh: refreshPlan,
-  } = useHostPlanCapabilities();
-
-  const subscriptionState = {
-    info,
-    status,
-    capabilities,
-    isLoading: planLoading,
-    fetchError: planFetchError,
-    refresh: refreshPlan,
-  };
-
-  const loading = planLoading;
-
-  const router = useRouter();
-
   return (
     <div className="w-full min-w-0">
       {/* Settings header */}
@@ -654,48 +984,6 @@ export const SettingsClient = () => {
             </p>
           </div>
         </div>
-
-        {/* FREE HOST */}
-        {!loading && status === "none" ? (
-          <div
-            className="space-y-4"
-            onClick={() =>
-              router.push(`/host/${eventSlug}/profile?tab=subscriptions`)
-            }
-          >
-            <div className="border-muted bg-muted/30 rounded-lg border p-4">
-              <h3 className="flex items-center gap-2 font-semibold">
-                Choose a host plan <MoveRight className="size-4" />
-              </h3>
-
-              <p className="text-muted-foreground mt-1 text-sm">
-                Unlock more tools for growing your events, audience, and
-                community.
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {/* GROWTH HOST */}
-        {!loading && status === "active" && info?.tier === "HOST_PREMIUM" ? (
-          <div
-            className="space-y-4"
-            onClick={() =>
-              router.push(`/host/${eventSlug}/profile?tab=subscriptions`)
-            }
-          >
-            <div className="border-primary/20 bg-primary/5 rounded-lg border p-4">
-              <h3 className="flex items-center gap-2 font-semibold">
-                Upgrade to Host Community <MoveRight className="size-4" />
-              </h3>
-
-              <p className="text-muted-foreground mt-1 text-sm">
-                You currently have Host Growth. Explore the additional Community
-                features available to you.
-              </p>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <Tabs
@@ -747,6 +1035,7 @@ export const SettingsClient = () => {
 
           {/* Settings content */}
           <main className="min-w-0 flex-1">
+            {/* Account settings */}
             <TabsContent
               value="account_settings"
               className="mt-0 w-full"
@@ -922,7 +1211,7 @@ export const SettingsClient = () => {
                           type="button"
                           variant="outline"
                           size="lg"
-                          className="w-full sm:w-auto"
+                          className="h-9 w-full sm:w-auto"
                           onClick={() => {
                             profileForm.reset({
                               ...profileForm.getValues(),
@@ -936,8 +1225,8 @@ export const SettingsClient = () => {
 
                         <Button
                           type="submit"
-                          size="lg"
-                          className="w-full sm:w-auto"
+                          size="sm"
+                          className="h-9 w-full bg-black hover:bg-black/90 sm:w-auto"
                           disabled={isLoading}
                         >
                           {isLoading ? (
@@ -955,179 +1244,391 @@ export const SettingsClient = () => {
                 </section>
 
                 <HostYoutubeChannelsSettings />
+
+                <SubscriptionPageBlock
+                  status={status}
+                  tier={info?.tier}
+                  isLoading={loading}
+                  onOpenSubscriptions={openSubscriptions}
+                />
               </div>
             </TabsContent>
 
+            {/* Individual profile */}
             {showIndividualProfileTab ? (
               <TabsContent
                 value="individual_profile"
                 className="mt-0 w-full"
+                id="individual_profile"
               >
-                <div className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold">
-                      Individual profile
-                    </h3>
+                <div className="space-y-5">
+                  <div className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold">
+                        Individual profile
+                      </h3>
 
-                    <p className="text-muted-foreground text-sm">
-                      Update your individual profile and payout information.
-                    </p>
-                  </div>
+                      <div className="rounded-xl border bg-gray-200 p-4 shadow-sm">
+                        <div className="flex items-center gap-4">
+                          {/* Circular completeness indicator */}
+                          <div className="relative flex size-16 shrink-0 items-center justify-center">
+                            <svg
+                              className="size-full -rotate-90"
+                              viewBox="0 0 100 100"
+                              aria-hidden="true"
+                            >
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                fill="none"
+                                stroke="black"
+                                strokeWidth="7"
+                                className="text-muted/30"
+                              />
 
-                  {/* Organisation account notice */}
-                  {profileAccountType === "ORGANIZATION" ? (
-                    <div className="border-primary/20 from-primary/10 via-primary/5 to-background relative overflow-hidden rounded-xl border bg-gradient-to-br p-4 sm:p-5">
-                      <div className="bg-primary/10 absolute -top-10 -right-10 size-24 rounded-full blur-2xl" />
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                fill="none"
+                                stroke="black"
+                                strokeWidth="7"
+                                strokeLinecap="round"
+                                className="text-primary transition-all duration-700 ease-out"
+                                strokeDasharray={2 * Math.PI * 42}
+                                strokeDashoffset={
+                                  2 *
+                                  Math.PI *
+                                  42 *
+                                  (1 - (profileCompleteness ?? 0) / 100)
+                                }
+                              />
+                            </svg>
 
-                      <div className="relative flex items-start gap-3 sm:gap-4">
-                        <div className="border-primary/20 bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl border sm:size-11">
-                          <Building2 className="size-5 sm:size-5" />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold sm:text-base">
-                              You&apos;re operating this account as an
-                              organisation
-                            </p>
-
-                            <span className="border-primary/20 bg-primary/10 text-primary rounded-full border px-2.5 py-0.5 text-[11px] font-medium">
-                              Organisation account
+                            <span className="absolute text-xs font-semibold">
+                              {`${profileCompleteness ?? 0}%`}
                             </span>
                           </div>
 
-                          <p className="text-muted-foreground mt-1.5 text-sm leading-6">
-                            This account is configured as an organisation
-                            account.
-                          </p>
+                          {/* Profile information */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold">
+                                Profile{" "}
+                                {profileCompleteness === 100
+                                  ? "complete"
+                                  : "incomplete"}
+                              </p>
+
+                              {profileCompleteness === 100 ? (
+                                <Badge className="gap-1 bg-black text-[10px] text-white">
+                                  Complete
+                                </Badge>
+                              ) : null}
+                            </div>
+
+                            <p className="text-muted-foreground mt-1 text-xs leading-5">
+                              {profileCompleteness === 100
+                                ? `Your ${
+                                    profileAccountType === "ORGANIZATION"
+                                      ? "Organisation"
+                                      : "Individual"
+                                  } profile is fully complete and ready for payout processing.`
+                                : `Your ${profileAccountType === "ORGANIZATION" ? "Organisation" : "Individual"} profile is incomplete and not ready for payout processing.`}
+                            </p>
+                          </div>
                         </div>
                       </div>
+
+                      <p className="text-muted-foreground text-sm">
+                        Update your individual profile and payout information.
+                      </p>
                     </div>
-                  ) : null}
 
-                  <Form {...individualProfileForm}>
-                    <form
-                      onSubmit={individualProfileForm.handleSubmit(
-                        onSubmitIndividualProfile
-                      )}
-                      className="space-y-6"
-                    >
-                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                        <FormField
-                          control={individualProfileForm.control}
-                          name="firstName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>First name</FormLabel>
+                    {/* Organisation account notice */}
+                    {profileAccountType === "ORGANIZATION" ? (
+                      <div className="border-primary/20 from-primary/10 via-primary/5 to-background relative overflow-hidden rounded-xl border bg-gradient-to-br p-4 sm:p-5">
+                        <div className="bg-primary/10 absolute -top-10 -right-10 size-24 rounded-full blur-2xl" />
 
-                              <FormControl>
-                                <Input
-                                  placeholder="Enter first name"
-                                  autoComplete="off"
-                                  disabled={connectLegalNameLocked}
-                                  {...field}
-                                />
-                              </FormControl>
+                        <div className="relative flex items-start gap-3 sm:gap-4">
+                          <div className="border-primary/20 bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl border sm:size-11">
+                            <Building2 className="size-5 sm:size-5" />
+                          </div>
 
-                              <span className="text-muted-foreground text-sm">
-                                {connectLegalNameLocked
-                                  ? "Locked to match your Stripe payout identity."
-                                  : "For official records and HMRC reporting"}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold sm:text-base">
+                                You&apos;re operating this account as an
+                                organisation
+                              </p>
+
+                              <span className="border-primary/20 bg-primary/10 text-primary rounded-full border px-2.5 py-0.5 text-[11px] font-medium">
+                                Organisation account
                               </span>
+                            </div>
 
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={individualProfileForm.control}
-                          name="lastName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Last name</FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  placeholder="Enter last name"
-                                  autoComplete="off"
-                                  disabled={connectLegalNameLocked}
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <span className="text-muted-foreground text-sm">
-                                {connectLegalNameLocked
-                                  ? "Locked to match your Stripe payout identity."
-                                  : "For official records and HMRC reporting"}
-                              </span>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                            <p className="text-muted-foreground mt-1.5 text-sm leading-6">
+                              This account is configured as an organisation
+                              account.
+                            </p>
+                          </div>
+                        </div>
                       </div>
+                    ) : null}
 
-                      <HostProfileAddressFields
-                        control={individualProfileForm.control}
-                        setValue={individualProfileForm.setValue}
-                        watch={individualProfileForm.watch}
-                        fields={{
-                          address: "homeAddress",
-                          city: "city",
-                          state: "state",
-                          postalCode: "postalCode",
-                          country: "country",
-                        }}
-                        addressLabel="Home address"
-                      />
-
-                      <span className="text-muted-foreground -mt-4 block text-sm">
-                        For official records, correspondence, and HMRC
-                        reporting.
-                      </span>
-
-                      {individualIsUk ? (
-                        <FormField
-                          control={individualProfileForm.control}
-                          name="niNumber"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>
-                                National Insurance (NI) number
-                              </FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter national insurance (NI) number"
-                                  autoComplete="off"
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <span className="text-muted-foreground text-sm">
-                                Essential for calculating NI contributions and
-                                reporting to HMRC.
-                              </span>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      ) : (
-                        <>
+                    <Form {...individualProfileForm}>
+                      <form
+                        onSubmit={individualProfileForm.handleSubmit(
+                          onSubmitIndividualProfile
+                        )}
+                        className="space-y-6"
+                      >
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                           <FormField
                             control={individualProfileForm.control}
-                            name="passportNumber"
+                            name="firstName"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Passport number</FormLabel>
+                                <FormLabel>First name</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    placeholder="Enter first name"
+                                    autoComplete="off"
+                                    disabled={connectLegalNameLocked}
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <span className="text-muted-foreground text-sm">
+                                  {connectLegalNameLocked
+                                    ? "Locked to match your Stripe payout identity."
+                                    : "For official records and HMRC reporting"}
+                                </span>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={individualProfileForm.control}
+                            name="lastName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Last name</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    placeholder="Enter last name"
+                                    autoComplete="off"
+                                    disabled={connectLegalNameLocked}
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <span className="text-muted-foreground text-sm">
+                                  {connectLegalNameLocked
+                                    ? "Locked to match your Stripe payout identity."
+                                    : "For official records and HMRC reporting"}
+                                </span>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <HostProfileAddressFields
+                          control={individualProfileForm.control}
+                          setValue={individualProfileForm.setValue}
+                          watch={individualProfileForm.watch}
+                          fields={{
+                            address: "homeAddress",
+                            city: "city",
+                            state: "state",
+                            postalCode: "postalCode",
+                            country: "country",
+                          }}
+                          addressLabel="Home address"
+                        />
+
+                        <span className="text-muted-foreground -mt-4 block text-sm">
+                          For official records, correspondence, and HMRC
+                          reporting.
+                        </span>
+
+                        {individualIsUk ? (
+                          <FormField
+                            control={individualProfileForm.control}
+                            name="niNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  National Insurance (NI) number
+                                </FormLabel>
 
                                 <FormControl>
                                   <Input
                                     type="text"
-                                    placeholder="Enter passport number"
+                                    placeholder="Enter national insurance (NI) number"
+                                    autoComplete="off"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <span className="text-muted-foreground text-sm">
+                                  Essential for calculating NI contributions and
+                                  reporting to HMRC.
+                                </span>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        ) : (
+                          <>
+                            <FormField
+                              control={individualProfileForm.control}
+                              name="passportNumber"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Passport number</FormLabel>
+
+                                  <FormControl>
+                                    <Input
+                                      type="text"
+                                      placeholder="Enter passport number"
+                                      autoComplete="off"
+                                      {...field}
+                                    />
+                                  </FormControl>
+
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={individualProfileForm.control}
+                              name="additionalTaxIdentification"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>
+                                    Additional tax identification detail for
+                                    your country
+                                  </FormLabel>
+
+                                  <FormControl>
+                                    <Input
+                                      type="text"
+                                      placeholder="Enter your country's tax identification"
+                                      autoComplete="off"
+                                      {...field}
+                                    />
+                                  </FormControl>
+
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </>
+                        )}
+
+                        <FormField
+                          control={individualProfileForm.control}
+                          name="dateOfBirth"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Date of birth</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <span className="text-muted-foreground text-sm">
+                                Required for payroll processing (format:
+                                YYYY-MM-DD).
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={individualProfileForm.control}
+                          name="gender"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Gender</FormLabel>
+
+                              <FormControl>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <SelectTrigger className="h-12 !w-full">
+                                    <SelectValue placeholder="Select gender" />
+                                  </SelectTrigger>
+
+                                  <SelectContent>
+                                    <SelectItem value="MALE">Male</SelectItem>
+
+                                    <SelectItem value="FEMALE">
+                                      Female
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+
+                              <span className="text-muted-foreground text-sm">
+                                Required data for payroll processing.
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                          <FormField
+                            control={individualProfileForm.control}
+                            name="accountName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Account name</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Same as your legal name"
+                                    autoComplete="off"
+                                    readOnly
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={individualProfileForm.control}
+                            name="accountNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Account number</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter account number"
                                     autoComplete="off"
                                     {...field}
                                   />
@@ -1140,9 +1641,329 @@ export const SettingsClient = () => {
 
                           <FormField
                             control={individualProfileForm.control}
-                            name="additionalTaxIdentification"
+                            name="sortCode"
                             render={({ field }) => (
                               <FormItem>
+                                <FormLabel>Sort code</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter sort code"
+                                    autoComplete="off"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <Button
+                          type="submit"
+                          size="lg"
+                          className="w-full sm:w-auto"
+                          disabled={isProfileLoading}
+                        >
+                          {isProfileLoading ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="size-4 animate-spin" />
+                              Submitting...
+                            </span>
+                          ) : (
+                            "Submit"
+                          )}
+                        </Button>
+                      </form>
+                    </Form>
+                  </div>
+
+                  <SubscriptionPageBlock
+                    status={status}
+                    tier={info?.tier}
+                    isLoading={loading}
+                    onOpenSubscriptions={openSubscriptions}
+                  />
+                </div>
+              </TabsContent>
+            ) : null}
+
+            {/* Organisation profile */}
+            {showOrganisationProfileTab ? (
+              <TabsContent
+                value="organisation_profile"
+                className="mt-0 w-full"
+                id="organisation_profile"
+              >
+                <div className="space-y-5">
+                  <div className="w-full min-w-0 space-y-5 overflow-hidden rounded-xl border bg-white p-4 sm:p-6">
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-semibold">
+                        Organisation profile
+                      </h3>
+
+                      {/* Individual account notice */}
+                      {profileAccountType === "INDIVIDUAL" ? (
+                        <div className="border-primary/20 from-primary/10 via-primary/5 to-background relative overflow-hidden rounded-xl border bg-gradient-to-br p-4 sm:p-5">
+                          <div className="bg-primary/10 absolute -top-10 -right-10 size-24 rounded-full blur-2xl" />
+
+                          <div className="relative flex items-start gap-3 sm:gap-4">
+                            <div className="border-primary/20 bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl border sm:size-11">
+                              <User className="size-5 sm:size-5" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold sm:text-base">
+                                  You&apos;re operating this account as an
+                                  individual
+                                </p>
+
+                                <span className="border-primary/20 bg-primary/10 text-primary rounded-full border px-2.5 py-0.5 text-[11px] font-medium">
+                                  Individual account
+                                </span>
+                              </div>
+
+                              <p className="text-muted-foreground mt-1.5 text-sm leading-6">
+                                This account is currently configured as an
+                                individual account. You can still complete and
+                                maintain your organisation profile details here,
+                                but your active payout and tax information is
+                                currently managed using your individual profile.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="bg-card rounded-xl border p-4 shadow-sm">
+                        <div className="flex items-center gap-4">
+                          {/* Circular completeness indicator */}
+                          <div className="relative flex size-16 shrink-0 items-center justify-center">
+                            <svg
+                              className="size-full -rotate-90"
+                              viewBox="0 0 100 100"
+                              aria-hidden="true"
+                            >
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="7"
+                                className="text-muted/30"
+                              />
+
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="7"
+                                strokeLinecap="round"
+                                className="text-primary transition-all duration-700 ease-out"
+                                strokeDasharray={2 * Math.PI * 42}
+                                strokeDashoffset={
+                                  2 *
+                                  Math.PI *
+                                  42 *
+                                  (1 - (profileCompleteness ?? 0) / 100)
+                                }
+                              />
+                            </svg>
+
+                            <span className="absolute text-xs font-semibold">
+                              {`${profileCompleteness ?? 0}%`}
+                            </span>
+                          </div>
+
+                          {/* Profile information */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold">
+                                Profile completion
+                              </p>
+
+                              {profileCompleteness === 100 ? (
+                                <Badge className="gap-1 bg-black text-[10px] text-white">
+                                  Complete
+                                </Badge>
+                              ) : null}
+                            </div>
+
+                            <p className="text-muted-foreground mt-1 text-xs leading-5">
+                              {profileCompleteness === 100
+                                ? `Your ${
+                                    profileAccountType === "ORGANIZATION"
+                                      ? "Organisation"
+                                      : "Individual"
+                                  } profile is fully complete. Ready for payout processing.`
+                                : `Your ${profileAccountType === "ORGANIZATION" ? "Organisation" : "Individual"} profile is incomplete and not ready for payout processing.`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-muted-foreground text-sm">
+                        Update your organisation details and payout information.
+                      </p>
+                    </div>
+
+                    <Form {...organisationProfileForm}>
+                      <form
+                        onSubmit={organisationProfileForm.handleSubmit(
+                          onSubmitOrganisationProfile
+                        )}
+                        className="min-w-0 space-y-6"
+                      >
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="registeredCompanyName"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>Registered company name</FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  placeholder="Enter registered company name"
+                                  autoComplete="off"
+                                  className="w-full min-w-0"
+                                  disabled={connectLegalNameLocked}
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <span className="text-muted-foreground block text-sm">
+                                {connectLegalNameLocked
+                                  ? "Locked to match your Stripe payout identity."
+                                  : "For official records and invoices."}
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="companyRegistrationNumber"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>
+                                Company registration number (CRN)
+                              </FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter company registration number"
+                                  autoComplete="off"
+                                  className="w-full min-w-0"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <span className="text-muted-foreground block text-sm">
+                                To verify your company on the Companies House
+                                register.
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="min-w-0">
+                          <HostProfileAddressFields
+                            control={organisationProfileForm.control}
+                            setValue={organisationProfileForm.setValue}
+                            watch={organisationProfileForm.watch}
+                            fields={{
+                              address: "registeredAddress",
+                              city: "city",
+                              state: "state",
+                              postalCode: "postalCode",
+                              country: "country",
+                            }}
+                            addressLabel="Registered address / trading address"
+                          />
+
+                          <span className="text-muted-foreground -mt-4 block text-sm">
+                            For official correspondence and records.
+                          </span>
+                        </div>
+
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="dateOfBirth"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>
+                                Date of birth (authorised signatory)
+                              </FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  className="w-full min-w-0"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <span className="text-muted-foreground block text-sm">
+                                Required for payroll processing (format:
+                                YYYY-MM-DD).
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="uniqueTaxpayerReference"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>
+                                {organisationIsUk
+                                  ? "Tax payer reference (UTR)"
+                                  : "Tax identification for your country"}
+                              </FormLabel>
+
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder={
+                                    organisationIsUk
+                                      ? "Enter unique tax payer reference"
+                                      : "Enter tax identification for your country"
+                                  }
+                                  autoComplete="off"
+                                  className="w-full min-w-0"
+                                  {...field}
+                                />
+                              </FormControl>
+
+                              <span className="text-muted-foreground block text-sm">
+                                For tax records and verification.
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {!organisationIsUk ? (
+                          <FormField
+                            control={organisationProfileForm.control}
+                            name="additionalTaxIdentification"
+                            render={({ field }) => (
+                              <FormItem className="min-w-0">
                                 <FormLabel>
                                   Additional tax identification detail for your
                                   country
@@ -1151,8 +1972,9 @@ export const SettingsClient = () => {
                                 <FormControl>
                                   <Input
                                     type="text"
-                                    placeholder="Enter your country's tax identification"
+                                    placeholder="Enter additional tax information"
                                     autoComplete="off"
+                                    className="w-full min-w-0"
                                     {...field}
                                   />
                                 </FormControl>
@@ -1161,499 +1983,174 @@ export const SettingsClient = () => {
                               </FormItem>
                             )}
                           />
-                        </>
-                      )}
-
-                      <FormField
-                        control={individualProfileForm.control}
-                        name="dateOfBirth"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Date of birth</FormLabel>
-
-                            <FormControl>
-                              <Input
-                                type="date"
-                                {...field}
-                              />
-                            </FormControl>
-
-                            <span className="text-muted-foreground text-sm">
-                              Required for payroll processing (format:
-                              YYYY-MM-DD).
-                            </span>
-
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={individualProfileForm.control}
-                        name="gender"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Gender</FormLabel>
-
-                            <FormControl>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <SelectTrigger className="h-12 !w-full">
-                                  <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
-
-                                <SelectContent>
-                                  <SelectItem value="MALE">Male</SelectItem>
-
-                                  <SelectItem value="FEMALE">Female</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-
-                            <span className="text-muted-foreground text-sm">
-                              Required data for payroll processing.
-                            </span>
-
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-                        <FormField
-                          control={individualProfileForm.control}
-                          name="accountName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account name</FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Same as your legal name"
-                                  autoComplete="off"
-                                  readOnly
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={individualProfileForm.control}
-                          name="accountNumber"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Account number</FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter account number"
-                                  autoComplete="off"
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={individualProfileForm.control}
-                          name="sortCode"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Sort code</FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter sort code"
-                                  autoComplete="off"
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <Button
-                        type="submit"
-                        size="lg"
-                        className="w-full sm:w-auto"
-                        disabled={isProfileLoading}
-                      >
-                        {isProfileLoading ? (
-                          <span className="flex items-center gap-2">
-                            <Loader2 className="size-4 animate-spin" />
-                            Submitting...
-                          </span>
                         ) : (
-                          "Submit"
+                          <FormField
+                            control={organisationProfileForm.control}
+                            name="vatRegistrationNumber"
+                            render={({ field }) => (
+                              <FormItem className="min-w-0">
+                                <FormLabel>
+                                  VAT registration number (if you have one)
+                                </FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter VAT registration number"
+                                    autoComplete="off"
+                                    className="w-full min-w-0"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         )}
-                      </Button>
-                    </form>
-                  </Form>
-                </div>
-              </TabsContent>
-            ) : null}
 
-            {showOrganisationProfileTab ? (
-              <TabsContent
-                value="organisation_profile"
-                className="mt-0 w-full"
-              >
-                <div className="w-full min-w-0 space-y-5 overflow-hidden rounded-xl border bg-white p-4 sm:p-6">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold">
-                      Organisation profile
-                    </h3>
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="invoice"
+                          render={({ field }) => (
+                            <FormItem className="min-w-0">
+                              <FormLabel>Upload</FormLabel>
 
-                    <p className="text-muted-foreground text-sm">
-                      Update your organisation details and payout information.
-                    </p>
+                              <FormControl>
+                                <>
+                                  <Input
+                                    type="file"
+                                    accept="image/*"
+                                    disabled={isUploading}
+                                    onChange={e =>
+                                      void handleFileUpload(e, field.onChange)
+                                    }
+                                    placeholder="Upload invoice"
+                                    autoComplete="off"
+                                    className="w-full min-w-0"
+                                  />
+
+                                  {isUploading && (
+                                    <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                                      <Loader2 className="size-3 animate-spin" />
+                                      Uploading to Cloudinary...
+                                    </div>
+                                  )}
+                                </>
+                              </FormControl>
+
+                              <span className="text-muted-foreground block text-sm">
+                                The formal document detailing your
+                                &quot;supply&quot; (the tips) and any applicable
+                                VAT.
+                              </span>
+
+                              <FormMessage />
+
+                              {organisationProfileForm.watch("invoice") && (
+                                <div className="text-muted-foreground text-xs break-all">
+                                  Uploaded:{" "}
+                                  {organisationProfileForm.watch("invoice")}
+                                </div>
+                              )}
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3">
+                          <FormField
+                            control={organisationProfileForm.control}
+                            name="accountName"
+                            render={({ field }) => (
+                              <FormItem className="min-w-0">
+                                <FormLabel>Account name</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Same as registered company name"
+                                    autoComplete="off"
+                                    readOnly
+                                    className="w-full min-w-0"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={organisationProfileForm.control}
+                            name="accountNumber"
+                            render={({ field }) => (
+                              <FormItem className="min-w-0">
+                                <FormLabel>Account number</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter account number"
+                                    autoComplete="off"
+                                    className="w-full min-w-0"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={organisationProfileForm.control}
+                            name="sortCode"
+                            render={({ field }) => (
+                              <FormItem className="min-w-0">
+                                <FormLabel>Sort code</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter sort code"
+                                    autoComplete="off"
+                                    className="w-full min-w-0"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <Button
+                          type="submit"
+                          size="lg"
+                          className="w-full sm:w-auto"
+                          disabled={isProfileLoading}
+                        >
+                          {isProfileLoading ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="size-4 animate-spin" />
+                              Submitting...
+                            </span>
+                          ) : (
+                            "Submit"
+                          )}
+                        </Button>
+                      </form>
+                    </Form>
                   </div>
 
-                  <Form {...organisationProfileForm}>
-                    <form
-                      onSubmit={organisationProfileForm.handleSubmit(
-                        onSubmitOrganisationProfile
-                      )}
-                      className="min-w-0 space-y-6"
-                    >
-                      <FormField
-                        control={organisationProfileForm.control}
-                        name="registeredCompanyName"
-                        render={({ field }) => (
-                          <FormItem className="min-w-0">
-                            <FormLabel>Registered company name</FormLabel>
-
-                            <FormControl>
-                              <Input
-                                placeholder="Enter registered company name"
-                                autoComplete="off"
-                                className="w-full min-w-0"
-                                disabled={connectLegalNameLocked}
-                                {...field}
-                              />
-                            </FormControl>
-
-                            <span className="text-muted-foreground block text-sm">
-                              {connectLegalNameLocked
-                                ? "Locked to match your Stripe payout identity."
-                                : "For official records and invoices."}
-                            </span>
-
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={organisationProfileForm.control}
-                        name="companyRegistrationNumber"
-                        render={({ field }) => (
-                          <FormItem className="min-w-0">
-                            <FormLabel>
-                              Company registration number (CRN)
-                            </FormLabel>
-
-                            <FormControl>
-                              <Input
-                                type="text"
-                                placeholder="Enter company registration number"
-                                autoComplete="off"
-                                className="w-full min-w-0"
-                                {...field}
-                              />
-                            </FormControl>
-
-                            <span className="text-muted-foreground block text-sm">
-                              To verify your company on the Companies House
-                              register.
-                            </span>
-
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="min-w-0">
-                        <HostProfileAddressFields
-                          control={organisationProfileForm.control}
-                          setValue={organisationProfileForm.setValue}
-                          watch={organisationProfileForm.watch}
-                          fields={{
-                            address: "registeredAddress",
-                            city: "city",
-                            state: "state",
-                            postalCode: "postalCode",
-                            country: "country",
-                          }}
-                          addressLabel="Registered address / trading address"
-                        />
-
-                        <span className="text-muted-foreground -mt-4 block text-sm">
-                          For official correspondence and records.
-                        </span>
-                      </div>
-
-                      <FormField
-                        control={organisationProfileForm.control}
-                        name="dateOfBirth"
-                        render={({ field }) => (
-                          <FormItem className="min-w-0">
-                            <FormLabel>
-                              Date of birth (authorised signatory)
-                            </FormLabel>
-
-                            <FormControl>
-                              <Input
-                                type="date"
-                                className="w-full min-w-0"
-                                {...field}
-                              />
-                            </FormControl>
-
-                            <span className="text-muted-foreground block text-sm">
-                              Required for payroll processing (format:
-                              YYYY-MM-DD).
-                            </span>
-
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={organisationProfileForm.control}
-                        name="uniqueTaxpayerReference"
-                        render={({ field }) => (
-                          <FormItem className="min-w-0">
-                            <FormLabel>
-                              {organisationIsUk
-                                ? "Tax payer reference (UTR)"
-                                : "Tax identification for your country"}
-                            </FormLabel>
-
-                            <FormControl>
-                              <Input
-                                type="text"
-                                placeholder={
-                                  organisationIsUk
-                                    ? "Enter unique tax payer reference"
-                                    : "Enter tax identification for your country"
-                                }
-                                autoComplete="off"
-                                className="w-full min-w-0"
-                                {...field}
-                              />
-                            </FormControl>
-
-                            <span className="text-muted-foreground block text-sm">
-                              For tax records and verification.
-                            </span>
-
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {!organisationIsUk ? (
-                        <FormField
-                          control={organisationProfileForm.control}
-                          name="additionalTaxIdentification"
-                          render={({ field }) => (
-                            <FormItem className="min-w-0">
-                              <FormLabel>
-                                Additional tax identification detail for your
-                                country
-                              </FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter additional tax information"
-                                  autoComplete="off"
-                                  className="w-full min-w-0"
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      ) : (
-                        <FormField
-                          control={organisationProfileForm.control}
-                          name="vatRegistrationNumber"
-                          render={({ field }) => (
-                            <FormItem className="min-w-0">
-                              <FormLabel>
-                                VAT registration number (if you have one)
-                              </FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter VAT registration number"
-                                  autoComplete="off"
-                                  className="w-full min-w-0"
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
-
-                      <FormField
-                        control={organisationProfileForm.control}
-                        name="invoice"
-                        render={({ field }) => (
-                          <FormItem className="min-w-0">
-                            <FormLabel>Upload</FormLabel>
-
-                            <FormControl>
-                              <>
-                                <Input
-                                  type="file"
-                                  accept="image/*"
-                                  disabled={isUploading}
-                                  onChange={e =>
-                                    void handleFileUpload(e, field.onChange)
-                                  }
-                                  placeholder="Upload invoice"
-                                  autoComplete="off"
-                                  className="w-full min-w-0"
-                                />
-
-                                {isUploading && (
-                                  <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                                    <Loader2 className="size-3 animate-spin" />
-                                    Uploading to Cloudinary...
-                                  </div>
-                                )}
-                              </>
-                            </FormControl>
-
-                            <span className="text-muted-foreground block text-sm">
-                              The formal document detailing your
-                              &quot;supply&quot; (the tips) and any applicable
-                              VAT.
-                            </span>
-
-                            <FormMessage />
-
-                            {organisationProfileForm.watch("invoice") && (
-                              <div className="text-muted-foreground text-xs break-all">
-                                Uploaded:{" "}
-                                {organisationProfileForm.watch("invoice")}
-                              </div>
-                            )}
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3">
-                        <FormField
-                          control={organisationProfileForm.control}
-                          name="accountName"
-                          render={({ field }) => (
-                            <FormItem className="min-w-0">
-                              <FormLabel>Account name</FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Same as registered company name"
-                                  autoComplete="off"
-                                  readOnly
-                                  className="w-full min-w-0"
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={organisationProfileForm.control}
-                          name="accountNumber"
-                          render={({ field }) => (
-                            <FormItem className="min-w-0">
-                              <FormLabel>Account number</FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter account number"
-                                  autoComplete="off"
-                                  className="w-full min-w-0"
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={organisationProfileForm.control}
-                          name="sortCode"
-                          render={({ field }) => (
-                            <FormItem className="min-w-0">
-                              <FormLabel>Sort code</FormLabel>
-
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter sort code"
-                                  autoComplete="off"
-                                  className="w-full min-w-0"
-                                  {...field}
-                                />
-                              </FormControl>
-
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <Button
-                        type="submit"
-                        size="lg"
-                        className="w-full sm:w-auto"
-                        disabled={isProfileLoading}
-                      >
-                        {isProfileLoading ? (
-                          <span className="flex items-center gap-2">
-                            <Loader2 className="size-4 animate-spin" />
-                            Submitting...
-                          </span>
-                        ) : (
-                          "Submit"
-                        )}
-                      </Button>
-                    </form>
-                  </Form>
+                  <SubscriptionPageBlock
+                    status={status}
+                    tier={info?.tier}
+                    isLoading={loading}
+                    onOpenSubscriptions={openSubscriptions}
+                  />
                 </div>
               </TabsContent>
             ) : null}
@@ -1854,6 +2351,13 @@ export const SettingsClient = () => {
                     </ul>
                   )}
                 </section>
+
+                <SubscriptionPageBlock
+                  status={status}
+                  tier={info?.tier}
+                  isLoading={loading}
+                  onOpenSubscriptions={openSubscriptions}
+                />
               </div>
             </TabsContent>
 
@@ -1962,6 +2466,13 @@ export const SettingsClient = () => {
                     </Button>
                   </Link>
                 </section>
+
+                <SubscriptionPageBlock
+                  status={status}
+                  tier={info?.tier}
+                  isLoading={loading}
+                  onOpenSubscriptions={openSubscriptions}
+                />
               </div>
             </TabsContent>
           </main>

@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 
 // Third-party imports
 import {
-  // Bell,
   Bolt,
   ChartColumn,
   Home,
@@ -18,13 +17,12 @@ import {
   TvMinimalPlay,
   UserRound,
   Crown,
-  Users,
   Send,
   Bell,
-  Handshake,
-  Sparkles,
   Wallet,
   Banknote,
+  Globe,
+  GlobeCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -122,7 +120,7 @@ export function AppSidebar({ numOfEvents }: Props) {
       disabled: false,
     },
     {
-      title: "Manage Event",
+      title: "Manage Event and Content Channels",
       url: `/host/${eventSlug}/manage-event`,
       icon: Calendar,
       // freezed: isFreezed,
@@ -146,16 +144,16 @@ export function AppSidebar({ numOfEvents }: Props) {
       // freezed: isFreezed,
     },
     {
-      title: "Host Growth",
+      title: "Growth Tools",
       url: `/host/${eventSlug}/host-premium`,
       icon: Crown,
       disabled: false,
       premiumHint: true,
     },
     {
-      title: "Host Community",
+      title: "Community Tools",
       url: `/host/${eventSlug}/host-community`,
-      icon: Users,
+      icon: GlobeCheck,
       disabled: false,
       premiumHint: true,
     },

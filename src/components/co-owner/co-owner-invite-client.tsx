@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,12 +8,25 @@ import { Loader2 } from "lucide-react";
 
 const apiBase = process.env.NEXT_PUBLIC_BACKEND_API_URL;
 
+function apiErrorMessage(raw: unknown, fallback: string): string {
+  if (typeof raw !== "object" || raw === null) return fallback;
+  const obj = raw as { message?: unknown; error?: { message?: unknown } };
+  if (typeof obj.error?.message === "string" && obj.error.message.trim()) {
+    return obj.error.message;
+  }
+  if (typeof obj.message === "string" && obj.message.trim()) {
+    return obj.message;
+  }
+  return fallback;
+}
+
 type InviteState = {
   hostName: string;
   coOwnerName: string;
   payoutPercentBp: number;
   status: string;
   expiresAt: string;
+  needsRepair?: boolean;
 } | null;
 
 export function CoOwnerInviteClient({ token }: { token: string }) {
@@ -23,6 +36,7 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const repairAttemptedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -33,11 +47,7 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
       );
       const raw = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(
-          typeof raw === "object" && raw !== null && "message" in raw
-            ? String((raw as { message?: string }).message)
-            : "Invite not found"
-        );
+        setError(apiErrorMessage(raw, "Invite not found"));
         setInvite(null);
         return;
       }
@@ -51,6 +61,7 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
         ),
         status: String((raw as { status?: string }).status ?? ""),
         expiresAt: String((raw as { expiresAt?: string }).expiresAt ?? ""),
+        needsRepair: Boolean((raw as { needsRepair?: boolean }).needsRepair),
       });
     } catch {
       setError("Could not load invite");
@@ -64,6 +75,31 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!invite?.needsRepair || repairAttemptedRef.current) return;
+    repairAttemptedRef.current = true;
+    setBusy("repair");
+    void fetch(
+      `${apiBase}/public/co-owner-invite/${encodeURIComponent(token)}/approve`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }
+    )
+      .then(async res => {
+        if (!res.ok) {
+          const raw = await res.json().catch(() => ({}));
+          setError(apiErrorMessage(raw, "Could not finish approval sync"));
+          return;
+        }
+        await load();
+        setInfo("Your approval is complete. Videos should appear shortly.");
+      })
+      .catch(() => setError("Network error"))
+      .finally(() => setBusy(null));
+  }, [invite?.needsRepair, load, token]);
+
   const requestOtp = async () => {
     setBusy("otp");
     setError(null);
@@ -75,11 +111,7 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
       );
       const raw = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(
-          typeof raw === "object" && raw !== null && "message" in raw
-            ? String((raw as { message?: string }).message)
-            : "Could not send code"
-        );
+        setError(apiErrorMessage(raw, "Could not send code"));
         return;
       }
       setError(null);
@@ -107,11 +139,7 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
       );
       const raw = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(
-          typeof raw === "object" && raw !== null && "message" in raw
-            ? String((raw as { message?: string }).message)
-            : "Approval failed"
-        );
+        setError(apiErrorMessage(raw, "Approval failed"));
         return;
       }
       await load();
@@ -164,6 +192,7 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
   if (!invite) return null;
 
   const pending = invite.status === "pending";
+  const repairing = invite.needsRepair && busy === "repair";
 
   return (
     <div className="mx-auto max-w-md space-y-6 p-6">
@@ -191,6 +220,13 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
           {info}
         </p>
+      ) : null}
+
+      {repairing ? (
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader2 className="size-4 animate-spin" />
+          Finishing approval sync…
+        </div>
       ) : null}
 
       {pending ? (
@@ -237,7 +273,7 @@ export function CoOwnerInviteClient({ token }: { token: string }) {
             </Button>
           </div>
         </div>
-      ) : (
+      ) : invite.needsRepair ? null : (
         <p className="text-muted-foreground text-sm">
           This invite is no longer pending. No further action is required on
           this page.

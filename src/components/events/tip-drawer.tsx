@@ -38,7 +38,18 @@ import { getDeviceKey } from "@/lib/getAuthToken";
 import { setCredentials } from "@/features/auth-slice";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DRAWER_NESTED_Z_INDEX, DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
+import {
+  DRAWER_NESTED_Z_INDEX,
+  DRAWER_Z_INDEX,
+  IMMERSIVE_DRAWER_OVERLAY_Z_INDEX,
+  IMMERSIVE_DRAWER_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_MODAL_OVERLAY_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_MODAL_Z,
+  PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_OVERLAY_Z_INDEX,
+  PLAYBACK_OVERLAY_NESTED_Z,
+  PLAYBACK_OVERLAY_NESTED_Z_INDEX,
+} from "@/lib/drawer-z-index";
 
 import { startPreview, stopPreview } from "@/lib/previewController";
 import { createAnimationFromStyle } from "@/lib/factory-to-style";
@@ -122,8 +133,10 @@ export type TipDrawerProps = {
   getWatchDurationBeforePayMs?: () => number | null;
   /** Playback snapshot for post-redirect restore (drawer-open or payment-intent). */
   getPaymentRestoreSnapshot?: () => PaymentPlaybackRestoreSnapshot | null;
-  /** Raise overlay/content above mobile full-view shell (z-280). */
+  /** Raise overlay/content above mobile full-view shell (immersive reel). */
   stackAboveImmersive?: boolean;
+  /** Raise above ContentPlaybackOverlay / room Enlarge shell (z-[1000000]). Wins over immersive. */
+  stackAbovePlaybackOverlay?: boolean;
   /** Controlled wallet modal (e.g. pay-button stamp opens wallet without drawer). */
   walletDialogOpen?: boolean;
   onWalletDialogOpenChange?: (v: boolean) => void;
@@ -131,6 +144,8 @@ export type TipDrawerProps = {
   openWalletModalNonce?: number;
   /** TV: refresh persisted playback snapshot before Stripe wallet top-up redirect. */
   onSnapshotPaymentRedirect?: () => void;
+  /** TV: latch confirmed tip payment before drawer close (wallet debit success). */
+  onTipPaymentSucceeded?: () => void;
   /** When tipping from a promoted feature card; falls back to FeatureCardTipContext. */
   videoFeatureCardId?: string | null;
   textTipUnitPrice?: number;
@@ -162,10 +177,12 @@ function TipDrawerContent({
   getWatchDurationBeforePayMs,
   getPaymentRestoreSnapshot,
   stackAboveImmersive,
+  stackAbovePlaybackOverlay,
   walletDialogOpen: walletDialogOpenControlled,
   onWalletDialogOpenChange,
   openWalletModalNonce = 0,
   onSnapshotPaymentRedirect,
+  onTipPaymentSucceeded,
   videoFeatureCardId,
   textTipUnitPrice,
   payLabel,
@@ -418,7 +435,9 @@ function TipDrawerContent({
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
     stopPreview();
-    presentTextTipDraftModal();
+    presentTextTipDraftModal({
+      stackAbovePlaybackOverlay: Boolean(stackAbovePlaybackOverlay),
+    });
   };
 
   const openTextDraftModal = () => {
@@ -446,7 +465,9 @@ function TipDrawerContent({
       tipsForTotals,
       openDraftModal: () => {
         cancelTextPreviewRef.current = null;
-        presentTextTipDraftModal();
+        presentTextTipDraftModal({
+          stackAbovePlaybackOverlay: Boolean(stackAbovePlaybackOverlay),
+        });
       },
       drawerTintRoot: drawerShellRef.current,
     });
@@ -999,10 +1020,30 @@ function TipDrawerContent({
     buttonHeight: 40,
   };
 
+  const tipDrawerOverlayClassName = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_OVERLAY_Z_INDEX
+    : stackAboveImmersive
+      ? IMMERSIVE_DRAWER_OVERLAY_Z_INDEX
+      : undefined;
+  const tipDrawerContentClassName = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_Z_INDEX
+    : stackAboveImmersive
+      ? IMMERSIVE_DRAWER_Z_INDEX
+      : undefined;
+  const tipDrawerContentZIndex = stackAbovePlaybackOverlay
+    ? PLAYBACK_OVERLAY_NESTED_Z
+    : stackAboveImmersive
+      ? 100019
+      : 250;
+
   const LoadingOverlay = () => (
     <div
-      className="Z-[999999999999999] fixed inset-0 flex flex-col items-center justify-center bg-white"
-      style={{ zIndex: 999999999999999 }}
+      className="fixed inset-0 flex flex-col items-center justify-center bg-white"
+      style={{
+        zIndex: stackAbovePlaybackOverlay
+          ? PLAYBACK_OVERLAY_NESTED_MODAL_Z
+          : 999999999999999,
+      }}
     >
       <BeatLoader color="#f57d11" />
     </div>
@@ -1028,12 +1069,12 @@ function TipDrawerContent({
         }}
       >
         <DrawerContent
-          overlayClassName={stackAboveImmersive ? "z-[10000]" : undefined}
+          overlayClassName={tipDrawerOverlayClassName}
           className={cn(
             "space-y-2 border bg-white p-6 shadow-sm",
-            stackAboveImmersive && "z-[10000]"
+            tipDrawerContentClassName
           )}
-          style={{ zIndex: stackAboveImmersive ? 10000 : 250 }}
+          style={{ zIndex: tipDrawerContentZIndex }}
         >
           <div
             ref={drawerShellRef}
@@ -1318,8 +1359,29 @@ function TipDrawerContent({
             onOpenChange={setCardModalOpen}
           >
             <DialogContent
-              overlayClassName="bg-black/60"
-              className="max-w-md rounded-xl bg-white p-6"
+              overlayClassName={cn(
+                "bg-black/60",
+                stackAbovePlaybackOverlay
+                  ? PLAYBACK_OVERLAY_NESTED_MODAL_OVERLAY_Z_INDEX
+                  : stackAboveImmersive
+                    ? DRAWER_NESTED_Z_INDEX
+                    : undefined
+              )}
+              className={cn(
+                "max-w-md rounded-xl bg-white p-6",
+                stackAbovePlaybackOverlay
+                  ? PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX
+                  : stackAboveImmersive
+                    ? DRAWER_NESTED_Z_INDEX
+                    : undefined
+              )}
+              style={
+                stackAbovePlaybackOverlay
+                  ? { zIndex: PLAYBACK_OVERLAY_NESTED_MODAL_Z }
+                  : stackAboveImmersive
+                    ? { zIndex: 99995 }
+                    : undefined
+              }
             >
               <DialogHeader>
                 <DialogTitle className="text-lg font-semibold">
@@ -1367,6 +1429,7 @@ function TipDrawerContent({
         getPlaybackOffsetSec={getPlaybackOffsetSec}
         getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
         stackAboveTipDrawer
+        stackAbovePlaybackOverlay={stackAbovePlaybackOverlay}
         walletSnapshot={walletLive}
         onWalletSnapshotRefresh={refreshWallet}
         onBeforeStripeWalletRedirect={onSnapshotPaymentRedirect}
@@ -1392,6 +1455,7 @@ function TipDrawerContent({
           const tipCount = Math.max(1, selectedTips.length);
           dispatch(setSelectedTips([]));
           dispatch(markPaymentCompleted(false));
+          onTipPaymentSucceeded?.();
           void schedulePwaPromptAfterPaymentWithPolicy(tipCount);
           void refreshWallet();
           window.setTimeout(() => onOpenChange(false), 400);

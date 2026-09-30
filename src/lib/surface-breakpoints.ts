@@ -4,6 +4,11 @@
  */
 export const SURFACE_MOBILE_MAX_PX = 500 as const;
 
+/** Tailwind `sm` min width — overlay dock visibility aligns with this, not 500px smartapp shell. */
+export const TAILWIND_SM_MIN_PX = 640 as const;
+
+export const SURFACE_BELOW_TAILWIND_SM_MEDIA = `(max-width: ${TAILWIND_SM_MIN_PX - 1}px)`;
+
 /** Tablet / narrow desktop shell — stack wide TV grid below this width. */
 export const SURFACE_TABLET_MAX_PX = 1024 as const;
 

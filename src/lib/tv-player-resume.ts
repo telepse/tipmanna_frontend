@@ -10,16 +10,22 @@ export const TV_EMBED_HEALTH_POLL_MS = 1500;
 /** Sustained dead iframe before heartbeat triggers recovery. */
 export const TV_EMBED_DEAD_IFRAME_MS = 8000;
 
+/** Sustained command-dead (iframe may still be live) before heartbeat remount. */
+export const TV_COMMAND_DEAD_MS = 3000;
+
 /** Minimum gap between automatic embed recoveries. */
-export const TV_EMBED_RECOVERY_COOLDOWN_MS = 15_000;
+export const TV_EMBED_RECOVERY_COOLDOWN_MS = 8000;
 
 /** Drop a stuck recovery latch only after a real construct stall. */
-export const TV_EMBED_RECOVERY_LATCH_MS = 12_000;
+export const TV_EMBED_RECOVERY_LATCH_MS = 8000;
 
-/** Brief tab hide (Chrome iframe discard) must not remount — flush + sync only. */
+/**
+ * Brief hide grace for both-dead flicker only. Command-dead remount does not
+ * require this duration (anti-trap).
+ */
 export const TV_HIDE_REMOUNT_MS = 30_000;
 
-/** Heartbeat must not remount while playback was usable within this window. */
+/** Heartbeat must not remount a command-ready player that was recently usable. */
 export const TV_HEARTBEAT_USABLE_VETO_MS = 20_000;
 
 const RECENT_PLAYBACK_STATES = new Set([
@@ -87,9 +93,11 @@ export function isTvPlayerStateRecentPlayback(
 }
 
 /**
- * Remount only after a real hide→show (or bfcache pageshow) when the embed is
- * actually gone. A usable playerState with the iframe still in the document, or
- * a one-tick commandReady hole, is not a remount. Same both-dead rule as heartbeat.
+ * Remount after hide→show when the playback command API is gone.
+ * Restores 52e5d7e anti-trap: `!commandReady` remounts even if the iframe node
+ * is still in the document. Healthy `commandReady` never remounts.
+ * Brief-hide grace applies only when both iframe and command API are gone
+ * (Chrome flicker); command-dead does not wait for TV_HIDE_REMOUNT_MS.
  */
 export function shouldRemountTvPlayer(opts: TvPlayerResumeProbe): boolean {
   if (opts.visibilityState !== "visible") return false;
@@ -97,10 +105,14 @@ export function shouldRemountTvPlayer(opts: TvPlayerResumeProbe): boolean {
   if (opts.startupInFlight) return false;
   if (!opts.firstPlayReached) return false;
   if (opts.remountedThisHideShowCycle) return false;
-  if (opts.hiddenDurationMs < TV_HIDE_REMOUNT_MS) return false;
-  if (isTvPlayerStateUsable(opts.playerState) && opts.iframeLive) return false;
   if (opts.commandReady) return false;
-  return !opts.iframeLive && !opts.commandReady;
+
+  // Command-dead with iframe still present: remount immediately (anti-trap).
+  if (opts.iframeLive) return true;
+
+  // Both-dead: require sustained hide to avoid brief Chrome iframe discard thrash.
+  if (opts.hiddenDurationMs < TV_HIDE_REMOUNT_MS) return false;
+  return true;
 }
 
 export type TvEmbedHealthProbe = {
@@ -116,17 +128,19 @@ export type TvEmbedHealthProbe = {
   embedRecoveryInFlight: boolean;
   msSinceLastRecovery: number;
   deadIframeSinceMs: number | null;
+  /** Ms since command API was last observed ready; omit when unknown. */
+  msSinceCommandDead?: number;
   /** Ms since last PLAYING/PAUSED/BUFFERING/CUED; omit or Infinity when never. */
   msSinceLastUsableState?: number;
   nowMs?: number;
 };
 
 /**
- * In-place embed recovery while the user stays on /tv (no full page reload).
- * Remounts via startupEmbedGeneration when the iframe has been dead long enough
- * and the command API is gone (including a true orphan after cooldown).
- * Do not remount a usable playing/paused row, a generation still in-flight,
- * or a one-tick orphan after hide→show remount.
+ * In-place embed recovery while the user stays on /tv.
+ * - Orphan + !commandReady: remount (usable veto does not apply).
+ * - Command-dead with live iframe: remount after TV_COMMAND_DEAD_MS.
+ * - Dead iframe: remount after TV_EMBED_DEAD_IFRAME_MS.
+ * Usable-state veto applies only when commandReady (anti-thrash healthy).
  */
 export function shouldRecoverTvPlayerEmbed(opts: TvEmbedHealthProbe): boolean {
   if (!opts.playerVisible) return false;
@@ -136,10 +150,13 @@ export function shouldRecoverTvPlayerEmbed(opts: TvEmbedHealthProbe): boolean {
   if (opts.embedRecoveryInFlight) return false;
   if (opts.msSinceLastRecovery < TV_EMBED_RECOVERY_COOLDOWN_MS) return false;
 
-  if (
-    opts.msSinceLastUsableState != null &&
-    opts.msSinceLastUsableState < TV_HEARTBEAT_USABLE_VETO_MS
-  ) {
+  if (opts.commandReady) {
+    if (
+      opts.msSinceLastUsableState != null &&
+      opts.msSinceLastUsableState < TV_HEARTBEAT_USABLE_VETO_MS
+    ) {
+      return false;
+    }
     return false;
   }
 
@@ -148,16 +165,15 @@ export function shouldRecoverTvPlayerEmbed(opts: TvEmbedHealthProbe): boolean {
     opts.deadIframeSinceMs != null &&
     now - opts.deadIframeSinceMs >= TV_EMBED_DEAD_IFRAME_MS;
 
-  if (
-    isTvPlayerStateUsable(opts.playerState) &&
-    (opts.iframeLive || !deadLongEnough)
-  ) {
-    return false;
-  }
+  // Orphan binding: remount even if usable veto would apply to a live player.
+  if (opts.orphanedRef) return true;
 
-  if (opts.commandReady) return false;
+  const commandDeadLongEnough =
+    opts.msSinceCommandDead != null &&
+    opts.msSinceCommandDead >= TV_COMMAND_DEAD_MS;
 
-  if (opts.orphanedRef && !opts.iframeLive) return true;
+  // Iframe still in DOM but command API gone.
+  if (opts.iframeLive && commandDeadLongEnough) return true;
 
   if (!opts.iframeLive && deadLongEnough) return true;
 

@@ -7,6 +7,7 @@ import {
   coOwnerDropWarningMessage,
   type CoOwnerBlockReason,
 } from "@/lib/coowner-submit-readiness.util";
+import { applyCoOwnerRefreshResult } from "@/lib/coowner-pending-unlock.util";
 
 type LinkSlice = {
   ownershipAnswer?: string | null;
@@ -19,22 +20,17 @@ type Options = {
   singleVideo?: boolean;
 };
 
-function linksFingerprint(links: LinkSlice[]): string {
+/** Ownership + draftKey only — title churn must not retrigger status refresh. */
+export function linksFingerprint(links: LinkSlice[]): string {
   return links
-    .map(
-      l =>
-        `${l.ownershipAnswer ?? ""}:${l.coOwnerDraftKey ?? ""}:${l.title ?? ""}`
-    )
+    .map(l => `${l.ownershipAnswer ?? ""}:${l.coOwnerDraftKey ?? ""}`)
     .join(";;");
 }
 
 function coOwnedWatchKey(links: LinkSlice[]): string {
   return links
     .filter(link => link.ownershipAnswer === "no")
-    .map(
-      link =>
-        `${link.coOwnerDraftKey ?? ""}:${link.ownershipAnswer ?? ""}:${link.title ?? ""}`
-    )
+    .map(link => `${link.coOwnerDraftKey ?? ""}:${link.ownershipAnswer ?? ""}`)
     .join("|");
 }
 
@@ -44,9 +40,20 @@ function parseCoOwnedFromWatchKey(watchKey: string): LinkSlice[] {
     const bits = part.split(":");
     const coOwnerDraftKey = bits[0] ?? "";
     const ownershipAnswer = bits[1] ?? "no";
-    const title = bits.slice(2).join(":") || undefined;
-    return { coOwnerDraftKey, ownershipAnswer, title };
+    return { coOwnerDraftKey, ownershipAnswer };
   });
+}
+
+function titleForDraftKey(
+  links: LinkSlice[],
+  draftKey: string
+): string | undefined {
+  const match = links.find(
+    l =>
+      l.ownershipAnswer === "no" &&
+      (l.coOwnerDraftKey?.trim() ?? "") === draftKey
+  );
+  return match?.title?.trim() || undefined;
 }
 
 /** True when any co-owned video link lacks an approved invite. */
@@ -61,6 +68,8 @@ export function useCoOwnerDraftSubmitBlocked(
   hiddenUntilCoOwnerApprove: boolean;
   warnings: string[];
   refresh: (opts?: { background?: boolean }) => Promise<void>;
+  /** Unlock submit immediately after a successful invite send (pending). */
+  markPendingUnlock: () => void;
 } {
   const fingerprint = linksFingerprint(links);
   const watchKey = useMemo(
@@ -68,6 +77,9 @@ export function useCoOwnerDraftSubmitBlocked(
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable primitive fingerprint
     [fingerprint]
   );
+
+  const linksRef = useRef(links);
+  linksRef.current = links;
 
   const hasCoOwned = watchKey.length > 0;
   const [blocked, setBlocked] = useState(false);
@@ -79,11 +91,25 @@ export function useCoOwnerDraftSubmitBlocked(
   const [warnings, setWarnings] = useState<string[]>([]);
   const refreshRequestIdRef = useRef(0);
   const allTerminalRef = useRef(false);
+  const pendingUnlockLatchRef = useRef(false);
+
+  const markPendingUnlock = useCallback(() => {
+    // Invalidate in-flight refreshes so stale empty/failed results cannot re-lock.
+    refreshRequestIdRef.current += 1;
+    pendingUnlockLatchRef.current = true;
+    setBlocked(false);
+    setChecking(false);
+    setRevalidating(false);
+    setReason("has_pending");
+    setHiddenUntilCoOwnerApprove(true);
+    allTerminalRef.current = false;
+  }, []);
 
   const refresh = useCallback(
     async (opts?: { background?: boolean }) => {
       if (!watchKey) {
         refreshRequestIdRef.current += 1;
+        pendingUnlockLatchRef.current = false;
         setBlocked(false);
         setChecking(false);
         setRevalidating(false);
@@ -109,15 +135,13 @@ export function useCoOwnerDraftSubmitBlocked(
       let nextHidden = false;
       const nextWarnings: string[] = [];
       let allTerminal = true;
-      let awaitingDraftKey = false;
+      let pendingDraftKey = false;
 
       for (const link of coOwned) {
         const draftKey = link.coOwnerDraftKey?.trim();
         if (!draftKey) {
-          nextBlocked = true;
-          nextReason = null;
+          pendingDraftKey = true;
           allTerminal = false;
-          awaitingDraftKey = true;
           continue;
         }
 
@@ -135,7 +159,8 @@ export function useCoOwnerDraftSubmitBlocked(
           ?.invites;
         const readiness = evaluateCoOwnerSubmitReadiness(invites);
         if (readiness.willDropOnSubmit) {
-          const label = link.title?.trim() || "Co-owned video";
+          const label =
+            titleForDraftKey(linksRef.current, draftKey) || "Co-owned video";
           nextWarnings.push(
             `${label}: ${coOwnerDropWarningMessage("will_be_dropped")}`
           );
@@ -161,12 +186,42 @@ export function useCoOwnerDraftSubmitBlocked(
 
       if (requestId !== refreshRequestIdRef.current) return;
 
-      allTerminalRef.current = allTerminal && !nextBlocked && !nextHidden;
-      setBlocked(nextBlocked);
-      setReason(nextReason);
-      setHiddenUntilCoOwnerApprove(nextHidden);
-      setWarnings(nextWarnings);
-      setChecking(awaitingDraftKey);
+      if (pendingDraftKey && !nextBlocked) {
+        allTerminalRef.current = false;
+        setBlocked(false);
+        setReason(nextReason);
+        setHiddenUntilCoOwnerApprove(nextHidden);
+        setWarnings(nextWarnings);
+        setChecking(true);
+        setRevalidating(false);
+        return;
+      }
+
+      const applied = applyCoOwnerRefreshResult({
+        latched: pendingUnlockLatchRef.current,
+        nextBlocked,
+        nextHidden,
+        nextReason,
+        nextWarnings,
+        allTerminal,
+      });
+
+      if (applied.clearLatch) {
+        pendingUnlockLatchRef.current = false;
+      }
+
+      if (!applied.apply) {
+        setChecking(false);
+        setRevalidating(false);
+        return;
+      }
+
+      allTerminalRef.current = applied.allTerminal;
+      setBlocked(applied.blocked);
+      setReason(applied.reason);
+      setHiddenUntilCoOwnerApprove(applied.hiddenUntilCoOwnerApprove);
+      setWarnings(applied.warnings);
+      setChecking(false);
       setRevalidating(false);
     },
     [watchKey, singleVideo]
@@ -175,6 +230,7 @@ export function useCoOwnerDraftSubmitBlocked(
   useEffect(() => {
     allTerminalRef.current = false;
     if (!watchKey) {
+      pendingUnlockLatchRef.current = false;
       setBlocked(false);
       setChecking(false);
       setRevalidating(false);
@@ -206,5 +262,6 @@ export function useCoOwnerDraftSubmitBlocked(
     hiddenUntilCoOwnerApprove,
     warnings,
     refresh,
+    markPendingUnlock,
   };
 }

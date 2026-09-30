@@ -34,6 +34,7 @@ export async function newCreateEventAction(formData: NewCreateEventPayload) {
       headers: await serverHostAuthHeaders(),
       body: JSON.stringify(formData),
       cache: "no-store",
+      perAttemptTimeoutMs: 20_000,
     },
     "newCreateEventAction",
     undefined,
@@ -110,6 +111,7 @@ export async function createEventChannelAction(
       headers,
       body: JSON.stringify(values),
       cache: "no-store",
+      perAttemptTimeoutMs: 20_000,
     },
     "createEventChannelAction",
     undefined,
@@ -154,10 +156,13 @@ export async function getVideoCoOwnerInviteStatusAction(draftKey: string) {
     `${COOWNER_API}/host/video-co-owner-invites/status?${q}`,
     {
       method: "GET",
-      headers: await serverAuthHeaders(),
+      headers: await serverHostAuthHeaders(),
       cache: "no-store",
+      perAttemptTimeoutMs: 8_000,
     },
-    "getVideoCoOwnerInviteStatusAction"
+    "getVideoCoOwnerInviteStatusAction",
+    undefined,
+    { maxAttempts: 1 }
   );
 }
 
@@ -176,8 +181,11 @@ export async function createVideoCoOwnerInviteAction(body: {
       headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body),
       cache: "no-store",
+      perAttemptTimeoutMs: 15_000,
     },
-    "createVideoCoOwnerInviteAction"
+    "createVideoCoOwnerInviteAction",
+    undefined,
+    { maxAttempts: 1 }
   );
 }
 
@@ -192,8 +200,11 @@ export async function resendVideoCoOwnerInviteAction(
       headers: await serverHostAuthHeaders(),
       body: JSON.stringify(body ?? {}),
       cache: "no-store",
+      perAttemptTimeoutMs: 15_000,
     },
-    "resendVideoCoOwnerInviteAction"
+    "resendVideoCoOwnerInviteAction",
+    undefined,
+    { maxAttempts: 1 }
   );
 }
 

@@ -192,11 +192,11 @@ export const TvLooper = ({
     onPlayerPause,
     pauseForOverlay,
     resumeAfterOverlay,
+    clearOverlayPaymentPause,
     onPlayerSeek,
     onVideoEnd,
     setPlayerPlayingState,
     setPlayerVisible,
-    flushPendingPlaybackRequest,
     applyTabPlaybackSnapshotRestore,
     playingItemOverride,
     applyPendingPlaybackRestore,
@@ -277,6 +277,7 @@ export const TvLooper = ({
     mode,
     enterLocalMode,
     setPlayerPlayingState,
+    scheduleSourceCommunityId,
   });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -882,6 +883,12 @@ export const TvLooper = ({
       unregisterTvPlayer();
     };
   }, [setPlayerVisible, unregisterTvPlayer, playerRef]);
+
+  useEffect(() => {
+    return () => {
+      clearOverlayPaymentPause();
+    };
+  }, [clearOverlayPaymentPause]);
 
   // ---- Fullscreen detection ----
   useEffect(() => {
@@ -1562,7 +1569,6 @@ export const TvLooper = ({
                     onPlayerReady();
                     applyTabPlaybackSnapshotRestore("player_ready");
                     flushPendingSeek();
-                    flushPendingPlaybackRequest();
                     setPlayerVisible(true);
                     emitEncounterWhenVideoLoads();
                   }}

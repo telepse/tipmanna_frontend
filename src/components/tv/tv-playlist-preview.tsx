@@ -154,8 +154,7 @@ export function TvPlaylistPreview({
     schedulePlayingSlot,
   } = useTV();
 
-  const effectivePinIndex =
-    mode === "GLOBAL" ? liveBroadcastIndex : previewPinIndex;
+  const effectivePinIndex = mode === "GLOBAL" ? currentIndex : previewPinIndex;
 
   const previewIndices = useMemo(
     () =>
@@ -309,7 +308,7 @@ export function TvPlaylistPreview({
 
           const isPlaying =
             mode === "GLOBAL"
-              ? originalIndex === liveBroadcastIndex
+              ? originalIndex === currentIndex
               : schedulePlayingSlot?.scope === "active" &&
                 schedulePlayingSlot.rowIndex === originalIndex;
           const isLiveOnBroadcast = originalIndex === liveBroadcastIndex;

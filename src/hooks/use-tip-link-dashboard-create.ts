@@ -8,6 +8,7 @@ import type {
   HostCreatorCommunity,
   HostCreatorEvent,
 } from "@/actions/host-creator";
+import { getMyCommunitiesAction } from "@/actions/communities";
 import { listHostTipLinksAction, type TipLinkSummary } from "@/actions/tiplink";
 import { listMyVideosForVideoRequestsAction } from "@/actions/video-requests";
 import { useTipLinkProfileCreate } from "@/hooks/use-tip-link-profile-create";
@@ -22,7 +23,29 @@ type Options = {
   subscriptionPrompt?: HostSubscriptionPromptFns;
 };
 
-const EMPTY_COMMUNITIES: HostCreatorCommunity[] = [];
+function mapOwnedCommunitiesForTipLink(
+  owned: Array<{
+    id: string;
+    name: string;
+    event?: { id?: string } | null;
+  }>
+): HostCreatorCommunity[] {
+  return owned.map(c => ({
+    id: c.id,
+    name: c.name,
+    description: null,
+    logoUrl: null,
+    eventRoomBanner: null,
+    numEventRoomTips: 0,
+    memberCount: 0,
+    numVideos: 0,
+    status: "active",
+    createdAt: "",
+    locked: false,
+    eventId: c.event?.id?.trim() || null,
+    isOwnProfile: true,
+  }));
+}
 
 export function useTipLinkDashboardCreate(
   hostEventSlug: string | null,
@@ -30,6 +53,7 @@ export function useTipLinkDashboardCreate(
 ) {
   const router = useRouter();
   const [events, setEvents] = useState<HostCreatorEvent[]>([]);
+  const [communities, setCommunities] = useState<HostCreatorCommunity[]>([]);
   const [tipLinks, setTipLinks] = useState<TipLinkSummary[]>([]);
   const [pickerDataLoading, setPickerDataLoading] = useState(false);
   const [pickerDataError, setPickerDataError] = useState<string | null>(null);
@@ -68,7 +92,7 @@ export function useTipLinkDashboardCreate(
 
   const profileCreate = useTipLinkProfileCreate({
     events,
-    communities: EMPTY_COMMUNITIES,
+    communities,
     tipLinks,
     isOwnProfile: true,
     onDraftCreated,
@@ -85,9 +109,10 @@ export function useTipLinkDashboardCreate(
 
     void (async () => {
       try {
-        const [linksRes, videosRes] = await Promise.all([
+        const [linksRes, videosRes, communitiesRes] = await Promise.all([
           listHostTipLinksAction(),
           listMyVideosForVideoRequestsAction(),
+          getMyCommunitiesAction(undefined, { useHostSession: true }),
         ]);
         if (cancelled) return;
 
@@ -108,6 +133,21 @@ export function useTipLinkDashboardCreate(
         const raw =
           (videosRes.data as { events?: VideosByEventRow[] }).events ?? [];
         setEvents(mapVideosByEventToHostCreatorEvents(raw, hostEventSlug));
+        if (communitiesRes.success && communitiesRes.data) {
+          const owned =
+            (
+              communitiesRes.data as {
+                owned?: Array<{
+                  id: string;
+                  name: string;
+                  event?: { id?: string } | null;
+                }>;
+              }
+            ).owned ?? [];
+          setCommunities(mapOwnedCommunitiesForTipLink(owned));
+        } else {
+          setCommunities([]);
+        }
       } finally {
         if (!cancelled) setPickerDataLoading(false);
       }

@@ -117,7 +117,7 @@ export function HostYoutubeChannelsSettings() {
                 className="mt-1"
               />
             ) : (
-              <div className="mt-1 flex gap-2">
+              <div className="mt-1 flex items-center gap-2">
                 <Input
                   id="youtube-slot-1"
                   value={slot1Input}
@@ -127,6 +127,7 @@ export function HostYoutubeChannelsSettings() {
 
                 <Button
                   type="button"
+                  className="h-9 bg-black hover:bg-black/90"
                   onClick={() => saveSlot(1, slot1Input)}
                 >
                   Save
@@ -156,6 +157,7 @@ export function HostYoutubeChannelsSettings() {
 
                 <Button
                   type="button"
+                  className="h-9 bg-black hover:bg-black/90"
                   onClick={() => saveSlot(2, slot2Input)}
                 >
                   Save

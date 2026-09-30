@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 import {
@@ -19,6 +19,7 @@ import {
   type OverlayContentSeed,
   type OverlayPlaybackPayload,
 } from "@/lib/content-playback-overlay-seed";
+import { takeOverlayPlaySeed } from "@/lib/playback-overlay-seed-handoff";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import { cn } from "@/lib/utils";
 import type { PaymentSurface } from "@/lib/analytics-types";
@@ -39,6 +40,17 @@ type Props = {
   seed?: OverlayContentSeed | null;
 };
 
+function resolvePropSeed(
+  eventId: string,
+  channelId: string,
+  seed?: OverlayContentSeed | null
+): OverlayContentSeed | null {
+  if (!seed) return null;
+  if (seed.eventId !== eventId || seed.channelId !== channelId) return null;
+  if (!seed.url?.trim()) return null;
+  return seed;
+}
+
 export function ContentPlaybackOverlay({
   eventId,
   channelId,
@@ -46,9 +58,19 @@ export function ContentPlaybackOverlay({
   paymentSurface = "content_client",
   seed,
 }: Props) {
+  const phaseAReadyRef = useRef(false);
   const [payload, setPayload] = useState<OverlayPlaybackPayload | null>(() => {
-    if (!seed) return null;
-    return overlayPayloadFromSeed(seed);
+    const fromProp = resolvePropSeed(eventId, channelId, seed);
+    if (fromProp) {
+      phaseAReadyRef.current = true;
+      return overlayPayloadFromSeed(fromProp);
+    }
+    const fromHandoff = takeOverlayPlaySeed(eventId, channelId);
+    if (fromHandoff) {
+      phaseAReadyRef.current = true;
+      return overlayPayloadFromSeed(fromHandoff);
+    }
+    return null;
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -56,16 +78,18 @@ export function ContentPlaybackOverlay({
     let cancelled = false;
     setError(null);
 
-    const seedPayload =
-      seed && seed.eventId === eventId ? overlayPayloadFromSeed(seed) : null;
+    const propSeed = resolvePropSeed(eventId, channelId, seed);
+    const seedPayload = propSeed ? overlayPayloadFromSeed(propSeed) : null;
     if (seedPayload) {
+      phaseAReadyRef.current = true;
       setPayload(seedPayload);
-    } else {
-      setPayload(null);
     }
+    // When prop has no url, keep any Phase-A payload from sessionStorage handoff
+    // (already applied in useState). Do not wipe to null.
 
     void (async () => {
-      let playbackMounted = Boolean(seedPayload);
+      const hadPhaseA = Boolean(seedPayload) || phaseAReadyRef.current;
+      let playbackMounted = hadPhaseA;
 
       try {
         const contentsRes = await getContentChannelAction(eventId);
@@ -85,7 +109,8 @@ export function ContentPlaybackOverlay({
           if (fromChannel) {
             mountedFromContent = true;
             playbackMounted = true;
-            if (seedPayload) {
+            phaseAReadyRef.current = true;
+            if (hadPhaseA) {
               setPayload(prev =>
                 prev
                   ? {
@@ -97,11 +122,11 @@ export function ContentPlaybackOverlay({
             } else {
               setPayload(fromChannel);
             }
-          } else if (!seedPayload) {
+          } else if (!playbackMounted) {
             setError(contentsRes.error ?? "Could not load video");
             return;
           }
-        } else if (!seedPayload) {
+        } else if (!playbackMounted) {
           setError(contentsRes.error ?? "Could not load video");
           return;
         }
