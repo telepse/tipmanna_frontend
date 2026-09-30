@@ -10,6 +10,13 @@ import {
 } from "@/lib/tv-p0-lifecycle.harness";
 import { decideReadinessFlush } from "@/lib/tv-readiness-flush";
 
+type LooperPlayer = {
+  isReady: () => boolean;
+  pauseProgrammatic: () => void;
+  mute: () => void;
+  getCurrentTime: () => number;
+};
+
 describe("P0-A — schedule refresh must not tear down a healthy looper player", () => {
   it("stable setPlayerVisible identity survives schedule-driven callback churn", () => {
     let flushGeneration = 0;
@@ -26,13 +33,15 @@ describe("P0-A — schedule refresh must not tear down a healthy looper player",
       }
     });
 
-    const player = {
+    const player: LooperPlayer = {
       isReady: () => true,
       pauseProgrammatic: vi.fn(),
       mute: vi.fn(),
       getCurrentTime: () => 12,
     };
-    const playerRef = { current: player as any };
+    const playerRef: { current: LooperPlayer | null } = {
+      current: player,
+    };
     const unregisterTvPlayer = vi.fn(() => {
       playerRef.current = null;
     });
@@ -61,7 +70,7 @@ describe("P0-A — schedule refresh must not tear down a healthy looper player",
   it("unstable setPlayerVisible identity would unregister (regression sentinel)", () => {
     const setPlayerVisibleV1 = vi.fn();
     const setPlayerVisibleV2 = vi.fn();
-    const playerRef = {
+    const playerRef: { current: LooperPlayer | null } = {
       current: {
         isReady: () => true,
         pauseProgrammatic: vi.fn(),
@@ -70,7 +79,7 @@ describe("P0-A — schedule refresh must not tear down a healthy looper player",
       },
     };
     const unregisterTvPlayer = vi.fn(() => {
-      playerRef.current = null as any;
+      playerRef.current = null;
     });
     const harness = createLooperPlayerVisibleHarness({
       setPlayerVisible: setPlayerVisibleV1,
