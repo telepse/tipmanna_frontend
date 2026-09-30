@@ -7,12 +7,14 @@ import { ApiError } from "@/types/api-error.types";
 import { updateDefaultChannel } from "@/actions/events";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
+import { useSWRConfig } from "swr";
 import type { DraftResumeOrigin } from "@/lib/form-draft-utils";
 import { Check, Copy } from "lucide-react";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 import type { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { EventChannelModal } from "./event-channel-modal";
 import { useHostCapabilityWithAuth } from "@/hooks/use-host-capability-with-auth";
+import { HOST_DEFAULT_CHANNELS_SWR_KEY } from "@/hooks/useHostDefaultChannels";
 
 interface ChannelModalProps {
   open: boolean;
@@ -52,6 +54,7 @@ export const SelectDefaultVideoModal = ({
   const [updatingDefault, setUpdatingDefault] = useState(false);
 
   const router = useRouter();
+  const { mutate } = useSWRConfig();
 
   useEffect(() => {
     setDefaultChannelId(channels.find(c => c.isDefault)?.id ?? null);
@@ -77,6 +80,7 @@ export const SelectDefaultVideoModal = ({
 
       setDefaultChannelId(channelId);
       toast.success("Default channel updated!");
+      void mutate(HOST_DEFAULT_CHANNELS_SWR_KEY);
       router.refresh();
     } catch (err: unknown) {
       if (err instanceof Error) {

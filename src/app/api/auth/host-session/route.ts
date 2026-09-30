@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
   const hostUserRaw = req.cookies.get("hostUser")?.value;
 
   if (!hostToken || !hostUserRaw) {
-    return NextResponse.json({ active: false, code: "HOST_SESSION_REQUIRED" });
+    return NextResponse.json({ active: false, code: "HOST_SESSION_ABSENT" });
   }
 
   if (verify) {
@@ -137,6 +137,6 @@ export async function GET(req: NextRequest) {
       hostSessionExpiresAt: expiresAt ?? null,
     });
   } catch {
-    return NextResponse.json({ active: false, code: "HOST_SESSION_REQUIRED" });
+    return NextResponse.json({ active: false, code: "HOST_SESSION_ABSENT" });
   }
 }

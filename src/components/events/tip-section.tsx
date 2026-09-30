@@ -59,6 +59,8 @@ interface Props {
   projects?: any[];
   contributionType?: string;
   stackDrawerAboveImmersive?: boolean;
+  /** Elevate tip drawer + text-tip draft above ContentPlaybackOverlay shell. */
+  stackAbovePlaybackOverlay?: boolean;
   /** Defaults to event_room (room / embedded tips). */
   paymentSurface?: PaymentSurface;
   /** EventChannel id for the playing clip (required for video analytics when not event_room). */
@@ -98,6 +100,7 @@ export const TipSection = ({
   projects,
   contributionType = "",
   stackDrawerAboveImmersive,
+  stackAbovePlaybackOverlay = false,
   paymentSurface = "event_room",
   paymentChannelId = null,
   paymentCommunityId,
@@ -180,13 +183,17 @@ export const TipSection = ({
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
     stopPreview();
-    presentTextTipDraftModal();
+    presentTextTipDraftModal({
+      stackAbovePlaybackOverlay: Boolean(stackAbovePlaybackOverlay),
+    });
   };
 
   const openTextDraft = (character: string, context: string) => {
     stopPreview();
 
-    presentTextTipDraftModal();
+    presentTextTipDraftModal({
+      stackAbovePlaybackOverlay: Boolean(stackAbovePlaybackOverlay),
+    });
   };
 
   const openTextDraftModal = () => {
@@ -215,7 +222,9 @@ export const TipSection = ({
       openDraftModal: () => {
         cancelTextPreviewRef.current = null;
         stopPreview();
-        presentTextTipDraftModal(); // or unified handler
+        presentTextTipDraftModal({
+          stackAbovePlaybackOverlay: Boolean(stackAbovePlaybackOverlay),
+        });
       },
     });
   };
@@ -378,6 +387,7 @@ export const TipSection = ({
       getPlaybackOffsetSec={getPlaybackOffsetSec}
       getWatchDurationBeforePayMs={getWatchDurationBeforePayMs}
       stackAboveImmersive={stackDrawerAboveImmersive}
+      stackAbovePlaybackOverlay={stackAbovePlaybackOverlay}
       walletDialogOpen={walletDialogOpen}
       onWalletDialogOpenChange={setWalletDialogOpen}
       openWalletModalNonce={openWalletModalNonce}

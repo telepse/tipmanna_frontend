@@ -20,6 +20,8 @@ import {
   Users,
   Video,
   Wallet,
+  Check,
+  KeyRound,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -154,11 +156,15 @@ const normalizeSubmissionKind = (value?: string | null): SubmissionFilter => {
 
 export const HostStats = ({ events, stats }: Props) => {
   const user = useSelector((state: RootState) => state.auth.user);
+
   const hostSession = useHostSession();
+
   const params = useParams();
 
   const [, setCopied] = useState(false);
+
   const [saving, setSaving] = useState(false);
+
   const [creatorProfileCopied, setCreatorProfileCopied] = useState(false);
 
   const [tabType, setTabType] = useState<"recent_events" | "creator_profile">(
@@ -178,7 +184,6 @@ export const HostStats = ({ events, stats }: Props) => {
    * could cause the entire component to return null if the runtime
    * role value differs in casing or representation.
    */
-
   const creatorForm = useForm<CreatorFormData>({
     resolver: zodResolver(creatorSchema),
     defaultValues: {
@@ -193,11 +198,15 @@ export const HostStats = ({ events, stats }: Props) => {
   const savedProfileImageUrl = creatorForm.watch("profileImageUrl");
 
   const [bannerAvatarUrl, setBannerAvatarUrl] = useState<string | null>(null);
+
   const [pendingProfileImageUrl, setPendingProfileImageUrl] = useState<
     string | null
   >(null);
+
   const [modalAvatarUrl, setModalAvatarUrl] = useState<string | null>(null);
+
   const [loadingProfile, setLoadingProfile] = useState(false);
+
   const [canChangeUsername, setCanChangeUsername] = useState(true);
 
   const [loadedHostUsername, setLoadedHostUsername] = useState<string | null>(
@@ -312,8 +321,11 @@ export const HostStats = ({ events, stats }: Props) => {
       const updated = res.data;
 
       applyProfileImage(updated.profileImageUrl);
+
       setCanChangeUsername(updated.canChangeUsername);
+
       setNextUsernameChangeAt(updated.nextUsernameChangeAt);
+
       setUsernameChangeOverride(updated.usernameChangeOverride);
 
       if (updated.username !== previousUsername) {
@@ -362,7 +374,9 @@ export const HostStats = ({ events, stats }: Props) => {
       }
 
       setCanChangeUsername(profile.canChangeUsername);
+
       setNextUsernameChangeAt(profile.nextUsernameChangeAt);
+
       setUsernameChangeOverride(profile.usernameChangeOverride);
     } finally {
       setLoadingProfile(false);
@@ -370,8 +384,11 @@ export const HostStats = ({ events, stats }: Props) => {
   }, [applyProfileImage, creatorForm]);
 
   const totalEventsCreated = stats?.totalEventsCreated ?? 0;
+
   const totalAttendeesReached = stats?.totalAttendeesReached ?? 0;
+
   const numOfTips = stats?.totalTips ?? 0;
+
   const totalAmountRaised = stats?.totalTipsEarned ?? 0;
 
   const earnings = Number((totalAmountRaised * 0.7).toFixed(2));
@@ -386,7 +403,9 @@ export const HostStats = ({ events, stats }: Props) => {
     (achievementChecks.filter(Boolean).length / achievementChecks.length) * 100;
 
   const metCount = achievementChecks.filter(Boolean).length;
+
   const totalCount = achievementChecks.length;
+
   const fractionProgress = `${metCount}/${totalCount}`;
 
   /*
@@ -401,6 +420,7 @@ export const HostStats = ({ events, stats }: Props) => {
         const kind = normalizeSubmissionKind(event.submissionKind);
 
         counts[kind] += 1;
+
         counts.all += 1;
 
         return counts;
@@ -442,7 +462,9 @@ export const HostStats = ({ events, stats }: Props) => {
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(String(eventCode ?? ""));
+
       setCopied(true);
+
       toast.success("Event code copied");
     } catch (error) {
       console.error(error);
@@ -456,7 +478,9 @@ export const HostStats = ({ events, stats }: Props) => {
           hostSession.username ?? ""
         )}`
       );
+
       setCreatorProfileCopied(true);
+
       toast.success("Creator profile copied");
     } catch (error) {
       console.error(error);
@@ -530,7 +554,7 @@ export const HostStats = ({ events, stats }: Props) => {
                   value="recent_events"
                   className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
                 >
-                  Event rooms
+                  Event channels
                 </TabsTrigger>
               </TabsList>
 
@@ -542,26 +566,71 @@ export const HostStats = ({ events, stats }: Props) => {
                 className="space-y-4"
               >
                 {/* Event code section */}
-                <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex min-w-0 flex-col gap-3 rounded-lg bg-gray-200 p-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    <span className="shrink-0 font-medium">
-                      Host event code
-                    </span>
+                <div className="border-primary/15 from-primary/[0.10] via-background relative overflow-hidden rounded-2xl border bg-gradient-to-br to-[#7aadcc]/[0.08] shadow-sm">
+                  {/* Decorative background elements */}
+                  <div className="bg-primary/10 pointer-events-none absolute -top-20 -right-16 size-48 rounded-full blur-3xl" />
 
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={handleCopy}
-                        className="w-fit max-w-full"
-                      >
-                        <Copy />
+                  <div className="pointer-events-none absolute -bottom-24 -left-16 size-48 rounded-full bg-[#7aadcc]/10 blur-3xl" />
 
-                        <span className="max-w-[180px] truncate">
-                          {eventCode}
-                        </span>
-                      </Button>
+                  <div className="relative p-4 sm:p-5">
+                    <div className="flex flex-col gap-5">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="bg-primary/10 text-primary border-primary/15 flex size-10 shrink-0 items-center justify-center rounded-xl border">
+                            <KeyRound className="size-5" />
+                          </div>
 
-                      <div className="w-full sm:w-auto">
-                        <GenerateQrButton link={fullLink} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold sm:text-base">
+                              Host event code
+                            </p>
+
+                            <p className="text-muted-foreground mt-1 text-xs leading-5 sm:text-sm">
+                              This code allows people to see your public event
+                              listing page.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Code + actions */}
+                      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+                        <div className="border-primary/10 flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm">
+                          <div className="min-w-0">
+                            <p className="text-muted-foreground mb-1 text-[10px] font-semibold tracking-[0.16em] uppercase">
+                              Event access code
+                            </p>
+
+                            <p
+                              className={cn(
+                                "mb-1 truncate font-mono text-xl font-bold tracking-[0.16em] sm:text-2xl",
+                                eventCode
+                                  ? "text-foreground"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {eventCode || "Unavailable"}
+                            </p>
+
+                            <div className="flex w-full shrink-0 sm:w-auto">
+                              <GenerateQrButton link={fullLink} />
+                            </div>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={handleCopy}
+                            disabled={!eventCode}
+                            className="border-primary/15 bg-background/80 size-10 shrink-0 rounded-lg"
+                            aria-label="Copy event code"
+                            title="Copy event code"
+                          >
+                            <Copy className="size-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -587,7 +656,9 @@ export const HostStats = ({ events, stats }: Props) => {
                   <div className="scrollbar-hide flex w-full min-w-0 gap-2 overflow-x-auto pb-1">
                     {SUBMISSION_FILTERS.map(filter => {
                       const Icon = filter.icon;
+
                       const isActive = submissionFilter === filter.value;
+
                       const count = submissionCounts[filter.value];
 
                       return (

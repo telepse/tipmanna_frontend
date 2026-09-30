@@ -11,11 +11,11 @@ import {
   shouldRemountTvPlayer,
   shouldReplaceTvYtPlayer,
   shouldReuseExistingTvYtPlayer,
+  TV_COMMAND_DEAD_MS,
   TV_EMBED_DEAD_IFRAME_MS,
   TV_EMBED_ONREADY_TIMEOUT_MS,
   TV_EMBED_RECOVERY_COOLDOWN_MS,
   TV_EMBED_RECOVERY_LATCH_MS,
-  TV_HEARTBEAT_USABLE_VETO_MS,
   TV_HIDE_REMOUNT_MS,
 } from "@/lib/tv-player-resume";
 
@@ -127,7 +127,7 @@ describe("shouldRemountTvPlayer", () => {
     ).toBe(false);
   });
 
-  it("remounts after long hide when iframe is detached, command API is gone, and state is not usable", () => {
+  it("remounts after long hide when iframe is detached and command API is gone", () => {
     expect(
       shouldRemountTvPlayer({
         ...alive,
@@ -139,27 +139,16 @@ describe("shouldRemountTvPlayer", () => {
     ).toBe(true);
   });
 
-  it("does not remount when command APIs are not ready but iframe is still live", () => {
-    expect(shouldRemountTvPlayer({ ...alive, commandReady: false })).toBe(
-      false
-    );
-  });
-
-  it("does not remount a usable PLAYING or PAUSED row with a live iframe", () => {
+  it("remounts when command APIs are not ready even if iframe is still live", () => {
+    expect(shouldRemountTvPlayer({ ...alive, commandReady: false })).toBe(true);
     expect(
       shouldRemountTvPlayer({
         ...alive,
         commandReady: false,
         playerState: "PLAYING",
+        hiddenDurationMs: 0,
       })
-    ).toBe(false);
-    expect(
-      shouldRemountTvPlayer({
-        ...alive,
-        commandReady: false,
-        playerState: "PAUSED",
-      })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("does not remount when iframe and command API are healthy despite UNSTARTED state", () => {
@@ -186,7 +175,7 @@ describe("shouldRecoverTvPlayerEmbed", () => {
     nowMs: 20_000,
   };
 
-  it("recovers when the provider ref is orphaned after cooldown and iframe is dead", () => {
+  it("recovers when the provider ref is orphaned after cooldown", () => {
     expect(
       shouldRecoverTvPlayerEmbed({
         ...healthy,
@@ -194,6 +183,19 @@ describe("shouldRecoverTvPlayerEmbed", () => {
         commandReady: false,
         iframeLive: false,
         playerState: "UNSTARTED",
+      })
+    ).toBe(true);
+  });
+
+  it("recovers orphan even when usable state was recent", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        orphanedRef: true,
+        commandReady: false,
+        iframeLive: true,
+        playerState: "PLAYING",
+        msSinceLastUsableState: 100,
       })
     ).toBe(true);
   });
@@ -221,19 +223,7 @@ describe("shouldRecoverTvPlayerEmbed", () => {
     ).toBe(false);
   });
 
-  it("does not recover a PLAYING or BUFFERING row", () => {
-    expect(
-      shouldRecoverTvPlayerEmbed({
-        ...healthy,
-        commandReady: false,
-        iframeLive: false,
-        playerState: "PLAYING",
-        deadIframeSinceMs: 20_000 - TV_EMBED_DEAD_IFRAME_MS + 1,
-      })
-    ).toBe(false);
-  });
-
-  it("does not recover when iframe flickers but command API still works", () => {
+  it("does not recover when command API still works", () => {
     expect(
       shouldRecoverTvPlayerEmbed({
         ...healthy,
@@ -244,33 +234,53 @@ describe("shouldRecoverTvPlayerEmbed", () => {
     ).toBe(false);
   });
 
-  it("does not recover when playback was usable recently despite dead iframe", () => {
+  it("does not apply usable veto when command-dead", () => {
     expect(
       shouldRecoverTvPlayerEmbed({
         ...healthy,
-        iframeLive: false,
+        iframeLive: true,
         commandReady: false,
         playerState: "UNSTARTED",
-        deadIframeSinceMs: 20_000 - TV_EMBED_DEAD_IFRAME_MS,
+        msSinceCommandDead: TV_COMMAND_DEAD_MS,
         msSinceLastUsableState: 2_000,
-      })
-    ).toBe(false);
-  });
-
-  it("recovers after sustained dead iframe when command API is gone and no recent usable state", () => {
-    expect(
-      shouldRecoverTvPlayerEmbed({
-        ...healthy,
-        iframeLive: false,
-        commandReady: false,
-        playerState: "UNSTARTED",
-        deadIframeSinceMs: 20_000 - TV_EMBED_DEAD_IFRAME_MS,
-        msSinceLastUsableState: TV_HEARTBEAT_USABLE_VETO_MS,
       })
     ).toBe(true);
   });
 
-  it("recovers after first play even when C0 guard env is off (firstPlayReached from provider)", () => {
+  it("recovers command-dead with live iframe after sustain", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        iframeLive: true,
+        commandReady: false,
+        playerState: "UNSTARTED",
+        msSinceCommandDead: TV_COMMAND_DEAD_MS,
+      })
+    ).toBe(true);
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        iframeLive: true,
+        commandReady: false,
+        playerState: "UNSTARTED",
+        msSinceCommandDead: TV_COMMAND_DEAD_MS - 1,
+      })
+    ).toBe(false);
+  });
+
+  it("recovers after sustained dead iframe when command API is gone", () => {
+    expect(
+      shouldRecoverTvPlayerEmbed({
+        ...healthy,
+        iframeLive: false,
+        commandReady: false,
+        playerState: "UNSTARTED",
+        deadIframeSinceMs: 20_000 - TV_EMBED_DEAD_IFRAME_MS,
+      })
+    ).toBe(true);
+  });
+
+  it("recovers after first play even when C0 guard env is off", () => {
     expect(
       shouldRecoverTvPlayerEmbed({
         ...healthy,
@@ -324,14 +334,14 @@ describe("shouldClearEmbedRecoveryInFlight", () => {
     ).toBe(true);
   });
 
-  it("does not clear at the old 4s onReady timeout", () => {
+  it("does not clear at the old 4s onReady timeout if latch is longer", () => {
     expect(
       shouldClearEmbedRecoveryInFlight({
         embedRecoveryInFlight: true,
         commandReady: false,
         elapsedMs: TV_EMBED_ONREADY_TIMEOUT_MS,
       })
-    ).toBe(false);
+    ).toBe(TV_EMBED_ONREADY_TIMEOUT_MS >= TV_EMBED_RECOVERY_LATCH_MS);
   });
 
   it("does not clear while command-ready or before timeout", () => {

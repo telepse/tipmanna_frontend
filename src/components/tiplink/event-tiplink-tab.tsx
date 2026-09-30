@@ -10,14 +10,11 @@ import { toast } from "react-toastify";
 import {
   createTipLinkDraftAction,
   deleteTipLinkAction,
-  getTipLinkCreateEligibilityAction,
-  listEventTipLinksAction,
   suggestTipLinkSlugAction,
   suggestTipLinkStoreLinksAction,
   updateTipLinkAction,
   type TipLinkSummary,
 } from "@/actions/tiplink";
-import { listHostPlaylistsAction } from "@/actions/host-playlist";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,11 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import {
-  isSubscriptionLapsedError,
-  isSubscriptionRequiredError,
-  subscriptionActionErrorMessage,
-} from "@/lib/host-subscription-errors";
 import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
 import {
   openTipLinkCreateSubscriptionPrompt,
@@ -44,6 +36,7 @@ import {
 import { buildTipLinkManageHref } from "@/lib/tiplink-manage-navigation";
 import { PremiumFeatureBadge } from "@/components/dashboard/premium-feature-badge";
 import { useHostPlanCapabilities } from "@/hooks/useHostPlanCapabilities";
+import { useEventTipLinkTabCache } from "@/hooks/use-event-tiplink-tab-cache";
 import { useHostSubscriptionPrompt } from "@/hooks/use-host-subscription-prompt";
 import { useHostSession } from "@/hooks/use-host-session";
 import { useImageUpload } from "@/hooks/use-image-upload";
@@ -57,6 +50,7 @@ import { cn } from "@/lib/utils";
 import { TIPLINK_MONEY_FOR_MAX } from "@/lib/tiplink-raised-line";
 import {
   isCommunityBankChannel,
+  isTipLinkEligibleCommunityBankChannel,
   isTipLinkEligibleEventRoomChannel,
 } from "@/lib/tiplink-channel-eligibility";
 
@@ -77,21 +71,10 @@ type Props = {
 };
 
 export function EventTipLinkTab({ eventId, contents }: Props) {
-  const [tipLinks, setTipLinks] = useState<TipLinkSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [eligibility, setEligibility] = useState<{
-    canCreate: boolean;
-    firstFreeAvailable: boolean;
-    subscriptionStatus: string;
-  } | null>(null);
+  const { tipLinks, eligibility, playlists, playlistPlan, loading, refresh } =
+    useEventTipLinkTabCache(eventId);
   const [creatingForChannel, setCreatingForChannel] = useState<string>("");
   const [editing, setEditing] = useState<TipLinkSummary | null>(null);
-  const [playlists, setPlaylists] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
-  const [playlistPlan, setPlaylistPlan] = useState<
-    "ok" | "required" | "lapsed" | "error"
-  >("ok");
   const [saving, setSaving] = useState(false);
   const [previewRevision, setPreviewRevision] = useState(0);
   const [suggestingStoreLinks, setSuggestingStoreLinks] = useState(false);
@@ -143,55 +126,11 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
   const autoCreateChannelId = searchParams.get("channelId")?.trim() ?? "";
   const autoCreateAttemptedRef = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [listRes, eligRes, plRes] = await Promise.all([
-        listEventTipLinksAction(eventId),
-        getTipLinkCreateEligibilityAction(),
-        listHostPlaylistsAction(),
-      ]);
-      if (listRes.success && listRes.data) {
-        setTipLinks(listRes.data.tipLinks);
-      }
-      if (eligRes.success && eligRes.data) {
-        setEligibility({
-          canCreate: eligRes.data.canCreate,
-          firstFreeAvailable: eligRes.data.firstFreeAvailable,
-          subscriptionStatus: eligRes.data.subscriptionStatus,
-        });
-      }
-      if (plRes.success && plRes.data) {
-        setPlaylistPlan("ok");
-        setPlaylists(
-          (plRes.data.playlists ?? []).map(p => ({ id: p.id, name: p.name }))
-        );
-      } else if (isSubscriptionRequiredError(plRes.validationBody)) {
-        setPlaylists([]);
-        setPlaylistPlan("required");
-      } else if (isSubscriptionLapsedError(plRes.validationBody)) {
-        setPlaylists([]);
-        setPlaylistPlan("lapsed");
-      } else if (!plRes.success) {
-        setPlaylists([]);
-        setPlaylistPlan("error");
-        toast.error(
-          subscriptionActionErrorMessage(
-            plRes.validationBody,
-            plRes.message ?? "Could not load playlists"
-          )
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [eventId]);
-
   useEffect(() => {
     if (hasActivePremium && playlistPlan !== "ok") {
-      void load();
+      void refresh();
     }
-  }, [hasActivePremium, load, playlistPlan]);
+  }, [hasActivePremium, playlistPlan, refresh]);
 
   const resumePathForPlaylistSubscribe = useCallback(() => {
     if (typeof window === "undefined") {
@@ -216,14 +155,17 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     openForLapsed("premium");
   }, [openForLapsed, resumePathForPlaylistSubscribe]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   const channelsWithoutTipLink = useMemo(() => {
     const used = new Set(tipLinks.map(t => t.eventChannelId));
     return contents.filter(
       c => !used.has(c.id) && isTipLinkEligibleEventRoomChannel(c)
+    );
+  }, [contents, tipLinks]);
+
+  const communityBankChannelsWithoutTipLink = useMemo(() => {
+    const used = new Set(tipLinks.map(t => t.eventChannelId));
+    return contents.filter(
+      c => !used.has(c.id) && isTipLinkEligibleCommunityBankChannel(c)
     );
   }, [contents, tipLinks]);
 
@@ -358,7 +300,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
           description:
             channel?.description ?? res.data!.tipLink.description ?? "",
         }));
-        await load();
+        await refresh();
       } finally {
         setCreatingForChannel("");
       }
@@ -367,9 +309,9 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       contents,
       eligibility,
       handleSubscriptionActionError,
-      load,
       openForLapsed,
       openForRequired,
+      refresh,
       resumeTipLinkCreate,
     ]
   );
@@ -419,7 +361,11 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       return;
     }
     const channel = contents.find(c => c.id === autoCreateChannelId);
-    if (!channel || !isTipLinkEligibleEventRoomChannel(channel)) {
+    if (
+      !channel ||
+      (!isTipLinkEligibleEventRoomChannel(channel) &&
+        !isTipLinkEligibleCommunityBankChannel(channel))
+    ) {
       return;
     }
     void startCreate(channel.id, channel.title);
@@ -526,7 +472,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
         setPreviewRevision(revision => revision + 1);
       }
       if (reloadList) {
-        await load();
+        await refresh();
       }
       return true;
     } catch {
@@ -565,7 +511,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
       setPreviewRevision(revision => revision + 1);
       toast.success("TipLink published");
       setEditing(null);
-      await load();
+      await refresh();
     } finally {
       setSaving(false);
     }
@@ -628,7 +574,7 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     }
     toast.success("TipLink deleted");
     if (editing?.id === id) setEditing(null);
-    await load();
+    await refresh();
   };
 
   if (loading) {
@@ -741,9 +687,55 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
 
           {channelsWithoutTipLink.length > 0 ? (
             <div className="space-y-2">
-              <Label>Create TipLink for a video</Label>
+              <Label>Create TipLink for an event-room video</Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 {channelsWithoutTipLink.map(ch => {
+                  const thumb = thumbFor(ch.url);
+                  return (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      disabled={creatingForChannel === ch.id}
+                      className="hover:bg-muted/40 flex items-center gap-3 rounded-lg border p-2 text-left"
+                      onClick={() => void startCreate(ch.id, ch.title)}
+                    >
+                      {thumb ? (
+                        <Image
+                          src={thumb}
+                          alt=""
+                          width={56}
+                          height={42}
+                          className="rounded"
+                          unoptimized
+                        />
+                      ) : null}
+                      <span className="text-sm font-medium">{ch.title}</span>
+                      {creatingForChannel === ch.id ? (
+                        <Loader2 className="ml-auto size-4 animate-spin" />
+                      ) : shouldPreGateTipLinkCreate(eligibility) ? (
+                        <PremiumFeatureBadge
+                          className="ml-auto size-4"
+                          label="Additional TipLink requires Host Growth or Community"
+                        />
+                      ) : (
+                        <Plus className="ml-auto size-4" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {communityBankChannelsWithoutTipLink.length > 0 ? (
+            <div className="space-y-2">
+              <Label>Create TipLink for a community bank video</Label>
+              <p className="text-muted-foreground text-xs">
+                Public approved community-bank videos only. Member-only bank
+                videos cannot become TipLinks.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {communityBankChannelsWithoutTipLink.map(ch => {
                   const thumb = thumbFor(ch.url);
                   return (
                     <button

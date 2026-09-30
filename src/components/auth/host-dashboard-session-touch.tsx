@@ -62,7 +62,14 @@ export function HostDashboardSessionTouch() {
       if (res.status === 401 || res.status === 403) {
         res = await touchHostSession();
         if (res?.status === 401 || res?.status === 403) {
-          await clearHostSession();
+          try {
+            const body = (await res.json()) as { code?: string };
+            if (body.code === "HOST_SESSION_REQUIRED") {
+              await clearHostSession();
+            }
+          } catch {
+            /* keep cookies on unparseable body */
+          }
         }
         return;
       }

@@ -1,48 +1,74 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import { useState } from "react";
 
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/components/ui/tabs";
 
 import { ManageEventCard } from "@/components/dashboard/manage-event-card";
 import { Event } from "@/types/event.types";
 import { ManageEventCardSkeleton } from "../dashboard/manage-event-card-skeleton";
-import { getHostEventsTabsAction } from "@/actions/events";
-import type { RootState } from "@/redux/store";
+import { useHostEventsTabs } from "@/hooks/useHostEventsTabs";
 import type { HostSubscriptionPromptFns } from "@/hooks/use-host-subscription-prompt";
 
 type Props = {
   subscriptionPrompt?: HostSubscriptionPromptFns;
 };
 
+function EventList({
+  events,
+  showSkeleton,
+  emptyLabel,
+  subscriptionPrompt,
+}: {
+  events: Event[];
+  showSkeleton: boolean;
+  emptyLabel: string;
+  subscriptionPrompt?: HostSubscriptionPromptFns;
+}) {
+  if (showSkeleton) {
+    return (
+      <>
+        {Array.from({ length: 3 }).map((_, idx) => (
+          <ManageEventCardSkeleton key={idx} />
+        ))}
+      </>
+    );
+  }
+
+  if (events.length === 0) {
+    return <p className="text-muted-foreground text-sm">{emptyLabel}</p>;
+  }
+
+  return (
+    <>
+      {events.map((event: Event) => (
+        <ManageEventCard
+          key={event.id}
+          id={event.id}
+          eventName={event.eventName}
+          eventDate={event.eventDate}
+          startTime={event.startTime}
+          endTime={event.endTime}
+          approved={event.approved}
+          amountRaised={event.amountRaised}
+          numOfTips={event.numOfTips}
+          showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
+          showViewCountOnVideos={event.showViewCountOnVideos}
+          showEncounterOnVideos={event.showEncounterOnVideos}
+          subscriptionPrompt={subscriptionPrompt}
+        />
+      ))}
+    </>
+  );
+}
+
 export const ManageEventClient = ({ subscriptionPrompt }: Props) => {
-  const user = useSelector((s: RootState) => s.auth.user);
   const [tabType, setTabType] = useState<
     "all_events" | "approved_events" | "pending_events"
   >("all_events");
 
-  const [all, setAll] = useState<Event[]>([]);
-  const [approved, setApproved] = useState<Event[]>([]);
-  const [pending, setPending] = useState<Event[]>([]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchData = async () => {
-      const res = await getHostEventsTabsAction();
-      if (!res.data || typeof res.data !== "object") return;
-      const data = res.data as {
-        all: Event[];
-        approved: Event[];
-        pending: Event[];
-      };
-      setAll(data.all);
-      setApproved(data.approved);
-      setPending(data.pending);
-    };
-    void fetchData();
-  }, [user?.id]);
+  const { all, approved, pending, hasData, isLoading } = useHostEventsTabs();
+  const showSkeleton = isLoading && !hasData;
 
   return (
     <>
@@ -78,81 +104,36 @@ export const ManageEventClient = ({ subscriptionPrompt }: Props) => {
           value="all_events"
           className="mt-6 space-y-6"
         >
-          {all.length === 0
-            ? Array.from({ length: 3 }).map((_, idx) => (
-                <ManageEventCardSkeleton key={idx} />
-              ))
-            : all.map((event: Event) => (
-                <ManageEventCard
-                  key={event.id}
-                  id={event.id}
-                  eventName={event.eventName}
-                  eventDate={event.eventDate}
-                  startTime={event.startTime}
-                  endTime={event.endTime}
-                  approved={event.approved}
-                  amountRaised={event.amountRaised}
-                  numOfTips={event.numOfTips}
-                  showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
-                  showViewCountOnVideos={event.showViewCountOnVideos}
-                  showEncounterOnVideos={event.showEncounterOnVideos}
-                  subscriptionPrompt={subscriptionPrompt}
-                />
-              ))}
+          <EventList
+            events={all}
+            showSkeleton={showSkeleton}
+            emptyLabel="No events yet."
+            subscriptionPrompt={subscriptionPrompt}
+          />
         </TabsContent>
 
         <TabsContent
           value="approved_events"
           className="mt-6 space-y-6"
         >
-          {approved.length === 0
-            ? Array.from({ length: 3 }).map((_, idx) => (
-                <ManageEventCardSkeleton key={idx} />
-              ))
-            : approved.map((event: Event) => (
-                <ManageEventCard
-                  key={event.id}
-                  id={event.id}
-                  eventName={event.eventName}
-                  eventDate={event.eventDate}
-                  startTime={event.startTime}
-                  endTime={event.endTime}
-                  approved={event.approved}
-                  amountRaised={event.amountRaised}
-                  numOfTips={event.numOfTips}
-                  showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
-                  showViewCountOnVideos={event.showViewCountOnVideos}
-                  showEncounterOnVideos={event.showEncounterOnVideos}
-                  subscriptionPrompt={subscriptionPrompt}
-                />
-              ))}
+          <EventList
+            events={approved}
+            showSkeleton={showSkeleton}
+            emptyLabel="No approved events."
+            subscriptionPrompt={subscriptionPrompt}
+          />
         </TabsContent>
 
         <TabsContent
           value="pending_events"
           className="mt-6 space-y-6"
         >
-          {pending.length === 0
-            ? Array.from({ length: 3 }).map((_, idx) => (
-                <ManageEventCardSkeleton key={idx} />
-              ))
-            : pending.map((event: Event) => (
-                <ManageEventCard
-                  key={event.id}
-                  id={event.id}
-                  eventName={event.eventName}
-                  eventDate={event.eventDate}
-                  startTime={event.startTime}
-                  endTime={event.endTime}
-                  approved={event.approved}
-                  amountRaised={event.amountRaised}
-                  numOfTips={event.numOfTips}
-                  showAmountRaisedOnVideos={event.showAmountRaisedOnVideos}
-                  showViewCountOnVideos={event.showViewCountOnVideos}
-                  showEncounterOnVideos={event.showEncounterOnVideos}
-                  subscriptionPrompt={subscriptionPrompt}
-                />
-              ))}
+          <EventList
+            events={pending}
+            showSkeleton={showSkeleton}
+            emptyLabel="No pending events."
+            subscriptionPrompt={subscriptionPrompt}
+          />
         </TabsContent>
       </Tabs>
     </>

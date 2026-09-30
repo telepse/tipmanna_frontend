@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSWRConfig } from "swr";
 
 import { Clock, Eye, MoveUpRight, Share2, Star, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
   useHostSubscriptionPrompt,
   type HostSubscriptionPromptFns,
 } from "@/hooks/use-host-subscription-prompt";
+import { HOST_EVENTS_TABS_SWR_KEY } from "@/hooks/useHostEventsTabs";
 import { formatDate } from "@/lib/formatDate";
 import { buildChannelSharePath } from "@/lib/public-video-url";
 import { setHostSubscriptionResume } from "@/lib/host-subscription-resume";
@@ -71,6 +73,7 @@ export function ManageEventCard({
   const localPrompt = useHostSubscriptionPrompt({ focusTier: "premium" });
   const { openForLapsed, openForRequired, handleSubscriptionActionError } =
     subscriptionPrompt ?? localPrompt;
+  const { mutate } = useSWRConfig();
 
   const [videosOpen, setVideosOpen] = useState(false);
   const [showAmountRaised, setShowAmountRaised] = useState(
@@ -144,6 +147,7 @@ export function ManageEventCard({
         return;
       }
       toast.success("Video display settings updated");
+      void mutate(HOST_EVENTS_TABS_SWR_KEY);
     } finally {
       setDisplaySaving(false);
     }
@@ -187,9 +191,9 @@ export function ManageEventCard({
               onClick={() =>
                 router.push(`/host/${hostSlug}/manage-event/${id}`)
               }
-              className="text-primary flex items-center gap-1 px-3 py-2 text-sm"
+              className="text-primary flex cursor-pointer items-center gap-1 px-3 py-2 text-sm"
             >
-              <MoveUpRight className="size-3 cursor-pointer sm:size-4" />{" "}
+              <MoveUpRight className="size-3 sm:size-4" />{" "}
               <span className="underline underline-offset-2">edit</span>
             </button>
           </h5>

@@ -61,6 +61,8 @@ export type UseCoOwnerDraftFieldsOptions = {
   onCoOwnerInvitePending?: (inviteId: string) => void;
   onDraftSaveNow?: () => void | Promise<void>;
   onRefreshSubmitReadiness?: () => void;
+  /** Optimistic pending unlock after invite create succeeds. */
+  onInviteSentPending?: () => void;
   refreshToken?: number;
 };
 
@@ -87,6 +89,7 @@ export function useCoOwnerDraftFields({
   onCoOwnerInvitePending,
   onDraftSaveNow,
   onRefreshSubmitReadiness,
+  onInviteSentPending,
   refreshToken = 0,
 }: UseCoOwnerDraftFieldsOptions) {
   const { restoreReady, setCoOwnerHydrating } = useCoOwnerDraftLifecycle();
@@ -116,12 +119,14 @@ export function useCoOwnerDraftFields({
   const onDraftSaveNowRef = useRef(onDraftSaveNow);
   const onCoOwnerInvitePendingRef = useRef(onCoOwnerInvitePending);
   const onRefreshSubmitReadinessRef = useRef(onRefreshSubmitReadiness);
+  const onInviteSentPendingRef = useRef(onInviteSentPending);
 
   setCoOwnerRef.current = setCoOwner;
   setDraftKeyRef.current = setDraftKey;
   onDraftSaveNowRef.current = onDraftSaveNow;
   onCoOwnerInvitePendingRef.current = onCoOwnerInvitePending;
   onRefreshSubmitReadinessRef.current = onRefreshSubmitReadiness;
+  onInviteSentPendingRef.current = onInviteSentPending;
 
   /*
    * Prevent draft-key initialization from happening more than once
@@ -159,17 +164,12 @@ export function useCoOwnerDraftFields({
    * INITIALIZE CO-OWNER DRAFT KEY
    * ------------------------------------------------------------
    *
-   * This must be strictly one-time for a mounted co-owner block.
-   * Otherwise setting the RHF value can cause the parent form to
-   * rerender while this effect is still participating in the
-   * co-owner lifecycle.
+   * Mint when ownership is "no" and key is empty. Re-mint if the key
+   * was wiped (e.g. form.reset) so Send invite never hits missing draft id.
+   * Never rotate an existing non-empty key (preserves invite linkage).
    */
   useEffect(() => {
     if (!restoreReady || ownershipAnswer !== "no") {
-      return;
-    }
-
-    if (draftKeyInitializationRef.current) {
       return;
     }
 
@@ -180,13 +180,14 @@ export function useCoOwnerDraftFields({
       return;
     }
 
+    // Key empty — allow mint even if we previously initialized (reset/wipe).
     draftKeyInitializationRef.current = true;
 
     const next = ensureCoOwnerDraftKey();
 
     setDraftKeyRef.current(next);
     draftKeyRef.current = next;
-  }, [restoreReady, ownershipAnswer]);
+  }, [restoreReady, ownershipAnswer, draftKey]);
 
   /*
    * ------------------------------------------------------------
@@ -420,7 +421,9 @@ export function useCoOwnerDraftFields({
       }
     )?.invite;
 
-    toast.success("Invite sent — co-owner must approve via email");
+    toast.success(
+      "Invite sent — you can submit now; video stays hidden until co-owner approves"
+    );
 
     setReadOnlyInvite(true);
     setInvitePhase("pending");
@@ -429,6 +432,7 @@ export function useCoOwnerDraftFields({
       onCoOwnerInvitePendingRef.current?.(inv.id);
     }
 
+    onInviteSentPendingRef.current?.();
     onRefreshSubmitReadinessRef.current?.();
 
     await onDraftSaveNowRef.current?.();
@@ -504,6 +508,7 @@ export function useCoOwnerDraftFields({
       });
     }
 
+    onInviteSentPendingRef.current?.();
     onRefreshSubmitReadinessRef.current?.();
 
     await onDraftSaveNowRef.current?.();

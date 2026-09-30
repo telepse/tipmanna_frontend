@@ -176,6 +176,7 @@ export type TvInteractiveShellProps = {
   videoTipKey?: string;
   openWalletModalNonce?: number;
   onSnapshotPaymentRedirect?: () => void;
+  onTipPaymentSucceeded?: () => void;
 };
 
 export type TvInteractiveVariant = "mobile" | "desktop";
@@ -212,6 +213,7 @@ export function TvInteractiveShell({
   videoTipKey = "",
   openWalletModalNonce = 0,
   onSnapshotPaymentRedirect,
+  onTipPaymentSucceeded,
 }: TvInteractiveShellProps) {
   const { currentIndex, playingItemOverride, scheduleSourceCommunityId } =
     useTV();
@@ -1168,6 +1170,7 @@ export function TvInteractiveShell({
             paymentChannelId={paymentChannelId}
             openWalletModalNonce={openWalletModalNonce}
             onSnapshotPaymentRedirect={onSnapshotPaymentRedirect}
+            onTipPaymentSucceeded={onTipPaymentSucceeded}
             stackAboveImmersive
             textTipUnitPrice={tipPres.textUnitPrice}
             tipQuoteContext={tipPres.quoteCtx}

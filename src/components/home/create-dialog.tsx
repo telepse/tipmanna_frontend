@@ -159,6 +159,10 @@ export const CreateDialog = ({
   const [modalDraftId, setModalDraftId] = useState<string | null>(
     initialResume?.modalDraftId ?? null
   );
+  /** Resume seed only — must not track live autosave ids (avoids mid-edit restore wipe). */
+  const [resumeSeedDraftId] = useState<string | null>(
+    () => initialResume?.modalDraftId ?? null
+  );
   const pendingVideoSubmitRef = useRef<AddVideoFormValues | null>(null);
   const signInIntentRef = useRef<SignInIntent>(null);
   const pendingHrefRef = useRef<string | null>(null);
@@ -443,7 +447,7 @@ export const CreateDialog = ({
     }
 
     const runSubmit = async () => {
-      if (submitLoading || !beginExclusiveSubmit(submitInFlightRef)) return;
+      if (!beginExclusiveSubmit(submitInFlightRef)) return;
       setSubmitLoading(true);
       try {
         const payload = buildCreateChannelPayload(values);
@@ -809,7 +813,7 @@ export const CreateDialog = ({
                   }
                 : undefined
           }
-          seedDraftId={modalDraftId}
+          seedDraftId={resumeSeedDraftId}
         />
       ) : (
         <p className="mt-4 text-sm text-white/55">

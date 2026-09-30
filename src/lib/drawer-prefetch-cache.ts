@@ -155,10 +155,12 @@ export async function fetchCreatorProfileCached(
   if (!opts?.force) {
     const hit = getCachedCreatorProfile(handle);
     if (hit) return hit;
+  } else {
+    invalidateCreatorProfile(handle);
   }
   let inflight = creatorProfileInflight.get(key);
   if (!inflight) {
-    inflight = getHostCreatorPublicProfileAction(handle).then(res => {
+    const request = getHostCreatorPublicProfileAction(handle).then(res => {
       if (res.success && res.data) {
         creatorProfileCache.set(key, res.data);
         writeSession(key, res.data);
@@ -166,8 +168,13 @@ export async function fetchCreatorProfileCached(
       }
       return null;
     });
-    creatorProfileInflight.set(key, inflight);
-    void inflight.finally(() => creatorProfileInflight.delete(key));
+    inflight = request;
+    creatorProfileInflight.set(key, request);
+    void request.finally(() => {
+      if (creatorProfileInflight.get(key) === request) {
+        creatorProfileInflight.delete(key);
+      }
+    });
   }
   return inflight;
 }

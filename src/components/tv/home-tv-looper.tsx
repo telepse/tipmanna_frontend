@@ -173,7 +173,6 @@ export const HomeTvLooper = ({
     onVideoEnd,
     setPlayerPlayingState,
     setPlayerVisible,
-    flushPendingPlaybackRequest,
     applyTabPlaybackSnapshotRestore,
     playingItemOverride,
     applyPendingPlaybackRestore,
@@ -250,6 +249,7 @@ export const HomeTvLooper = ({
     mode,
     enterLocalMode,
     setPlayerPlayingState,
+    scheduleSourceCommunityId,
   });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1451,7 +1451,6 @@ export const HomeTvLooper = ({
                     onPlayerReady();
                     applyTabPlaybackSnapshotRestore("player_ready");
                     flushPendingSeek();
-                    flushPendingPlaybackRequest();
                     setPlayerVisible(true);
                     emitEncounterWhenVideoLoads();
                   }}

@@ -29,6 +29,8 @@ import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util"
 import {
   coOwnerAddVideoSubmitButtonLabel,
   coOwnerSubmitHelperText,
+  isCoOwnerCheckingBlockingSubmit,
+  shouldRevalidateCoOwnerOnSubmit,
   shouldShowCoOwnerSubmitHelper,
 } from "@/lib/coowner-submit-readiness.util";
 import {
@@ -94,6 +96,8 @@ export type AddVideoFormValues = {
   eventVideoType: string;
   /** Optional: link monetised traffic to a verified host YouTube slot (1–2). */
   hostYoutubeSlot: "none" | "1" | "2";
+  /** True only after successful optional YouTube verify for the selected slot. */
+  isOnHostYoutube: boolean;
   ownershipAnswer?: "yes" | "no";
   coOwnerDraftKey: string;
   coOwner?: CoOwnerDraftSlice;
@@ -103,6 +107,7 @@ const reminderKeys = ["r1", "r2", "r3"] as const;
 
 type YoutubeChannelRow = { slot: number; url: string; locked: boolean };
 
+/** Claim host YouTube slot only after verify — unverified slot is omitted. */
 export function buildCreateChannelPayload(values: AddVideoFormValues) {
   const reminderNums =
     values.setReminder && values.reminders
@@ -120,6 +125,7 @@ export function buildCreateChannelPayload(values: AddVideoFormValues) {
     values.hostYoutubeSlot === "1" || values.hostYoutubeSlot === "2"
       ? Number(values.hostYoutubeSlot)
       : null;
+  const claimYoutube = Boolean(values.isOnHostYoutube) && slot !== null;
 
   return {
     title: values.title,
@@ -132,7 +138,7 @@ export function buildCreateChannelPayload(values: AddVideoFormValues) {
     eventVideoType: eventVideoTypePayload,
     ownershipAnswer: values.ownershipAnswer,
     coOwnerDraftKey: values.coOwnerDraftKey?.trim() || undefined,
-    ...(slot !== null
+    ...(claimYoutube
       ? { onYoutubeChannelSlot: slot, isOnHostYoutube: true }
       : {}),
   };
@@ -140,6 +146,8 @@ export function buildCreateChannelPayload(values: AddVideoFormValues) {
 
 type AddVideoFormProps = {
   onSubmit: (values: AddVideoFormValues) => Promise<void>;
+  /** Called before submit-time co-owner checks and `onSubmit` (e.g. show loading). */
+  onSubmitStart?: () => void;
   loading: boolean;
   /** Match full-page create wizards (dark glass panel) vs dashboard modals. */
   variant?: "create" | "default";
@@ -176,6 +184,7 @@ type AddVideoFormProps = {
 
 export function AddVideoForm({
   onSubmit,
+  onSubmitStart,
   loading,
   variant = "default",
   eventEventType,
@@ -236,6 +245,7 @@ export function AddVideoForm({
       contentCountry: "all",
       eventVideoType: MODAL_INHERIT_VIDEO_TYPE,
       hostYoutubeSlot: "none",
+      isOnHostYoutube: false,
       coOwnerDraftKey: "",
     },
   });
@@ -277,7 +287,9 @@ export function AddVideoForm({
 
   const watchedUrl = form.watch("url");
   const watchedSlot = form.watch("hostYoutubeSlot");
+  const ownershipAnswer = form.watch("ownershipAnswer");
   const skipVerifyResetRef = useRef(false);
+  const prevOwnershipRef = useRef(ownershipAnswer);
 
   useEffect(() => {
     if (skipVerifyResetRef.current) {
@@ -285,7 +297,19 @@ export function AddVideoForm({
       return;
     }
     setVerifyState("idle");
-  }, [watchedUrl, watchedSlot]);
+    form.setValue("isOnHostYoutube", false);
+  }, [watchedUrl, watchedSlot, form]);
+
+  useEffect(() => {
+    if (prevOwnershipRef.current === ownershipAnswer) return;
+    prevOwnershipRef.current = ownershipAnswer;
+    if (skipVerifyResetRef.current) {
+      skipVerifyResetRef.current = false;
+      return;
+    }
+    setVerifyState("idle");
+    form.setValue("isOnHostYoutube", false);
+  }, [ownershipAnswer, form]);
 
   const { restoring: modalRestoring } = useModalFormDraftRestore({
     kind: draftAutosave?.kind ?? "room_add_video",
@@ -305,7 +329,6 @@ export function AddVideoForm({
   });
 
   const setReminder = form.watch("setReminder");
-  const ownershipAnswer = form.watch("ownershipAnswer");
   const coOwnerDraftKey = form.watch("coOwnerDraftKey");
   const coOwnerLinkSlice =
     requirePolicyFields && ownershipAnswer === "no"
@@ -324,6 +347,7 @@ export function AddVideoForm({
     hiddenUntilCoOwnerApprove,
     warnings: coOwnerWarnings,
     refresh: refreshCoOwnerSubmit,
+    markPendingUnlock,
   } = useCoOwnerDraftSubmitBlocked(coOwnerLinkSlice, { singleVideo: true });
 
   useCoOwnerPusherApprovalRefresh({
@@ -339,12 +363,19 @@ export function AddVideoForm({
   });
 
   const coOwnerSubmitDisabled = coOwnerSubmitBlocked;
+  const coOwnerCheckingBlocksSubmit = isCoOwnerCheckingBlockingSubmit(
+    coOwnerChecking,
+    hiddenUntilCoOwnerApprove
+  );
   const verifySubmitDisabled =
     showHostYoutubeSlot &&
     (watchedSlot === "1" || watchedSlot === "2") &&
-    (verifyState === "checking" || verifyState !== "verified");
+    verifyState === "checking";
   const submitDisabled =
-    loading || coOwnerSubmitDisabled || coOwnerChecking || verifySubmitDisabled;
+    loading ||
+    coOwnerSubmitDisabled ||
+    coOwnerCheckingBlocksSubmit ||
+    verifySubmitDisabled;
 
   const inheritEventTypeLabel =
     eventEventType &&
@@ -399,16 +430,6 @@ export function AddVideoForm({
                   if (
                     showHostYoutubeSlot &&
                     (slot === "1" || slot === "2") &&
-                    verifyState !== "verified"
-                  ) {
-                    toast.error(
-                      "Verify the video on your YouTube channel before submitting"
-                    );
-                    return;
-                  }
-                  if (
-                    showHostYoutubeSlot &&
-                    (slot === "1" || slot === "2") &&
                     !youtubeChannels.some(
                       c => c.slot === Number(slot) && c.url?.trim()
                     )
@@ -425,15 +446,18 @@ export function AddVideoForm({
                   if (
                     requirePolicyFields &&
                     values.ownershipAnswer === "no" &&
-                    (coOwnerSubmitDisabled || coOwnerChecking)
+                    (coOwnerSubmitDisabled || coOwnerCheckingBlocksSubmit)
                   ) {
                     return;
                   }
                   if (
                     requirePolicyFields &&
                     values.ownershipAnswer === "no" &&
-                    !coOwnerSubmitDisabled &&
-                    !coOwnerChecking
+                    shouldRevalidateCoOwnerOnSubmit({
+                      hiddenUntilCoOwnerApprove,
+                      blocked: coOwnerSubmitDisabled,
+                      checkingBlocksSubmit: coOwnerCheckingBlocksSubmit,
+                    })
                   ) {
                     const coOwnerErr = await validateCoOwnerDraftsForSubmit(
                       [
@@ -449,6 +473,7 @@ export function AddVideoForm({
                       return;
                     }
                   }
+                  onSubmitStart?.();
                   await onSubmit(values);
                 } finally {
                   endExclusiveSubmit(submitInFlightRef);
@@ -655,6 +680,7 @@ export function AddVideoForm({
                           value={field.value}
                           onValueChange={v => {
                             field.onChange(v);
+                            form.setValue("isOnHostYoutube", false);
                             setVerifyState("idle");
                           }}
                         >
@@ -793,6 +819,7 @@ export function AddVideoForm({
                         }
                         if (outcome.kind === "verified") {
                           setVerifyState("verified");
+                          form.setValue("isOnHostYoutube", true);
                           toast.success(
                             "Video verified on your YouTube channel"
                           );
@@ -824,7 +851,10 @@ export function AddVideoForm({
                     )
                   }
                   onDraftSaveNow={() => draftSave.saveNow()}
-                  onRefreshSubmitReadiness={() => void refreshCoOwnerSubmit()}
+                  onRefreshSubmitReadiness={() =>
+                    void refreshCoOwnerSubmit({ background: true })
+                  }
+                  onInviteSentPending={markPendingUnlock}
                   refreshToken={coOwnerRefreshToken}
                 />
               ) : null}
@@ -961,7 +991,8 @@ export function AddVideoForm({
                 <p className="text-muted-foreground text-center text-xs">
                   {coOwnerSubmitHelperText(
                     coOwnerBlockReason,
-                    hiddenUntilCoOwnerApprove
+                    hiddenUntilCoOwnerApprove,
+                    coOwnerChecking
                   )}
                 </p>
               ) : null}

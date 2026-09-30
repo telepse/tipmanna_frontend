@@ -101,7 +101,7 @@ export function evaluateCoOwnerSubmitReadiness(
 export function coOwnerBlockReasonMessage(reason: CoOwnerBlockReason): string {
   switch (reason) {
     case "missing_draft_key":
-      return "Co-owner draft id missing — save to draft and try again";
+      return "Preparing co-owner invite. Send the invite email before you submit.";
     case "status_fetch_failed":
       return "Could not verify co-owner approval status";
     case "missing_approved":
@@ -130,27 +130,45 @@ export function coOwnerDropWarningMessage(reason: CoOwnerBlockReason): string {
 
 export const CO_OWNER_SUBMIT_WAIT_BUTTON_LABEL = "Awaiting co-owner approval";
 
-/** Primary button label while co-owner approval is still in flight (not terminal errors). */
+/** Button label while co-owner status or draft key is still loading (not pending-invite). */
+export const CO_OWNER_SUBMIT_PREPARING_BUTTON_LABEL = "Preparing co-owner…";
+
+/**
+ * Status `checking` must not disable submit once invite is pending
+ * (hidden until co-owner approves).
+ */
+export function isCoOwnerCheckingBlockingSubmit(
+  checking: boolean,
+  hiddenUntilCoOwnerApprove?: boolean
+): boolean {
+  if (hiddenUntilCoOwnerApprove) return false;
+  return checking;
+}
+
+/** Show wait/preparing label while status or draft key is loading (not terminal block). */
 export function isCoOwnerSubmitWaitOnButton(
   blocked: boolean,
   reason: CoOwnerBlockReason | null,
-  checking: boolean
+  checking: boolean,
+  hiddenUntilCoOwnerApprove?: boolean
 ): boolean {
-  if (!blocked) return false;
-  if (checking) return true;
-  if (reason === null) return true;
-  return false;
+  if (hiddenUntilCoOwnerApprove) return false;
+  return checking && !blocked;
 }
 
 export function coOwnerSubmitHelperText(
   reason: CoOwnerBlockReason | null,
-  hiddenUntilCoOwnerApprove?: boolean
+  hiddenUntilCoOwnerApprove?: boolean,
+  checking?: boolean
 ): string {
   if (hiddenUntilCoOwnerApprove) {
     return coOwnerBlockReasonMessage("has_pending");
   }
+  if (checking && !reason) {
+    return coOwnerBlockReasonMessage("missing_draft_key");
+  }
   if (reason) return coOwnerBlockReasonMessage(reason);
-  return "Submit unlocks after the co-owner approves the email invite. You can save to draft while waiting.";
+  return "Send a co-owner email invite before you submit this video.";
 }
 
 export const CO_OWNER_SUBMIT_BLOCKED_BUTTON_LABEL = "Can't submit";
@@ -162,12 +180,21 @@ export function coOwnerAddVideoSubmitButtonLabel(
   checking: boolean,
   hiddenUntilCoOwnerApprove?: boolean
 ): string {
+  if (
+    isCoOwnerSubmitWaitOnButton(
+      blocked,
+      reason,
+      checking,
+      hiddenUntilCoOwnerApprove
+    )
+  ) {
+    return blocked
+      ? CO_OWNER_SUBMIT_WAIT_BUTTON_LABEL
+      : CO_OWNER_SUBMIT_PREPARING_BUTTON_LABEL;
+  }
   if (!blocked) {
     if (hiddenUntilCoOwnerApprove) return "Submit for approval";
     return "Save video";
-  }
-  if (isCoOwnerSubmitWaitOnButton(blocked, reason, checking)) {
-    return CO_OWNER_SUBMIT_WAIT_BUTTON_LABEL;
   }
   return CO_OWNER_SUBMIT_BLOCKED_BUTTON_LABEL;
 }
@@ -179,4 +206,15 @@ export function shouldShowCoOwnerSubmitHelper(
   hiddenUntilCoOwnerApprove?: boolean
 ): boolean {
   return blocked || checking || Boolean(hiddenUntilCoOwnerApprove);
+}
+
+/** Skip duplicate status GET on submit when hook already unlocked pending-invite path. */
+export function shouldRevalidateCoOwnerOnSubmit(opts: {
+  hiddenUntilCoOwnerApprove: boolean;
+  blocked: boolean;
+  checkingBlocksSubmit: boolean;
+}): boolean {
+  if (opts.blocked || opts.checkingBlocksSubmit) return false;
+  if (opts.hiddenUntilCoOwnerApprove) return false;
+  return true;
 }

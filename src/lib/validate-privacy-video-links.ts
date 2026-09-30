@@ -66,16 +66,6 @@ export function validatePrivacyVideoLinks({
       );
       return false;
     }
-    if (
-      v.ownershipAnswer === "yes" &&
-      (v.onYoutubeChannelSlot === 1 || v.onYoutubeChannelSlot === 2) &&
-      !v.isOnHostYoutube
-    ) {
-      toast.error(
-        `Verify video ${i + 1} on YouTube channel slot ${v.onYoutubeChannelSlot} before continuing`
-      );
-      return false;
-    }
   }
 
   const live = liveVideoLink?.trim();

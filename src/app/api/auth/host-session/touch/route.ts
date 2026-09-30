@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  clearHostSessionCookies,
-  verifyHostSessionWithBackend,
-} from "../verify-host-session";
+import { verifyHostSessionWithBackend } from "../verify-host-session";
 
 /** Slide the host session cookie window; rotate host JWT when backend requests it. */
 export async function POST(req: NextRequest) {
   const hostToken = req.cookies.get("hostToken")?.value?.trim();
   const hostUserRaw = req.cookies.get("hostUser")?.value;
   if (!hostToken || !hostUserRaw) {
-    const res = NextResponse.json(
-      { ok: false, active: false, code: "HOST_SESSION_REQUIRED" },
+    // Distinct from expired/invalid: no cookies to clear; tipper-only visitors hit this often.
+    return NextResponse.json(
+      { ok: false, active: false, code: "HOST_SESSION_ABSENT" },
       { status: 401 }
     );
-    return clearHostSessionCookies(res);
   }
 
   const verified = await verifyHostSessionWithBackend(hostToken, hostUserRaw);
-  if (!verified.ok) {
+  if (verified.status !== 200) {
     return verified;
   }
 

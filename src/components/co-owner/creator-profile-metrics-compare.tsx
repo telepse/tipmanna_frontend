@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getHostCreatorPublicProfileAction } from "@/actions/host-creator";
+import { getHostCreatorPublicProfileForOwnerAction } from "@/actions/host-creator";
 import { useHostSession } from "@/hooks/use-host-session";
 
 type StatsBlock = {
@@ -55,7 +55,7 @@ export function CreatorProfileMetricsCompare() {
     const username = hostUser?.username?.trim();
     if (!username) return;
     let cancelled = false;
-    void getHostCreatorPublicProfileAction(username).then(result => {
+    void getHostCreatorPublicProfileForOwnerAction(username).then(result => {
       if (cancelled || !result.success || !result.data) return;
       const accrued = result.data.stats;
       const owned = result.data.statsOwnedOnly ?? result.data.stats;

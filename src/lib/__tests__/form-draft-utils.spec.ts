@@ -99,6 +99,7 @@ describe("modal YouTube verify draft policy", () => {
         contentCountry: "all",
         eventVideoType: "__inherit__",
         hostYoutubeSlot: "1",
+        isOnHostYoutube: false,
         ownershipAnswer: "yes",
         coOwnerDraftKey: "",
       },

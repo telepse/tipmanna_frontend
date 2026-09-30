@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useParams, usePathname, useSearchParams } from "next/navigation";
 
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
+import { CoOwnerPostSubmitResendButton } from "@/components/events/co-owner-post-submit-resend-button";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -118,6 +119,9 @@ type BankItem = {
     url: string;
     shareUrl: string;
     coOwnerInviteStatus?: "awaiting" | "approved" | "expired" | null;
+    coOwnerResendInviteId?: string | null;
+    coOwnerResendAt?: string | null;
+    coOwnerResendCount?: number | null;
   };
   metrics: {
     numOfTips: number;
@@ -350,14 +354,28 @@ function OwnerBankCard({
           </p>
         )}
         {item.channel.coOwnerInviteStatus ? (
-          <p className="text-xs text-amber-800">
-            Co-owner invite:{" "}
-            {item.channel.coOwnerInviteStatus === "awaiting"
-              ? "awaiting approval"
-              : item.channel.coOwnerInviteStatus === "expired"
-                ? "invite expired"
-                : "approved"}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-amber-800">
+              Co-owner invite:{" "}
+              {item.channel.coOwnerInviteStatus === "awaiting"
+                ? "awaiting approval"
+                : item.channel.coOwnerInviteStatus === "expired"
+                  ? "invite expired"
+                  : "approved"}
+            </p>
+            {item.channel.coOwnerResendInviteId &&
+            (item.channel.coOwnerInviteStatus === "awaiting" ||
+              item.channel.coOwnerInviteStatus === "expired") ? (
+              <CoOwnerPostSubmitResendButton
+                inviteId={item.channel.coOwnerResendInviteId}
+                contentTitle={item.channel.title}
+                youtubeLink={item.channel.url}
+                resentAt={item.channel.coOwnerResendAt}
+                resendCount={item.channel.coOwnerResendCount}
+                onResent={onUpdated}
+              />
+            ) : null}
+          </div>
         ) : null}
         <span
           className={`absolute top-4 right-4 rounded ${item.status === "pending" ? "bg-secondary" : "bg-green-100 text-green-900"} px-2 py-0.5 text-[11px] font-medium`}
@@ -469,9 +487,11 @@ function OwnerBankCard({
 function SendCard({
   item,
   eventId,
+  onUpdated,
 }: {
   item: BankItem;
   eventId?: string | null;
+  onUpdated?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -505,6 +525,30 @@ function SendCard({
     <div className="bg-muted/40 rounded-lg border p-4">
       <p className="font-medium">{item.channel.title}</p>
       <p className="text-muted-foreground mt-1 text-xs">{item.channel.url}</p>
+      {item.channel.coOwnerInviteStatus ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <p className="text-xs text-amber-800">
+            Co-owner invite:{" "}
+            {item.channel.coOwnerInviteStatus === "awaiting"
+              ? "awaiting approval"
+              : item.channel.coOwnerInviteStatus === "expired"
+                ? "invite expired"
+                : "approved"}
+          </p>
+          {item.channel.coOwnerResendInviteId &&
+          (item.channel.coOwnerInviteStatus === "awaiting" ||
+            item.channel.coOwnerInviteStatus === "expired") ? (
+            <CoOwnerPostSubmitResendButton
+              inviteId={item.channel.coOwnerResendInviteId}
+              contentTitle={item.channel.title}
+              youtubeLink={item.channel.url}
+              resentAt={item.channel.coOwnerResendAt}
+              resendCount={item.channel.coOwnerResendCount}
+              onResent={onUpdated}
+            />
+          ) : null}
+        </div>
+      ) : null}
       <div className="text-muted-foreground mt-3 grid grid-cols-2 gap-2 text-xs">
         <span>Tips: {item.metrics.numOfTips}</span>
         <span>Raised: £{Number(item.metrics.amountRaised).toFixed(2)}</span>
@@ -574,6 +618,10 @@ export function HostCommunityClient() {
   const [mainTab, setMainTab] = useState("bank");
   const [addOpen, setAddOpen] = useState(false);
   const [modalDraftId, setModalDraftId] = useState<string | null>(null);
+  /** URL/resume seed only — do not update from autosave (avoids mid-edit restore wipe). */
+  const [resumeSeedDraftId, setResumeSeedDraftId] = useState<string | null>(
+    null
+  );
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -832,6 +880,7 @@ export function HostCommunityClient() {
     }
     if (draftId) {
       setModalDraftId(draftId);
+      setResumeSeedDraftId(draftId);
       setAddOpen(true);
     }
     if (addVideo === "1") {
@@ -1957,6 +2006,7 @@ export function HostCommunityClient() {
                           key={item.id}
                           item={item}
                           eventId={selected.eventId}
+                          onUpdated={() => void refreshSends()}
                         />
                       ))}
                     </div>
@@ -2002,14 +2052,22 @@ export function HostCommunityClient() {
                   </p>
                 ) : hostEventsPick.length === 0 ? (
                   <p className="text-muted-foreground text-sm">
-                    You need an event that is not linked to a community yet.{" "}
+                    Choose an approved{" "}
                     <Link
                       href="/event-only"
                       className="text-primary font-medium underline underline-offset-2"
                     >
-                      Create an event
+                      event-only
                     </Link>{" "}
-                    first, then submit a community activation request for it.
+                    or{" "}
+                    <Link
+                      href="/event-and-content"
+                      className="text-primary font-medium underline underline-offset-2"
+                    >
+                      event-and-content
+                    </Link>{" "}
+                    room that is not linked to a community yet. After superadmin
+                    approves the room, it will appear here.
                   </p>
                 ) : (
                   <Select
@@ -2285,9 +2343,10 @@ export function HostCommunityClient() {
             eventEventType={selected.eventType}
             hostSlug={hostSlug}
             pathname={pathname ?? undefined}
-            seedDraftId={modalDraftId}
+            seedDraftId={resumeSeedDraftId}
             onSuccess={() => {
               setModalDraftId(null);
+              setResumeSeedDraftId(null);
               void onAddVideoSuccess();
             }}
           />

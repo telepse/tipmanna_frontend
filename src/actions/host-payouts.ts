@@ -109,6 +109,7 @@ export type HostConnectPayoutStatus = {
 };
 
 export type HostPayoutSummaryResponse = {
+  creatorPayoutVerifiedAt: string | null;
   host: HostPayoutObligationRow[];
   communities: HostPayoutObligationRow[];
   summary: HostPayoutSummaryBlock;

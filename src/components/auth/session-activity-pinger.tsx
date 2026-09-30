@@ -112,30 +112,51 @@ export function SessionActivityPinger() {
         return;
       }
 
-      await fetch("/api/auth/host-session/touch", {
-        method: "POST",
-        credentials: "include",
-      })
-        .then(async res => {
-          if (res.status === 401 || res.status === 403) {
+      const hadHostCookie = Boolean(getHostUserFromCookies()?.id);
+
+      const runHostSessionTouch = () =>
+        fetch("/api/auth/host-session/touch", {
+          method: "POST",
+          credentials: "include",
+        });
+
+      let hostTouchRes = await runHostSessionTouch().catch(() => null);
+      if (
+        hostTouchRes &&
+        (hostTouchRes.status === 401 || hostTouchRes.status === 403)
+      ) {
+        hostTouchRes = await runHostSessionTouch().catch(() => hostTouchRes);
+      }
+
+      if (!hostTouchRes) return;
+
+      if (hostTouchRes.status === 401 || hostTouchRes.status === 403) {
+        try {
+          const body = (await hostTouchRes.json()) as { code?: string };
+          if (hadHostCookie && body.code === "HOST_SESSION_REQUIRED") {
             notifyHostSessionCleared();
-          } else if (res.ok) {
-            try {
-              const body = (await res.json()) as {
-                hostSessionExpiresAt?: string;
-              };
-              const hostUser = getHostUserFromCookies();
-              notifyHostSessionTouched({
-                active: true,
-                hostSessionExpiresAt: body.hostSessionExpiresAt,
-                hostId: hostUser?.id,
-              });
-            } catch {
-              /* noop */
-            }
           }
-        })
-        .catch(() => undefined);
+        } catch {
+          /* noop */
+        }
+        return;
+      }
+
+      if (hostTouchRes.ok) {
+        try {
+          const body = (await hostTouchRes.json()) as {
+            hostSessionExpiresAt?: string;
+          };
+          const hostUser = getHostUserFromCookies();
+          notifyHostSessionTouched({
+            active: true,
+            hostSessionExpiresAt: body.hostSessionExpiresAt,
+            hostId: hostUser?.id,
+          });
+        } catch {
+          /* noop */
+        }
+      }
     };
 
     void touch();

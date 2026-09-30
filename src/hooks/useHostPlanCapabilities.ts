@@ -16,6 +16,7 @@ import {
 } from "@/lib/host-auth-fetch";
 import { updateTipper } from "@/features/auth-slice";
 import { shouldDispatchHostSubscriptionTier } from "@/lib/host-subscription-tier-sync";
+import { isHostPlanCapabilitiesLoading } from "@/lib/coowner-pending-unlock.util";
 import { store } from "@/redux/store";
 
 export type HostSubscriptionFetchError = {
@@ -97,7 +98,7 @@ export function useHostPlanCapabilities() {
     capabilities,
     hostSubscriptionTier: data?.tier,
     hasActivePremium: data?.hasActivePremium ?? false,
-    isLoading,
+    isLoading: isHostPlanCapabilitiesLoading(hostSessionLoading, isLoading),
     isError: !!error,
     fetchError,
     refresh: mutate,

@@ -35,6 +35,7 @@ export default function ManageEvent() {
     setPickerOpen,
     eligibleEvents,
     communityBankVideos,
+    communityBankLoading,
     creatingChannelId,
     openPicker,
     createDraftForVideo,
@@ -101,6 +102,7 @@ export default function ManageEvent() {
           onSelect={createDraftForVideo}
           loading={pickerDataLoading}
           error={pickerDataError}
+          communityBankLoading={communityBankLoading}
         />
       ) : null}
 

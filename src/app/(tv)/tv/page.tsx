@@ -7,7 +7,10 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import { getPrimaryOrigin } from "@/lib/site-config";
 import { isTvLazySsrCharactersEnabled } from "@/lib/tv-feature-flags";
-import { loadSsrTipmannaTvBootstrap } from "@/lib/tv-ssr-live-tip-catalog";
+import {
+  loadSsrTvBootstrap,
+  normalizeTvCommunitySearchParam,
+} from "@/lib/tv-ssr-live-tip-catalog";
 import { shouldSkipSsrTipmannaTvBootstrap } from "@/lib/tv-ssr-bootstrap-skip";
 
 type EventChannelListItem = {
@@ -17,7 +20,7 @@ type EventChannelListItem = {
 };
 
 interface Props {
-  searchParams: Promise<{ videoId?: string }>;
+  searchParams: Promise<{ videoId?: string; community?: string }>;
 }
 
 async function loadChannelForVideoId(videoId: string | undefined) {
@@ -73,9 +76,10 @@ export async function generateMetadata({
 export default async function TVPage({
   searchParams,
 }: {
-  searchParams: Promise<{ videoId?: string }>;
+  searchParams: Promise<{ videoId?: string; community?: string }>;
 }) {
-  const { videoId } = await searchParams;
+  const { videoId, community } = await searchParams;
+  const communityId = normalizeTvCommunitySearchParam(community);
   const lazySsrCharacters = isTvLazySsrCharactersEnabled();
 
   const [{ data: characters }, currentChannel] = await Promise.all([
@@ -94,10 +98,11 @@ export default async function TVPage({
     currentChannel,
   })
     ? {
+        communityId,
         initialTvTipCatalog: null,
         ssrScheduleBootstrap: null,
       }
-    : await loadSsrTipmannaTvBootstrap();
+    : await loadSsrTvBootstrap(communityId);
 
   if (currentChannel && videoId) {
     return (
@@ -116,6 +121,7 @@ export default async function TVPage({
         <Suspense fallback={<TvPageSuspenseFallback />}>
           <TVPageShell
             characters={characters ?? []}
+            ssrBootstrapCommunityId={tvBootstrap.communityId}
             initialTvTipCatalog={tvBootstrap.initialTvTipCatalog}
             ssrScheduleBootstrap={tvBootstrap.ssrScheduleBootstrap}
           />

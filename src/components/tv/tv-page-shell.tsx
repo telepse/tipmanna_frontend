@@ -12,6 +12,7 @@ type Props = {
   channels?: any[];
   characters: any[];
   characterSets?: any[];
+  ssrBootstrapCommunityId?: string | null;
   initialTvTipCatalog?: TvInitialTipCatalog | null;
   ssrScheduleBootstrap?: TvSsrScheduleBootstrap | null;
 };
@@ -19,6 +20,7 @@ type Props = {
 export default function TVPageShell({
   channels = [],
   characters,
+  ssrBootstrapCommunityId = null,
   initialTvTipCatalog = null,
   ssrScheduleBootstrap = null,
 }: Props) {
@@ -27,6 +29,7 @@ export default function TVPageShell({
       <TVPageClientWrapper
         channels={channels}
         characters={characters}
+        ssrBootstrapCommunityId={ssrBootstrapCommunityId}
         initialTvTipCatalog={initialTvTipCatalog}
         ssrScheduleBootstrap={ssrScheduleBootstrap}
       />

@@ -7,7 +7,10 @@ import type {
   ImmersiveLayoutMode,
   YoutubeVideoClassification,
 } from "@/lib/youtube-immersive-meta";
-import { fetchYoutubeAspectInfo } from "@/lib/youtube-immersive-meta";
+import {
+  classificationToImmersiveLayoutMode,
+  fetchYoutubeAspectInfo,
+} from "@/lib/youtube-immersive-meta";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 import { tvTrace } from "@/lib/tvDebugLog";
 
@@ -48,6 +51,11 @@ export type UseMobileVideoViewModeOptions = {
    * and manual full-variant override is cleared. Omit for channel-style surfaces.
    */
   resetAnchor?: string | null | undefined;
+  /**
+   * When true and not in full-view, derive immersive layout from oEmbed aspect
+   * (e.g. overlay mobile chrome without enterFull).
+   */
+  aspectAwareInlineChrome?: boolean;
 };
 
 /**
@@ -59,6 +67,7 @@ export function useMobileVideoViewMode({
   isMobile,
   lockFullLandscape = false,
   resetAnchor,
+  aspectAwareInlineChrome = false,
 }: UseMobileVideoViewModeOptions) {
   const { aspectInfo } = useYoutubeVideoAspect(videoUrl);
   const [viewMode, setViewMode] = useState<MobileVideoViewMode>(
@@ -98,9 +107,19 @@ export function useMobileVideoViewMode({
     : viewMode;
 
   const isFullView = isMobile && effectiveViewMode !== VIEW_MODE.INLINE;
+
+  const videoId = extractYoutubeID(videoUrl ?? "") ?? undefined;
+
+  const aspectLayout: ImmersiveLayoutMode =
+    aspectInfo && videoId && aspectInfo.videoId === videoId
+      ? classificationToImmersiveLayoutMode(aspectInfo.classification)
+      : "landscape_video";
+
   const immersiveLayout: ImmersiveLayoutMode = isFullView
     ? viewModeToImmersiveLayout(effectiveViewMode)
-    : "landscape_video";
+    : aspectAwareInlineChrome
+      ? aspectLayout
+      : "landscape_video";
 
   /** FULL_LANDSCAPE: cover stage; FULL_PORTRAIT: contain (no cropping / “shrinking” the frame). */
   const fullPresentationFit: "cover" | "contain" | null = isFullView
@@ -108,8 +127,6 @@ export function useMobileVideoViewMode({
       ? "cover"
       : "contain"
     : null;
-
-  const videoId = extractYoutubeID(videoUrl ?? "") ?? undefined;
 
   /** Full-view UI is mobile-only; avoid desktop/tablet layout with a stale FULL_* mode. */
   useEffect(() => {

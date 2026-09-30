@@ -40,6 +40,8 @@ import { validateCoOwnerDraftsForSubmit } from "@/lib/coowner-draft-submit.util"
 import { useCoOwnerDraftSubmitBlocked } from "@/hooks/use-coowner-draft-submit-blocked";
 import {
   coOwnerSubmitHelperText,
+  isCoOwnerCheckingBlockingSubmit,
+  shouldRevalidateCoOwnerOnSubmit,
   shouldShowCoOwnerSubmitHelper,
 } from "@/lib/coowner-submit-readiness.util";
 import { useCoOwnerPusherApprovalRefresh } from "@/hooks/use-coowner-pusher-approval-refresh";
@@ -59,6 +61,7 @@ import {
   runPrivacyChecksFromForm,
   resolveLiveVideoOwnershipAnswer,
 } from "@/lib/validate-privacy-video-links";
+import { sanitizeYoutubeClaimsForSubmit } from "@/lib/youtube-claim-submit.util";
 import { syncHostAuthFromCreateEventResponse } from "@/lib/sync-host-auth-after-submission";
 import {
   beginExclusiveSubmit,
@@ -243,6 +246,7 @@ export default function EventOnlyPage() {
     hiddenUntilCoOwnerApprove,
     warnings: coOwnerWarnings,
     refresh: refreshCoOwnerSubmit,
+    markPendingUnlock,
   } = useCoOwnerDraftSubmitBlocked(videoLinks);
 
   useCoOwnerPusherApprovalRefresh({
@@ -257,6 +261,10 @@ export default function EventOnlyPage() {
   });
 
   const coOwnerSubmitDisabled = coOwnerSubmitBlocked;
+  const coOwnerCheckingBlocksSubmit = isCoOwnerCheckingBlockingSubmit(
+    coOwnerChecking,
+    hiddenUntilCoOwnerApprove
+  );
   const youtubeVerifyDisabled = isYoutubeVerifyBlockingSubmit(
     videoLinks,
     youtubeVerifyStatus
@@ -264,7 +272,7 @@ export default function EventOnlyPage() {
   const submitDisabled =
     isLoading ||
     coOwnerSubmitDisabled ||
-    coOwnerChecking ||
+    coOwnerCheckingBlocksSubmit ||
     youtubeVerifyDisabled;
 
   const onSubmit = async (values: NewEventFormData) => {
@@ -274,19 +282,28 @@ export default function EventOnlyPage() {
     if (isLoading || !beginExclusiveSubmit(submitInFlightRef)) return;
 
     try {
-      if (!coOwnerSubmitDisabled && !coOwnerChecking) {
+      if (coOwnerSubmitDisabled || coOwnerCheckingBlocksSubmit) {
+        return;
+      }
+
+      setIsLoading(true);
+
+      if (
+        shouldRevalidateCoOwnerOnSubmit({
+          hiddenUntilCoOwnerApprove,
+          blocked: coOwnerSubmitDisabled,
+          checkingBlocksSubmit: coOwnerCheckingBlocksSubmit,
+        })
+      ) {
         const coOwnerErr = await validateCoOwnerDraftsForSubmit(
           values.videoLinks ?? []
         );
         if (coOwnerErr) {
           toast.error(coOwnerErr);
+          setIsLoading(false);
           return;
         }
-      } else if (coOwnerSubmitDisabled || coOwnerChecking) {
-        return;
       }
-
-      setIsLoading(true);
 
       let imageUrl = uploadedBannerUrlRef.current ?? "";
 
@@ -309,6 +326,7 @@ export default function EventOnlyPage() {
 
       const result = await newCreateEventAction({
         ...values,
+        videoLinks: sanitizeYoutubeClaimsForSubmit(values.videoLinks),
         eventBanner: imageUrl,
         liveVideoOwnershipAnswer: resolveLiveVideoOwnershipAnswer(values),
         submissionKind: "event_only",
@@ -485,7 +503,10 @@ export default function EventOnlyPage() {
                       prev.includes(inviteId) ? prev : [...prev, inviteId]
                     )
                   }
-                  onRefreshSubmitReadiness={() => void refreshCoOwnerSubmit()}
+                  onRefreshSubmitReadiness={() =>
+                    void refreshCoOwnerSubmit({ background: true })
+                  }
+                  onInviteSentPending={markPendingUnlock}
                   coOwnerRefreshToken={coOwnerRefreshToken}
                   onVerifyStateChange={setYoutubeVerifyStatus}
                 />
@@ -544,7 +565,8 @@ export default function EventOnlyPage() {
                       <p className="text-muted-foreground mt-2 max-w-lg text-center text-xs">
                         {coOwnerSubmitHelperText(
                           coOwnerBlockReason,
-                          hiddenUntilCoOwnerApprove
+                          hiddenUntilCoOwnerApprove,
+                          coOwnerChecking
                         )}
                       </p>
                     ) : youtubeVerifyDisabled ? (

@@ -14,6 +14,7 @@ import {
 import { Loader2 } from "lucide-react";
 import type { RootState } from "@/redux/store";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { CoOwnerPostSubmitResendButton } from "@/components/events/co-owner-post-submit-resend-button";
 
 type CoOwnerRow = {
   id: string;
@@ -33,6 +34,9 @@ type DashboardVideo = {
   coOwnerApproved: boolean;
   ownershipState?: string | null;
   coOwnerInviteStatus?: "awaiting" | "approved" | "expired" | null;
+  coOwnerResendInviteId?: string | null;
+  coOwnerResendAt?: string | null;
+  coOwnerResendCount?: number | null;
   tipsGbp: number;
   coOwners: CoOwnerRow[];
   url: string;
@@ -161,6 +165,18 @@ export function HostVideoCoOwnersClient() {
                                   v.coOwners.length === 1 ? "" : "s"
                                 } on file`}
                     </p>
+                    {v.coOwnerResendInviteId &&
+                    (v.coOwnerInviteStatus === "awaiting" ||
+                      v.coOwnerInviteStatus === "expired") ? (
+                      <CoOwnerPostSubmitResendButton
+                        inviteId={v.coOwnerResendInviteId}
+                        contentTitle={v.title}
+                        youtubeLink={v.url}
+                        resentAt={v.coOwnerResendAt}
+                        resendCount={v.coOwnerResendCount}
+                        onResent={() => void load()}
+                      />
+                    ) : null}
                   </div>
                 </div>
 

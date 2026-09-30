@@ -55,7 +55,6 @@ export const EventChannelModal = ({
 
   const onSubmit = async (values: AddVideoFormValues) => {
     try {
-      setLoading(true);
       const payload = buildCreateChannelPayload(values);
       const res = await createEventChannelAction(payload, eventId);
       if (!res.success) {
@@ -111,6 +110,7 @@ export const EventChannelModal = ({
         <DialogContent className="sm:max-w-nd max-h-[70vh] w-full overflow-y-scroll">
           <AddVideoForm
             onSubmit={onSubmit}
+            onSubmitStart={() => setLoading(true)}
             loading={loading}
             eventEventType={eventEventType}
             showHostYoutubeSlot
@@ -127,7 +127,7 @@ export const EventChannelModal = ({
                 targetId: eventId,
               },
             }}
-            seedDraftId={seedDraftId ?? modalDraftId}
+            seedDraftId={seedDraftId ?? null}
             aboveForm={<></>}
           />
         </DialogContent>

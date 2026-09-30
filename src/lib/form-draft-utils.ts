@@ -271,17 +271,27 @@ export function mergeModalDraftPayload(
   const base = (payloadJson ?? {}) as Partial<AddVideoFormValues>;
   const policy = (policyJson ?? {}) as FormDraftPolicyJson;
   const modal = policy.modal ?? {};
+  const hostYoutubeSlot =
+    modal.hostYoutubeSlot ?? base.hostYoutubeSlot ?? "none";
+  const url = base.url ?? "";
+  const restoredVerify = modalVerifyStateFromPolicy(
+    policyJson,
+    url,
+    hostYoutubeSlot
+  );
   return {
     title: base.title ?? "",
     description: base.description ?? "",
-    url: base.url ?? "",
+    url,
     isLive: base.isLive ?? false,
     setReminder: base.setReminder ?? false,
     reminders: base.reminders ?? {},
     contentLanguage: base.contentLanguage ?? "en-GB",
     contentCountry: base.contentCountry ?? "all",
     eventVideoType: base.eventVideoType ?? "__inherit__",
-    hostYoutubeSlot: modal.hostYoutubeSlot ?? base.hostYoutubeSlot ?? "none",
+    hostYoutubeSlot,
+    isOnHostYoutube:
+      restoredVerify === "verified" || Boolean(base.isOnHostYoutube),
     ownershipAnswer: modal.ownershipAnswer ?? base.ownershipAnswer,
     coOwnerDraftKey: mergeCoOwnerDraftKeyFromPolicy(
       modal.coOwnerDraftKey,

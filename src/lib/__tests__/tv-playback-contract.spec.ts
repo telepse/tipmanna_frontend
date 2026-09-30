@@ -195,26 +195,179 @@ describe("TV playback contract — leave/return player lifecycle", () => {
     );
   });
 
-  it("heartbeat and hide→show remount only when iframe and command API are both gone", () => {
+  it("command-dead remount restores anti-trap recovery timers", () => {
     const resumeSource = readFileSync(
       join(frontendRoot, "src/lib/tv-player-resume.ts"),
       "utf8"
     );
     expect(resumeSource).toContain("shouldRemountTvPlayer");
     expect(resumeSource).toContain("shouldRecoverTvPlayerEmbed");
-    expect(resumeSource).toContain(
-      "isTvPlayerStateUsable(opts.playerState) && opts.iframeLive"
-    );
-    expect(resumeSource).toContain(
-      "return !opts.iframeLive && !opts.commandReady;"
-    );
-    expect(resumeSource).toContain(
-      "if (opts.orphanedRef && !opts.iframeLive) return true;"
-    );
+    expect(resumeSource).toContain("TV_COMMAND_DEAD_MS = 3000");
     expect(resumeSource).toContain("TV_EMBED_DEAD_IFRAME_MS = 8000");
-    expect(resumeSource).toContain("TV_EMBED_RECOVERY_COOLDOWN_MS = 15_000");
-    expect(resumeSource).toContain("TV_EMBED_RECOVERY_LATCH_MS = 12_000");
+    expect(resumeSource).toContain("TV_EMBED_RECOVERY_COOLDOWN_MS = 8000");
+    expect(resumeSource).toContain("TV_EMBED_RECOVERY_LATCH_MS = 8000");
+    expect(resumeSource).toMatch(/if \(opts\.commandReady\) return false;/);
+    expect(resumeSource).toMatch(/if \(opts\.iframeLive\) return true;/);
+    expect(resumeSource).toContain("if (opts.orphanedRef) return true;");
+    expect(tvProviderSource).toContain("msSinceCommandDead");
     expect(tvProviderSource).toContain("playerState,");
+  });
+
+  it("durable Go Live sets pendingLiveSync when syncToLive is blocked", () => {
+    expect(tvProviderSource).toContain("pendingLiveSyncRef");
+    expect(tvProviderSource).toContain("const handled = syncToLive()");
+    expect(tvProviderSource).toContain("pending_live_sync_created");
+    expect(tvProviderSource).toContain("pending_live_sync_flushed");
+    expect(tvProviderSource).toContain("pending_live_sync_rearmed");
+    expect(tvProviderSource).toContain("pending_live_sync_cleared_after_sync");
+    expect(tvProviderSource).toContain(
+      "shouldRearmReadinessFlushOnPendingCreate"
+    );
+    expect(tvProviderSource).toContain("runReadinessFlush");
+    expect(tvProviderSource).toContain("lastReadinessFlushGenerationRef");
+    expect(tvProviderSource).toContain("decideReadinessFlush");
+    // Ordinary syncToLive must not create durable pending intent.
+    const syncToLiveBody = tvProviderSource.match(
+      /const syncToLive = useCallback\(\(\): boolean => \{[\s\S]*?\}, \[/
+    )?.[0];
+    expect(syncToLiveBody).toBeTruthy();
+    expect(syncToLiveBody!).not.toContain("pendingLiveSyncRef.current = true");
+    expect(syncToLiveBody!).toContain("pending_live_sync_cleared_after_sync");
+    expect(syncToLiveBody!).toContain("const finishHandled");
+    expect(syncToLiveBody!).toMatch(
+      /terminal_startup_failure[\s\S]*return false/
+    );
+    expect(syncToLiveBody!).not.toMatch(
+      /terminal_startup_failure[\s\S]{0,120}finishHandled\(\)/
+    );
+  });
+
+  it("readiness flush is single-shot per startupEmbedGeneration", () => {
+    expect(tvProviderSource).toContain(
+      "lastReadinessFlushGenerationRef.current = generation"
+    );
+    expect(tvProviderSource).toContain("decision.runPendingLive");
+    expect(tvProviderSource).toContain(
+      "decision.runOrdinaryMaybeSync && !didExplicitLiveSync"
+    );
+    expect(tvProviderSource).toContain("readinessFlushInFlightRef");
+    expect(tvProviderSource).toContain(
+      'runReadinessFlushRef.current("setPlayerVisible")'
+    );
+    expect(tvProviderSource).not.toContain(
+      'maybeSyncToLive("setPlayerVisible")'
+    );
+    // Snapshot before decide so GLOBAL pending arms suppress ordinary maybeSync.
+    const flushStart = tvProviderSource.indexOf(
+      "const runReadinessFlush = useCallback"
+    );
+    const flushEnd = tvProviderSource.indexOf(
+      "[flushPendingPlaybackRequest, maybeSyncToLive, syncToLive]",
+      flushStart
+    );
+    expect(flushStart).toBeGreaterThan(-1);
+    expect(flushEnd).toBeGreaterThan(flushStart);
+    const flushBody = tvProviderSource.slice(flushStart, flushEnd);
+    const snapIdx = flushBody.lastIndexOf(
+      "applyTabPlaybackSnapshotRestoreRef.current(trigger)"
+    );
+    const decideIdx = flushBody.indexOf("decideReadinessFlush({");
+    expect(snapIdx).toBeGreaterThan(-1);
+    expect(decideIdx).toBeGreaterThan(snapIdx);
+  });
+
+  it("looper onReady does not double-flush pending playback beside setPlayerVisible", () => {
+    const tvLooperSource = readFileSync(
+      join(frontendRoot, "src/components/tv/tv-looper.tsx"),
+      "utf8"
+    );
+    const onReady = tvLooperSource.match(
+      /onReady=\{\(\) => \{[\s\S]*?\}\}/
+    )?.[0];
+    expect(onReady).toBeTruthy();
+    expect(onReady!).toContain("onPlayerReady()");
+    expect(onReady!).toContain("setPlayerVisible(true)");
+    expect(onReady!).not.toContain("flushPendingPlaybackRequest()");
+  });
+
+  it("tab snapshot LOCAL restore is skipped when GLOBAL or pending live", () => {
+    expect(tvProviderSource).toContain(
+      "tab_snapshot_restore_skipped_global_intent"
+    );
+    expect(tvProviderSource).toMatch(
+      /if \(\s*modeRef\.current === "GLOBAL" \|\|\s*pendingLiveSyncRef\.current\s*\)/
+    );
+  });
+
+  it("GLOBAL tab snapshot arms pending without nested readiness flush", () => {
+    expect(tvProviderSource).toContain(
+      "tab_snapshot_restore_global_pending_sync"
+    );
+    const snapStart = tvProviderSource.indexOf(
+      "const applyTabPlaybackSnapshotRestore = useCallback"
+    );
+    const snapEnd = tvProviderSource.indexOf(
+      "[enterLocalMode, items, requestPlayback]",
+      snapStart
+    );
+    expect(snapStart).toBeGreaterThan(-1);
+    expect(snapEnd).toBeGreaterThan(snapStart);
+    const snapFn = tvProviderSource.slice(snapStart, snapEnd);
+    expect(snapFn).toContain("tab_snapshot_restore_global_pending_sync");
+    expect(snapFn).not.toContain("runReadinessFlushRef.current");
+    expect(tvProviderSource).toContain(
+      'runReadinessFlushRef.current("items_loaded")'
+    );
+  });
+
+  it("C0 debt apply at first PLAYING is mutually exclusive with pending flush", () => {
+    expect(tvProviderSource).toContain("pending_live_debt_applied");
+    const notify = tvProviderSource.match(
+      /const notifyStartupPlayerPlaying = useCallback\(\(\) => \{[\s\S]*?\}, \[recordInitialEmbedSuccessOnce\]\);/
+    )?.[0];
+    expect(notify).toBeTruthy();
+    expect(notify!).toContain("pending_live_debt_applied");
+    expect(notify!).not.toContain("pendingLiveSyncRef.current = false");
+    expect(notify!).toContain("syncToLiveRef.current()");
+    expect(notify!).not.toContain("runReadinessFlush");
+  });
+
+  it("enterLocalMode clears pending live sync", () => {
+    expect(tvProviderSource).toContain("shouldClearPendingLiveSyncOnLocal");
+    const enterLocal = tvProviderSource.match(
+      /const enterLocalMode = useCallback\(\(reason: string, index\?: number\) => \{[\s\S]*?\}, \[\]\);/
+    )?.[0];
+    expect(enterLocal).toBeTruthy();
+    expect(enterLocal!).toContain("pendingLiveSyncRef.current = false");
+  });
+
+  it("transport intent uses resolvePendingTransportIntent", () => {
+    const controlsSource = readFileSync(
+      join(frontendRoot, "src/hooks/use-tv-player-controls.ts"),
+      "utf8"
+    );
+    expect(controlsSource).toContain("resolvePendingTransportIntent");
+    expect(controlsSource).toContain("pendingTransportIntentRef");
+    expect(controlsSource).not.toContain("pendingPlayRef");
+  });
+
+  it("GLOBAL playlist playing pin binds currentIndex from useTV", () => {
+    const tableSource = readFileSync(
+      join(frontendRoot, "src/components/tv/playlist-table.tsx"),
+      "utf8"
+    );
+    // Must destructure currentIndex from useTV — a bare identifier is a false positive.
+    const useTvDestructure = tableSource.match(
+      /const\s*\{([\s\S]*?)\}\s*=\s*useTV\(\)/
+    )?.[1];
+    expect(useTvDestructure).toBeTruthy();
+    expect(useTvDestructure!).toMatch(/\bcurrentIndex\b/);
+    expect(tableSource).toMatch(
+      /if \(mode === "GLOBAL"\) return rowIndex === currentIndex;/
+    );
+    expect(tableSource).not.toMatch(
+      /if \(mode === "GLOBAL"\) return rowIndex === liveBroadcastIndex;/
+    );
   });
 
   it("loopers key TvPlayer by startupEmbedGeneration for ref rebind", () => {
@@ -230,5 +383,90 @@ describe("TV playback contract — leave/return player lifecycle", () => {
     expect(homeLooperSource).toContain(
       "key={`tv-yt-${startupEmbedGeneration}`}"
     );
+  });
+
+  it("explicit Go Live suppresses duplicate GLOBAL mode-effect initial sync", () => {
+    expect(tvProviderSource).toContain("shouldSkipGlobalModeEffectInitialSync");
+    const enterGlobal = tvProviderSource.match(
+      /const enterGlobalMode = useCallback\(\(\) => \{[\s\S]*?\}, \[/
+    )?.[0];
+    expect(enterGlobal).toBeTruthy();
+    expect(enterGlobal!).toContain("const handled = syncToLive()");
+    expect(enterGlobal!).toMatch(
+      /if \(handled\)[\s\S]*suppressNextGlobalModeEffectSyncRef\.current = true/
+    );
+    expect(flushRunPendingLiveBlock()).not.toContain(
+      "pendingLiveSyncRef.current = false"
+    );
+  });
+
+  it("setPlayerVisible stays stable and uses runReadinessFlushRef", () => {
+    expect(tvProviderSource).toContain(
+      "runReadinessFlushRef.current = runReadinessFlush"
+    );
+    const setVisible = tvProviderSource.match(
+      /const setPlayerVisible = useCallback\(\(visible: boolean\) => \{[\s\S]*?\}, \[\]\);/
+    )?.[0];
+    expect(setVisible).toBeTruthy();
+    expect(setVisible!).toContain(
+      'runReadinessFlushRef.current("setPlayerVisible")'
+    );
+  });
+
+  function flushRunPendingLiveBlock(): string {
+    const flushStart = tvProviderSource.indexOf(
+      "const runReadinessFlush = useCallback"
+    );
+    const pendingIdx = tvProviderSource.indexOf(
+      "if (decision.runPendingLive)",
+      flushStart
+    );
+    const endIdx = tvProviderSource.indexOf(
+      "didExplicitLiveSync = true",
+      pendingIdx
+    );
+    return tvProviderSource.slice(pendingIdx, endIdx + 30);
+  }
+
+  it("payment redirect snapshot arms session pause hold", () => {
+    expect(tvProviderSource).toContain("snapshotPlaybackForPaymentRedirect");
+    const redirect = tvProviderSource.match(
+      /const snapshotPlaybackForPaymentRedirect = useCallback\(\(\) => \{[\s\S]*?\}, \[/
+    )?.[0];
+    expect(redirect).toBeTruthy();
+    expect(redirect!).toContain("sessionPauseHeldRef.current = true");
+    expect(redirect!).toContain("applyPaymentActiveFromHolds");
+  });
+
+  it("resumeAfterPayment arms PPLA only via shouldArmPostPaymentAxis + success latch", () => {
+    expect(tvProviderSource).toContain("shouldArmPostPaymentAxis");
+    expect(tvProviderSource).toContain("tipPaymentSucceededRef");
+    expect(tvProviderSource).toContain("markTvTipPaymentSucceeded");
+    const resume = tvProviderSource.match(
+      /const resumeAfterPayment = useCallback\(\(\) => \{[\s\S]*?\}, \[/
+    )?.[0];
+    expect(resume).toBeTruthy();
+    expect(resume!).toContain("shouldArmPostPaymentAxis");
+    expect(resume!).toContain("tipPaymentSucceededRef");
+    // Must not unconditionally arm on originMode alone.
+    expect(resume!).not.toMatch(
+      /if \(originMode === "GLOBAL"\) \{\s*postPaymentAxisRef\.current = true;/
+    );
+  });
+
+  it("transport clears on schedule source change; remount relies on TvPlayer epoch", () => {
+    const controlsSource = readFileSync(
+      join(frontendRoot, "src/hooks/use-tv-player-controls.ts"),
+      "utf8"
+    );
+    expect(controlsSource).toContain(
+      "shouldClearPendingTransportOnSourceChange"
+    );
+    expect(controlsSource).toContain("scheduleSourceCommunityId");
+    const playerSource = readFileSync(
+      join(frontendRoot, "src/components/tv/tv-player.tsx"),
+      "utf8"
+    );
+    expect(playerSource).toContain("shouldAcceptTvPlayerYtCallback");
   });
 });

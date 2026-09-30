@@ -32,6 +32,7 @@ import {
   Share2,
   UserRound,
   X,
+  Dot,
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -132,6 +133,8 @@ import {
 } from "@/lib/explore-video-navigation";
 import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
 import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-overlay";
+import { getCurrentUser } from "../events/event-room-client";
+import { usePusherTracking } from "@/hooks/use-pusher-tracking";
 
 type TipLinkSignInPurpose = "create" | "saveVideo" | "saveHost";
 
@@ -324,6 +327,23 @@ export function TipLinkLandingClient({
   const isMobileSurface = isMobile || isPhoneLandscape;
   const showPhoneLandscapeImmersive =
     isPhoneLandscape && !landscapeLayoutDismissed;
+
+  const [currentUser] = useState(() => getCurrentUser());
+  const { activeUsers, trackActivity } = usePusherTracking({
+    eventId,
+    userInfo: currentUser ?? {
+      id: "pending",
+      type: "anonymous",
+      username: "Anonymous User",
+      isAuthenticated: false,
+    },
+  });
+
+  useEffect(() => {
+    trackActivity("viewing_event");
+  }, [trackActivity]);
+
+  const [showOnlineCount, setShowOnlineCount] = useState(false);
 
   const {
     isFullView,
@@ -1523,27 +1543,45 @@ export function TipLinkLandingClient({
                   />
                 </button>
               </div>
-              <Link
-                href="/"
-                className="flex items-baseline gap-2 font-semibold tracking-wide"
-              >
-                <span
-                  className={cn(
-                    "racing_sans_one",
-                    isMobileSurface ? "text-lg" : "text-2xl"
-                  )}
+              <div className="ml-4 flex items-baseline gap-1">
+                <Link
+                  href="/"
+                  className="flex items-baseline gap-2 font-semibold tracking-wide"
                 >
-                  <span className="text-primary">tip</span>manna
-                </span>
-                <span
-                  className={cn(
-                    "text-white/70",
-                    isMobileSurface ? "text-sm" : "text-base"
+                  <span
+                    className={cn(
+                      "racing_sans_one",
+                      isMobileSurface ? "text-lg" : "text-2xl"
+                    )}
+                  >
+                    <span className="text-primary">tip</span>manna
+                  </span>
+                  <span
+                    className={cn(
+                      "text-white/70",
+                      isMobileSurface ? "text-sm" : "text-base"
+                    )}
+                  >
+                    link
+                  </span>
+                </Link>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowOnlineCount(prev => !prev)}
+                  >
+                    <Dot className="text-moonstone-blue size-[12px] rounded-full" />
+                  </button>
+
+                  {showOnlineCount && (
+                    <div className="absolute top-4 right-0 flex w-fit items-center gap-1 rounded-full p-1 text-white/50">
+                      <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
+                        {activeUsers.length} online
+                      </span>
+                    </div>
                   )}
-                >
-                  link
-                </span>
-              </Link>
+                </div>
+              </div>
             </header>
             <div
               className="relative flex items-stretch"
@@ -1708,7 +1746,9 @@ export function TipLinkLandingClient({
 
               {storeLinks.length > 0 ? (
                 <section className="space-y-4">
-                  <h5 className="text-primary text-sm">Also available on</h5>
+                  <h5 className="text-primary text-sm">
+                    {activeUsers.length} Also available on
+                  </h5>
 
                   <div className="grid gap-2 sm:grid-cols-2">
                     {storeLinks.map(link =>

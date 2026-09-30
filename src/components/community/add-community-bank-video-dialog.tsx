@@ -62,7 +62,6 @@ export function AddCommunityBankVideoDialog({
     (hostSlug ? `/host/${hostSlug}/host-community` : "/host");
 
   const onAddVideo = async (values: AddVideoFormValues) => {
-    setAddLoading(true);
     try {
       const payload = buildCreateChannelPayload(values);
       const res = await addCommunityVideoAction(
@@ -135,6 +134,7 @@ export function AddCommunityBankVideoDialog({
           </DialogHeader>
           <AddVideoForm
             onSubmit={onAddVideo}
+            onSubmitStart={() => setAddLoading(true)}
             loading={addLoading}
             eventEventType={eventEventType}
             showHostYoutubeSlot
@@ -151,7 +151,7 @@ export function AddCommunityBankVideoDialog({
                 targetId: communityId,
               } satisfies DraftResumeOrigin,
             }}
-            seedDraftId={modalDraftId ?? seedDraftIdProp}
+            seedDraftId={seedDraftIdProp}
           />
         </DialogContent>
       </Dialog>

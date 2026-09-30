@@ -27,6 +27,14 @@ type HostUserCookie = {
 };
 
 /**
+ * Clear cookies only for confirmed invalid host session (HOST_SESSION_REQUIRED).
+ * Never clear on ABSENT, EMAIL_VERIFICATION_REQUIRED, or HOST_SESSION_PROBE_FAILED.
+ */
+export function shouldClearHostCookies(code: string): boolean {
+  return code === "HOST_SESSION_REQUIRED";
+}
+
+/**
  * Validate host JWT with backend session/touch and refresh cookie window when valid.
  */
 export async function verifyHostSessionWithBackend(
@@ -37,11 +45,11 @@ export async function verifyHostSessionWithBackend(
   try {
     hostUser = JSON.parse(hostUserRaw) as HostUserCookie;
   } catch {
-    const res = NextResponse.json(
-      { active: false, code: "HOST_SESSION_REQUIRED" },
+    // Malformed cookie — do not wipe (may be transient parse issues); client treats as absent.
+    return NextResponse.json(
+      { active: false, code: "HOST_SESSION_ABSENT" },
       { status: 401 }
     );
-    return clearHostSessionCookies(res);
   }
 
   let nextHostToken = hostToken;
@@ -59,6 +67,7 @@ export async function verifyHostSessionWithBackend(
     );
 
     if (!touchRes.ok) {
+      // Default JWT/session failures to HOST_SESSION_REQUIRED so idle expiry clears cookies.
       let code = "HOST_SESSION_REQUIRED";
       try {
         const body = (await touchRes.json()) as {
@@ -83,15 +92,11 @@ export async function verifyHostSessionWithBackend(
         );
       }
 
-      const sessionInvalid =
-        touchRes.status === 401 ||
-        (touchRes.status === 403 && code === "HOST_SESSION_REQUIRED");
-
       const res = NextResponse.json(
         { active: false, code, hostId: hostUser.id ?? null },
         { status: touchRes.status === 401 ? 401 : 403 }
       );
-      return sessionInvalid ? clearHostSessionCookies(res) : res;
+      return shouldClearHostCookies(code) ? clearHostSessionCookies(res) : res;
     }
 
     const body = (await touchRes.json()) as {

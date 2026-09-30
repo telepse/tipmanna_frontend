@@ -49,9 +49,11 @@ import { useTvLazyCharacters } from "@/hooks/use-tv-lazy-characters";
 import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
 import { TvLooperSkeleton, TvRightPanelSkeleton } from "./tv-loading-skeletons";
 import { persistTvScheduleSessionCache } from "@/lib/tv-schedule-session-cache";
-import type {
-  TvInitialTipCatalog,
-  TvSsrScheduleBootstrap,
+import {
+  shouldAllowSsrTvTipPendingInitial,
+  shouldPersistSsrTvScheduleBootstrap,
+  type TvInitialTipCatalog,
+  type TvSsrScheduleBootstrap,
 } from "@/lib/tv-ssr-live-tip-catalog";
 
 interface Character {
@@ -73,6 +75,7 @@ interface Character {
 interface Props {
   channels?: Channel[];
   characters: Character[];
+  ssrBootstrapCommunityId?: string | null;
   initialTvTipCatalog?: TvInitialTipCatalog | null;
   ssrScheduleBootstrap?: TvSsrScheduleBootstrap | null;
 }
@@ -95,6 +98,7 @@ export const getCurrentUser = () => {
 export default function TVPageClientWrapper({
   channels = [],
   characters: ssrCharacters,
+  ssrBootstrapCommunityId = null,
   initialTvTipCatalog = null,
   ssrScheduleBootstrap = null,
 }: Props) {
@@ -111,6 +115,7 @@ export default function TVPageClientWrapper({
     preparePlaybackForTipDrawer,
     snapshotPlaybackForPaymentRedirect,
     resumeAfterPayment,
+    markTvTipPaymentSucceeded,
     scheduleError,
     scheduleStale,
     retryScheduleLoad,
@@ -144,13 +149,26 @@ export default function TVPageClientWrapper({
   const ssrSchedulePersistedRef = useRef(false);
   useEffect(() => {
     if (ssrSchedulePersistedRef.current || !ssrScheduleBootstrap?.body) return;
+    if (
+      !shouldPersistSsrTvScheduleBootstrap({
+        hasBody: true,
+        bootstrapCommunityId: ssrBootstrapCommunityId,
+        scheduleSourceCommunityId,
+      })
+    ) {
+      return;
+    }
     ssrSchedulePersistedRef.current = true;
     persistTvScheduleSessionCache(
       ssrScheduleBootstrap.body,
       ssrScheduleBootstrap.etag,
-      null
+      ssrBootstrapCommunityId ?? null
     );
-  }, [ssrScheduleBootstrap]);
+  }, [
+    ssrScheduleBootstrap,
+    ssrBootstrapCommunityId,
+    scheduleSourceCommunityId,
+  ]);
 
   useEffect(() => {
     if (!isPhoneSurface) return;
@@ -230,7 +248,11 @@ export default function TVPageClientWrapper({
     catalogLoading: tipCatalogLoading,
   } = useTvEventTipCatalog(tipDrawerEventId, {
     initial: initialTvTipCatalog,
-    allowPendingInitial: items.length === 0,
+    allowPendingInitial: shouldAllowSsrTvTipPendingInitial({
+      scheduleItemsEmpty: items.length === 0,
+      bootstrapCommunityId: ssrBootstrapCommunityId,
+      scheduleSourceCommunityId,
+    }),
   });
 
   useEffect(() => {
@@ -327,6 +349,7 @@ export default function TVPageClientWrapper({
     videoTipKey: playingVideoKey,
     openWalletModalNonce,
     onSnapshotPaymentRedirect: snapshotPlaybackForPaymentRedirect,
+    onTipPaymentSucceeded: markTvTipPaymentSucceeded,
   };
 
   return (

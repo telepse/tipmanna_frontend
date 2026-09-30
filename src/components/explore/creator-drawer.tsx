@@ -1,13 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
+import { GlanceDrawerChrome } from "@/components/explore/glance-drawer-chrome";
 import { useCreatorDrawerData } from "@/hooks/use-creator-drawer-data";
+import { buildCreatorProfileSharePath } from "@/lib/creator-profile-url";
 import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
 import { DRAWER_DATA_LOAD_TIMEOUT_MS } from "@/lib/drawer-data-timeout";
+import { fetchCreatorProfileCached } from "@/lib/drawer-prefetch-cache";
 import { cn } from "@/lib/utils";
 
 const HostCreatorPageClient = dynamic(
@@ -60,7 +63,10 @@ function CreatorDrawerSkeleton() {
 export function CreatorDrawer({ open, onOpenChange, username }: Props) {
   const handle = username?.trim().replace(/^@/, "") ?? "";
   const enabled = Boolean(handle);
-  const { profile, loading, error } = useCreatorDrawerData(handle, enabled);
+  const { profile, loading, error, mutate } = useCreatorDrawerData(
+    handle,
+    enabled
+  );
   const [loadTimedOut, setLoadTimedOut] = useState(false);
 
   useEffect(() => {
@@ -75,7 +81,18 @@ export function CreatorDrawer({ open, onOpenChange, username }: Props) {
     return () => window.clearTimeout(timer);
   }, [enabled, handle, profile]);
 
-  const showLoadingSkeleton = loading && !profile && !loadTimedOut;
+  const showLoadingSkeleton = loading && !profile;
+  const loadFinishedEmpty = enabled && !profile && !loading;
+  const title = profile?.host.username
+    ? `@${profile.host.username.replace(/^@/, "")}`
+    : handle
+      ? `@${handle}`
+      : "Creator";
+
+  const retryLoad = () => {
+    setLoadTimedOut(false);
+    void mutate(() => fetchCreatorProfileCached(handle, { force: true }));
+  };
 
   return (
     <Drawer
@@ -89,9 +106,29 @@ export function CreatorDrawer({ open, onOpenChange, username }: Props) {
           "flex max-h-[92vh] flex-col overflow-hidden rounded-t-[32px] bg-white p-0"
         )}
       >
+        <GlanceDrawerChrome
+          title={title}
+          openHref={handle ? buildCreatorProfileSharePath(handle) : null}
+          openLabel="Open creator profile"
+          onClose={() => onOpenChange(false)}
+        />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {showLoadingSkeleton ? (
-            <CreatorDrawerSkeleton />
+            <div className="space-y-3">
+              <CreatorDrawerSkeleton />
+              {loadTimedOut ? (
+                <div className="flex justify-center pb-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={retryLoad}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : null}
+            </div>
           ) : profile ? (
             <HostCreatorPageClient
               key={handle}
@@ -103,19 +140,18 @@ export function CreatorDrawer({ open, onOpenChange, username }: Props) {
           ) : (
             <div className="space-y-3 px-4 py-10 text-center">
               <p className="text-muted-foreground text-sm">
-                {error || loadTimedOut
+                {error || loadFinishedEmpty
                   ? "Could not load this creator profile."
                   : "Creator profile not found."}
               </p>
-              {handle ? (
-                <Link
-                  href={`/@${encodeURIComponent(handle)}`}
-                  className="text-primary text-sm font-medium underline-offset-4 hover:underline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Open full profile page
-                </Link>
-              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={retryLoad}
+              >
+                Retry
+              </Button>
             </div>
           )}
         </div>

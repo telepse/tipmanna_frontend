@@ -42,6 +42,7 @@ import {
   parseOverlayPlayFromSearchParams,
   syncOverlayPlayOnExploreJoin,
 } from "@/lib/playback-overlay-url";
+import { writeOverlayPlaySeed } from "@/lib/playback-overlay-seed-handoff";
 import { exploreDrawerSignInRedirectPath } from "@/lib/explore-url-sync-policy";
 import { DRAWER_DATA_LOAD_TIMEOUT_MS } from "@/lib/drawer-data-timeout";
 import { TopContentCard } from "../home/top-content-card";
@@ -283,6 +284,7 @@ export function CommunityJoinPanel({
     effectiveSignInRedirectPath
   );
   const [formLoadTimedOut, setFormLoadTimedOut] = useState(false);
+  const [formLoadFailed, setFormLoadFailed] = useState(false);
   const formLoadedForRef = useRef<string | null>(null);
   const activeCommunityIdRef = useRef(communityId);
   activeCommunityIdRef.current = communityId;
@@ -344,6 +346,7 @@ export function CommunityJoinPanel({
     setFeaturedVideos([]);
     setContentBankVideos([]);
     setFormLoadTimedOut(false);
+    setFormLoadFailed(false);
   }, [communityId]);
 
   useEffect(() => {
@@ -360,7 +363,17 @@ export function CommunityJoinPanel({
   }, [form]);
 
   const playFeaturedFromDrawer = useCallback(
-    (eventId: string, channelId: string) => {
+    (
+      eventId: string,
+      channelId: string,
+      meta?: { url?: string; title?: string }
+    ) => {
+      writeOverlayPlaySeed({
+        eventId,
+        channelId,
+        url: meta?.url,
+        title: meta?.title,
+      });
       window.open(
         buildCommunityJoinPlayHref(communityId, eventId, channelId),
         "_blank",
@@ -426,8 +439,10 @@ export function CommunityJoinPanel({
         toast.error("Could not load community");
         setForm(null);
         formLoadedForRef.current = null;
+        setFormLoadFailed(true);
         return;
       }
+      setFormLoadFailed(false);
 
       const d = data as CommunityAccessPayload;
       const jp = d.joinFormPublic;
@@ -540,27 +555,29 @@ export function CommunityJoinPanel({
       <p className="text-muted-foreground p-6 text-sm">Missing community.</p>
     );
   } else if (!form) {
-    joinBody = formLoadTimedOut ? (
-      <div className="space-y-3 px-4 py-10 text-center">
-        <p className="text-muted-foreground text-sm">
-          Could not load this community. Try again or open the full community
-          page.
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setFormLoadTimedOut(false);
-            void loadForm({ force: true });
-          }}
-        >
-          Retry
-        </Button>
-      </div>
-    ) : (
-      <div className="flex min-h-[30vh] items-center justify-center">
-        <Loader2 className="text-muted-foreground size-8 animate-spin" />
+    joinBody = (
+      <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 px-4 py-10">
+        {formLoadFailed ? (
+          <p className="text-muted-foreground text-center text-sm">
+            Could not load this community.
+          </p>
+        ) : (
+          <Loader2 className="text-muted-foreground size-8 animate-spin" />
+        )}
+        {formLoadTimedOut || formLoadFailed ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setFormLoadTimedOut(false);
+              setFormLoadFailed(false);
+              void loadForm({ force: true });
+            }}
+          >
+            Retry
+          </Button>
+        ) : null}
       </div>
     );
   } else {
@@ -745,7 +762,10 @@ export function CommunityJoinPanel({
                       disabled={!eventId || !channelId}
                       onClick={() => {
                         if (eventId && channelId) {
-                          playFeaturedFromDrawer(eventId, channelId);
+                          playFeaturedFromDrawer(eventId, channelId, {
+                            url: video.url,
+                            title: video.title,
+                          });
                         }
                       }}
                       aria-label={`Play ${video.title}`}

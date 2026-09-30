@@ -152,6 +152,7 @@ export default function PlaylistTable({
     totalDuration,
     mode,
     getSyncedNow,
+    currentIndex,
     liveBroadcastIndex,
     schedulePlayingSlot,
   } = useTV();
@@ -291,7 +292,8 @@ export default function PlaylistTable({
 
   const isRowPlaying = (rowIndex: number) => {
     if (variant === "activeBatch") {
-      if (mode === "GLOBAL") return rowIndex === liveBroadcastIndex;
+      // GLOBAL playing ring = iframe/orchestration row; live badge uses liveBroadcastIndex.
+      if (mode === "GLOBAL") return rowIndex === currentIndex;
       return (
         schedulePlayingSlot?.scope === "active" &&
         schedulePlayingSlot.rowIndex === rowIndex
