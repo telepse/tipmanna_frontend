@@ -1747,7 +1747,7 @@ export function TipLinkLandingClient({
               {storeLinks.length > 0 ? (
                 <section className="space-y-4">
                   <h5 className="text-primary text-sm">
-                    {activeUsers.length} Also available on
+                    Also available on
                   </h5>
 
                   <div className="grid gap-2 sm:grid-cols-2">
