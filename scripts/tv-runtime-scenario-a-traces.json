@@ -1,0 +1,967 @@
+{
+  "summary": {
+    "url": "http://127.0.0.1:3000/tv?tvDebug=1",
+    "durationSec": 180,
+    "httpStatus": 200,
+    "playbackEventCount": 80,
+    "driftSeek": 0,
+    "driftSeekSuppressed": 0,
+    "driftSeekDeduped": 0,
+    "coalescedSeek": 0,
+    "driftSeekActualZero": 0,
+    "orchestratedCommands": 0,
+    "onStateChange": 4,
+    "buffering": 1,
+    "playing": 1,
+    "playbackUrlChange": 2,
+    "playerResumeRemount": 0,
+    "samplePlayback": [
+      "[TV:playback] syncToLive_deferred {timestamp: 1790875811731, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: tv_page_open, isReady: false}",
+      "[TV:playback] syncToLive_deferred {timestamp: 1790875811731, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: tv_page_open, isReady: false}",
+      "[TV:playback] syncToLive_skipped {timestamp: 1790875829557, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: missing_schedule, broadcastEpoch: false}",
+      "[TV:playback] playbackUrl_change {timestamp: 1790875829679, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/zJaf-JRmf5E?si=ABjOL7tQ3ggd_p7S}",
+      "[TV:playback] isPlayerLoading_change {timestamp: 1790875829680, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: true}",
+      "[TV:playback] syncToLive_player_not_ready {timestamp: 1790875829730, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 1}",
+      "[TV:playback] readiness_flush_skipped {timestamp: 1790875829732, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: items_loaded, generation: 1}",
+      "[TV:playback] player_unregister {timestamp: 1790875829738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36}",
+      "[TV:playback] playbackUrl_change {timestamp: 1790875829749, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/zJaf-JRmf5E?si=ABjOL7tQ3ggd_p7S}",
+      "[TV:playback] isPlayerLoading_change {timestamp: 1790875829749, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: true}",
+      "[TV:playback] readiness_flush_skipped {timestamp: 1790875829829, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: setPlayerVisible, generation: 1}",
+      "[TV:playback] readiness_flush_skipped {timestamp: 1790875829829, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: setPlayerVisible, generation: 1}",
+      "[TV:playback] syncToLive_player_not_ready {timestamp: 1790875832732, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 2}",
+      "[TV:playback] onReady {timestamp: 1790875833670, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E, externallyControlled: true}",
+      "[TV:playback] syncToLive {timestamp: 1790875833674, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] requestPlayback {timestamp: 1790875833674, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: syncToLive, videoId: zJaf-JRmf5E}",
+      "[TV:playback] player_load {timestamp: 1790875833675, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E, start: 578}",
+      "[TV:playback] isPlayerLoading_change {timestamp: 1790875833766, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: false}",
+      "[TV:playback] onStateChange {timestamp: 1790875833781, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: -1, stateName: UNSTARTED}",
+      "[TV:playback] onStateChange {timestamp: 1790875833782, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: 3, stateName: BUFFERING}",
+      "[TV:playback] onStateChange {timestamp: 1790875834104, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: -1, stateName: UNSTARTED}",
+      "[TV:playback] onStateChange {timestamp: 1790875834633, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: 1, stateName: PLAYING}",
+      "[TV:playback] onPlay {timestamp: 1790875834633, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E}",
+      "[TV:playback] syncToLive {timestamp: 1790875835736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875838736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875841736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875844735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875847736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875850737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875853736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875856736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875859736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875862735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875865735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875868736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875871738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875874736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875877736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875880736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875883737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    ],
+    "samplePlaybackTail": [
+      "[TV:playback] syncToLive {timestamp: 1790875916737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875919736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875922736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875925736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875928736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875931736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875934738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875937736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875940735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875943736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875946737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875949735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875952737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875955736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875958736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875961736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875964735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875967736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875970737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875973735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875976735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875979736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875982735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875985736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875988736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875991736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875994737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790875997736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790876000737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}",
+      "[TV:playback] syncToLive {timestamp: 1790876003735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    ]
+  },
+  "playbackLines": [
+    {
+      "at": 1790875811731,
+      "text": "[TV:playback] syncToLive_deferred {timestamp: 1790875811731, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: tv_page_open, isReady: false}"
+    },
+    {
+      "at": 1790875811732,
+      "text": "[TV:playback] syncToLive_deferred {timestamp: 1790875811731, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: tv_page_open, isReady: false}"
+    },
+    {
+      "at": 1790875829557,
+      "text": "[TV:playback] syncToLive_skipped {timestamp: 1790875829557, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: missing_schedule, broadcastEpoch: false}"
+    },
+    {
+      "at": 1790875829680,
+      "text": "[TV:playback] playbackUrl_change {timestamp: 1790875829679, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/zJaf-JRmf5E?si=ABjOL7tQ3ggd_p7S}"
+    },
+    {
+      "at": 1790875829684,
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790875829680, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: true}"
+    },
+    {
+      "at": 1790875829731,
+      "text": "[TV:playback] syncToLive_player_not_ready {timestamp: 1790875829730, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 1}"
+    },
+    {
+      "at": 1790875829732,
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790875829732, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: items_loaded, generation: 1}"
+    },
+    {
+      "at": 1790875829739,
+      "text": "[TV:playback] player_unregister {timestamp: 1790875829738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36}"
+    },
+    {
+      "at": 1790875829750,
+      "text": "[TV:playback] playbackUrl_change {timestamp: 1790875829749, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/zJaf-JRmf5E?si=ABjOL7tQ3ggd_p7S}"
+    },
+    {
+      "at": 1790875829750,
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790875829749, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: true}"
+    },
+    {
+      "at": 1790875829830,
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790875829829, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: setPlayerVisible, generation: 1}"
+    },
+    {
+      "at": 1790875829831,
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790875829829, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: setPlayerVisible, generation: 1}"
+    },
+    {
+      "at": 1790875832732,
+      "text": "[TV:playback] syncToLive_player_not_ready {timestamp: 1790875832732, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 2}"
+    },
+    {
+      "at": 1790875833670,
+      "text": "[TV:playback] onReady {timestamp: 1790875833670, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E, externallyControlled: true}"
+    },
+    {
+      "at": 1790875833673,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875833674, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875833674,
+      "text": "[TV:playback] requestPlayback {timestamp: 1790875833674, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: syncToLive, videoId: zJaf-JRmf5E}"
+    },
+    {
+      "at": 1790875833675,
+      "text": "[TV:playback] player_load {timestamp: 1790875833675, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E, start: 578}"
+    },
+    {
+      "at": 1790875833767,
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790875833766, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: false}"
+    },
+    {
+      "at": 1790875833781,
+      "text": "[TV:playback] onStateChange {timestamp: 1790875833781, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: -1, stateName: UNSTARTED}"
+    },
+    {
+      "at": 1790875833782,
+      "text": "[TV:playback] onStateChange {timestamp: 1790875833782, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: 3, stateName: BUFFERING}"
+    },
+    {
+      "at": 1790875834104,
+      "text": "[TV:playback] onStateChange {timestamp: 1790875834104, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: -1, stateName: UNSTARTED}"
+    },
+    {
+      "at": 1790875834633,
+      "text": "[TV:playback] onStateChange {timestamp: 1790875834633, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: 1, stateName: PLAYING}"
+    },
+    {
+      "at": 1790875834634,
+      "text": "[TV:playback] onPlay {timestamp: 1790875834633, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E}"
+    },
+    {
+      "at": 1790875835736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875835736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875838737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875838736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875841736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875841736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875844736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875844735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875847738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875847736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875850737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875850737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875853737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875853736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875856738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875856736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875859737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875859736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875862737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875862735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875865737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875865735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875868737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875868736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875871740,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875871738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875874737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875874736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875877737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875877736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875880738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875880736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875883737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875883737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875886738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875886737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875889737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875889736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875892738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875892737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875895737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875895736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875898738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875898736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875901736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875901735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875904737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875904736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875907738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875907736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875910736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875910735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875913736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875913735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875916737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875916737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875919737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875919736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875922737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875922736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875925736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875925736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875928738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875928736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875931737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875931736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875934741,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875934738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875937737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875937736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875940737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875940735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875943737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875943736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875946738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875946737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875949737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875949735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875952740,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875952737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875955736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875955736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875958737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875958736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875961736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875961736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875964737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875964735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875967737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875967736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875970738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875970737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875973736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875973735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875976736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875976735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875979737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875979736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875982735,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875982735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875985736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875985736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875988737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875988736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875991738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875991736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875994737,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875994737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875997736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790875997736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790876000738,
+      "text": "[TV:playback] syncToLive {timestamp: 1790876000737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790876003736,
+      "text": "[TV:playback] syncToLive {timestamp: 1790876003735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    }
+  ],
+  "allTvLines": [
+    {
+      "at": 1790875811377,
+      "source": "console",
+      "text": "[TV:load] T1 {msSinceNav: 18779.40000000596, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: TvPageSuspenseFallback}"
+    },
+    {
+      "at": 1790875811377,
+      "source": "console",
+      "text": "[TV:index] setCurrentIndex {timestamp: 1790875811376, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, currentIndex: 0, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875811378,
+      "source": "console",
+      "text": "[TV:navigation] mode_change {timestamp: 1790875811378, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875811390,
+      "source": "console",
+      "text": "[TV:load] T2 {msSinceNav: 18797.59999999404, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: TVProvider_mount}"
+    },
+    {
+      "at": 1790875811392,
+      "source": "console",
+      "text": "[TV:schedule] loadSchedule_start {timestamp: 1790875811391, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, manual: false, resetRetry: true}"
+    },
+    {
+      "at": 1790875811393,
+      "source": "console",
+      "text": "[TV:load] T3_cache_miss {msSinceNav: 18802.79999999702, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, manual: false}"
+    },
+    {
+      "at": 1790875811411,
+      "source": "console",
+      "text": "[TV:load] T1 {msSinceNav: 18819.40000000596, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: TvPageSuspenseFallback}"
+    },
+    {
+      "at": 1790875811412,
+      "source": "console",
+      "text": "[TV:index] setCurrentIndex {timestamp: 1790875811411, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, currentIndex: 0, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875811414,
+      "source": "console",
+      "text": "[TV:navigation] mode_change {timestamp: 1790875811412, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875811415,
+      "source": "console",
+      "text": "[TV:load] T2 {msSinceNav: 18824.59999999404, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: TVProvider_mount}"
+    },
+    {
+      "at": 1790875811669,
+      "source": "console",
+      "text": "[TV:navigation] tv_page_open_dispatch {timestamp: 1790875811665, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36}"
+    },
+    {
+      "at": 1790875811670,
+      "source": "console",
+      "text": "[TV:navigation] tv_page_open {timestamp: 1790875811667, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875811678,
+      "source": "console",
+      "text": "[TV:navigation] tv_page_open_dispatch {timestamp: 1790875811675, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36}"
+    },
+    {
+      "at": 1790875811678,
+      "source": "console",
+      "text": "[TV:navigation] tv_page_open {timestamp: 1790875811676, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875811731,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_deferred {timestamp: 1790875811731, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: tv_page_open, isReady: false}"
+    },
+    {
+      "at": 1790875811732,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_deferred {timestamp: 1790875811731, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: tv_page_open, isReady: false}"
+    },
+    {
+      "at": 1790875829550,
+      "source": "console",
+      "text": "[TV:schedule] loadSchedule_success {timestamp: 1790875829550, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, itemsLen: 53, liveScheduleIndex: 24}"
+    },
+    {
+      "at": 1790875829555,
+      "source": "console",
+      "text": "[TV:schedule] cold_start_seeded_index {timestamp: 1790875829555, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, scheduleIndex: 24, offsetSeconds: 568}"
+    },
+    {
+      "at": 1790875829555,
+      "source": "console",
+      "text": "[TV:schedule] livePosition_resolved {timestamp: 1790875829555, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, scheduleIndex: 24, offsetSeconds: 568}"
+    },
+    {
+      "at": 1790875829556,
+      "source": "console",
+      "text": "[TV:load] T4 {msSinceNav: 36965.79999999702, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: loadSchedule_success}"
+    },
+    {
+      "at": 1790875829556,
+      "source": "console",
+      "text": "[TV:schedule] loadSchedule_network_success {timestamp: 1790875829556, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, itemsLen: 53}"
+    },
+    {
+      "at": 1790875829557,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_skipped {timestamp: 1790875829557, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: missing_schedule, broadcastEpoch: false}"
+    },
+    {
+      "at": 1790875829680,
+      "source": "console",
+      "text": "[TV:playback] playbackUrl_change {timestamp: 1790875829679, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/zJaf-JRmf5E?si=ABjOL7tQ3ggd_p7S}"
+    },
+    {
+      "at": 1790875829684,
+      "source": "console",
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790875829680, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: true}"
+    },
+    {
+      "at": 1790875829720,
+      "source": "console",
+      "text": "[TV:navigation] setPlayerVisible {timestamp: 1790875829720, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, visible: true, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875829728,
+      "source": "console",
+      "text": "[TV:index] setCurrentIndex {timestamp: 1790875829727, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, currentIndex: 24, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875829731,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_player_not_ready {timestamp: 1790875829730, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 1}"
+    },
+    {
+      "at": 1790875829732,
+      "source": "console",
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790875829732, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: items_loaded, generation: 1}"
+    },
+    {
+      "at": 1790875829738,
+      "source": "console",
+      "text": "[TV:navigation] setPlayerVisible {timestamp: 1790875829737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, visible: false, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875829739,
+      "source": "console",
+      "text": "[TV:playback] player_unregister {timestamp: 1790875829738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36}"
+    },
+    {
+      "at": 1790875829750,
+      "source": "console",
+      "text": "[TV:playback] playbackUrl_change {timestamp: 1790875829749, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/zJaf-JRmf5E?si=ABjOL7tQ3ggd_p7S}"
+    },
+    {
+      "at": 1790875829750,
+      "source": "console",
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790875829749, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: true}"
+    },
+    {
+      "at": 1790875829755,
+      "source": "console",
+      "text": "[TV:navigation] setPlayerVisible {timestamp: 1790875829754, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, visible: true, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875829830,
+      "source": "console",
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790875829829, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: setPlayerVisible, generation: 1}"
+    },
+    {
+      "at": 1790875829831,
+      "source": "console",
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790875829829, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, trigger: setPlayerVisible, generation: 1}"
+    },
+    {
+      "at": 1790875832732,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_player_not_ready {timestamp: 1790875832732, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 2}"
+    },
+    {
+      "at": 1790875833670,
+      "source": "console",
+      "text": "[TV:playback] onReady {timestamp: 1790875833670, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E, externallyControlled: true}"
+    },
+    {
+      "at": 1790875833671,
+      "source": "console",
+      "text": "[TV:load] T5 {msSinceNav: 41080.29999999702, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E}"
+    },
+    {
+      "at": 1790875833672,
+      "source": "console",
+      "text": "[TV:autoplay] mute {timestamp: 1790875833672, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: TvPlayer.mute}"
+    },
+    {
+      "at": 1790875833672,
+      "source": "console",
+      "text": "[TV:navigation] setPlayerVisible {timestamp: 1790875833672, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, visible: true, mode: GLOBAL}"
+    },
+    {
+      "at": 1790875833673,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875833674, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875833674,
+      "source": "console",
+      "text": "[TV:playback] requestPlayback {timestamp: 1790875833674, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: syncToLive, videoId: zJaf-JRmf5E}"
+    },
+    {
+      "at": 1790875833675,
+      "source": "console",
+      "text": "[TV:playback] player_load {timestamp: 1790875833675, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E, start: 578}"
+    },
+    {
+      "at": 1790875833767,
+      "source": "console",
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790875833766, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, surface: tv-looper, isPlayerLoading: false}"
+    },
+    {
+      "at": 1790875833781,
+      "source": "console",
+      "text": "[TV:playback] onStateChange {timestamp: 1790875833781, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: -1, stateName: UNSTARTED}"
+    },
+    {
+      "at": 1790875833782,
+      "source": "console",
+      "text": "[TV:playback] onStateChange {timestamp: 1790875833782, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: 3, stateName: BUFFERING}"
+    },
+    {
+      "at": 1790875834104,
+      "source": "console",
+      "text": "[TV:playback] onStateChange {timestamp: 1790875834104, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: -1, stateName: UNSTARTED}"
+    },
+    {
+      "at": 1790875834633,
+      "source": "console",
+      "text": "[TV:playback] onStateChange {timestamp: 1790875834633, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, state: 1, stateName: PLAYING}"
+    },
+    {
+      "at": 1790875834634,
+      "source": "console",
+      "text": "[TV:playback] onPlay {timestamp: 1790875834633, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E}"
+    },
+    {
+      "at": 1790875834634,
+      "source": "console",
+      "text": "[TV:load] T6 {msSinceNav: 42043.59999999404, ttfvMs: 42043.59999999404, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, videoId: zJaf-JRmf5E}"
+    },
+    {
+      "at": 1790875834634,
+      "source": "console",
+      "text": "[TV:load] summary {T1: 18779.40000000596, T2: 18797.59999999404, T3_cache_miss: 18802.79999999702, T4: 36965.79999999702, T5: 41080.29999999702}"
+    },
+    {
+      "at": 1790875834636,
+      "source": "console",
+      "text": "[TV:autoplay] mute {timestamp: 1790875834636, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: TvPlayer.mute}"
+    },
+    {
+      "at": 1790875834637,
+      "source": "console",
+      "text": "[TV:autoplay] session_mute_reapplied {timestamp: 1790875834636, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, source: TvProvider.applyPendingAudioRestore}"
+    },
+    {
+      "at": 1790875835736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875835736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875838737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875838736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875841736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875841736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875844736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875844735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875847738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875847736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875850737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875850737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875853737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875853736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875856738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875856736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875859737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875859736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875862737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875862735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875865737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875865735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875868737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875868736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875871740,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875871738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875874737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875874736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875877737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875877736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875880738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875880736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875883737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875883737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875886738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875886737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875889737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875889736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875892738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875892737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875895737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875895736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875898738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875898736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875901736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875901735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875904737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875904736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875907738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875907736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875910736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875910735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875913736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875913735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875916737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875916737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875919737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875919736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875922737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875922736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875925736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875925736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875928738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875928736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875931737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875931736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875934741,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875934738, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875937737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875937736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875940737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875940735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875943737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875943736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875946738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875946737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875949737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875949735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875952740,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875952737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875955736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875955736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875958737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875958736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875961736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875961736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875964737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875964735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875967737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875967736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875970738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875970737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875973736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875973735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875976736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875976735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875979737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875979736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875982735,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875982735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875985736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875985736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875988736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875988736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875991738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875991736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875994737,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875994737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790875997736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790875997736, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790876000738,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790876000737, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    },
+    {
+      "at": 1790876003736,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790876003735, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 24}"
+    }
+  ]
+}

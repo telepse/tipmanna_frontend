@@ -404,7 +404,10 @@ export const OrganiserEventAndContentRoomInfo = ({ control }: Props) => {
               setOpenDefaultBanner(false);
 
               // Set the form field to the default banner
-              setValue("eventBanner", "https://tipmanna.tv/assets/event_banner.webp");
+              setValue(
+                "eventBanner",
+                "https://tipmanna.tv/assets/event_banner.webp"
+              );
 
               // Optionally, update local state if your ImageUploader relies on it
               setImage("https://tipmanna.tv/assets/event_banner.webp");

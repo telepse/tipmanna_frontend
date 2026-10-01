@@ -39,6 +39,8 @@ describe("overlay rail hit geometry", () => {
         '!(overlayPhoneChrome || mobileOverlayImmersive) && "sm:hidden"'
       );
       expect(src).toContain("chromeUsesMobileLayout");
+      expect(src).toContain("overlayPhoneChrome ? null : (");
+      expect(src).toContain("h-[25%] w-[100%] bg-black p-4");
     }
   });
 });

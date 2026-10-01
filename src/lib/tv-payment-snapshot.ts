@@ -25,6 +25,12 @@ export type PersistedTvPaymentSnapshot = {
   playingItemOverrideId: string | null;
   schedulePlayingSlot: SchedulePlayingSlot | null;
   localModeReason: string | null;
+  /**
+   * TV schedule source at snapshot time (`null` = Tipmanna global).
+   * Required on new v2 writes after community-isolation fix.
+   * Absent on legacy payloads → hydrate must reject rather than guess.
+   */
+  scheduleSourceCommunityId?: string | null;
 };
 
 export function writePersistedPaymentSnapshot(

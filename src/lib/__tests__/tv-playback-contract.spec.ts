@@ -438,17 +438,17 @@ describe("TV playback contract — leave/return player lifecycle", () => {
     expect(redirect!).toContain("applyPaymentActiveFromHolds");
   });
 
-  it("resumeAfterPayment arms PPLA only via shouldArmPostPaymentAxis + success latch", () => {
-    expect(tvProviderSource).toContain("shouldArmPostPaymentAxis");
+  it("resumeAfterPayment restores GLOBAL via originMode + resolvePaymentRestoreMode", () => {
+    expect(tvProviderSource).toContain("resolvePaymentRestoreMode");
     expect(tvProviderSource).toContain("tipPaymentSucceededRef");
     expect(tvProviderSource).toContain("markTvTipPaymentSucceeded");
     const resume = tvProviderSource.match(
       /const resumeAfterPayment = useCallback\(\(\) => \{[\s\S]*?\}, \[/
     )?.[0];
     expect(resume).toBeTruthy();
-    expect(resume!).toContain("shouldArmPostPaymentAxis");
-    expect(resume!).toContain("tipPaymentSucceededRef");
-    // Must not unconditionally arm on originMode alone.
+    expect(resume!).toContain("resolvePaymentRestoreMode");
+    expect(resume!).toContain("enterGlobalMode");
+    expect(resume!).toContain("applyPendingPaymentLocalRestore");
     expect(resume!).not.toMatch(
       /if \(originMode === "GLOBAL"\) \{\s*postPaymentAxisRef\.current = true;/
     );

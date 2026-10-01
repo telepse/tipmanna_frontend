@@ -1,0 +1,66 @@
+{
+  "report": {
+    "url": "http://127.0.0.1:3000/tv?tvDebug=1",
+    "navStatus": 200,
+    "globalInitial": {
+      "mode": "GLOBAL",
+      "currentIndex": 26,
+      "startSeconds": null
+    },
+    "testC": {
+      "status": "blocked",
+      "blocker": "Engage/Pay not visible",
+      "preLocal": {
+        "localClick": "your_tv_mode+scrub",
+        "lastModeLocal": "[TV] mode_enter_local {timestamp: 1790877272464, mode: LOCAL, reason: manual, currentIndex: 26, offsetSeconds: null}",
+        "lastSync": "[TV:playback] syncToLive {timestamp: 1790877271643, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 26}",
+        "lastRequestPlayback": "[TV:playback] requestPlayback {timestamp: 1790877268764, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: syncToLive, videoId: L0to299DEx8}",
+        "syncPayload": {
+          "mode": "GLOBAL",
+          "currentIndex": 26,
+          "startSeconds": null
+        }
+      }
+    },
+    "testB": {
+      "status": "blocked",
+      "blocker": "drawer",
+      "bPre": {
+        "syncPayload": {
+          "mode": "GLOBAL",
+          "currentIndex": 26,
+          "startSeconds": null
+        }
+      }
+    }
+  },
+  "allLinesCount": 170,
+  "paymentLines": [
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 6c2cf2ae-6e05-4e30-9fa8-41fa79570d06, event: syncToLive, canonicalMark: null, ts: 20883.09999999404, elapsedMs: 20883.09999999404}",
+    "[TV:playback] syncToLive_player_not_ready {timestamp: 1790877262630, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 1}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 6c2cf2ae-6e05-4e30-9fa8-41fa79570d06, event: syncToLive, canonicalMark: null, ts: 21001.09999999404, elapsedMs: 21001.09999999404}",
+    "[TV:playback] syncToLive_skipped {timestamp: 1790877262747, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: missing_schedule, broadcastEpoch: false}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 6c2cf2ae-6e05-4e30-9fa8-41fa79570d06, event: syncToLive, canonicalMark: null, ts: 23886.20000000298, elapsedMs: 23886.20000000298}",
+    "[TV:playback] syncToLive_player_not_ready {timestamp: 1790877265633, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 2}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 6c2cf2ae-6e05-4e30-9fa8-41fa79570d06, event: syncToLive, canonicalMark: null, ts: 27016.09999999404, elapsedMs: 27016.09999999404}",
+    "[TV:playback] syncToLive {timestamp: 1790877268763, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 26}",
+    "[TV:playback] requestPlayback {timestamp: 1790877268764, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: syncToLive, videoId: L0to299DEx8}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 6c2cf2ae-6e05-4e30-9fa8-41fa79570d06, event: syncToLive, canonicalMark: null, ts: 27021.29999999702, elapsedMs: 27021.29999999702}",
+    "[TV:playback] syncToLive {timestamp: 1790877268768, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 26}",
+    "[TV:playback] syncToLive_drift_seek_suppressed {timestamp: 1790877268769, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: orchestration_in_progress, actual: 0}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 6c2cf2ae-6e05-4e30-9fa8-41fa79570d06, event: syncToLive, canonicalMark: null, ts: 29896.59999999404, elapsedMs: 29896.59999999404}",
+    "[TV:playback] syncToLive {timestamp: 1790877271643, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 26}",
+    "[TV] mode_enter_local {timestamp: 1790877272464, mode: LOCAL, reason: manual, currentIndex: 26, offsetSeconds: null}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 2e2644b3-eea8-4e69-addc-b4185dbdb86d, event: syncToLive, canonicalMark: null, ts: 9442.70000000298, elapsedMs: 9442.70000000298}",
+    "[TV:playback] syncToLive_player_not_ready {timestamp: 1790877296085, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, syncMiss: 1}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 2e2644b3-eea8-4e69-addc-b4185dbdb86d, event: syncToLive, canonicalMark: null, ts: 9584.5, elapsedMs: 9584.5}",
+    "[TV:playback] syncToLive_skipped {timestamp: 1790877296227, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: missing_schedule, broadcastEpoch: false}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 2e2644b3-eea8-4e69-addc-b4185dbdb86d, event: syncToLive, canonicalMark: null, ts: 11206.79999999702, elapsedMs: 11206.79999999702}",
+    "[TV:playback] syncToLive {timestamp: 1790877297849, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 26}",
+    "[TV:playback] requestPlayback {timestamp: 1790877297850, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, reason: syncToLive, videoId: L0to299DEx8}",
+    "[TV_STARTUP_TRACE] syncToLive {traceId: 2e2644b3-eea8-4e69-addc-b4185dbdb86d, event: syncToLive, canonicalMark: null, ts: 12510.79999999702, elapsedMs: 12510.79999999702}",
+    "[TV:playback] syncToLive {timestamp: 1790877299153, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 26}",
+    "[TV_STARTUP_TRACE] post_finalization:syncToLive {traceId: 2e2644b3-eea8-4e69-addc-b4185dbdb86d, trigger: sync_tick, reason: null, currentIndex: 26}",
+    "[TV:playback] syncToLive {timestamp: 1790877302101, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…Gecko) HeadlessChrome/148.0.7778.96 Safari/537.36, mode: GLOBAL, currentIndex: 26}"
+  ]
+}

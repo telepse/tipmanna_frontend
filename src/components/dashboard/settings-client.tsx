@@ -1728,10 +1728,7 @@ export const SettingsClient = () => {
 
                               <p className="text-muted-foreground mt-1.5 text-sm leading-6">
                                 This account is currently configured as an
-                                individual account. You can still complete and
-                                maintain your organisation profile details here,
-                                but your active payout and tax information is
-                                currently managed using your individual profile.
+                                individual account.
                               </p>
                             </div>
                           </div>

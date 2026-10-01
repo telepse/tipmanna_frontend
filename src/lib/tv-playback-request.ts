@@ -6,7 +6,8 @@ export type TvPlaybackRequestReason =
   | "error_reload"
   | "startup_error_recovery"
   | "startup_error_advance"
-  | "tab_snapshot_restore";
+  | "tab_snapshot_restore"
+  | "payment_restore";
 
 export type TvPlaybackRequest = {
   reason: TvPlaybackRequestReason;

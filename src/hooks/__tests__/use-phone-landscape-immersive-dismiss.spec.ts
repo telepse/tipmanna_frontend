@@ -48,5 +48,9 @@ describe("usePhoneLandscapeImmersiveDismiss", () => {
     expect(channelSrc).toContain(
       '!(overlayPhoneChrome || mobileOverlayImmersive) && "sm:hidden"'
     );
+    expect(contentSrc).toContain("overlayPhoneChrome ? null : (");
+    expect(channelSrc).toContain("overlayPhoneChrome ? null : (");
+    expect(contentSrc).toContain("h-[25%] w-[100%] bg-black p-4");
+    expect(channelSrc).toContain("h-[25%] w-[100%] bg-black p-4");
   });
 });

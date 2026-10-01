@@ -38,6 +38,30 @@ import {
   type TvPlaybackRequest,
 } from "@/lib/tv-playback-request";
 import {
+  bumpGlobalLiveIntentSeq,
+  shouldExecutePendingPlaybackRequest,
+  stampPendingPlaybackRequest,
+  type PendingPlaybackWithIntent,
+} from "@/lib/tv-playback-intent";
+import { resolveTvPageOpenLastSyncedReseed } from "@/lib/tv-page-open-resync";
+import {
+  shouldSeedLivePositionFromSchedulePayload,
+  type ScheduleLivePositionApplySource,
+} from "@/lib/tv-schedule-live-position-seed";
+import {
+  clearDriftSeekDedupe,
+  recordDriftSeekIssued,
+  shouldSuppressIdenticalDriftSeek,
+  type DriftSeekDedupeRecord,
+} from "@/lib/tv-drift-seek-dedupe";
+import { shouldSuppressGlobalDriftSeek } from "@/lib/tv-global-drift-seek-guard";
+import {
+  buildPendingPaymentLocalRestore,
+  resolvePaymentRestoreMode,
+  type PendingPaymentLocalRestore,
+} from "@/lib/tv-payment-restore";
+import { shouldSyncToLiveIndexChangeBranch } from "@/lib/tv-sync-index-change";
+import {
   resolveEnforcementPlaybackMode,
   skipNoticeSegments,
 } from "@/lib/tv/enforcement-playback-mode";
@@ -137,7 +161,10 @@ import {
   type PersistedTvPaymentSnapshot,
   type SchedulePlayingSlot,
 } from "@/lib/tv-payment-snapshot";
-import { shouldArmPostPaymentAxis } from "@/lib/tv-post-payment-axis";
+import {
+  persistedSnapshotCommunityId,
+  shouldApplyPersistedPaymentSnapshot,
+} from "@/lib/tv-payment-community-gate";
 import { shouldSkipGlobalModeEffectInitialSync } from "@/lib/tv-go-live-sync";
 import {
   acquireCommunityLiveTvChannel,
@@ -237,6 +264,7 @@ export type TvPaymentPlaybackSnapshot = {
   playingItemOverrideId: string | null;
   schedulePlayingSlot: SchedulePlayingSlot | null;
   localModeReason: string | null;
+  scheduleSourceCommunityId: string | null;
 };
 
 export type LocalPreNoticeSnapshot = {
@@ -651,6 +679,9 @@ export default function GlobalTVProvider({
   const runReadinessFlushRef = useRef<(trigger: string) => void>(() => {});
   const playbackTabSnapshotRestoreAppliedRef = useRef(false);
   const pendingTabSnapshotSeekRef = useRef<number | null>(null);
+  const pendingPaymentLocalRestoreRef =
+    useRef<PendingPaymentLocalRestore | null>(null);
+  const applyPendingPaymentLocalRestoreRef = useRef<() => void>(() => {});
   const applyTabPlaybackSnapshotRestoreRef = useRef<(trigger: string) => void>(
     () => {}
   );
@@ -661,7 +692,12 @@ export default function GlobalTVProvider({
     videoId: string;
     startSeconds: number;
   } | null>(null);
-  const pendingPlaybackRequestRef = useRef<TvPlaybackRequest | null>(null);
+  const pendingPlaybackRequestRef = useRef<PendingPlaybackWithIntent | null>(
+    null
+  );
+  const globalLiveIntentSeqRef = useRef(0);
+  const driftSeekDedupeRef = useRef<DriftSeekDedupeRecord | null>(null);
+  const scheduleItemsRef = useRef<ScheduleItem[]>([]);
   const pendingUserGesturePlayRef = useRef(false);
   const pendingAudioRestoreRef = useRef<PendingAudioRestore | null>(null);
   const paymentPlaybackRestoreRef = useRef<{
@@ -722,6 +758,11 @@ export default function GlobalTVProvider({
     setScheduleStale(false);
     orchestratedPlaybackRef.current = null;
     pendingPlaybackRequestRef.current = null;
+    paymentSnapshotRef.current = null;
+    clearPersistedPaymentSnapshot();
+    setPaymentPendingReturn(false);
+    globalLiveIntentSeqRef.current = 0;
+    driftSeekDedupeRef.current = clearDriftSeekDedupe();
     pendingLiveSyncRef.current = false;
     lastReadinessFlushGenerationRef.current = null;
     readinessFlushInFlightRef.current = false;
@@ -730,6 +771,7 @@ export default function GlobalTVProvider({
     pendingAudioRestoreRef.current = null;
     scheduleSwrBootstrappedRef.current = false;
     paymentPlaybackRestoreRef.current = null;
+    pendingPaymentLocalRestoreRef.current = null;
     suppressNextGlobalModeEffectSyncRef.current = false;
     overlayPauseHeldRef.current = false;
     sessionPauseHeldRef.current = false;
@@ -822,8 +864,9 @@ export default function GlobalTVProvider({
   }, [totalDuration]);
 
   useEffect(() => {
+    scheduleItemsRef.current = items;
     itemsLenRef.current = items.length;
-  }, [items.length]);
+  }, [items]);
 
   const getNow = useCallback(() => Date.now() + driftRef.current, []);
   const getSyncedNow = getNow;
@@ -1093,7 +1136,10 @@ export default function GlobalTVProvider({
           return true;
         }
         if (action === "queue") {
-          pendingPlaybackRequestRef.current = req;
+          pendingPlaybackRequestRef.current = stampPendingPlaybackRequest(
+            req,
+            globalLiveIntentSeqRef.current
+          );
           pendingUserGesturePlayRef.current = true;
           tvTrace("playback", "requestPlayback_queued_unchanged", {
             reason: req.reason,
@@ -1111,7 +1157,10 @@ export default function GlobalTVProvider({
       }
 
       if (!player?.isReady()) {
-        pendingPlaybackRequestRef.current = req;
+        pendingPlaybackRequestRef.current = stampPendingPlaybackRequest(
+          req,
+          globalLiveIntentSeqRef.current
+        );
         if (isUserIntentPlaybackReason(req.reason)) {
           pendingUserGesturePlayRef.current = true;
         }
@@ -1179,6 +1228,20 @@ export default function GlobalTVProvider({
       return;
     }
     pendingPlaybackRequestRef.current = null;
+    if (
+      !shouldExecutePendingPlaybackRequest(
+        pending,
+        globalLiveIntentSeqRef.current
+      )
+    ) {
+      tvTrace("playback", "pending_playback_superseded_by_global_live", {
+        reason: pending.reason,
+        queuedAtGlobalLiveIntentSeq: pending.queuedAtGlobalLiveIntentSeq,
+        globalLiveIntentSeq: globalLiveIntentSeqRef.current,
+      });
+      tryPendingUserGesturePlay();
+      return;
+    }
     requestPlayback(pending);
     tryPendingUserGesturePlay();
   }, [requestPlayback, tryPendingUserGesturePlay, clearEmbedRecoveryIfReady]);
@@ -1582,9 +1645,29 @@ export default function GlobalTVProvider({
       totalDuration: effectivePos.totalDuration,
     });
 
-    if (effectivePos.scheduleIndex !== lastSyncedIndex.current) {
-      lastSyncedIndex.current = effectivePos.scheduleIndex;
-      setCurrentIndex(effectivePos.scheduleIndex);
+    const scheduleIndex = effectivePos.scheduleIndex;
+    let syncIndexChangeBranch = false;
+    if (scheduleIndex !== lastSyncedIndex.current) {
+      let sameVideoForBranch = false;
+      if (!isNotice && effectivePos.item.channel?.url) {
+        const branchVideoId = extractYoutubeID(effectivePos.item.channel.url);
+        sameVideoForBranch =
+          !!branchVideoId &&
+          orchestratedPlaybackRef.current?.videoId === branchVideoId &&
+          player.isReady();
+      }
+      syncIndexChangeBranch = shouldSyncToLiveIndexChangeBranch({
+        scheduleIndex,
+        lastSyncedIndex: lastSyncedIndex.current,
+        currentIndex: currentIndexRef.current,
+        sameVideo: sameVideoForBranch,
+      });
+    }
+
+    if (scheduleIndex !== lastSyncedIndex.current && syncIndexChangeBranch) {
+      driftSeekDedupeRef.current = clearDriftSeekDedupe();
+      lastSyncedIndex.current = scheduleIndex;
+      setCurrentIndex(scheduleIndex);
 
       if (!isNotice) {
         const channelUrl = effectivePos.item.channel?.url;
@@ -1675,7 +1758,14 @@ export default function GlobalTVProvider({
         player.pauseProgrammatic?.();
         return finishHandled();
       }
-    } else if (!isNotice) {
+    } else if (
+      scheduleIndex !== lastSyncedIndex.current &&
+      !syncIndexChangeBranch
+    ) {
+      lastSyncedIndex.current = scheduleIndex;
+    }
+
+    if (scheduleIndex === lastSyncedIndex.current && !isNotice) {
       const channelUrl = effectivePos.item.channel?.url;
       if (!channelUrl) return false;
       const videoId = extractYoutubeID(channelUrl);
@@ -1752,6 +1842,36 @@ export default function GlobalTVProvider({
               },
             });
             return false;
+          } else if (
+            shouldSuppressGlobalDriftSeek({
+              playerState,
+              inFlightOrchestratedVideoId:
+                inFlightOrchestratedVideoIdRef.current,
+            })
+          ) {
+            tvTrace("playback", "syncToLive_drift_seek_suppressed", {
+              reason: "orchestration_in_progress",
+              actual,
+              target: effectivePos.offsetSeconds,
+              playerState,
+            });
+            return finishHandled();
+          } else if (
+            shouldSuppressIdenticalDriftSeek({
+              record: driftSeekDedupeRef.current,
+              startupGeneration: startupGenerationRef.current,
+              scheduleIndex: effectivePos.scheduleIndex,
+              videoId,
+              targetSeconds: effectivePos.offsetSeconds,
+              actual,
+            })
+          ) {
+            tvTrace("playback", "syncToLive_drift_seek_deduped", {
+              actual,
+              target: effectivePos.offsetSeconds,
+              scheduleIndex: effectivePos.scheduleIndex,
+            });
+            return finishHandled();
           } else {
             tvTrace("playback", "syncToLive_drift_seek", {
               actual,
@@ -1791,6 +1911,13 @@ export default function GlobalTVProvider({
             lastOrchestratedCommandRef.current = "seekTo";
             markPrePlayExecutedSeekIfNeeded();
             player.seekTo(effectivePos.offsetSeconds, false);
+            driftSeekDedupeRef.current = recordDriftSeekIssued({
+              startupGeneration: startupGenerationRef.current,
+              scheduleIndex: effectivePos.scheduleIndex,
+              videoId,
+              targetSeconds: effectivePos.offsetSeconds,
+              actual,
+            });
             return finishHandled();
           }
         }
@@ -1928,6 +2055,8 @@ export default function GlobalTVProvider({
             pendingTabSnapshotSeekRef.current = null;
           }
         }
+
+        applyPendingPaymentLocalRestoreRef.current();
       } finally {
         readinessFlushInFlightRef.current = false;
       }
@@ -1993,166 +2122,214 @@ export default function GlobalTVProvider({
     [remountPlayerForResume, runReadinessFlush]
   );
 
-  const applySchedulePayloadCore = useCallback((data: any) => {
-    const serverDrift = (data.serverNow ?? Date.now()) - Date.now();
-    driftRef.current = serverDrift;
+  const applySchedulePayloadCore = useCallback(
+    (
+      data: any,
+      opts?: { livePositionSource?: ScheduleLivePositionApplySource }
+    ) => {
+      const serverDrift = (data.serverNow ?? Date.now()) - Date.now();
+      driftRef.current = serverDrift;
 
-    const sid =
-      (data.activeScheduleId as string | undefined) ??
-      `${data.activeBatch ?? ""}:${(data.items as any[])?.[0]?.id ?? ""}`;
-    if (activeScheduleIdRef.current !== sid) {
-      lastSyncedIndex.current = -1;
-      activeScheduleIdRef.current = sid;
-      orchestratedPlaybackRef.current = null;
-      pendingPlaybackRequestRef.current = null;
-      pendingUserGesturePlayRef.current = false;
-      postPaymentAxisRef.current = false;
-      if (!startupPlaybackGuardRef.current.firstPlayReached) {
-        committedInitialEmbedRef.current = null;
-        provisionalInitialTargetRef.current = null;
-        setInitialPlaybackTarget(null);
-      }
-    }
-
-    setItems(data.items ?? []);
-    tvStartupEvent("playlist_selected", {
-      canonicalMark: "T5",
-      reason: data.scheduleFallback
-        ? "fallback"
-        : data.scheduleState === "NO_SAFE_CONTENT"
-          ? "notice"
-          : "ongoing",
-      data: {
-        scheduleState: data.scheduleState ?? null,
-        ongoingCount: Array.isArray(data.items) ? data.items.length : 0,
-        alternateCount: Array.isArray(data.alternateBatchItems)
-          ? data.alternateBatchItems.length
-          : 0,
-        scheduleRevision: data.scheduleRevisions?.ongoing ?? null,
-      },
-    });
-    schedulePostTtfvIdle(() => {
-      prefetchTvEventCatalogs(
-        collectTvScheduleEventIds((data.items as any[]) ?? [], 24)
-      );
-    });
-    setBroadcastEpoch(data.broadcastEpoch ?? null);
-    setTotalDuration(data.totalDuration ?? 0);
-    setActiveBatch(data.activeBatch ?? null);
-    setAlternateBatch(data.alternateBatch ?? null);
-    setAlternateBatchItems(data.alternateBatchItems ?? []);
-    setAlternateBatchTotalDuration(data.alternateBatchTotalDuration ?? 0);
-
-    const live = data.livePosition as
-      | {
-          scheduleIndex?: number;
-          offsetSeconds?: number;
-          loopPosition?: number;
-          totalDuration?: number;
+      const sid =
+        (data.activeScheduleId as string | undefined) ??
+        `${data.activeBatch ?? ""}:${(data.items as any[])?.[0]?.id ?? ""}`;
+      const previousActiveScheduleId = activeScheduleIdRef.current;
+      if (activeScheduleIdRef.current !== sid) {
+        lastSyncedIndex.current = -1;
+        driftSeekDedupeRef.current = clearDriftSeekDedupe();
+        activeScheduleIdRef.current = sid;
+        orchestratedPlaybackRef.current = null;
+        pendingPlaybackRequestRef.current = null;
+        pendingUserGesturePlayRef.current = false;
+        postPaymentAxisRef.current = false;
+        if (!startupPlaybackGuardRef.current.firstPlayReached) {
+          committedInitialEmbedRef.current = null;
+          provisionalInitialTargetRef.current = null;
+          setInitialPlaybackTarget(null);
         }
-      | undefined;
-    if (
-      live &&
-      typeof live.scheduleIndex === "number" &&
-      typeof live.offsetSeconds === "number"
-    ) {
-      setLastLivePosition({
-        scheduleIndex: live.scheduleIndex,
-        offsetSeconds: live.offsetSeconds,
-        loopPosition: live.loopPosition ?? 0,
-        totalDuration: live.totalDuration ?? data.totalDuration ?? 0,
-      });
-      setLiveBroadcastIndex(live.scheduleIndex);
-      if (modeRef.current === "GLOBAL" && !paymentActiveRef.current) {
-        setCurrentIndex(live.scheduleIndex);
-        currentIndexRef.current = live.scheduleIndex;
-        lastSyncedIndex.current = live.scheduleIndex;
-        tvTrace("schedule", "cold_start_seeded_index", {
-          scheduleIndex: live.scheduleIndex,
-          offsetSeconds: live.offsetSeconds,
-        });
       }
-      tvTrace("schedule", "livePosition_resolved", {
-        scheduleIndex: live.scheduleIndex,
-        offsetSeconds: live.offsetSeconds,
-        loopPosition: live.loopPosition ?? 0,
-        currentIndex: currentIndexRef.current,
-      });
-      const liveItem = (data.items as any[])?.[live.scheduleIndex];
-      tvStartupEvent("initial_playback_position_resolved", {
-        canonicalMark: "T6",
-        reason:
-          modeRef.current === "GLOBAL" && !paymentActiveRef.current
-            ? "cold_start_seeded_index"
-            : "live_position_only",
+
+      setItems(data.items ?? []);
+      tvStartupEvent("playlist_selected", {
+        canonicalMark: "T5",
+        reason: data.scheduleFallback
+          ? "fallback"
+          : data.scheduleState === "NO_SAFE_CONTENT"
+            ? "notice"
+            : "ongoing",
         data: {
-          selectedIndex: live.scheduleIndex,
-          liveOffsetSeconds: live.offsetSeconds,
-          totalDuration: live.totalDuration ?? data.totalDuration ?? 0,
-          videoIdHash: hashShortId(
-            liveItem?.channel?.url
-              ? extractYoutubeID(liveItem.channel.url)
-              : null
-          ),
+          scheduleState: data.scheduleState ?? null,
+          ongoingCount: Array.isArray(data.items) ? data.items.length : 0,
+          alternateCount: Array.isArray(data.alternateBatchItems)
+            ? data.alternateBatchItems.length
+            : 0,
+          scheduleRevision: data.scheduleRevisions?.ongoing ?? null,
         },
       });
+      schedulePostTtfvIdle(() => {
+        prefetchTvEventCatalogs(
+          collectTvScheduleEventIds((data.items as any[]) ?? [], 24)
+        );
+      });
+      setBroadcastEpoch(data.broadcastEpoch ?? null);
+      setTotalDuration(data.totalDuration ?? 0);
+      setActiveBatch(data.activeBatch ?? null);
+      setAlternateBatch(data.alternateBatch ?? null);
+      setAlternateBatchItems(data.alternateBatchItems ?? []);
+      setAlternateBatchTotalDuration(data.alternateBatchTotalDuration ?? 0);
 
+      const live = data.livePosition as
+        | {
+            scheduleIndex?: number;
+            offsetSeconds?: number;
+            loopPosition?: number;
+            totalDuration?: number;
+          }
+        | undefined;
       if (
-        isTvInitialLiveOffsetEmbedEnabled() &&
-        modeRef.current === "GLOBAL" &&
-        !paymentActiveRef.current &&
-        liveItem &&
-        liveItem.segmentKind !== "notice" &&
-        liveItem.channel?.url
+        live &&
+        typeof live.scheduleIndex === "number" &&
+        typeof live.offsetSeconds === "number"
       ) {
-        const videoId = extractYoutubeID(liveItem.channel.url);
-        if (videoId) {
-          const revision =
-            (data.scheduleRevisions?.ongoing as string | number | undefined) ??
-            (data.activeScheduleId as string | undefined) ??
-            null;
-          const target = buildProvisionalInitialTarget({
-            startupGeneration: startupGenerationRef.current,
-            source: scheduleSourceCommunityIdRef.current
-              ? "community"
-              : "global",
-            sourceCommunityId: scheduleSourceCommunityIdRef.current,
-            scheduleRevision: revision,
-            selectedIndex: live.scheduleIndex,
-            videoId,
-            startOffsetSeconds: live.offsetSeconds,
-            resolvedAtPerformanceMs: performance.now(),
+        const livePositionSource =
+          opts?.livePositionSource ?? "network_success";
+        const currentItem = (data.items as any[])?.[currentIndexRef.current];
+        const currentVideoId =
+          orchestratedPlaybackRef.current?.videoId ??
+          (currentItem?.channel?.url
+            ? extractYoutubeID(currentItem.channel.url)
+            : null);
+        const seedDecision = shouldSeedLivePositionFromSchedulePayload({
+          source: livePositionSource,
+          live: {
+            scheduleIndex: live.scheduleIndex,
+            offsetSeconds: live.offsetSeconds,
+          },
+          items: data.items as ScheduleItem[] | undefined,
+          activeScheduleId: sid,
+          previousActiveScheduleId,
+          currentScheduleIndex: currentIndexRef.current,
+          currentVideoId,
+          hasEstablishedPlaybackSync: lastSyncedIndex.current >= 0,
+        });
+
+        if (seedDecision.seed) {
+          setLastLivePosition({
+            scheduleIndex: live.scheduleIndex,
+            offsetSeconds: live.offsetSeconds,
+            loopPosition: live.loopPosition ?? 0,
+            totalDuration: live.totalDuration ?? data.totalDuration ?? 0,
           });
-          provisionalInitialTargetRef.current = target;
-          setInitialPlaybackTarget(target);
+          setLiveBroadcastIndex(live.scheduleIndex);
+          if (modeRef.current === "GLOBAL" && !paymentActiveRef.current) {
+            setCurrentIndex(live.scheduleIndex);
+            currentIndexRef.current = live.scheduleIndex;
+            lastSyncedIndex.current = live.scheduleIndex;
+            tvTrace("schedule", "cold_start_seeded_index", {
+              scheduleIndex: live.scheduleIndex,
+              offsetSeconds: live.offsetSeconds,
+            });
+          }
+          tvTrace("schedule", "livePosition_resolved", {
+            scheduleIndex: live.scheduleIndex,
+            offsetSeconds: live.offsetSeconds,
+            loopPosition: live.loopPosition ?? 0,
+            currentIndex: currentIndexRef.current,
+            seeded: true,
+            seedReason: seedDecision.reason,
+          });
+          const liveItem = (data.items as any[])?.[live.scheduleIndex];
+          tvStartupEvent("initial_playback_position_resolved", {
+            canonicalMark: "T6",
+            reason:
+              modeRef.current === "GLOBAL" && !paymentActiveRef.current
+                ? "cold_start_seeded_index"
+                : "live_position_only",
+            data: {
+              selectedIndex: live.scheduleIndex,
+              liveOffsetSeconds: live.offsetSeconds,
+              totalDuration: live.totalDuration ?? data.totalDuration ?? 0,
+              videoIdHash: hashShortId(
+                liveItem?.channel?.url
+                  ? extractYoutubeID(liveItem.channel.url)
+                  : null
+              ),
+            },
+          });
+
+          if (
+            isTvInitialLiveOffsetEmbedEnabled() &&
+            modeRef.current === "GLOBAL" &&
+            !paymentActiveRef.current &&
+            liveItem &&
+            liveItem.segmentKind !== "notice" &&
+            liveItem.channel?.url
+          ) {
+            const videoId = extractYoutubeID(liveItem.channel.url);
+            if (videoId) {
+              const revision =
+                (data.scheduleRevisions?.ongoing as
+                  | string
+                  | number
+                  | undefined) ??
+                (data.activeScheduleId as string | undefined) ??
+                null;
+              const target = buildProvisionalInitialTarget({
+                startupGeneration: startupGenerationRef.current,
+                source: scheduleSourceCommunityIdRef.current
+                  ? "community"
+                  : "global",
+                sourceCommunityId: scheduleSourceCommunityIdRef.current,
+                scheduleRevision: revision,
+                selectedIndex: live.scheduleIndex,
+                videoId,
+                startOffsetSeconds: live.offsetSeconds,
+                resolvedAtPerformanceMs: performance.now(),
+              });
+              provisionalInitialTargetRef.current = target;
+              setInitialPlaybackTarget(target);
+            }
+          }
+        } else {
+          tvTrace("schedule", "livePosition_seed_skipped", {
+            scheduleIndex: live.scheduleIndex,
+            offsetSeconds: live.offsetSeconds,
+            currentIndex: currentIndexRef.current,
+            reason: seedDecision.reason,
+            source: livePositionSource,
+          });
         }
       }
-    }
 
-    const oc =
-      typeof data?.ongoingCollection === "object" &&
-      data.ongoingCollection != null &&
-      typeof data.ongoingCollection.collectionSlot === "number"
-        ? (data.ongoingCollection as NonNullable<TvAdjustmentCollectionPayload>)
-        : null;
-    const uc =
-      typeof data?.upcomingCollection === "object" &&
-      data.upcomingCollection != null &&
-      typeof data.upcomingCollection.collectionSlot === "number"
-        ? (data.upcomingCollection as NonNullable<TvAdjustmentCollectionPayload>)
-        : null;
-    setOngoingCollection(oc);
-    setUpcomingCollection(uc);
-  }, []);
+      const oc =
+        typeof data?.ongoingCollection === "object" &&
+        data.ongoingCollection != null &&
+        typeof data.ongoingCollection.collectionSlot === "number"
+          ? (data.ongoingCollection as NonNullable<TvAdjustmentCollectionPayload>)
+          : null;
+      const uc =
+        typeof data?.upcomingCollection === "object" &&
+        data.upcomingCollection != null &&
+        typeof data.upcomingCollection.collectionSlot === "number"
+          ? (data.upcomingCollection as NonNullable<TvAdjustmentCollectionPayload>)
+          : null;
+      setOngoingCollection(oc);
+      setUpcomingCollection(uc);
+    },
+    []
+  );
 
   const applySchedulePayload = useCallback(
-    (data: any) => {
+    (
+      data: any,
+      opts?: { livePositionSource?: ScheduleLivePositionApplySource }
+    ) => {
       if (paymentActiveRef.current) {
         pendingSchedulePayloadRef.current = data;
         return;
       }
       pendingSchedulePayloadRef.current = null;
-      applySchedulePayloadCore(data);
+      applySchedulePayloadCore(data, opts);
     },
     [applySchedulePayloadCore]
   );
@@ -2221,7 +2398,9 @@ export default function GlobalTVProvider({
             }
             if (bootstrapDecision.shouldBootstrap && cached) {
               scheduleEtagRef.current = cached.etag ?? scheduleEtagRef.current;
-              applySchedulePayload(cached.body);
+              applySchedulePayload(cached.body, {
+                livePositionSource: "session_cache_bootstrap",
+              });
               setScheduleStale(true);
               setScheduleError(false);
               setIsReady(true);
@@ -2307,7 +2486,7 @@ export default function GlobalTVProvider({
               ),
             },
           });
-          applySchedulePayload(data);
+          applySchedulePayload(data, { livePositionSource: "network_success" });
           setScheduleError(false);
           setScheduleStale(false);
           setIsReady(true);
@@ -2510,7 +2689,9 @@ export default function GlobalTVProvider({
                   : 0,
               },
             });
-            applySchedulePayload(cached.body);
+            applySchedulePayload(cached.body, {
+              livePositionSource: "fallback_cache",
+            });
             setScheduleStale(true);
             setScheduleError(false);
             setIsReady(true);
@@ -2878,6 +3059,7 @@ export default function GlobalTVProvider({
   const enterLocalMode = useCallback((reason: string, index?: number) => {
     const fromMode = modeRef.current;
     setLocalModeReason(reason);
+    driftSeekDedupeRef.current = clearDriftSeekDedupe();
     lastSyncedIndex.current = -1;
 
     if (shouldClearPendingLiveSyncOnLocal()) {
@@ -3043,6 +3225,8 @@ export default function GlobalTVProvider({
       });
     }
 
+    bumpGlobalLiveIntentSeq(globalLiveIntentSeqRef);
+    driftSeekDedupeRef.current = clearDriftSeekDedupe();
     lastSyncedIndex.current = -1;
     const handled = syncToLive();
     if (handled) {
@@ -3088,6 +3272,68 @@ export default function GlobalTVProvider({
   }, [syncToLive, broadcastEpoch, items, totalDuration, getNow]);
 
   const goLive = enterGlobalMode;
+
+  const resolvePaymentRestoreVideoId = useCallback(
+    (opts: {
+      currentIndex: number;
+      playingItemOverrideId: string | null;
+    }): string | null => {
+      if (opts.playingItemOverrideId) {
+        const override =
+          items.find((i: any) => i.id === opts.playingItemOverrideId) ??
+          alternateBatchItems.find(
+            (i: any) => i.id === opts.playingItemOverrideId
+          );
+        if (override?.channel?.url) {
+          const id = extractYoutubeID(override.channel.url);
+          if (id) return id;
+        }
+      }
+      const item =
+        items[opts.currentIndex] ?? alternateBatchItems[opts.currentIndex];
+      if (!item?.channel?.url) return null;
+      return extractYoutubeID(item.channel.url);
+    },
+    [items, alternateBatchItems]
+  );
+
+  const applyPendingPaymentLocalRestore = useCallback(() => {
+    const pending = pendingPaymentLocalRestoreRef.current;
+    if (!pending) return;
+    const player = playerRef.current;
+    if (!player?.isReady()) return;
+
+    const orchestrated = orchestratedPlaybackRef.current;
+    paymentPlaybackRestoreRef.current = {
+      wasMuted: pending.wasMuted,
+      wasPlaying: pending.wasPlaying,
+    };
+
+    if (!orchestrated || orchestrated.videoId !== pending.videoId) {
+      requestPlayback({
+        reason: "payment_restore",
+        videoId: pending.videoId,
+        startSeconds: pending.currentTime,
+        scheduleIndex: pending.scheduleIndex,
+      });
+      pendingPaymentLocalRestoreRef.current = null;
+      queueMicrotask(() => {
+        applyPendingPlaybackRestore();
+        applyPendingAudioRestore();
+      });
+      return;
+    }
+
+    player.seekTo(pending.currentTime, false);
+    pendingPaymentLocalRestoreRef.current = null;
+    applyPendingPlaybackRestore();
+    applyPendingAudioRestore();
+  }, [requestPlayback, applyPendingPlaybackRestore, applyPendingAudioRestore]);
+
+  useEffect(() => {
+    applyPendingPaymentLocalRestoreRef.current =
+      applyPendingPaymentLocalRestore;
+  }, [applyPendingPaymentLocalRestore]);
 
   const dismissPreNotice = useCallback((enforcementId: string) => {
     setDismissedPreNoticeIds(prev =>
@@ -3796,6 +4042,7 @@ export default function GlobalTVProvider({
         (playingItemOverride as { id?: string } | null)?.id ?? null,
       schedulePlayingSlot,
       localModeReason: "tip_drawer",
+      scheduleSourceCommunityId: scheduleSourceCommunityIdRef.current ?? null,
     };
     if (originMode === "GLOBAL") {
       enterLocalMode("tip_drawer", currentIndexRef.current);
@@ -3849,6 +4096,7 @@ export default function GlobalTVProvider({
           (playingItemOverride as { id?: string } | null)?.id ?? null,
         schedulePlayingSlot: { scope: "active", rowIndex: idx },
         localModeReason: "tip_drawer",
+        scheduleSourceCommunityId: scheduleSourceCommunityIdRef.current ?? null,
       };
       paymentSnapshotRef.current = snap;
       writePersistedPaymentSnapshot({ v: 2, ...snap });
@@ -3874,6 +4122,7 @@ export default function GlobalTVProvider({
       schedulePlayingSlot,
       localModeReason:
         originMode === "GLOBAL" ? "payment_redirect" : localModeReason,
+      scheduleSourceCommunityId: scheduleSourceCommunityIdRef.current ?? null,
     };
     writePersistedPaymentSnapshot({ v: 2, ...snap });
     if (paymentSnapshotRef.current) {
@@ -3922,24 +4171,40 @@ export default function GlobalTVProvider({
       return;
     }
 
-    const player = playerRef.current;
-    const originMode = snap.originMode ?? snap.mode;
-
-    if (snap.mode === "GLOBAL") {
+    if (
+      !shouldApplyPersistedPaymentSnapshot(
+        scheduleSourceCommunityIdRef.current ?? null,
+        persistedSnapshotCommunityId(snap)
+      )
+    ) {
+      tvTrace("playback", "payment_snapshot_community_mismatch", {
+        currentCommunityId: scheduleSourceCommunityIdRef.current,
+        snapshotCommunityId: persistedSnapshotCommunityId(snap),
+        source: "resumeAfterPayment",
+      });
       flushPendingSchedule();
-      setLocalModeReason(null);
-      setPlayingItemOverride(null);
-      setSchedulePlayingSlot(null);
-      setMode("GLOBAL");
-      modeRef.current = "GLOBAL";
-      lastSyncedIndex.current = -1;
+      sessionPauseHeldRef.current = false;
+      applyPaymentActiveFromHolds();
+      return;
+    }
+
+    const originMode = snap.originMode ?? snap.mode;
+    const restoreMode = resolvePaymentRestoreMode({
+      mode: snap.mode,
+      originMode,
+      paymentSucceeded: paymentSucceededCapture,
+    });
+
+    if (restoreMode === "GLOBAL") {
+      flushPendingSchedule();
+      pendingPaymentLocalRestoreRef.current = null;
       paymentPlaybackRestoreRef.current = {
         wasMuted: snap.wasMuted,
         wasPlaying: snap.wasPlaying,
       };
       sessionPauseHeldRef.current = false;
       applyPaymentActiveFromHolds();
-      syncToLive();
+      enterGlobalMode();
       queueMicrotask(() => {
         applyPendingPlaybackRestore();
         applyPendingAudioRestore();
@@ -3948,15 +4213,6 @@ export default function GlobalTVProvider({
     }
 
     flushPendingSchedule();
-
-    if (
-      shouldArmPostPaymentAxis({
-        originMode,
-        paymentSucceeded: paymentSucceededCapture,
-      })
-    ) {
-      postPaymentAxisRef.current = true;
-    }
 
     setPlayingItemOverride(resolveOverride(snap.playingItemOverrideId));
     setSchedulePlayingSlot(snap.schedulePlayingSlot);
@@ -3969,23 +4225,28 @@ export default function GlobalTVProvider({
 
     sessionPauseHeldRef.current = false;
     applyPaymentActiveFromHolds();
-    paymentPlaybackRestoreRef.current = {
-      wasMuted: snap.wasMuted,
-      wasPlaying: snap.wasPlaying,
-    };
 
-    if (!player?.isReady()) {
-      return;
+    const videoId = resolvePaymentRestoreVideoId({
+      currentIndex: snap.currentIndex,
+      playingItemOverrideId: snap.playingItemOverrideId,
+    });
+    if (videoId) {
+      pendingPaymentLocalRestoreRef.current = buildPendingPaymentLocalRestore({
+        scheduleIndex: snap.currentIndex,
+        videoId,
+        currentTime: snap.currentTime,
+        wasMuted: snap.wasMuted,
+        wasPlaying: snap.wasPlaying,
+      });
+      applyPendingPaymentLocalRestore();
     }
-
-    player.seekTo(snap.currentTime, false);
-    applyPendingPlaybackRestore();
-    applyPendingAudioRestore();
   }, [
     items,
     alternateBatchItems,
     applySchedulePayloadCore,
-    syncToLive,
+    enterGlobalMode,
+    resolvePaymentRestoreVideoId,
+    applyPendingPaymentLocalRestore,
     applyPendingPlaybackRestore,
     applyPendingAudioRestore,
     applyPaymentActiveFromHolds,
@@ -3999,15 +4260,45 @@ export default function GlobalTVProvider({
     /** Re-sync live position when returning to the TV page without resetting the broadcast timeline. */
     const handler = () => {
       tvTrace("navigation", "tv_page_open", { mode: modeRef.current });
-      lastSyncedIndex.current = -1;
       if (modeRef.current === "GLOBAL") {
+        const player = playerRef.current;
+        const epoch = broadcastEpochRef.current;
+        const total = totalDurationRef.current;
+        const scheduleItems = scheduleItemsRef.current;
+        let reseed: number | null = null;
+        if (epoch != null && scheduleItems.length > 0 && total > 0) {
+          const pos = resolveBroadcastPosition(
+            scheduleItems,
+            epoch,
+            total,
+            getNow()
+          );
+          const liveVideoId = pos.item?.channel?.url
+            ? extractYoutubeID(pos.item.channel.url)
+            : null;
+          reseed = resolveTvPageOpenLastSyncedReseed({
+            modeGlobal: true,
+            playerReady: !!player?.isReady(),
+            broadcastEpoch: epoch,
+            itemsLength: scheduleItems.length,
+            totalDuration: total,
+            liveScheduleIndex: pos.scheduleIndex,
+            liveVideoId,
+            currentIndex: currentIndexRef.current,
+            orchestratedVideoId:
+              orchestratedPlaybackRef.current?.videoId ?? null,
+          });
+        }
+        lastSyncedIndex.current = reseed ?? -1;
         queueMicrotask(() => maybeSyncToLive("tv_page_open"));
+      } else {
+        lastSyncedIndex.current = -1;
       }
     };
 
     window.addEventListener("tv-page-open", handler);
     return () => window.removeEventListener("tv-page-open", handler);
-  }, [maybeSyncToLive]);
+  }, [maybeSyncToLive, getNow]);
 
   /** Restore TV state after full-page return from `/success` (Stripe); same-session uses `resumeAfterPayment`. */
   useEffect(() => {
@@ -4022,6 +4313,22 @@ export default function GlobalTVProvider({
       clearPendingReturnSoon();
       return;
     }
+
+    const currentCommunity = scheduleSourceCommunityIdRef.current ?? null;
+    const snapshotCommunity = persistedSnapshotCommunityId(persisted);
+    if (
+      !shouldApplyPersistedPaymentSnapshot(currentCommunity, snapshotCommunity)
+    ) {
+      tvTrace("playback", "payment_snapshot_community_mismatch", {
+        currentCommunityId: currentCommunity,
+        snapshotCommunityId: snapshotCommunity,
+        source: "stripe_hydrate",
+      });
+      clearPersistedPaymentSnapshot();
+      clearPendingReturnSoon();
+      return;
+    }
+
     clearPersistedPaymentSnapshot();
 
     const resolveOverride = (id: string | null) => {
@@ -4033,38 +4340,28 @@ export default function GlobalTVProvider({
       );
     };
 
-    if (persisted.mode === "GLOBAL") {
-      setLocalModeReason(null);
-      setPlayingItemOverride(null);
-      setSchedulePlayingSlot(null);
-      setMode("GLOBAL");
-      modeRef.current = "GLOBAL";
-      lastSyncedIndex.current = -1;
+    const originMode = persisted.originMode ?? persisted.mode;
+    const restoreMode = resolvePaymentRestoreMode({
+      mode: persisted.mode,
+      originMode,
+      paymentSucceeded: true,
+    });
+
+    if (restoreMode === "GLOBAL") {
+      pendingPaymentLocalRestoreRef.current = null;
       sessionPauseHeldRef.current = false;
       applyPaymentActiveFromHolds();
       paymentPlaybackRestoreRef.current = {
         wasMuted: persisted.wasMuted,
         wasPlaying: persisted.wasPlaying,
       };
+      enterGlobalMode();
       queueMicrotask(() => {
-        syncToLive();
         applyPendingPlaybackRestore();
         applyPendingAudioRestore();
       });
       clearPendingReturnSoon();
       return;
-    }
-
-    const originMode = persisted.originMode ?? persisted.mode;
-
-    // Stripe /success return is a confirmed payment path.
-    if (
-      shouldArmPostPaymentAxis({
-        originMode,
-        paymentSucceeded: true,
-      })
-    ) {
-      postPaymentAxisRef.current = true;
     }
 
     setPlayingItemOverride(resolveOverride(persisted.playingItemOverrideId));
@@ -4076,23 +4373,29 @@ export default function GlobalTVProvider({
     currentIndexRef.current = persisted.currentIndex;
     sessionPauseHeldRef.current = false;
     applyPaymentActiveFromHolds();
-    queueMicrotask(() => {
-      const p = playerRef.current;
-      if (!p?.isReady()) return;
-      p.seekTo(persisted.currentTime, false);
-      paymentPlaybackRestoreRef.current = {
+
+    const videoId = resolvePaymentRestoreVideoId({
+      currentIndex: persisted.currentIndex,
+      playingItemOverrideId: persisted.playingItemOverrideId,
+    });
+    if (videoId) {
+      pendingPaymentLocalRestoreRef.current = buildPendingPaymentLocalRestore({
+        scheduleIndex: persisted.currentIndex,
+        videoId,
+        currentTime: persisted.currentTime,
         wasMuted: persisted.wasMuted,
         wasPlaying: persisted.wasPlaying,
-      };
-      applyPendingPlaybackRestore();
-      applyPendingAudioRestore();
-    });
+      });
+      queueMicrotask(() => applyPendingPaymentLocalRestore());
+    }
     clearPendingReturnSoon();
   }, [
     isReady,
     items,
     alternateBatchItems,
-    syncToLive,
+    enterGlobalMode,
+    resolvePaymentRestoreVideoId,
+    applyPendingPaymentLocalRestore,
     applyPendingPlaybackRestore,
     applyPendingAudioRestore,
     applyPaymentActiveFromHolds,
