@@ -293,6 +293,7 @@ export const HostProfileClient = () => {
   const [billingBusy, setBillingBusy] = useState(false);
 
   const [showCommunityFeatures, setShowCommunityFeatures] = useState(false);
+  const [showSubscriptionCards, setShowSubscriptionCards] = useState(false);
 
   const loading = hostSessionLoading || planLoading;
 
@@ -964,7 +965,15 @@ export const HostProfileClient = () => {
             {!loading && status === "none" ? (
               <div className="space-y-4">
                 <div className="border-muted bg-muted/30 rounded-lg border p-4">
-                  <h3 className="font-semibold">Choose a host plan</h3>
+                  <h3 className="flex items-center gap-2 font-semibold">
+                    Choose a host plan
+                    <span
+                      onClick={() => setShowSubscriptionCards(prev => !prev)}
+                      className="cursor-pointer"
+                    >
+                      {showSubscriptionCards ? <ChevronUp /> : <ChevronDown />}
+                    </span>
+                  </h3>
 
                   <p className="text-muted-foreground mt-1 text-sm">
                     Unlock more tools for growing your events, audience, and
@@ -972,11 +981,13 @@ export const HostProfileClient = () => {
                   </p>
                 </div>
 
-                <HostSubscriptionPricingPanel
-                  focusTier={undefined}
-                  embeddedInHostProfile
-                  subscription={subscriptionState}
-                />
+                {showSubscriptionCards && (
+                  <HostSubscriptionPricingPanel
+                    focusTier={undefined}
+                    embeddedInHostProfile
+                    subscription={subscriptionState}
+                  />
+                )}
               </div>
             ) : null}
 

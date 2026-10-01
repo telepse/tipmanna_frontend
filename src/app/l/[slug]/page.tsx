@@ -48,19 +48,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const displayHandle =
     community !== null
       ? `${community?.communityType} - community`
-      : host.username;
+      : `@${host.username}`;
 
   const ctaSectionLabel =
     (tipConfig?.mode === "live" ? tipConfig.config.ctaSectionLabel : "") ||
     (tipConfig?.mode === "legacy" ? "Engage" : "");
 
   return {
-    title: `${channel.title} by ${displayName}`,
-    description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel}, Support. Tiplink by ${displayName} @${displayHandle} ${tipLink.pitch}`,
+    title: `${channel.title} by ${displayName} ${displayHandle}`,
+    description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel}, Support. Tiplink by ${displayName} ${displayHandle} ${tipLink.pitch}`,
     robots: { index: true, follow: true },
     alternates: { canonical: url },
     openGraph: {
-      title: `${channel.title} by ${displayName}`,
+      title: `${channel.title} by ${displayName} ${displayHandle}`,
       description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel}, Support. Tiplink by ${displayName} @${displayHandle} ${tipLink.pitch}`,
       url,
       ...buildOgImageMetadata(image),
@@ -68,7 +68,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: `${channel.title} by ${displayName}`,
+      title: `${channel.title} by ${displayName} ${displayHandle}`,
       description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel}, Support. Tiplink by ${displayName} @${displayHandle} ${tipLink.pitch}`,
       images: image ? [image] : undefined,
     },

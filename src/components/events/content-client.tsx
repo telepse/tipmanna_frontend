@@ -1929,7 +1929,7 @@ export const ContentClient = ({
             </div>
           </div>
         </div>
-      ) : (
+      ) : overlayPhoneChrome ? null : (
         <div className="fixed bottom-4 left-0 h-[25%] w-[100%] bg-black p-4">
           <div className="space-y-2">
             <span className="text-sm font-semibold">
