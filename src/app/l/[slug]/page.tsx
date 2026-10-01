@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     robots: { index: true, follow: true },
     alternates: { canonical: url },
     openGraph: {
-      title: channel.title,
+      title: `${channel.title} by ${displayName}`,
       description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel}, Support. Tiplink by ${displayName} @${displayHandle} ${tipLink.pitch}`,
       url,
       ...buildOgImageMetadata(image),
@@ -68,7 +68,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: channel.title,
+      title: `${channel.title} by ${displayName}`,
       description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel}, Support. Tiplink by ${displayName} @${displayHandle} ${tipLink.pitch}`,
       images: image ? [image] : undefined,
     },
