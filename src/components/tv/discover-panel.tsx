@@ -1879,7 +1879,7 @@ export function DiscoverPanel({
 
                         <div className="sapce-y-1 p-2">
                           <h5 className="line-clamp-1 text-sm font-medium">
-                            {trimTitle(program.title, 30)}
+                            {trimTitle(program.title, 20)}
                           </h5>
 
                           <p className="text-muted-foreground text-xs capitalize">
