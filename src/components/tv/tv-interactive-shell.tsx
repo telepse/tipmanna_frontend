@@ -145,6 +145,7 @@ import {
 import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
 import { TvPhoneLandscapeTopBar } from "./tv-phone-landscape-top-bar";
+import { TvModeSelector } from "./tv-mode-selector";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -192,7 +193,6 @@ export function TvInteractiveShell({
   characters,
   tvReady,
   items,
-  mode,
   goLive,
   switchToLocal,
   activeTab,
@@ -555,27 +555,7 @@ export function TvInteractiveShell({
               <>
                 {/* Existing content */}
                 <div className="flex items-center justify-between gap-4 border-b-2 border-gray-300">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={goLive}
-                      className={`text-xs whitespace-nowrap ${
-                        mode === "GLOBAL" ? "text-destructive underline" : ""
-                      }`}
-                    >
-                      Live TV
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={switchToLocal}
-                      className={`text-xs whitespace-nowrap ${
-                        mode === "LOCAL" ? "text-success underline" : ""
-                      }`}
-                    >
-                      Your TV
-                    </button>
-                  </div>
+                  <TvModeSelector variant="desktopPanel" />
 
                   <button
                     type="button"
@@ -813,10 +793,7 @@ export function TvInteractiveShell({
           >
             {showPhoneLandscapeImmersive ? (
               <TvPhoneLandscapeTopBar
-                mode={mode}
                 onClose={handleMobileLandscapeClose}
-                onGoLive={goLive}
-                onSwitchToLocal={switchToLocal}
                 onOpenPreviewPlaylist={openPreviewPlaylistDrawer}
                 onOpenSchedule={openScheduleDrawer}
               />
@@ -923,22 +900,10 @@ export function TvInteractiveShell({
                         </button>
                       </div>
 
-                      <div className="mr-3 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={goLive}
-                          className={`shrink-0 text-xs whitespace-nowrap ${mode === "GLOBAL" ? "text-destructive underline" : ""}`}
-                        >
-                          Live TV
-                        </button>
-                        <button
-                          type="button"
-                          onClick={switchToLocal}
-                          className={`shrink-0 text-xs whitespace-nowrap ${mode === "LOCAL" ? "text-success underline" : ""}`}
-                        >
-                          Your TV
-                        </button>
-                      </div>
+                      <TvModeSelector
+                        variant="mobileInline"
+                        className="mr-3"
+                      />
                     </div>
 
                     {activeTab === "playlist" && (

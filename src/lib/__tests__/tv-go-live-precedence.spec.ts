@@ -76,7 +76,7 @@ describe("Go Live precedence (G9)", () => {
     expect(h.issuedLoads).toHaveLength(0);
   });
 
-  it("G9-F — syncToLive pending still executes after Go Live bump", () => {
+  it("G9-F — syncToLive pending re-resolves after Go Live (fresh live offset)", () => {
     const h = createGoLivePrecedenceHarness();
     enterGlobalModeHarness(h);
     queueSyncToLiveWhileNotReady(h);
@@ -84,5 +84,6 @@ describe("Go Live precedence (G9)", () => {
     expect(h.issuedLoads).toHaveLength(1);
     expect(h.issuedLoads[0]?.reason).toBe("syncToLive");
     expect(h.issuedLoads[0]?.videoId).toBe("LIVEVID");
+    expect(h.issuedLoads[0]?.startSeconds).toBe(150);
   });
 });

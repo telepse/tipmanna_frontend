@@ -23,7 +23,6 @@ import { usePusherTracking } from "@/hooks/use-pusher-tracking";
 import { useTipPresentation } from "@/hooks/use-tip-presentation";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
 import { resolveTipDrawerPresentation } from "@/lib/resolve-tip-drawer-sets";
-import { EventDialog } from "./event-dialog";
 import { getEventStatus } from "@/lib/utils";
 import { GlobalTipStreamProvider } from "@/providers/global-tip-stream-provider";
 import { useSelector } from "react-redux";
@@ -692,24 +691,6 @@ export const EventRoomClient = ({
               />
             </StripeProvider>
           </div>
-
-          {status === "Not started" &&
-            eventDate &&
-            !liveFullscreen &&
-            !hasSeenDialog && (
-              <EventDialog
-                eventId={eventId}
-                eventName={eventName}
-                eventDate={eventDate}
-                startTime={startTime}
-                endTime={endTime}
-                venueLocation={venueLocation}
-                organizationName={organizationName}
-                hostName={fullName}
-                totalAttendees={totalAttendees}
-                onClose={markDialogAsSeen}
-              />
-            )}
         </main>
       </EventPusherProvider>
     </GlobalTipStreamProvider>

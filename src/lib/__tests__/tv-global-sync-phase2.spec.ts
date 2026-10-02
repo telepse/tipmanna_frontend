@@ -84,15 +84,18 @@ describe("Phase 2 — page-open (P2-A–D)", () => {
 });
 
 describe("Phase 2 — drift dedupe (P2-E–I)", () => {
-  it("P2-E — triple sync same target: exactly one seek", () => {
+  it("P2-E — triple sync same forward target: exactly one seek", () => {
     const commands: Parameters<typeof runSameIndexDriftMirror>[0]["commands"] =
       [];
-    const player = createMockPlayer({ currentTime: 110 });
+    const player = createMockPlayer({
+      currentTime: 90,
+      playerState: "PLAYING",
+    });
     let dedupe: DriftSeekDedupeRecord | null = clearDriftSeekDedupe();
     for (let i = 0; i < 3; i++) {
-      player.currentTime = 110;
+      player.currentTime = 90;
       runSameIndexDriftMirror({
-        actual: 110,
+        actual: 90,
         target: 100,
         commands,
         player,
@@ -106,15 +109,18 @@ describe("Phase 2 — drift dedupe (P2-E–I)", () => {
     expect(countSeeks(commands)).toBe(1);
   });
 
-  it("P2-F — advancing targets: three legitimate seeks", () => {
+  it("P2-F — advancing targets while behind: forward seeks", () => {
     const commands: Parameters<typeof runSameIndexDriftMirror>[0]["commands"] =
       [];
-    const player = createMockPlayer({ currentTime: 110 });
+    const player = createMockPlayer({
+      currentTime: 90,
+      playerState: "PLAYING",
+    });
     let dedupe: DriftSeekDedupeRecord | null = clearDriftSeekDedupe();
     for (const target of [100, 103, 106]) {
-      player.currentTime = 110;
+      player.currentTime = 90;
       runSameIndexDriftMirror({
-        actual: 110,
+        actual: 90,
         target,
         commands,
         player,
@@ -124,17 +130,21 @@ describe("Phase 2 — drift dedupe (P2-E–I)", () => {
           dedupe = r;
         },
       });
+      player.currentTime = target;
     }
     expect(countSeeks(commands)).toBe(3);
   });
 
-  it("P2-G — aligned after seek: no second seek", () => {
+  it("P2-G — aligned after forward seek: no second seek within threshold", () => {
     const commands: Parameters<typeof runSameIndexDriftMirror>[0]["commands"] =
       [];
-    const player = createMockPlayer({ currentTime: 110 });
+    const player = createMockPlayer({
+      currentTime: 90,
+      playerState: "PLAYING",
+    });
     let dedupe: DriftSeekDedupeRecord | null = clearDriftSeekDedupe();
     runSameIndexDriftMirror({
-      actual: 110,
+      actual: 90,
       target: 100,
       commands,
       player,
@@ -147,7 +157,7 @@ describe("Phase 2 — drift dedupe (P2-E–I)", () => {
     player.currentTime = 100;
     runSameIndexDriftMirror({
       actual: 100,
-      target: 103,
+      target: 102,
       commands,
       player,
       orchestrated: { videoId: "vid-a", startSeconds: 100 },

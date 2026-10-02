@@ -8,6 +8,7 @@ import {
   stampPendingPlaybackRequest,
   type PendingPlaybackWithIntent,
 } from "@/lib/tv-playback-intent";
+import { preparePendingGlobalPlaybackForExecution } from "@/lib/tv-pending-global-playback";
 import { decideReadinessFlush } from "@/lib/tv-readiness-flush";
 import type { TvPlaybackRequest } from "@/lib/tv-playback-request";
 
@@ -21,6 +22,10 @@ export type GoLivePrecedenceHarness = {
   lastReadinessFlushGeneration: number | null;
   issuedLoads: TvPlaybackRequest[];
   syncToLiveCalls: number;
+  /** Live row/video at flush time (for pending re-resolve tests). */
+  liveScheduleIndex: number;
+  liveVideoId: string;
+  liveOffsetSeconds: number;
 };
 
 export function createGoLivePrecedenceHarness(
@@ -36,6 +41,9 @@ export function createGoLivePrecedenceHarness(
     lastReadinessFlushGeneration: null,
     issuedLoads: [],
     syncToLiveCalls: 0,
+    liveScheduleIndex: 0,
+    liveVideoId: "LIVEVID",
+    liveOffsetSeconds: 150,
   };
 }
 
@@ -50,7 +58,8 @@ export function queueLocalPlaybackWhileNotReady(
       startSeconds: 0,
       scheduleIndex: 2,
     },
-    h.globalLiveIntentSeq.current
+    h.globalLiveIntentSeq.current,
+    h.startupGeneration
   );
 }
 
@@ -70,6 +79,20 @@ export function flushPendingPlaybackHarness(h: GoLivePrecedenceHarness): void {
   if (
     !shouldExecutePendingPlaybackRequest(pending, h.globalLiveIntentSeq.current)
   ) {
+    return;
+  }
+  if (pending.reason === "syncToLive") {
+    const prepared = preparePendingGlobalPlaybackForExecution({
+      pending,
+      modeGlobal: h.mode === "GLOBAL",
+      globalLiveIntentSeq: h.globalLiveIntentSeq.current,
+      startupGeneration: h.startupGeneration,
+      liveScheduleIndex: h.liveScheduleIndex,
+      liveVideoId: h.liveVideoId,
+      liveOffsetSeconds: h.liveOffsetSeconds,
+    });
+    if (prepared.action === "drop") return;
+    h.issuedLoads.push(prepared.req);
     return;
   }
   h.issuedLoads.push(pending);
@@ -100,8 +123,25 @@ export function queueSyncToLiveWhileNotReady(h: GoLivePrecedenceHarness): void {
       startSeconds: 120,
       scheduleIndex: 0,
     },
-    h.globalLiveIntentSeq.current
+    h.globalLiveIntentSeq.current,
+    h.startupGeneration
   );
+}
+
+export function dropAutomaticGlobalPendingHarness(
+  h: GoLivePrecedenceHarness
+): void {
+  if (h.pendingPlayback?.reason === "syncToLive") {
+    h.pendingPlayback = null;
+  }
+}
+
+export function enterLocalModeHarness(h: GoLivePrecedenceHarness): void {
+  dropAutomaticGlobalPendingHarness(h);
+  h.mode = "LOCAL";
+  if (h.pendingLiveSync) {
+    h.pendingLiveSync = false;
+  }
 }
 
 export function bumpStartupGeneration(h: GoLivePrecedenceHarness): void {

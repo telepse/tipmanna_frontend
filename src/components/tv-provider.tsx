@@ -17,7 +17,26 @@ import {
   type ScheduleItem,
 } from "@/lib/tv/broadcastEngine";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
-import { logTV, tvLoadMark, tvTrace } from "@/lib/tvDebugLog";
+import { isTvDebugEnabled, logTV, tvLoadMark, tvTrace } from "@/lib/tvDebugLog";
+import {
+  liveTargetMovedBackwardMatteringly,
+  liveTargetSameRowBackwardDeltaSeconds,
+  readScheduleRevisionFromPayload,
+  resolveLiveTargetWithDrift,
+  type ScheduleRefreshRevisionSnapshot,
+} from "@/lib/tv-schedule-refresh-diagnostic";
+import { emitModeTransitionTrace } from "@/lib/tv-mode-transition-trace";
+import {
+  beginGoLiveTransition,
+  clearGoLiveTransition,
+  evaluateGoLiveTransitionCompletion,
+  inactiveGoLiveTransition,
+  shouldApplyGoLiveTransitionCompletion,
+  shouldSuppressPlayerIntentForGoLiveTransition,
+  stampGoLiveTransitionGlobalLiveIntentSeq,
+  updateGoLiveTransitionResolvedTarget,
+  type GoLiveTransitionState,
+} from "@/lib/tv-go-live-transition";
 import {
   getTvStartupTraceId,
   hashShortId,
@@ -43,6 +62,14 @@ import {
   stampPendingPlaybackRequest,
   type PendingPlaybackWithIntent,
 } from "@/lib/tv-playback-intent";
+import {
+  shouldIssueForwardSameRowDriftSeek,
+  shouldSuppressBackwardSameRowDriftWhilePlaying,
+} from "@/lib/tv-global-drift-forward-only";
+import {
+  isAutomaticGlobalPendingReason,
+  preparePendingGlobalPlaybackForExecution,
+} from "@/lib/tv-pending-global-playback";
 import { resolveTvPageOpenLastSyncedReseed } from "@/lib/tv-page-open-resync";
 import {
   shouldSeedLivePositionFromSchedulePayload,
@@ -590,6 +617,10 @@ export default function GlobalTVProvider({
   const activeScheduleIdRef = useRef<string | null>(null);
   const currentIndexRef = useRef(0);
   const modeRef = useRef<"GLOBAL" | "LOCAL">("GLOBAL");
+  const prevReactModeRef = useRef<"GLOBAL" | "LOCAL">("GLOBAL");
+  const goLiveTransitionRef = useRef<GoLiveTransitionState>(
+    inactiveGoLiveTransition()
+  );
   const enforcementPlaybackQueueRef = useRef<any[] | null>(null);
   const enforcementPlaybackIndexRef = useRef(0);
   const pendingEnforcementPlaybackRef = useRef<{
@@ -698,6 +729,15 @@ export default function GlobalTVProvider({
   const globalLiveIntentSeqRef = useRef(0);
   const driftSeekDedupeRef = useRef<DriftSeekDedupeRecord | null>(null);
   const scheduleItemsRef = useRef<ScheduleItem[]>([]);
+  const lastScheduleRevisionDiagnosticRef =
+    useRef<ScheduleRefreshRevisionSnapshot>({
+      scheduleRevision: null,
+      checksum: null,
+      activeScheduleId: null,
+      etag: null,
+    });
+  const scheduleRefreshDiagnosticSeqRef = useRef(0);
+  const pendingScheduleRefreshSyncDiagnosticRef = useRef<number | null>(null);
   const pendingUserGesturePlayRef = useRef(false);
   const pendingAudioRestoreRef = useRef<PendingAudioRestore | null>(null);
   const paymentPlaybackRestoreRef = useRef<{
@@ -829,7 +869,35 @@ export default function GlobalTVProvider({
   }, [currentIndex]);
 
   useEffect(() => {
+    const previousReactMode = prevReactModeRef.current;
     modeRef.current = mode;
+    if (isTvDebugEnabled() && previousReactMode !== mode) {
+      tvTrace("navigation", "mode_indicator_sync", {
+        previousReactMode,
+        newReactMode: mode,
+        modeRef: modeRef.current,
+        selectorValue: mode,
+        source: "react_mode_effect",
+        modeRefMatchesReact: modeRef.current === mode,
+      });
+      emitModeTransitionTrace({
+        previousReactMode,
+        newReactMode: mode,
+        previousModeRef: previousReactMode,
+        newModeRef: modeRef.current,
+        source: "react_mode_effect",
+        action: "react_commit",
+        selectorContextMode: mode,
+        badgeMode: mode,
+        ...snapshotModeTransitionContext(),
+      });
+    }
+    prevReactModeRef.current = mode;
+    if (mode === "LOCAL" && goLiveTransitionRef.current.active) {
+      goLiveTransitionRef.current = clearGoLiveTransition(
+        goLiveTransitionRef.current
+      );
+    }
     tvTrace("navigation", "mode_change", { mode });
     updateTvStartupContext({ source: mode === "GLOBAL" ? "global" : "local" });
   }, [mode]);
@@ -871,18 +939,156 @@ export default function GlobalTVProvider({
   const getNow = useCallback(() => Date.now() + driftRef.current, []);
   const getSyncedNow = getNow;
 
+  const snapshotModeTransitionContext = useCallback(() => {
+    const player = playerRef.current;
+    let playerTimeSeconds: number | null = null;
+    let playerState: string | null = null;
+    if (player?.isReady?.()) {
+      try {
+        playerTimeSeconds = player.getCurrentTime();
+        playerState = player.getPlayerState?.() ?? null;
+      } catch {
+        playerTimeSeconds = null;
+        playerState = null;
+      }
+    }
+    const transition = goLiveTransitionRef.current;
+    return {
+      currentScheduleIndex: currentIndexRef.current,
+      currentVideoId: orchestratedPlaybackRef.current?.videoId ?? null,
+      playerTimeSeconds,
+      playerState,
+      goLiveTransitionActive: transition.active,
+      goLiveTransitionGeneration: transition.generation,
+      goLiveTransitionAgeMs: transition.active
+        ? Date.now() - transition.startedAtMs
+        : null,
+    };
+  }, []);
+
+  const tryCompleteGoLiveTransition = useCallback(
+    (trigger: string) => {
+      const transition = goLiveTransitionRef.current;
+      if (!transition.active) return;
+      const capturedGeneration = transition.generation;
+      const capturedGlobalLiveIntentSeq = transition.globalLiveIntentSeq;
+      const player = playerRef.current;
+      let playerState: string | null = null;
+      let playerTimeSeconds: number | null = null;
+      if (player?.isReady?.()) {
+        try {
+          playerState = player.getPlayerState?.() ?? null;
+          playerTimeSeconds = player.getCurrentTime();
+        } catch {
+          playerState = null;
+          playerTimeSeconds = null;
+        }
+      }
+      let liveVideoIdNow: string | null = null;
+      const epoch = broadcastEpochRef.current;
+      const scheduleItems = scheduleItemsRef.current;
+      const total = totalDurationRef.current;
+      if (epoch != null && scheduleItems.length >= 1 && total > 0) {
+        const pos = resolveBroadcastPosition(
+          scheduleItems,
+          epoch,
+          total,
+          getNow()
+        );
+        liveVideoIdNow = pos.item?.channel?.url
+          ? extractYoutubeID(pos.item.channel.url)
+          : null;
+      }
+      const result = evaluateGoLiveTransitionCompletion({
+        transition,
+        modeGlobal: modeRef.current === "GLOBAL",
+        orchestratedVideoId: orchestratedPlaybackRef.current?.videoId ?? null,
+        liveVideoIdNow,
+        playerState,
+        currentGlobalLiveIntentSeq: globalLiveIntentSeqRef.current,
+      });
+      if (!result.complete) return;
+      if (
+        !shouldApplyGoLiveTransitionCompletion({
+          capturedGeneration,
+          capturedGlobalLiveIntentSeq,
+          currentTransition: goLiveTransitionRef.current,
+        })
+      ) {
+        return;
+      }
+      goLiveTransitionRef.current = clearGoLiveTransition(transition);
+      tvTrace("navigation", "go_live_transition_complete", {
+        trigger,
+        transitionGeneration: transition.generation,
+        completionReason: result.reason,
+        resolvedLiveVideoIdHash: hashShortId(transition.resolvedLiveVideoId),
+        currentVideoIdHash: hashShortId(
+          orchestratedPlaybackRef.current?.videoId ?? null
+        ),
+        scheduleIndex: currentIndexRef.current,
+        playerState,
+        playerTimeSeconds,
+        transitionAgeMs: Date.now() - transition.startedAtMs,
+      });
+    },
+    [getNow]
+  );
+
+  const logGoLiveTransitionPlayerIntentSuppressed = useCallback(
+    (kind: "pause" | "seek") => {
+      const transition = goLiveTransitionRef.current;
+      const ctx = snapshotModeTransitionContext();
+      tvTrace("navigation", "mode_player_intent_suppressed", {
+        kind,
+        reason: "go_live_transition",
+        goLiveTransitionGeneration: transition.generation,
+        resolvedLiveVideoIdHash: hashShortId(transition.resolvedLiveVideoId),
+        currentVideoIdHash: hashShortId(ctx.currentVideoId ?? null),
+        currentScheduleIndex: ctx.currentScheduleIndex,
+        playerState: ctx.playerState,
+        playerTimeSeconds: ctx.playerTimeSeconds,
+        transitionActive: transition.active,
+        transitionAgeMs: transition.active
+          ? Date.now() - transition.startedAtMs
+          : null,
+      });
+    },
+    [snapshotModeTransitionContext]
+  );
+
   const setPlayerPlayingState = useCallback((playing: boolean) => {
     isPlayingRef.current = playing;
   }, []);
 
   const unregisterTvPlayer = useCallback(() => {
     tvTrace("playback", "player_unregister", {});
+    if (
+      pendingPlaybackRequestRef.current &&
+      isAutomaticGlobalPendingReason(pendingPlaybackRequestRef.current.reason)
+    ) {
+      tvTrace("playback", "pending_global_dropped", {
+        reason: "player_unregister",
+        pendingReason: pendingPlaybackRequestRef.current.reason,
+      });
+      pendingPlaybackRequestRef.current = null;
+    }
     playerRef.current = null;
     playbackTabSnapshotRestoreAppliedRef.current = false;
   }, []);
 
   const remountPlayerForResume = useCallback((reason: string) => {
     tvTrace("playback", "player_resume_remount", { reason });
+    if (
+      pendingPlaybackRequestRef.current &&
+      isAutomaticGlobalPendingReason(pendingPlaybackRequestRef.current.reason)
+    ) {
+      tvTrace("playback", "pending_global_dropped", {
+        reason: "player_remount",
+        pendingReason: pendingPlaybackRequestRef.current.reason,
+      });
+      pendingPlaybackRequestRef.current = null;
+    }
     startupGenerationRef.current += 1;
     setStartupEmbedGeneration(startupGenerationRef.current);
     remountedThisHideShowCycleRef.current = true;
@@ -1138,7 +1344,8 @@ export default function GlobalTVProvider({
         if (action === "queue") {
           pendingPlaybackRequestRef.current = stampPendingPlaybackRequest(
             req,
-            globalLiveIntentSeqRef.current
+            globalLiveIntentSeqRef.current,
+            startupGenerationRef.current
           );
           pendingUserGesturePlayRef.current = true;
           tvTrace("playback", "requestPlayback_queued_unchanged", {
@@ -1159,7 +1366,8 @@ export default function GlobalTVProvider({
       if (!player?.isReady()) {
         pendingPlaybackRequestRef.current = stampPendingPlaybackRequest(
           req,
-          globalLiveIntentSeqRef.current
+          globalLiveIntentSeqRef.current,
+          startupGenerationRef.current
         );
         if (isUserIntentPlaybackReason(req.reason)) {
           pendingUserGesturePlayRef.current = true;
@@ -1242,9 +1450,81 @@ export default function GlobalTVProvider({
       tryPendingUserGesturePlay();
       return;
     }
-    requestPlayback(pending);
+
+    let reqToExecute: TvPlaybackRequest = pending;
+
+    if (isAutomaticGlobalPendingReason(pending.reason)) {
+      const epoch = broadcastEpochRef.current;
+      const scheduleItems = scheduleItemsRef.current;
+      const total = totalDurationRef.current;
+      if (epoch == null || scheduleItems.length < 1 || total <= 0) {
+        tvTrace("playback", "pending_global_dropped", {
+          reason: "missing_live_schedule",
+          pendingReason: pending.reason,
+        });
+        tryPendingUserGesturePlay();
+        return;
+      }
+      const pos = resolveBroadcastPosition(
+        scheduleItems,
+        epoch,
+        total,
+        getNow()
+      );
+      const liveVideoId = pos.item?.channel?.url
+        ? extractYoutubeID(pos.item.channel.url)
+        : null;
+      const prepared = preparePendingGlobalPlaybackForExecution({
+        pending,
+        modeGlobal: modeRef.current === "GLOBAL",
+        globalLiveIntentSeq: globalLiveIntentSeqRef.current,
+        startupGeneration: startupGenerationRef.current,
+        liveScheduleIndex: pos.scheduleIndex,
+        liveVideoId: liveVideoId ?? "",
+        liveOffsetSeconds: pos.offsetSeconds,
+      });
+      if (prepared.action === "drop") {
+        tvTrace("playback", "pending_global_dropped", {
+          reason: prepared.dropReason,
+          pendingReason: pending.reason,
+          pendingVideoId: pending.videoId,
+          pendingScheduleIndex: pending.scheduleIndex ?? null,
+        });
+        tryPendingUserGesturePlay();
+        return;
+      }
+      if (prepared.reResolved) {
+        tvTrace("playback", "pending_global_reresolved", {
+          pendingReason: pending.reason,
+          staleStartSeconds: pending.startSeconds,
+          freshStartSeconds: prepared.req.startSeconds,
+          scheduleIndex: prepared.req.scheduleIndex,
+          videoId: prepared.req.videoId,
+        });
+      }
+      reqToExecute = prepared.req;
+    }
+
+    if (
+      goLiveTransitionRef.current.active &&
+      isAutomaticGlobalPendingReason(reqToExecute.reason)
+    ) {
+      goLiveTransitionRef.current = updateGoLiveTransitionResolvedTarget(
+        goLiveTransitionRef.current,
+        reqToExecute.videoId
+      );
+    }
+
+    requestPlayback(reqToExecute);
     tryPendingUserGesturePlay();
-  }, [requestPlayback, tryPendingUserGesturePlay, clearEmbedRecoveryIfReady]);
+    tryCompleteGoLiveTransition("pending_global_flush");
+  }, [
+    requestPlayback,
+    tryPendingUserGesturePlay,
+    clearEmbedRecoveryIfReady,
+    getNow,
+    tryCompleteGoLiveTransition,
+  ]);
 
   const reloadCurrentPlaybackAt = useCallback(
     (startSeconds: number) => {
@@ -1359,6 +1639,7 @@ export default function GlobalTVProvider({
   );
 
   const notifyStartupPlayerPlaying = useCallback(() => {
+    tryCompleteGoLiveTransition("player_playing");
     const guard = startupPlaybackGuardRef.current;
     const stabilityActive = isTvStartupStabilityGuardActive();
     const guardEnabled = isTvStartupPlaybackGuardEnabled();
@@ -1405,7 +1686,7 @@ export default function GlobalTVProvider({
     if (isTvInitialLiveOffsetEmbedEnabled()) {
       recordInitialEmbedSuccessOnce("first_playing_fallback");
     }
-  }, [recordInitialEmbedSuccessOnce]);
+  }, [recordInitialEmbedSuccessOnce, tryCompleteGoLiveTransition]);
 
   const onInitialLiveOffsetEmbedCommitted = useCallback(
     (payload: {
@@ -1872,7 +2153,34 @@ export default function GlobalTVProvider({
               scheduleIndex: effectivePos.scheduleIndex,
             });
             return finishHandled();
+          } else if (
+            shouldSuppressBackwardSameRowDriftWhilePlaying({
+              actual,
+              target: effectivePos.offsetSeconds,
+              thresholdSeconds: DRIFT_THRESHOLD_S,
+              playerState,
+            })
+          ) {
+            tvTrace("playback", "same_row_backward_drift_suppressed", {
+              actual,
+              target: effectivePos.offsetSeconds,
+              scheduleIndex: effectivePos.scheduleIndex,
+              playerState,
+            });
+            return finishHandled();
+          } else if (
+            !shouldIssueForwardSameRowDriftSeek({
+              actual,
+              target: effectivePos.offsetSeconds,
+              thresholdSeconds: DRIFT_THRESHOLD_S,
+            })
+          ) {
+            return finishHandled();
           } else {
+            tvTrace("playback", "forward_drift_correction", {
+              actual,
+              target: effectivePos.offsetSeconds,
+            });
             tvTrace("playback", "syncToLive_drift_seek", {
               actual,
               target: effectivePos.offsetSeconds,
@@ -1953,6 +2261,24 @@ export default function GlobalTVProvider({
     markPrePlayExecutedSeekIfNeeded,
     isOrchestrationBlockedByTerminalFailure,
   ]);
+
+  const runScheduleRefreshSyncToLive = useCallback(() => {
+    if (modeRef.current !== "GLOBAL") return;
+    const refreshId = pendingScheduleRefreshSyncDiagnosticRef.current;
+    const cmdBefore = lastOrchestratedCommandRef.current;
+    const handled = syncToLive();
+    if (!isTvDebugEnabled() || refreshId == null) return;
+    const seekCommandIssued =
+      lastOrchestratedCommandRef.current === "seekTo" && cmdBefore !== "seekTo";
+    tvTrace("schedule", "schedule_refresh_syncToLive", {
+      refreshId,
+      syncToLiveRanBecauseOfRefresh: true,
+      syncHandled: handled,
+      seekCommandIssued,
+      lastOrchestratedCommand: lastOrchestratedCommandRef.current,
+    });
+    pendingScheduleRefreshSyncDiagnosticRef.current = null;
+  }, [syncToLive]);
 
   const maybeSyncToLive = useCallback(
     (source: string) => {
@@ -2127,6 +2453,20 @@ export default function GlobalTVProvider({
       data: any,
       opts?: { livePositionSource?: ScheduleLivePositionApplySource }
     ) => {
+      const livePositionSource = opts?.livePositionSource ?? "network_success";
+      const prevDriftMs = driftRef.current;
+      const previousRevisionSnapshot = {
+        ...lastScheduleRevisionDiagnosticRef.current,
+      };
+      const liveTargetBefore = isTvDebugEnabled()
+        ? resolveLiveTargetWithDrift(
+            scheduleItemsRef.current,
+            broadcastEpochRef.current,
+            totalDurationRef.current,
+            prevDriftMs
+          )
+        : null;
+
       const serverDrift = (data.serverNow ?? Date.now()) - Date.now();
       driftRef.current = serverDrift;
 
@@ -2191,8 +2531,6 @@ export default function GlobalTVProvider({
         typeof live.scheduleIndex === "number" &&
         typeof live.offsetSeconds === "number"
       ) {
-        const livePositionSource =
-          opts?.livePositionSource ?? "network_success";
         const currentItem = (data.items as any[])?.[currentIndexRef.current];
         const currentVideoId =
           orchestratedPlaybackRef.current?.videoId ??
@@ -2315,6 +2653,65 @@ export default function GlobalTVProvider({
           : null;
       setOngoingCollection(oc);
       setUpcomingCollection(uc);
+
+      if (isTvDebugEnabled()) {
+        const newRevisionSnapshot = readScheduleRevisionFromPayload(data);
+        newRevisionSnapshot.etag = scheduleEtagRef.current;
+        const nextItems = (data.items as ScheduleItem[] | undefined) ?? [];
+        const nextEpoch =
+          (data.broadcastEpoch as number | undefined) ??
+          broadcastEpochRef.current;
+        const nextTotalDuration =
+          (data.totalDuration as number | undefined) ??
+          totalDurationRef.current;
+        const liveTargetAfter = resolveLiveTargetWithDrift(
+          nextItems.length ? nextItems : scheduleItemsRef.current,
+          nextEpoch ?? null,
+          nextTotalDuration,
+          driftRef.current
+        );
+        const player = playerRef.current;
+        let playerTimeSeconds: number | null = null;
+        if (player?.isReady?.()) {
+          try {
+            playerTimeSeconds = player.getCurrentTime();
+          } catch {
+            playerTimeSeconds = null;
+          }
+        }
+        const currentVideoId = orchestratedPlaybackRef.current?.videoId ?? null;
+        const refreshId = scheduleRefreshDiagnosticSeqRef.current + 1;
+        scheduleRefreshDiagnosticSeqRef.current = refreshId;
+        pendingScheduleRefreshSyncDiagnosticRef.current = refreshId;
+        const sameRowBackwardDeltaSeconds =
+          liveTargetSameRowBackwardDeltaSeconds(
+            liveTargetBefore,
+            liveTargetAfter
+          );
+        tvTrace("schedule", "schedule_refresh_reanchor", {
+          refreshId,
+          livePositionSource,
+          previousDriftMs: prevDriftMs,
+          newDriftMs: driftRef.current,
+          driftDeltaMs: driftRef.current - prevDriftMs,
+          previousRevision: previousRevisionSnapshot,
+          newRevision: newRevisionSnapshot,
+          scheduleIndex: currentIndexRef.current,
+          currentVideoIdHash: hashShortId(currentVideoId),
+          playerTimeSeconds,
+          liveTargetBefore,
+          liveTargetAfter,
+          sameRowBackwardDeltaSeconds,
+          liveTargetMovedBackwardMatteringly:
+            liveTargetMovedBackwardMatteringly(
+              liveTargetBefore,
+              liveTargetAfter,
+              DRIFT_THRESHOLD_S
+            ),
+          activeScheduleIdChanged: previousActiveScheduleId !== sid,
+        });
+        lastScheduleRevisionDiagnosticRef.current = newRevisionSnapshot;
+      }
     },
     []
   );
@@ -2437,7 +2834,7 @@ export default function GlobalTVProvider({
                 offsetSeconds: null,
               });
               if (modeRef.current === "GLOBAL") {
-                queueMicrotask(() => syncToLive());
+                queueMicrotask(() => runScheduleRefreshSyncToLive());
               }
             }
           }
@@ -2631,7 +3028,7 @@ export default function GlobalTVProvider({
 
           applySuccess(data, etag, fetchCommunityId);
           if (modeRef.current === "GLOBAL") {
-            queueMicrotask(() => syncToLive());
+            queueMicrotask(() => runScheduleRefreshSyncToLive());
           }
         } catch (err) {
           console.error("Failed to load TV schedule:", err);
@@ -2761,7 +3158,7 @@ export default function GlobalTVProvider({
         }
       });
     },
-    [applySchedulePayload, syncToLive]
+    [applySchedulePayload, runScheduleRefreshSyncToLive]
   );
 
   useEffect(() => {
@@ -3056,45 +3453,88 @@ export default function GlobalTVProvider({
     return () => clearInterval(interval);
   }, [mode, broadcastEpoch, items, totalDuration, syncToLive]);
 
-  const enterLocalMode = useCallback((reason: string, index?: number) => {
-    const fromMode = modeRef.current;
-    setLocalModeReason(reason);
-    driftSeekDedupeRef.current = clearDriftSeekDedupe();
-    lastSyncedIndex.current = -1;
-
-    if (shouldClearPendingLiveSyncOnLocal()) {
-      pendingLiveSyncRef.current = false;
-    }
-
-    const wasGlobal = modeRef.current === "GLOBAL";
-    setMode("LOCAL");
-    modeRef.current = "LOCAL";
-
-    if (index !== undefined) {
-      setCurrentIndex(index);
-      currentIndexRef.current = index;
-      setLastLocalIndex(index);
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(SESSION_LOCAL_INDEX_KEY, String(index));
+  const enterLocalMode = useCallback(
+    (reason: string, index?: number) => {
+      const fromMode = modeRef.current;
+      if (goLiveTransitionRef.current.active) {
+        goLiveTransitionRef.current = clearGoLiveTransition(
+          goLiveTransitionRef.current
+        );
       }
-    } else if (wasGlobal) {
-      setLastLocalIndex(currentIndexRef.current);
-      setSchedulePlayingSlot({
-        scope: "active",
-        rowIndex: liveBroadcastIndexRef.current,
+      const ctx = snapshotModeTransitionContext();
+      if (isTvDebugEnabled()) {
+        tvTrace("navigation", "mode_indicator_sync", {
+          previousReactMode: prevReactModeRef.current,
+          newReactMode: "LOCAL",
+          modeRefBefore: fromMode,
+          source: "enterLocalMode",
+          action: reason,
+        });
+      }
+      emitModeTransitionTrace({
+        previousReactMode: prevReactModeRef.current,
+        newReactMode: "LOCAL",
+        previousModeRef: fromMode,
+        newModeRef: "LOCAL",
+        source: "enterLocalMode",
+        action: reason,
+        selectorContextMode: prevReactModeRef.current,
+        badgeMode: prevReactModeRef.current,
+        causedByPlayerPause: reason === "pause",
+        causedByPlayerSeek: reason === "seek",
+        ...ctx,
       });
-    }
+      setLocalModeReason(reason);
+      driftSeekDedupeRef.current = clearDriftSeekDedupe();
+      lastSyncedIndex.current = -1;
 
-    if (fromMode !== "LOCAL") {
-      trackTvModeChange(fromMode, "LOCAL", reason);
-      logTV("mode_enter_local", {
-        mode: "LOCAL",
-        reason,
-        currentIndex: currentIndexRef.current,
-        offsetSeconds: null,
-      });
-    }
-  }, []);
+      if (
+        pendingPlaybackRequestRef.current &&
+        isAutomaticGlobalPendingReason(pendingPlaybackRequestRef.current.reason)
+      ) {
+        tvTrace("playback", "pending_global_dropped", {
+          reason: "enter_local_mode",
+          pendingReason: pendingPlaybackRequestRef.current.reason,
+          trigger: reason,
+        });
+        pendingPlaybackRequestRef.current = null;
+      }
+
+      if (shouldClearPendingLiveSyncOnLocal()) {
+        pendingLiveSyncRef.current = false;
+      }
+
+      const wasGlobal = modeRef.current === "GLOBAL";
+      setMode("LOCAL");
+      modeRef.current = "LOCAL";
+
+      if (index !== undefined) {
+        setCurrentIndex(index);
+        currentIndexRef.current = index;
+        setLastLocalIndex(index);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(SESSION_LOCAL_INDEX_KEY, String(index));
+        }
+      } else if (wasGlobal) {
+        setLastLocalIndex(currentIndexRef.current);
+        setSchedulePlayingSlot({
+          scope: "active",
+          rowIndex: liveBroadcastIndexRef.current,
+        });
+      }
+
+      if (fromMode !== "LOCAL") {
+        trackTvModeChange(fromMode, "LOCAL", reason);
+        logTV("mode_enter_local", {
+          mode: "LOCAL",
+          reason,
+          currentIndex: currentIndexRef.current,
+          offsetSeconds: null,
+        });
+      }
+    },
+    [snapshotModeTransitionContext]
+  );
 
   const applyTabPlaybackSnapshotRestore = useCallback(
     (trigger: string) => {
@@ -3205,6 +3645,44 @@ export default function GlobalTVProvider({
 
   const enterGlobalMode = useCallback(() => {
     const fromMode = modeRef.current;
+    let resolvedLiveVideoId: string | null = null;
+    if (broadcastEpoch && items.length && totalDuration) {
+      const pos = resolveBroadcastPosition(
+        items,
+        broadcastEpoch,
+        totalDuration,
+        getNow()
+      );
+      resolvedLiveVideoId = pos.item?.channel?.url
+        ? extractYoutubeID(pos.item.channel.url)
+        : null;
+    }
+    goLiveTransitionRef.current = beginGoLiveTransition(
+      goLiveTransitionRef.current,
+      { resolvedLiveVideoId }
+    );
+    const ctxBefore = snapshotModeTransitionContext();
+    if (isTvDebugEnabled()) {
+      tvTrace("navigation", "mode_indicator_sync", {
+        previousReactMode: prevReactModeRef.current,
+        newReactMode: "GLOBAL",
+        modeRefBefore: fromMode,
+        source: "enterGlobalMode",
+        action: "goLive",
+        goLiveTransitionGeneration: goLiveTransitionRef.current.generation,
+      });
+    }
+    emitModeTransitionTrace({
+      previousReactMode: prevReactModeRef.current,
+      newReactMode: "GLOBAL",
+      previousModeRef: fromMode,
+      newModeRef: "GLOBAL",
+      source: "enterGlobalMode",
+      action: "goLive",
+      selectorContextMode: prevReactModeRef.current,
+      badgeMode: prevReactModeRef.current,
+      ...ctxBefore,
+    });
     postPaymentAxisRef.current = false;
     setLocalModeReason(null);
     setPlayingItemOverride(null);
@@ -3225,10 +3703,56 @@ export default function GlobalTVProvider({
       });
     }
 
+    if (
+      pendingPlaybackRequestRef.current &&
+      isAutomaticGlobalPendingReason(pendingPlaybackRequestRef.current.reason)
+    ) {
+      tvTrace("playback", "pending_global_dropped", {
+        reason: "enter_global_mode_superseded",
+        pendingReason: pendingPlaybackRequestRef.current.reason,
+      });
+      pendingPlaybackRequestRef.current = null;
+    }
+
     bumpGlobalLiveIntentSeq(globalLiveIntentSeqRef);
+    goLiveTransitionRef.current = stampGoLiveTransitionGlobalLiveIntentSeq(
+      goLiveTransitionRef.current,
+      globalLiveIntentSeqRef.current
+    );
     driftSeekDedupeRef.current = clearDriftSeekDedupe();
     lastSyncedIndex.current = -1;
+    tvTrace("playback", "explicit_go_live_reposition", {
+      fromMode,
+      playerReady: !!playerRef.current?.isReady(),
+    });
     const handled = syncToLive();
+    if (handled && goLiveTransitionRef.current.active) {
+      const orch = orchestratedPlaybackRef.current;
+      if (orch?.videoId) {
+        goLiveTransitionRef.current = updateGoLiveTransitionResolvedTarget(
+          goLiveTransitionRef.current,
+          orch.videoId
+        );
+      }
+    }
+    tryCompleteGoLiveTransition(
+      handled
+        ? "enter_global_after_sync_handled"
+        : "enter_global_after_sync_pending"
+    );
+    emitModeTransitionTrace({
+      previousReactMode: prevReactModeRef.current,
+      newReactMode: "GLOBAL",
+      previousModeRef: fromMode,
+      newModeRef: modeRef.current,
+      source: "enterGlobalMode",
+      action: handled
+        ? "goLive_after_syncToLive_handled"
+        : "goLive_after_syncToLive_pending",
+      selectorContextMode: "GLOBAL",
+      badgeMode: "GLOBAL",  
+      ...snapshotModeTransitionContext(),
+    });
     if (handled) {
       if (fromMode !== "GLOBAL") {
         suppressNextGlobalModeEffectSyncRef.current = true;
@@ -3269,7 +3793,15 @@ export default function GlobalTVProvider({
         }
       });
     }
-  }, [syncToLive, broadcastEpoch, items, totalDuration, getNow]);
+  }, [
+    syncToLive,
+    broadcastEpoch,
+    items,
+    totalDuration,
+    getNow,
+    snapshotModeTransitionContext,
+    tryCompleteGoLiveTransition,
+  ]);
 
   const goLive = enterGlobalMode;
 
@@ -3444,6 +3976,11 @@ export default function GlobalTVProvider({
 
   const handleStartupPlayerError = useCallback(
     (youtubeErrorCode: number) => {
+      if (goLiveTransitionRef.current.active) {
+        goLiveTransitionRef.current = clearGoLiveTransition(
+          goLiveTransitionRef.current
+        );
+      }
       const player = playerRef.current;
       const failedVideoId =
         orchestratedPlaybackRef.current?.videoId ??
@@ -4002,18 +4539,84 @@ export default function GlobalTVProvider({
   const onPlayerPause = useCallback(() => {
     if (paymentActiveRef.current) return;
     if (modeRef.current !== "GLOBAL") return;
+    if (
+      shouldSuppressPlayerIntentForGoLiveTransition({
+        transition: goLiveTransitionRef.current,
+        mode: modeRef.current,
+      })
+    ) {
+      logGoLiveTransitionPlayerIntentSuppressed("pause");
+      emitModeTransitionTrace({
+        previousReactMode: prevReactModeRef.current,
+        newReactMode: prevReactModeRef.current,
+        previousModeRef: modeRef.current,
+        newModeRef: modeRef.current,
+        source: "onPlayerPause",
+        action: "suppressed_go_live_transition",
+        causedByPlayerPause: true,
+        ...snapshotModeTransitionContext(),
+      });
+      return;
+    }
+    emitModeTransitionTrace({
+      previousReactMode: prevReactModeRef.current,
+      newReactMode: "LOCAL",
+      previousModeRef: modeRef.current,
+      newModeRef: "LOCAL",
+      source: "onPlayerPause",
+      action: "enterLocalMode_pause",
+      causedByPlayerPause: true,
+      ...snapshotModeTransitionContext(),
+    });
     trackTvUserInteraction("pause", null);
     enterLocalMode("pause");
-  }, [enterLocalMode]);
+  }, [
+    enterLocalMode,
+    snapshotModeTransitionContext,
+    logGoLiveTransitionPlayerIntentSuppressed,
+  ]);
 
   const onPlayerSeek = useCallback(
     (seconds: number) => {
       if (paymentActiveRef.current) return;
       if (modeRef.current !== "GLOBAL") return;
+      if (
+        shouldSuppressPlayerIntentForGoLiveTransition({
+          transition: goLiveTransitionRef.current,
+          mode: modeRef.current,
+        })
+      ) {
+        logGoLiveTransitionPlayerIntentSuppressed("seek");
+        emitModeTransitionTrace({
+          previousReactMode: prevReactModeRef.current,
+          newReactMode: prevReactModeRef.current,
+          previousModeRef: modeRef.current,
+          newModeRef: modeRef.current,
+          source: "onPlayerSeek",
+          action: "suppressed_go_live_transition",
+          causedByPlayerSeek: true,
+          ...snapshotModeTransitionContext(),
+        });
+        return;
+      }
+      emitModeTransitionTrace({
+        previousReactMode: prevReactModeRef.current,
+        newReactMode: "LOCAL",
+        previousModeRef: modeRef.current,
+        newModeRef: "LOCAL",
+        source: "onPlayerSeek",
+        action: "enterLocalMode_seek",
+        causedByPlayerSeek: true,
+        ...snapshotModeTransitionContext(),
+      });
       trackTvUserInteraction("seek", String(Math.round(seconds)));
       enterLocalMode("seek");
     },
-    [enterLocalMode]
+    [
+      enterLocalMode,
+      snapshotModeTransitionContext,
+      logGoLiveTransitionPlayerIntentSuppressed,
+    ]
   );
 
   const applyPaymentActiveFromHolds = useCallback(() => {
