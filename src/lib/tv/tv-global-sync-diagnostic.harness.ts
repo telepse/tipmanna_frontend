@@ -15,6 +15,10 @@ import {
   type DriftSeekDedupeRecord,
 } from "@/lib/tv-drift-seek-dedupe";
 import { shouldSuppressGlobalDriftSeek } from "@/lib/tv-global-drift-seek-guard";
+import {
+  shouldIssueForwardSameRowDriftSeek,
+  shouldSuppressBackwardSameRowDriftWhilePlaying,
+} from "@/lib/tv-global-drift-forward-only";
 import { resolveTvPageOpenLastSyncedReseed } from "@/lib/tv-page-open-resync";
 import { shouldSyncToLiveIndexChangeBranch } from "@/lib/tv-sync-index-change";
 
@@ -310,6 +314,18 @@ export function runSameIndexDriftMirror(opts: {
         inFlightOrchestratedVideoId: opts.inFlightOrchestratedVideoId ?? null,
       })
     ) {
+      return;
+    }
+    if (
+      shouldSuppressBackwardSameRowDriftWhilePlaying({
+        actual,
+        target,
+        playerState: player.playerState,
+      })
+    ) {
+      return;
+    }
+    if (!shouldIssueForwardSameRowDriftSeek({ actual, target })) {
       return;
     }
     if (

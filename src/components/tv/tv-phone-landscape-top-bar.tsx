@@ -3,22 +3,17 @@
 import { CalendarDays, ListMusic, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { TvModeSelector } from "./tv-mode-selector";
 
 type Props = {
-  mode: "GLOBAL" | "LOCAL";
   onClose: () => void;
-  onGoLive: () => void;
-  onSwitchToLocal: () => void;
   onOpenPreviewPlaylist: () => void;
   onOpenSchedule: () => void;
   className?: string;
 };
 
 export function TvPhoneLandscapeTopBar({
-  mode,
   onClose,
-  onGoLive,
-  onSwitchToLocal,
   onOpenPreviewPlaylist,
   onOpenSchedule,
   className,
@@ -40,28 +35,7 @@ export function TvPhoneLandscapeTopBar({
         <X className="size-5" />
       </button>
 
-      <div className="flex min-w-0 items-center gap-2 text-xs font-medium sm:gap-3">
-        <button
-          type="button"
-          onClick={onGoLive}
-          className={cn(
-            "whitespace-nowrap",
-            mode === "GLOBAL" ? "text-destructive underline" : "text-white/80"
-          )}
-        >
-          Live TV
-        </button>
-        <button
-          type="button"
-          onClick={onSwitchToLocal}
-          className={cn(
-            "whitespace-nowrap",
-            mode === "LOCAL" ? "text-success underline" : "text-white/80"
-          )}
-        >
-          Your TV
-        </button>
-      </div>
+      <TvModeSelector variant="phoneLandscapeBar" />
 
       <div className="flex shrink-0 items-center gap-1">
         <button

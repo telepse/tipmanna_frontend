@@ -123,6 +123,7 @@ import {
   Globe,
   GlobeCheck,
   ArrowRight,
+  CircleCheck,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -2157,205 +2158,254 @@ export const SettingsClient = () => {
               value="payment_payouts"
               className="mt-0 w-full"
             >
-              <div className="space-y-5">
-                {/* Bank account information */}
-                <section className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold">
-                      Bank account information
-                    </h3>
+              {!isCreatorProfileVerified ? (
+                <section className="border-primary/15 from-primary/[0.08] to-primary/[0.03] relative overflow-hidden rounded-2xl border bg-gradient-to-br via-white p-6 shadow-sm sm:p-8">
+                  {/* Decorative background glow */}
+                  <div className="bg-primary/10 pointer-events-none absolute -top-16 -right-16 size-40 rounded-full blur-3xl" />
+                  <div className="bg-primary/[0.06] pointer-events-none absolute -bottom-20 -left-16 size-44 rounded-full blur-3xl" />
 
-                    <p className="text-muted-foreground text-sm">
-                      Your payout bank details are taken from your{" "}
-                      {profileAccountType === "ORGANIZATION"
-                        ? "organisation"
-                        : "individual"}{" "}
-                      profile.
-                    </p>
-                  </div>
+                  <div className="relative mx-auto flex max-w-lg flex-col items-center text-center">
+                    {/* Icon */}
+                    <div className="relative mb-5">
+                      <div className="bg-primary/10 absolute inset-0 scale-125 rounded-2xl blur-md" />
 
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="payout-bank-name"
-                        className="text-sm leading-none font-medium"
-                      >
-                        Bank name
-                      </label>
-
-                      <Input
-                        id="payout-bank-name"
-                        value=""
-                        placeholder="Bank name not provided"
-                        readOnly
-                        disabled
-                      />
-
-                      <p className="text-muted-foreground text-xs">
-                        Bank name is not currently stored in your profile.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="payout-account-name"
-                        className="text-sm leading-none font-medium"
-                      >
-                        Account name
-                      </label>
-
-                      <Input
-                        id="payout-account-name"
-                        value={payoutAccountName ?? ""}
-                        placeholder="Account name"
-                        readOnly
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="payout-routing-number"
-                        className="text-sm leading-none font-medium"
-                      >
-                        Sort code
-                      </label>
-
-                      <Input
-                        id="payout-routing-number"
-                        value={payoutRoutingNumber ?? ""}
-                        placeholder="Routing number"
-                        readOnly
-                      />
-
-                      <p className="text-muted-foreground text-xs">
-                        This uses the sort code saved in your profile.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="payout-account-holder-name"
-                        className="text-sm leading-none font-medium"
-                      >
-                        Account holder name
-                      </label>
-
-                      <Input
-                        id="payout-account-holder-name"
-                        value={payoutAccountHolderName ?? ""}
-                        placeholder="Account holder name"
-                        readOnly
-                      />
-                    </div>
-                  </div>
-
-                  {payoutAccountNumber ? (
-                    <div className="bg-muted/30 rounded-lg border p-3">
-                      <p className="text-muted-foreground text-xs">
-                        Account number
-                      </p>
-
-                      <p className="mt-1 text-sm font-medium">
-                        {payoutAccountNumber}
-                      </p>
-                    </div>
-                  ) : null}
-                </section>
-
-                {/* Account type banner */}
-                <section className="rounded-xl border bg-white p-4 shadow-sm sm:p-5">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-muted flex size-11 shrink-0 items-center justify-center rounded-xl border">
-                      {profileAccountType === "ORGANIZATION" ? (
-                        <Building2 className="text-foreground size-5" />
-                      ) : (
-                        <User className="text-foreground size-5" />
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                        Profile type
-                      </p>
-
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold sm:text-base">
-                          {profileAccountType === "ORGANIZATION"
-                            ? "Organisation"
-                            : "Individual"}
-                        </p>
+                      <div className="border-primary/20 bg-background text-primary relative flex size-14 items-center justify-center rounded-2xl border shadow-sm">
+                        <Wallet
+                          className="size-6"
+                          strokeWidth={1.8}
+                        />
                       </div>
+                    </div>
 
-                      <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-                        Your payout and tax information is managed using this
+                    {/* Content */}
+                    <div>
+                      <h3 className="text-base font-semibold sm:text-lg">
+                        Your payout details will appear here
+                      </h3>
+
+                      <p className="text-muted-foreground mt-2 max-w-md text-sm leading-6">
+                        Once you receive your first successful payout,
+                        we&apos;ll unlock your payment and payout information
+                        here.
+                      </p>
+                    </div>
+
+                    {/* Subtle status indicator */}
+                    <div className="border-primary/15 bg-background/80 mt-6 flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm backdrop-blur-sm">
+                      <span className="relative flex size-2">
+                        <span className="bg-primary/30 absolute inline-flex size-full animate-ping rounded-full" />
+                        <span className="bg-primary relative inline-flex size-2 rounded-full" />
+                      </span>
+
+                      <span className="text-muted-foreground text-xs font-medium">
+                        Your first payout unlocks this section
+                      </span>
+                    </div>
+                  </div>
+                </section>
+              ) : (
+                <div className="space-y-5">
+                  {/* Bank account information */}
+                  <section className="space-y-5 rounded-xl border bg-white p-4 sm:p-6">
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-semibold">
+                        Bank account information
+                      </h3>
+
+                      <p className="text-muted-foreground text-sm">
+                        Your payout bank details are taken from your{" "}
+                        {profileAccountType === "ORGANIZATION"
+                          ? "organisation"
+                          : "individual"}{" "}
                         profile.
                       </p>
                     </div>
-                  </div>
-                </section>
 
-                {/* Payout schedule */}
-                <section className="bg-card space-y-4 rounded-lg border p-4 sm:p-5">
-                  <div>
-                    <h2 className="text-lg font-semibold">
-                      Payout settlement history
-                    </h2>
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="payout-bank-name"
+                          className="text-sm leading-none font-medium"
+                        >
+                          Bank name
+                        </label>
 
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      Recent payouts that have been settled for your host
-                      account.
-                    </p>
-                  </div>
+                        <Input
+                          id="payout-bank-name"
+                          value=""
+                          placeholder="Bank name not provided"
+                          readOnly
+                          disabled
+                        />
 
-                  {payoutsLoading ? (
-                    <p className="text-muted-foreground text-sm">
-                      Loading settlement history…
-                    </p>
-                  ) : settlementHistory.length === 0 ? (
-                    <div className="rounded-lg border border-dashed p-6 text-center">
-                      <p className="text-sm font-medium">
-                        No settlements recorded yet.
-                      </p>
+                        <p className="text-muted-foreground text-xs">
+                          Bank name is not currently stored in your profile.
+                        </p>
+                      </div>
 
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        Your payout settlement history will appear here once a
-                        payout has been settled.
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="payout-account-name"
+                          className="text-sm leading-none font-medium"
+                        >
+                          Account name
+                        </label>
+
+                        <Input
+                          id="payout-account-name"
+                          value={payoutAccountName ?? ""}
+                          placeholder="Account name"
+                          readOnly
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="payout-routing-number"
+                          className="text-sm leading-none font-medium"
+                        >
+                          Sort code
+                        </label>
+
+                        <Input
+                          id="payout-routing-number"
+                          value={payoutRoutingNumber ?? ""}
+                          placeholder="Routing number"
+                          readOnly
+                        />
+
+                        <p className="text-muted-foreground text-xs">
+                          This uses the sort code saved in your profile.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="payout-account-holder-name"
+                          className="text-sm leading-none font-medium"
+                        >
+                          Account holder name
+                        </label>
+
+                        <Input
+                          id="payout-account-holder-name"
+                          value={payoutAccountHolderName ?? ""}
+                          placeholder="Account holder name"
+                          readOnly
+                        />
+                      </div>
+                    </div>
+
+                    {payoutAccountNumber ? (
+                      <div className="bg-muted/30 rounded-lg border p-3">
+                        <p className="text-muted-foreground text-xs">
+                          Account number
+                        </p>
+
+                        <p className="mt-1 text-sm font-medium">
+                          {payoutAccountNumber}
+                        </p>
+                      </div>
+                    ) : null}
+                  </section>
+
+                  {/* Account type banner */}
+                  <section className="rounded-xl border bg-white p-4 shadow-sm sm:p-5">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-muted flex size-11 shrink-0 items-center justify-center rounded-xl border">
+                        {profileAccountType === "ORGANIZATION" ? (
+                          <Building2 className="text-foreground size-5" />
+                        ) : (
+                          <User className="text-foreground size-5" />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                          Profile type
+                        </p>
+
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold sm:text-base">
+                            {profileAccountType === "ORGANIZATION"
+                              ? "Organisation"
+                              : "Individual"}
+                          </p>
+                        </div>
+
+                        <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+                          Your payout and tax information is managed using this
+                          profile.
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Payout schedule */}
+                  <section className="bg-card space-y-4 rounded-lg border p-4 sm:p-5">
+                    <div>
+                      <h2 className="text-lg font-semibold">
+                        Payout settlement history
+                      </h2>
+
+                      <p className="text-muted-foreground mt-1 text-sm">
+                        Recent payouts that have been settled for your host
+                        account.
                       </p>
                     </div>
-                  ) : (
-                    <ul className="space-y-3">
-                      {settlementHistory.map(settlement => (
-                        <li
-                          key={settlement.id}
-                          className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium">
-                              {branchLabel(settlement.branch)}
+
+                    {payoutsLoading ? (
+                      <p className="text-muted-foreground text-sm">
+                        Loading settlement history…
+                      </p>
+                    ) : settlementHistory.length === 0 ? (
+                      <div className="rounded-lg border border-dashed p-6 text-center">
+                        <p className="text-sm font-medium">
+                          No settlements recorded yet.
+                        </p>
+
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          Your payout settlement history will appear here once a
+                          payout has been settled.
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="space-y-3">
+                        {settlementHistory.map(settlement => (
+                          <li
+                            key={settlement.id}
+                            className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 last:border-b-0 last:pb-0"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium">
+                                {branchLabel(settlement.branch)}
+                              </p>
+
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                {settlement.status} ·{" "}
+                                {new Date(
+                                  settlement.createdAt
+                                ).toLocaleString()}
+                              </p>
+                            </div>
+
+                            <p className="text-sm font-semibold">
+                              {formatGbpMinor(settlement.amountMinor)}
                             </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
 
-                            <p className="text-muted-foreground mt-1 text-xs">
-                              {settlement.status} ·{" "}
-                              {new Date(settlement.createdAt).toLocaleString()}
-                            </p>
-                          </div>
-
-                          <p className="text-sm font-semibold">
-                            {formatGbpMinor(settlement.amountMinor)}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-
-                <SubscriptionPageBlock
-                  status={status}
-                  tier={info?.tier}
-                  isLoading={loading}
-                  onOpenSubscriptions={openSubscriptions}
-                />
-              </div>
+                  <SubscriptionPageBlock
+                    status={status}
+                    tier={info?.tier}
+                    isLoading={loading}
+                    onOpenSubscriptions={openSubscriptions}
+                  />
+                </div>
+              )}
             </TabsContent>
 
             {/* Help & Support */}

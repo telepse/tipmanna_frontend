@@ -54,15 +54,16 @@ export default function ManageEvent() {
           subtitle="View, edit, and track all your events in one place."
         />
 
-        <div className="flex flex-col items-end gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <HostDashboardShortcutsRow
             hostEventSlug={hostEventSlug}
             subscriptionPrompt={subscriptionPrompt}
           />
-          <div className="flex items-center gap-2">
+
+          <div className="flex w-full items-center gap-2 sm:w-auto">
             <Button
               size="sm"
-              className="w-full bg-black hover:bg-black/80 sm:w-auto"
+              className="min-w-0 flex-1 bg-black hover:bg-black/80 sm:flex-none"
               onClick={() => openPicker()}
             >
               Tiplink
@@ -70,17 +71,17 @@ export default function ManageEvent() {
 
             <Button
               size="sm"
-              className="w-full sm:w-auto"
+              className="min-w-0 flex-1 sm:flex-none"
               onClick={() => setOpenPopup(true)}
             >
-              <Plus />
+              <Plus className="mr-1 h-4 w-4" />
               Create
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="mt-6">
         <CoOwnerSelfPayoutsSection />
         <ManageEventClient subscriptionPrompt={subscriptionPrompt} />
       </div>

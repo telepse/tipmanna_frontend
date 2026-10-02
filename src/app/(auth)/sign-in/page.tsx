@@ -9,7 +9,12 @@ export default function SignInPage() {
     <>
       <AuthBanner title="Sign In" />
       <Suspense fallback={null}>
-        <SigninForm signupSurface="sign_in_page" />
+        <section
+          className="relative min-h-screen bg-cover bg-fixed bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
+        >
+          <SigninForm signupSurface="sign_in_page" />
+        </section>
       </Suspense>
     </>
   );

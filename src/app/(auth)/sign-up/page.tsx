@@ -16,7 +16,12 @@ export default function CreateAccountPage() {
       <AuthBanner title="Create an Account" />
       {isAuthenticated && user ? <AlreadySignedInNotice /> : null}
       <Suspense fallback={null}>
-        <SignupForm />
+        <section
+          className="relative min-h-screen bg-cover bg-fixed bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(/patterns/bg_pattern.webp)` }}
+        >
+          <SignupForm />
+        </section>
       </Suspense>
     </>
   );

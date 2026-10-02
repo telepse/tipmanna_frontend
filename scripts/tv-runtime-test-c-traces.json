@@ -1,0 +1,450 @@
+{
+  "report": {
+    "status": "blocked",
+    "blocker": "Could not open tip drawer (Engage/Pay). Sign-in or tip catalog may be required.",
+    "preSnapshot": {
+      "scrubValue": 226,
+      "modeLocalLine": "[TV] mode_enter_local {timestamp: 1790936999121, mode: LOCAL, reason: manual, currentIndex: 50, offsetSeconds: null}",
+      "preLocal": {
+        "mode": "LOCAL",
+        "currentIndex": 50,
+        "reason": "manual"
+      },
+      "lastSync": "[TV:playback] syncToLive_drift_seek_suppressed {timestamp: 1790936998609, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, reason: orchestration_in_progress, actual: 0}",
+      "lastRequest": "[TV:playback] requestPlayback {timestamp: 1790936997793, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, reason: syncToLive, videoId: RS8zgFJkpgU}"
+    },
+    "authHint": "Set TV_TEST_CHROME_PROFILE to your Chrome User Data path (Chrome fully quit) for signed-in session."
+  },
+  "allLines": [
+    {
+      "at": 1790936991699,
+      "source": "console",
+      "text": "[TV:navigation] tv_page_open_dispatch {timestamp: 1790936991605, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36}"
+    },
+    {
+      "at": 1790936991704,
+      "source": "console",
+      "text": "[TV:index] setCurrentIndex {timestamp: 1790936991615, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, currentIndex: 0, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936991706,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] setCurrentIndex {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: setCurrentIndex, canonicalMark: null, ts: 19681, elapsedMs: 19681}"
+    },
+    {
+      "at": 1790936991706,
+      "source": "console",
+      "text": "[TV:navigation] mode_change {timestamp: 1790936991624, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936991758,
+      "source": "console",
+      "text": "[TV:load] T2 {msSinceNav: 19718.39999999106, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, source: TVProvider_mount}"
+    },
+    {
+      "at": 1790936991759,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] navigation_start {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, canonicalMark: T0, elapsedMs: 0, timeOrigin: 1790936971938.5}"
+    },
+    {
+      "at": 1790936991759,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] html_response_start {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, canonicalMark: T1, elapsedMs: 2387.8999999910593}"
+    },
+    {
+      "at": 1790936991759,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] tv_provider_mounted {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: tv_provider_mounted, canonicalMark: T2, ts: 19725.59999999404, elapsedMs: 19725.59999999404}"
+    },
+    {
+      "at": 1790936991759,
+      "source": "console",
+      "text": "[TV:schedule] loadSchedule_start {timestamp: 1790936991672, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, manual: false, resetRetry: true}"
+    },
+    {
+      "at": 1790936991759,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] playlist_selected {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: playlist_selected, canonicalMark: T5, ts: 19742.20000000298, elapsedMs: 19742.20000000298}"
+    },
+    {
+      "at": 1790936991760,
+      "source": "console",
+      "text": "[TV:schedule] cold_start_seeded_index {timestamp: 1790936991685, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, scheduleIndex: 50, offsetSeconds: 239}"
+    },
+    {
+      "at": 1790936991768,
+      "source": "console",
+      "text": "[TV:schedule] livePosition_resolved {timestamp: 1790936991687, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, scheduleIndex: 50, offsetSeconds: 239}"
+    },
+    {
+      "at": 1790936991769,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] initial_playback_position_resolved {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: initial_playback_position_resolved, canonicalMark: T6, ts: 19750.39999999106, elapsedMs: 19750.39999999106}"
+    },
+    {
+      "at": 1790936991769,
+      "source": "console",
+      "text": "[TV:load] T3_cache_hit {msSinceNav: 19754, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, communityId: null}"
+    },
+    {
+      "at": 1790936991769,
+      "source": "console",
+      "text": "[TV:load] T4 {msSinceNav: 19756.5, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, source: schedule_swr_cache}"
+    },
+    {
+      "at": 1790936991769,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] session_cache_bootstrap {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: session_cache_bootstrap, canonicalMark: null, ts: 19758.20000000298, elapsedMs: 19758.20000000298}"
+    },
+    {
+      "at": 1790936991782,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] schedule_payload_accepted {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: schedule_payload_accepted, canonicalMark: T4, ts: 19759.5, elapsedMs: 19759.5}"
+    },
+    {
+      "at": 1790936991782,
+      "source": "console",
+      "text": "[TV] schedule_swr_bootstrap {timestamp: 1790936991699, mode: GLOBAL, currentIndex: 50, offsetSeconds: null}"
+    },
+    {
+      "at": 1790936991782,
+      "source": "console",
+      "text": "[TV:load] T3_cache_miss {msSinceNav: 19762.39999999106, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, manual: false}"
+    },
+    {
+      "at": 1790936991782,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] schedule_request_started {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: schedule_request_started, canonicalMark: null, ts: 19765.70000000298, elapsedMs: 19765.70000000298}"
+    },
+    {
+      "at": 1790936991789,
+      "source": "console",
+      "text": "[TV:navigation] tv_page_open_dispatch {timestamp: 1790936991771, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36}"
+    },
+    {
+      "at": 1790936991789,
+      "source": "console",
+      "text": "[TV:index] setCurrentIndex {timestamp: 1790936991775, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, currentIndex: 0, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936991802,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] setCurrentIndex {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: setCurrentIndex, canonicalMark: null, ts: 19838.59999999404, elapsedMs: 19838.59999999404}"
+    },
+    {
+      "at": 1790936991811,
+      "source": "console",
+      "text": "[TV:navigation] mode_change {timestamp: 1790936991778, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936991821,
+      "source": "console",
+      "text": "[TV:load] T2 {msSinceNav: 19844.5, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, source: TVProvider_mount}"
+    },
+    {
+      "at": 1790936991821,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] tv_provider_mounted {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: tv_provider_mounted, canonicalMark: T2, ts: 19845.79999999702, elapsedMs: 19845.79999999702}"
+    },
+    {
+      "at": 1790936992480,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] player_component_mounted {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: player_component_mounted, canonicalMark: null, ts: 20493.09999999404, elapsedMs: 20493.09999999404}"
+    },
+    {
+      "at": 1790936992483,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] initial_embed_created {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: initial_embed_created, canonicalMark: null, ts: 20495.59999999404, elapsedMs: 20495.59999999404}"
+    },
+    {
+      "at": 1790936992483,
+      "source": "console",
+      "text": "[TV:playback] playbackUrl_change {timestamp: 1790936992438, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/RS8zgFJkpgU?si=o0Enf_dhZoUsK9Wj}"
+    },
+    {
+      "at": 1790936992484,
+      "source": "console",
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790936992440, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, surface: tv-looper, isPlayerLoading: true}"
+    },
+    {
+      "at": 1790936992548,
+      "source": "console",
+      "text": "[TV:navigation] setPlayerVisible {timestamp: 1790936992539, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, visible: true, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936992680,
+      "source": "console",
+      "text": "[TV:index] setCurrentIndex {timestamp: 1790936992574, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, currentIndex: 50, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936992680,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] setCurrentIndex {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: setCurrentIndex, canonicalMark: null, ts: 20638.39999999106, elapsedMs: 20638.39999999106}"
+    },
+    {
+      "at": 1790936992680,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] syncToLive {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: syncToLive, canonicalMark: null, ts: 20643.89999999106, elapsedMs: 20643.89999999106}"
+    },
+    {
+      "at": 1790936992681,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_player_not_ready {timestamp: 1790936992586, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, syncMiss: 1}"
+    },
+    {
+      "at": 1790936992681,
+      "source": "console",
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790936992592, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, trigger: items_loaded, generation: 1}"
+    },
+    {
+      "at": 1790936992805,
+      "source": "console",
+      "text": "[TV:navigation] setPlayerVisible {timestamp: 1790936992614, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, visible: false, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936992805,
+      "source": "console",
+      "text": "[TV:playback] player_unregister {timestamp: 1790936992616, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36}"
+    },
+    {
+      "at": 1790936992808,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] player_component_mounted {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: player_component_mounted, canonicalMark: null, ts: 20705.89999999106, elapsedMs: 20705.89999999106}"
+    },
+    {
+      "at": 1790936992808,
+      "source": "console",
+      "text": "[TV:playback] playbackUrl_change {timestamp: 1790936992646, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/RS8zgFJkpgU?si=o0Enf_dhZoUsK9Wj}"
+    },
+    {
+      "at": 1790936992808,
+      "source": "console",
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790936992648, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, surface: tv-looper, isPlayerLoading: true}"
+    },
+    {
+      "at": 1790936992808,
+      "source": "console",
+      "text": "[TV:navigation] setPlayerVisible {timestamp: 1790936992661, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, visible: true, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936992983,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] syncToLive {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: syncToLive, canonicalMark: null, ts: 21038.39999999106, elapsedMs: 21038.39999999106}"
+    },
+    {
+      "at": 1790936992987,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_skipped {timestamp: 1790936992978, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, reason: missing_schedule, broadcastEpoch: false}"
+    },
+    {
+      "at": 1790936993002,
+      "source": "console",
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790936992980, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, trigger: setPlayerVisible, generation: 1}"
+    },
+    {
+      "at": 1790936993002,
+      "source": "console",
+      "text": "[TV:playback] readiness_flush_skipped {timestamp: 1790936992981, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, trigger: setPlayerVisible, generation: 1}"
+    },
+    {
+      "at": 1790936994459,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] youtube_api_available {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: youtube_api_available, canonicalMark: T7, ts: 22519.09999999404, elapsedMs: 22519.09999999404}"
+    },
+    {
+      "at": 1790936995596,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] syncToLive {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: syncToLive, canonicalMark: null, ts: 23654.89999999106, elapsedMs: 23654.89999999106}"
+    },
+    {
+      "at": 1790936995596,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_player_not_ready {timestamp: 1790936995593, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, syncMiss: 2}"
+    },
+    {
+      "at": 1790936997791,
+      "source": "console",
+      "text": "[TV:playback] onReady {timestamp: 1790936997779, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, videoId: RS8zgFJkpgU, externallyControlled: true}"
+    },
+    {
+      "at": 1790936998005,
+      "source": "console",
+      "text": "[TV:load] T5 {msSinceNav: 25841.79999999702, ttfvMs: undefined, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, videoId: RS8zgFJkpgU}"
+    },
+    {
+      "at": 1790936998042,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] player_ready {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: player_ready, canonicalMark: T8, ts: 25843.59999999404, elapsedMs: 25843.59999999404}"
+    },
+    {
+      "at": 1790936998095,
+      "source": "console",
+      "text": "[TV:autoplay] mute {timestamp: 1790936997786, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, source: TvPlayer.mute}"
+    },
+    {
+      "at": 1790936998095,
+      "source": "console",
+      "text": "[TV:navigation] setPlayerVisible {timestamp: 1790936997790, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, visible: true, mode: GLOBAL}"
+    },
+    {
+      "at": 1790936998095,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] syncToLive {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: syncToLive, canonicalMark: null, ts: 25852.89999999106, elapsedMs: 25852.89999999106}"
+    },
+    {
+      "at": 1790936998095,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790936997792, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, mode: GLOBAL, currentIndex: 50}"
+    },
+    {
+      "at": 1790936998096,
+      "source": "console",
+      "text": "[TV] broadcast_sync {timestamp: 1790936997792, mode: GLOBAL, currentIndex: 50, offsetSeconds: 251, scheduleIndex: 50}"
+    },
+    {
+      "at": 1790936998096,
+      "source": "console",
+      "text": "[TV:playback] requestPlayback {timestamp: 1790936997793, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, reason: syncToLive, videoId: RS8zgFJkpgU}"
+    },
+    {
+      "at": 1790936998096,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] orchestrated_playback_command_issued {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: orchestrated_playback_command_issued, canonicalMark: null, ts: 25856, elapsedMs: 25856}"
+    },
+    {
+      "at": 1790936998096,
+      "source": "console",
+      "text": "[TV:playback] player_load {timestamp: 1790936997795, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, videoId: RS8zgFJkpgU, start: 251}"
+    },
+    {
+      "at": 1790936998216,
+      "source": "console",
+      "text": "[TV:autoplay] mute {timestamp: 1790936998180, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, source: TvPlayer.mute}"
+    },
+    {
+      "at": 1790936998222,
+      "source": "console",
+      "text": "[TV:playback] onStateChange {timestamp: 1790936998190, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, state: -1, stateName: UNSTARTED}"
+    },
+    {
+      "at": 1790936998250,
+      "source": "console",
+      "text": "[TV:playback] onStateChange {timestamp: 1790936998192, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, state: 3, stateName: BUFFERING}"
+    },
+    {
+      "at": 1790936998254,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] player_buffering {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: player_buffering, canonicalMark: T10, ts: 26255.20000000298, elapsedMs: 26255.20000000298}"
+    },
+    {
+      "at": 1790936998254,
+      "source": "console",
+      "text": "[TV:playback] isPlayerLoading_change {timestamp: 1790936998196, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, surface: tv-looper, isPlayerLoading: false}"
+    },
+    {
+      "at": 1790936998254,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] player_overlay_removed {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: player_overlay_removed, canonicalMark: T12, ts: 26260.59999999404, elapsedMs: 26260.59999999404}"
+    },
+    {
+      "at": 1790936998801,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] syncToLive {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: syncToLive, canonicalMark: null, ts: 26667.89999999106, elapsedMs: 26667.89999999106}"
+    },
+    {
+      "at": 1790936998801,
+      "source": "console",
+      "text": "[TV:playback] syncToLive {timestamp: 1790936998607, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, mode: GLOBAL, currentIndex: 50}"
+    },
+    {
+      "at": 1790936998802,
+      "source": "console",
+      "text": "[TV] broadcast_sync {timestamp: 1790936998608, mode: GLOBAL, currentIndex: 50, offsetSeconds: 252, scheduleIndex: 50}"
+    },
+    {
+      "at": 1790936998802,
+      "source": "console",
+      "text": "[TV:playback] syncToLive_drift_seek_suppressed {timestamp: 1790936998609, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, reason: orchestration_in_progress, actual: 0}"
+    },
+    {
+      "at": 1790936998925,
+      "source": "console",
+      "text": "[TV:playback] onStateChange {timestamp: 1790936998874, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, state: -1, stateName: UNSTARTED}"
+    },
+    {
+      "at": 1790936999143,
+      "source": "console",
+      "text": "[TV] mode_enter_local {timestamp: 1790936999121, mode: LOCAL, reason: manual, currentIndex: 50, offsetSeconds: null}"
+    },
+    {
+      "at": 1790936999690,
+      "source": "console",
+      "text": "[TV:playback] playbackUrl_change {timestamp: 1790936999487, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, surface: tv-looper, playbackUrl: https://youtu.be/RS8zgFJkpgU?si=o0Enf_dhZoUsK9Wj}"
+    },
+    {
+      "at": 1790936999690,
+      "source": "console",
+      "text": "[TV:navigation] mode_change {timestamp: 1790936999497, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, mode: LOCAL}"
+    },
+    {
+      "at": 1790937001005,
+      "source": "console",
+      "text": "[TV:playback] onStateChange {timestamp: 1790937000788, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, state: 1, stateName: PLAYING}"
+    },
+    {
+      "at": 1790937001006,
+      "source": "console",
+      "text": "[TV:playback] onPlay {timestamp: 1790937000789, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, videoId: RS8zgFJkpgU}"
+    },
+    {
+      "at": 1790937001006,
+      "source": "console",
+      "text": "[TV:load] T6 {msSinceNav: 28851, ttfvMs: 28851, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, videoId: RS8zgFJkpgU}"
+    },
+    {
+      "at": 1790937001007,
+      "source": "console",
+      "text": "[TV:load] summary {T2: 19718.39999999106, T3_cache_hit: 19754, T4: 19756.5, T3_cache_miss: 19762.39999999106, T5: 25841.79999999702}"
+    },
+    {
+      "at": 1790937001007,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] player_playing {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: player_playing, canonicalMark: T11, ts: 28852.39999999106, elapsedMs: 28852.39999999106}"
+    },
+    {
+      "at": 1790937001007,
+      "source": "console",
+      "text": "[TV:autoplay] mute {timestamp: 1790937000812, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, source: TvPlayer.mute}"
+    },
+    {
+      "at": 1790937001007,
+      "source": "console",
+      "text": "[TV:autoplay] session_mute_reapplied {timestamp: 1790937000813, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, source: TvProvider.applyPendingAudioRestore}"
+    },
+    {
+      "at": 1790937002550,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] schedule_request_finished {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: schedule_request_finished, canonicalMark: null, ts: 30587.79999999702, elapsedMs: 30587.79999999702}"
+    },
+    {
+      "at": 1790937002553,
+      "source": "console",
+      "text": "[TV:schedule] loadSchedule_not_modified {timestamp: 1790937002526, platform: Win32, ua: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb…KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36, mode: LOCAL}"
+    },
+    {
+      "at": 1790937002559,
+      "source": "console",
+      "text": "[TV] schedule_not_modified {timestamp: 1790937002527, mode: LOCAL, currentIndex: 50, offsetSeconds: null}"
+    },
+    {
+      "at": 1790937002851,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] stable_playback {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, event: stable_playback, canonicalMark: T13, ts: 30901.20000000298, elapsedMs: 30901.20000000298}"
+    },
+    {
+      "at": 1790937002852,
+      "source": "console",
+      "text": "[TV_STARTUP_TRACE] summary {traceId: 3b42341b-b57a-44c8-8905-9aeef1501a14, startedAt: 1790936991619, finalizedAt: 1790937002846, marks: Object, segments: Object}"
+    }
+  ]
+}

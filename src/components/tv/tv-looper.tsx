@@ -307,6 +307,16 @@ export const TvLooper = ({
     (mode === "LOCAL" &&
       livePreNotice != null &&
       !isPreNoticeDismissed(livePreNotice.enforcementId));
+
+  useEffect(() => {
+    tvTrace("navigation", "mode_badge_render", {
+      badgeMode: mode,
+      badgeLabel: mode === "GLOBAL" ? "LIVE" : "Back to Live",
+      contextMode: mode,
+      currentIndex,
+      currentVideoId: extractYoutubeID(current?.channel?.url ?? "") ?? null,
+    });
+  }, [mode, currentIndex, current?.channel?.url]);
   const lastPlayableUrlRef = useRef<string>("");
 
   useEffect(() => {
@@ -1073,10 +1083,7 @@ export const TvLooper = ({
       {currentEventId ? <SaveEventId eventId={currentEventId} /> : null}
       {showDesktopEnlargedChrome ? (
         <TvPhoneLandscapeTopBar
-          mode={mode}
           onClose={() => setDesktopEnlarged(false)}
-          onGoLive={onGoLive!}
-          onSwitchToLocal={onSwitchToLocal!}
           onOpenPreviewPlaylist={onOpenPreviewPlaylist!}
           onOpenSchedule={onOpenSchedule!}
         />

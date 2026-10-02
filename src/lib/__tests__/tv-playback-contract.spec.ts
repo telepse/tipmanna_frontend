@@ -323,7 +323,7 @@ describe("TV playback contract — leave/return player lifecycle", () => {
   it("C0 debt apply at first PLAYING is mutually exclusive with pending flush", () => {
     expect(tvProviderSource).toContain("pending_live_debt_applied");
     const notify = tvProviderSource.match(
-      /const notifyStartupPlayerPlaying = useCallback\(\(\) => \{[\s\S]*?\}, \[recordInitialEmbedSuccessOnce\]\);/
+      /const notifyStartupPlayerPlaying = useCallback\(\(\) => \{[\s\S]*?\}, \[recordInitialEmbedSuccessOnce, tryCompleteGoLiveTransition\]\);/
     )?.[0];
     expect(notify).toBeTruthy();
     expect(notify!).toContain("pending_live_debt_applied");

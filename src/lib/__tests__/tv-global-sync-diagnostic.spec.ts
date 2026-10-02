@@ -94,9 +94,12 @@ describe("G2 — forward drift", () => {
 });
 
 describe("G3 — backward drift and ±3s threshold", () => {
-  it("backward correction when actual ahead of target", () => {
+  it("does not backward-seek while PLAYING when actual is ahead of target", () => {
     const commands: PlaybackCommand[] = [];
-    const player = createMockPlayer({ currentTime: 110 });
+    const player = createMockPlayer({
+      currentTime: 110,
+      playerState: "PLAYING",
+    });
     runSameIndexDriftMirror({
       actual: 110,
       target: 103,
@@ -104,7 +107,7 @@ describe("G3 — backward drift and ±3s threshold", () => {
       player,
       orchestrated: { videoId: "vid-a", startSeconds: 103 },
     });
-    expect(commands[0]).toMatchObject({ kind: "seekTo", seconds: 103 });
+    expect(commands).toHaveLength(0);
     expect(driftSeekDirection(110, 103)).toBe("backward");
   });
 
@@ -133,26 +136,30 @@ describe("G4 — repeated drift / convergence", () => {
     });
   }
 
-  it("G4-A — seek aligns player: exactly 1 seek", () => {
+  it("G4-A — forward seek aligns player behind live edge", () => {
     const commands: PlaybackCommand[] = [];
-    const player = createMockPlayer({ currentTime: 110 });
+    const player = createMockPlayer({
+      currentTime: 110,
+      playerState: "PLAYING",
+    });
     tickDrift(commands, player, 100, 110);
+    expect(countSeeks(commands)).toBe(0);
+    player.currentTime = 95;
+    tickDrift(commands, player, 103, 95);
     expect(countSeeks(commands)).toBe(1);
-    player.currentTime = 100;
-    tickDrift(commands, player, 103, 100);
-    expect(countSeeks(commands)).toBe(1);
+    expect(commands[0]).toMatchObject({ kind: "seekTo", seconds: 103 });
   });
 
-  it("G4-B — player remains ahead: repeated backward seeks until within threshold", () => {
+  it("G4-B — player remains ahead while PLAYING: no backward seeks", () => {
     const commands: PlaybackCommand[] = [];
-    const player = createMockPlayer({ currentTime: 110 });
+    const player = createMockPlayer({
+      currentTime: 110,
+      playerState: "PLAYING",
+    });
     tickDrift(commands, player, 103, 110);
     tickDrift(commands, player, 106, 110);
     tickDrift(commands, player, 109, 110);
-    expect(countSeeks(commands)).toBe(2);
-    expect(commands.map(c => (c.kind === "seekTo" ? c.seconds : null))).toEqual(
-      [103, 106]
-    );
+    expect(countSeeks(commands)).toBe(0);
   });
 
   it("G4-C — player remains behind: repeated forward seeks", () => {
@@ -167,33 +174,40 @@ describe("G4 — repeated drift / convergence", () => {
     );
   });
 
-  it("G4-D — seek overshoot then forward correction on next tick", () => {
+  it("G4-D — forward correction when player behind advancing target", () => {
     const commands: PlaybackCommand[] = [];
-    const player = createMockPlayer({ currentTime: 110 });
-    tickDrift(commands, player, 100, 110);
-    player.currentTime = 94;
+    const player = createMockPlayer({
+      currentTime: 94,
+      playerState: "PLAYING",
+    });
     tickDrift(commands, player, 103, 94);
-    expect(countSeeks(commands)).toBe(2);
-    expect(commands[1]).toMatchObject({ kind: "seekTo", seconds: 103 });
+    expect(countSeeks(commands)).toBe(1);
+    expect(commands[0]).toMatchObject({ kind: "seekTo", seconds: 103 });
   });
 
-  it("G4-E — target advances while player stays ahead: multiple backward seeks", () => {
+  it("G4-E — target advances while player stays ahead: no backward seeks", () => {
     const commands: PlaybackCommand[] = [];
-    const player = createMockPlayer({ currentTime: 110 });
+    const player = createMockPlayer({
+      currentTime: 110,
+      playerState: "PLAYING",
+    });
     tickDrift(commands, player, 100, 110);
     tickDrift(commands, player, 103, 110);
     tickDrift(commands, player, 106, 110);
-    expect(countSeeks(commands)).toBe(3);
+    expect(countSeeks(commands)).toBe(0);
   });
 
-  it("G4-F — same target, repeated sync before alignment: deduped to one seek", () => {
+  it("G4-F — same forward target, repeated sync before alignment: deduped to one seek", () => {
     const commands: PlaybackCommand[] = [];
-    const player = createMockPlayer({ currentTime: 110 });
+    const player = createMockPlayer({
+      currentTime: 90,
+      playerState: "PLAYING",
+    });
     let dedupe = null as ReturnType<typeof recordDriftSeekIssued> | null;
     for (let i = 0; i < 3; i++) {
-      player.currentTime = 110;
+      player.currentTime = 90;
       runSameIndexDriftMirror({
-        actual: 110,
+        actual: 90,
         target: 100,
         commands,
         player,
