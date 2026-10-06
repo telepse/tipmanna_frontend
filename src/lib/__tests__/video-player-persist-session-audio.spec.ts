@@ -16,6 +16,12 @@ describe("VideoPlayer persistSessionAudio contract", () => {
     expect(videoPlayerSrc).toMatch(/persistSessionAudio\s*=\s*true/);
   });
 
+  it("defaults restoreSessionSoundOnProgrammaticPlay to true", () => {
+    expect(videoPlayerSrc).toMatch(
+      /restoreSessionSoundOnProgrammaticPlay\s*=\s*true/
+    );
+  });
+
   it("gates persistReelSoundPref writes behind persistSessionAudioRef", () => {
     expect(videoPlayerSrc).toContain("persistSessionAudioRef.current");
     expect(videoPlayerSrc).toMatch(

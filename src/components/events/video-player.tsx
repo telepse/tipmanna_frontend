@@ -131,8 +131,17 @@ type Props = {
    * (`session-audio`). Set false for isolated surfaces (e.g. Explore TV cards).
    */
   persistSessionAudio?: boolean;
+  /**
+   * When true (default), programmatic activation (play, cue, active slide) may
+   * restore session sound preference. Set false for Explore reels (iOS-safe).
+   */
+  restoreSessionSoundOnProgrammaticPlay?: boolean;
   /** YouTube iframe player error (YT onError `data` code). */
   onError?: (errorCode?: number) => void;
+  /** Observed YT player phase (Explore never-PLAYING recovery, etc.). */
+  onYoutubePlayerPhase?: (
+    phase: "playing" | "paused" | "buffering" | "ended" | "idle"
+  ) => void;
 };
 
 export type VideoPlayerRef = {
@@ -175,7 +184,9 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       disableGlobalAudioUnlock = true,
       initialMuted = true,
       persistSessionAudio = true,
+      restoreSessionSoundOnProgrammaticPlay = true,
       onError,
+      onYoutubePlayerPhase,
     },
     ref
   ) => {
@@ -200,6 +211,11 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
     initialMutedRef.current = initialMuted;
     const persistSessionAudioRef = useRef(persistSessionAudio);
     persistSessionAudioRef.current = persistSessionAudio;
+    const restoreSessionSoundOnProgrammaticPlayRef = useRef(
+      restoreSessionSoundOnProgrammaticPlay
+    );
+    restoreSessionSoundOnProgrammaticPlayRef.current =
+      restoreSessionSoundOnProgrammaticPlay;
     const [playerError, setPlayerError] = useState<number | null>(null);
 
     const videoId = extractYoutubeID(videoUrl);
@@ -260,6 +276,21 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
     onPlayStateChangeRef.current = onPlayStateChange;
     const onPlaybackEndedRef = useRef(onPlaybackEnded);
     onPlaybackEndedRef.current = onPlaybackEnded;
+    const onYoutubePlayerPhaseRef = useRef(onYoutubePlayerPhase);
+    onYoutubePlayerPhaseRef.current = onYoutubePlayerPhase;
+
+    const emitYoutubePlayerPhase = (event: YT.OnStateChangeEvent): void => {
+      const phaseRef = onYoutubePlayerPhaseRef;
+      if (!phaseRef.current) return;
+      const YTState = window.YT?.PlayerState;
+      if (!YTState) return;
+      const data = event.data;
+      if (data === YTState.PLAYING) phaseRef.current("playing");
+      else if (data === YTState.BUFFERING) phaseRef.current("buffering");
+      else if (data === YTState.PAUSED) phaseRef.current("paused");
+      else if (data === YTState.ENDED) phaseRef.current("ended");
+      else phaseRef.current("idle");
+    };
 
     const syncMuteFromPlayer = (target?: YT.Player | null) => {
       if (isInsidePlayerAudioIntentGrace(intentGraceUntilRef)) return;
@@ -277,6 +308,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
     };
 
     const restoreReelSoundIfPreferred = (target?: YT.Player | null) => {
+      if (!restoreSessionSoundOnProgrammaticPlayRef.current) return;
       if (!persistSessionAudioRef.current) return;
       const p = target ?? playerRef.current;
       if (!p || !playbackActiveRef.current) return;
@@ -403,6 +435,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
             }
 
             const preferSound =
+              restoreSessionSoundOnProgrammaticPlayRef.current &&
               persistSessionAudioRef.current &&
               playbackActiveRef.current &&
               loadReelSoundPref();
@@ -446,6 +479,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
             onErrorRef.current?.(code);
           },
           onStateChange: (event: YT.OnStateChangeEvent) => {
+            emitYoutubePlayerPhase(event);
             if (event.data === window.YT.PlayerState.CUED) {
               applyIframePresentation(event.target);
               notifyVideoAspect();
@@ -584,13 +618,18 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
           window.setTimeout(retrySound, 120);
           return;
         }
+        if (!restoreSessionSoundOnProgrammaticPlayRef.current) return;
         if (!persistSessionAudioRef.current) return;
         if (!loadReelSoundPref()) return;
         if (!player.isMuted()) return;
         safeYtUnmute(player);
         syncMuteFromPlayer(player);
       };
-      if (persistSessionAudioRef.current && loadReelSoundPref()) {
+      if (
+        restoreSessionSoundOnProgrammaticPlayRef.current &&
+        persistSessionAudioRef.current &&
+        loadReelSoundPref()
+      ) {
         window.setTimeout(retrySound, 120);
       }
     }, [playbackActive]);

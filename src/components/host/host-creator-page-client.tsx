@@ -366,7 +366,7 @@ export function HostCreatorPageClient({
       return;
     }
 
-    setActiveTab(prev => (prev !== urlTab ? urlTab ?? "" : prev));
+    setActiveTab(prev => (prev !== urlTab ? (urlTab ?? "") : prev));
   }, [searchParams]);
 
   useEffect(() => {
@@ -1231,13 +1231,9 @@ function ProfileHeader({
       nextUsername.toLowerCase() !== previousUsername.toLowerCase()
     ) {
       router.replace(
-        buildCreatorProfileSharePathWithQuery(
-          nextUsername,
-          searchQuery,
-          {
-            activeTab,
-          }
-        )
+        buildCreatorProfileSharePathWithQuery(nextUsername, searchQuery, {
+          activeTab,
+        })
       );
     }
   };
